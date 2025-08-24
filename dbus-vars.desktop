@@ -1,0 +1,8 @@
+#place this file ~/.config/autostart/dbus-vars.desktop
+[Desktop Entry]
+Name=D-Bus Environment Variables
+Comment=Saves D-Bus session variables for cron jobs
+Exec=/home/csaba/dbus-vars.sh
+Terminal=false
+Type=Application
+X-KDE-AutostartScript=true
