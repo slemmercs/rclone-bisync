@@ -73,27 +73,42 @@ RCLONE_COMMON_ARGS=(
 # --- Real-Time Bisync Logic ---
 echo "$(date +"%Y/%m/%d %H:%M:%S") Sync started" >> "$LOG_FILE"
 
-# Use a command group to capture both the output and the exit status
-if ! ( "$RCLONE_BIN" bisync "$REMOTE_PATH" "$LOCAL_PATH" "${RCLONE_COMMON_ARGS[@]}" 2>&1 ) | while read -r line; do
-    echo "$(date +"%Y/%m/%d %H:%M:%S") $line" >> "$LOG_FILE"
-done; then
-    SYNC_STATUS=$?
-    echo "$(date +"%Y/%m/%d %H:%M:%S") Bisync failed. Forcing --resync." >> "$LOG_FILE"
-
-    # Re-run bisync with --resync.
-    if ! ( "$RCLONE_BIN" bisync "$REMOTE_PATH" "$LOCAL_PATH" "${RCLONE_COMMON_ARGS[@]}" --resync 2>&1 ) | while read -r line; do
+# Function to run rclone and log output
+run_rclone_bisync() {
+    "$RCLONE_BIN" bisync "$REMOTE_PATH" "$LOCAL_PATH" "${RCLONE_COMMON_ARGS[@]}" "$@" 2>&1 | while read -r line; do
         echo "$(date +"%Y/%m/%d %H:%M:%S") $line" >> "$LOG_FILE"
-    done; then
-        SYNC_STATUS=$?
+    done
+}
+
+# Attempt the initial sync
+if ! run_rclone_bisync; then
+    SYNC_STATUS=$?
+    echo "$(date +"%Y/%m/%d %H:%M:%S") Bisync failed. Checking for stale rclone lock file." >> "$LOG_FILE"
+
+    # Check if the failure was due to a lock file
+    if grep -q "prior lock file found" "$LOG_FILE"; then
+        echo "$(date +"%Y/%m/%d %H:%M:%S") Stale rclone lock file detected. Deleting it and attempting --resync." >> "$LOG_FILE"
+        # Extract the lock file path from the log and remove it. This is a robust way to handle any name changes.
+        RCLONE_LOCK_FILE=$(grep "prior lock file found" "$LOG_FILE" | head -n 1 | sed -n 's/.*: \(.*\)/\1/p')
+        if [ -n "$RCLONE_LOCK_FILE" ] && [ -f "$RCLONE_LOCK_FILE" ]; then
+            rm -f "$RCLONE_LOCK_FILE"
+        fi
+
+        # Now, attempt the resync
+        if ! run_rclone_bisync --resync; then
+            SYNC_STATUS=$?
+            echo "$(date +"%Y/%m/%d %H:%M:%S") Sync finished: ERROR (exit code $SYNC_STATUS)" >> "$LOG_FILE"
+            send_desktop_notification "Rclone Bisync Alert: CRITICAL" "Sync failed (exit code $SYNC_STATUS). Manual intervention may be required!" "critical"
+        else
+            echo "$(date +"%Y/%m/%d %H:%M:%S") Sync finished: OK (resync successful)" >> "$LOG_FILE"
+        fi
+    else
+        # If the failure was not a lock file issue, just report the error
         echo "$(date +"%Y/%m/%d %H:%M:%S") Sync finished: ERROR (exit code $SYNC_STATUS)" >> "$LOG_FILE"
         send_desktop_notification "Rclone Bisync Alert: CRITICAL" "Sync failed (exit code $SYNC_STATUS). Manual intervention may be required!" "critical"
-    else
-        echo "$(date +"%Y/%m/%d %H:%M:%S") Sync finished: OK (resync successful)" >> "$LOG_FILE"
-#        send_desktop_notification "Rclone Bisync Alert" "Sync completed successfully." "normal"
     fi
 else
     echo "$(date +"%Y/%m/%d %H:%M:%S") Sync finished: OK" >> "$LOG_FILE"
-#    send_desktop_notification "Rclone Bisync Alert" "Sync completed successfully." "normal"
 fi
 # -----------------------------------------------
 
