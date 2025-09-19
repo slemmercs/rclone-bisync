@@ -109,7 +109,16 @@ def run_rclone_bisync(*args, resync_attempt=False):
             return True
         else:
             logging.error(f"Rclone bisync failed with exit code {result.returncode}")
-            return False
+            # New logic to detect the specific error for a resync attempt
+            if "Bisync critical error: cannot find prior Path1 or Path2 listings" in result.stderr:
+                logging.warning("Initial run failed. Automatically attempting a resync.")
+                return False  # Return False to trigger the resync logic in main()
+            # Original logic for stale lock file
+            elif "prior lock file found" in result.stderr:
+                logging.warning("Stale rclone lock file detected. Attempting to remove it.")
+                return False  # Return False to trigger the lock cleanup logic in main()
+            else:
+                return False
 
     except Exception as e:
         logging.critical(f"An unexpected error occurred: {e}")
@@ -153,20 +162,25 @@ def main():
         rclone_args = ["--dry-run"] if args.dry_run else []
 
         if not run_rclone_bisync(*rclone_args):
-            logging.warning("Initial bisync failed. Checking for stale rclone lock file.")
-
+            # This block is entered if run_rclone_bisync returns False
+            
+            # Read the log content to check for specific error messages
             with open(LOG_FILE, 'r') as f:
                 log_content = f.read()
-            match = re.search(r'prior lock file found: (\S+)', log_content)
+            
+            # Check for the stale rclone lock file
+            stale_lock_match = re.search(r'prior lock file found: (\S+)', log_content)
+            
+            # Check for the "cannot find prior listings" error
+            no_listings_match = "Bisync critical error: cannot find prior Path1 or Path2 listings" in log_content
 
-            if match:
-                stale_lock_file = match.group(1)
+            if stale_lock_match:
+                stale_lock_file = stale_lock_match.group(1)
                 logging.info(f"Stale rclone lock file detected: {stale_lock_file}. Attempting to remove it.")
-
                 try:
                     os.remove(stale_lock_file)
                     logging.info("Stale rclone lock file removed.")
-
+                    # Retry with resync after removing the lock
                     if run_rclone_bisync(*rclone_args, resync_attempt=True):
                         logging.info("Sync finished: OK (resync successful)")
                         if not args.no_notify:
@@ -180,6 +194,18 @@ def main():
                     logging.error(f"Failed to remove stale lock file {stale_lock_file}: {e}")
                     if not args.no_notify:
                         send_desktop_notification("Rclone Bisync Alert: CRITICAL", "Failed to remove stale lock file. Manual intervention required!", "critical")
+
+            elif no_listings_match:
+                logging.info("Initial bisync failed due to no prior listings. Attempting a one-time resync.")
+                if run_rclone_bisync(*rclone_args, resync_attempt=True):
+                    logging.info("Sync finished: OK (initial resync successful)")
+                    if not args.no_notify:
+                        send_desktop_notification("Rclone Bisync: Success", "Initial resync completed successfully.")
+                        notification_state["last_success_timestamp"] = time.time()
+                else:
+                    logging.error("Sync finished: ERROR (initial resync failed). Manual intervention may be required.")
+                    if not args.no_notify:
+                        send_desktop_notification("Rclone Bisync Alert: CRITICAL", "Initial resync failed. Manual intervention may be required!", "critical")
             else:
                 logging.error("Sync finished: ERROR. Manual intervention may be required!")
                 if not args.no_notify:
