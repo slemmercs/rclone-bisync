@@ -1,0 +1,24 @@
+[Unit]
+Description=Rclone Bisync with Google Drive
+
+[Service]
+# User and group to run the service as
+# Replace 'csaba' with your actual username
+User=csaba
+Group=csaba
+
+# Set the working directory to the script's location
+WorkingDirectory=/home/csaba/rclone-bisync
+
+# Command to execute the Python script
+# It's important to use the full path to the Python interpreter
+# The --unbuffered flag ensures immediate logging
+ExecStart=/usr/bin/python3 -u /home/csaba/rclone-bisync/bisync_gdrive.py
+
+# Restart the service if it fails
+Restart=on-failure
+RestartSec=5s
+
+# Standard output and error output will be logged to the system journal
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Rclone Bisync every 10 minutes
+
+[Timer]
+# Run the service every 10 minutes
+OnCalendar=*:0/10:00
+
+[Install]
+WantedBy=timers.target
