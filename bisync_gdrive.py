@@ -133,6 +133,8 @@ def main():
         sys.exit(1)
 
     # Use a try-finally block to ensure the lock is always released
+    start_time = time.time() # Start the timer
+    
     try:
         logging.info("Sync started")
         
@@ -141,7 +143,6 @@ def main():
             logging.warning("Initial bisync failed. Checking for stale rclone lock file.")
             
             # Use regex to find the lock file path from the logs
-            # This is a more robust way to handle the dynamic lock file path
             with open(LOG_FILE, 'r') as f:
                 log_content = f.read()
             match = re.search(r'prior lock file found: (\S+)', log_content)
@@ -170,6 +171,10 @@ def main():
             logging.info("Sync finished: OK")
 
     finally:
+        end_time = time.time()
+        duration = end_time - start_time
+        logging.info(f"Sync duration: {duration:.2f} seconds.")
+        
         # Release the lock by closing the file handle
         logging.info("Releasing script lock.")
         if lock_file_handle:
