@@ -2,33 +2,45 @@
 
 import os
 
-# --- Configuration for Rclone Bisync Script ---
-
-# Rclone and Path Settings
-# All paths should be relative to the user's home directory or absolute
-LOCAL_PATH = os.path.join(os.path.expanduser("~"), "gdrive")
-REMOTE_PATH = "gdrive:"
-RCLONE_BIN_NAME = "rclone"  # Will be found in the system's PATH
-
-# Logging
-LOG_FILE = os.path.join(os.path.expanduser("~"), "rclone-bisync", "bisync-gdrive.log")
-
-# Lock file to prevent concurrent script execution
+# --- Paths ---
+# The local directory to be synced.
+# The `os.path.expanduser` function handles dynamic paths (e.g., '~').
+LOCAL_PATH = os.path.expanduser("~/rclone-bisync/local_folder")
+# The remote Rclone path.
+REMOTE_PATH = "gdrive:bisync_test"
+# The location for log files.
+LOG_FILE = os.path.join(os.path.expanduser("~"), "rclone-bisync", "bisync.log")
+# The lock file to prevent concurrent script execution.
 LOCK_FILE = os.path.join(os.path.expanduser("~"), "rclone-bisync", "bisync_gdrive.lock")
 
-# Desktop Notification Settings
+# --- Notification Settings ---
+# A friendly name for the notification application.
 NOTIFICATION_APP_NAME = "Rclone Bisync"
-DBUS_VARS_FILE = os.path.join(os.path.expanduser("~"), ".config", "dbus-vars")
+# Set the minimum interval (in minutes) for sending a successful sync notification.
+# A value of 0 will send a notification on every successful run.
+SUCCESS_NOTIFICATION_INTERVAL_MIN = 30
 
-# Common rclone bisync arguments
+# --- Rclone Arguments ---
+# Common arguments passed to every `rclone bisync` command.
+# It's recommended to include --dry-run for initial tests.
 RCLONE_COMMON_ARGS = [
     "--drive-export-formats", "docx,xlsx,pptx",
     "--drive-import-formats", "docx,xlsx,pptx",
     "--drive-skip-gdocs",
-    "--remove-empty-dirs",
     "--check-access",
-    "--fast-list",
-    "--use-mmap",
-    "--ignore-existing",
-    "--workdir", os.path.join(os.path.expanduser("~"), ".cache", "rclone", "bisync"),
+    "--verbose",
+    "--progress",
+    "--retries", "1",
+    "--max-age", "20d",
+    "--check-sync",
+    "--resync-mode", "soft",
+    "--force",
+]
+
+# --- Cleanup Settings ---
+# A list of files to be cleaned up in case of a failed bisync run.
+# This should include the rclone bisync workdir file, which is critical for
+# preventing resync loops.
+CLEANUP_FILES = [
+    os.path.join(os.path.expanduser("~"), ".cache", "rclone", "bisync", "bisync_gdrive_advanced_workdir")
 ]
