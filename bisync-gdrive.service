@@ -2,13 +2,10 @@
 Description=Rclone Bisync with Google Drive
 
 [Service]
-# User and Group are not strictly necessary for a --user service
-#User=csaba
-#Group=csaba
-
-# Important: This line allows the service to inherit your user's group permissions
-# Replace 'csaba' with your actual username
-SupplementaryGroups=csaba
+# The `ExecStartPre` directive will run this command before the main script.
+# This ensures the DBUS_SESSION_BUS_ADDRESS is set for notifications.
+# The '-` at the start of the command ignores any non-zero exit code.
+ExecStartPre=/bin/bash -c "if [ -f ~/.config/dbus-vars ]; then source ~/.config/dbus-vars; fi"
 
 # Set the working directory to the script's location
 WorkingDirectory=/home/csaba/rclone-bisync
