@@ -1,40 +1,55 @@
 # Rclone Bisync Setup Guide
 
-This guide provides a step-by-step process to set up an automated Rclone bisync solution using a Python script, `systemd` timers, and D-Bus for desktop notifications.
+This guide provides a step-by-step process to set up an automated Rclone bisync solution using a Python script, systemd timers, and D-Bus for desktop notifications.
 
----
+# Prerequisites
 
-### Prerequisites
+- **Rclone**: Ensure Rclone is installed and configured with a remote named `gdrive`.
+- **Python 3**: Verify Python 3 is installed on your system.
+- **D-Bus**: Ensure notify-send and D-Bus are properly configured for your desktop environment.
 
-* **Rclone**: Ensure Rclone is installed and configured with a remote named `gdrive`.
-* **Python 3**: Verify Python 3 is installed on your system.
-* **D-Bus**: Ensure `notify-send` and D-Bus are properly configured for your desktop environment.
-* **`inotify-tools`**: For on-demand sync, install this package (e.g., `sudo apt install inotify-tools`).
+## Step 1: Create the Sync Script and Configuration
 
----
-
-### Step 1: Create the Sync Script
-
-Create the Python script `bisync_gdrive.py` in your home directory (`/home/csaba/`). Copy the complete Python script provided previously into this file.
+Create a dedicated directory for your script to keep your files organized. We will use `~/rclone-bisync`.
 
 ```bash
-touch /home/csaba/bisync_gdrive.py
-# Paste the script content into the file and save.
+mkdir -p ~/rclone-bisync
+cd ~/rclone-bisync
 ```
 
-Make the script executable:
+1. Create the Configuration File (`bisync_config.py`):
 
-```bash
-chmod +x /home/csaba/bisync_gdrive.py
-```
+    Create the file `bisync_config.py` in your new directory. Copy the complete configuration script provided previously into this file.
 
-### Step 2: Set up D-Bus for Notifications
+    ```bash
+    touch bisync_config.py
+    # Paste the script content into the file and save.
+    ```
+
+2. Create the Sync Script (`bisync_gdrive_advanced.py`):
+
+    Create the file `bisync_gdrive_advanced.py` in the same directory. Copy the complete Python script provided previously into this file.
+
+    ```bash
+    touch bisync_gdrive_advanced.py
+    # Paste the script content into the file and save.
+    ```
+
+3. Make the Script Executable:
+
+    Make the main script executable:
+
+    ```bash
+    chmod +x bisync_gdrive_advanced.py
+    ```
+
+## Step 2: Set up D-Bus for Notifications
 
 This is crucial for the script to send desktop notifications.
 
-1.  **Create the D-Bus Capture Script**:
-   
-    Create a file at `/home/csaba/dbus-vars.sh` and add the following content:
+1. Create the D-Bus Capture Script:
+
+    Create a file at `~/rclone-bisync/dbus-vars.sh `and add the following content:
 
     ```bash
     #!/bin/bash
@@ -48,73 +63,70 @@ This is crucial for the script to send desktop notifications.
     Make the script executable:
 
     ```bash
-    chmod +x /home/csaba/dbus-vars.sh
+    chmod +x dbus-vars.sh
     ```
 
-2.  **Create the Autostart File**:
+2. Create the Autostart File:
 
     Create a file at `~/.config/autostart/dbus-vars.desktop` and add the following content:
 
-    ```ini
+    ```bash
     [Desktop Entry]
     Name=D-Bus Environment Variables
     Comment=Saves D-Bus session variables for cron jobs
-    Exec=/home/csaba/dbus-vars.sh
+    Exec=/home/csaba/rclone-bisync/dbus-vars.sh
     Terminal=false
     Type=Application
     X-KDE-AutostartScript=true
     ```
 
-    **Log out and log back in** to ensure the `.desktop` file runs and creates the `~/.config/dbus-vars` file.
+    Log out and log back in to ensure the `.desktop` file runs and creates the `~/.config/dbus-vars` file.
 
----
-
-### Step 3: Configure `systemd` Timers
+## Step 3: Configure `systemd` Timers
 
 This step sets up the scheduled sync.
 
-1.  **Create Service and Timer Directories**:
+1. Create Service and Timer Directories:
 
     ```bash
     mkdir -p ~/.config/systemd/user
     ```
 
-2.  **Create the Service File (`bisync-gdrive.service`)**:
+2. Create the Service File (`bisync-gdrive.service`):
 
-    Create the file `~/.config/systemd/user/bisync-gdrive.service` and add the following content. **Remember to replace `csaba` with your username**.
+    Create the file `~/.config/systemd/user/bisync-gdrive.service` and add the following content. Remember to replace `csaba` with your username.
 
-    ```ini
+    ```bash
     [Unit]
     Description=Rclone Bisync with Google Drive
 
     [Service]
     User=csaba
     Group=csaba
-    WorkingDirectory=/home/csaba/
-    ExecStart=/usr/bin/python3 -u /home/csaba/bisync_gdrive.py
+    WorkingDirectory=/home/csaba/rclone-bisync/
+    ExecStart=/usr/bin/python3 -u /home/csaba/rclone-bisync/`bisync_gdrive_advanced.py`
     Restart=on-failure
     StandardOutput=journal
     StandardError=journal
     ```
 
-3.  **Create the Timer File (`bisync-gdrive.timer`)**:
+3. Create the Timer File (`bisync-gdrive.timer`):
 
-    Create the file `~/.config/systemd/user/bisync-gdrive.timer` and add the following for an hourly sync:
+    Create the file `~/.config/systemd/user/bisync-gdrive.timer` and add the following for a sync every 10 minutes:
 
-    ```ini
+    ```bash
     [Unit]
-    Description=Run Rclone Bisync every hour
+    Description=Run Rclone Bisync every 10 minutes
 
     [Timer]
-    OnCalendar=hourly
+    # Run the service every 10 minutes
+    OnCalendar=*:0/10:00
 
     [Install]
     WantedBy=timers.target
     ```
 
----
-
-### Step 4: Enable the Service
+## Step 4: Enable the Service
 
 Tell `systemd` to use your new timer.
 
@@ -124,22 +136,22 @@ systemctl --user enable bisync-gdrive.timer
 systemctl --user start bisync-gdrive.timer
 ```
 
-### Step 5: Verify the Setup
+## Step 5: Verify the Setup
 
-1.  **Check the timer status**: Use the following command to see if your timer is loaded and scheduled correctly.
+1. Check the timer status: Use the following command to see if your timer is loaded and scheduled correctly.
 
     ```bash
     systemctl --user list-timers --all
     ```
 
-2.  **View the logs**: To see the output of your script, including any errors, use `journalctl`. The `-f` flag "follows" the log output in real-time.
+2. View the logs: To see the output of your script, including any errors, use `journalctl`. The `-f` flag "follows" the log output in real-time.
 
     ```bash
     journalctl --user -u bisync-gdrive.service -f
     ```
 
-3.  **Test the notification**: You can manually run the Python script from your terminal to ensure desktop notifications are working. A notification should appear on your desktop.
+3. Test the notification: You can manually run the Python script from your terminal to ensure desktop notifications are working. A notification should appear on your desktop.
 
-    ```bash
-    python3 /home/csaba/bisync_gdrive.py
-    ```
+```bash
+python3 /home/csaba/rclone-bisync/bisync_gdrive_advanced.py
+```
