@@ -2,10 +2,13 @@
 Description=Rclone Bisync with Google Drive
 
 [Service]
-# User and group to run the service as
+# User and Group are not strictly necessary for a --user service
+#User=csaba
+#Group=csaba
+
+# Important: This line allows the service to inherit your user's group permissions
 # Replace 'csaba' with your actual username
-User=csaba
-Group=csaba
+SupplementaryGroups=csaba
 
 # Set the working directory to the script's location
 WorkingDirectory=/home/csaba/rclone-bisync
