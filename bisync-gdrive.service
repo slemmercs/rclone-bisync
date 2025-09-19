@@ -13,7 +13,7 @@ WorkingDirectory=/home/csaba/rclone-bisync
 # Command to execute the Python script
 # It's important to use the full path to the Python interpreter
 # The --unbuffered flag ensures immediate logging
-ExecStart=/usr/bin/python3 -u /home/csaba/rclone-bisync/bisync_gdrive.py
+ExecStart=/usr/bin/python3 -u /home/csaba/rclone-bisync/bisync_gdrive_advanced.py
 
 # Restart the service if it fails
 Restart=on-failure
