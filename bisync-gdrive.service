@@ -2,10 +2,9 @@
 Description=Rclone Bisync with Google Drive
 
 [Service]
-# The `ExecStartPre` directive will run this command before the main script.
-# This ensures the DBUS_SESSION_BUS_ADDRESS is set for notifications.
-# The '-` at the start of the command ignores any non-zero exit code.
-ExecStartPre=/bin/bash -c "if [ -f ~/.config/dbus-vars ]; then source ~/.config/dbus-vars; fi"
+# The `EnvironmentFile` directive is the correct way to load environment variables
+# from a file. It tells systemd to load the DBus variables before the main script runs.
+EnvironmentFile=-%h/.config/dbus-vars
 
 # Set the working directory to the script's location
 WorkingDirectory=/home/csaba/rclone-bisync

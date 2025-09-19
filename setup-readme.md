@@ -55,8 +55,8 @@ This is crucial for the script to send desktop notifications.
     #!/bin/bash
     if [[ -n "$DBUS_SESSION_BUS_ADDRESS" && -n "$DISPLAY" ]]; then
         mkdir -p "$HOME/.config"
-        echo "export DBUS_SESSION_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\"" > "$HOME/.config/dbus-vars"
-        echo "export DISPLAY=\"$DISPLAY\"" >> "$HOME/.config/dbus-vars"
+        echo "DBUS_SESSION_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\"" > "$HOME/.config/dbus-vars"
+        echo "DISPLAY=\"$DISPLAY\"" >> "$HOME/.config/dbus-vars"
     fi
     ```
 
@@ -101,11 +101,11 @@ This step sets up the scheduled sync.
     Description=Rclone Bisync with Google Drive
 
     [Service]
-    User=csaba
-    Group=csaba
-    WorkingDirectory=/home/csaba/rclone-bisync/
-    ExecStart=/usr/bin/python3 -u /home/csaba/rclone-bisync/`bisync_gdrive_advanced.py`
+    EnvironmentFile=-%h/.config/dbus-vars
+    WorkingDirectory=/home/csaba/rclone-bisync
+    ExecStart=/usr/bin/python3 -u /home/csaba/rclone-bisync/bisync_gdrive_advanced.py
     Restart=on-failure
+    RestartSec=5s
     StandardOutput=journal
     StandardError=journal
     ```
