@@ -5,9 +5,9 @@ import os
 # --- Paths ---
 # The local directory to be synced.
 # The `os.path.expanduser` function handles dynamic paths (e.g., '~').
-LOCAL_PATH = os.path.expanduser("~/rclone-bisync/local_folder")
+LOCAL_PATH = os.path.expanduser("~/gdrive")
 # The remote Rclone path.
-REMOTE_PATH = "gdrive:bisync_test"
+REMOTE_PATH = "gdrive:"
 # The location for log files.
 LOG_FILE = os.path.join(os.path.expanduser("~"), "rclone-bisync", "bisync.log")
 # The lock file to prevent concurrent script execution.
@@ -27,16 +27,14 @@ RCLONE_COMMON_ARGS = [
     "--drive-export-formats", "docx,xlsx,pptx",
     "--drive-import-formats", "docx,xlsx,pptx",
     "--drive-skip-gdocs",
+    "--drive-use-trash",
     "--check-access",
-    "--verbose",
-    "--progress",
-    "--retries", "1",
-    "--max-age", "20d",
-    "--check-sync",
-    "--resync-mode", "soft",
-    "--force",
+    "--remove-empty-dirs",
+    "--resilient",
+    "--recover",
+    "--retries", "2",
+    "--quiet"
 ]
-
 # --- Cleanup Settings ---
 # A list of files to be cleaned up in case of a failed bisync run.
 # This should include the rclone bisync workdir file, which is critical for
