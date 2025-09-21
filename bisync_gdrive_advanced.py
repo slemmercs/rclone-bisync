@@ -5,9 +5,9 @@ import sys
 import time
 import subprocess
 import logging
+import logging.handlers
 import fcntl
 import re
-import tempfile
 import argparse
 import shutil
 import json
@@ -23,19 +23,29 @@ NOTIFICATION_APP_NAME = bisync_config.NOTIFICATION_APP_NAME
 RCLONE_COMMON_ARGS = bisync_config.RCLONE_COMMON_ARGS
 SUCCESS_NOTIFICATION_INTERVAL_MIN = bisync_config.SUCCESS_NOTIFICATION_INTERVAL_MIN
 
+# New log rotation settings loaded from bisync_config.py
+MAX_LOG_SIZE_MB = bisync_config.MAX_LOG_SIZE_MB
+LOG_BACKUP_COUNT = bisync_config.LOG_BACKUP_COUNT
+
 # Location for the persistent notification state file
 NOTIFICATION_STATE_FILE = os.path.join(os.path.expanduser("~"), ".cache", "bisync", "notification_state.json")
 
 def setup_logging(verbose=False):
-    """Configures logging to write to a file and console."""
+    """Configures logging to write to a file and console with rotation."""
     log_formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
 
     # Ensure log directory exists
     log_dir = os.path.dirname(LOG_FILE)
     os.makedirs(log_dir, mode=0o700, exist_ok=True)
 
-    # Configure file handler
-    file_handler = logging.FileHandler(LOG_FILE)
+    # Configure rotating file handler
+    max_log_size_bytes = MAX_LOG_SIZE_MB * 1024 * 1024
+    backup_count = LOG_BACKUP_COUNT
+    file_handler = logging.handlers.RotatingFileHandler(
+        LOG_FILE,
+        maxBytes=max_log_size_bytes,
+        backupCount=backup_count,
+    )
     file_handler.setFormatter(log_formatter)
 
     # Configure root logger
