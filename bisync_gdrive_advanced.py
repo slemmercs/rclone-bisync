@@ -12,6 +12,7 @@ import argparse
 import shutil
 import json
 import bisync_config
+from plyer import notification
 
 # --- Configuration (Loaded from bisync_config.py) ---
 LOCAL_PATH = bisync_config.LOCAL_PATH
@@ -59,21 +60,16 @@ def write_notification_state(state):
 
 def send_desktop_notification(title, message, urgency="normal"):
     """
-    Sends a desktop notification using notify-send by checking for
-    DBus variables in the environment, as loaded by systemd.
+    Sends a desktop notification using the cross-platform plyer library.
     """
-    if 'DBUS_SESSION_BUS_ADDRESS' in os.environ and 'DISPLAY' in os.environ:
-        try:
-            subprocess.run(
-                ["/usr/bin/notify-send", "-u", urgency, "-a", NOTIFICATION_APP_NAME, title, message],
-                env=os.environ,
-                check=True,
-                timeout=10
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
-            logging.warning(f"Failed to send desktop notification: {e}")
-    else:
-        logging.warning("D-Bus environment variables not found in the service environment. Skipping notification.")
+    try:
+        notification.notify(
+            title=title,
+            message=message,
+            app_name=NOTIFICATION_APP_NAME,
+        )
+    except Exception as e:
+        logging.warning(f"Failed to send desktop notification using plyer: {e}")
 
 def run_rclone_bisync(*args, resync_attempt=False):
     """
