@@ -6,7 +6,7 @@ This guide provides a step-by-step process to set up an automated Rclone bisync 
 
 - **Rclone**: Ensure Rclone is installed and configured with a remote named `gdrive`.
 - **Python 3**: Verify Python 3 is installed on your system.
-- **D-Bus**: Ensure notify-send and D-Bus are properly configured for your desktop environment.
+- **Plyer**: Ensure plyer is installed for working desktop notification (`sudo apt install python3-plyer`)
 
 ## Step 1: Create the Sync Script and Configuration
 
@@ -43,46 +43,7 @@ cd ~/rclone-bisync
     chmod +x bisync_gdrive_advanced.py
     ```
 
-## Step 2: Set up D-Bus for Notifications
-
-This is crucial for the script to send desktop notifications.
-
-1. Create the D-Bus Capture Script:
-
-    Create a file at `~/rclone-bisync/dbus-vars.sh `and add the following content:
-
-    ```bash
-    #!/bin/bash
-    if [[ -n "$DBUS_SESSION_BUS_ADDRESS" && -n "$DISPLAY" ]]; then
-        mkdir -p "$HOME/.config"
-        echo "DBUS_SESSION_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\"" > "$HOME/.config/dbus-vars"
-        echo "DISPLAY=\"$DISPLAY\"" >> "$HOME/.config/dbus-vars"
-    fi
-    ```
-
-    Make the script executable:
-
-    ```bash
-    chmod +x dbus-vars.sh
-    ```
-
-2. Create the Autostart File:
-
-    Create a file at `~/.config/autostart/dbus-vars.desktop` and add the following content:
-
-    ```bash
-    [Desktop Entry]
-    Name=D-Bus Environment Variables
-    Comment=Saves D-Bus session variables for cron jobs
-    Exec=/home/csaba/rclone-bisync/dbus-vars.sh
-    Terminal=false
-    Type=Application
-    X-KDE-AutostartScript=true
-    ```
-
-    Log out and log back in to ensure the `.desktop` file runs and creates the `~/.config/dbus-vars` file.
-
-## Step 3: Configure `systemd` Timers
+## Step 2: Configure `systemd` Timers
 
 This step sets up the scheduled sync.
 
@@ -101,7 +62,6 @@ This step sets up the scheduled sync.
     Description=Rclone Bisync with Google Drive
 
     [Service]
-    EnvironmentFile=-%h/.config/dbus-vars
     WorkingDirectory=/home/csaba/rclone-bisync
     ExecStart=/usr/bin/python3 -u /home/csaba/rclone-bisync/bisync_gdrive_advanced.py
     Restart=on-failure
@@ -126,7 +86,7 @@ This step sets up the scheduled sync.
     WantedBy=timers.target
     ```
 
-## Step 4: Enable the Service
+## Step 3: Enable the Service
 
 Tell `systemd` to use your new timer.
 
@@ -136,7 +96,7 @@ systemctl --user enable bisync-gdrive.timer
 systemctl --user start bisync-gdrive.timer
 ```
 
-## Step 5: Verify the Setup
+## Step 4: Verify the Setup
 
 1. Check the timer status: Use the following command to see if your timer is loaded and scheduled correctly.
 
