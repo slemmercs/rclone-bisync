@@ -9,7 +9,7 @@ This guide provides a comprehensive, step-by-step process for setting up an auto
 - **plyer**: Install the plyer library for cross-platform desktop notifications. You can install it using pip:
 
     ```bash
-    pip install plyer
+    sudo apt install python3-plyer
     ```
 
 ## Step 1: Create the Sync Script and Configuration Files
