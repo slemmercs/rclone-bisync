@@ -36,6 +36,13 @@ RCLONE_COMMON_ARGS = [
     "--retries-sleep", "30s",
     "--quiet"
 ]
+
+# --- Log Rotation Settings ---
+# Maximum size of a log file before rotation (in MB).
+MAX_LOG_SIZE_MB = 5
+# Number of backup log files to keep.
+LOG_BACKUP_COUNT = 5
+
 # --- Cleanup Settings ---
 # A list of files to be cleaned up in case of a failed bisync run.
 # This should include the rclone bisync workdir file, which is critical for
