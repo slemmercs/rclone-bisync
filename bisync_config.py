@@ -33,6 +33,7 @@ RCLONE_COMMON_ARGS = [
     "--resilient",
     "--recover",
     "--retries", "2",
+    "--retries-sleep", "30s",
     "--quiet"
 ]
 # --- Cleanup Settings ---
