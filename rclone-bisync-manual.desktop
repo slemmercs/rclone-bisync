@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Rclone Web GUI
+Comment=View sync progress and manage files
+Exec=xdg-open http://localhost:5572
+Icon=network-server
+Terminal=false
+Categories=Utility;Network;
