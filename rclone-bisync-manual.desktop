@@ -1,9 +1,15 @@
 [Desktop Entry]
-Version=1.0
-Type=Application
-Name=Rclone Web GUI
-Comment=View sync progress and manage files
-Exec=xdg-open http://localhost:5572
-Icon=network-server
+Categories=Utility;
+Comment=Force a full bidirectional sync now via systemd
+Exec=systemctl --user start bisync-gdrive.service
+Icon=/home/csaba/Downloads/rclone.svg
+Name=Rclone Force Bisync
+NoDisplay=false
+Path=
+PrefersNonDefaultGPU=false
+StartupNotify=true
 Terminal=false
-Categories=Utility;Network;
+TerminalOptions=
+Type=Application
+X-KDE-SubstituteUID=false
+X-KDE-Username=
