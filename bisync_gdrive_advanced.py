@@ -83,14 +83,13 @@ def send_desktop_notification(title, message, urgency="normal"):
 
 def run_rclone_bisync(*args, resync_attempt=False):
     """
-    Runs the rclone bisync command with specified arguments and logs output.
-    Returns True on success, False on failure.
+    Runs the rclone bisync command, parses JSON logs in memory,
+    and returns a tuple: (success_boolean, error_type_string, error_details)
     """
-    # Find the rclone binary dynamically
     rclone_bin = shutil.which("rclone")
     if not rclone_bin:
         logging.critical("Rclone binary not found in PATH. Please ensure it is installed.")
-        return False
+        return False, "RCLONE_MISSING", None
 
     command = [rclone_bin, "bisync", REMOTE_PATH, LOCAL_PATH] + RCLONE_COMMON_ARGS + list(args)
 
@@ -99,36 +98,60 @@ def run_rclone_bisync(*args, resync_attempt=False):
 
     try:
         logging.debug(f"Running command: {' '.join(command)}")
+        # capture_output=True loads everything into RAM immediately
         result = subprocess.run(command, capture_output=True, text=True, check=False)
 
-        # Log stdout and distinguish stderr notices from critical errors
+        err_type = "UNKNOWN"
+        err_detail = None
+
+        # Process standard output (usually dry-run stats or raw text)
         for line in result.stdout.splitlines():
             logging.info(line)
-        for line in result.stderr.splitlines():
-            if "NOTICE:" in line:
-                logging.info(line)
-            else:
-                logging.error(line)
 
-        # Check for success based on exit code and content of stderr
+        # Process JSON logs from standard error
+        for line in result.stderr.splitlines():
+            try:
+                # Parse the JSON log line
+                log_entry = json.loads(line)
+                level = log_entry.get("level", "info")
+                msg = log_entry.get("msg", "")
+
+                # Map Rclone log levels to Python's logging system
+                if level == "info" or level == "notice":
+                    logging.info(msg)
+                elif level == "debug":
+                    logging.debug(msg)
+                elif level == "warning":
+                    logging.warning(msg)
+                elif level == "error":
+                    logging.error(f"Rclone Error: {msg}")
+                    
+                    # Identify specific critical errors for main() to handle
+                    if "prior lock file found" in msg:
+                        err_type = "STALE_LOCK"
+                        # Extract just the lock file path
+                        match = re.search(r'prior lock file found: (\S+)', msg)
+                        err_detail = match.group(1) if match else msg
+                        
+                    elif "cannot find prior Path1 or Path2 listings" in msg:
+                        err_type = "NO_LISTINGS"
+                        
+                    elif any(limit in msg for limit in ["Rate Limit Exceeded", "rateLimitExceeded", "429 Too Many Requests", "quotaExceeded", "403 Forbidden"]):
+                        err_type = "RATE_LIMIT"
+                        err_detail = msg
+
+            except json.JSONDecodeError:
+                # Fallback if rclone crashes and outputs raw text instead of JSON
+                logging.error(f"Raw stderr: {line}")
+
         if result.returncode == 0:
-            return True
+            return True, None, None
         else:
-            logging.error(f"Rclone bisync failed with exit code {result.returncode}")
-            # New logic to detect the specific error for a resync attempt
-            if "Bisync critical error: cannot find prior Path1 or Path2 listings" in result.stderr:
-                logging.warning("Initial run failed. Automatically attempting a resync.")
-                return False  # Return False to trigger the resync logic in main()
-            # Original logic for stale lock file
-            elif "prior lock file found" in result.stderr:
-                logging.warning("Stale rclone lock file detected. Attempting to remove it.")
-                return False  # Return False to trigger the lock cleanup logic in main()
-            else:
-                return False
+            return False, err_type, err_detail
 
     except Exception as e:
         logging.critical(f"An unexpected error occurred: {e}")
-        return False
+        return False, "EXCEPTION", str(e)
 
 def acquire_lock():
     """Acquires an exclusive lock on the lock file."""
@@ -167,55 +190,61 @@ def main():
 
         rclone_args = ["--dry-run"] if args.dry_run else []
 
-        if not run_rclone_bisync(*rclone_args):
-            # This block is entered if run_rclone_bisync returns False
-            
-            # Read the log content to check for specific error messages
-            with open(LOG_FILE, 'r') as f:
-                log_content = f.read()
-            
-            # Check for the stale rclone lock file
-            stale_lock_match = re.search(r'prior lock file found: (\S+)', log_content)
-            
-            # Check for the "cannot find prior listings" error
-            no_listings_match = "Bisync critical error: cannot find prior Path1 or Path2 listings" in log_content
+        # Unpack the tuple returned by the updated function
+        success, err_type, err_detail = run_rclone_bisync(*rclone_args)
 
-            if stale_lock_match:
-                stale_lock_file = stale_lock_match.group(1)
-                logging.info(f"Stale rclone lock file detected: {stale_lock_file}. Attempting to remove it.")
+        if not success:
+            # Look at the error type identified in memory, no disk reading required
+            
+            if err_type == "STALE_LOCK":
+                logging.info(f"Stale rclone lock file detected: {err_detail}. Attempting to remove it.")
                 try:
-                    os.remove(stale_lock_file)
+                    os.remove(err_detail)
                     logging.info("Stale rclone lock file removed.")
-                    # Retry with resync after removing the lock
-                    if run_rclone_bisync(*rclone_args, resync_attempt=True):
+                    
+                    # Retry with resync
+                    retry_success, _, _ = run_rclone_bisync(*rclone_args, resync_attempt=True)
+                    if retry_success:
                         logging.info("Sync finished: OK (resync successful)")
                         if not args.no_notify:
                             send_desktop_notification("Rclone Bisync: Success", "Resync completed successfully.")
                             notification_state["last_success_timestamp"] = time.time()
                     else:
-                        logging.error("Sync finished: ERROR (resync failed). Manual intervention may be required.")
+                        logging.error("Sync finished: ERROR (resync failed).")
                         if not args.no_notify:
-                            send_desktop_notification("Rclone Bisync Alert: CRITICAL", "Resync failed. Manual intervention may be required!", "critical")
+                            send_desktop_notification("Rclone Bisync Alert", "Resync failed. Manual intervention required!", "critical")
                 except OSError as e:
-                    logging.error(f"Failed to remove stale lock file {stale_lock_file}: {e}")
+                    logging.error(f"Failed to remove stale lock file {err_detail}: {e}")
                     if not args.no_notify:
-                        send_desktop_notification("Rclone Bisync Alert: CRITICAL", "Failed to remove stale lock file. Manual intervention required!", "critical")
+                        send_desktop_notification("Rclone Bisync Alert", "Failed to remove lock file!", "critical")
 
-            elif no_listings_match:
+            elif err_type == "NO_LISTINGS":
                 logging.info("Initial bisync failed due to no prior listings. Attempting a one-time resync.")
-                if run_rclone_bisync(*rclone_args, resync_attempt=True):
+                retry_success, _, _ = run_rclone_bisync(*rclone_args, resync_attempt=True)
+                if retry_success:
                     logging.info("Sync finished: OK (initial resync successful)")
                     if not args.no_notify:
                         send_desktop_notification("Rclone Bisync: Success", "Initial resync completed successfully.")
                         notification_state["last_success_timestamp"] = time.time()
                 else:
-                    logging.error("Sync finished: ERROR (initial resync failed). Manual intervention may be required.")
+                    logging.error("Sync finished: ERROR (initial resync failed).")
                     if not args.no_notify:
-                        send_desktop_notification("Rclone Bisync Alert: CRITICAL", "Initial resync failed. Manual intervention may be required!", "critical")
-            else:
-                logging.error("Sync finished: ERROR. Manual intervention may be required!")
+                        send_desktop_notification("Rclone Bisync Alert", "Initial resync failed!", "critical")
+            
+            elif err_type == "RATE_LIMIT":
+                logging.warning(f"Sync paused due to Google Drive rate limiting: {err_detail}")
                 if not args.no_notify:
-                    send_desktop_notification("Rclone Bisync Alert: CRITICAL", "Sync failed. Manual intervention may be required!", "critical")
+                    send_desktop_notification(
+                        "Rclone Bisync: Rate Limited", 
+                        "Google API limit hit. Will retry automatically on next schedule.", 
+                        "normal"
+                    )
+
+            else:
+                logging.error(f"Sync finished: ERROR ({err_type}). Manual intervention may be required!")
+                if not args.no_notify:
+                    send_desktop_notification("Rclone Bisync Alert: CRITICAL", "Sync failed. Manual intervention required!", "critical")
+                    
         else:
             logging.info("Sync finished: OK")
             time_since_last_success = (time.time() - notification_state.get("last_success_timestamp", 0)) / 60
@@ -226,7 +255,6 @@ def main():
                  pass
             else:
                 logging.info(f"Successful sync notification skipped. Next notification in approximately {SUCCESS_NOTIFICATION_INTERVAL_MIN - time_since_last_success:.0f} minutes.")
-
     finally:
         write_notification_state(notification_state)
         end_time = time.time()
