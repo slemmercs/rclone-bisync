@@ -3,14 +3,13 @@
 import os
 import sys
 import time
-import subprocess
 import logging
 import logging.handlers
 import fcntl
 import re
 import argparse
-import shutil
 import json
+import requests
 import bisync_config
 from plyer import notification
 
@@ -22,252 +21,173 @@ LOCK_FILE = bisync_config.LOCK_FILE
 NOTIFICATION_APP_NAME = bisync_config.NOTIFICATION_APP_NAME
 RCLONE_COMMON_ARGS = bisync_config.RCLONE_COMMON_ARGS
 SUCCESS_NOTIFICATION_INTERVAL_MIN = bisync_config.SUCCESS_NOTIFICATION_INTERVAL_MIN
-
-# New log rotation settings loaded from bisync_config.py
 MAX_LOG_SIZE_MB = bisync_config.MAX_LOG_SIZE_MB
 LOG_BACKUP_COUNT = bisync_config.LOG_BACKUP_COUNT
 
-# Location for the persistent notification state file
 NOTIFICATION_STATE_FILE = os.path.join(os.path.expanduser("~"), ".cache", "bisync", "notification_state.json")
+RC_API_URL = "http://localhost:5572"
 
 def setup_logging(verbose=False):
-    """Configures logging to write to a file and console with rotation."""
     log_formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
-
-    # Ensure log directory exists
     log_dir = os.path.dirname(LOG_FILE)
     os.makedirs(log_dir, mode=0o700, exist_ok=True)
 
-    # Configure rotating file handler
-    max_log_size_bytes = MAX_LOG_SIZE_MB * 1024 * 1024
-    backup_count = LOG_BACKUP_COUNT
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+    root_logger.handlers = []
+
     file_handler = logging.handlers.RotatingFileHandler(
-        LOG_FILE,
-        maxBytes=max_log_size_bytes,
-        backupCount=backup_count,
+        LOG_FILE, maxBytes=MAX_LOG_SIZE_MB * 1024 * 1024, backupCount=LOG_BACKUP_COUNT
     )
     file_handler.setFormatter(log_formatter)
+    root_logger.addHandler(file_handler)
 
-    # Configure root logger
-    log_level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=log_level, handlers=[file_handler])
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    root_logger.addHandler(console_handler)
 
-def read_notification_state():
-    """Reads the last notification timestamp from the state file."""
+def load_notification_state():
+    os.makedirs(os.path.dirname(NOTIFICATION_STATE_FILE), exist_ok=True)
     if os.path.exists(NOTIFICATION_STATE_FILE):
         try:
             with open(NOTIFICATION_STATE_FILE, 'r') as f:
                 return json.load(f)
-        except (IOError, json.JSONDecodeError):
-            return {"last_success_timestamp": 0}
+        except (json.JSONDecodeError, IOError):
+            pass
     return {"last_success_timestamp": 0}
 
 def write_notification_state(state):
-    """Writes the current notification timestamp to the state file."""
-    os.makedirs(os.path.dirname(NOTIFICATION_STATE_FILE), exist_ok=True)
-    with open(NOTIFICATION_STATE_FILE, 'w') as f:
-        json.dump(state, f)
+    try:
+        with open(NOTIFICATION_STATE_FILE, 'w') as f:
+            json.dump(state, f)
+    except IOError as e:
+        logging.error(f"Failed to write notification state: {e}")
 
-def send_desktop_notification(title, message, urgency="normal"):
-    """
-    Sends a desktop notification using the cross-platform plyer library.
-    """
+def send_desktop_notification(title, message, urgency='normal'):
     try:
         notification.notify(
             title=title,
             message=message,
             app_name=NOTIFICATION_APP_NAME,
+            timeout=10,
+            hints={'urgency': 2 if urgency == 'critical' else 1}
         )
     except Exception as e:
-        logging.warning(f"Failed to send desktop notification using plyer: {e}")
+        logging.error(f"Failed to send notification: {e}")
 
 def run_rclone_bisync(*args, resync_attempt=False):
-    """
-    Runs the rclone bisync command, parses JSON logs in memory,
-    and returns a tuple: (success_boolean, error_type_string, error_details)
-    """
-    rclone_bin = shutil.which("rclone")
-    if not rclone_bin:
-        logging.critical("Rclone binary not found in PATH. Please ensure it is installed.")
-        return False, "RCLONE_MISSING", None
-
-    command = [rclone_bin, "bisync", REMOTE_PATH, LOCAL_PATH] + RCLONE_COMMON_ARGS + list(args)
-
-    if resync_attempt:
-        command.append("--resync")
+    """Triggers bisync via RC API and returns job results."""
+    # Using the ?_async=true query parameter to ensure a Job ID is returned
+    url = f"{RC_API_URL}/sync/bisync?_async=true"
+    
+    params = {
+        "path1": REMOTE_PATH,
+        "path2": LOCAL_PATH,
+        "resync": resync_attempt,
+        "args": RCLONE_COMMON_ARGS + list(args)
+    }
 
     try:
-        logging.debug(f"Running command: {' '.join(command)}")
-        # capture_output=True loads everything into RAM immediately
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
-
-        err_type = "UNKNOWN"
-        err_detail = None
-
-        # Process standard output (usually dry-run stats or raw text)
-        for line in result.stdout.splitlines():
-            logging.info(line)
-
-        # Process JSON logs from standard error
-        for line in result.stderr.splitlines():
-            try:
-                # Parse the JSON log line
-                log_entry = json.loads(line)
-                level = log_entry.get("level", "info")
-                msg = log_entry.get("msg", "")
-
-                # Map Rclone log levels to Python's logging system
-                if level == "info" or level == "notice":
-                    logging.info(msg)
-                elif level == "debug":
-                    logging.debug(msg)
-                elif level == "warning":
-                    logging.warning(msg)
-                elif level == "error":
-                    logging.error(f"Rclone Error: {msg}")
-                    
-                    # Identify specific critical errors for main() to handle
-                    if "prior lock file found" in msg:
-                        err_type = "STALE_LOCK"
-                        # Extract just the lock file path
-                        match = re.search(r'prior lock file found: (\S+)', msg)
-                        err_detail = match.group(1) if match else msg
-                        
-                    elif "cannot find prior Path1 or Path2 listings" in msg:
-                        err_type = "NO_LISTINGS"
-                        
-                    elif any(limit in msg for limit in ["Rate Limit Exceeded", "rateLimitExceeded", "429 Too Many Requests", "quotaExceeded", "403 Forbidden"]):
-                        err_type = "RATE_LIMIT"
-                        err_detail = msg
-
-            except json.JSONDecodeError:
-                # Fallback if rclone crashes and outputs raw text instead of JSON
-                logging.error(f"Raw stderr: {line}")
-
-        if result.returncode == 0:
-            return True, None, None
+        logging.info("Sending bisync command to Rclone Daemon...")
+        response = requests.post(url, json=params)
+        response.raise_for_status() # Check for HTTP errors
+        response_json = response.json()
+        
+        logging.debug(f"Daemon Response: {response_json}")
+        
+        job_id = response_json.get("jobid")
+        
+        if job_id is not None:
+            logging.info(f"Sync started (Job ID: {job_id})")
+            return monitor_daemon_job(int(job_id))
         else:
-            return False, err_type, err_detail
+            # Fallback for synchronous completion
+            logging.info("Sync finished synchronously (no Job ID needed).")
+            return True, None, None
 
+    except requests.exceptions.ConnectionError:
+        return False, "DAEMON_OFFLINE", "Rclone Daemon is not running on port 5572."
     except Exception as e:
-        logging.critical(f"An unexpected error occurred: {e}")
-        return False, "EXCEPTION", str(e)
+        return False, "DAEMON_ERROR", str(e)
 
-def acquire_lock():
-    """Acquires an exclusive lock on the lock file."""
-    try:
-        lock_file_handle = open(LOCK_FILE, 'w')
-        # Use a non-blocking lock (LOCK_EX | LOCK_NB)
-        fcntl.flock(lock_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        # Write PID to the lock file
-        lock_file_handle.write(str(os.getpid()))
-        return lock_file_handle
-    except (IOError, OSError):
-        logging.info("Sync already running. Exiting.")
-        return None
+def monitor_daemon_job(job_id):
+    """Polls the daemon for job completion and classifies errors."""
+    while True:
+        try:
+            status_resp = requests.post(f"{RC_API_URL}/job/status", json={"jobid": job_id})
+            status = status_resp.json()
+            
+            if status.get("finished"):
+                success = status.get("success")
+                error_msg = status.get("error", "")
+                
+                if success:
+                    return True, None, None
+                
+                # Error classification for notifications
+                err_type = "UNKNOWN"
+                err_detail = error_msg
+                msg_lower = error_msg.lower()
+
+                if "prior lock file found" in msg_lower:
+                    err_type = "STALE_LOCK"
+                    match = re.search(r'prior lock file found: (\S+)', error_msg)
+                    err_detail = match.group(1) if match else error_msg
+                elif "cannot find prior" in msg_lower:
+                    err_type = "NO_LISTINGS"
+                elif any(x in msg_lower for x in ["rate", "429", "quota", "403"]):
+                    err_type = "RATE_LIMIT"
+                    err_detail = "Google Drive Rate Limit hit. Retrying later."
+
+                return False, err_type, err_detail
+            
+            time.sleep(5)
+        except Exception as e:
+            return False, "MONITOR_ERROR", str(e)
 
 def main():
-    """Main function to orchestrate the sync process."""
-
-    # Setup command-line argument parsing
-    parser = argparse.ArgumentParser(description="A robust script to run rclone bisync operations.")
-    parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without making any changes.")
-    parser.add_argument("--no-notify", action="store_true", help="Disable desktop notifications.")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging.")
+    parser = argparse.ArgumentParser(description="Rclone Bisync Client")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--resync", action="store_true", help="Force a resync")
+    parser.add_argument("--no-notify", action="store_true", help="Disable notifications")
     args = parser.parse_args()
 
-    setup_logging(verbose=args.verbose)
-
-    lock_file_handle = acquire_lock()
-    if not lock_file_handle:
-        sys.exit(1)
+    setup_logging(args.verbose)
+    notification_state = load_notification_state()
+    
+    # File locking
+    lock_file_handle = open(LOCK_FILE, 'w')
+    try:
+        fcntl.lockf(lock_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        logging.warning("Another instance of the script is running. Exiting.")
+        sys.exit(0)
 
     start_time = time.time()
-    notification_state = read_notification_state()
-
     try:
-        logging.info("Sync started")
-
-        rclone_args = ["--dry-run"] if args.dry_run else []
-
-        # Unpack the tuple returned by the updated function
-        success, err_type, err_detail = run_rclone_bisync(*rclone_args)
+        success, err_type, err_detail = run_rclone_bisync(resync_attempt=args.resync)
 
         if not success:
-            # Look at the error type identified in memory, no disk reading required
-            
-            if err_type == "STALE_LOCK":
-                logging.info(f"Stale rclone lock file detected: {err_detail}. Attempting to remove it.")
-                try:
-                    os.remove(err_detail)
-                    logging.info("Stale rclone lock file removed.")
-                    
-                    # Retry with resync
-                    retry_success, _, _ = run_rclone_bisync(*rclone_args, resync_attempt=True)
-                    if retry_success:
-                        logging.info("Sync finished: OK (resync successful)")
-                        if not args.no_notify:
-                            send_desktop_notification("Rclone Bisync: Success", "Resync completed successfully.")
-                            notification_state["last_success_timestamp"] = time.time()
-                    else:
-                        logging.error("Sync finished: ERROR (resync failed).")
-                        if not args.no_notify:
-                            send_desktop_notification("Rclone Bisync Alert", "Resync failed. Manual intervention required!", "critical")
-                except OSError as e:
-                    logging.error(f"Failed to remove stale lock file {err_detail}: {e}")
-                    if not args.no_notify:
-                        send_desktop_notification("Rclone Bisync Alert", "Failed to remove lock file!", "critical")
-
-            elif err_type == "NO_LISTINGS":
-                logging.info("Initial bisync failed due to no prior listings. Attempting a one-time resync.")
-                retry_success, _, _ = run_rclone_bisync(*rclone_args, resync_attempt=True)
-                if retry_success:
-                    logging.info("Sync finished: OK (initial resync successful)")
-                    if not args.no_notify:
-                        send_desktop_notification("Rclone Bisync: Success", "Initial resync completed successfully.")
-                        notification_state["last_success_timestamp"] = time.time()
-                else:
-                    logging.error("Sync finished: ERROR (initial resync failed).")
-                    if not args.no_notify:
-                        send_desktop_notification("Rclone Bisync Alert", "Initial resync failed!", "critical")
-            
-            elif err_type == "RATE_LIMIT":
-                logging.warning(f"Sync paused due to Google Drive rate limiting: {err_detail}")
-                if not args.no_notify:
-                    send_desktop_notification(
-                        "Rclone Bisync: Rate Limited", 
-                        "Google API limit hit. Will retry automatically on next schedule.", 
-                        "normal"
-                    )
-
+            if err_type == "RATE_LIMIT":
+                logging.warning(f"Sync deferred: {err_detail}")
             else:
-                logging.error(f"Sync finished: ERROR ({err_type}). Manual intervention may be required!")
+                logging.error(f"Sync failed: {err_type} - {err_detail}")
                 if not args.no_notify:
-                    send_desktop_notification("Rclone Bisync Alert: CRITICAL", "Sync failed. Manual intervention required!", "critical")
-                    
+                    send_desktop_notification("Sync Error", f"Type: {err_type}\n{err_detail}", "critical")
         else:
-            logging.info("Sync finished: OK")
-            time_since_last_success = (time.time() - notification_state.get("last_success_timestamp", 0)) / 60
-            if not args.no_notify and time_since_last_success >= SUCCESS_NOTIFICATION_INTERVAL_MIN:
-                send_desktop_notification("Rclone Bisync: Success", "Sync completed successfully.")
+            logging.info("Sync completed successfully.")
+            last_success = notification_state.get("last_success_timestamp", 0)
+            if not args.no_notify and (time.time() - last_success) / 60 >= SUCCESS_NOTIFICATION_INTERVAL_MIN:
+                send_desktop_notification("Sync Success", "Google Drive is synchronized.")
                 notification_state["last_success_timestamp"] = time.time()
-            elif args.no_notify:
-                 pass
-            else:
-                logging.info(f"Successful sync notification skipped. Next notification in approximately {SUCCESS_NOTIFICATION_INTERVAL_MIN - time_since_last_success:.0f} minutes.")
-    finally:
-        write_notification_state(notification_state)
-        end_time = time.time()
-        duration = end_time - start_time
-        logging.info(f"Sync duration: {duration:.2f} seconds.")
+                write_notification_state(notification_state)
 
-        logging.info("Releasing script lock.")
-        if lock_file_handle:
-            try:
-                os.remove(LOCK_FILE)
-            except OSError as e:
-                logging.warning(f"Failed to remove lock file {LOCK_FILE}: {e}")
-            lock_file_handle.close()
+    finally:
+        fcntl.lockf(lock_file_handle, fcntl.LOCK_UN)
+        lock_file_handle.close()
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+        logging.info(f"Finished in {time.time() - start_time:.2f}s")
 
 if __name__ == "__main__":
     main()

@@ -1,69 +1,79 @@
 #!/bin/bash
 
 # --- Rclone Bisync Installation Script ---
-# This script automates the installation of rclone, and the necessary
-# Python scripts and systemd services for the automated bisync solution.
+# Focus: Rclone binary, Python scripts, Systemd (Daemon/Timer), and Desktop Shortcut.
 
-# Exit immediately if a command exits with a non-zero status.
 set -e
 
-# --- 1. Check for sudo privileges ---
+# --- 1. Privilege Check ---
 if [[ "$EUID" -ne 0 ]]; then
-  echo "This script must be run with sudo privileges. Please run with 'sudo bash install.sh'."
+  echo "This script must be run with sudo to install Rclone and manage system packages."
+  echo "Please run: sudo bash $0"
   exit 1
 fi
 
-# A directory to store the rclone-bisync files in the user's home directory.
-RCLONE_DIR="$HOME/rclone-bisync"
+# Identify the actual user to place files in the correct home directory
+REAL_USER=$(logname || echo $SUDO_USER)
+REAL_HOME=$(eval echo ~$REAL_USER)
+RCLONE_DIR="$REAL_HOME/rclone-bisync"
+SYSTEMD_USER_DIR="$REAL_HOME/.config/systemd/user"
+SHORTCUT_DIR="$REAL_HOME/.local/share/applications"
 
-echo "Starting automated installation for Rclone bisync..."
+echo "Starting installation for $REAL_USER..."
 echo "----------------------------------------------------"
 
 # --- 2. Install Rclone ---
-echo "Installing Rclone..."
+echo "Installing/Updating Rclone binary..."
 curl https://rclone.org/install.sh | bash
 
-# --- 3. Copy the script files ---
-echo "Creating the script directory: $RCLONE_DIR"
-mkdir -p "$RCLONE_DIR"
+# --- 3. Setup Script Directory & Permissions ---
+echo "Creating directory: $RCLONE_DIR"
+sudo -u "$REAL_USER" mkdir -p "$RCLONE_DIR"
 
-echo "Copying Python scripts to $RCLONE_DIR..."
-# Check for the existence of the python scripts before copying.
-if [ ! -f "bisync_config.py" ] || [ ! -f "bisync_gdrive_advanced.py" ]; then
-    echo "Error: 'bisync_config.py' or 'bisync_gdrive_advanced.py' not found in the current directory."
-    echo "Please ensure these files are present before running the script."
-    exit 1
-fi
+# Verify local files exist before copying
+REQUIRED_FILES=("bisync_config.py" "bisync_gdrive_advanced.py" "rclone-daemon.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop")
 
-cp bisync_config.py "$RCLONE_DIR/"
-cp bisync_gdrive_advanced.py "$RCLONE_DIR/"
+for f in "${REQUIRED_FILES[@]}"; do
+    if [ ! -f "$f" ]; then
+        echo "Error: Required file '$f' not found in current directory."
+        exit 1
+    fi
+done
 
-# Ensure the main script is executable.
+echo "Copying Python scripts..."
+cp bisync_config.py bisync_gdrive_advanced.py "$RCLONE_DIR/"
+chown -R "$REAL_USER:$REAL_USER" "$RCLONE_DIR"
 chmod +x "$RCLONE_DIR/bisync_gdrive_advanced.py"
 
-# --- 4. Copy Systemd Service and Timer files ---
-echo "Copying systemd user service and timer files..."
-SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
-mkdir -p "$SYSTEMD_USER_DIR"
+# --- 4. Setup Systemd User Services ---
+echo "Configuring systemd user services..."
+sudo -u "$REAL_USER" mkdir -p "$SYSTEMD_USER_DIR"
 
-# Check for the existence of the service and timer files before copying.
-if [ ! -f "bisync-gdrive.service" ] || [ ! -f "bisync-gdrive.timer" ]; then
-    echo "Error: 'bisync-gdrive.service' or 'bisync-gdrive.timer' not found in the current directory."
-    echo "Please ensure these files are present before running the script."
-    exit 1
-fi
+cp rclone-daemon.service bisync-gdrive.service bisync-gdrive.timer "$SYSTEMD_USER_DIR/"
+chown "$REAL_USER:$REAL_USER" "$SYSTEMD_USER_DIR/"*
 
-cp bisync-gdrive.service "$SYSTEMD_USER_DIR/"
-cp bisync-gdrive.timer "$SYSTEMD_USER_DIR/"
+# --- 5. Install Desktop Shortcut ---
+echo "Installing desktop shortcut..."
+sudo -u "$REAL_USER" mkdir -p "$SHORTCUT_DIR"
+cp rclone-bisync-manual.desktop "$SHORTCUT_DIR/"
+chown "$REAL_USER:$REAL_USER" "$SHORTCUT_DIR/rclone-bisync-manual.desktop"
+chmod +x "$SHORTCUT_DIR/rclone-bisync-manual.desktop"
 
-# --- 5. Enable and start services ---
-echo "Enabling and starting systemd services and timers..."
-systemctl --user daemon-reload
-systemctl --user enable bisync-gdrive.timer
-systemctl --user start bisync-gdrive.timer
+# --- 6. Enable and Start Services ---
+echo "Activating services..."
+
+# Get User ID for DBUS session
+USER_ID=$(id -u "$REAL_USER")
+DBUS_ENV="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$USER_ID/bus"
+
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user daemon-reload
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user enable rclone-daemon.service bisync-gdrive.timer
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-daemon.service bisync-gdrive.timer
 
 echo "----------------------------------------------------"
-echo "Installation complete!"
-echo "You can view the logs with 'journalctl --user -u bisync-gdrive.service -f'."
-echo ""
-echo "IMPORTANT: You must now run 'rclone config' to set up your Google Drive remote."
+echo "Installation Complete!"
+echo "1. Rclone is installed."
+echo "2. Scripts are in $RCLONE_DIR"
+echo "3. Daemon is running on port 5572."
+echo "4. Desktop shortcut 'Rclone Force Bisync' added to your menu."
+echo "5. Automatic sync is scheduled every 10 minutes."

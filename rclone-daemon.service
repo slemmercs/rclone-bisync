@@ -1,0 +1,12 @@
+[Unit]
+Description=Rclone Remote Control Daemon & Web GUI
+After=network.target
+
+[Service]
+Type=simple
+# Standard user path for rclone
+ExecStart=/usr/bin/rclone rcd --rc-web-gui --rc-addr localhost:5572 --rc-no-auth
+Restart=always
+
+[Install]
+WantedBy=default.target
