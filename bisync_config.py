@@ -24,6 +24,7 @@ SUCCESS_NOTIFICATION_INTERVAL_MIN = 30
 # Common arguments passed to every `rclone bisync` command.
 # It's recommended to include --dry-run for initial tests.
 RCLONE_COMMON_ARGS = [
+    "--use-json-log",
     "--drive-export-formats", "docx,xlsx,pptx",
     "--drive-import-formats", "docx,xlsx,pptx",
     "--drive-skip-gdocs",
@@ -32,8 +33,8 @@ RCLONE_COMMON_ARGS = [
     "--remove-empty-dirs",
     "--resilient",
     "--recover",
-    "--retries", "2",
-    "--retries-sleep", "30s",
+    "--retries", "4",
+    "--retries-sleep", "15s",
     "--quiet"
 ]
 
