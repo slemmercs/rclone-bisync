@@ -5,7 +5,7 @@ This solution provides a robust, automated bidirectional synchronization between
 ## Core Components
 1. **Rclone Daemon**: An always-on background process managing the connection.
 2. **Python Master Script**: Communicates with the API to trigger and monitor sync jobs.
-3. **Systemd Timer**: Schedules the sync every 10 minutes.
+3. **Systemd Timer**: Schedules the sync every 15 minutes.
 4. **Desktop Shortcuts**: For manual triggers and GUI access.
 
 ## Prerequisites
