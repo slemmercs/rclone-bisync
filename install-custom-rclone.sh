@@ -20,7 +20,7 @@ echo "----------------------------------------------------"
 
 # --- 2. Install Rclone Binary ---
 echo "Installing/Updating Rclone binary..."
-curl https://rclone.org/install.sh | bash
+curl https://rclone.org/install.sh | bash || true
 
 # --- 3. Setup Script Directory ---
 echo "Creating directory: $RCLONE_DIR"
@@ -49,8 +49,8 @@ chown "$REAL_USER:$REAL_USER" "$SYSTEMD_USER_DIR/"*
 echo "Installing desktop shortcuts..."
 sudo -u "$REAL_USER" mkdir -p "$SHORTCUT_DIR"
 cp rclone-bisync-manual.desktop rclone-webgui.desktop "$SHORTCUT_DIR/"
-chown "$REAL_USER:$REAL_USER" "$SHORTCUT_DIR/"*.desktop
-chmod +x "$SHORTCUT_DIR/"*.desktop
+chown "$REAL_USER:$REAL_USER" "$SHORTCUT_DIR/"rclone-*.desktop
+chmod +x "$SHORTCUT_DIR/"rclone-*.desktop
 
 # --- 6. Enable and Start Services ---
 echo "Activating services..."
