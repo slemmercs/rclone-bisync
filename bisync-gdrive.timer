@@ -1,9 +1,33 @@
 [Unit]
-Description=Run Rclone Bisync every 10 minutes
+Description=Run Rclone Bisync every 15 minutes
+Documentation=man:systemd.timer(5)
+# Ensure the daemon is available when timer triggers
+Requires=rclone-daemon.service
+After=rclone-daemon.service
 
 [Timer]
-# Run the service every 10 minutes
+# Run the service every 15 minutes
+# Format: *:0/15:00 means "every hour at minutes 0, 15, 30, 45"
 OnCalendar=*:0/15:00
+
+# Alternative timing options (uncomment the one you prefer):
+# Every 10 minutes: OnCalendar=*:0/10:00
+# Every 5 minutes:  OnCalendar=*:0/5:00
+# Every 30 minutes: OnCalendar=*:0/30:00
+
+# Start the timer 2 minutes after boot (gives system time to settle)
+OnBootSec=2min
+
+# If the system was off when a sync was scheduled, run it on next boot
+Persistent=true
+
+# Allow some timing flexibility to batch system wake-ups (saves power)
+# The sync may run up to 1 minute late to coordinate with other timers
+AccuracySec=1min
+
+# Prevent runs from stacking up if one takes longer than the interval
+# Only one instance of the service will run at a time (handled by script's lock too)
+Unit=bisync-gdrive.service
 
 [Install]
 WantedBy=timers.target
