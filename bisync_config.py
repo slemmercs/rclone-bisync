@@ -61,6 +61,7 @@ RCLONE_COMMON_ARGS = [
     "--drive-skip-gdocs",           # Skip non-downloadable Google Docs
     "--drive-use-trash",            # Move to trash instead of permanent delete
     "--drive-acknowledge-abuse",    # Download files marked as abusive
+    "--drive-skip-shortcuts",
     
     # Bisync reliability
     "--check-access",               # Verify access before sync
