@@ -374,7 +374,7 @@ def check_daemon_health():
             if config.RC_AUTH_ENABLED:
                 auth = (config.RC_USER, config.RC_PASS)
             
-            response = requests.get(
+            response = requests.post(
                 f"{config.RC_API_URL}/core/stats",
                 timeout=5,
                 auth=auth

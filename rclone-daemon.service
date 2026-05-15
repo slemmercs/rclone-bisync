@@ -10,7 +10,6 @@ Type=simple
 
 # The daemon runs continuously and serves the RC API and Web GUI
 ExecStart=/usr/bin/rclone rcd \
-    --rc \
     --rc-web-gui \
     --rc-addr localhost:5572 \
     --rc-no-auth \
@@ -30,7 +29,7 @@ ExecStart=/usr/bin/rclone rcd \
 
 # Health check: Verify daemon responds before marking as ready
 # This prevents the bisync service from starting too early
-ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5; do curl -sf http://localhost:5572/core/stats > /dev/null && exit 0; sleep 2; done; exit 1'
+ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5; do curl -sf -X POST http://localhost:5572/core/stats > /dev/null && exit 0; sleep 2; done; exit 1'
 
 # Graceful shutdown
 ExecStop=/usr/bin/curl -sf -X POST http://localhost:5572/core/quit
@@ -54,23 +53,23 @@ SyslogIdentifier=rclone-daemon
 
 # Security hardening
 # These restrictions prevent the daemon from being exploited
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
+#NoNewPrivileges=true
+#PrivateTmp=true
+#ProtectSystem=strict
+#ProtectHome=read-only
 
 # Allow writes only to specific directories
-ReadWritePaths=%h/.config/rclone
-ReadWritePaths=%h/rclone-bisync
-ReadWritePaths=%h/.cache/rclone
-ReadWritePaths=%h/gdrive
+#ReadWritePaths=%h/.config/rclone
+#ReadWritePaths=%h/rclone-bisync
+#ReadWritePaths=%h/.cache/rclone
+#ReadWritePaths=%h/gdrive
 
 # Protect sensitive parts of the system
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictRealtime=true
-RestrictNamespaces=true
+#ProtectKernelTunables=true
+#ProtectKernelModules=true
+#ProtectControlGroups=true
+#RestrictRealtime=true
+#RestrictNamespaces=true
 
 # Resource limits
 # Adjust based on your needs and available system resources
