@@ -10,6 +10,7 @@ Type=simple
 
 # The daemon runs continuously and serves the RC API and Web GUI
 ExecStart=/usr/bin/rclone rcd \
+    --rc \
     --rc-web-gui \
     --rc-addr localhost:5572 \
     --rc-no-auth \

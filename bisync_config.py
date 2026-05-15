@@ -74,6 +74,8 @@ RCLONE_COMMON_ARGS = [
     "--retries", "4",
     "--retries-sleep", "15s",
     "--low-level-retries", "10",
+    "--tpslimit", "10",
+    "--tpslimit-burst", "10",
     
     # Performance
     "--fast-list",                  # Use recursive list if possible
