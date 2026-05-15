@@ -1,23 +1,53 @@
 [Unit]
 Description=Rclone Bisync with Google Drive
+Documentation=man:rclone(1)
+# Ensure the daemon is running before we start
+Requires=rclone-daemon.service
+After=rclone-daemon.service network-online.target
+Wants=network-online.target
 
 [Service]
-# The `EnvironmentFile` directive is the correct way to load environment variables
-# from a file. It tells systemd to load the DBus variables before the main script runs.
+Type=oneshot
+
+# Load DBus environment variables for desktop notifications
 EnvironmentFile=-%h/.config/dbus-vars
 
 # Set the working directory to the script's location
-WorkingDirectory=/home/csaba/rclone-bisync
+WorkingDirectory=%h/rclone-bisync
+
+# Give the daemon a moment to fully initialize after systemd says it's ready
+# This prevents race conditions on system startup
+ExecStartPre=/bin/sleep 3
 
 # Command to execute the Python script
-# It's important to use the full path to the Python interpreter
-# The --unbuffered flag ensures immediate logging
-ExecStart=/usr/bin/python3 -u /home/csaba/rclone-bisync/bisync_gdrive_advanced.py
+# -u flag ensures unbuffered output for immediate logging
+ExecStart=/usr/bin/python3 -u %h/rclone-bisync/bisync_gdrive_advanced.py
 
-# Restart the service if it fails
-Restart=on-failure
-RestartSec=5s
+# Only restart on actual failures, not on successful completion
+# This service is designed to be triggered by timer, not run continuously
+Restart=no
 
-# Standard output and error output will be logged to the system journal
+# If the script fails, log detailed information
+# StandardOutput and StandardError go to systemd journal
 StandardOutput=journal
 StandardError=journal
+
+# Add context to journal entries
+SyslogIdentifier=bisync-gdrive
+
+# Timeout settings
+# Kill the script if it runs longer than 30 minutes (something is wrong)
+TimeoutStartSec=30min
+
+# Security hardening (optional but recommended)
+# These prevent the script from doing things it shouldn't need to do
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits (prevents runaway process)
+# Adjust based on your sync size
+MemoryLimit=1G
+CPUQuota=80%
+
+[Install]
+WantedBy=default.target
