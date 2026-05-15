@@ -64,5 +64,5 @@ sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-daemon.service bi
 echo "----------------------------------------------------"
 echo "Installation Complete!"
 echo "1. Daemon active on port 5572."
-echo "2. Timer active (10-minute intervals)."
+echo "2. Timer active (15-minute intervals)."
 echo "3. Shortcuts 'Rclone Force Bisync' and 'Rclone Web GUI' added to menu."

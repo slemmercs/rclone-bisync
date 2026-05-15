@@ -59,6 +59,7 @@ ProtectSystem=strict
 ProtectHome=read-only
 
 # Allow writes only to specific directories
+ReadWritePaths=%h/.config/rclone
 ReadWritePaths=%h/rclone-bisync
 ReadWritePaths=%h/.cache/rclone
 ReadWritePaths=%h/gdrive
