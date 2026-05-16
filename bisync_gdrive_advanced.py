@@ -448,6 +448,10 @@ def classify_error(error_msg):
     # Daemon issues
     if "daemon" in msg_lower or "rcd" in msg_lower:
         return "DAEMON_ERROR"
+
+    # Too many deletes (might need --force)
+    if "too many deletes" in msg_lower:
+        return "TOO_MANY_DELETES"
     
     return "UNKNOWN"
 
@@ -511,7 +515,7 @@ def monitor_daemon_job(job_id):
             return False, "MONITOR_ERROR", str(e)
 
 
-def run_rclone_bisync(resync_attempt=False):
+def run_rclone_bisync(resync_attempt=False, force_attempt=False):
     """
     Trigger bisync via RC API.
     Returns: (success, error_type, error_detail)
@@ -524,11 +528,18 @@ def run_rclone_bisync(resync_attempt=False):
     # Prepare API request
     url = f"{config.RC_API_URL}/sync/bisync?_async=true"
     
+    # Safely copy common args and append --force if requested
+    rclone_args = list(config.RCLONE_COMMON_ARGS)
+    if force_attempt:
+        rclone_args.append("--force")
+        logging.info("Bypassing delete safety checks using --force flag.")
+    
     params = {
         "path1": config.REMOTE_PATH,
         "path2": config.LOCAL_PATH,
         "resync": resync_attempt,
-        "args": config.RCLONE_COMMON_ARGS
+        "force": force_attempt,
+        "args": rclone_args
     }
     
     try:
@@ -536,6 +547,7 @@ def run_rclone_bisync(resync_attempt=False):
         logging.info(f"  Remote: {config.REMOTE_PATH}")
         logging.info(f"  Local:  {config.LOCAL_PATH}")
         logging.info(f"  Resync: {resync_attempt}")
+        logging.info(f"  Force:  {force_attempt}")
         
         auth = None
         if config.RC_AUTH_ENABLED:
@@ -733,7 +745,7 @@ Logs:
     
     try:
         # Run sync
-        success, err_type, err_detail = run_rclone_bisync(resync_attempt=args.resync)
+        success, err_type, err_detail = run_rclone_bisync(resync_attempt=args.resync, force_attempt=args.force)
         duration = time.time() - start_time
         
         if success:
@@ -877,6 +889,21 @@ Logs:
                         "Sync Error - Permission Denied",
                         "Authentication or permission error.\n"
                         "Run: rclone config reconnect gdrive:",
+                        urgency="critical"
+                    )
+                    notification_state["last_error_type"] = err_type
+                    notification_state["last_error_timestamp"] = time.time()
+                    write_notification_state(notification_state)
+
+            elif err_type == "TOO_MANY_DELETES":
+                logging.error("Safety abort: Mass deletions detected.")
+                logging.error("To authorize these deletions, run the script manually:")
+                logging.error("  python3 ~/rclone-bisync/bisync_gdrive_advanced.py --force")
+                
+                if not args.no_notify and should_notify_error(err_type, notification_state):
+                    send_desktop_notification(
+                        "Sync Safety Abort",
+                        "Mass deletions detected.\nRun with --force to approve.",
                         urgency="critical"
                     )
                     notification_state["last_error_type"] = err_type
