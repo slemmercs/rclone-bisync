@@ -1,0 +1,258 @@
+let performanceChart = null;
+let configLoaded = false;
+
+function initializeChart(canvasId) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Run Duration (Seconds)',
+                data: [],
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.02)',
+                borderWidth: 2,
+                pointBackgroundColor: [],
+                pointBorderColor: [],
+                pointRadius: 4,
+                tension: 0.15,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: '#1e293b' }, ticks: { color: '#475569', font: { family: 'monospace' } } },
+                x: { grid: { display: false }, ticks: { color: '#475569', font: { family: 'monospace' } } }
+            }
+        }
+    });
+}
+
+// Convert plaintext or structural JSON lines to cleanly structured HTML rows
+function formatLogLine(line) {
+    if (typeof line !== 'string') return '';
+    line = line.trim();
+    if (!line) return '';
+
+    // Extract potential JSON structure safely
+    let jsonStart = line.indexOf('{');
+    let jsonEnd = line.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        try {
+            const jsonStr = line.substring(jsonStart, jsonEnd + 1);
+            const parsedLog = JSON.parse(jsonStr);
+            
+            let lvlColor = "text-slate-400";
+            if (parsedLog.level === 'error') lvlColor = "text-rose-400 font-bold";
+            else if (parsedLog.level === 'warning') lvlColor = "text-amber-400 font-medium";
+            else if (parsedLog.level === 'notice') lvlColor = "text-sky-400";
+            else if (parsedLog.level === 'info') lvlColor = "text-emerald-500";
+
+            const timeStr = parsedLog.time ? new Date(parsedLog.time).toLocaleTimeString() : 'N/A';
+            const levelStr = (parsedLog.level || 'info').toUpperCase().padEnd(7);
+            let messagePayload = parsedLog.msg || '';
+
+            if (messagePayload.includes('\\n')) messagePayload = messagePayload.replace(/\\n/g, '\n');
+            if (messagePayload.includes('\\"')) messagePayload = messagePayload.replace(/\\"/g, '"');
+
+            const targetStr = parsedLog.object ? ` <span class="text-indigo-400/90 text-[11px] font-sans bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-900/30 ml-2">→ ${parsedLog.object}</span>` : '';
+
+            return `
+                <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex flex-col sm:flex-row sm:items-start gap-x-3 text-[11px] font-mono leading-relaxed">
+                    <span class="text-slate-500 select-none shrink-0">[${timeStr}]</span>
+                    <span class="${lvlColor} select-none shrink-0 w-14">${levelStr}</span>
+                    <span class="text-slate-200 flex-1 whitespace-pre-wrap break-all">${messagePayload.trim()}${targetStr}</span>
+                </div>
+            `;
+        } catch (e) {
+            // Drop through to plaintext parser fallback on parsing exception
+        }
+    }
+
+    // 2. Fallback to standard text layout parsing (bisync.log)
+    let colorClass = "text-slate-400";
+    if (line.includes("[ERROR]")) colorClass = "text-rose-400 font-semibold";
+    else if (line.includes("[WARNING]")) colorClass = "text-amber-400";
+    else if (line.includes("✅") || line.includes("SUCCESS")) colorClass = "text-emerald-400 font-medium";
+
+    return `<div class="${colorClass} py-0.5 text-[11px] border-b border-slate-900/20 leading-relaxed font-mono whitespace-pre-wrap break-all">${line}</div>`;
+}
+
+function updateLogContainer(containerId, logLines) {
+    const container = document.getElementById(containerId);
+    if (!container || !logLines) return;
+
+    const isAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 40;
+    container.innerHTML = logLines.map(line => formatLogLine(line)).join('');
+
+    if (isAtBottom) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+async function updateTelemetry() {
+    try {
+        const response = await fetch('/api/telemetry');
+        if (!response.ok) throw new Error(`HTTP network failure: ${response.status}`);
+        
+        const data = await response.json();
+        
+        // 1. Process dynamic configuration drop-downs
+        if (data.config && !configLoaded) {
+            const banner = document.getElementById('config-banner');
+            const grid = document.getElementById('config-grid');
+            
+            if (document.getElementById('core-local-path')) document.getElementById('core-local-path').innerText = data.config.LOCAL_PATH || 'Not Set';
+            if (document.getElementById('core-remote-path')) document.getElementById('core-remote-path').innerText = data.config.REMOTE_PATH || 'Not Set';
+            if (document.getElementById('core-base-dir')) document.getElementById('core-base-dir').innerText = data.config.BASE_DIR || 'Not Set';
+
+            if (grid && banner) {
+                grid.innerHTML = ''; 
+                banner.classList.remove('hidden');
+
+                for (const [key, value] of Object.entries(data.config)) {
+                    if (['LOCAL_PATH', 'REMOTE_PATH', 'BASE_DIR'].includes(key)) continue;
+
+                    let formattedValue = '';
+                    if (Array.isArray(value)) {
+                        // Intelligent pairing for rclone argument structures
+                        let argsHtml = '<div class="space-y-1 mt-1.5">';
+                        for (let i = 0; i < value.length; i++) {
+                            let currentItem = value[i];
+                            // If current item is a flag and next item isn't, pair them side-by-side
+                            if (currentItem.startsWith('-') && i + 1 < value.length && !value[i + 1].startsWith('-')) {
+                                let nextValue = value[i + 1];
+                                argsHtml += `
+                                    <div class="bg-slate-950 px-2 py-0.5 rounded text-[10px] text-slate-300 font-mono border border-slate-800/40 flex justify-between gap-x-2 truncate" title="${currentItem} ${nextValue}">
+                                        <span class="text-slate-400 truncate">${currentItem}</span>
+                                        <span class="text-amber-400 font-medium shrink-0">${nextValue}</span>
+                                    </div>`;
+                                i++; // Skip value element in next loop loop iteration
+                            } else {
+                                let isFlag = currentItem.startsWith('-');
+                                let flagColor = isFlag ? 'text-slate-400' : 'text-amber-400 font-medium';
+                                argsHtml += `
+                                    <div class="bg-slate-950 px-2 py-0.5 rounded text-[10px] ${flagColor} font-mono border border-slate-800/40 truncate text-left" title="${currentItem}">
+                                        ${currentItem}
+                                    </div>`;
+                            }
+                        }
+                        argsHtml += '</div>';
+                        formattedValue = argsHtml;
+                    } else if (typeof value === 'object' && value !== null) {
+                        formattedValue = `<div class="space-y-1 mt-1.5 font-mono text-[10px]">` +
+                            Object.entries(value).map(([subKey, subVal]) => {
+                                const stateBadge = subVal 
+                                    ? `<span class="text-emerald-400 font-semibold text-[9px] bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-900/30">True</span>` 
+                                    : `<span class="text-rose-400 font-semibold text-[9px] bg-rose-950/40 px-1 py-0.2 rounded border border-rose-900/30">False</span>`;
+                                return `<div class="flex justify-between items-center border-b border-slate-900 pb-1 last:border-0"><span class="text-slate-500 truncate mr-2" title="${subKey}">${subKey}:</span>${stateBadge}</div>`;
+                            }).join('') + `</div>`;
+                    } else if (typeof value === 'boolean') {
+                        formattedValue = value 
+                            ? `<span class="text-emerald-400 font-semibold bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-900/40 inline-block mt-1">True</span>` 
+                            : `<span class="text-rose-400 font-semibold bg-rose-950/30 px-1.5 py-0.5 rounded border border-rose-900/40 inline-block mt-1">False</span>`;
+                    } else {
+                        formattedValue = `<span class="text-slate-300 block mt-1 select-all truncate" title="${String(value)}">${String(value)}</span>`;
+                    }
+
+                    const gridItem = document.createElement('div');
+                    gridItem.className = "bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/40 flex flex-col justify-between overflow-hidden hover:border-slate-700/60 transition-colors";
+                    gridItem.innerHTML = `
+                        <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold truncate" title="${key}">${key.replace(/_/g, ' ')}</div>
+                        <div class="w-full">${formattedValue}</div>
+                    `;
+                    grid.appendChild(gridItem);
+                }
+                configLoaded = true; 
+            }
+        }
+        
+        // 2. Process Daemon health variables
+        const daemonStringNode = document.getElementById('daemon-string');
+        const daemonLatencyNode = document.getElementById('daemon-latency');
+        if (daemonLatencyNode && data.daemon_health) {
+            daemonLatencyNode.innerText = data.daemon_health.response_time_ms.toFixed(2);
+        }
+        if (daemonStringNode && data.daemon_health) {
+            daemonStringNode.innerHTML = data.daemon_health.status === 'healthy' 
+                ? `<span class="text-emerald-400 tracking-wide">ONLINE</span>` 
+                : `<span class="text-rose-500 tracking-wide">OFFLINE</span>`;
+        }
+
+        // 3. Dynamic Execution Status Tile (Evaluates most up-to-date entry)
+        const syncStringNode = document.getElementById('sync-string');
+        const syncTimestampNode = document.getElementById('sync-timestamp');
+        
+        if (data.notification_state) {
+            const successTs = data.notification_state.last_success_timestamp || 0;
+            const errorTs = data.notification_state.last_error_timestamp || 0;
+            const activeTimestamp = Math.max(successTs, errorTs);
+            
+            if (syncTimestampNode) {
+                syncTimestampNode.innerText = activeTimestamp ? new Date(activeTimestamp * 1000).toLocaleTimeString() : 'N/A';
+            }
+            
+            if (syncStringNode) {
+                if (errorTs > successTs && data.notification_state.last_error_type) {
+                    syncStringNode.innerHTML = `<span class="text-rose-400 text-lg">FAULT (${data.notification_state.last_error_type})</span>`;
+                } else if (successTs > 0) {
+                    syncStringNode.innerHTML = `<span class="text-emerald-400">OPERATIONAL</span>`;
+                } else {
+                    syncStringNode.innerHTML = `<span class="text-slate-400">UNKNOWN</span>`;
+                }
+            }
+        }
+
+        // 4. Update metrics sample depth counter
+        if (document.getElementById('metrics-count') && data.metrics) {
+            document.getElementById('metrics-count').innerText = data.metrics.length;
+        }
+
+        // 5. Update Line Charts Metrics Vector
+        if (performanceChart && data.metrics && data.metrics.length > 0) {
+            performanceChart.data.labels = data.metrics.map(m => new Date(m.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+            performanceChart.data.datasets[0].data = data.metrics.map(m => m.duration_seconds);
+            const pointColors = data.metrics.map(m => m.success ? '#10b981' : '#f43f5e');
+            performanceChart.data.datasets[0].pointBackgroundColor = pointColors;
+            performanceChart.data.datasets[0].pointBorderColor = pointColors;
+            performanceChart.update('none');
+        }
+
+        // 6. Push Clean Streams to Terminals
+        updateLogContainer('log-bisync', data.bisync_logs);
+        updateLogContainer('log-daemon', data.daemon_logs);
+
+    } catch (error) {
+        console.error("Dashboard telemetry synchronization error:", error);
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    initializeChart('livePerformanceChart');
+    updateTelemetry();
+    
+    const toggleBtn = document.getElementById('toggle-extended-config');
+    const extendedPanel = document.getElementById('extended-config-panel');
+    const toggleIcon = document.getElementById('toggle-icon');
+    
+    if (toggleBtn && extendedPanel && toggleIcon) {
+        toggleBtn.addEventListener('click', () => {
+            const isHidden = extendedPanel.classList.contains('hidden');
+            if (isHidden) {
+                extendedPanel.classList.remove('hidden');
+                toggleIcon.classList.add('rotate-180');
+                toggleBtn.querySelector('span').innerText = 'Hide Parameters';
+            } else {
+                extendedPanel.classList.add('hidden');
+                toggleIcon.classList.remove('rotate-180');
+                toggleBtn.querySelector('span').innerText = 'Show Full Parameters';
+            }
+        });
+    }
+    setInterval(updateTelemetry, 3000);
+});

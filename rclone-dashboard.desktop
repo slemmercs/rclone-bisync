@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Rclone Custom Dashboard
+Comment=View custom sync loop profiling and streaming telemetry
+Exec=xdg-open http://127.0.0.1:8080
+Icon=network-server
+Terminal=false
+Categories=Utility;Network;
