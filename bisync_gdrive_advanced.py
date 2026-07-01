@@ -426,7 +426,7 @@ def classify_error(error_msg):
         return "STALE_LOCK"
     
     # Missing listings (needs resync)
-    if "cannot find prior" in msg_lower or "listing" in msg_lower:
+    if any(x in msg_lower for x in ["cannot find prior", "listing", "bisync aborted"]):
         return "NO_LISTINGS"
     
     # Rate limiting
@@ -528,11 +528,14 @@ def run_rclone_bisync(resync_attempt=False, force_attempt=False):
     # Prepare API request
     url = f"{config.RC_API_URL}/sync/bisync?_async=true"
     
-    # Safely copy common args and append --force if requested
+    # Safely copy common args and append flags explicitly to the engine arguments list
     rclone_args = list(config.RCLONE_COMMON_ARGS)
     if force_attempt:
         rclone_args.append("--force")
         logging.info("Bypassing delete safety checks using --force flag.")
+    if resync_attempt:
+        rclone_args.append("--resync")
+        logging.info("Requesting full database state reconstruction using --resync flag.")
     
     params = {
         "path1": config.REMOTE_PATH,
@@ -822,19 +825,36 @@ Logs:
                     write_notification_state(notification_state)
             
             elif err_type == "NO_LISTINGS":
-                logging.warning("Prior listings not found. A resync may be needed.")
-                logging.warning("Run with --resync flag to rebuild sync state.")
-                
-                if not args.no_notify and should_notify_error(err_type, notification_state):
-                    send_desktop_notification(
-                        "Sync Error - Resync Needed",
-                        "Prior sync listings not found.\n"
-                        "Run: bisync_gdrive_advanced.py --resync",
-                        urgency="critical"
-                    )
-                    notification_state["last_error_type"] = err_type
-                    notification_state["last_error_timestamp"] = time.time()
-                    write_notification_state(notification_state)
+                if args.resync:
+                    # Guard clause: If it failed even though --resync was set, stop to prevent an infinite loop
+                    logging.error("Sync failed during an explicit resync execution. Manual intervention required.")
+                else:
+                    logging.warning("⚠️ Prior listings missing or corrupted. Triggering automated self-healing resync...")
+                    if not args.no_notify:
+                        send_desktop_notification(
+                            "Sync Auto-Recovery",
+                            "Cache tracking missing. Rebuilding synchronization baseline states...",
+                            urgency="normal"
+                        )
+                    
+                    # Intercept execution: re-run the transaction immediately with resync activated
+                    retry_success, retry_err, retry_detail = run_rclone_bisync(resync_attempt=True, force_attempt=args.force)
+                    
+                    if retry_success:
+                        logging.info("✅ Auto-recovery successful! Baseline sync state successfully rebuilt.")
+                        success = True
+                        cleanup_on_success()
+                        
+                        # Clear old error states since recovery wiped out the fault
+                        notification_state["last_error_type"] = None
+                        write_notification_state(notification_state)
+                        
+                        log_metrics(success=True, duration=time.time() - start_time)
+                        return
+                    else:
+                        # Re-assign error values if the recovery attempt also dropped out
+                        err_type, err_detail = retry_err, retry_detail
+                        logging.error(f"Auto-recovery failed: {err_type} - {err_detail}")
             
             elif err_type == "STALE_LOCK":
                 logging.warning("Stale lock detected by rclone bisync.")
