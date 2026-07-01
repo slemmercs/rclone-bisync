@@ -3,6 +3,8 @@ Description=Rclone Remote Control Daemon
 Documentation=https://rclone.org/rc/
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -18,10 +20,9 @@ ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5; do curl -sf -X POST http://localho
 ExecStop=/usr/bin/curl -sf -X POST http://localhost:5572/core/quit
 Restart=always
 RestartSec=10s
-StartLimitIntervalSec=300
-StartLimitBurst=5
 
-MemoryLimit=2G
+# Updated memory limits for cgroups v2 to resolve deprecation warnings
+MemoryMax=2G
 MemoryHigh=1.5G
 CPUQuota=150%
 
