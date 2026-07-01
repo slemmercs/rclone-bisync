@@ -22,6 +22,28 @@ METRICS_FILE = os.path.join(BASE_DIR, "metrics.jsonl")
 RATE_LIMIT_BACKOFF_FILE = os.path.join(BASE_DIR, "rate_limit.flag")
 DAEMON_HEALTH_FILE = os.path.join(BASE_DIR, "daemon_health.json")
 
+# --- Rclone Daemon Settings ---
+# CRITICAL: These settings MUST match the rclone-daemon.service configuration
+# 
+# In rclone-daemon.service, the ExecStart line contains:
+#   --rc-addr localhost:5572
+# 
+# The RC_HOST and RC_PORT values below must match that setting exactly.
+# If you change the port in the service file, update RC_PORT here as well.
+# 
+# To verify: systemctl --user cat rclone-daemon.service | grep rc-addr
+
+RC_HOST = "localhost"
+RC_PORT = 5572  # Must match --rc-addr in rclone-daemon.service
+RC_API_URL = f"http://{RC_HOST}:{RC_PORT}"
+
+# Optional: Enable if you configured authentication in rclone-daemon.service
+# If you uncommented --rc-user and --rc-pass in the service file, set this to True
+# and update the credentials below to match
+RC_AUTH_ENABLED = False
+RC_USER = "rclone"         # Must match --rc-user in rclone-daemon.service
+RC_PASS = "your_password_here"  # Must match --rc-pass in rclone-daemon.service
+
 # --- Notification Settings ---
 NOTIFICATION_APP_NAME = "Rclone Bisync"
 SUCCESS_NOTIFICATION_INTERVAL_MIN = 30  # Only notify success every 30 min
