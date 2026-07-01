@@ -1,16 +1,12 @@
 [Unit]
-Description=Rclone Remote Control Daemon & Web GUI
+Description=Rclone Remote Control Daemon
 Documentation=https://rclone.org/rc/
-# Wait for network to be fully up before starting
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-
-# The daemon runs continuously and serves the RC API and Web GUI
 ExecStart=/usr/bin/rclone rcd \
-    --rc-web-gui \
     --rc-addr localhost:5572 \
     --rc-no-auth \
     --log-level INFO \
@@ -18,74 +14,20 @@ ExecStart=/usr/bin/rclone rcd \
     --use-json-log \
     --cache-dir %h/.cache/rclone
 
-# SECURITY RECOMMENDATION: Enable authentication
-# Uncomment these lines and comment out --rc-no-auth above
-# Generate password: rclone config dump | grep pass
-#    --rc-user rclone \
-#    --rc-pass YOUR_PASSWORD_HERE \
-
-# Alternative: Use htpasswd file for multiple users
-#    --rc-htpasswd %h/rclone-bisync/htpasswd \
-
-# Health check: Verify daemon responds before marking as ready
-# This prevents the bisync service from starting too early
 ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5; do curl -sf -X POST http://localhost:5572/core/stats > /dev/null && exit 0; sleep 2; done; exit 1'
-
-# Graceful shutdown
 ExecStop=/usr/bin/curl -sf -X POST http://localhost:5572/core/quit
-
-# Always restart the daemon if it crashes
 Restart=always
 RestartSec=10s
-
-# If the daemon fails repeatedly, back off (5 failures within 5 minutes)
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
-# Timeout settings
-TimeoutStartSec=30s
-TimeoutStopSec=30s
-
-# Logging to systemd journal
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=rclone-daemon
-
-# Security hardening
-# These restrictions prevent the daemon from being exploited
-#NoNewPrivileges=true
-#PrivateTmp=true
-#ProtectSystem=strict
-#ProtectHome=read-only
-
-# Allow writes only to specific directories
-#ReadWritePaths=%h/.config/rclone
-#ReadWritePaths=%h/rclone-bisync
-#ReadWritePaths=%h/.cache/rclone
-#ReadWritePaths=%h/gdrive
-
-# Protect sensitive parts of the system
-#ProtectKernelTunables=true
-#ProtectKernelModules=true
-#ProtectControlGroups=true
-#RestrictRealtime=true
-#RestrictNamespaces=true
-
-# Resource limits
-# Adjust based on your needs and available system resources
 MemoryLimit=2G
 MemoryHigh=1.5G
 CPUQuota=150%
 
-# Network access (required for Google Drive)
-PrivateNetwork=false
-
-# Nice level (lower priority than interactive processes)
-Nice=10
-
-# I/O priority (lower than default)
-IOSchedulingClass=best-effort
-IOSchedulingPriority=6
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rclone-daemon
 
 [Install]
 WantedBy=default.target
