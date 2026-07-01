@@ -1,0 +1,15 @@
+[Unit]
+Description=Rclone Telemetry Dashboard UI Backend
+After=network.target rclone-daemon.service
+Requires=rclone-daemon.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/rclone-bisync
+# Runs the dashboard app via uvicorn module
+ExecStart=/usr/bin/python3 -m uvicorn dashboard.backend.main:app --host 127.0.0.1 --port 8080 --log-level warning
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
