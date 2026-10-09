@@ -9,6 +9,7 @@ After=rclone-daemon.service
 # Run the service every 15 minutes
 # Format: *:0/15:00 means "every hour at minutes 0, 15, 30, 45"
 OnCalendar=*:0/15:00
+RandomizedDelaySec=60s
 
 # Alternative timing options (uncomment the one you prefer):
 # Every 10 minutes: OnCalendar=*:0/10:00

@@ -8,16 +8,21 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
+# Load the secrets file
+EnvironmentFile=%h/rclone-bisync/rc-secrets.env
+
+# Use systemd variable substitution for user and pass
 ExecStart=/usr/bin/rclone rcd \
     --rc-addr localhost:5572 \
-    --rc-no-auth \
+    --rc-user=${RC_USER} \
+    --rc-pass=${RC_PASS} \
     --log-level INFO \
     --log-file %h/rclone-bisync/rclone-daemon.log \
     --use-json-log \
     --cache-dir %h/.cache/rclone
 
 ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5; do curl -sf -X POST http://localhost:5572/core/stats > /dev/null && exit 0; sleep 2; done; exit 1'
-ExecStop=/usr/bin/curl -sf -X POST http://localhost:5572/core/quit
+ExecStop=-/usr/bin/curl -sf -X POST http://localhost:5572/core/quit
 Restart=always
 RestartSec=10s
 

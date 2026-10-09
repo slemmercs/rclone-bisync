@@ -14,7 +14,7 @@ The custom dashboard relies on FastAPI and Uvicorn. To avoid pathing issues insi
 
 ```bash
 sudo apt update
-sudo apt install python3-requests python3-plyer python3-fastapi python3-uvicorn
+sudo apt install python3-requests python3-plyer python3-fastapi python3-uvicorn python3-psutil
 ```
 
 ## Installation

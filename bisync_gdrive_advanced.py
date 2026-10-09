@@ -102,13 +102,22 @@ def load_json_file(filepath, default=None):
 
 
 def write_json_file(filepath, data):
-    """Write JSON file with error handling."""
+    """Write JSON file atomically with error handling."""
+    tmp_path = f"{filepath}.tmp.{os.getpid()}"
     try:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, 'w') as f:
+        with open(tmp_path, 'w') as f:
             json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, filepath)
     except IOError as e:
         logging.error(f"Failed to write {filepath}: {e}")
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 
 def load_notification_state():
@@ -379,54 +388,71 @@ def set_rate_limit_backoff():
 
 
 def check_daemon_health():
-    """Check if rclone daemon is responsive."""
+    """Check if rclone daemon is responsive.
+
+    Writes health metrics to DAEMON_HEALTH_FILE on both success and failure so
+    the dashboard reflects real daemon status.
+    """
     if not config.FEATURES.get("daemon_health_check", True):
         return True, None
-    
-    for attempt in range(config.DAEMON_HEALTH_CHECK_RETRIES):
+
+    retries = getattr(config, "DAEMON_HEALTH_CHECK_RETRIES", 2)
+    retry_delay = getattr(config, "RETRY_DELAY", 1)
+    last_error = "Daemon health check failed after all retries"
+
+    for attempt in range(retries):
         try:
             auth = None
             if config.RC_AUTH_ENABLED:
                 auth = (config.RC_USER, config.RC_PASS)
-            
+
             response = requests.post(
                 f"{config.RC_API_URL}/core/stats",
-                timeout=5,
+                timeout=2,
                 auth=auth
             )
-            
+
             if response.status_code == 200:
-                # Update health file
                 health_data = {
                     "last_check": time.time(),
                     "status": "healthy",
-                    "response_time_ms": response.elapsed.total_seconds() * 1000
+                    "response_time_ms": round(response.elapsed.total_seconds() * 1000, 2)
                 }
                 write_json_file(config.DAEMON_HEALTH_FILE, health_data)
-                
                 logging.debug(f"Daemon health check passed (attempt {attempt + 1})")
                 return True, None
-        
-        except requests.exceptions.ConnectionError:
-            if attempt < config.DAEMON_HEALTH_CHECK_RETRIES - 1:
-                logging.warning(
-                    f"Daemon not responding (attempt {attempt + 1}/{config.DAEMON_HEALTH_CHECK_RETRIES}). "
-                    f"Retrying in 5 seconds..."
-                )
-                time.sleep(5)
             else:
-                error_msg = (
-                    f"Rclone daemon is not running on {config.RC_API_URL}. "
-                    "Ensure rclone-daemon.service is started."
+                last_error = f"Daemon returned HTTP status {response.status_code}"
+                logging.warning(f"Daemon health check non-200 response: {response.status_code}")
+
+        except requests.exceptions.ConnectionError as e:
+            last_error = (
+                f"Rclone daemon is not running on {config.RC_API_URL}. "
+                "Ensure rclone-daemon.service is started."
+            )
+            if attempt < retries - 1:
+                logging.warning(
+                    f"Daemon not responding (attempt {attempt + 1}/{retries}). "
+                    f"Retrying in {retry_delay}s..."
                 )
-                logging.error(error_msg)
-                return False, error_msg
-        
+                time.sleep(retry_delay)
+
         except Exception as e:
+            last_error = str(e)
             logging.error(f"Daemon health check error: {e}")
-            return False, str(e)
-    
-    return False, "Daemon health check failed after all retries"
+            if attempt < retries - 1:
+                time.sleep(retry_delay)
+
+    # Record offline state to DAEMON_HEALTH_FILE so telemetry shows OFFLINE
+    health_data = {
+        "last_check": time.time(),
+        "status": "offline",
+        "response_time_ms": 0.0,
+        "error": last_error
+    }
+    write_json_file(config.DAEMON_HEALTH_FILE, health_data)
+    logging.error(f"Daemon health check failed: {last_error}")
+    return False, last_error
 
 
 def classify_error(error_msg):
@@ -571,11 +597,12 @@ CLI_TO_RC_MAP = {
     "--track-renames": ("config_bool", "TrackRenames"),
     "--fast-list": ("config_bool", "UseListR"),
     "--retries": ("config_int", "Retries"),
-    "--retries-sleep": ("config_str", "RetriesSleep"),
+    "--retries-sleep": ("config_str", "RetriesInterval"),
     "--low-level-retries": ("config_int", "LowLevelRetries"),
     "--tpslimit": ("config_float", "TPSLimit"),
     "--tpslimit-burst": ("config_int", "TPSLimitBurst"),
     "--buffer-size": ("config_str", "BufferSize"),
+    "--color": ("config_str", "TerminalColorMode"),
     "--drive-export-formats": ("config_str", "DriveExportFormats"),
     "--drive-import-formats": ("config_str", "DriveImportFormats"),
     "--drive-skip-gdocs": ("config_bool", "DriveSkipGdocs"),
@@ -631,6 +658,15 @@ def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
                         engine_config[target_key] = float(args_list[i])
                     except ValueError:
                         engine_config[target_key] = args_list[i]
+        else:
+            if not arg.startswith("-"):
+                logging.warning(f"Unexpected argument in RCLONE_COMMON_ARGS: {arg}")
+            else:
+                if i + 1 < len(args_list) and not args_list[i + 1].startswith("-"):
+                    logging.warning(f"Unmapped CLI option '{arg} {args_list[i + 1]}' skipped for RC API")
+                    i += 1
+                else:
+                    logging.warning(f"Unmapped CLI flag '{arg}' skipped for RC API")
         i += 1
 
     # Safety check: checkAccess strictly requires RCLONE_TEST on both local and remote
@@ -926,13 +962,15 @@ Logs:
             last_success = notification_state.get("last_success_timestamp", 0)
             time_since_last = (time.time() - last_success) / 60
             
+            # Always update success timestamp for accurate dashboard telemetry
+            notification_state["last_success_timestamp"] = time.time()
+            write_notification_state(notification_state)
+            
             if not args.no_notify and time_since_last >= config.SUCCESS_NOTIFICATION_INTERVAL_MIN:
                 send_desktop_notification(
                     "Sync Success",
                     f"Google Drive synchronized successfully.\nDuration: {duration:.1f}s"
                 )
-                notification_state["last_success_timestamp"] = time.time()
-                write_notification_state(notification_state)
             else:
                 logging.debug(
                     f"Success notification skipped (last notification {time_since_last:.1f} min ago)"
