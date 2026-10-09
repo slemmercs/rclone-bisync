@@ -237,28 +237,43 @@ def check_pid_exists(pid):
 
 
 def acquire_lock():
-    """Acquire file lock with stale lock detection."""
+    """Acquire file lock with stale lock detection.
+
+    Race-condition fix: we must NOT truncate the lock file before holding the
+    fcntl lock.  Using open('w') did exactly that — a second process could zero
+    out the first process's PID before the first process even called lockf(),
+    making stale-lock detection read an empty string and fail silently.
+
+    Fix: open with O_RDWR | O_CREAT (no implicit truncation), acquire the
+    exclusive lock, and only then truncate + write our PID under lock
+    protection.
+    """
     global lock_file_handle
-    
+
     # Ensure lock directory exists
     os.makedirs(os.path.dirname(config.LOCK_FILE), mode=0o700, exist_ok=True)
-    
-    lock_file_handle = open(config.LOCK_FILE, 'w')
-    
+
+    # Open without truncating — the existing PID must stay readable until we
+    # actually hold the lock.
+    fd = os.open(config.LOCK_FILE, os.O_RDWR | os.O_CREAT, 0o600)
+    lock_file_handle = os.fdopen(fd, 'r+')
+
     try:
         fcntl.lockf(lock_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        # Write our PID to lock file
+        # We own the lock — safe to truncate and stamp our PID.
+        lock_file_handle.seek(0)
+        lock_file_handle.truncate()
         lock_file_handle.write(str(os.getpid()))
         lock_file_handle.flush()
         logging.debug(f"Lock acquired (PID: {os.getpid()})")
         return True
-    
+
     except IOError:
         # Lock is held by another process
         if not config.FEATURES.get("stale_lock_detection", True) or not config.CHECK_STALE_LOCKS:
             logging.warning("Another instance is running (lock held).")
             return False
-        
+
         # Check for stale lock
         if os.path.exists(config.LOCK_FILE):
             try:
@@ -266,14 +281,14 @@ def acquire_lock():
                     content = f.read().strip()
                     if content:
                         old_pid = int(content)
-                        
+
                         # Check if process exists
                         if not check_pid_exists(old_pid):
                             logging.warning(f"Removing stale lock (PID {old_pid} not running)")
                             lock_file_handle.close()
                             os.remove(config.LOCK_FILE)
                             return acquire_lock()  # Retry
-                        
+
                         # Check if lock is too old (process might be hung)
                         lock_age = time.time() - os.path.getmtime(config.LOCK_FILE)
                         if lock_age > config.LOCK_STALE_TIMEOUT_SECONDS:
@@ -287,11 +302,11 @@ def acquire_lock():
                         else:
                             logging.warning(f"Another instance is running (PID {old_pid})")
                             return False
-            
+
             except (ValueError, IOError) as e:
                 logging.warning(f"Could not read lock file: {e}")
                 return False
-        
+
         logging.warning("Another instance is running.")
         return False
 
@@ -425,8 +440,12 @@ def classify_error(error_msg):
     if "prior lock file found" in msg_lower or "lock" in msg_lower:
         return "STALE_LOCK"
     
-    # Missing listings (needs resync)
-    if any(x in msg_lower for x in ["cannot find prior", "listing", "bisync aborted"]):
+    # Missing listings (needs resync).
+    # Only match when rclone explicitly reports the prior listing files are absent:
+    #   "cannot find prior path1 or path2 listings"
+    # Do NOT match "bisync aborted" (generic fatal indicator present on every rclone
+    # bisync failure) or bare "listing" (too broad — appears in rate-limit logs, etc.)
+    if "cannot find prior" in msg_lower:
         return "NO_LISTINGS"
     
     # Rate limiting
@@ -459,25 +478,30 @@ def classify_error(error_msg):
 def monitor_daemon_job(job_id):
     """
     Poll the daemon for job completion with exponential backoff.
-    Returns: (success, error_type, error_detail)
+    Returns: (success, error_type, error_detail, files_synced)
+
+    The finished RC job/status response has the shape:
+        {"finished": true, "success": true, "output": {"stats": {"transfers": N, ...}}}
+    We extract ``transfers`` from there so the caller can pass a real value to
+    log_metrics() instead of the hardcoded 0 it used before.
     """
     start_time = time.time()
     sleep_duration = config.JOB_POLL_INITIAL_SLEEP
-    
+
     logging.info(f"Monitoring job {job_id}...")
-    
+
     while True:
         # Check timeout
         elapsed = time.time() - start_time
         if elapsed > config.JOB_TIMEOUT_SECONDS:
             logging.error(f"Job {job_id} exceeded timeout ({config.JOB_TIMEOUT_SECONDS}s)")
-            return False, "TIMEOUT", f"Job exceeded {config.JOB_TIMEOUT_SECONDS}s timeout"
-        
+            return False, "TIMEOUT", f"Job exceeded {config.JOB_TIMEOUT_SECONDS}s timeout", 0
+
         try:
             auth = None
             if config.RC_AUTH_ENABLED:
                 auth = (config.RC_USER, config.RC_PASS)
-            
+
             response = requests.post(
                 f"{config.RC_API_URL}/job/status",
                 json={"jobid": job_id},
@@ -486,76 +510,181 @@ def monitor_daemon_job(job_id):
             )
             response.raise_for_status()
             status = response.json()
-            
+
             if status.get("finished"):
                 success = status.get("success")
                 error_msg = status.get("error", "")
-                
+
+                # Extract transfer count from the finished job output.
+                # Rclone embeds final stats under output.stats.transfers.
+                files_synced = 0
+                try:
+                    files_synced = int(
+                        status.get("output", {}).get("stats", {}).get("transfers", 0)
+                    )
+                except (TypeError, ValueError):
+                    pass
+
                 if success:
                     duration = status.get("duration", elapsed)
-                    logging.info(f"Job {job_id} completed successfully in {duration:.1f}s")
-                    return True, None, None
-                
+                    logging.info(
+                        f"Job {job_id} completed successfully in {duration:.1f}s "
+                        f"({files_synced} file(s) transferred)"
+                    )
+                    return True, None, None, files_synced
+
                 # Error classification
                 err_type = classify_error(error_msg)
                 logging.error(f"Job {job_id} failed: {err_type} - {error_msg}")
-                return False, err_type, error_msg
-            
+                return False, err_type, error_msg, files_synced
+
             # Job still running
             logging.debug(f"Job {job_id} still running... (elapsed: {elapsed:.1f}s)")
             time.sleep(min(sleep_duration, config.JOB_POLL_MAX_SLEEP))
             sleep_duration *= config.JOB_POLL_BACKOFF_MULTIPLIER
-        
+
         except requests.exceptions.RequestException as e:
             logging.error(f"Error polling job status: {e}")
-            return False, "MONITOR_ERROR", str(e)
-        
+            return False, "MONITOR_ERROR", str(e), 0
+
         except Exception as e:
             logging.error(f"Unexpected error monitoring job: {e}")
-            return False, "MONITOR_ERROR", str(e)
+            return False, "MONITOR_ERROR", str(e), 0
+
+
+# Mapping of CLI arguments to Rclone Remote Control (RC) API parameters.
+# Top-level bisync parameters are applied directly to /sync/bisync.
+# Engine options are passed within the '_config' dictionary.
+CLI_TO_RC_MAP = {
+    # Bisync-specific options
+    "--conflict-resolve": ("param", "conflictResolve"),
+    "--conflict-loser": ("param", "conflictLoser"),
+    "--conflict-suffix": ("param", "conflictSuffix"),
+    "--remove-empty-dirs": ("param_bool", "removeEmptyDirs"),
+    "--resilient": ("param_bool", "resilient"),
+    "--recover": ("param_bool", "recover"),
+    "--check-access": ("param_bool", "checkAccess"),
+    "--compare": ("param", "compare"),
+    
+    # Engine configuration options passed in '_config'
+    "--check-first": ("config_bool", "CheckFirst"),
+    "--track-renames": ("config_bool", "TrackRenames"),
+    "--fast-list": ("config_bool", "UseListR"),
+    "--retries": ("config_int", "Retries"),
+    "--retries-sleep": ("config_str", "RetriesSleep"),
+    "--low-level-retries": ("config_int", "LowLevelRetries"),
+    "--tpslimit": ("config_float", "TPSLimit"),
+    "--tpslimit-burst": ("config_int", "TPSLimitBurst"),
+    "--buffer-size": ("config_str", "BufferSize"),
+    "--drive-export-formats": ("config_str", "DriveExportFormats"),
+    "--drive-import-formats": ("config_str", "DriveImportFormats"),
+    "--drive-skip-gdocs": ("config_bool", "DriveSkipGdocs"),
+    "--drive-use-trash": ("config_bool", "DriveUseTrash"),
+    "--drive-acknowledge-abuse": ("config_bool", "DriveAcknowledgeAbuse"),
+    "--drive-skip-shortcuts": ("config_bool", "DriveSkipShortcuts"),
+    "--use-json-log": ("config_bool", "UseJSONLog")
+}
+
+
+def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
+    """
+    Translates RCLONE_COMMON_ARGS into valid parameters and _config settings
+    for the Rclone Remote Control (RC) API endpoint (/sync/bisync).
+    """
+    bisync_params = {
+        "path1": config.REMOTE_PATH,
+        "path2": config.LOCAL_PATH,
+        "resync": bool(resync_attempt),
+        "force": bool(force_attempt),
+    }
+    engine_config = {}
+
+    args_list = getattr(config, "RCLONE_COMMON_ARGS", [])
+    i = 0
+    while i < len(args_list):
+        arg = args_list[i]
+        if arg in CLI_TO_RC_MAP:
+            action, target_key = CLI_TO_RC_MAP[arg]
+            if action == "param_bool":
+                bisync_params[target_key] = True
+            elif action == "config_bool":
+                engine_config[target_key] = True
+            elif action == "param":
+                i += 1
+                if i < len(args_list):
+                    bisync_params[target_key] = args_list[i]
+            elif action == "config_str":
+                i += 1
+                if i < len(args_list):
+                    engine_config[target_key] = args_list[i]
+            elif action == "config_int":
+                i += 1
+                if i < len(args_list):
+                    try:
+                        engine_config[target_key] = int(args_list[i])
+                    except ValueError:
+                        engine_config[target_key] = args_list[i]
+            elif action == "config_float":
+                i += 1
+                if i < len(args_list):
+                    try:
+                        engine_config[target_key] = float(args_list[i])
+                    except ValueError:
+                        engine_config[target_key] = args_list[i]
+        i += 1
+
+    # Safety check: checkAccess strictly requires RCLONE_TEST on both local and remote
+    if bisync_params.get("checkAccess"):
+        test_file = os.path.join(config.LOCAL_PATH, "RCLONE_TEST")
+        if not os.path.exists(test_file):
+            logging.warning(
+                f"--check-access requested, but 'RCLONE_TEST' not found in {config.LOCAL_PATH}. "
+                "Disabling checkAccess to prevent sync abort."
+            )
+            bisync_params["checkAccess"] = False
+
+    if engine_config:
+        bisync_params["_config"] = engine_config
+
+    return bisync_params
 
 
 def run_rclone_bisync(resync_attempt=False, force_attempt=False):
     """
     Trigger bisync via RC API.
-    Returns: (success, error_type, error_detail)
+    Returns: (success, error_type, error_detail, files_synced)
     """
     # Check daemon health first
     daemon_ok, daemon_error = check_daemon_health()
     if not daemon_ok:
-        return False, "DAEMON_OFFLINE", daemon_error
-    
+        return False, "DAEMON_OFFLINE", daemon_error, 0
+
     # Prepare API request
     url = f"{config.RC_API_URL}/sync/bisync?_async=true"
-    
-    # Safely copy common args and append flags explicitly to the engine arguments list
-    rclone_args = list(config.RCLONE_COMMON_ARGS)
+
+    # Build proper RC parameter payload
+    params = build_bisync_rc_payload(resync_attempt=resync_attempt, force_attempt=force_attempt)
+
     if force_attempt:
-        rclone_args.append("--force")
         logging.info("Bypassing delete safety checks using --force flag.")
     if resync_attempt:
-        rclone_args.append("--resync")
         logging.info("Requesting full database state reconstruction using --resync flag.")
-    
-    params = {
-        "path1": config.REMOTE_PATH,
-        "path2": config.LOCAL_PATH,
-        "resync": resync_attempt,
-        "force": force_attempt,
-        "args": rclone_args
-    }
-    
+
     try:
         logging.info(f"Sending bisync command to daemon ({config.RC_API_URL})...")
-        logging.info(f"  Remote: {config.REMOTE_PATH}")
-        logging.info(f"  Local:  {config.LOCAL_PATH}")
-        logging.info(f"  Resync: {resync_attempt}")
-        logging.info(f"  Force:  {force_attempt}")
-        
+        logging.info(f"  Remote: {params.get('path1')}")
+        logging.info(f"  Local:  {params.get('path2')}")
+        logging.info(f"  Resync: {params.get('resync')}")
+        logging.info(f"  Force:  {params.get('force')}")
+        if "conflictResolve" in params:
+            logging.info(f"  Conflict Resolution: {params.get('conflictResolve')} (loser: {params.get('conflictLoser', 'num')})")
+        if "_config" in params:
+            logging.debug(f"  _config options: {json.dumps(params['_config'])}")
+
         auth = None
         if config.RC_AUTH_ENABLED:
             auth = (config.RC_USER, config.RC_PASS)
-        
+
         response = requests.post(
             url,
             json=params,
@@ -564,38 +693,48 @@ def run_rclone_bisync(resync_attempt=False, force_attempt=False):
         )
         response.raise_for_status()
         response_json = response.json()
-        
+
         logging.debug(f"Daemon response: {response_json}")
-        
+
         job_id = response_json.get("jobid")
-        
+
         if job_id is not None:
             logging.info(f"Bisync job started (Job ID: {job_id})")
             return monitor_daemon_job(int(job_id))
         else:
-            # Synchronous completion (rare)
+            # Synchronous completion (rare) — no stats available in this path
             logging.info("Bisync completed synchronously")
-            return True, None, None
-    
+            return True, None, None, 0
+
     except requests.exceptions.ConnectionError:
         error_msg = f"Cannot connect to rclone daemon at {config.RC_API_URL}"
         logging.error(error_msg)
-        return False, "DAEMON_OFFLINE", error_msg
-    
+        return False, "DAEMON_OFFLINE", error_msg, 0
+
+    except requests.exceptions.HTTPError as e:
+        try:
+            err_json = e.response.json()
+            error_msg = err_json.get("error", e.response.text)
+        except Exception:
+            error_msg = e.response.text or str(e)
+        err_type = classify_error(error_msg)
+        logging.error(f"Daemon HTTP error: {err_type} - {error_msg}")
+        return False, err_type, error_msg, 0
+
     except requests.exceptions.Timeout:
         error_msg = "Request to daemon timed out"
         logging.error(error_msg)
-        return False, "DAEMON_TIMEOUT", error_msg
-    
+        return False, "DAEMON_TIMEOUT", error_msg, 0
+
     except requests.exceptions.RequestException as e:
         error_msg = f"Request error: {e}"
         logging.error(error_msg)
-        return False, "DAEMON_ERROR", error_msg
-    
+        return False, "DAEMON_ERROR", error_msg, 0
+
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         logging.error(error_msg)
-        return False, "UNKNOWN", error_msg
+        return False, "UNKNOWN", error_msg, 0
 
 
 def validate_configuration():
@@ -669,16 +808,26 @@ def cleanup_on_success():
 
 
 def signal_handler(signum, frame):
-    """Handle termination signals gracefully."""
-    logging.warning(f"Received signal {signum}. Cleaning up...")
+    """Handle SIGTERM gracefully.
+
+    Exit with code 143 (128 + 15) so systemd and the calling shell correctly
+    distinguish a signal termination from a clean exit (0) or a runtime
+    failure (1).
+
+    SIGINT is intentionally NOT registered here — letting it raise
+    KeyboardInterrupt allows main()'s ``except KeyboardInterrupt`` block to
+    run (logging + metrics) before exiting with code 130.
+    """
+    logging.warning(f"Received signal {signum} (SIGTERM). Cleaning up...")
     release_lock()
-    sys.exit(0)
+    sys.exit(143)  # 128 + SIGTERM(15)
 
 
 def main():
     """Main entry point."""
-    # Set up signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
+    # Set up signal handlers.
+    # SIGTERM → signal_handler (exits 143 so systemd sees a proper kill)
+    # SIGINT  → default Python behaviour (raises KeyboardInterrupt, caught below)
     signal.signal(signal.SIGTERM, signal_handler)
     
     # Parse arguments
@@ -745,12 +894,13 @@ Logs:
     success = False
     err_type = None
     err_detail = None
-    
+    files_synced = 0
+
     try:
         # Run sync
-        success, err_type, err_detail = run_rclone_bisync(resync_attempt=args.resync, force_attempt=args.force)
+        success, err_type, err_detail, files_synced = run_rclone_bisync(resync_attempt=args.resync, force_attempt=args.force)
         duration = time.time() - start_time
-        
+
         if success:
             # ============================================================
             # SUCCESS PATH
@@ -758,12 +908,12 @@ Logs:
             logging.info("=" * 60)
             logging.info("SYNC COMPLETED SUCCESSFULLY")
             logging.info("=" * 60)
-            
+
             # Cleanup
             cleanup_on_success()
-            
+
             # Log metrics
-            log_metrics(success=True, duration=duration)
+            log_metrics(success=True, duration=duration, files_synced=files_synced)
             
             # Send webhook
             send_webhook("sync_success", {
@@ -838,18 +988,18 @@ Logs:
                         )
                     
                     # Intercept execution: re-run the transaction immediately with resync activated
-                    retry_success, retry_err, retry_detail = run_rclone_bisync(resync_attempt=True, force_attempt=args.force)
-                    
+                    retry_success, retry_err, retry_detail, retry_files = run_rclone_bisync(resync_attempt=True, force_attempt=args.force)
+
                     if retry_success:
                         logging.info("✅ Auto-recovery successful! Baseline sync state successfully rebuilt.")
                         success = True
                         cleanup_on_success()
-                        
+
                         # Clear old error states since recovery wiped out the fault
                         notification_state["last_error_type"] = None
                         write_notification_state(notification_state)
-                        
-                        log_metrics(success=True, duration=time.time() - start_time)
+
+                        log_metrics(success=True, duration=time.time() - start_time, files_synced=retry_files)
                         return
                     else:
                         # Re-assign error values if the recovery attempt also dropped out

@@ -2,7 +2,7 @@
 Categories=Utility;
 Comment=Force a full bidirectional sync now via systemd
 Exec=systemctl --user start bisync-gdrive.service
-Icon=/home/csaba/Downloads/rclone.svg
+Icon=sync
 Name=Rclone Force Bisync
 NoDisplay=false
 Path=

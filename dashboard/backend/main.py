@@ -2,6 +2,7 @@
 import os
 import sys
 import json
+import fcntl
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -48,6 +49,7 @@ class TelemetryPayload(BaseModel):
     bisync_logs: List[str]
     daemon_logs: List[str]
     config: dict
+    is_syncing: bool = False
 
 def tail_file(filepath: str, lines_count: int = 40) -> List[str]:
     """Accurately reads the last N whole lines of a file by seeking backward from the end."""
@@ -88,37 +90,108 @@ def tail_file(filepath: str, lines_count: int = 40) -> List[str]:
             
     return list(reversed(lines))
 
+# Keys and word patterns that should be masked in telemetry responses
+SENSITIVE_CONFIG_KEYS = {"RC_PASS", "WEBHOOK_URL"}
+SENSITIVE_WORDS = {"PASS", "PASSWORD", "SECRET", "TOKEN", "KEY", "CREDENTIAL", "CREDENTIALS"}
+
+def is_sensitive_key(key: str) -> bool:
+    key_upper = key.upper()
+    if key_upper in SENSITIVE_CONFIG_KEYS:
+        return True
+    parts = set(key_upper.split("_"))
+    return bool(parts & SENSITIVE_WORDS)
+
+# In-memory cache for JSON files based on mtime and file size
+_file_cache = {}
+
+def get_cached_json(filepath: str, default=None):
+    """Loads JSON file with mtime/size caching to prevent redundant disk I/O."""
+    if default is None:
+        default = {}
+    if not os.path.exists(filepath):
+        return default
+    try:
+        stat = os.stat(filepath)
+        cached = _file_cache.get(filepath)
+        if cached and cached["mtime"] == stat.st_mtime and cached["size"] == stat.st_size:
+            return cached["data"]
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        _file_cache[filepath] = {
+            "mtime": stat.st_mtime,
+            "size": stat.st_size,
+            "data": data
+        }
+        return data
+    except Exception:
+        return default
+
+_metrics_cache = {"mtime": 0, "size": 0, "data": []}
+
+def get_cached_metrics(filepath: str, lines_count: int = 30) -> List[dict]:
+    """Tails only the last N lines of metrics.jsonl and caches result by mtime and file size."""
+    if not os.path.exists(filepath):
+        return []
+    try:
+        stat = os.stat(filepath)
+        if _metrics_cache["mtime"] == stat.st_mtime and _metrics_cache["size"] == stat.st_size:
+            return _metrics_cache["data"]
+
+        # Efficient backward tail instead of reading entire file into memory
+        raw_lines = tail_file(filepath, lines_count=lines_count)
+        parsed = []
+        for line in raw_lines:
+            line_str = line.strip()
+            if line_str:
+                try:
+                    parsed.append(json.loads(line_str))
+                except (json.JSONDecodeError, ValueError):
+                    continue
+
+        _metrics_cache["mtime"] = stat.st_mtime
+        _metrics_cache["size"] = stat.st_size
+        _metrics_cache["data"] = parsed
+        return parsed
+    except Exception:
+        return _metrics_cache.get("data", [])
+
+def check_is_syncing() -> bool:
+    """Check if a synchronization run is actively in progress using the file lock."""
+    if not os.path.exists(config.LOCK_FILE):
+        return False
+
+    # Test non-blockingly if the lock is held by a running process
+    try:
+        with open(config.LOCK_FILE, 'r') as f:
+            try:
+                fcntl.lockf(f, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                # Lock acquired successfully -> no active process is holding it
+                fcntl.lockf(f, fcntl.LOCK_UN)
+                return False
+            except (BlockingIOError, IOError, OSError) as e:
+                # EAGAIN (11) or EACCES (13) indicates lock is held by another process
+                if getattr(e, "errno", None) in (11, 13):
+                    return True
+                return False
+    except Exception:
+        return False
+
 @app.get("/api/telemetry", response_model=TelemetryPayload)
 def get_telemetry():
-    # 1. Parse Daemon Health File
-    daemon_data = {"status": "unknown", "response_time_ms": 0.0, "last_check": 0.0}
-    if os.path.exists(config.DAEMON_HEALTH_FILE):
-        try:
-            with open(config.DAEMON_HEALTH_FILE, 'r') as f:
-                daemon_data = json.load(f)
-        except Exception:
-            pass
+    # 1. Parse Daemon Health File (cached by mtime/size)
+    daemon_data = get_cached_json(
+        config.DAEMON_HEALTH_FILE,
+        default={"status": "unknown", "response_time_ms": 0.0, "last_check": 0.0}
+    )
 
-    # 2. Parse Notification State File
-    notification_data = {"last_success_timestamp": None, "last_error_type": None, "last_error_timestamp": None}
-    if os.path.exists(config.NOTIFICATION_STATE_FILE):
-        try:
-            with open(config.NOTIFICATION_STATE_FILE, 'r') as f:
-                notification_data = json.load(f)
-        except Exception:
-            pass
+    # 2. Parse Notification State File (cached by mtime/size)
+    notification_data = get_cached_json(
+        config.NOTIFICATION_STATE_FILE,
+        default={"last_success_timestamp": None, "last_error_type": None, "last_error_timestamp": None}
+    )
 
-    # 3. Parse Metrics Log
-    metrics_data = []
-    if os.path.exists(config.METRICS_FILE):
-        try:
-            with open(config.METRICS_FILE, 'r') as f:
-                lines = f.readlines()
-                for line in lines[-30:]:
-                    if line.strip():
-                        metrics_data.append(json.loads(line.strip()))
-        except Exception:
-            pass
+    # 3. Parse Metrics Log (cached tail read without loading entire file)
+    metrics_data = get_cached_metrics(config.METRICS_FILE, lines_count=30)
 
     # 4. Pull fresh streams for log files
     bisync_logs = tail_file(config.LOG_FILE, lines_count=40)
@@ -127,13 +200,19 @@ def get_telemetry():
     daemon_log_path = os.path.join(config.BASE_DIR, "rclone-daemon.log")
     daemon_logs = tail_file(daemon_log_path, lines_count=40)
 
-    # 5. Harvest configuration variables dynamically
+    # 5. Harvest configuration variables dynamically, sanitizing sensitive keys
     runtime_config = {}
     for key in dir(config):
         if key.isupper():
             value = getattr(config, key)
             if isinstance(value, (str, int, float, bool, list, dict)) or value is None:
-                runtime_config[key] = value
+                if is_sensitive_key(key):
+                    runtime_config[key] = "********" if (value is not None and value != "") else value
+                else:
+                    runtime_config[key] = value
+
+    # 6. Check active sync state
+    is_syncing = check_is_syncing()
 
     return {
         "daemon_health": daemon_data,
@@ -141,7 +220,8 @@ def get_telemetry():
         "metrics": metrics_data,
         "bisync_logs": bisync_logs,
         "daemon_logs": daemon_logs,
-        "config": runtime_config
+        "config": runtime_config,
+        "is_syncing": is_syncing
     }
 
 # Mount static files cleanly
