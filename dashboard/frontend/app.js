@@ -32,6 +32,17 @@ function initializeChart(canvasId) {
     });
 }
 
+// HTML escape helper to prevent DOM-based XSS vulnerabilities
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // Convert plaintext or structural JSON lines to cleanly structured HTML rows
 function formatLogLine(line) {
     if (typeof line !== 'string') return '';
@@ -60,13 +71,13 @@ function formatLogLine(line) {
             if (messagePayload.includes('\\n')) messagePayload = messagePayload.replace(/\\n/g, '\n');
             if (messagePayload.includes('\\"')) messagePayload = messagePayload.replace(/\\"/g, '"');
 
-            const targetStr = parsedLog.object ? ` <span class="text-indigo-400/90 text-[11px] font-sans bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-900/30 ml-2">→ ${parsedLog.object}</span>` : '';
+            const targetStr = parsedLog.object ? ` <span class="text-indigo-400/90 text-[11px] font-sans bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-900/30 ml-2">→ ${escapeHtml(parsedLog.object)}</span>` : '';
 
             return `
                 <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex flex-col sm:flex-row sm:items-start gap-x-3 text-[11px] font-mono leading-relaxed">
-                    <span class="text-slate-500 select-none shrink-0">[${timeStr}]</span>
-                    <span class="${lvlColor} select-none shrink-0 w-14">${levelStr}</span>
-                    <span class="text-slate-200 flex-1 whitespace-pre-wrap break-all">${messagePayload.trim()}${targetStr}</span>
+                    <span class="text-slate-500 select-none shrink-0">[${escapeHtml(timeStr)}]</span>
+                    <span class="${lvlColor} select-none shrink-0 w-14">${escapeHtml(levelStr)}</span>
+                    <span class="text-slate-200 flex-1 whitespace-pre-wrap break-all">${escapeHtml(messagePayload.trim())}${targetStr}</span>
                 </div>
             `;
         } catch (e) {
@@ -80,7 +91,7 @@ function formatLogLine(line) {
     else if (line.includes("[WARNING]")) colorClass = "text-amber-400";
     else if (line.includes("✅") || line.includes("SUCCESS")) colorClass = "text-emerald-400 font-medium";
 
-    return `<div class="${colorClass} py-0.5 text-[11px] border-b border-slate-900/20 leading-relaxed font-mono whitespace-pre-wrap break-all">${line}</div>`;
+    return `<div class="${colorClass} py-0.5 text-[11px] border-b border-slate-900/20 leading-relaxed font-mono whitespace-pre-wrap break-all">${escapeHtml(line)}</div>`;
 }
 
 function updateLogContainer(containerId, logLines) {
@@ -107,9 +118,9 @@ async function updateTelemetry() {
             const banner = document.getElementById('config-banner');
             const grid = document.getElementById('config-grid');
             
-            if (document.getElementById('core-local-path')) document.getElementById('core-local-path').innerText = data.config.LOCAL_PATH || 'Not Set';
-            if (document.getElementById('core-remote-path')) document.getElementById('core-remote-path').innerText = data.config.REMOTE_PATH || 'Not Set';
-            if (document.getElementById('core-base-dir')) document.getElementById('core-base-dir').innerText = data.config.BASE_DIR || 'Not Set';
+            if (document.getElementById('core-local-path')) document.getElementById('core-local-path').textContent = data.config.LOCAL_PATH || 'Not Set';
+            if (document.getElementById('core-remote-path')) document.getElementById('core-remote-path').textContent = data.config.REMOTE_PATH || 'Not Set';
+            if (document.getElementById('core-base-dir')) document.getElementById('core-base-dir').textContent = data.config.BASE_DIR || 'Not Set';
 
             if (grid && banner) {
                 grid.innerHTML = ''; 
@@ -123,22 +134,22 @@ async function updateTelemetry() {
                         // Intelligent pairing for rclone argument structures
                         let argsHtml = '<div class="space-y-1 mt-1.5">';
                         for (let i = 0; i < value.length; i++) {
-                            let currentItem = value[i];
+                            let currentItem = String(value[i]);
                             // If current item is a flag and next item isn't, pair them side-by-side
-                            if (currentItem.startsWith('-') && i + 1 < value.length && !value[i + 1].startsWith('-')) {
-                                let nextValue = value[i + 1];
+                            if (currentItem.startsWith('-') && i + 1 < value.length && !String(value[i + 1]).startsWith('-')) {
+                                let nextValue = String(value[i + 1]);
                                 argsHtml += `
-                                    <div class="bg-slate-950 px-2 py-0.5 rounded text-[10px] text-slate-300 font-mono border border-slate-800/40 flex justify-between gap-x-2 truncate" title="${currentItem} ${nextValue}">
-                                        <span class="text-slate-400 truncate">${currentItem}</span>
-                                        <span class="text-amber-400 font-medium shrink-0">${nextValue}</span>
+                                    <div class="bg-slate-950 px-2 py-0.5 rounded text-[10px] text-slate-300 font-mono border border-slate-800/40 flex justify-between gap-x-2 truncate" title="${escapeHtml(currentItem)} ${escapeHtml(nextValue)}">
+                                        <span class="text-slate-400 truncate">${escapeHtml(currentItem)}</span>
+                                        <span class="text-amber-400 font-medium shrink-0">${escapeHtml(nextValue)}</span>
                                     </div>`;
                                 i++; // Skip value element in next loop loop iteration
                             } else {
                                 let isFlag = currentItem.startsWith('-');
                                 let flagColor = isFlag ? 'text-slate-400' : 'text-amber-400 font-medium';
                                 argsHtml += `
-                                    <div class="bg-slate-950 px-2 py-0.5 rounded text-[10px] ${flagColor} font-mono border border-slate-800/40 truncate text-left" title="${currentItem}">
-                                        ${currentItem}
+                                    <div class="bg-slate-950 px-2 py-0.5 rounded text-[10px] ${flagColor} font-mono border border-slate-800/40 truncate text-left" title="${escapeHtml(currentItem)}">
+                                        ${escapeHtml(currentItem)}
                                     </div>`;
                             }
                         }
@@ -150,20 +161,21 @@ async function updateTelemetry() {
                                 const stateBadge = subVal 
                                     ? `<span class="text-emerald-400 font-semibold text-[9px] bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-900/30">True</span>` 
                                     : `<span class="text-rose-400 font-semibold text-[9px] bg-rose-950/40 px-1 py-0.2 rounded border border-rose-900/30">False</span>`;
-                                return `<div class="flex justify-between items-center border-b border-slate-900 pb-1 last:border-0"><span class="text-slate-500 truncate mr-2" title="${subKey}">${subKey}:</span>${stateBadge}</div>`;
+                                return `<div class="flex justify-between items-center border-b border-slate-900 pb-1 last:border-0"><span class="text-slate-500 truncate mr-2" title="${escapeHtml(subKey)}">${escapeHtml(subKey)}:</span>${stateBadge}</div>`;
                             }).join('') + `</div>`;
                     } else if (typeof value === 'boolean') {
                         formattedValue = value 
                             ? `<span class="text-emerald-400 font-semibold bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-900/40 inline-block mt-1">True</span>` 
                             : `<span class="text-rose-400 font-semibold bg-rose-950/30 px-1.5 py-0.5 rounded border border-rose-900/40 inline-block mt-1">False</span>`;
                     } else {
-                        formattedValue = `<span class="text-slate-300 block mt-1 select-all truncate" title="${String(value)}">${String(value)}</span>`;
+                        const strVal = String(value);
+                        formattedValue = `<span class="text-slate-300 block mt-1 select-all truncate" title="${escapeHtml(strVal)}">${escapeHtml(strVal)}</span>`;
                     }
 
                     const gridItem = document.createElement('div');
                     gridItem.className = "bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/40 flex flex-col justify-between overflow-hidden hover:border-slate-700/60 transition-colors";
                     gridItem.innerHTML = `
-                        <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold truncate" title="${key}">${key.replace(/_/g, ' ')}</div>
+                        <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold truncate" title="${escapeHtml(key)}">${escapeHtml(key.replace(/_/g, ' '))}</div>
                         <div class="w-full">${formattedValue}</div>
                     `;
                     grid.appendChild(gridItem);
@@ -176,7 +188,7 @@ async function updateTelemetry() {
         const daemonStringNode = document.getElementById('daemon-string');
         const daemonLatencyNode = document.getElementById('daemon-latency');
         if (daemonLatencyNode && data.daemon_health) {
-            daemonLatencyNode.innerText = data.daemon_health.response_time_ms.toFixed(2);
+            daemonLatencyNode.textContent = data.daemon_health.response_time_ms.toFixed(2);
         }
         if (daemonStringNode && data.daemon_health) {
             daemonStringNode.innerHTML = data.daemon_health.status === 'healthy' 
@@ -184,7 +196,7 @@ async function updateTelemetry() {
                 : `<span class="text-rose-500 tracking-wide">OFFLINE</span>`;
         }
 
-        // 3. Dynamic Execution Status Tile (Evaluates most up-to-date entry)
+        // 3. Dynamic Execution Status Tile (Evaluates active syncing or most up-to-date entry)
         const syncStringNode = document.getElementById('sync-string');
         const syncTimestampNode = document.getElementById('sync-timestamp');
         
@@ -192,14 +204,29 @@ async function updateTelemetry() {
             const successTs = data.notification_state.last_success_timestamp || 0;
             const errorTs = data.notification_state.last_error_timestamp || 0;
             const activeTimestamp = Math.max(successTs, errorTs);
+            const formattedLastTime = activeTimestamp ? new Date(activeTimestamp * 1000).toLocaleTimeString() : 'N/A';
             
             if (syncTimestampNode) {
-                syncTimestampNode.innerText = activeTimestamp ? new Date(activeTimestamp * 1000).toLocaleTimeString() : 'N/A';
+                if (data.is_syncing) {
+                    syncTimestampNode.innerHTML = `<span class="text-amber-400 font-medium animate-pulse">Sync active</span> (Last: ${formattedLastTime})`;
+                } else {
+                    syncTimestampNode.textContent = formattedLastTime;
+                }
             }
             
             if (syncStringNode) {
-                if (errorTs > successTs && data.notification_state.last_error_type) {
-                    syncStringNode.innerHTML = `<span class="text-rose-400 text-lg">FAULT (${data.notification_state.last_error_type})</span>`;
+                if (data.is_syncing) {
+                    syncStringNode.innerHTML = `
+                        <div class="flex items-center gap-2.5">
+                            <span class="relative flex h-3 w-3">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                            </span>
+                            <span class="text-amber-400 font-bold tracking-wide">SYNC IN PROGRESS</span>
+                        </div>
+                    `;
+                } else if (errorTs > successTs && data.notification_state.last_error_type) {
+                    syncStringNode.innerHTML = `<span class="text-rose-400 text-lg">FAULT (${escapeHtml(data.notification_state.last_error_type)})</span>`;
                 } else if (successTs > 0) {
                     syncStringNode.innerHTML = `<span class="text-emerald-400">OPERATIONAL</span>`;
                 } else {
@@ -210,7 +237,7 @@ async function updateTelemetry() {
 
         // 4. Update metrics sample depth counter
         if (document.getElementById('metrics-count') && data.metrics) {
-            document.getElementById('metrics-count').innerText = data.metrics.length;
+            document.getElementById('metrics-count').textContent = data.metrics.length;
         }
 
         // 5. Update Line Charts Metrics Vector

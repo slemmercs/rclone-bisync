@@ -64,7 +64,9 @@ RCLONE_COMMON_ARGS = [
     "--drive-skip-shortcuts",
     
     # Bisync reliability
-    "--check-access",               # Verify access before sync
+    # Note: --check-access requires an 'RCLONE_TEST' file on both local and remote.
+    # Uncomment only if you have created RCLONE_TEST on both paths.
+    "--check-access",
     "--check-first",                # Compare before copying (saves bandwidth)
     "--track-renames",              # Detect renames to avoid re-upload
     "--remove-empty-dirs",          # Clean up empty directories

@@ -46,7 +46,7 @@ PrivateTmp=true
 
 # Resource limits (prevents runaway process)
 # Adjust based on your sync size
-MemoryLimit=1G
+MemoryMax=1G
 CPUQuota=80%
 
 [Install]

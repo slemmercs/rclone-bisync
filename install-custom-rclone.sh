@@ -69,7 +69,9 @@ chmod +x "$SHORTCUT_DIR/"rclone-*.desktop
 # --- 6. Enable and Start Services ---
 echo "Activating automated services..."
 USER_ID=$(id -u "$REAL_USER")
-DBUS_ENV="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$USER_ID/bus"
+# XDG_RUNTIME_DIR is required by modern systemd --user to locate the user's
+# service manager socket. DBUS_SESSION_BUS_ADDRESS alone is not sufficient.
+DBUS_ENV="XDG_RUNTIME_DIR=/run/user/$USER_ID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$USER_ID/bus"
 
 # Force systemd daemon reset under the target user session context
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user daemon-reload
