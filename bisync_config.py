@@ -40,9 +40,9 @@ RC_API_URL = f"http://{RC_HOST}:{RC_PORT}"
 # Optional: Enable if you configured authentication in rclone-daemon.service
 # If you uncommented --rc-user and --rc-pass in the service file, set this to True
 # and update the credentials below to match
-RC_AUTH_ENABLED = False
-RC_USER = "rclone"         # Must match --rc-user in rclone-daemon.service
-RC_PASS = "your_password_here"  # Must match --rc-pass in rclone-daemon.service
+RC_AUTH_ENABLED = True
+RC_USER = "csaba"         # Must match --rc-user in rclone-daemon.service
+RC_PASS = "W4rl0ck86+"  # Must match --rc-pass in rclone-daemon.service
 
 # --- Notification Settings ---
 NOTIFICATION_APP_NAME = "Rclone Bisync"
@@ -95,7 +95,8 @@ LOG_BACKUP_COUNT = 5
 
 # --- Daemon Settings ---
 DAEMON_STARTUP_TIMEOUT_SEC = 30     # How long to wait for daemon to be ready
-DAEMON_HEALTH_CHECK_RETRIES = 5     # Number of health check attempts
+DAEMON_HEALTH_CHECK_RETRIES = 2     # Fast retry attempts before reporting offline
+RETRY_DELAY = 1                     # Delay between health check retries (seconds)
 
 # --- Job Monitoring Settings ---
 JOB_POLL_INITIAL_SLEEP = 2          # Initial polling interval (seconds)

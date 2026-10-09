@@ -20,7 +20,7 @@ echo "----------------------------------------------------"
 # --- 1. Install System & Python Dependencies ---
 echo "Installing system prerequisites (FastAPI, Uvicorn, and utilities)..."
 apt-get update
-apt-get install -y python3-requests python3-plyer python3-fastapi python3-uvicorn
+apt-get install -y python3-requests python3-plyer python3-fastapi python3-uvicorn python3-psutil
 
 # --- 2. Install Rclone Binary ---
 echo "Installing/Updating Rclone binary..."

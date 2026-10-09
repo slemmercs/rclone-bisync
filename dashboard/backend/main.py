@@ -3,6 +3,8 @@ import os
 import sys
 import json
 import fcntl
+import time
+import requests
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -172,17 +174,58 @@ def check_is_syncing() -> bool:
                 # EAGAIN (11) or EACCES (13) indicates lock is held by another process
                 if getattr(e, "errno", None) in (11, 13):
                     return True
-                return False
     except Exception:
         return False
 
+
+_live_health_cache = {"time": 0.0, "data": None}
+
+def get_daemon_health() -> dict:
+    """Returns daemon health metrics.
+
+    Uses DAEMON_HEALTH_FILE if updated within the last 10s. Otherwise performs
+    a direct lightweight health check (with 5s in-memory throttle) so the
+    dashboard shows live ONLINE/OFFLINE status and latency even between syncs.
+    """
+    now = time.time()
+    cached = get_cached_json(config.DAEMON_HEALTH_FILE, default=None)
+    if cached and (now - cached.get("last_check", 0)) <= 10:
+        return cached
+
+    if _live_health_cache["data"] and (now - _live_health_cache["time"]) <= 5:
+        return _live_health_cache["data"]
+
+    auth = (config.RC_USER, config.RC_PASS) if getattr(config, "RC_AUTH_ENABLED", False) else None
+    try:
+        res = requests.post(f"{config.RC_API_URL}/core/stats", timeout=1.5, auth=auth)
+        if res.status_code == 200:
+            health = {
+                "status": "healthy",
+                "response_time_ms": round(res.elapsed.total_seconds() * 1000, 2),
+                "last_check": now
+            }
+        else:
+            health = {
+                "status": "offline",
+                "response_time_ms": 0.0,
+                "last_check": now
+            }
+    except Exception:
+        health = {
+            "status": "offline",
+            "response_time_ms": 0.0,
+            "last_check": now
+        }
+
+    _live_health_cache["time"] = now
+    _live_health_cache["data"] = health
+    return health
+
+
 @app.get("/api/telemetry", response_model=TelemetryPayload)
 def get_telemetry():
-    # 1. Parse Daemon Health File (cached by mtime/size)
-    daemon_data = get_cached_json(
-        config.DAEMON_HEALTH_FILE,
-        default={"status": "unknown", "response_time_ms": 0.0, "last_check": 0.0}
-    )
+    # 1. Daemon Health (cached or live check)
+    daemon_data = get_daemon_health()
 
     # 2. Parse Notification State File (cached by mtime/size)
     notification_data = get_cached_json(
@@ -192,6 +235,15 @@ def get_telemetry():
 
     # 3. Parse Metrics Log (cached tail read without loading entire file)
     metrics_data = get_cached_metrics(config.METRICS_FILE, lines_count=30)
+
+    # If metrics has a more recent successful sync than notification_data, use it
+    if metrics_data:
+        successful_runs = [m.get("timestamp") for m in metrics_data if m.get("success") and m.get("timestamp")]
+        if successful_runs:
+            latest_metric_success = max(successful_runs)
+            current_notif_success = notification_data.get("last_success_timestamp") or 0
+            if latest_metric_success > current_notif_success:
+                notification_data["last_success_timestamp"] = latest_metric_success
 
     # 4. Pull fresh streams for log files
     bisync_logs = tail_file(config.LOG_FILE, lines_count=40)
