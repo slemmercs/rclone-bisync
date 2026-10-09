@@ -10,6 +10,7 @@ This solution provides an automated, bidirectional synchronization between your 
 4. **Systemd Timer (`bisync-gdrive.timer`)**: Automatically runs the sync iteration every 15 minutes.
 
 ## Prerequisites & Dependencies
+
 The custom dashboard relies on FastAPI and Uvicorn. To avoid pathing issues inside background systemd daemons, these should be installed directly through your system package manager:
 
 ```bash
