@@ -616,7 +616,7 @@ CLI_TO_RC_MAP = {
 }
 
 
-def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
+def build_bisync_rc_payload(resync_attempt=False, force_attempt=False, dry_run_attempt=False):
     """
     Translates RCLONE_COMMON_ARGS into valid parameters, backend connection
     string options, and _config settings for the Rclone Remote Control (RC)
@@ -627,6 +627,7 @@ def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
         "path2": config.LOCAL_PATH,
         "resync": bool(resync_attempt),
         "force": bool(force_attempt),
+        "dryRun": bool(dry_run_attempt),
     }
     engine_config = {}
     backend_options = []
@@ -708,7 +709,7 @@ def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
     return bisync_params
 
 
-def run_rclone_bisync(resync_attempt=False, force_attempt=False):
+def run_rclone_bisync(resync_attempt=False, force_attempt=False, dry_run_attempt=False):
     """
     Trigger bisync via RC API.
     Returns: (success, error_type, error_detail, files_synced)
@@ -722,8 +723,10 @@ def run_rclone_bisync(resync_attempt=False, force_attempt=False):
     url = f"{config.RC_API_URL}/sync/bisync?_async=true"
 
     # Build proper RC parameter payload
-    params = build_bisync_rc_payload(resync_attempt=resync_attempt, force_attempt=force_attempt)
+    params = build_bisync_rc_payload(resync_attempt=resync_attempt, force_attempt=force_attempt, dry_run_attempt=dry_run_attempt)
 
+    if dry_run_attempt:
+        logging.info("Simulating bidirectional sync in DRY-RUN mode (no filesystem modifications will be made).")
     if force_attempt:
         logging.info("Bypassing delete safety checks using --force flag.")
     if resync_attempt:
@@ -921,6 +924,8 @@ Logs:
                         help="Disable desktop notifications")
     parser.add_argument("--force", "-f", action="store_true",
                         help="Skip rate limit backoff check and force sync")
+    parser.add_argument("--dry-run", "-d", action="store_true",
+                        help="Simulate sync without making any changes (dry run)")
     args = parser.parse_args()
     
     # Setup logging
@@ -957,8 +962,21 @@ Logs:
 
     try:
         # Run sync
-        success, err_type, err_detail, files_synced = run_rclone_bisync(resync_attempt=args.resync, force_attempt=args.force)
+        success, err_type, err_detail, files_synced = run_rclone_bisync(
+            resync_attempt=args.resync,
+            force_attempt=args.force,
+            dry_run_attempt=args.dry_run
+        )
         duration = time.time() - start_time
+
+        if args.dry_run:
+            logging.info("=" * 60)
+            logging.info(f"DRY-RUN SIMULATION COMPLETED ({'SUCCESS' if success else 'FAILURE'})")
+            if success:
+                logging.info(f"Simulation completed cleanly in {duration:.1f}s (no files modified).")
+            else:
+                logging.warning(f"Simulation identified issue: {err_type} - {err_detail}")
+            return
 
         if success:
             # ============================================================
@@ -986,6 +1004,7 @@ Logs:
             
             # Always update success timestamp for accurate dashboard telemetry
             notification_state["last_success_timestamp"] = time.time()
+            notification_state["last_error_type"] = None
             write_notification_state(notification_state)
             
             if not args.no_notify and time_since_last >= config.SUCCESS_NOTIFICATION_INTERVAL_MIN:

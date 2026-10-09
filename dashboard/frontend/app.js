@@ -276,6 +276,27 @@ async function updateTelemetry() {
             }
         }
 
+        // 3b. Deletion Guardrail Alert Banner
+        const alertBanner = document.getElementById('deletion-alert-banner');
+        const lastErr = data.notification_state ? data.notification_state.last_error_type : null;
+        const lastErrTs = data.notification_state ? (data.notification_state.last_error_timestamp || 0) : 0;
+        const lastSuccessTs = data.notification_state ? (data.notification_state.last_success_timestamp || 0) : 0;
+        const lastMetric = (data.metrics && data.metrics.length > 0) ? data.metrics[data.metrics.length - 1] : null;
+
+        // Banner ONLY appears when the most recent run failed due to mass deletions
+        const isTooManyDeletesActive = (
+            (lastMetric && !lastMetric.success && lastMetric.error_type === 'TOO_MANY_DELETES') ||
+            (lastErr === 'TOO_MANY_DELETES' && lastErrTs > lastSuccessTs)
+        );
+
+        if (alertBanner) {
+            if (isTooManyDeletesActive) {
+                alertBanner.classList.remove('hidden');
+            } else {
+                alertBanner.classList.add('hidden');
+            }
+        }
+
         // 4. Update metrics sample depth counter
         if (document.getElementById('metrics-count') && data.metrics) {
             document.getElementById('metrics-count').textContent = data.metrics.length;
@@ -323,28 +344,109 @@ function setupLogScrolling(containerId) {
 
 async function triggerAction(actionStr, buttonId) {
     const btn = document.getElementById(buttonId);
-    const originalText = btn.innerText;
-    btn.innerText = "WAIT...";
-    btn.disabled = true;
-    btn.classList.add("opacity-50", "cursor-not-allowed");
+    const originalText = btn ? btn.innerText : "";
+    if (btn) {
+        btn.innerText = "WAIT...";
+        btn.disabled = true;
+        btn.classList.add("opacity-50", "cursor-not-allowed");
+    }
 
     try {
-        await fetch('/api/action', {
+        const response = await fetch('/api/action', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Dashboard-Request': '1'
+            },
             body: JSON.stringify({ action: actionStr })
         });
+        const resData = await response.json();
+        if (!response.ok || resData.status === 'error') {
+            console.error("Action execution error:", resData.msg);
+            alert(`Action error: ${resData.msg || 'Request failed'}`);
+        }
         // Force an immediate UI refresh
         updateTelemetry();
     } catch (error) {
-        console.error("Action execution failed:", error);
+        console.error("Action network failure:", error);
+        alert(`Network error: ${error.message}`);
     } finally {
-        setTimeout(() => {
-            btn.innerText = originalText;
-            btn.disabled = false;
-            btn.classList.remove("opacity-50", "cursor-not-allowed");
-        }, 1500);
+        if (btn) {
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                btn.classList.remove("opacity-50", "cursor-not-allowed");
+            }, 1500);
+        }
     }
+}
+
+let pendingDeletionsCache = [];
+
+async function openDeletionsModal() {
+    const modal = document.getElementById('modal-deletions');
+    const filesList = document.getElementById('modal-files-list');
+    const subtitle = document.getElementById('modal-deletions-subtitle');
+    const sourceNode = document.getElementById('modal-source');
+    const targetNode = document.getElementById('modal-target');
+    const searchInput = document.getElementById('modal-search');
+
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    if (searchInput) searchInput.value = '';
+
+    if (filesList) {
+        filesList.innerHTML = '<div class="text-slate-500 text-center py-6 font-mono text-xs animate-pulse">Scanning daemon log for deletion records...</div>';
+    }
+
+    try {
+        const res = await fetch('/api/deletions/pending');
+        const data = await res.json();
+
+        if (data.has_deletions && data.files && data.files.length > 0) {
+            pendingDeletionsCache = data.files;
+            if (subtitle) subtitle.textContent = `${data.total_count} files queued for deletion`;
+            if (sourceNode) sourceNode.textContent = data.source || 'Google Drive (remote)';
+            if (targetNode) targetNode.textContent = data.target_action || 'Will be deleted locally from ~/gdrive';
+            renderDeletionsList(pendingDeletionsCache);
+        } else {
+            pendingDeletionsCache = [];
+            if (subtitle) subtitle.textContent = 'No pending deletions found';
+            if (filesList) {
+                filesList.innerHTML = '<div class="text-emerald-400 text-center py-6 font-mono text-xs">No pending deletions detected in recent execution logs.</div>';
+            }
+            const countNode = document.getElementById('modal-visible-count');
+            if (countNode) countNode.textContent = '0 items';
+        }
+    } catch (e) {
+        if (filesList) {
+            filesList.innerHTML = `<div class="text-rose-400 text-center py-6 font-mono text-xs">Failed to load deletion list: ${escapeHtml(e.message)}</div>`;
+        }
+    }
+}
+
+function renderDeletionsList(files) {
+    const filesList = document.getElementById('modal-files-list');
+    const visibleCountNode = document.getElementById('modal-visible-count');
+    if (!filesList) return;
+
+    if (visibleCountNode) visibleCountNode.textContent = `${files.length} items`;
+
+    if (files.length === 0) {
+        filesList.innerHTML = '<div class="text-slate-500 text-center py-4 font-mono text-xs">No files match filter query.</div>';
+        return;
+    }
+
+    filesList.innerHTML = files.map(f => `
+        <div class="px-2.5 py-1 rounded bg-slate-900/60 hover:bg-slate-900 border border-slate-800/40 text-slate-300 flex items-center justify-between gap-2 transition-colors truncate">
+            <span class="truncate text-rose-300 font-mono text-[11px]" title="${escapeHtml(f)}">✕ ${escapeHtml(f)}</span>
+        </div>
+    `).join('');
+}
+
+function closeDeletionsModal() {
+    const modal = document.getElementById('modal-deletions');
+    if (modal) modal.classList.add('hidden');
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -359,13 +461,27 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Hook up control buttons
     document.getElementById('btn-start')?.addEventListener('click', () => triggerAction('start_sync', 'btn-start'));
+    document.getElementById('btn-dryrun')?.addEventListener('click', () => triggerAction('dry_run', 'btn-dryrun'));
     document.getElementById('btn-stop')?.addEventListener('click', () => triggerAction('stop_sync', 'btn-stop'));
     document.getElementById('btn-unlock')?.addEventListener('click', () => triggerAction('remove_lock', 'btn-unlock'));
-    document.getElementById('btn-force')?.addEventListener('click', () => {
-        if(confirm("⚠ AUTHORIZE MASS DELETIONS ⚠\n\nAre you sure you want to approve deletions with --force?\nThis will permanently delete local files that were removed on Google Drive.")) {
-            triggerAction('force_sync', 'btn-force');
-        }
+
+    // Deletion Inspection and Approval
+    document.getElementById('btn-force')?.addEventListener('click', openDeletionsModal);
+    document.getElementById('btn-inspect-deletions')?.addEventListener('click', openDeletionsModal);
+    document.getElementById('btn-modal-close')?.addEventListener('click', closeDeletionsModal);
+    document.getElementById('btn-modal-cancel')?.addEventListener('click', closeDeletionsModal);
+    document.getElementById('btn-modal-confirm')?.addEventListener('click', () => {
+        closeDeletionsModal();
+        triggerAction('force_sync', 'btn-force');
     });
+
+    // Deletion search filter
+    document.getElementById('modal-search')?.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        const filtered = query ? pendingDeletionsCache.filter(f => f.toLowerCase().includes(query)) : pendingDeletionsCache;
+        renderDeletionsList(filtered);
+    });
+
     document.getElementById('btn-resync')?.addEventListener('click', () => {
         if(confirm("⚠ WARNING ⚠\n\nAre you sure you want to force a full resync?\nThis will rebuild the cache baseline and may take significantly longer.")) {
             triggerAction('force_resync', 'btn-resync');
