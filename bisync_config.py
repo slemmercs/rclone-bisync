@@ -12,12 +12,19 @@ BASE_DIR = os.path.join(os.path.expanduser("~"), "rclone-bisync")
 
 # Load rc-secrets.env to synchronize credentials with systemd service
 _secrets_path = os.path.join(BASE_DIR, "rc-secrets.env")
+if not os.path.exists(_secrets_path):
+    # Fallback to local directory if running from repo workspace
+    _local_secrets = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rc-secrets.env")
+    if os.path.exists(_local_secrets):
+        _secrets_path = _local_secrets
+
 if os.path.exists(_secrets_path):
     with open(_secrets_path, "r", encoding="utf-8") as _f:
         for _line in _f:
-            if "=" in _line and not _line.strip().startswith("#"):
-                _k, _v = _line.strip().split("=", 1)
-                os.environ[_k] = _v.strip('"\'')
+            _line = _line.strip()
+            if "=" in _line and not _line.startswith("#"):
+                _k, _v = _line.split("=", 1)
+                os.environ[_k.strip()] = _v.strip().strip('"\'')
 
 # --- Paths ---
 LOCAL_PATH = os.path.expanduser("~/gdrive")

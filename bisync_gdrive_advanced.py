@@ -541,11 +541,14 @@ def monitor_daemon_job(job_id):
                 error_msg = status.get("error", "")
 
                 # Extract transfer count from the finished job output.
-                # Rclone embeds final stats under output.stats.transfers.
+                # Rclone embeds stats directly under output (or output.stats in some commands).
                 files_synced = 0
                 try:
+                    output_data = status.get("output") or {}
                     files_synced = int(
-                        status.get("output", {}).get("stats", {}).get("transfers", 0)
+                        output_data.get("transfers")
+                        if output_data.get("transfers") is not None
+                        else output_data.get("stats", {}).get("transfers", 0)
                     )
                 except (TypeError, ValueError):
                     pass
@@ -602,20 +605,22 @@ CLI_TO_RC_MAP = {
     "--tpslimit-burst": ("config_int", "TPSLimitBurst"),
     "--buffer-size": ("config_str", "BufferSize"),
     "--color": ("config_str", "TerminalColorMode"),
-    "--drive-export-formats": ("config_str", "DriveExportFormats"),
-    "--drive-import-formats": ("config_str", "DriveImportFormats"),
-    "--drive-skip-gdocs": ("config_bool", "DriveSkipGdocs"),
-    "--drive-use-trash": ("config_bool", "DriveUseTrash"),
-    "--drive-acknowledge-abuse": ("config_bool", "DriveAcknowledgeAbuse"),
-    "--drive-skip-shortcuts": ("config_bool", "DriveSkipShortcuts"),
+    # Backend-specific options applied to remote connection path
+    "--drive-export-formats": ("backend_str", "export_formats"),
+    "--drive-import-formats": ("backend_str", "import_formats"),
+    "--drive-skip-gdocs": ("backend_bool", "skip_gdocs"),
+    "--drive-use-trash": ("backend_bool", "use_trash"),
+    "--drive-acknowledge-abuse": ("backend_bool", "acknowledge_abuse"),
+    "--drive-skip-shortcuts": ("backend_bool", "skip_shortcuts"),
     "--use-json-log": ("config_bool", "LogJSON")
 }
 
 
 def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
     """
-    Translates RCLONE_COMMON_ARGS into valid parameters and _config settings
-    for the Rclone Remote Control (RC) API endpoint (/sync/bisync).
+    Translates RCLONE_COMMON_ARGS into valid parameters, backend connection
+    string options, and _config settings for the Rclone Remote Control (RC)
+    API endpoint (/sync/bisync).
     """
     bisync_params = {
         "path1": config.REMOTE_PATH,
@@ -624,6 +629,7 @@ def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
         "force": bool(force_attempt),
     }
     engine_config = {}
+    backend_options = []
 
     args_list = getattr(config, "RCLONE_COMMON_ARGS", [])
     i = 0
@@ -635,6 +641,16 @@ def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
                 bisync_params[target_key] = True
             elif action == "config_bool":
                 engine_config[target_key] = True
+            elif action == "backend_bool":
+                backend_options.append(f"{target_key}=true")
+            elif action == "backend_str":
+                i += 1
+                if i < len(args_list):
+                    val = args_list[i]
+                    if "," in val or " " in val:
+                        backend_options.append(f'{target_key}="{val}"')
+                    else:
+                        backend_options.append(f"{target_key}={val}")
             elif action == "param":
                 i += 1
                 if i < len(args_list):
@@ -667,6 +683,14 @@ def build_bisync_rc_payload(resync_attempt=False, force_attempt=False):
                 else:
                     logging.warning(f"Unmapped CLI flag '{arg}' skipped for RC API")
         i += 1
+
+    # Attach backend-specific connection string parameters to path1
+    if backend_options:
+        remote_path = bisync_params["path1"]
+        if remote_path.endswith(":"):
+            base_remote = remote_path[:-1]
+            opts_str = ",".join(backend_options)
+            bisync_params["path1"] = f"{base_remote},{opts_str}:"
 
     # Safety check: checkAccess strictly requires RCLONE_TEST on both local and remote
     if bisync_params.get("checkAccess"):
@@ -942,7 +966,6 @@ Logs:
             # ============================================================
             logging.info("=" * 60)
             logging.info("SYNC COMPLETED SUCCESSFULLY")
-            logging.info("=" * 60)
 
             # Cleanup
             cleanup_on_success()
@@ -1030,13 +1053,28 @@ Logs:
                     if retry_success:
                         logging.info("✅ Auto-recovery successful! Baseline sync state successfully rebuilt.")
                         success = True
+                        duration = time.time() - start_time
                         cleanup_on_success()
 
-                        # Clear old error states since recovery wiped out the fault
+                        # Update notification and telemetry states
                         notification_state["last_error_type"] = None
+                        notification_state["last_success_timestamp"] = time.time()
                         write_notification_state(notification_state)
 
-                        log_metrics(success=True, duration=time.time() - start_time, files_synced=retry_files)
+                        log_metrics(success=True, duration=duration, files_synced=retry_files)
+
+                        send_webhook("sync_success", {
+                            "duration": duration,
+                            "local_path": config.LOCAL_PATH,
+                            "remote_path": config.REMOTE_PATH,
+                            "recovered": True
+                        })
+
+                        if not args.no_notify:
+                            send_desktop_notification(
+                                "Sync Auto-Recovery Complete",
+                                f"Baseline sync state rebuilt successfully.\nDuration: {duration:.1f}s"
+                            )
                         return
                     else:
                         # Re-assign error values if the recovery attempt also dropped out

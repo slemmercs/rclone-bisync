@@ -31,6 +31,17 @@ echo "Creating directory layout: $RCLONE_DIR"
 sudo -u "$REAL_USER" mkdir -p "$RCLONE_DIR"
 
 # Verify base workspace configuration assets exist before copy
+if [ ! -f "rc-secrets.env" ]; then
+    if [ -f "rc-secrets.env.example" ]; then
+        echo "Notice: rc-secrets.env not found. Creating from rc-secrets.env.example..."
+        cp rc-secrets.env.example rc-secrets.env
+        chmod 600 rc-secrets.env
+    else
+        echo "Error: Neither rc-secrets.env nor rc-secrets.env.example found."
+        exit 1
+    fi
+fi
+
 REQUIRED_FILES=("bisync_config.py" "bisync_gdrive_advanced.py" "rc-secrets.env" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
 for f in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$f" ]; then
@@ -44,7 +55,12 @@ if [ ! -d "dashboard" ]; then
     exit 1
 fi
 
-cp bisync_config.py bisync_gdrive_advanced.py rc-secrets.env "$RCLONE_DIR/"
+cp bisync_config.py bisync_gdrive_advanced.py "$RCLONE_DIR/"
+if [ ! -f "$RCLONE_DIR/rc-secrets.env" ]; then
+    cp rc-secrets.env "$RCLONE_DIR/"
+else
+    echo "Preserving existing secrets file: $RCLONE_DIR/rc-secrets.env"
+fi
 cp -r dashboard "$RCLONE_DIR/"
 chown -R "$REAL_USER:$REAL_USER" "$RCLONE_DIR"
 chmod +x "$RCLONE_DIR/bisync_gdrive_advanced.py"

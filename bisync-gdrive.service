@@ -11,13 +11,10 @@ Type=oneshot
 
 # Load DBus environment variables for desktop notifications
 EnvironmentFile=-%h/.config/dbus-vars
+EnvironmentFile=-%h/rclone-bisync/rc-secrets.env
 
 # Set the working directory to the script's location
 WorkingDirectory=%h/rclone-bisync
-
-# Give the daemon a moment to fully initialize after systemd says it's ready
-# This prevents race conditions on system startup
-ExecStartPre=/bin/sleep 3
 
 # Command to execute the Python script
 # -u flag ensures unbuffered output for immediate logging

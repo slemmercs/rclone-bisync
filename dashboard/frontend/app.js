@@ -361,6 +361,11 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-start')?.addEventListener('click', () => triggerAction('start_sync', 'btn-start'));
     document.getElementById('btn-stop')?.addEventListener('click', () => triggerAction('stop_sync', 'btn-stop'));
     document.getElementById('btn-unlock')?.addEventListener('click', () => triggerAction('remove_lock', 'btn-unlock'));
+    document.getElementById('btn-force')?.addEventListener('click', () => {
+        if(confirm("⚠ AUTHORIZE MASS DELETIONS ⚠\n\nAre you sure you want to approve deletions with --force?\nThis will permanently delete local files that were removed on Google Drive.")) {
+            triggerAction('force_sync', 'btn-force');
+        }
+    });
     document.getElementById('btn-resync')?.addEventListener('click', () => {
         if(confirm("⚠ WARNING ⚠\n\nAre you sure you want to force a full resync?\nThis will rebuild the cache baseline and may take significantly longer.")) {
             triggerAction('force_resync', 'btn-resync');
