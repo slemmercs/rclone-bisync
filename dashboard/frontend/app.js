@@ -1,5 +1,7 @@
 let performanceChart = null;
 let configLoaded = false;
+let currentLogLimit = 40;
+const MAX_LOG_LIMIT = 300;
 
 function initializeChart(canvasId) {
     const ctx = document.getElementById(canvasId).getContext('2d');
@@ -43,49 +45,49 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-// Convert plaintext or structural JSON lines to cleanly structured HTML rows
 function formatLogLine(line) {
     if (typeof line !== 'string') return '';
     line = line.trim();
     if (!line) return '';
 
-    // Extract potential JSON structure safely
-    let jsonStart = line.indexOf('{');
-    let jsonEnd = line.lastIndexOf('}');
-    
-    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-        try {
-            const jsonStr = line.substring(jsonStart, jsonEnd + 1);
-            const parsedLog = JSON.parse(jsonStr);
-            
-            let lvlColor = "text-slate-400";
-            if (parsedLog.level === 'error') lvlColor = "text-rose-400 font-bold";
-            else if (parsedLog.level === 'warning') lvlColor = "text-amber-400 font-medium";
-            else if (parsedLog.level === 'notice') lvlColor = "text-sky-400";
-            else if (parsedLog.level === 'info') lvlColor = "text-emerald-500";
+    try {
+        // Parse the entire line directly. Rclone outputs one valid JSON object per line.
+        const parsedLog = JSON.parse(line);
 
-            const timeStr = parsedLog.time ? new Date(parsedLog.time).toLocaleTimeString() : 'N/A';
-            const levelStr = (parsedLog.level || 'info').toUpperCase().padEnd(7);
-            let messagePayload = parsedLog.msg || '';
+        let lvlColor = "text-slate-400";
+        const level = (parsedLog.level || 'info').toLowerCase();
+        if (level === 'error') lvlColor = "text-rose-400 font-bold";
+        else if (level === 'warning') lvlColor = "text-amber-400 font-medium";
+        else if (level === 'notice') lvlColor = "text-sky-400";
+        else if (level === 'info') lvlColor = "text-emerald-500";
 
-            if (messagePayload.includes('\\n')) messagePayload = messagePayload.replace(/\\n/g, '\n');
-            if (messagePayload.includes('\\"')) messagePayload = messagePayload.replace(/\\"/g, '"');
-
-            const targetStr = parsedLog.object ? ` <span class="text-indigo-400/90 text-[11px] font-sans bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-900/30 ml-2">→ ${escapeHtml(parsedLog.object)}</span>` : '';
-
-            return `
-                <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex flex-col sm:flex-row sm:items-start gap-x-3 text-[11px] font-mono leading-relaxed">
-                    <span class="text-slate-500 select-none shrink-0">[${escapeHtml(timeStr)}]</span>
-                    <span class="${lvlColor} select-none shrink-0 w-14">${escapeHtml(levelStr)}</span>
-                    <span class="text-slate-200 flex-1 whitespace-pre-wrap break-all">${escapeHtml(messagePayload.trim())}${targetStr}</span>
-                </div>
-            `;
-        } catch (e) {
-            // Drop through to plaintext parser fallback on parsing exception
+        let timeStr = 'N/A';
+        if (parsedLog.time) {
+            const dateObj = new Date(parsedLog.time);
+            if (!isNaN(dateObj)) {
+                timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+            }
         }
+
+        const levelStr = level.toUpperCase().padEnd(7);
+        let messagePayload = parsedLog.msg || '';
+
+        // Replace tabs with spaces for clean indentation in pre-wrap blocks
+        messagePayload = messagePayload.replace(/\t/g, '    ');
+
+        const targetStr = parsedLog.object ? ` <span class="text-indigo-400/90 text-[11px] font-sans bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-900/30 ml-2">→ ${escapeHtml(parsedLog.object)}</span>` : '';
+
+        return `
+            <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex flex-col sm:flex-row sm:items-start gap-x-3 text-[11px] font-mono leading-relaxed">
+                <span class="text-slate-500 select-none shrink-0">[${escapeHtml(timeStr)}]</span>
+                <span class="${lvlColor} select-none shrink-0 w-14">${escapeHtml(levelStr)}</span>
+                <span class="text-slate-200 flex-1 whitespace-pre-wrap break-all">${escapeHtml(messagePayload.trim())}${targetStr}</span>
+            </div>
+        `;
+    } catch (e) {
+        // Fallthrough to plaintext if not JSON
     }
 
-    // 2. Fallback to standard text layout parsing (bisync.log)
     let colorClass = "text-slate-400";
     if (line.includes("[ERROR]")) colorClass = "text-rose-400 font-semibold";
     else if (line.includes("[WARNING]")) colorClass = "text-amber-400";
@@ -108,9 +110,9 @@ function updateLogContainer(containerId, logLines) {
 
 async function updateTelemetry() {
     try {
-        const response = await fetch('/api/telemetry');
+        const response = await fetch(`/api/telemetry?limit=${currentLogLimit}`);
         if (!response.ok) throw new Error(`HTTP network failure: ${response.status}`);
-        
+
         const data = await response.json();
         
         // 1. Process dynamic configuration drop-downs
@@ -204,7 +206,9 @@ async function updateTelemetry() {
             const successTs = data.notification_state.last_success_timestamp || 0;
             const errorTs = data.notification_state.last_error_timestamp || 0;
             const activeTimestamp = Math.max(successTs, errorTs);
-            const formattedLastTime = activeTimestamp ? new Date(activeTimestamp * 1000).toLocaleTimeString() : 'N/A';
+            const formattedLastTime = activeTimestamp 
+                ? new Date(activeTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) 
+                : 'N/A';
             
             if (syncTimestampNode) {
                 if (data.is_syncing) {
@@ -250,13 +254,34 @@ async function updateTelemetry() {
             performanceChart.update('none');
         }
 
-        // 6. Push Clean Streams to Terminals
+        // Update sample depth counter in header if present
+        const tailBadge = document.getElementById('log-tail-count');
+        if (tailBadge) tailBadge.textContent = `Tail: ${currentLogLimit} lines`;
+
+        // Push Clean Streams to Terminals
         updateLogContainer('log-bisync', data.bisync_logs);
         updateLogContainer('log-daemon', data.daemon_logs);
 
     } catch (error) {
         console.error("Dashboard telemetry synchronization error:", error);
     }
+}
+
+function setupLogScrolling(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.addEventListener('scroll', () => {
+        // If user scrolls to the top (within 20px) and we haven't reached MAX_LOG_LIMIT
+        if (container.scrollTop <= 20 && currentLogLimit < MAX_LOG_LIMIT) {
+            const oldHeight = container.scrollHeight;
+            currentLogLimit += 60; // Load 60 more lines
+            updateTelemetry().then(() => {
+                // Adjust scroll position so the user doesn't jump back to the top
+                container.scrollTop = container.scrollHeight - oldHeight;
+            });
+        }
+    });
 }
 
 async function triggerAction(actionStr, buttonId) {
@@ -288,6 +313,8 @@ async function triggerAction(actionStr, buttonId) {
 window.addEventListener('DOMContentLoaded', () => {
     initializeChart('livePerformanceChart');
     updateTelemetry();
+    setupLogScrolling('log-daemon');
+    etupLogScrolling('log-bisync');
     
     const toggleBtn = document.getElementById('toggle-extended-config');
     const extendedPanel = document.getElementById('extended-config-panel');
