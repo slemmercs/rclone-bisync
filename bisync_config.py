@@ -41,8 +41,8 @@ RC_API_URL = f"http://{RC_HOST}:{RC_PORT}"
 # If you uncommented --rc-user and --rc-pass in the service file, set this to True
 # and update the credentials below to match
 RC_AUTH_ENABLED = True
-RC_USER = "csaba"         # Must match --rc-user in rclone-daemon.service
-RC_PASS = "W4rl0ck86+"  # Must match --rc-pass in rclone-daemon.service
+RC_USER = os.getenv("RC_USER", "rclone")
+RC_PASS = os.getenv("RC_PASS", "RCl0n3_1s_Th3_B3st")
 
 # --- Notification Settings ---
 NOTIFICATION_APP_NAME = "Rclone Bisync"
