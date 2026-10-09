@@ -54,6 +54,21 @@ class TelemetryPayload(BaseModel):
     config: dict
     is_syncing: bool = False
 
+@app.get("/api/logs/bisync/raw")
+def get_raw_bisync_log():
+    """Serves the raw bisync.log file as plain text."""
+    if os.path.exists(config.LOG_FILE):
+        return FileResponse(config.LOG_FILE, media_type="text/plain", filename="bisync.log")
+    return {"error": "Log file not found"}
+
+@app.get("/api/logs/daemon/raw")
+def get_raw_daemon_log():
+    """Serves the raw rclone-daemon.log file as plain text."""
+    daemon_log_path = os.path.join(config.BASE_DIR, "rclone-daemon.log")
+    if os.path.exists(daemon_log_path):
+        return FileResponse(daemon_log_path, media_type="text/plain", filename="rclone-daemon.log")
+    return {"error": "Log file not found"}
+
 def tail_file(filepath: str, lines_count: int = 40) -> List[str]:
     """Accurately reads the last N whole lines of a file by seeking backward from the end."""
     if not os.path.exists(filepath):
@@ -224,20 +239,19 @@ def get_daemon_health() -> dict:
 
 
 @app.get("/api/telemetry", response_model=TelemetryPayload)
-def get_telemetry():
-    # 1. Daemon Health (cached or live check)
+def get_telemetry(limit: int = 40):
+    # 1. Daemon Health
     daemon_data = get_daemon_health()
 
-    # 2. Parse Notification State File (cached by mtime/size)
+    # 2. Parse Notification State File
     notification_data = get_cached_json(
         config.NOTIFICATION_STATE_FILE,
         default={"last_success_timestamp": None, "last_error_type": None, "last_error_timestamp": None}
     )
 
-    # 3. Parse Metrics Log (cached tail read without loading entire file)
+    # 3. Parse Metrics Log
     metrics_data = get_cached_metrics(config.METRICS_FILE, lines_count=30)
 
-    # If metrics has a more recent successful sync than notification_data, use it
     if metrics_data:
         successful_runs = [m.get("timestamp") for m in metrics_data if m.get("success") and m.get("timestamp")]
         if successful_runs:
@@ -246,14 +260,13 @@ def get_telemetry():
             if latest_metric_success > current_notif_success:
                 notification_data["last_success_timestamp"] = latest_metric_success
 
-    # 4. Pull fresh streams for log files
-    bisync_logs = tail_file(config.LOG_FILE, lines_count=40)
-    
-    # Resolve daemon log location path
-    daemon_log_path = os.path.join(config.BASE_DIR, "rclone-daemon.log")
-    daemon_logs = tail_file(daemon_log_path, lines_count=40)
+    # 4. Pull fresh streams for log files using the dynamic limit
+    bisync_logs = tail_file(config.LOG_FILE, lines_count=limit)
 
-    # 5. Harvest configuration variables dynamically, sanitizing sensitive keys
+    daemon_log_path = os.path.join(config.BASE_DIR, "rclone-daemon.log")
+    daemon_logs = tail_json_log(daemon_log_path, entries_count=limit)
+
+    # 5. Harvest configuration variables dynamically
     runtime_config = {}
     for key in dir(config):
         if key.isupper():
@@ -308,6 +321,44 @@ def perform_action(req: ActionRequest):
             return {"status": "error", "msg": "Unknown action"}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
+
+def tail_json_log(filepath: str, entries_count: int = 40) -> List[str]:
+    """Reads log file, unwraps nested JSON logs from daemon wrapper entries, and returns valid single-line JSON strings."""
+    if not os.path.exists(filepath):
+        return [f"Log file target not found at: {filepath}"]
+
+    raw_lines = tail_file(filepath, lines_count=entries_count * 2)
+    entries = []
+
+    for line in raw_lines:
+        line_str = line.strip()
+        if not line_str:
+            continue
+        try:
+            parsed = json.loads(line_str)
+            msg = parsed.get("msg")
+
+            # Unwrap nested JSON logs stored inside daemon wrapper msg fields
+            if isinstance(msg, str) and ("{\"" in msg or "{'" in msg):
+                sub_lines = msg.splitlines()
+                unwrapped_any = False
+                for sub_line in sub_lines:
+                    sub_line = sub_line.strip()
+                    if sub_line.startswith("{") and sub_line.endswith("}"):
+                        try:
+                            inner_json = json.loads(sub_line)
+                            entries.append(json.dumps(inner_json))
+                            unwrapped_any = True
+                        except Exception:
+                            pass
+                if not unwrapped_any:
+                    entries.append(json.dumps(parsed))
+            else:
+                entries.append(json.dumps(parsed))
+        except Exception:
+            entries.append(line_str)
+
+    return entries[-entries_count:]
 
 # Mount static files cleanly
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")

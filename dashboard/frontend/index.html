@@ -37,7 +37,7 @@
                     </svg>
                 </button>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
                 <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
                     <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Local Source (LOCAL_PATH)</span>
@@ -114,11 +114,15 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Stacked Full-Width Log Panels -->
+            <div class="space-y-6">
                 <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
                     <div class="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
                         <span class="text-xs font-mono font-semibold text-slate-300 tracking-wider">bisync.log</span>
-                        <span class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800/60">Tail: 40 lines</span>
+                        <div class="flex items-center gap-3">
+                            <a href="/api/logs/bisync/raw" target="_blank" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors">Open Raw ↗</a>
+                            <span id="bisync-tail-count" class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800/60">Tail: 40 lines</span>
+                        </div>
                     </div>
                     <div id="log-bisync" class="p-4 font-mono text-xs text-slate-400 overflow-y-auto h-80 space-y-1 bg-slate-950">
                         <div class="text-slate-600 animate-pulse">Awaiting data stream lines...</div>
@@ -128,9 +132,12 @@
                 <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
                     <div class="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
                         <span class="text-xs font-mono font-semibold text-slate-300 tracking-wider">rclone-daemon.log</span>
-                        <span class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800/60">Tail: 40 lines</span>
+                        <div class="flex items-center gap-3">
+                            <a href="/api/logs/daemon/raw" target="_blank" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors">Open Raw ↗</a>
+                            <span id="daemon-tail-count" class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800/60">Tail: 40 lines</span>
+                        </div>
                     </div>
-                    <div id="log-daemon" class="p-4 font-mono text-xs text-slate-400 overflow-y-auto h-80 space-y-1 bg-slate-950">
+                    <div id="log-daemon" class="p-4 font-mono text-xs text-slate-400 overflow-y-auto h-[40rem] space-y-1 bg-slate-950">
                         <div class="text-slate-600 animate-pulse">Awaiting data stream lines...</div>
                     </div>
                 </div>

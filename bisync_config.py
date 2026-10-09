@@ -10,6 +10,15 @@ import os
 # All sync-related files are stored here for consistency
 BASE_DIR = os.path.join(os.path.expanduser("~"), "rclone-bisync")
 
+# Load rc-secrets.env to synchronize credentials with systemd service
+_secrets_path = os.path.join(BASE_DIR, "rc-secrets.env")
+if os.path.exists(_secrets_path):
+    with open(_secrets_path, "r", encoding="utf-8") as _f:
+        for _line in _f:
+            if "=" in _line and not _line.strip().startswith("#"):
+                _k, _v = _line.strip().split("=", 1)
+                os.environ[_k] = _v.strip('"\'')
+
 # --- Paths ---
 LOCAL_PATH = os.path.expanduser("~/gdrive")
 REMOTE_PATH = "gdrive:"
