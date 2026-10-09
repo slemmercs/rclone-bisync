@@ -18,6 +18,8 @@ ExecStart=/usr/bin/rclone rcd \
     --rc-pass=${RC_PASS} \
     --log-level INFO \
     --log-file %h/rclone-bisync/rclone-daemon.log \
+    --log-file-max-size 10M \
+    --log-file-max-backups 5 \
     --use-json-log \
     --cache-dir %h/.cache/rclone
 

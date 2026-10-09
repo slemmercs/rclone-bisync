@@ -45,15 +45,6 @@ class MetricEntry(BaseModel):
     error_type: Optional[str] = None
     files_synced: int
 
-class TelemetryPayload(BaseModel):
-    daemon_health: DaemonHealth
-    notification_state: NotificationState
-    metrics: List[MetricEntry]
-    bisync_logs: List[str]
-    daemon_logs: List[str]
-    config: dict
-    is_syncing: bool = False
-
 class TransferStats(BaseModel):
     bytes: int = 0
     total_bytes: int = 0
@@ -294,10 +285,10 @@ def get_telemetry(limit: int = 40):
     transfer_stats = get_transfer_stats() if is_syncing else None
 
     # 3. Parse Notification State File
-    notification_data = get_cached_json(
+    notification_data = dict(get_cached_json(
         config.NOTIFICATION_STATE_FILE,
         default={"last_success_timestamp": None, "last_error_type": None, "last_error_timestamp": None}
-    )
+    ))
 
     # 4. Parse Metrics Log
     metrics_data = get_cached_metrics(config.METRICS_FILE, lines_count=30)
@@ -341,25 +332,55 @@ def get_telemetry(limit: int = 40):
 class ActionRequest(BaseModel):
     action: str
 
+def run_bisync_systemd(flag: str, unit_name: str):
+    """Executes bisync with specific flags under a systemd transient unit."""
+    subprocess.run(["systemctl", "--user", "reset-failed", unit_name], check=False)
+    cmd = [
+        "systemd-run", "--user",
+        f"--unit={unit_name}",
+        "--service-type=oneshot",
+        f"--working-directory={config.BASE_DIR}",
+        f"--property=EnvironmentFile=-{os.path.expanduser('~')}/.config/dbus-vars",
+        f"--property=EnvironmentFile=-{os.path.join(config.BASE_DIR, 'rc-secrets.env')}",
+        "--property=MemoryMax=1G",
+        "--property=CPUQuota=80%",
+        "--property=NoNewPrivileges=true",
+        "--property=PrivateTmp=true",
+        "--property=StandardOutput=journal",
+        "--property=StandardError=journal",
+        "--property=SyslogIdentifier=bisync-gdrive",
+        sys.executable, "-u", os.path.join(config.BASE_DIR, "bisync_gdrive_advanced.py"),
+        flag
+    ]
+    subprocess.run(cmd, check=True)
+
 @app.post("/api/action")
 def perform_action(req: ActionRequest):
     action = req.action
     try:
         if action == "start_sync":
             subprocess.run(["systemctl", "--user", "start", "bisync-gdrive.service"], check=True)
-            return {"status": "success", "msg": "Sync started"}
+            return {"status": "success", "msg": "Sync started via systemd"}
             
         elif action == "stop_sync":
-            subprocess.run(["systemctl", "--user", "stop", "bisync-gdrive.service"], check=True)
+            subprocess.run(["systemctl", "--user", "stop", "bisync-gdrive.service", "bisync-gdrive-resync.service", "bisync-gdrive-force.service"], check=False)
             return {"status": "success", "msg": "Sync stopped"}
             
         elif action == "force_resync":
-            # Run the script directly to easily pass the --resync flag
-            script_path = os.path.join(config.BASE_DIR, "bisync_gdrive_advanced.py")
-            subprocess.Popen(["python3", script_path, "--resync"])
-            return {"status": "success", "msg": "Resync initiated"}
+            if check_is_syncing():
+                return {"status": "error", "msg": "Cannot resync: another sync is actively running."}
+            run_bisync_systemd("--resync", "bisync-gdrive-resync")
+            return {"status": "success", "msg": "Resync initiated via systemd"}
+
+        elif action == "force_sync":
+            if check_is_syncing():
+                return {"status": "error", "msg": "Cannot force sync: another sync is actively running."}
+            run_bisync_systemd("--force", "bisync-gdrive-force")
+            return {"status": "success", "msg": "Force sync initiated via systemd (deletions authorized)"}
             
         elif action == "remove_lock":
+            if check_is_syncing():
+                return {"status": "error", "msg": "Cannot remove lock: a synchronization run is actively in progress."}
             if os.path.exists(config.LOCK_FILE):
                 os.remove(config.LOCK_FILE)
                 return {"status": "success", "msg": "Lock file removed"}
