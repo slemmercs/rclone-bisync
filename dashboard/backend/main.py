@@ -8,7 +8,8 @@ import requests
 import subprocess
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -26,6 +27,44 @@ except ImportError:
     sys.exit(1)
 
 app = FastAPI(title="Rclone Bisync Telemetry API")
+
+ALLOWED_ORIGINS = {
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost",
+    "http://127.0.0.1"
+}
+
+class CSRFProtectionMiddleware(BaseHTTPMiddleware):
+    """Enforces origin validation and custom header checks on state-changing API requests."""
+    async def dispatch(self, request, call_next):
+        if request.method in ("POST", "PUT", "DELETE", "PATCH") and request.url.path.startswith("/api/"):
+            # 1. Require custom header X-Dashboard-Request
+            custom_header = request.headers.get("X-Dashboard-Request")
+            if custom_header != "1":
+                return JSONResponse(
+                    status_code=403,
+                    content={"status": "error", "msg": "Security policy violation: Missing required X-Dashboard-Request header."}
+                )
+
+            # 2. Origin & Referer checks
+            origin = request.headers.get("origin")
+            if origin and origin not in ALLOWED_ORIGINS:
+                return JSONResponse(
+                    status_code=403,
+                    content={"status": "error", "msg": f"Security policy violation: Untrusted request origin '{origin}'."}
+                )
+
+            referer = request.headers.get("referer")
+            if referer and not any(referer.startswith(allowed) for allowed in ALLOWED_ORIGINS):
+                return JSONResponse(
+                    status_code=403,
+                    content={"status": "error", "msg": "Security policy violation: Untrusted request referer."}
+                )
+
+        return await call_next(request)
+
+app.add_middleware(CSRFProtectionMiddleware)
 
 class DaemonHealth(BaseModel):
     status: str
@@ -377,6 +416,12 @@ def perform_action(req: ActionRequest):
                 return {"status": "error", "msg": "Cannot force sync: another sync is actively running."}
             run_bisync_systemd("--force", "bisync-gdrive-force")
             return {"status": "success", "msg": "Force sync initiated via systemd (deletions authorized)"}
+
+        elif action == "dry_run":
+            if check_is_syncing():
+                return {"status": "error", "msg": "Cannot start dry run: another sync is actively running."}
+            run_bisync_systemd("--dry-run", "bisync-gdrive-dryrun")
+            return {"status": "success", "msg": "Dry-run simulation started via systemd"}
             
         elif action == "remove_lock":
             if check_is_syncing():
@@ -390,6 +435,78 @@ def perform_action(req: ActionRequest):
             return {"status": "error", "msg": "Unknown action"}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
+
+def parse_pending_deletions() -> dict:
+    """Parses recently aborted deletions from the daemon log for safety inspection."""
+    daemon_log = os.path.join(config.BASE_DIR, "rclone-daemon.log")
+    if not os.path.exists(daemon_log):
+        return {"has_deletions": False, "total_count": 0, "files": [], "source": "unknown"}
+
+    deleted_files = []
+    abort_msg = None
+    source = "Google Drive (remote)"
+    target_action = "Will be deleted from local disk (~/gdrive)"
+
+    try:
+        lines = tail_file(daemon_log, lines_count=2000)
+        for line in reversed(lines):
+            line_str = line.strip()
+            if not line_str:
+                continue
+            try:
+                data = json.loads(line_str)
+                raw_msg = data.get("msg", "")
+                sublines = raw_msg.splitlines() if isinstance(raw_msg, str) else [raw_msg]
+                for sub in reversed(sublines):
+                    sub = sub.strip()
+                    if sub.startswith("{") and sub.endswith("}"):
+                        try:
+                            inner = json.loads(sub)
+                            imsg = inner.get("msg", "")
+                        except Exception:
+                            imsg = sub
+                    else:
+                        imsg = sub
+
+                    if "too many deletes" in imsg.lower():
+                        abort_msg = imsg
+                        if "path2" in imsg.lower():
+                            source = "Local (~/gdrive)"
+                            target_action = "Will be deleted from Google Drive"
+                        else:
+                            source = "Google Drive (remote)"
+                            target_action = "Will be deleted from local disk (~/gdrive)"
+
+                    if "File was deleted" in imsg:
+                        parts = imsg.split("File was deleted", 1)
+                        if len(parts) == 2:
+                            fp = parts[1].strip().lstrip("-").strip()
+                            if fp and fp not in deleted_files:
+                                deleted_files.append(fp)
+
+                if abort_msg and "Synching Path1" in line_str:
+                    break
+            except Exception:
+                continue
+
+        if deleted_files or abort_msg:
+            return {
+                "has_deletions": True,
+                "total_count": len(deleted_files),
+                "source": source,
+                "target_action": target_action,
+                "message": abort_msg or f"{len(deleted_files)} files deleted",
+                "files": list(reversed(deleted_files))
+            }
+    except Exception as e:
+        return {"has_deletions": False, "total_count": 0, "files": [], "error": str(e)}
+
+    return {"has_deletions": False, "total_count": 0, "files": []}
+
+@app.get("/api/deletions/pending")
+def get_pending_deletions():
+    """Returns the list of pending deletions detected during the last safety abort."""
+    return parse_pending_deletions()
 
 def tail_json_log(filepath: str, entries_count: int = 40) -> List[str]:
     """Reads log file, unwraps nested JSON logs from daemon wrapper entries, and returns valid single-line JSON strings."""
