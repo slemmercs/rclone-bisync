@@ -113,6 +113,28 @@
                     <canvas id="livePerformanceChart"></canvas>
                 </div>
             </div>
+            <!-- Live Transfer Progress Card (Hidden by default when not syncing) -->
+            <div id="sync-progress-card" class="hidden bg-slate-900 border border-indigo-500/30 p-5 rounded-xl shadow-lg transition-all duration-300">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></span>
+                        <span class="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Active Synchronization in Progress</span>
+                    </div>
+                    <div class="text-xs font-mono text-slate-400">
+                        Speed: <span id="transfer-speed" class="text-white font-medium">--</span> | ETA: <span id="transfer-eta" class="text-white font-medium">--</span>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800 p-0.5">
+                    <div id="transfer-progress-bar" class="bg-indigo-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                
+                <div class="flex justify-between items-center mt-2 text-[11px] font-mono text-slate-400">
+                    <span id="transfer-current-file" class="truncate max-w-md">Initializing transfer streams...</span>
+                    <span id="transfer-percentage">0%</span>
+                </div>
+            </div>
 
             <!-- Stacked Full-Width Log Panels -->
             <div class="space-y-6">

@@ -237,6 +237,43 @@ async function updateTelemetry() {
                     syncStringNode.innerHTML = `<span class="text-slate-400">UNKNOWN</span>`;
                 }
             }
+
+            const progressCard = document.getElementById('sync-progress-card');
+            const progressBar = document.getElementById('transfer-progress-bar');
+            const progressPercentage = document.getElementById('transfer-percentage');
+            const transferSpeed = document.getElementById('transfer-speed');
+            const transferEta = document.getElementById('transfer-eta');
+            const currentFileSpan = document.getElementById('transfer-current-file');
+
+            if (data.is_syncing && data.transfer_stats && data.transfer_stats.total_bytes > 0) {
+                progressCard.classList.remove('hidden');
+                const stats = data.transfer_stats;
+                progressBar.style.width = `${stats.percentage}%`;
+                progressPercentage.textContent = `${stats.percentage}%`;
+                transferSpeed.textContent = stats.speed_str;
+                
+                if (stats.eta !== null && stats.eta !== undefined) {
+                    const mins = Math.floor(stats.eta / 60);
+                    const secs = stats.eta % 60;
+                    transferEta.textContent = `${mins}m ${secs}s`;
+                } else {
+                    transferEta.textContent = 'Calculating...';
+                }
+                
+                if (stats.transferring && stats.transferring.length > 0) {
+                    currentFileSpan.textContent = `Syncing: ${stats.transferring[0].name}`;
+                } else {
+                    currentFileSpan.textContent = 'Processing files...';
+                }
+            } else if (data.is_syncing) {
+                progressCard.classList.remove('hidden');
+                currentFileSpan.textContent = 'Preparing sync and checking index diffs...';
+                progressBar.style.width = '100%';
+                progressBar.classList.add('animate-pulse');
+            } else {
+                progressCard.classList.add('hidden');
+                progressBar.classList.remove('animate-pulse');
+            }
         }
 
         // 4. Update metrics sample depth counter
@@ -314,7 +351,7 @@ window.addEventListener('DOMContentLoaded', () => {
     initializeChart('livePerformanceChart');
     updateTelemetry();
     setupLogScrolling('log-daemon');
-    etupLogScrolling('log-bisync');
+    setupLogScrolling('log-bisync');
     
     const toggleBtn = document.getElementById('toggle-extended-config');
     const extendedPanel = document.getElementById('extended-config-panel');

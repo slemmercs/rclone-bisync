@@ -54,6 +54,52 @@ class TelemetryPayload(BaseModel):
     config: dict
     is_syncing: bool = False
 
+class TransferStats(BaseModel):
+    bytes: int = 0
+    total_bytes: int = 0
+    speed: float = 0.0
+    speed_str: str = "0 B/s"
+    eta: Optional[int] = None
+    percentage: float = 0.0
+    transferring: List[dict] = []
+
+class TelemetryPayload(BaseModel):
+    daemon_health: DaemonHealth
+    notification_state: NotificationState
+    metrics: List[MetricEntry]
+    bisync_logs: List[str]
+    daemon_logs: List[str]
+    config: dict
+    is_syncing: bool = False
+    transfer_stats: Optional[TransferStats] = None
+
+def get_transfer_stats() -> Optional[dict]:
+    auth = (config.RC_USER, config.RC_PASS) if getattr(config, "RC_AUTH_ENABLED", False) else None
+    try:
+        res = requests.post(f"{config.RC_API_URL}/core/stats", timeout=1.5, auth=auth)
+        if res.status_code == 200:
+            data = res.json()
+            total_bytes = data.get("totalBytes", 0)
+            bytes_transferred = data.get("bytes", 0)
+            percentage = (bytes_transferred / total_bytes * 100) if total_bytes > 0 else 0.0
+            
+            # Format speed nicely
+            speed = data.get("speed", 0.0)
+            speed_mb = round(speed / 1024 / 1024, 2)
+            
+            return {
+                "bytes": bytes_transferred,
+                "total_bytes": total_bytes,
+                "speed": speed,
+                "speed_str": f"{speed_mb} MB/s",
+                "eta": data.get("eta"),
+                "percentage": round(percentage, 1),
+                "transferring": data.get("transferring", [])
+            }
+    except Exception:
+        pass
+    return None
+
 @app.get("/api/logs/bisync/raw")
 def get_raw_bisync_log():
     """Serves the raw bisync.log file as plain text."""
@@ -243,13 +289,17 @@ def get_telemetry(limit: int = 40):
     # 1. Daemon Health
     daemon_data = get_daemon_health()
 
-    # 2. Parse Notification State File
+    # 2. Check active sync state early so transfer stats can use it
+    is_syncing = check_is_syncing()
+    transfer_stats = get_transfer_stats() if is_syncing else None
+
+    # 3. Parse Notification State File
     notification_data = get_cached_json(
         config.NOTIFICATION_STATE_FILE,
         default={"last_success_timestamp": None, "last_error_type": None, "last_error_timestamp": None}
     )
 
-    # 3. Parse Metrics Log
+    # 4. Parse Metrics Log
     metrics_data = get_cached_metrics(config.METRICS_FILE, lines_count=30)
 
     if metrics_data:
@@ -260,13 +310,13 @@ def get_telemetry(limit: int = 40):
             if latest_metric_success > current_notif_success:
                 notification_data["last_success_timestamp"] = latest_metric_success
 
-    # 4. Pull fresh streams for log files using the dynamic limit
+    # 5. Pull fresh streams for log files using the dynamic limit
     bisync_logs = tail_file(config.LOG_FILE, lines_count=limit)
 
     daemon_log_path = os.path.join(config.BASE_DIR, "rclone-daemon.log")
     daemon_logs = tail_json_log(daemon_log_path, entries_count=limit)
 
-    # 5. Harvest configuration variables dynamically
+    # 6. Harvest configuration variables dynamically
     runtime_config = {}
     for key in dir(config):
         if key.isupper():
@@ -277,9 +327,6 @@ def get_telemetry(limit: int = 40):
                 else:
                     runtime_config[key] = value
 
-    # 6. Check active sync state
-    is_syncing = check_is_syncing()
-
     return {
         "daemon_health": daemon_data,
         "notification_state": notification_data,
@@ -287,7 +334,8 @@ def get_telemetry(limit: int = 40):
         "bisync_logs": bisync_logs,
         "daemon_logs": daemon_logs,
         "config": runtime_config,
-        "is_syncing": is_syncing
+        "is_syncing": is_syncing,
+        "transfer_stats": transfer_stats
     }
 
 class ActionRequest(BaseModel):
