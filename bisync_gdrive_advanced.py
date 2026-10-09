@@ -11,7 +11,6 @@ import time
 import logging
 import logging.handlers
 import fcntl
-import re
 import argparse
 import json
 import signal
@@ -609,7 +608,7 @@ CLI_TO_RC_MAP = {
     "--drive-use-trash": ("config_bool", "DriveUseTrash"),
     "--drive-acknowledge-abuse": ("config_bool", "DriveAcknowledgeAbuse"),
     "--drive-skip-shortcuts": ("config_bool", "DriveSkipShortcuts"),
-    "--use-json-log": ("config_bool", "UseJSONLog")
+    "--use-json-log": ("config_bool", "LogJSON")
 }
 
 

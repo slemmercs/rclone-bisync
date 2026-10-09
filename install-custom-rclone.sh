@@ -18,7 +18,7 @@ echo "Starting installation for $REAL_USER..."
 echo "----------------------------------------------------"
 
 # --- 1. Install System & Python Dependencies ---
-echo "Installing system prerequisites (FastAPI, Uvicorn, and utilities)..."
+echo "Installing system prerequisites (FastAPI, Uvicorn, psutil, and utilities)..."
 apt-get update
 apt-get install -y python3-requests python3-plyer python3-fastapi python3-uvicorn python3-psutil
 
@@ -31,7 +31,7 @@ echo "Creating directory layout: $RCLONE_DIR"
 sudo -u "$REAL_USER" mkdir -p "$RCLONE_DIR"
 
 # Verify base workspace configuration assets exist before copy
-REQUIRED_FILES=("bisync_config.py" "bisync_gdrive_advanced.py" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
+REQUIRED_FILES=("bisync_config.py" "bisync_gdrive_advanced.py" "rc-secrets.env" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
 for f in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$f" ]; then
         echo "Error: Required workspace configuration asset '$f' not found."
@@ -39,16 +39,16 @@ for f in "${REQUIRED_FILES[@]}"; do
     fi
 done
 
-# Ensure local dashboard components are structured before migrating
 if [ ! -d "dashboard" ]; then
     echo "Error: 'dashboard' directory containing backend/ and frontend/ assets is missing."
     exit 1
 fi
 
-cp bisync_config.py bisync_gdrive_advanced.py "$RCLONE_DIR/"
+cp bisync_config.py bisync_gdrive_advanced.py rc-secrets.env "$RCLONE_DIR/"
 cp -r dashboard "$RCLONE_DIR/"
 chown -R "$REAL_USER:$REAL_USER" "$RCLONE_DIR"
 chmod +x "$RCLONE_DIR/bisync_gdrive_advanced.py"
+chmod 600 "$RCLONE_DIR/rc-secrets.env" "$RCLONE_DIR/bisync_config.py"
 
 # --- 4. Setup Systemd User Services ---
 echo "Configuring systemd user services..."
@@ -59,28 +59,36 @@ chown "$REAL_USER:$REAL_USER" "$SYSTEMD_USER_DIR/"*
 # --- 5. Install Desktop Shortcuts ---
 echo "Installing application workspace launchers..."
 sudo -u "$REAL_USER" mkdir -p "$SHORTCUT_DIR"
-# Clear out legacy shortcut if it exists
 rm -f "$SHORTCUT_DIR/rclone-webgui.desktop"
 
 cp rclone-bisync-manual.desktop rclone-dashboard.desktop "$SHORTCUT_DIR/"
 chown "$REAL_USER:$REAL_USER" "$SHORTCUT_DIR/"rclone-*.desktop
 chmod +x "$SHORTCUT_DIR/"rclone-*.desktop
 
-# --- 6. Enable and Start Services ---
+# --- 6. Enable, Reset, and Start Services ---
 echo "Activating automated services..."
 USER_ID=$(id -u "$REAL_USER")
-# XDG_RUNTIME_DIR is required by modern systemd --user to locate the user's
-# service manager socket. DBUS_SESSION_BUS_ADDRESS alone is not sufficient.
 DBUS_ENV="XDG_RUNTIME_DIR=/run/user/$USER_ID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$USER_ID/bus"
 
-# Force systemd daemon reset under the target user session context
+# Reload systemd and clear any existing failed states / start-rate limits
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user daemon-reload
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user reset-failed
 
-# Enable core components
+# Enable components
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user enable rclone-daemon.service rclone-dashboard.service bisync-gdrive.timer
-sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-daemon.service rclone-dashboard.service
+
+# Restart services sequentially
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-daemon.service
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-dashboard.service
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user start bisync-gdrive.timer
 
-echo "----------------------------------------------------"
-echo "✅ Installation Complete successfully!"
-echo "Custom Telemetry UI is running live at http://127.0.0.1:8080"
+# Verify daemon status
+if sudo -u "$REAL_USER" $DBUS_ENV systemctl --user is-active --quiet rclone-daemon.service; then
+    echo "----------------------------------------------------"
+    echo "✅ Installation Complete successfully!"
+    echo "Custom Telemetry UI is running live at http://127.0.0.1:8080"
+else
+    echo "----------------------------------------------------"
+    echo "⚠️ Warning: rclone-daemon.service failed to report active status."
+    echo "Run: systemctl --user status rclone-daemon.service for details."
+fi

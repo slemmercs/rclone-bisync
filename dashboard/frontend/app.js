@@ -259,6 +259,32 @@ async function updateTelemetry() {
     }
 }
 
+async function triggerAction(actionStr, buttonId) {
+    const btn = document.getElementById(buttonId);
+    const originalText = btn.innerText;
+    btn.innerText = "WAIT...";
+    btn.disabled = true;
+    btn.classList.add("opacity-50", "cursor-not-allowed");
+
+    try {
+        await fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: actionStr })
+        });
+        // Force an immediate UI refresh
+        updateTelemetry();
+    } catch (error) {
+        console.error("Action execution failed:", error);
+    } finally {
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.classList.remove("opacity-50", "cursor-not-allowed");
+        }, 1500);
+    }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     initializeChart('livePerformanceChart');
     updateTelemetry();
@@ -266,6 +292,16 @@ window.addEventListener('DOMContentLoaded', () => {
     const toggleBtn = document.getElementById('toggle-extended-config');
     const extendedPanel = document.getElementById('extended-config-panel');
     const toggleIcon = document.getElementById('toggle-icon');
+
+    // Hook up control buttons
+    document.getElementById('btn-start')?.addEventListener('click', () => triggerAction('start_sync', 'btn-start'));
+    document.getElementById('btn-stop')?.addEventListener('click', () => triggerAction('stop_sync', 'btn-stop'));
+    document.getElementById('btn-unlock')?.addEventListener('click', () => triggerAction('remove_lock', 'btn-unlock'));
+    document.getElementById('btn-resync')?.addEventListener('click', () => {
+        if(confirm("⚠ WARNING ⚠\n\nAre you sure you want to force a full resync?\nThis will rebuild the cache baseline and may take significantly longer.")) {
+            triggerAction('force_resync', 'btn-resync');
+        }
+    });
     
     if (toggleBtn && extendedPanel && toggleIcon) {
         toggleBtn.addEventListener('click', () => {

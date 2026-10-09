@@ -5,6 +5,7 @@ import json
 import fcntl
 import time
 import requests
+import subprocess
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -275,6 +276,38 @@ def get_telemetry():
         "config": runtime_config,
         "is_syncing": is_syncing
     }
+
+class ActionRequest(BaseModel):
+    action: str
+
+@app.post("/api/action")
+def perform_action(req: ActionRequest):
+    action = req.action
+    try:
+        if action == "start_sync":
+            subprocess.run(["systemctl", "--user", "start", "bisync-gdrive.service"], check=True)
+            return {"status": "success", "msg": "Sync started"}
+            
+        elif action == "stop_sync":
+            subprocess.run(["systemctl", "--user", "stop", "bisync-gdrive.service"], check=True)
+            return {"status": "success", "msg": "Sync stopped"}
+            
+        elif action == "force_resync":
+            # Run the script directly to easily pass the --resync flag
+            script_path = os.path.join(config.BASE_DIR, "bisync_gdrive_advanced.py")
+            subprocess.Popen(["python3", script_path, "--resync"])
+            return {"status": "success", "msg": "Resync initiated"}
+            
+        elif action == "remove_lock":
+            if os.path.exists(config.LOCK_FILE):
+                os.remove(config.LOCK_FILE)
+                return {"status": "success", "msg": "Lock file removed"}
+            return {"status": "info", "msg": "No lock file found"}
+            
+        else:
+            return {"status": "error", "msg": "Unknown action"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
 
 # Mount static files cleanly
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
