@@ -15,6 +15,7 @@ import argparse
 import json
 import signal
 import subprocess
+import shutil
 import requests
 from datetime import datetime
 from pathlib import Path
@@ -155,8 +156,8 @@ def write_notification_state(state):
 def send_desktop_notification(title, message, urgency='normal'):
     """Send desktop notification via native notify-send (Tuxedo OS / KDE) with plyer fallback."""
     # 1. Native notify-send on Linux (most reliable in KDE Wayland user sessions)
-    notify_send_bin = "/usr/bin/notify-send"
-    if os.path.exists(notify_send_bin):
+    notify_send_bin = shutil.which("notify-send")
+    if notify_send_bin:
         try:
             u = "critical" if urgency == 'critical' else "normal"
             subprocess.run(
@@ -734,11 +735,10 @@ def build_bisync_rc_payload(resync_attempt=False, force_attempt=False, dry_run_a
     if bisync_params.get("checkAccess"):
         test_file = os.path.join(config.LOCAL_PATH, "RCLONE_TEST")
         if not os.path.exists(test_file):
-            logging.warning(
-                f"--check-access requested, but 'RCLONE_TEST' not found in {config.LOCAL_PATH}. "
-                "Disabling checkAccess to prevent sync abort."
+            raise FileNotFoundError(
+                f"Safety guard triggered: --check-access is enabled, but 'RCLONE_TEST' was not found in {config.LOCAL_PATH}. "
+                "Aborting sync to prevent unintended deletions or sync of an unmounted filesystem."
             )
-            bisync_params["checkAccess"] = False
 
     if engine_config:
         bisync_params["_config"] = engine_config
@@ -829,6 +829,10 @@ def run_rclone_bisync(resync_attempt=False, force_attempt=False, dry_run_attempt
         error_msg = f"Request error: {e}"
         logging.error(error_msg)
         return False, "DAEMON_ERROR", error_msg, 0
+
+    except FileNotFoundError as e:
+        logging.error(f"Safety guard abort: {e}")
+        return False, "CHECK_ACCESS_FAILED", str(e), 0
 
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
@@ -1144,6 +1148,18 @@ Logs:
                         err_type, err_detail = retry_err, retry_detail
                         logging.error(f"Auto-recovery failed: {err_type} - {err_detail}")
             
+            elif err_type == "CHECK_ACCESS_FAILED":
+                logging.error(f"Safety guard triggered: {err_detail}")
+                if not args.no_notify and should_notify_error(err_type, notification_state):
+                    send_desktop_notification(
+                        "Sync Safety Abort - Check Access",
+                        f"Missing RCLONE_TEST in {config.LOCAL_PATH}.\nSync aborted to protect data.",
+                        urgency="critical"
+                    )
+                    notification_state["last_error_type"] = err_type
+                    notification_state["last_error_timestamp"] = time.time()
+                    write_notification_state(notification_state)
+
             elif err_type == "STALE_LOCK":
                 logging.warning("Stale lock detected by rclone bisync.")
                 logging.warning("The lock file will be automatically cleaned on next successful run.")

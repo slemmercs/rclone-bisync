@@ -50,7 +50,7 @@ DAEMON_HEALTH_FILE = os.path.join(BASE_DIR, "daemon_health.json")
 # To verify: systemctl --user cat rclone-daemon.service | grep rc-addr
 
 RC_HOST = "localhost"
-RC_PORT = 5572  # Must match --rc-addr in rclone-daemon.service
+RC_PORT = int(os.getenv("RC_PORT", "5572"))
 RC_API_URL = f"http://{RC_HOST}:{RC_PORT}"
 
 # Optional: Enable if you configured authentication in rclone-daemon.service
@@ -58,7 +58,12 @@ RC_API_URL = f"http://{RC_HOST}:{RC_PORT}"
 # and update the credentials below to match
 RC_AUTH_ENABLED = True
 RC_USER = os.getenv("RC_USER", "rclone")
-RC_PASS = os.getenv("RC_PASS", "RCl0n3_1s_Th3_B3st")
+RC_PASS = os.getenv("RC_PASS")
+if RC_AUTH_ENABLED and not RC_PASS:
+    raise ValueError(
+        "RC_PASS is not set in environment or rc-secrets.env. "
+        "Please configure RC_PASS in rc-secrets.env to ensure authenticated access to Rclone RC."
+    )
 
 # --- Notification Settings ---
 NOTIFICATION_APP_NAME = "Rclone Bisync"
