@@ -158,6 +158,19 @@ class RcloneClient:
         except Exception as e:
             logging.warning(f"Failed to query remotes: {e}")
         return []
+    def get_remote_config(self, remote_name: str) -> Dict[str, Any]:
+        """Queries /config/get and sanitizes credentials, returning only safe metadata (type, scope)."""
+        clean_name = remote_name.rstrip(":")
+        try:
+            res = requests.post(f"{self.api_url}/config/get", json={"name": clean_name}, timeout=5, auth=self.auth)
+            if res.status_code == 200:
+                raw = res.json()
+                safe_keys = {"type", "scope", "endpoint", "region", "env_auth", "team_drive"}
+                return {k: v for k, v in raw.items() if k in safe_keys}
+        except Exception as e:
+            logging.warning(f"Failed to query config for {clean_name}: {e}")
+        return {}
+
 
     def get_remote_about(self, remote: str) -> Dict[str, Any]:
         """Queries /operations/about to retrieve storage quota (total, used, free, trashed)."""
