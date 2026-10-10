@@ -18,7 +18,7 @@ WorkingDirectory=%h/rclone-bisync
 
 # Command to execute the Python script
 # -u flag ensures unbuffered output for immediate logging
-ExecStart=/usr/bin/python3 -u %h/rclone-bisync/bisync_gdrive_advanced.py
+ExecStart=/usr/bin/python3 -u %h/rclone-bisync/bisync_gdrive_advanced.py --origin=timer
 
 # Only restart on actual failures, not on successful completion
 # This service is designed to be triggered by timer, not run continuously

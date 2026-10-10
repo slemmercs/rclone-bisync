@@ -14,6 +14,7 @@ import fcntl
 import argparse
 import json
 import signal
+import subprocess
 import requests
 from datetime import datetime
 from pathlib import Path
@@ -45,15 +46,28 @@ except ImportError:
 
 # --- Global Variables ---
 lock_file_handle = None
+current_run_id = "unknown"
+current_origin = "cli"
+
+
+class JsonLogFormatter(logging.Formatter):
+    """Formats log records as single-line JSON conforming to Rclone's JSON log schema."""
+    def format(self, record):
+        entry = {
+            "time": datetime.fromtimestamp(record.created).astimezone().isoformat(),
+            "level": record.levelname.lower(),
+            "msg": record.getMessage(),
+            "source": f"{record.filename}:{record.lineno}",
+            "origin": getattr(record, "origin", current_origin),
+            "run_id": getattr(record, "run_id", current_run_id)
+        }
+        if record.exc_info:
+            entry["error"] = self.formatException(record.exc_info)
+        return json.dumps(entry, ensure_ascii=False)
 
 
 def setup_logging(verbose=False):
-    """Configure logging with rotation and appropriate verbosity."""
-    log_formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    
+    """Configure logging with JSON file rotation and clean console output."""
     # Ensure log directory exists
     log_dir = os.path.dirname(config.LOG_FILE)
     os.makedirs(log_dir, mode=0o700, exist_ok=True)
@@ -63,22 +77,27 @@ def setup_logging(verbose=False):
     root_logger.setLevel(logging.DEBUG if (verbose or config.DEBUG_MODE) else logging.INFO)
     root_logger.handlers = []
     
-    # File handler with rotation
+    # 1. Rotating File Handler: UNIFIED JSON FORMAT (matches rclone-daemon.log)
     file_handler = logging.handlers.RotatingFileHandler(
         config.LOG_FILE,
         maxBytes=config.MAX_LOG_SIZE_MB * 1024 * 1024,
-        backupCount=config.LOG_BACKUP_COUNT
+        backupCount=config.LOG_BACKUP_COUNT,
+        encoding="utf-8"
     )
-    file_handler.setFormatter(log_formatter)
+    file_handler.setFormatter(JsonLogFormatter())
     root_logger.addHandler(file_handler)
     
-    # Console handler
+    # 2. Console Handler: Clean human-friendly text for interactive CLI runs
+    console_formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(log_formatter)
+    console_handler.setFormatter(console_formatter)
     root_logger.addHandler(console_handler)
     
     logging.info("=" * 60)
-    logging.info("Rclone Bisync Starting")
+    logging.info(f"Rclone Bisync Starting [Run: {current_run_id} | Origin: {current_origin}]")
     logging.info("=" * 60)
 
 
@@ -134,7 +153,23 @@ def write_notification_state(state):
 
 
 def send_desktop_notification(title, message, urgency='normal'):
-    """Send desktop notification if available."""
+    """Send desktop notification via native notify-send (Tuxedo OS / KDE) with plyer fallback."""
+    # 1. Native notify-send on Linux (most reliable in KDE Wayland user sessions)
+    notify_send_bin = "/usr/bin/notify-send"
+    if os.path.exists(notify_send_bin):
+        try:
+            u = "critical" if urgency == 'critical' else "normal"
+            subprocess.run(
+                [notify_send_bin, "-a", config.NOTIFICATION_APP_NAME, "-u", u, "-i", "sync-synchronizing", title, message],
+                check=False,
+                timeout=3
+            )
+            logging.debug(f"Native notification sent via notify-send: {title}")
+            return
+        except Exception as e:
+            logging.debug(f"notify-send call failed: {e}")
+
+    # 2. Plyer fallback
     if not NOTIFICATIONS_AVAILABLE:
         logging.debug(f"Notification (disabled): {title}: {message}")
         return
@@ -147,7 +182,7 @@ def send_desktop_notification(title, message, urgency='normal'):
             timeout=10,
             hints={'urgency': 2 if urgency == 'critical' else 1}
         )
-        logging.debug(f"Notification sent: {title}")
+        logging.debug(f"Notification sent via plyer: {title}")
     except Exception as e:
         logging.error(f"Failed to send notification: {e}")
 
@@ -204,6 +239,8 @@ def log_metrics(success, duration, error_type=None, files_synced=0):
     metrics = {
         "timestamp": time.time(),
         "datetime": datetime.now().isoformat(),
+        "run_id": current_run_id,
+        "origin": current_origin,
         "success": success,
         "duration_seconds": round(duration, 2),
         "error_type": error_type,
@@ -926,8 +963,15 @@ Logs:
                         help="Skip rate limit backoff check and force sync")
     parser.add_argument("--dry-run", "-d", action="store_true",
                         help="Simulate sync without making any changes (dry run)")
+    parser.add_argument("--origin", choices=["timer", "dashboard", "cli", "manual"], default="cli",
+                        help="Execution origin tag (default: cli)")
     args = parser.parse_args()
     
+    # Generate unique run ID and track origin
+    global current_run_id, current_origin
+    current_origin = args.origin
+    current_run_id = f"sync_{datetime.now().strftime('%y%m%d_%H%M%S')}_{os.urandom(2).hex()}"
+
     # Setup logging
     setup_logging(args.verbose)
     
