@@ -11,14 +11,14 @@ Type=oneshot
 
 # Load DBus environment variables for desktop notifications
 EnvironmentFile=-%h/.config/dbus-vars
-EnvironmentFile=-%h/rclone-bisync/rc-secrets.env
+EnvironmentFile=%h/rclone-bisync/rc-secrets.env
 
 # Set the working directory to the script's location
 WorkingDirectory=%h/rclone-bisync
 
 # Command to execute the Python script
 # -u flag ensures unbuffered output for immediate logging
-ExecStart=/usr/bin/python3 -u %h/rclone-bisync/bisync_gdrive_advanced.py --origin=timer
+ExecStart=%h/rclone-bisync/.venv/bin/python3 -u %h/rclone-bisync/bisync_gdrive_advanced.py --origin=timer
 
 # Only restart on actual failures, not on successful completion
 # This service is designed to be triggered by timer, not run continuously

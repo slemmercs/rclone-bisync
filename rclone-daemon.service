@@ -13,7 +13,7 @@ EnvironmentFile=%h/rclone-bisync/rc-secrets.env
 
 # Use systemd variable substitution for user and pass
 ExecStart=/usr/bin/rclone rcd \
-    --rc-addr localhost:5572 \
+    --rc-addr localhost:${RC_PORT} \
     --rc-user=${RC_USER} \
     --rc-pass=${RC_PASS} \
     --log-level INFO \
@@ -23,8 +23,8 @@ ExecStart=/usr/bin/rclone rcd \
     --use-json-log \
     --cache-dir %h/.cache/rclone
 
-ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5; do curl -sf -u ${RC_USER}:${RC_PASS} -X POST http://localhost:5572/core/stats > /dev/null && exit 0; sleep 2; done; exit 1'
-ExecStop=-/usr/bin/curl -sf -u ${RC_USER}:${RC_PASS} -X POST http://localhost:5572/core/quit
+ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5; do curl -sf -u ${RC_USER}:${RC_PASS} -X POST http://localhost:${RC_PORT}/core/stats > /dev/null && exit 0; sleep 2; done; exit 1'
+ExecStop=-/usr/bin/curl -sf -u ${RC_USER}:${RC_PASS} -X POST http://localhost:${RC_PORT}/core/quit
 Restart=always
 RestartSec=10s
 
