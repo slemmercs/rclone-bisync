@@ -12,6 +12,7 @@ Type=oneshot
 # Load DBus environment variables for desktop notifications
 EnvironmentFile=-%h/.config/dbus-vars
 EnvironmentFile=%h/rclone-bisync/rc-secrets.env
+EnvironmentFile=%h/rclone-bisync/bisync.env
 
 # Set the working directory to the script's location
 WorkingDirectory=%h/rclone-bisync
