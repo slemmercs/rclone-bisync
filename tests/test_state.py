@@ -60,3 +60,24 @@ def test_metrics_logging_and_rotation(tmp_path):
     with open(metrics_file, "r") as f:
         lines = f.readlines()
     assert len(lines) >= 1
+
+
+def test_pending_deletions_lifecycle(tmp_path):
+    deletions_file = str(tmp_path / "pending_deletions.json")
+    from rclone_bisync.core.state import (
+        record_pending_deletions,
+        read_pending_deletions,
+        clear_pending_deletions
+    )
+
+    assert read_pending_deletions(deletions_file) is None
+
+    test_data = {"count": 5, "files": ["a.txt", "b.txt"], "source": "Local"}
+    assert record_pending_deletions(deletions_file, test_data) is True
+
+    loaded = read_pending_deletions(deletions_file)
+    assert loaded == test_data
+
+    assert clear_pending_deletions(deletions_file) is True
+    assert read_pending_deletions(deletions_file) is None
+

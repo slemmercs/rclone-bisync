@@ -97,3 +97,17 @@ class NotificationDispatcher:
             logging.debug(f"Webhook dispatched: {event_type}")
         except Exception as e:
             logging.warning(f"Failed to send webhook: {e}")
+
+    def send_watchdog_ping(self, ping_url: Optional[str] = None, timeout: int = 5) -> bool:
+        """Dispatches external watchdog / dead-man's snitch heartbeat ping on successful sync."""
+        target_url = ping_url or self.webhook_url
+        if not target_url:
+            return False
+        try:
+            res = requests.get(target_url, timeout=timeout)
+            logging.debug(f"Watchdog heartbeat ping sent to {target_url} (HTTP {res.status_code})")
+            return res.status_code < 400
+        except Exception as e:
+            logging.warning(f"Failed to dispatch watchdog heartbeat ping to {target_url}: {e}")
+            return False
+
