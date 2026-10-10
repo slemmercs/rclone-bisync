@@ -135,8 +135,29 @@ function parseJsonLogLine(rawLine) {
     }
 }
 
+// Helper to format bytes into human-readable strings
+function formatBytes(bytes, decimals = 1) {
+    if (bytes === null || bytes === undefined || isNaN(bytes) || bytes < 0) return "--";
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const idx = Math.min(i, sizes.length - 1);
+    return parseFloat((bytes / Math.pow(k, idx)).toFixed(dm)) + " " + sizes[idx];
+}
+
 document.addEventListener("alpine:init", () => {
     Alpine.data("dashboard", () => ({
+        currentTab: "telemetry", // 'telemetry' | 'remotes'
+        remotesData: {
+            remotes: [],
+            summary: {},
+            count: 0,
+            loading: false,
+            error: null,
+            last_checked: null
+        },
         telemetry: {
             daemon_health: { status: "evaluating", response_time_ms: 0 },
             notification_state: {},
@@ -259,6 +280,7 @@ document.addEventListener("alpine:init", () => {
         async initDashboard() {
             this.initChart();
             await this.poll();
+            this.fetchRemotes(false);
             setInterval(() => this.poll(), 3000);
             this.setupLogScroll("log-bisync");
             this.setupLogScroll("log-daemon");
@@ -375,6 +397,53 @@ document.addEventListener("alpine:init", () => {
                     });
                 }
             });
-        }
+        },
+
+        async fetchRemotes(showLoading = true) {
+            if (showLoading) this.remotesData.loading = true;
+            this.remotesData.error = null;
+            try {
+                const res = await fetch("/api/remotes");
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const data = await res.json();
+                this.remotesData.remotes = data.remotes || [];
+                this.remotesData.summary = data.summary || {};
+                this.remotesData.count = data.count || 0;
+                this.remotesData.active_remote = data.active_remote || null;
+                this.remotesData.last_checked = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+            } catch (err) {
+                this.remotesData.error = err.message;
+            } finally {
+                if (showLoading) this.remotesData.loading = false;
+            }
+        },
+
+        switchTab(tab) {
+            this.currentTab = tab;
+            if (tab === "remotes") {
+                this.fetchRemotes(true);
+            }
+        },
+
+        getQuotaPct(used, total) {
+            if (!total || total <= 0 || !used) return 0;
+            return Math.min(100, Math.max(0, (used / total) * 100));
+        },
+
+        getProviderColor(type) {
+            switch ((type || "").toLowerCase()) {
+                case "drive":
+                    return { bg: "bg-amber-950/20", border: "border-amber-800/40", text: "text-amber-400", badge: "bg-amber-500/10 text-amber-300 border-amber-500/20", bar: "bg-amber-500" };
+                case "onedrive":
+                    return { bg: "bg-sky-950/20", border: "border-sky-800/40", text: "text-sky-400", badge: "bg-sky-500/10 text-sky-300 border-sky-500/20", bar: "bg-sky-500" };
+                case "s3":
+                    return { bg: "bg-orange-950/20", border: "border-orange-800/40", text: "text-orange-400", badge: "bg-orange-500/10 text-orange-300 border-orange-500/20", bar: "bg-orange-500" };
+                case "dropbox":
+                    return { bg: "bg-blue-950/20", border: "border-blue-800/40", text: "text-blue-400", badge: "bg-blue-500/10 text-blue-300 border-blue-500/20", bar: "bg-blue-500" };
+                default:
+                    return { bg: "bg-indigo-950/20", border: "border-indigo-800/40", text: "text-indigo-400", badge: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20", bar: "bg-indigo-500" };
+            }
+        },
+
     }));
 });

@@ -17,14 +17,33 @@
                 <h1 class="text-2xl font-bold tracking-tight text-white">Rclone Sync Hub</h1>
                 <p class="text-xs text-slate-400 mt-1">Real-time background automation engine monitoring</p>
             </div>
-            <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg self-start md:self-auto">
-                <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                </span>
-                <span class="text-xs font-mono text-indigo-400 tracking-wider">LIVE TELEMETRY</span>
+
+            <!-- Navigation Pills (Option A) & Live Indicator -->
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center bg-slate-900 border border-slate-800/80 p-1 rounded-xl text-xs font-medium">
+                    <button @click="switchTab('telemetry')" :class="currentTab === 'telemetry' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span>Telemetry & Engine</span>
+                    </button>
+                    <button @click="switchTab('remotes')" :class="currentTab === 'remotes' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                        <span>Storage Remotes</span>
+                        <span x-show="remotesData.count > 0" x-text="remotesData.count" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono"></span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl self-start md:self-auto">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                    </span>
+                    <span class="text-xs font-mono text-indigo-400 tracking-wider">LIVE TELEMETRY</span>
+                </div>
             </div>
         </header>
+
+        <!-- View 1: Telemetry & Engine -->
+        <div x-show="currentTab === 'telemetry'" class="space-y-6">
 
         <!-- Configuration Topology Banner -->
         <div x-show="telemetry.config && Object.keys(telemetry.config).length > 0" x-transition.duration.300ms class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 mb-6 text-xs text-slate-400 font-mono">
@@ -230,6 +249,125 @@
                 </div>
             </div>
         </main>
+        </div> <!-- End View 1: Telemetry & Engine -->
+
+        <!-- View 2: Remote Storage Manager -->
+        <div x-show="currentTab === 'remotes'" x-transition.opacity.duration.200ms class="space-y-6">
+            <!-- Global Capacity Overview Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Total Cloud Space</div>
+                    <div class="text-xl sm:text-2xl font-bold text-white mt-2 font-mono" x-text="formatBytes(remotesData.summary?.total_capacity_bytes)"></div>
+                    <div class="text-[10px] text-slate-500 mt-1">Aggregated across all remotes</div>
+                </div>
+                <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Utilized Storage</div>
+                    <div class="text-xl sm:text-2xl font-bold text-indigo-400 mt-2 font-mono" x-text="formatBytes(remotesData.summary?.total_used_bytes)"></div>
+                    <div class="text-[10px] text-indigo-300/80 mt-1" x-text="`${getQuotaPct(remotesData.summary?.total_used_bytes, remotesData.summary?.total_capacity_bytes).toFixed(1)}% total quota used`"></div>
+                </div>
+                <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Available Space</div>
+                    <div class="text-xl sm:text-2xl font-bold text-emerald-400 mt-2 font-mono" x-text="formatBytes(remotesData.summary?.total_free_bytes)"></div>
+                    <div class="text-[10px] text-emerald-500/80 mt-1">Free remaining capacity</div>
+                </div>
+                <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Configured Remotes</div>
+                    <div class="text-xl sm:text-2xl font-bold text-white mt-2 font-mono" x-text="remotesData.count || 0"></div>
+                    <div class="text-[10px] text-slate-500 mt-1" x-text="remotesData.last_checked ? `Checked ${remotesData.last_checked}` : 'Auto-discovered'"></div>
+                </div>
+            </div>
+
+            <!-- Header Action Toolbar -->
+            <div class="flex items-center justify-between bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/60 text-xs">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <span class="font-semibold text-slate-200">Configured Cloud Storage Remotes</span>
+                </div>
+                <button @click="fetchRemotes(true)" :disabled="remotesData.loading" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
+                    <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': remotesData.loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span>Refresh Quotas</span>
+                </button>
+            </div>
+            <!-- Provider Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <template x-for="remote in remotesData.remotes" :key="remote.name">
+                    <div class="bg-slate-900/60 border rounded-2xl p-5 flex flex-col justify-between transition-all hover:border-slate-700/80" :class="getProviderColor(remote.type).border">
+                        <div>
+                            <!-- Card Header -->
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2.5 rounded-xl border flex items-center justify-center font-bold font-mono text-sm" :class="`${getProviderColor(remote.type).bg} ${getProviderColor(remote.type).border} ${getProviderColor(remote.type).text}`">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="text-base font-bold text-white font-mono" x-text="remote.fs"></h3>
+                                            <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded border" :class="getProviderColor(remote.type).badge" x-text="remote.type_label"></span>
+                                        </div>
+                                        <div class="text-[11px] text-slate-400 mt-0.5">Rclone Backend: <span class="font-mono text-slate-300" x-text="remote.type"></span></div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-end gap-1">
+                                    <span x-show="remote.is_active_target" class="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        <span>Active Target</span>
+                                    </span>
+                                    <span class="text-[10px] font-mono" :class="remote.about?.total ? 'text-emerald-400' : 'text-slate-500'" x-text="remote.about?.total ? '● ONLINE' : '○ NO QUOTA API'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Storage Quota Section -->
+                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800/60 space-y-3">
+                                <div class="flex justify-between items-baseline text-xs">
+                                    <span class="text-slate-400 font-medium">Storage Allocation</span>
+                                    <span class="font-mono text-white font-semibold" x-text="`${formatBytes(remote.about?.used)} / ${formatBytes(remote.about?.total)}`"></span>
+                                </div>
+
+                                <!-- Multi-segment Quota Bar -->
+                                <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden flex border border-slate-800/80">
+                                    <div class="transition-all duration-500" :class="getQuotaPct(remote.about?.used, remote.about?.total) > 90 ? 'bg-rose-500' : getProviderColor(remote.type).bar" :style="`width: ${getQuotaPct(remote.about?.used, remote.about?.total)}%`"></div>
+                                    <div x-show="remote.about?.other" class="bg-purple-500/70 transition-all duration-500" :style="`width: ${getQuotaPct(remote.about?.other, remote.about?.total)}%`" title="Other Google Services / Shared"></div>
+                                </div>
+
+                                <!-- Quota Breakdown Metrics -->
+                                <div class="grid grid-cols-3 gap-2 pt-1 text-[11px] font-mono border-t border-slate-900">
+                                    <div>
+                                        <span class="text-slate-500 block text-[9px] uppercase">Used Space</span>
+                                        <span class="text-slate-200 font-medium" x-text="`${formatBytes(remote.about?.used)} (${getQuotaPct(remote.about?.used, remote.about?.total).toFixed(1)}%)`"></span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-500 block text-[9px] uppercase">Free Remaining</span>
+                                        <span class="text-emerald-400 font-medium" x-text="formatBytes(remote.about?.free)"></span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-500 block text-[9px] uppercase">Trash Bin</span>
+                                        <span class="text-amber-400 font-medium" x-text="formatBytes(remote.about?.trashed)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card Action Footer -->
+                        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                            <span class="text-[11px] text-slate-500">Authenticated via RC</span>
+                            <div class="flex items-center gap-2">
+                                <button @click="fetchRemotes(true)" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors">Test Ping</button>
+                                <button @click="switchTab('telemetry')" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded border border-indigo-700/40 transition-colors">View Sync</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Empty State -->
+                <div x-show="remotesData.remotes.length === 0 && !remotesData.loading" class="col-span-full bg-slate-900/40 border border-slate-800/60 rounded-2xl p-8 text-center text-slate-500">
+                    <svg class="w-10 h-10 mx-auto text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                    <p class="text-sm text-slate-400 font-medium">No Rclone remotes discovered.</p>
+                    <p class="text-xs text-slate-500 mt-1">Ensure the rclone daemon is active and has access to rclone.conf.</p>
+                </div>
+            </div>
+        </div> <!-- End View 2: Remote Storage Manager -->
+
+
+
     </div>
 
     <!-- Review Pending Deletions Modal -->
@@ -297,6 +435,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=5"></script>
+    <script src="/static/app.js?v=6"></script>
 </body>
 </html>

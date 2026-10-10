@@ -21,12 +21,12 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 sys.path.append(PROJECT_ROOT)
 
 try:
-    import bisync_config as config
+    import rclone_bisync.config as config
     from rclone_bisync.core.lock import LockManager
     from rclone_bisync.core.client import RcloneClient
     from rclone_bisync.core.state import clear_rate_limit_backoff, read_pending_deletions
 except ImportError:
-    print(f"ERROR: bisync_config.py or rclone_bisync package could not be resolved from root path: {PROJECT_ROOT}")
+    print(f"ERROR: rclone_bisync package could not be resolved from root path: {PROJECT_ROOT}")
     sys.exit(1)
 
 rc_client = RcloneClient(
@@ -503,19 +503,68 @@ def get_pending_deletions():
         return structured
     return parse_pending_deletions()
 
+PROVIDER_LABELS = {
+    "drive": "Google Drive",
+    "onedrive": "Microsoft OneDrive",
+    "s3": "Amazon S3 / S3-Compatible",
+    "dropbox": "Dropbox",
+    "box": "Box",
+    "mega": "Mega",
+    "b2": "Backblaze B2",
+    "webdav": "WebDAV",
+    "smb": "Samba / SMB",
+    "ftp": "FTP",
+    "sftp": "SFTP",
+    "alias": "Alias Remote",
+    "crypt": "Encrypted Remote"
+}
+
 @app.get("/api/remotes")
 def get_remotes():
-    """Discovers configured Rclone remotes and their capacity quotas."""
+    """Discovers configured Rclone remotes, provider types, and capacity quotas."""
     remotes = rc_client.list_remotes()
     remote_data = []
+    total_cap = 0
+    total_used = 0
+    total_free = 0
+
+    active_remote = getattr(config, "REMOTE_PATH", "").rstrip(":")
+
     for r in remotes:
-        about = rc_client.get_remote_about(r)
+        clean_name = r.rstrip(":")
+        cfg = rc_client.get_remote_config(clean_name)
+        about = rc_client.get_remote_about(clean_name)
+        rtype = cfg.get("type", "unknown")
+        type_label = PROVIDER_LABELS.get(rtype, rtype.upper())
+        is_active = (clean_name == active_remote)
+
+        if about:
+            total_cap += about.get("total", 0)
+            total_used += about.get("used", 0)
+            total_free += about.get("free", 0)
+
         remote_data.append({
-            "name": r,
-            "fs": r if r.endswith(":") else f"{r}:",
-            "about": about
+            "name": clean_name,
+            "fs": f"{clean_name}:",
+            "type": rtype,
+            "type_label": type_label,
+            "is_active_target": is_active,
+            "about": about or {}
         })
-    return {"remotes": remote_data, "count": len(remote_data)}
+
+    summary = {
+        "total_capacity_bytes": total_cap,
+        "total_used_bytes": total_used,
+        "total_free_bytes": total_free,
+        "provider_count": len(remote_data)
+    }
+
+    return {
+        "remotes": remote_data,
+        "summary": summary,
+        "active_remote": f"{active_remote}:" if active_remote else None,
+        "count": len(remote_data)
+    }
 
 class BrowseRequest(BaseModel):
     remote: str
