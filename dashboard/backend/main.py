@@ -24,7 +24,7 @@ try:
     import bisync_config as config
     from rclone_bisync.core.lock import LockManager
     from rclone_bisync.core.client import RcloneClient
-    from rclone_bisync.core.state import clear_rate_limit_backoff
+    from rclone_bisync.core.state import clear_rate_limit_backoff, read_pending_deletions
 except ImportError:
     print(f"ERROR: bisync_config.py or rclone_bisync package could not be resolved from root path: {PROJECT_ROOT}")
     sys.exit(1)
@@ -497,7 +497,33 @@ def parse_pending_deletions() -> dict:
 @app.get("/api/deletions/pending")
 def get_pending_deletions():
     """Returns the list of pending deletions detected during the last safety abort."""
+    structured = read_pending_deletions(getattr(config, "PENDING_DELETIONS_FILE", ""))
+    if structured:
+        return structured
     return parse_pending_deletions()
+
+@app.get("/api/remotes")
+def get_remotes():
+    """Discovers configured Rclone remotes and their capacity quotas."""
+    remotes = rc_client.list_remotes()
+    remote_data = []
+    for r in remotes:
+        about = rc_client.get_remote_about(r)
+        remote_data.append({
+            "name": r,
+            "fs": r if r.endswith(":") else f"{r}:",
+            "about": about
+        })
+    return {"remotes": remote_data, "count": len(remote_data)}
+
+class BrowseRequest(BaseModel):
+    remote: str
+    path: Optional[str] = ""
+
+@app.post("/api/browse")
+def browse_files(req: BrowseRequest):
+    """Browses remote directories and checks for canary RCLONE_TEST presence."""
+    return rc_client.list_directory(remote=req.remote, path=req.path or "")
 
 def tail_json_log(filepath: str, entries_count: int = 40) -> List[str]:
     """Reads log file, unwraps nested JSON logs from daemon wrapper entries, and returns valid single-line JSON strings."""

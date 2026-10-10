@@ -1,52 +1,60 @@
 # Rclone Bisync Enterprise Automation Hub - Architecture & Requirements Backlog
 
-## 1. Bulletproof Configuration Safety & Recovery
-* **Automated Snapshot Generation:** Timestamped backups of configuration files (`bisync_config.py`) stored in a dedicated `config_backups/` directory prior to any write operation, paired with sliding retention pruning.
-* **3-Layer Verification Pipeline:**
-  * *Layer 1 (Integrity):* Bit-for-bit SHA-256 hash matching between source and backup files.
-  * *Layer 2 (Syntax):* Abstract Syntax Tree (`ast.parse`) validation ensuring parseable Python code.
-  * *Layer 3 (Schema):* Key-value structural validation post-copy and post-restore.
-* **Rollback Management API:** Backend endpoints (`/api/config/backups`, `/api/config/rollback`) enabling instant, verified restoration of historical configuration states.
+## 1. WebUI Remote Management & Discovery
+* **Active Remote Discovery:**
+  * Endpoint: `GET /api/remotes` leveraging Rclone RC `POST /config/listremotes`.
+  * Returns all configured backends (Google Drive, OneDrive, S3, WebDAV) with provider type and connection status.
+* **Remote Health & Quota Probing:**
+  * Endpoint: `GET /api/remotes/{name}/about` leveraging Rclone RC `POST /operations/about` (`fs="{name}:"`).
+  * Queries total storage, used capacity, trash usage, and free capacity to render visual quota telemetry bars in the UI.
+* **Interactive Remote Re-Authentication:**
+  * WebUI action triggering OAuth re-authentication (`rclone config reconnect {name}:`) or updating credentials with masked UI inputs (`********`).
 
-## 2. Multi-Provider Bisync Abstraction & Hybrid Plugin Architecture
-* **Hybrid Fallback Pattern:** Specialized tuning for core storage providers (e.g., Google Drive) with seamless fallback to a safe `GenericProvider` for any unknown, niche, or newly released rclone backend.
-* **Modular Hooks (`Pre-Sync` / `Post-Sync`):** Isolated plugin classes handling provider-specific pre-flight checks, token validations, and cleanups.
-* **Dynamic Command Builder:** Assembling execution commands dynamically based on active remote capabilities rather than relying on hardcoded provider scripts.
+## 2. Interactive Remote File & Canary Browser
+* **Hierarchical Remote Exploration:**
+  * Endpoint: `POST /api/browse` accepting `{ "remote": "gdrive:", "path": "Documents" }`.
+  * Calls Rclone RC `POST /operations/list` with `{ "fs": "{remote}", "remote": "{path}", "opt": { "recurse": false } }`.
+  * Renders folders and file objects with human-readable file sizes, MIME icons, and modification timestamps.
+* **Canary & Baseline Inspection:**
+  * Visual status pill in the UI indicating whether the required `RCLONE_TEST` canary file is present on the selected remote and local directory paths.
+  * One-click option to provision `RCLONE_TEST` when creating a new synchronization baseline.
+* **Side-by-Side Conflict & Deletion Diff:**
+  * When a `TOO_MANY_DELETES` safety abort occurs, the WebUI opens the file browser highlighting proposed deletions in red and conflicts in amber before requesting authorization with `--force`.
 
-## 3. Pre-Flight "Dry-Run" & Custom Safety Guardrail Engine
-* **Dry-Run Diff Simulation:** Automatically executing rclone's `--dry-run --verbose` prior to live sync execution to map out incoming file modifications (uploads, downloads, deletes, conflicts).
-* **Custom Rule Builder (Guardrails):** A dedicated rule configuration engine allowing users to set deterministic safety thresholds:
-  * *Deletion Limits:* Automatic abortion if a run proposes deleting more than a specified file count or percentage of the repository.
-  * *Anomaly Detection:* Flagging unusual bulk changes or recursive empty-directory risks.
-  * *Path Exclusions:* Rule-based filtering to ignore temporary system files or unwanted extensions.
+## 3. WebUI Configuration Management & Safe Re-Tuning
+* **Visual Parameter Topology:**
+  * Throughput controls: Interactive sliders and input masks for `--buffer-size` (16M, 32M, 64M), `--tpslimit`, and `--retries`.
+  * Conflict resolution selector: Strategy dropdowns for `--conflict-resolve` (`newer`, `older`, `path1`, `path2`) and `--conflict-loser` (`num`, `pathname`).
+  * Drive backend options: Toggles for `--drive-skip-gdocs`, `--drive-use-trash`, and export formats.
+* **3-Layer Configuration Safety Pipeline:**
+  * *Automated Snapshot Generation:* Timestamped backups of configuration files (`config.py`) stored in `config_backups/` prior to any write operation, paired with sliding retention pruning.
+  * *Verification Gate 1 (Integrity):* Bit-for-bit SHA-256 hash matching between source and backup files.
+  * *Verification Gate 2 (Syntax):* Abstract Syntax Tree (`ast.parse`) validation ensuring parseable Python code prior to saving.
+  * *Verification Gate 3 (Schema):* Structural key-value schema validation.
+* **Rollback Management API:** Backend endpoints (`/api/config/backups`, `/api/config/rollback`) enabling instant, verified restoration of historical configuration revisions.
 
-## 4. Linux Native Notifications (`libnotify`) & Webhooks
-* **Desktop Integration:** Triggering native Linux desktop notifications via `notify-send` on Tuxedo OS whenever a sync finishes or encounters errors.
-* **Remote/Headless Webhooks:** Flexible notification dispatchers (Discord, Telegram, Gotify, Slack) for mobile alerting during headless server deployments.
+## 4. Multi-Profile Synchronization Hub
+* **Profile Parameterization:**
+  * Central profile registry allowing multiple independent remotes (e.g., Google Drive personal, OneDrive work, Nextcloud).
+  * Scoped locking (`bisync_<profile>.lock`) and isolated metrics ledgers (`metrics_<profile>.jsonl`).
+* **WebUI Multi-Profile Tabs:**
+  * Multi-tab navigation in the dashboard allowing users to switch between profile views, trigger individual syncs, and monitor dedicated performance charts.
 
-## 5. The "Dead-Man's Snitch" Watchdog
-* **Silent Failure Protection:** Lightweight heartbeat pings sent to an external service (Healthchecks.io, ntfy, or local endpoints) upon successful sync completion.
-* **Timer Failure Detection:** Automated alerts if a scheduled systemd timer fails to report in due to laptop sleep, network dropouts, or process stalls.
+## 5. Structured JSON Safety Abortion Reports
+* **Structured Deletion Ledgers:**
+  * Atomic generation of `pending_deletions.json` containing exact deleted file lists, source directory, and target action whenever `TOO_MANY_DELETES` aborts.
+  * Eliminates fragile text scraping of daemon logs, serving instant deletion modals via `/api/deletions/pending`.
 
-## 6. Interactive Rclone RC File Browser
-* **Side-by-Side Exploration:** Utilizing rclone RC endpoints (`/operations/list`, `/operations/about`) to browse local directories and remote storage buckets side-by-side.
-* **Granular Control:** Inspecting file metadata, verifying folder structures, or triggering single-file operations directly within the dashboard UI.
+## 6. Headless Watchdog ("Dead-Man's Snitch")
+* **Heartbeat Dispatcher:**
+  * Lightweight HTTP GET/POST ping sent to external monitoring endpoints (Healthchecks.io, ntfy, Uptime Kuma) upon successful sync completion.
+* **Silent Failure Detection:**
+  * Triggers immediate alerting if a laptop stays suspended, a network drops, or systemd timer fails to wake up on schedule.
 
-## 7. Unified Log Correlation & Origin Tracking
-* **Universal Run ID Generation:** Generating a unique tracing identifier (`run_id`) at the start of every sync execution to logically bind disparate log streams.
-* **Origin Differentiation:** Automatically tagging execution sources as **`user`** (ad-hoc dashboard triggers) or **`timer`** (automated systemd schedules).
-* **Log & Metrics Enrichment:** Prefacing wrapper logs (`bisync.log`) with the run ID and injecting correlation keys directly into the metrics ledger (`metrics.jsonl`).
-* **UI Filtering:** Click-to-filter workflows in the dashboard to isolate log streams by run ID or trace.
-
-## 8. Dual-Mode Installation & Portable Export
+## 7. Dual-Mode Installation & Portable Export
 * **Desktop vs. Headless Mode:** Launch flag support (`--mode=desktop` vs `--mode=headless`) to spawn a native window via PyWebView or run as a pure network-bound server.
-* **Portable Bundle Generator:** A backend export endpoint packaging a sanitized `rclone.conf`, core sync scripts, and systemd unit templates into a downloadable `.zip` archive for cross-computer deployment.
+* **Portable Bundle Generator:** A backend export endpoint packaging a sanitized `rclone.conf`, core sync scripts, and systemd unit templates into a downloadable archive for cross-computer deployment.
 
-## 9. Frontend Framework & Architecture
-* **Tech Stack:** **Vite + Svelte + Tailwind CSS** SPA architecture for reactive state management, rich form handling, and modal workflows.
-* **Desktop Packaging:** Bundling the FastAPI backend and compiled Svelte frontend into a standalone native binary via PyInstaller and PyWebView.
-
-## 10. Testing, Contracts & Quality Gates
-* **Backend Contract Tests (`pytest`):** Validating Pydantic schemas, telemetry payloads, and the 3-layer configuration safety pipeline.
-* **Frontend Test Integration (`Vitest` + Testing Library):** Ensuring UI components correctly handle mock telemetry contracts and reactive state changes.
-* **System-Level Polish:** Systemd service hardening, log rotation (`logrotate`), and write-only masked UI inputs (`********`) for sensitive OAuth credentials.
+## 8. Testing, Contracts & Quality Gates
+* **Backend Contract Tests (`pytest`):** Validating Pydantic schemas, telemetry payloads, error classification, fcntl locks, and the 3-layer configuration safety pipeline.
+* **Frontend Test Integration:** Ensuring UI components correctly handle mock telemetry contracts and reactive state changes.

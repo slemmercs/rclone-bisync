@@ -149,3 +149,44 @@ class RcloneClient:
                 logging.error(f"Unexpected error monitoring job {job_id}: {e}")
                 return False, "MONITOR_ERROR", str(e), 0
 
+    def list_remotes(self) -> List[str]:
+        """Queries /config/listremotes to discover configured cloud providers."""
+        try:
+            res = requests.post(f"{self.api_url}/config/listremotes", timeout=5, auth=self.auth)
+            if res.status_code == 200:
+                return res.json().get("remotes", [])
+        except Exception as e:
+            logging.warning(f"Failed to query remotes: {e}")
+        return []
+
+    def get_remote_about(self, remote: str) -> Dict[str, Any]:
+        """Queries /operations/about to retrieve storage quota (total, used, free, trashed)."""
+        fs = remote if remote.endswith(":") else f"{remote}:"
+        try:
+            res = requests.post(f"{self.api_url}/operations/about", json={"fs": fs}, timeout=5, auth=self.auth)
+            if res.status_code == 200:
+                return res.json()
+        except Exception as e:
+            logging.warning(f"Failed to query storage quota for {fs}: {e}")
+        return {}
+
+    def list_directory(self, remote: str, path: str = "") -> Dict[str, Any]:
+        """
+        Queries /operations/list to explore directory contents.
+        Returns dictionary with items list and has_canary flag.
+        """
+        fs = remote if remote.endswith(":") else f"{remote}:"
+        clean_path = path.strip("/")
+        payload = {"fs": fs, "remote": clean_path, "opt": {"recurse": False}}
+        try:
+            res = requests.post(f"{self.api_url}/operations/list", json=payload, timeout=10, auth=self.auth)
+            if res.status_code == 200:
+                items = res.json().get("list", [])
+                has_canary = any(item.get("Name") == "RCLONE_TEST" for item in items)
+                return {"items": items, "has_canary": has_canary, "remote": fs, "path": clean_path}
+        except Exception as e:
+            logging.warning(f"Failed to list directory {fs}{clean_path}: {e}")
+            return {"items": [], "has_canary": False, "error": str(e), "remote": fs, "path": clean_path}
+        return {"items": [], "has_canary": False, "remote": fs, "path": clean_path}
+
+

@@ -90,6 +90,13 @@ chmod 600 "$RCLONE_DIR/rc-secrets.env" "$RCLONE_DIR/bisync_config.py"
 echo "Configuring systemd user services..."
 sudo -u "$REAL_USER" mkdir -p "$SYSTEMD_USER_DIR"
 cp rclone-daemon.service rclone-dashboard.service bisync-gdrive.service bisync-gdrive.timer "$SYSTEMD_USER_DIR/"
+
+# Dynamically resolve system binaries for systemd units
+RCLONE_BIN=$(command -v rclone || echo "/usr/bin/rclone")
+CURL_BIN=$(command -v curl || echo "/usr/bin/curl")
+sed -i "s|/usr/bin/rclone|$RCLONE_BIN|g" "$SYSTEMD_USER_DIR/rclone-daemon.service"
+sed -i "s|/usr/bin/curl|$CURL_BIN|g" "$SYSTEMD_USER_DIR/rclone-daemon.service"
+
 chown "$REAL_USER:$REAL_USER" "$SYSTEMD_USER_DIR/"*
 
 # --- 5. Install Desktop Shortcuts ---
