@@ -8,8 +8,8 @@ if [[ "$EUID" -ne 0 ]]; then
   exit 1
 fi
 
-REAL_USER=$(logname || echo $SUDO_USER)
-REAL_HOME=$(eval echo ~$REAL_USER)
+REAL_USER="${SUDO_USER:-$(id -un)}"
+REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
 RCLONE_DIR="$REAL_HOME/rclone-bisync"
 SYSTEMD_USER_DIR="$REAL_HOME/.config/systemd/user"
 SHORTCUT_DIR="$REAL_HOME/.local/share/applications"
@@ -17,10 +17,14 @@ SHORTCUT_DIR="$REAL_HOME/.local/share/applications"
 echo "Starting installation for $REAL_USER..."
 echo "----------------------------------------------------"
 
-# --- 1. Install System & Python Dependencies ---
-echo "Installing system prerequisites (FastAPI, Uvicorn, psutil, and utilities)..."
+# --- 1. Install System Prerequisites & Virtual Environment Tooling ---
+echo "Installing system prerequisites (python3-venv, curl)..."
 apt-get update
-apt-get install -y python3-requests python3-plyer python3-fastapi python3-uvicorn python3-psutil
+apt-get install -y python3-venv curl
+
+# Safely clean up previously installed unneeded global Python packages
+echo "Removing legacy system-wide user Python packages (if installed)..."
+apt-get remove -y python3-fastapi python3-uvicorn python3-plyer 2>/dev/null || true
 
 # --- 2. Install Rclone Binary ---
 echo "Installing/Updating Rclone binary..."
@@ -42,7 +46,7 @@ if [ ! -f "rc-secrets.env" ]; then
     fi
 fi
 
-REQUIRED_FILES=("bisync_config.py" "bisync_gdrive_advanced.py" "rc-secrets.env" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
+REQUIRED_FILES=("bisync_config.py" "bisync_gdrive_advanced.py" "requirements.txt" "rc-secrets.env" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
 for f in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$f" ]; then
         echo "Error: Required workspace configuration asset '$f' not found."
@@ -55,13 +59,23 @@ if [ ! -d "dashboard" ]; then
     exit 1
 fi
 
-cp bisync_config.py bisync_gdrive_advanced.py "$RCLONE_DIR/"
+cp bisync_config.py bisync_gdrive_advanced.py requirements.txt "$RCLONE_DIR/"
 if [ ! -f "$RCLONE_DIR/rc-secrets.env" ]; then
     cp rc-secrets.env "$RCLONE_DIR/"
 else
     echo "Preserving existing secrets file: $RCLONE_DIR/rc-secrets.env"
 fi
 cp -r dashboard "$RCLONE_DIR/"
+
+# Bootstrap isolated Python virtual environment
+echo "Setting up Python virtual environment in $RCLONE_DIR/.venv..."
+if [ ! -d "$RCLONE_DIR/.venv" ]; then
+    sudo -u "$REAL_USER" python3 -m venv "$RCLONE_DIR/.venv"
+fi
+echo "Installing application dependencies into .venv..."
+sudo -u "$REAL_USER" "$RCLONE_DIR/.venv/bin/pip" install --upgrade pip
+sudo -u "$REAL_USER" "$RCLONE_DIR/.venv/bin/pip" install -r "$RCLONE_DIR/requirements.txt"
+
 chown -R "$REAL_USER:$REAL_USER" "$RCLONE_DIR"
 chmod +x "$RCLONE_DIR/bisync_gdrive_advanced.py"
 chmod 600 "$RCLONE_DIR/rc-secrets.env" "$RCLONE_DIR/bisync_config.py"
