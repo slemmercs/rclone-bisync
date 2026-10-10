@@ -18,7 +18,9 @@ from rclone_bisync.core.state import (
     check_rate_limit_backoff,
     set_rate_limit_backoff,
     write_json_file,
-    log_metrics_entry
+    log_metrics_entry,
+    record_pending_deletions,
+    clear_pending_deletions
 )
 from rclone_bisync.engine.classifier import classify_error
 from rclone_bisync.engine.notifier import NotificationDispatcher
@@ -165,6 +167,12 @@ class SyncRunner:
 
             if success:
                 self.cleanup_on_success()
+                clear_pending_deletions(getattr(self.config, "PENDING_DELETIONS_FILE", ""))
+                if getattr(self.config, "WATCHDOG_PING_URL", None):
+                    self.notifier.send_watchdog_ping(
+                        ping_url=self.config.WATCHDOG_PING_URL,
+                        timeout=getattr(self.config, "WATCHDOG_TIMEOUT", 5)
+                    )
                 notification_state["last_success_timestamp"] = time.time()
                 notification_state["last_error_type"] = None
                 write_notification_state(self.config.NOTIFICATION_STATE_FILE, notification_state)
@@ -275,6 +283,18 @@ class SyncRunner:
 
         if err_type == "RATE_LIMIT":
             set_rate_limit_backoff(self.config.RATE_LIMIT_BACKOFF_FILE)
+
+        if err_type == "TOO_MANY_DELETES":
+            deletions_file = getattr(self.config, "PENDING_DELETIONS_FILE", "")
+            if deletions_file:
+                record_pending_deletions(deletions_file, {
+                    "aborted_at": time.time(),
+                    "has_deletions": True,
+                    "error": err_msg,
+                    "source": "Local (~/gdrive)" if "path2" in (err_msg or "").lower() else "Google Drive (remote)",
+                    "target_action": "Will delete from Google Drive" if "path2" in (err_msg or "").lower() else "Will delete from local disk (~/gdrive)",
+                    "message": err_msg or "Safety abort: mass deletions detected."
+                })
 
         # Notify if applicable
         if not no_notify and self.notifier.should_notify_error(err_type, notification_state):

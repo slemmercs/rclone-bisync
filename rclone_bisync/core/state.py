@@ -144,3 +144,26 @@ def log_metrics_entry(
     except IOError as e:
         logging.warning(f"Failed to log metrics: {e}")
         return False
+
+
+def record_pending_deletions(filepath: str, deletion_data: Dict[str, Any]) -> bool:
+    """Record structured pending deletions metadata atomically."""
+    return write_json_file(filepath, deletion_data)
+
+
+def read_pending_deletions(filepath: str) -> Optional[Dict[str, Any]]:
+    """Read structured pending deletions metadata."""
+    data = read_json_file(filepath, default=None)
+    return data if data else None
+
+
+def clear_pending_deletions(filepath: str) -> bool:
+    """Remove pending deletions state file."""
+    if os.path.exists(filepath):
+        try:
+            os.remove(filepath)
+            return True
+        except OSError:
+            pass
+    return False
+
