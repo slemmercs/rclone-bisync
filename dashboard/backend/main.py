@@ -360,6 +360,7 @@ def run_bisync_systemd(extra_args: list, unit_name: str):
         f"--working-directory={config.BASE_DIR}",
         f"--property=EnvironmentFile=-{os.path.expanduser('~')}/.config/dbus-vars",
         f"--property=EnvironmentFile={os.path.join(config.BASE_DIR, 'rc-secrets.env')}",
+        f"--property=EnvironmentFile={os.path.join(config.BASE_DIR, 'bisync.env')}",
         "--property=MemoryMax=1G",
         "--property=CPUQuota=80%",
         "--property=NoNewPrivileges=true",
