@@ -60,3 +60,48 @@ def test_monitor_job_aborts_after_max_consecutive_errors():
     assert success is False
     assert err_type == "MONITOR_ERROR"
     assert "Persistent connection failure" in err_msg
+
+
+def test_list_remotes():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"remotes": ["gdrive", "onedrive"]}
+        mock_post.return_value = mock_resp
+
+        remotes = client.list_remotes()
+        assert remotes == ["gdrive", "onedrive"]
+
+
+def test_get_remote_about():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"total": 1000000000, "used": 500000000, "free": 500000000}
+        mock_post.return_value = mock_resp
+
+        about = client.get_remote_about("gdrive:")
+        assert about["total"] == 1000000000
+        assert about["used"] == 500000000
+
+
+def test_list_directory_canary_detection():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "list": [
+                {"Name": "Documents", "IsDir": True},
+                {"Name": "RCLONE_TEST", "IsDir": False, "Size": 0}
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        data = client.list_directory("gdrive:", path="root")
+        assert len(data["items"]) == 2
+        assert data["has_canary"] is True
+        assert data["remote"] == "gdrive:"
+
