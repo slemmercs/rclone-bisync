@@ -79,6 +79,8 @@ class NotificationState(BaseModel):
 class MetricEntry(BaseModel):
     timestamp: float
     datetime: str
+    run_id: Optional[str] = None
+    origin: Optional[str] = "unknown"
     success: bool
     duration_seconds: float
     error_type: Optional[str] = None
@@ -340,8 +342,8 @@ def get_telemetry(limit: int = 40):
             if latest_metric_success > current_notif_success:
                 notification_data["last_success_timestamp"] = latest_metric_success
 
-    # 5. Pull fresh streams for log files using the dynamic limit
-    bisync_logs = tail_file(config.LOG_FILE, lines_count=limit)
+    # 5. Pull fresh streams for log files using the dynamic limit (both unified as JSON)
+    bisync_logs = tail_json_log(config.LOG_FILE, entries_count=limit)
 
     daemon_log_path = os.path.join(config.BASE_DIR, "rclone-daemon.log")
     daemon_logs = tail_json_log(daemon_log_path, entries_count=limit)
@@ -371,8 +373,8 @@ def get_telemetry(limit: int = 40):
 class ActionRequest(BaseModel):
     action: str
 
-def run_bisync_systemd(flag: str, unit_name: str):
-    """Executes bisync with specific flags under a systemd transient unit."""
+def run_bisync_systemd(extra_args: list, unit_name: str):
+    """Executes bisync with specific flags under a systemd transient unit with origin=dashboard."""
     subprocess.run(["systemctl", "--user", "reset-failed", unit_name], check=False)
     cmd = [
         "systemd-run", "--user",
@@ -389,8 +391,10 @@ def run_bisync_systemd(flag: str, unit_name: str):
         "--property=StandardError=journal",
         "--property=SyslogIdentifier=bisync-gdrive",
         sys.executable, "-u", os.path.join(config.BASE_DIR, "bisync_gdrive_advanced.py"),
-        flag
+        "--origin=dashboard"
     ]
+    if extra_args:
+        cmd.extend(extra_args)
     subprocess.run(cmd, check=True)
 
 @app.post("/api/action")
@@ -398,30 +402,32 @@ def perform_action(req: ActionRequest):
     action = req.action
     try:
         if action == "start_sync":
-            subprocess.run(["systemctl", "--user", "start", "bisync-gdrive.service"], check=True)
-            return {"status": "success", "msg": "Sync started via systemd"}
+            if check_is_syncing():
+                return {"status": "error", "msg": "Sync already in progress."}
+            run_bisync_systemd([], "bisync-gdrive-manual")
+            return {"status": "success", "msg": "Sync started via systemd (origin: dashboard)"}
             
         elif action == "stop_sync":
-            subprocess.run(["systemctl", "--user", "stop", "bisync-gdrive.service", "bisync-gdrive-resync.service", "bisync-gdrive-force.service"], check=False)
+            subprocess.run(["systemctl", "--user", "stop", "bisync-gdrive.service", "bisync-gdrive-manual.service", "bisync-gdrive-resync.service", "bisync-gdrive-force.service", "bisync-gdrive-dryrun.service"], check=False)
             return {"status": "success", "msg": "Sync stopped"}
             
         elif action == "force_resync":
             if check_is_syncing():
                 return {"status": "error", "msg": "Cannot resync: another sync is actively running."}
-            run_bisync_systemd("--resync", "bisync-gdrive-resync")
-            return {"status": "success", "msg": "Resync initiated via systemd"}
+            run_bisync_systemd(["--resync"], "bisync-gdrive-resync")
+            return {"status": "success", "msg": "Resync initiated via systemd (origin: dashboard)"}
 
         elif action == "force_sync":
             if check_is_syncing():
                 return {"status": "error", "msg": "Cannot force sync: another sync is actively running."}
-            run_bisync_systemd("--force", "bisync-gdrive-force")
+            run_bisync_systemd(["--force"], "bisync-gdrive-force")
             return {"status": "success", "msg": "Force sync initiated via systemd (deletions authorized)"}
 
         elif action == "dry_run":
             if check_is_syncing():
                 return {"status": "error", "msg": "Cannot start dry run: another sync is actively running."}
-            run_bisync_systemd("--dry-run", "bisync-gdrive-dryrun")
-            return {"status": "success", "msg": "Dry-run simulation started via systemd"}
+            run_bisync_systemd(["--dry-run"], "bisync-gdrive-dryrun")
+            return {"status": "success", "msg": "Dry-run simulation started via systemd (origin: dashboard)"}
             
         elif action == "remove_lock":
             if check_is_syncing():
