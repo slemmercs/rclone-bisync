@@ -59,7 +59,13 @@ if [ ! -d "dashboard" ]; then
     exit 1
 fi
 
+if [ ! -d "rclone_bisync" ]; then
+    echo "Error: 'rclone_bisync' package directory is missing."
+    exit 1
+fi
+
 cp bisync_config.py bisync_gdrive_advanced.py requirements.txt "$RCLONE_DIR/"
+cp -r rclone_bisync "$RCLONE_DIR/"
 if [ ! -f "$RCLONE_DIR/rc-secrets.env" ]; then
     cp rc-secrets.env "$RCLONE_DIR/"
 else

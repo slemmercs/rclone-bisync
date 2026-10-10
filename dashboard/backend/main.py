@@ -22,9 +22,18 @@ sys.path.append(PROJECT_ROOT)
 
 try:
     import bisync_config as config
+    from rclone_bisync.core.lock import LockManager
+    from rclone_bisync.core.client import RcloneClient
+    from rclone_bisync.core.state import clear_rate_limit_backoff
 except ImportError:
-    print(f"ERROR: bisync_config.py could not be resolved from root path: {PROJECT_ROOT}")
+    print(f"ERROR: bisync_config.py or rclone_bisync package could not be resolved from root path: {PROJECT_ROOT}")
     sys.exit(1)
+
+rc_client = RcloneClient(
+    config.RC_API_URL,
+    user=config.RC_USER if getattr(config, "RC_AUTH_ENABLED", False) else None,
+    password=config.RC_PASS if getattr(config, "RC_AUTH_ENABLED", False) else None
+)
 
 app = FastAPI(title="Rclone Bisync Telemetry API")
 
@@ -253,23 +262,7 @@ def get_cached_metrics(filepath: str, lines_count: int = 30) -> List[dict]:
 
 def check_is_syncing() -> bool:
     """Check if a synchronization run is actively in progress using the file lock."""
-    if not os.path.exists(config.LOCK_FILE):
-        return False
-
-    # Test non-blockingly if the lock is held by a running process
-    try:
-        with open(config.LOCK_FILE, 'r') as f:
-            try:
-                fcntl.lockf(f, fcntl.LOCK_SH | fcntl.LOCK_NB)
-                # Lock acquired successfully -> no active process is holding it
-                fcntl.lockf(f, fcntl.LOCK_UN)
-                return False
-            except (BlockingIOError, IOError, OSError) as e:
-                # EAGAIN (11) or EACCES (13) indicates lock is held by another process
-                if getattr(e, "errno", None) in (11, 13):
-                    return True
-    except Exception:
-        return False
+    return LockManager.is_locked(config.LOCK_FILE)
 
 
 _live_health_cache = {"time": 0.0, "data": None}
@@ -278,8 +271,7 @@ def get_daemon_health() -> dict:
     """Returns daemon health metrics.
 
     Uses DAEMON_HEALTH_FILE if updated within the last 10s. Otherwise performs
-    a direct lightweight health check (with 5s in-memory throttle) so the
-    dashboard shows live ONLINE/OFFLINE status and latency even between syncs.
+    a direct lightweight health check (with 5s in-memory throttle) via RcloneClient.
     """
     now = time.time()
     cached = get_cached_json(config.DAEMON_HEALTH_FILE, default=None)
@@ -289,27 +281,12 @@ def get_daemon_health() -> dict:
     if _live_health_cache["data"] and (now - _live_health_cache["time"]) <= 5:
         return _live_health_cache["data"]
 
-    auth = (config.RC_USER, config.RC_PASS) if getattr(config, "RC_AUTH_ENABLED", False) else None
-    try:
-        res = requests.post(f"{config.RC_API_URL}/core/stats", timeout=1.5, auth=auth)
-        if res.status_code == 200:
-            health = {
-                "status": "healthy",
-                "response_time_ms": round(res.elapsed.total_seconds() * 1000, 2),
-                "last_check": now
-            }
-        else:
-            health = {
-                "status": "offline",
-                "response_time_ms": 0.0,
-                "last_check": now
-            }
-    except Exception:
-        health = {
-            "status": "offline",
-            "response_time_ms": 0.0,
-            "last_check": now
-        }
+    healthy, latency, err = rc_client.check_health(retries=1)
+    health = {
+        "status": "healthy" if healthy else "offline",
+        "response_time_ms": latency if healthy else 0.0,
+        "last_check": now
+    }
 
     _live_health_cache["time"] = now
     _live_health_cache["data"] = health
@@ -382,7 +359,7 @@ def run_bisync_systemd(extra_args: list, unit_name: str):
         "--service-type=oneshot",
         f"--working-directory={config.BASE_DIR}",
         f"--property=EnvironmentFile=-{os.path.expanduser('~')}/.config/dbus-vars",
-        f"--property=EnvironmentFile=-{os.path.join(config.BASE_DIR, 'rc-secrets.env')}",
+        f"--property=EnvironmentFile={os.path.join(config.BASE_DIR, 'rc-secrets.env')}",
         "--property=MemoryMax=1G",
         "--property=CPUQuota=80%",
         "--property=NoNewPrivileges=true",
@@ -408,8 +385,11 @@ def perform_action(req: ActionRequest):
             return {"status": "success", "msg": "Sync started via systemd (origin: dashboard)"}
             
         elif action == "stop_sync":
+            # 1. Stop active jobs on Rclone daemon directly via RC API
+            stopped_jobs = rc_client.stop_all_active_jobs()
+            # 2. Stop transient & permanent systemd units
             subprocess.run(["systemctl", "--user", "stop", "bisync-gdrive.service", "bisync-gdrive-manual.service", "bisync-gdrive-resync.service", "bisync-gdrive-force.service", "bisync-gdrive-dryrun.service"], check=False)
-            return {"status": "success", "msg": "Sync stopped"}
+            return {"status": "success", "msg": f"Sync stopped ({stopped_jobs} daemon jobs halted)"}
             
         elif action == "force_resync":
             if check_is_syncing():
@@ -436,6 +416,11 @@ def perform_action(req: ActionRequest):
                 os.remove(config.LOCK_FILE)
                 return {"status": "success", "msg": "Lock file removed"}
             return {"status": "info", "msg": "No lock file found"}
+
+        elif action == "clear_rate_limit":
+            if clear_rate_limit_backoff(config.RATE_LIMIT_BACKOFF_FILE):
+                return {"status": "success", "msg": "Rate limit backoff cleared"}
+            return {"status": "info", "msg": "No active rate limit flag found"}
             
         else:
             return {"status": "error", "msg": "Unknown action"}
