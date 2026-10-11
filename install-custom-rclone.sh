@@ -22,10 +22,6 @@ echo "Installing system prerequisites (python3-venv, curl)..."
 apt-get update
 apt-get install -y python3-venv curl
 
-# Safely clean up previously installed unneeded global Python packages
-echo "Removing legacy system-wide user Python packages (if installed)..."
-apt-get remove -y python3-fastapi python3-uvicorn python3-plyer 2>/dev/null || true
-
 # --- 2. Install Rclone Binary ---
 echo "Installing/Updating Rclone binary..."
 curl https://rclone.org/install.sh | bash || true
@@ -56,7 +52,7 @@ if [ ! -f "bisync.env" ]; then
     fi
 fi
 
-REQUIRED_FILES=("bisync.env" "bisync.env.example" "bisync_config.py" "bisync_gdrive_advanced.py" "requirements.txt" "rc-secrets.env" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
+REQUIRED_FILES=("bisync.env" "bisync.env.example" "bisync_gdrive_advanced.py" "requirements.txt" "rc-secrets.env" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
 for f in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$f" ]; then
         echo "Error: Required workspace configuration asset '$f' not found."
@@ -74,7 +70,7 @@ if [ ! -d "rclone_bisync" ]; then
     exit 1
 fi
 
-cp bisync_config.py bisync_gdrive_advanced.py requirements.txt "$RCLONE_DIR/"
+cp bisync_gdrive_advanced.py requirements.txt "$RCLONE_DIR/"
 cp -r rclone_bisync "$RCLONE_DIR/"
 
 if [ ! -f "$RCLONE_DIR/bisync.env" ]; then
@@ -102,7 +98,7 @@ sudo -u "$REAL_USER" "$RCLONE_DIR/.venv/bin/pip" install -r "$RCLONE_DIR/require
 chown -R "$REAL_USER:$REAL_USER" "$RCLONE_DIR"
 chmod +x "$RCLONE_DIR/bisync_gdrive_advanced.py"
 chmod 600 "$RCLONE_DIR/rc-secrets.env"
-chmod 644 "$RCLONE_DIR/bisync.env" "$RCLONE_DIR/bisync_config.py"
+chmod 644 "$RCLONE_DIR/bisync.env"
 
 # --- 4. Setup Systemd User Services ---
 echo "Configuring systemd user services..."
