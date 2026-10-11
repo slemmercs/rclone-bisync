@@ -18,22 +18,18 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # ~/dashboard/backend
 # Go up two levels to reach the core rclone-bisync root
 PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 
-sys.path.append(PROJECT_ROOT)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 try:
     import rclone_bisync.config as config
-    from rclone_bisync.core.lock import LockManager
-    from rclone_bisync.core.client import RcloneClient
-    from rclone_bisync.core.state import clear_rate_limit_backoff, read_pending_deletions
-except ImportError:
-    print(f"ERROR: rclone_bisync package could not be resolved from root path: {PROJECT_ROOT}")
+    from rclone_bisync.services.sync_service import SyncService
+except ImportError as e:
+    print(f"ERROR: Failed to import rclone_bisync modules: {e}")
     sys.exit(1)
 
-rc_client = RcloneClient(
-    config.RC_API_URL,
-    user=config.RC_USER if getattr(config, "RC_AUTH_ENABLED", False) else None,
-    password=config.RC_PASS if getattr(config, "RC_AUTH_ENABLED", False) else None
-)
+sync_service = SyncService(config=config)
+rc_client = sync_service.client
 
 app = FastAPI(title="Rclone Bisync Telemetry API")
 
@@ -89,6 +85,7 @@ class MetricEntry(BaseModel):
     timestamp: float
     datetime: str
     run_id: Optional[str] = None
+    job_id: Optional[int] = None
     origin: Optional[str] = "unknown"
     success: bool
     duration_seconds: float
@@ -114,33 +111,6 @@ class TelemetryPayload(BaseModel):
     is_syncing: bool = False
     transfer_stats: Optional[TransferStats] = None
 
-def get_transfer_stats() -> Optional[dict]:
-    auth = (config.RC_USER, config.RC_PASS) if getattr(config, "RC_AUTH_ENABLED", False) else None
-    try:
-        res = requests.post(f"{config.RC_API_URL}/core/stats", timeout=1.5, auth=auth)
-        if res.status_code == 200:
-            data = res.json()
-            total_bytes = data.get("totalBytes", 0)
-            bytes_transferred = data.get("bytes", 0)
-            percentage = (bytes_transferred / total_bytes * 100) if total_bytes > 0 else 0.0
-            
-            # Format speed nicely
-            speed = data.get("speed", 0.0)
-            speed_mb = round(speed / 1024 / 1024, 2)
-            
-            return {
-                "bytes": bytes_transferred,
-                "total_bytes": total_bytes,
-                "speed": speed,
-                "speed_str": f"{speed_mb} MB/s",
-                "eta": data.get("eta"),
-                "percentage": round(percentage, 1),
-                "transferring": data.get("transferring", [])
-            }
-    except Exception:
-        pass
-    return None
-
 @app.get("/api/logs/bisync/raw")
 def get_raw_bisync_log():
     """Serves the raw bisync.log file as plain text."""
@@ -156,415 +126,26 @@ def get_raw_daemon_log():
         return FileResponse(daemon_log_path, media_type="text/plain", filename="rclone-daemon.log")
     return {"error": "Log file not found"}
 
-def tail_file(filepath: str, lines_count: int = 40) -> List[str]:
-    """Accurately reads the last N whole lines of a file by seeking backward from the end."""
-    if not os.path.exists(filepath):
-        return [f"Log file target not found at: {filepath}"]
-    
-    lines = []
-    buffer_size = 8192
-    
-    with open(filepath, 'rb') as f:
-        f.seek(0, os.SEEK_END)
-        position = f.tell()
-        remainder = b""
-        
-        while position > 0 and len(lines) < lines_count:
-            to_read = min(buffer_size, position)
-            position -= to_read
-            f.seek(position, os.SEEK_SET)
-            chunk = f.read(to_read) + remainder
-            
-            chunk_lines = chunk.split(b'\n')
-            # The first element might be an incomplete line segment; store for next iteration
-            remainder = chunk_lines[0]
-            
-            # Walk backward through complete lines in this chunk
-            for line_bytes in reversed(chunk_lines[1:]):
-                if len(lines) < lines_count:
-                    line_str = line_bytes.decode('utf-8', errors='replace').rstrip('\r')
-                    if line_str:
-                        lines.append(line_str)
-                else:
-                    break
-                    
-        if remainder and len(lines) < lines_count:
-            line_str = remainder.decode('utf-8', errors='replace').rstrip('\r')
-            if line_str:
-                lines.append(line_str)
-            
-    return list(reversed(lines))
-
-# Keys and word patterns that should be masked in telemetry responses
-SENSITIVE_CONFIG_KEYS = {"RC_PASS", "WEBHOOK_URL"}
-SENSITIVE_WORDS = {"PASS", "PASSWORD", "SECRET", "TOKEN", "KEY", "CREDENTIAL", "CREDENTIALS"}
-
-def is_sensitive_key(key: str) -> bool:
-    key_upper = key.upper()
-    if key_upper in SENSITIVE_CONFIG_KEYS:
-        return True
-    parts = set(key_upper.split("_"))
-    return bool(parts & SENSITIVE_WORDS)
-
-# In-memory cache for JSON files based on mtime and file size
-_file_cache = {}
-
-def get_cached_json(filepath: str, default=None):
-    """Loads JSON file with mtime/size caching to prevent redundant disk I/O."""
-    if default is None:
-        default = {}
-    if not os.path.exists(filepath):
-        return default
-    try:
-        stat = os.stat(filepath)
-        cached = _file_cache.get(filepath)
-        if cached and cached["mtime"] == stat.st_mtime and cached["size"] == stat.st_size:
-            return cached["data"]
-        with open(filepath, 'r') as f:
-            data = json.load(f)
-        _file_cache[filepath] = {
-            "mtime": stat.st_mtime,
-            "size": stat.st_size,
-            "data": data
-        }
-        return data
-    except Exception:
-        return default
-
-_metrics_cache = {"mtime": 0, "size": 0, "data": []}
-
-def get_cached_metrics(filepath: str, lines_count: int = 30) -> List[dict]:
-    """Tails only the last N lines of metrics.jsonl and caches result by mtime and file size."""
-    if not os.path.exists(filepath):
-        return []
-    try:
-        stat = os.stat(filepath)
-        if _metrics_cache["mtime"] == stat.st_mtime and _metrics_cache["size"] == stat.st_size:
-            return _metrics_cache["data"]
-
-        # Efficient backward tail instead of reading entire file into memory
-        raw_lines = tail_file(filepath, lines_count=lines_count)
-        parsed = []
-        for line in raw_lines:
-            line_str = line.strip()
-            if line_str:
-                try:
-                    parsed.append(json.loads(line_str))
-                except (json.JSONDecodeError, ValueError):
-                    continue
-
-        _metrics_cache["mtime"] = stat.st_mtime
-        _metrics_cache["size"] = stat.st_size
-        _metrics_cache["data"] = parsed
-        return parsed
-    except Exception:
-        return _metrics_cache.get("data", [])
-
-def check_is_syncing() -> bool:
-    """Check if a synchronization run is actively in progress using the file lock."""
-    return LockManager.is_locked(config.LOCK_FILE)
-
-
-_live_health_cache = {"time": 0.0, "data": None}
-
-def get_daemon_health() -> dict:
-    """Returns daemon health metrics.
-
-    Uses DAEMON_HEALTH_FILE if updated within the last 10s. Otherwise performs
-    a direct lightweight health check (with 5s in-memory throttle) via RcloneClient.
-    """
-    now = time.time()
-    cached = get_cached_json(config.DAEMON_HEALTH_FILE, default=None)
-    if cached and (now - cached.get("last_check", 0)) <= 10:
-        return cached
-
-    if _live_health_cache["data"] and (now - _live_health_cache["time"]) <= 5:
-        return _live_health_cache["data"]
-
-    healthy, latency, err = rc_client.check_health(retries=1)
-    health = {
-        "status": "healthy" if healthy else "offline",
-        "response_time_ms": latency if healthy else 0.0,
-        "last_check": now
-    }
-
-    _live_health_cache["time"] = now
-    _live_health_cache["data"] = health
-    return health
-
-
 @app.get("/api/telemetry", response_model=TelemetryPayload)
 def get_telemetry(limit: int = 40):
-    # 1. Daemon Health
-    daemon_data = get_daemon_health()
-
-    # 2. Check active sync state early so transfer stats can use it
-    is_syncing = check_is_syncing()
-    transfer_stats = get_transfer_stats() if is_syncing else None
-
-    # 3. Parse Notification State File
-    notification_data = dict(get_cached_json(
-        config.NOTIFICATION_STATE_FILE,
-        default={"last_success_timestamp": None, "last_error_type": None, "last_error_timestamp": None}
-    ))
-
-    # 4. Parse Metrics Log
-    metrics_data = get_cached_metrics(config.METRICS_FILE, lines_count=30)
-
-    if metrics_data:
-        successful_runs = [m.get("timestamp") for m in metrics_data if m.get("success") and m.get("timestamp")]
-        if successful_runs:
-            latest_metric_success = max(successful_runs)
-            current_notif_success = notification_data.get("last_success_timestamp") or 0
-            if latest_metric_success > current_notif_success:
-                notification_data["last_success_timestamp"] = latest_metric_success
-
-    # 5. Pull fresh streams for log files using the dynamic limit (both unified as JSON)
-    bisync_logs = tail_json_log(config.LOG_FILE, entries_count=limit)
-
-    daemon_log_path = os.path.join(config.BASE_DIR, "rclone-daemon.log")
-    daemon_logs = tail_json_log(daemon_log_path, entries_count=limit)
-
-    # 6. Harvest configuration variables dynamically
-    runtime_config = {}
-    for key in dir(config):
-        if key.isupper():
-            value = getattr(config, key)
-            if isinstance(value, (str, int, float, bool, list, dict)) or value is None:
-                if is_sensitive_key(key):
-                    runtime_config[key] = "********" if (value is not None and value != "") else value
-                else:
-                    runtime_config[key] = value
-
-    return {
-        "daemon_health": daemon_data,
-        "notification_state": notification_data,
-        "metrics": metrics_data,
-        "bisync_logs": bisync_logs,
-        "daemon_logs": daemon_logs,
-        "config": runtime_config,
-        "is_syncing": is_syncing,
-        "transfer_stats": transfer_stats
-    }
+    return sync_service.get_telemetry_payload(limit=limit)
 
 class ActionRequest(BaseModel):
     action: str
 
-def run_bisync_systemd(extra_args: list, unit_name: str):
-    """Executes bisync with specific flags under a systemd transient unit with origin=dashboard."""
-    subprocess.run(["systemctl", "--user", "reset-failed", unit_name], check=False)
-    cmd = [
-        "systemd-run", "--user",
-        f"--unit={unit_name}",
-        "--service-type=oneshot",
-        f"--working-directory={config.BASE_DIR}",
-        f"--property=EnvironmentFile=-{os.path.expanduser('~')}/.config/dbus-vars",
-        f"--property=EnvironmentFile={os.path.join(config.BASE_DIR, 'rc-secrets.env')}",
-        f"--property=EnvironmentFile={os.path.join(config.BASE_DIR, 'bisync.env')}",
-        "--property=MemoryMax=1G",
-        "--property=CPUQuota=80%",
-        "--property=NoNewPrivileges=true",
-        "--property=PrivateTmp=true",
-        "--property=StandardOutput=journal",
-        "--property=StandardError=journal",
-        "--property=SyslogIdentifier=bisync-gdrive",
-        sys.executable, "-u", os.path.join(config.BASE_DIR, "bisync_gdrive_advanced.py"),
-        "--origin=dashboard"
-    ]
-    if extra_args:
-        cmd.extend(extra_args)
-    subprocess.run(cmd, check=True)
-
 @app.post("/api/action")
 def perform_action(req: ActionRequest):
-    action = req.action
-    try:
-        if action == "start_sync":
-            if check_is_syncing():
-                return {"status": "error", "msg": "Sync already in progress."}
-            run_bisync_systemd([], "bisync-gdrive-manual")
-            return {"status": "success", "msg": "Sync started via systemd (origin: dashboard)"}
-            
-        elif action == "stop_sync":
-            # 1. Stop active jobs on Rclone daemon directly via RC API
-            stopped_jobs = rc_client.stop_all_active_jobs()
-            # 2. Stop transient & permanent systemd units
-            subprocess.run(["systemctl", "--user", "stop", "bisync-gdrive.service", "bisync-gdrive-manual.service", "bisync-gdrive-resync.service", "bisync-gdrive-force.service", "bisync-gdrive-dryrun.service"], check=False)
-            return {"status": "success", "msg": f"Sync stopped ({stopped_jobs} daemon jobs halted)"}
-            
-        elif action == "force_resync":
-            if check_is_syncing():
-                return {"status": "error", "msg": "Cannot resync: another sync is actively running."}
-            run_bisync_systemd(["--resync"], "bisync-gdrive-resync")
-            return {"status": "success", "msg": "Resync initiated via systemd (origin: dashboard)"}
-
-        elif action == "force_sync":
-            if check_is_syncing():
-                return {"status": "error", "msg": "Cannot force sync: another sync is actively running."}
-            run_bisync_systemd(["--force"], "bisync-gdrive-force")
-            return {"status": "success", "msg": "Force sync initiated via systemd (deletions authorized)"}
-
-        elif action == "dry_run":
-            if check_is_syncing():
-                return {"status": "error", "msg": "Cannot start dry run: another sync is actively running."}
-            run_bisync_systemd(["--dry-run"], "bisync-gdrive-dryrun")
-            return {"status": "success", "msg": "Dry-run simulation started via systemd (origin: dashboard)"}
-            
-        elif action == "remove_lock":
-            if check_is_syncing():
-                return {"status": "error", "msg": "Cannot remove lock: a synchronization run is actively in progress."}
-            if os.path.exists(config.LOCK_FILE):
-                os.remove(config.LOCK_FILE)
-                return {"status": "success", "msg": "Lock file removed"}
-            return {"status": "info", "msg": "No lock file found"}
-
-        elif action == "clear_rate_limit":
-            if clear_rate_limit_backoff(config.RATE_LIMIT_BACKOFF_FILE):
-                return {"status": "success", "msg": "Rate limit backoff cleared"}
-            return {"status": "info", "msg": "No active rate limit flag found"}
-            
-        else:
-            return {"status": "error", "msg": "Unknown action"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-def parse_pending_deletions() -> dict:
-    """Parses recently aborted deletions from the daemon log for safety inspection."""
-    daemon_log = os.path.join(config.BASE_DIR, "rclone-daemon.log")
-    if not os.path.exists(daemon_log):
-        return {"has_deletions": False, "total_count": 0, "files": [], "source": "unknown"}
-
-    deleted_files = []
-    abort_msg = None
-    source = "Google Drive (remote)"
-    target_action = "Will be deleted from local disk (~/gdrive)"
-
-    try:
-        lines = tail_file(daemon_log, lines_count=2000)
-        for line in reversed(lines):
-            line_str = line.strip()
-            if not line_str:
-                continue
-            try:
-                data = json.loads(line_str)
-                raw_msg = data.get("msg", "")
-                sublines = raw_msg.splitlines() if isinstance(raw_msg, str) else [raw_msg]
-                for sub in reversed(sublines):
-                    sub = sub.strip()
-                    if sub.startswith("{") and sub.endswith("}"):
-                        try:
-                            inner = json.loads(sub)
-                            imsg = inner.get("msg", "")
-                        except Exception:
-                            imsg = sub
-                    else:
-                        imsg = sub
-
-                    if "too many deletes" in imsg.lower():
-                        abort_msg = imsg
-                        if "path2" in imsg.lower():
-                            source = "Local (~/gdrive)"
-                            target_action = "Will be deleted from Google Drive"
-                        else:
-                            source = "Google Drive (remote)"
-                            target_action = "Will be deleted from local disk (~/gdrive)"
-
-                    if "File was deleted" in imsg:
-                        parts = imsg.split("File was deleted", 1)
-                        if len(parts) == 2:
-                            fp = parts[1].strip().lstrip("-").strip()
-                            if fp and fp not in deleted_files:
-                                deleted_files.append(fp)
-
-                if abort_msg and "Synching Path1" in line_str:
-                    break
-            except Exception:
-                continue
-
-        if deleted_files or abort_msg:
-            return {
-                "has_deletions": True,
-                "total_count": len(deleted_files),
-                "source": source,
-                "target_action": target_action,
-                "message": abort_msg or f"{len(deleted_files)} files deleted",
-                "files": list(reversed(deleted_files))
-            }
-    except Exception as e:
-        return {"has_deletions": False, "total_count": 0, "files": [], "error": str(e)}
-
-    return {"has_deletions": False, "total_count": 0, "files": []}
+    return sync_service.handle_action(req.action)
 
 @app.get("/api/deletions/pending")
 def get_pending_deletions():
     """Returns the list of pending deletions detected during the last safety abort."""
-    structured = read_pending_deletions(getattr(config, "PENDING_DELETIONS_FILE", ""))
-    if structured:
-        return structured
-    return parse_pending_deletions()
-
-PROVIDER_LABELS = {
-    "drive": "Google Drive",
-    "onedrive": "Microsoft OneDrive",
-    "s3": "Amazon S3 / S3-Compatible",
-    "dropbox": "Dropbox",
-    "box": "Box",
-    "mega": "Mega",
-    "b2": "Backblaze B2",
-    "webdav": "WebDAV",
-    "smb": "Samba / SMB",
-    "ftp": "FTP",
-    "sftp": "SFTP",
-    "alias": "Alias Remote",
-    "crypt": "Encrypted Remote"
-}
+    return sync_service.get_pending_deletions()
 
 @app.get("/api/remotes")
 def get_remotes():
     """Discovers configured Rclone remotes, provider types, and capacity quotas."""
-    remotes = rc_client.list_remotes()
-    remote_data = []
-    total_cap = 0
-    total_used = 0
-    total_free = 0
-
-    active_remote = getattr(config, "REMOTE_PATH", "").rstrip(":")
-
-    for r in remotes:
-        clean_name = r.rstrip(":")
-        cfg = rc_client.get_remote_config(clean_name)
-        about = rc_client.get_remote_about(clean_name)
-        rtype = cfg.get("type", "unknown")
-        type_label = PROVIDER_LABELS.get(rtype, rtype.upper())
-        is_active = (clean_name == active_remote)
-
-        if about:
-            total_cap += about.get("total", 0)
-            total_used += about.get("used", 0)
-            total_free += about.get("free", 0)
-
-        remote_data.append({
-            "name": clean_name,
-            "fs": f"{clean_name}:",
-            "type": rtype,
-            "type_label": type_label,
-            "is_active_target": is_active,
-            "about": about or {}
-        })
-
-    summary = {
-        "total_capacity_bytes": total_cap,
-        "total_used_bytes": total_used,
-        "total_free_bytes": total_free,
-        "provider_count": len(remote_data)
-    }
-
-    return {
-        "remotes": remote_data,
-        "summary": summary,
-        "active_remote": f"{active_remote}:" if active_remote else None,
-        "count": len(remote_data)
-    }
+    return sync_service.get_remotes_summary()
 
 class BrowseRequest(BaseModel):
     remote: str
@@ -573,45 +154,7 @@ class BrowseRequest(BaseModel):
 @app.post("/api/browse")
 def browse_files(req: BrowseRequest):
     """Browses remote directories and checks for canary RCLONE_TEST presence."""
-    return rc_client.list_directory(remote=req.remote, path=req.path or "")
-
-def tail_json_log(filepath: str, entries_count: int = 40) -> List[str]:
-    """Reads log file, unwraps nested JSON logs from daemon wrapper entries, and returns valid single-line JSON strings."""
-    if not os.path.exists(filepath):
-        return [f"Log file target not found at: {filepath}"]
-
-    raw_lines = tail_file(filepath, lines_count=entries_count * 2)
-    entries = []
-
-    for line in raw_lines:
-        line_str = line.strip()
-        if not line_str:
-            continue
-        try:
-            parsed = json.loads(line_str)
-            msg = parsed.get("msg")
-
-            # Unwrap nested JSON logs stored inside daemon wrapper msg fields
-            if isinstance(msg, str) and ("{\"" in msg or "{'" in msg):
-                sub_lines = msg.splitlines()
-                unwrapped_any = False
-                for sub_line in sub_lines:
-                    sub_line = sub_line.strip()
-                    if sub_line.startswith("{") and sub_line.endswith("}"):
-                        try:
-                            inner_json = json.loads(sub_line)
-                            entries.append(json.dumps(inner_json))
-                            unwrapped_any = True
-                        except Exception:
-                            pass
-                if not unwrapped_any:
-                    entries.append(json.dumps(parsed))
-            else:
-                entries.append(json.dumps(parsed))
-        except Exception:
-            entries.append(line_str)
-
-    return entries[-entries_count:]
+    return sync_service.browse_path(remote=req.remote, path=req.path or "")
 
 # Mount static files cleanly
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
