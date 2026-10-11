@@ -26,39 +26,59 @@ class NotificationDispatcher:
         webhook_url: Optional[str] = None,
         webhook_timeout: int = 5,
         enabled_smart_notifications: bool = True,
-        error_repeat_hours: float = 6.0
+        error_repeat_hours: float = 6.0,
+        icon_path: Optional[str] = None
     ):
         self.app_name = app_name
         self.webhook_url = webhook_url
         self.webhook_timeout = webhook_timeout
         self.enabled_smart_notifications = enabled_smart_notifications
         self.error_repeat_hours = error_repeat_hours
+        self.icon_path = icon_path or self._resolve_icon()
+
+    def _resolve_icon(self) -> str:
+        """Resolves desktop notification icon path, preferring cloud-sync-light.svg."""
+        candidates = [
+            os.path.join(os.path.expanduser("~"), "rclone-bisync", "icons", "cloud-sync-light.svg"),
+            os.path.join(os.path.expanduser("~"), "rclone-bisync", "dashboard", "frontend", "cloud-sync-light.svg"),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "icons", "cloud-sync-light.svg")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "dashboard", "frontend", "cloud-sync-light.svg")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "cloud-sync-light.svg")),
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+        return "sync-synchronizing"
 
     def send_desktop(self, title: str, message: str, urgency: str = "normal"):
         """Sends native notify-send or plyer notification."""
+        icon = self.icon_path or self._resolve_icon()
         notify_send_bin = shutil.which("notify-send")
         if notify_send_bin:
             try:
                 u = "critical" if urgency == "critical" else "normal"
                 subprocess.run(
-                    [notify_send_bin, "-a", self.app_name, "-u", u, "-i", "sync-synchronizing", title, message],
+                    [notify_send_bin, "-a", self.app_name, "-u", u, "-i", icon, title, message],
                     check=False,
                     timeout=3
                 )
-                logging.debug(f"Native notification sent via notify-send: {title}")
+                logging.debug(f"Native notification sent via notify-send: {title} (icon: {icon})")
                 return
             except Exception as e:
                 logging.debug(f"notify-send call failed: {e}")
 
         if PLYER_AVAILABLE:
             try:
-                plyer_notification.notify(
-                    title=title,
-                    message=message,
-                    app_name=self.app_name,
-                    timeout=10,
-                    hints={"urgency": 2 if urgency == "critical" else 1}
-                )
+                plyer_kwargs = {
+                    "title": title,
+                    "message": message,
+                    "app_name": self.app_name,
+                    "timeout": 10,
+                    "hints": {"urgency": 2 if urgency == "critical" else 1}
+                }
+                if icon and icon != "sync-synchronizing" and os.path.exists(icon):
+                    plyer_kwargs["app_icon"] = icon
+                plyer_notification.notify(**plyer_kwargs)
                 logging.debug(f"Notification sent via plyer: {title}")
             except Exception as e:
                 logging.error(f"Failed to send notification via plyer: {e}")
