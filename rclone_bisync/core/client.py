@@ -33,9 +33,11 @@ class RcloneClient:
                 time.sleep(retry_delay)
         return False, 0.0, last_error
 
-    def trigger_bisync(self, params: Dict[str, Any]) -> int:
+    def trigger_bisync(self, params: Dict[str, Any], group: Optional[str] = None) -> int:
         """Calls /sync/bisync?_async=true. Returns job ID integer."""
         url = f"{self.api_url}/sync/bisync?_async=true"
+        if group:
+            url += f"&_group={requests.utils.quote(group)}"
         response = requests.post(url, json=params, timeout=30, auth=self.auth)
         response.raise_for_status()
         data = response.json()
