@@ -85,6 +85,9 @@ else
     echo "Preserving existing secrets file: $RCLONE_DIR/rc-secrets.env"
 fi
 cp -r dashboard "$RCLONE_DIR/"
+if [ -d "icons" ]; then
+    cp -r icons "$RCLONE_DIR/"
+fi
 
 # Bootstrap isolated Python virtual environment
 echo "Setting up Python virtual environment in $RCLONE_DIR/.venv..."
@@ -119,6 +122,8 @@ sudo -u "$REAL_USER" mkdir -p "$SHORTCUT_DIR"
 rm -f "$SHORTCUT_DIR/rclone-webgui.desktop"
 
 cp rclone-bisync-manual.desktop rclone-dashboard.desktop "$SHORTCUT_DIR/"
+sed -i "s|Icon=sync|Icon=$RCLONE_DIR/icons/cloud-sync-light.svg|g" "$SHORTCUT_DIR/rclone-bisync-manual.desktop"
+sed -i "s|Icon=network-server|Icon=$RCLONE_DIR/icons/cloud-sync-light.svg|g" "$SHORTCUT_DIR/rclone-dashboard.desktop"
 chown "$REAL_USER:$REAL_USER" "$SHORTCUT_DIR/"rclone-*.desktop
 chmod +x "$SHORTCUT_DIR/"rclone-*.desktop
 
