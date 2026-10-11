@@ -93,9 +93,10 @@ class SyncRunner:
         self,
         resync: bool = False,
         force: bool = False,
-        dry_run: bool = False
-    ) -> Tuple[bool, Optional[str], Optional[str], int]:
-        """Compiles arguments, dispatches to daemon, and monitors execution."""
+        dry_run: bool = False,
+        run_id: str = "unknown"
+    ) -> Tuple[bool, Optional[str], Optional[str], int, Optional[int]]:
+        """Compiles arguments, dispatches to daemon with group tag, and monitors execution."""
         try:
             params = compile_bisync_payload(
                 args_list=getattr(self.config, "RCLONE_COMMON_ARGS", []),
@@ -107,12 +108,13 @@ class SyncRunner:
             )
         except FileNotFoundError as e:
             logging.error(f"Canary safety guard abort: {e}")
-            return False, "CHECK_ACCESS_FAILED", str(e), 0
+            return False, "CHECK_ACCESS_FAILED", str(e), 0, None
 
         try:
-            logging.info(f"Triggering bisync job on daemon (resync={resync}, force={force}, dry_run={dry_run})...")
-            job_id = self.client.trigger_bisync(params)
-            logging.info(f"Bisync job started (Job ID: {job_id})")
+            group_tag = f"bisync-{run_id}" if run_id and run_id != "unknown" else None
+            logging.info(f"Triggering bisync job on daemon (resync={resync}, force={force}, dry_run={dry_run}, run_id={run_id})...")
+            job_id = self.client.trigger_bisync(params, group=group_tag)
+            logging.info(f"Bisync job started (Job ID: {job_id}, run_id: {run_id}, group: {group_tag})")
 
             success, err_type, err_msg, files = self.client.monitor_job(
                 job_id=job_id,
@@ -123,10 +125,10 @@ class SyncRunner:
             )
             if not success and not err_type and err_msg:
                 err_type = classify_error(err_msg)
-            return success, err_type, err_msg, files
+            return success, err_type, err_msg, files, job_id
         except Exception as e:
             err_str = str(e)
-            return False, classify_error(err_str), err_str, 0
+            return False, classify_error(err_str), err_str, 0, None
 
     def run(
         self,
@@ -158,7 +160,9 @@ class SyncRunner:
                 return False
 
             # 4. Execute Transaction
-            success, err_type, err_msg, files = self.execute_transaction(resync=resync, force=force, dry_run=dry_run)
+            success, err_type, err_msg, files, job_id = self.execute_transaction(
+                resync=resync, force=force, dry_run=dry_run, run_id=run_id
+            )
             duration = time.time() - start_time
 
             if dry_run:
@@ -184,6 +188,7 @@ class SyncRunner:
                             "timestamp": time.time(),
                             "datetime": time.strftime("%Y-%m-%dT%H:%M:%S"),
                             "run_id": run_id,
+                            "job_id": job_id,
                             "origin": origin,
                             "success": True,
                             "duration_seconds": round(duration, 2),
@@ -198,7 +203,7 @@ class SyncRunner:
                     self.notifier.send_desktop("Sync Success", f"Google Drive synchronized cleanly ({duration:.1f}s)")
                 return True
             else:
-                return self._handle_failure(err_type, err_msg, duration, files, resync, force, no_notify, notification_state, run_id, origin, start_time)
+                return self._handle_failure(err_type, err_msg, duration, files, resync, force, no_notify, notification_state, run_id, origin, start_time, job_id)
         finally:
             self.lock_mgr.release()
 
@@ -214,7 +219,8 @@ class SyncRunner:
         notification_state: Dict[str, Any],
         run_id: str,
         origin: str,
-        start_time: float
+        start_time: float,
+        job_id: Optional[int] = None
     ) -> bool:
         """Handles failure path, auto-recovery resync, and notifications."""
         logging.error(f"Sync failed ({err_type}): {err_msg}")
@@ -232,7 +238,7 @@ class SyncRunner:
                         urgency="normal"
                     )
 
-                retry_success, retry_err, retry_detail, retry_files = self.execute_transaction(resync=True, force=force)
+                retry_success, retry_err, retry_detail, retry_files, retry_job_id = self.execute_transaction(resync=True, force=force, run_id=run_id)
                 if retry_success:
                     retry_duration = time.time() - start_time
                     logging.info("✅ Auto-recovery successful! Baseline sync state rebuild complete.")
@@ -248,6 +254,7 @@ class SyncRunner:
                                 "timestamp": time.time(),
                                 "datetime": time.strftime("%Y-%m-%dT%H:%M:%S"),
                                 "run_id": run_id,
+                                "job_id": retry_job_id,
                                 "origin": origin,
                                 "success": True,
                                 "duration_seconds": round(retry_duration, 2),
@@ -262,6 +269,7 @@ class SyncRunner:
                     return True
                 else:
                     err_type, err_msg = retry_err, retry_detail
+                    job_id = retry_job_id
 
         # Record failure metric
         if self.config.ENABLE_METRICS:
@@ -271,6 +279,7 @@ class SyncRunner:
                     "timestamp": time.time(),
                     "datetime": time.strftime("%Y-%m-%dT%H:%M:%S"),
                     "run_id": run_id,
+                    "job_id": job_id,
                     "origin": origin,
                     "success": False,
                     "duration_seconds": round(duration, 2),
