@@ -166,7 +166,7 @@ def read_index():
 
 @app.get("/favicon.ico", include_in_schema=False)
 def get_favicon():
-    favicon_path = os.path.join(FRONTEND_DIR, "cloud-sync-light.svg")
+    favicon_path = os.path.join(FRONTEND_DIR, "favicon.svg")
     if os.path.exists(favicon_path):
         return FileResponse(favicon_path, media_type="image/svg+xml")
     return JSONResponse(status_code=404, content={"detail": "Favicon not found"})
