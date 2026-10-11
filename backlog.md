@@ -2,13 +2,13 @@
 
 ## 1. Active Implementation Sprint (Incremental Branch Roadmap)
 
-* **Branch 1: `refactor/clean-env-breaking-change`**
+* **Branch 1: `refactor/clean-env-breaking-change` [MERGED]**
   * Eliminate legacy `bisync_config.py` shim completely (breaking change to pure `.env` configuration).
   * Refactor `install-custom-rclone.sh`: remove destructive `apt-get remove` system package removals (Rule 3) and remove references to `bisync_config.py`.
   * Add `pytest.ini` (`pythonpath = .`) for frictionless CLI test execution.
   * Update `tests/test_config.py`: replace deprecated shim test with strict tests for `bisync.env` and `rc-secrets.env` parsing and missing `RC_PASS` exception handling.
 
-* **Branch 2: `refactor/service-layer-and-rc-correlation`**
+* **Branch 2: `refactor/service-layer-and-rc-correlation` [MERGED]**
   * Extract domain logic out of `dashboard/backend/main.py` into `rclone_bisync/services/sync_service.py` (`SyncService` class):
     * Systemd transient execution (`run_bisync_systemd`) with origin tracking.
     * Process/lock actions (`start_sync`, `stop_sync`, `force_resync`, `force_sync`, `dry_run`, `remove_lock`, `clear_rate_limit`).
@@ -37,16 +37,21 @@
   * Clickable breadcrumbs, folder drill-down, MIME-type icons, and live `RCLONE_TEST` canary pill with 1-click provisioning.
   * "Browse Files" direct action links on Remote storage cards.
 
-* **Branch 6: `test/backend-integration-suite`**
+* **Branch 6: `feat/interactive-log-cross-filtering`**
+  * UI Component: Render `run_id` as an interactive, clickable chip/pill in the Bisync log viewer.
+  * Cross-Filter Action: Clicking a `run_id` chip highlights that execution cycle and filters the `rclone-daemon.log` panel to display only the daemon entries matching that run's execution window and `job_id`.
+  * Filter Clear / Reset: Provide a visual pill `[Filter: run_id=xxx ✕]` allowing one-click return to the live unfiltered daemon log stream.
+
+* **Branch 7: `test/backend-integration-suite`**
   * Add `tests/test_dashboard_backend.py` using `fastapi.testclient.TestClient`.
   * Validate CSRF protections (`X-Dashboard-Request: 1`, origin validation).
   * Validate endpoints (`/api/telemetry`, `/api/action`, `/api/remotes`, `/api/browse`, `/api/deletions/pending`, `/api/remotes/{name}/reconnect`).
   * Verify recursive secret redaction prevents token exposure.
 
-* **Branch 7: `test/playwright-ui-automation`**
+* **Branch 8: `test/playwright-ui-automation`**
   * Add `playwright` to dev dependencies (`requirements.txt`).
   * Implement headless browser test suite (`tests/ui/test_dashboard_ui.py`) leveraging the native `/usr/bin/google-chrome-stable` binary.
-  * Verify Alpine.js reactive components: health pills, tab navigation, remote cards, dual-pane explorer (left local, right remote), and pending deletions modal.
+  * Verify Alpine.js reactive components: health pills, tab navigation, remote cards, dual-pane explorer (left local, right remote), log cross-filtering, and pending deletions modal.
 
 ---
 
