@@ -164,6 +164,21 @@ func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin stri
 	_ = exec.Command("systemctl", "--user", "reset-failed", unitName).Run()
 
 	homeDir, _ := os.UserHomeDir()
+	binPath := filepath.Join(s.Config.BaseDir, "bin", "rclone-bisync")
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
+		// Fallback to rclone-bisync in BaseDir or PATH
+		if _, err := os.Stat(filepath.Join(s.Config.BaseDir, "rclone-bisync")); err == nil {
+			binPath = filepath.Join(s.Config.BaseDir, "rclone-bisync")
+		} else if p, err := exec.LookPath("rclone-bisync"); err == nil {
+			binPath = p
+		}
+	}
+
+	execArgs := []string{binPath, "sync", fmt.Sprintf("--origin=%s", origin)}
+	if len(extraArgs) > 0 {
+		execArgs = append(execArgs, extraArgs...)
+	}
+
 	cmdArgs := []string{
 		"systemd-run", "--user",
 		fmt.Sprintf("--unit=%s", unitName),
@@ -179,12 +194,8 @@ func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin stri
 		"--property=StandardOutput=journal",
 		"--property=StandardError=journal",
 		"--property=SyslogIdentifier=bisync-gdrive",
-		"python3", "-u", filepath.Join(s.Config.BaseDir, "bisync_gdrive_advanced.py"),
-		fmt.Sprintf("--origin=%s", origin),
 	}
-	if len(extraArgs) > 0 {
-		cmdArgs = append(cmdArgs, extraArgs...)
-	}
+	cmdArgs = append(cmdArgs, execArgs...)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	return cmd.Run()

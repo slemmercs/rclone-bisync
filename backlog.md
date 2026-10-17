@@ -28,7 +28,7 @@ The project is actively transitioning from Python to a native, single-binary Go 
   - Wire CSRF protection (`X-Dashboard-Request`, loopback origin checking).
   - Port HTTP API integration tests.
 
-* **Phase 5: `feat/go-systemd-and-installer` [ESTIMATE: 2h | 2 SP]**
+* **Phase 5: `feat/go-systemd-and-installer` [COMPLETED]**
   - Unified CLI command structure (`rclone-bisync sync`, `rclone-bisync dashboard`, `rclone-bisync canary`).
   - Update systemd user units to target `./rclone-bisync` binary (eliminating `.venv` references).
   - Streamline `install-custom-rclone.sh` to a fast single-binary installer.

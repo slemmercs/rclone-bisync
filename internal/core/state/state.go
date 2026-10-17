@@ -100,3 +100,84 @@ func ClearRateLimitBackoff(path string) bool {
 	}
 	return false
 }
+
+// NotificationState tracks recent notification history.
+type NotificationState struct {
+	LastSuccessTimestamp float64 `json:"last_success_timestamp"`
+	LastErrorType        string  `json:"last_error_type"`
+	LastErrorTimestamp   float64 `json:"last_error_timestamp"`
+}
+
+// LoadNotificationState loads notification state or returns default empty state.
+func LoadNotificationState(path string) NotificationState {
+	var s NotificationState
+	if path == "" {
+		return s
+	}
+	_ = ReadJSONFile(path, &s)
+	return s
+}
+
+// WriteNotificationState atomically saves notification state.
+func WriteNotificationState(path string, s NotificationState) error {
+	if path == "" {
+		return nil
+	}
+	return WriteJSONAtomic(path, s)
+}
+
+// IsRateLimitActive checks if rate limit backoff is currently active.
+func IsRateLimitActive(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) || err != nil {
+		return false
+	}
+	_ = info
+	return true
+}
+
+// SetRateLimitBackoff creates the rate limit backoff flag file.
+func SetRateLimitBackoff(path string, ttlSeconds int) error {
+	if path == "" {
+		return nil
+	}
+	data := map[string]interface{}{
+		"timestamp": os.Getpid(), // simple token
+		"ttl":       ttlSeconds,
+	}
+	return WriteJSONAtomic(path, data)
+}
+
+// MetricsEntry represents a logged sync operation metric.
+type MetricsEntry struct {
+	Timestamp       float64 `json:"timestamp"`
+	Datetime        string  `json:"datetime"`
+	RunID           string  `json:"run_id"`
+	JobID           int     `json:"job_id"`
+	Origin          string  `json:"origin"`
+	Success         bool    `json:"success"`
+	DurationSeconds float64 `json:"duration_seconds"`
+	ErrorType       string  `json:"error_type,omitempty"`
+	FilesSynced     int     `json:"files_synced"`
+}
+
+// AppendMetricsEntry appends a single metric line to the jsonl file.
+func AppendMetricsEntry(path string, entry MetricsEntry) error {
+	if path == "" {
+		return nil
+	}
+	b, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(append(b, '\n'))
+	return err
+}

@@ -17,18 +17,18 @@ SHORTCUT_DIR="$REAL_HOME/.local/share/applications"
 echo "Starting installation for $REAL_USER..."
 echo "----------------------------------------------------"
 
-# --- 1. Install System Prerequisites & Virtual Environment Tooling ---
-echo "Installing system prerequisites (python3-venv, curl)..."
+# --- 1. Install System Prerequisites ---
+echo "Installing system prerequisites (curl, build tools if needed)..."
 apt-get update
-apt-get install -y python3-venv curl
+apt-get install -y curl
 
 # --- 2. Install Rclone Binary ---
 echo "Installing/Updating Rclone binary..."
 curl https://rclone.org/install.sh | bash || true
 
-# --- 3. Setup Script & Dashboard Directory ---
+# --- 3. Setup Layout & Build Native Go Single-Binary ---
 echo "Creating directory layout: $RCLONE_DIR"
-sudo -u "$REAL_USER" mkdir -p "$RCLONE_DIR"
+sudo -u "$REAL_USER" mkdir -p "$RCLONE_DIR/bin"
 
 # Verify base workspace configuration assets exist before copy
 if [ ! -f "rc-secrets.env" ]; then
@@ -52,7 +52,7 @@ if [ ! -f "bisync.env" ]; then
     fi
 fi
 
-REQUIRED_FILES=("bisync.env" "bisync.env.example" "bisync_gdrive_advanced.py" "requirements.txt" "rc-secrets.env" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
+REQUIRED_FILES=("bisync.env" "bisync.env.example" "rc-secrets.env" "rclone-daemon.service" "rclone-dashboard.service" "bisync-gdrive.service" "bisync-gdrive.timer" "rclone-bisync-manual.desktop" "rclone-dashboard.desktop")
 for f in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$f" ]; then
         echo "Error: Required workspace configuration asset '$f' not found."
@@ -60,18 +60,19 @@ for f in "${REQUIRED_FILES[@]}"; do
     fi
 done
 
-if [ ! -d "dashboard" ]; then
-    echo "Error: 'dashboard' directory containing backend/ and frontend/ assets is missing."
+# Build the native Go single binary if Go is available, or copy pre-built bin/rclone-bisync
+if command -v go >/dev/null 2>&1; then
+    echo "Compiling native single-binary rclone-bisync..."
+    sudo -u "$REAL_USER" go build -o "$RCLONE_DIR/bin/rclone-bisync" main.go
+elif [ -f "bin/rclone-bisync" ]; then
+    echo "Installing pre-compiled rclone-bisync binary..."
+    cp bin/rclone-bisync "$RCLONE_DIR/bin/rclone-bisync"
+else
+    echo "Error: Neither Go compiler nor bin/rclone-bisync binary found."
     exit 1
 fi
 
-if [ ! -d "rclone_bisync" ]; then
-    echo "Error: 'rclone_bisync' package directory is missing."
-    exit 1
-fi
-
-cp bisync_gdrive_advanced.py requirements.txt "$RCLONE_DIR/"
-cp -r rclone_bisync "$RCLONE_DIR/"
+chmod +x "$RCLONE_DIR/bin/rclone-bisync"
 
 if [ ! -f "$RCLONE_DIR/bisync.env" ]; then
     cp bisync.env "$RCLONE_DIR/"
@@ -84,22 +85,12 @@ if [ ! -f "$RCLONE_DIR/rc-secrets.env" ]; then
 else
     echo "Preserving existing secrets file: $RCLONE_DIR/rc-secrets.env"
 fi
-cp -r dashboard "$RCLONE_DIR/"
+
 if [ -d "icons" ]; then
     cp -r icons "$RCLONE_DIR/"
 fi
 
-# Bootstrap isolated Python virtual environment
-echo "Setting up Python virtual environment in $RCLONE_DIR/.venv..."
-if [ ! -d "$RCLONE_DIR/.venv" ]; then
-    sudo -u "$REAL_USER" python3 -m venv "$RCLONE_DIR/.venv"
-fi
-echo "Installing application dependencies into .venv..."
-sudo -u "$REAL_USER" "$RCLONE_DIR/.venv/bin/pip" install --upgrade pip
-sudo -u "$REAL_USER" "$RCLONE_DIR/.venv/bin/pip" install -r "$RCLONE_DIR/requirements.txt"
-
 chown -R "$REAL_USER:$REAL_USER" "$RCLONE_DIR"
-chmod +x "$RCLONE_DIR/bisync_gdrive_advanced.py"
 chmod 600 "$RCLONE_DIR/rc-secrets.env"
 chmod 644 "$RCLONE_DIR/bisync.env"
 
