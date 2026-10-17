@@ -33,6 +33,15 @@ document.addEventListener("alpine:init", () => {
         deletionsData: { total_count: 0, source: "", target_action: "", files: [] },
         deletionsSearch: "",
 
+        // Correlated Daemon Log Modal State (Branch 6)
+        showDaemonModal: false,
+        daemonModalLoading: false,
+        daemonModalRun: null,
+        daemonModalLogs: [],
+        daemonModalSearch: "",
+        daemonModalLevelFilter: "all",
+        daemonModalCopied: false,
+
         // Dual-Pane File Explorer State
         explorer: {
             left: {
@@ -94,6 +103,27 @@ document.addEventListener("alpine:init", () => {
 
         get parsedDaemonLogs() {
             return (this.telemetry.daemon_logs || []).map(parseJsonLogLine).filter(Boolean);
+        },
+
+        get filteredDaemonModalLogs() {
+            let logs = this.daemonModalLogs || [];
+            const q = (this.daemonModalSearch || "").toLowerCase().trim();
+            const filter = this.daemonModalLevelFilter;
+
+            if (filter !== "all") {
+                logs = logs.filter(l => {
+                    const lvl = (l.level || "").toLowerCase().trim();
+                    if (filter === "error") return lvl === "error";
+                    if (filter === "warning") return lvl === "warning" || lvl === "warn";
+                    if (filter === "info") return lvl === "info" || lvl === "notice";
+                    return true;
+                });
+            }
+
+            if (q) {
+                logs = logs.filter(l => (l.msg || "").toLowerCase().includes(q) || (l.object || "").toLowerCase().includes(q));
+            }
+            return logs;
         },
 
         get filteredDeletions() {
@@ -205,7 +235,6 @@ document.addEventListener("alpine:init", () => {
             this.fetchRemotes(false);
             setInterval(() => this.poll(), 3000);
             this.setupLogScroll("log-bisync");
-            this.setupLogScroll("log-daemon");
         },
 
         async poll() {
@@ -254,6 +283,53 @@ document.addEventListener("alpine:init", () => {
             } catch (err) {
                 this.deletionsData = { total_count: 0, source: "Error", target_action: err.message, files: [] };
             }
+        },
+
+        async openDaemonModal(entry) {
+            this.showDaemonModal = true;
+            this.daemonModalLoading = true;
+            this.daemonModalRun = entry || null;
+            this.daemonModalLogs = [];
+            this.daemonModalSearch = "";
+            this.daemonModalLevelFilter = "all";
+            this.daemonModalCopied = false;
+
+            let url = "/api/logs/daemon?limit=500";
+            if (entry) {
+                if (entry.run_id) url += `&run_id=${encodeURIComponent(entry.run_id)}`;
+                if (entry.job_id) url += `&job_id=${encodeURIComponent(entry.job_id)}`;
+                if (entry.start_time) url += `&start_time=${encodeURIComponent(entry.start_time)}`;
+                if (entry.end_time) url += `&end_time=${encodeURIComponent(entry.end_time)}`;
+            }
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data && Array.isArray(data.logs)) {
+                    this.daemonModalLogs = data.logs.map(parseJsonLogLine).filter(Boolean);
+                } else {
+                    this.daemonModalLogs = [];
+                }
+            } catch (err) {
+                console.error("Failed to fetch daemon logs:", err);
+                this.daemonModalLogs = [];
+            } finally {
+                this.daemonModalLoading = false;
+            }
+        },
+
+        closeDaemonModal() {
+            this.showDaemonModal = false;
+            this.daemonModalRun = null;
+            this.daemonModalLogs = [];
+        },
+
+        copyDaemonLogs() {
+            const text = this.daemonModalLogs.map(l => l.raw || `[${l.time}] ${l.level} ${l.msg}`).join("\n");
+            navigator.clipboard.writeText(text).then(() => {
+                this.daemonModalCopied = true;
+                setTimeout(() => { this.daemonModalCopied = false; }, 2000);
+            });
         },
 
         confirmResync() {

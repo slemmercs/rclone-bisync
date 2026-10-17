@@ -12,8 +12,10 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/compiler"
 	"github.com/slemmercs/rclone-bisync/internal/core/lock"
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/core/notifier"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // SyncRunner coordinates bidirectional synchronization runs.
@@ -22,6 +24,7 @@ type SyncRunner struct {
 	LockMgr  *lock.LockManager
 	Client   *client.RcloneClient
 	Notifier *notifier.Dispatcher
+	Logger   *logger.Logger
 }
 
 // NewSyncRunner creates a configured SyncRunner instance.
@@ -42,12 +45,14 @@ func NewSyncRunner(cfg *config.Config) *SyncRunner {
 		cfg.ErrorNotificationRepeatHours,
 		"",
 	)
+	runLogger, _ := logger.New(cfg.LogFile, true)
 
 	return &SyncRunner{
 		Config:   cfg,
 		LockMgr:  lockMgr,
 		Client:   rcClient,
 		Notifier: dispatcher,
+		Logger:   runLogger,
 	}
 }
 
@@ -65,10 +70,26 @@ func (r *SyncRunner) Run(
 		runID = fmt.Sprintf("sync_%s_%x", time.Now().Format("060102_150405"), rand.Intn(0xffff))
 	}
 
+	startTime := time.Now()
+
 	// Acquire lock
 	locked, err := r.LockMgr.Acquire()
 	if err != nil || !locked {
 		log.Printf("Another sync process is already running or lock acquisition failed: %v", err)
+		if r.Logger != nil {
+			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:        time.Now().Format(time.RFC3339),
+				Level:       "warn",
+				Msg:         "Sync skipped: another sync process is already running or lock acquisition failed",
+				RunID:       runID,
+				Origin:      origin,
+				Status:      "ABORTED",
+				ErrorType:   "LOCK_CONTENTION",
+				DurationSec: 0,
+				StartTime:   startTime.Format(time.RFC3339),
+				EndTime:     time.Now().Format(time.RFC3339),
+			})
+		}
 		return false
 	}
 	defer r.LockMgr.Release()
@@ -76,6 +97,20 @@ func (r *SyncRunner) Run(
 	// Rate limit backoff check
 	if !force && state.IsRateLimitActive(r.Config.RateLimitBackoffFile) {
 		log.Printf("Sync skipped: Rate limit backoff is active. Use --force to override.")
+		if r.Logger != nil {
+			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:        time.Now().Format(time.RFC3339),
+				Level:       "warn",
+				Msg:         "Sync skipped: rate limit backoff is active (use --force to override)",
+				RunID:       runID,
+				Origin:      origin,
+				Status:      "ABORTED",
+				ErrorType:   "RATE_LIMIT_BACKOFF",
+				DurationSec: 0,
+				StartTime:   startTime.Format(time.RFC3339),
+				EndTime:     time.Now().Format(time.RFC3339),
+			})
+		}
 		return false
 	}
 
@@ -92,18 +127,45 @@ func (r *SyncRunner) Run(
 	)
 	if err != nil {
 		log.Printf("Payload compilation failed: %v", err)
+		if r.Logger != nil {
+			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:        time.Now().Format(time.RFC3339),
+				Level:       "error",
+				Msg:         fmt.Sprintf("Sync aborted: %v", err),
+				RunID:       runID,
+				Origin:      origin,
+				Status:      "ABORTED",
+				ErrorType:   "CANARY_GUARD",
+				DurationSec: 0,
+				StartTime:   startTime.Format(time.RFC3339),
+				EndTime:     time.Now().Format(time.RFC3339),
+			})
+		}
 		if !noNotify {
 			_ = r.Notifier.SendDesktop("Sync Aborted - Canary Safety Guard", err.Error(), "critical")
 		}
 		return false
 	}
 
-	startTime := time.Now()
 	jobID, err := r.Client.TriggerBisync(ctx, params, fmt.Sprintf("bisync-%s", runID))
 	if err != nil {
 		errStr := err.Error()
 		errType := classifier.ClassifyError(errStr)
 		log.Printf("Failed to dispatch bisync to daemon: %v", err)
+		if r.Logger != nil {
+			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:        time.Now().Format(time.RFC3339),
+				Level:       "error",
+				Msg:         fmt.Sprintf("Sync dispatch failed [%s]: %s", errType, errStr),
+				RunID:       runID,
+				Origin:      origin,
+				Status:      "FAULT",
+				ErrorType:   errType,
+				DurationSec: time.Since(startTime).Seconds(),
+				StartTime:   startTime.Format(time.RFC3339),
+				EndTime:     time.Now().Format(time.RFC3339),
+			})
+		}
 		if !noNotify && r.Notifier.ShouldNotifyError(errType, notificationState.LastErrorType, notificationState.LastErrorTimestamp) {
 			_ = r.Notifier.SendDesktop(fmt.Sprintf("Sync Dispatch Error - %s", errType), errStr, "critical")
 		}
@@ -124,6 +186,21 @@ func (r *SyncRunner) Run(
 
 	if monitorRes.Success {
 		log.Printf("Sync succeeded in %.2fs (%d files synced)", duration, monitorRes.FilesSynced)
+		if r.Logger != nil {
+			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:        time.Now().Format(time.RFC3339),
+				Level:       "info",
+				Msg:         fmt.Sprintf("Sync succeeded in %.1fs (%d file(s) transferred)", duration, monitorRes.FilesSynced),
+				RunID:       runID,
+				JobID:       jobID,
+				Origin:      origin,
+				Status:      "SUCCESS",
+				DurationSec: duration,
+				FilesSynced: monitorRes.FilesSynced,
+				StartTime:   startTime.Format(time.RFC3339),
+				EndTime:     time.Now().Format(time.RFC3339),
+			})
+		}
 		state.ClearPendingDeletions(r.Config.PendingDeletionsFile)
 		state.ClearRateLimitBackoff(r.Config.RateLimitBackoffFile)
 
@@ -157,6 +234,22 @@ func (r *SyncRunner) Run(
 	}
 
 	log.Printf("Sync failed [%s]: %s", errType, monitorRes.ErrorMessage)
+	if r.Logger != nil {
+		_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+			Time:        time.Now().Format(time.RFC3339),
+			Level:       "error",
+			Msg:         fmt.Sprintf("Sync failed [%s]: %s", errType, monitorRes.ErrorMessage),
+			RunID:       runID,
+			JobID:       jobID,
+			Origin:      origin,
+			Status:      "FAULT",
+			ErrorType:   errType,
+			DurationSec: duration,
+			FilesSynced: monitorRes.FilesSynced,
+			StartTime:   startTime.Format(time.RFC3339),
+			EndTime:     time.Now().Format(time.RFC3339),
+		})
+	}
 
 	if r.Config.EnableMetrics {
 		_ = state.AppendMetricsEntry(r.Config.MetricsFile, state.MetricsEntry{

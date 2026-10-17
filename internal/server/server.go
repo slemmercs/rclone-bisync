@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/security"
@@ -21,6 +22,7 @@ import (
 type Server struct {
 	Config      *config.Config
 	SyncService *services.SyncService
+	LogService  *services.LogService
 	FrontendFS  embed.FS
 	Mux         *http.ServeMux
 }
@@ -29,6 +31,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 	s := &Server{
 		Config:      cfg,
 		SyncService: syncService,
+		LogService:  services.NewLogService(),
 		FrontendFS:  frontendFS,
 		Mux:         http.NewServeMux(),
 	}
@@ -91,6 +94,7 @@ func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/logs/bisync/raw", s.handleRawBisyncLog)
 	s.Mux.HandleFunc("GET /api/logs/daemon/raw", s.handleRawDaemonLog)
+	s.Mux.HandleFunc("GET /api/logs/daemon", s.handleDaemonLogs)
 	s.Mux.HandleFunc("GET /api/telemetry", s.handleTelemetry)
 	s.Mux.HandleFunc("POST /api/action", s.handleAction)
 	s.Mux.HandleFunc("GET /api/deletions/pending", s.handlePendingDeletions)
@@ -147,6 +151,69 @@ func (s *Server) handleRawDaemonLog(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Disposition", "attachment; filename=rclone-daemon.log")
 	http.ServeFile(w, r, daemonLog)
+}
+
+func (s *Server) handleDaemonLogs(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	runID := q.Get("run_id")
+	jobIDStr := q.Get("job_id")
+	jobID := 0
+	if jobIDStr != "" {
+		if parsed, err := strconv.Atoi(jobIDStr); err == nil {
+			jobID = parsed
+		}
+	}
+
+	startStr := q.Get("start_time")
+	if startStr == "" {
+		startStr = q.Get("start")
+	}
+	endStr := q.Get("end_time")
+	if endStr == "" {
+		endStr = q.Get("end")
+	}
+
+	var startTime, endTime time.Time
+	if startStr != "" {
+		if t, err := time.Parse(time.RFC3339Nano, startStr); err == nil {
+			startTime = t
+		} else if t, err := time.Parse(time.RFC3339, startStr); err == nil {
+			startTime = t
+		}
+	}
+	if endStr != "" {
+		if t, err := time.Parse(time.RFC3339Nano, endStr); err == nil {
+			endTime = t
+		} else if t, err := time.Parse(time.RFC3339, endStr); err == nil {
+			endTime = t
+		}
+	}
+
+	limit := 200
+	if qLimit := q.Get("limit"); qLimit != "" {
+		if parsed, err := strconv.Atoi(qLimit); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
+	logs, err := s.LogService.FilterDaemonLogs(daemonLog, startTime, endTime, limit)
+	if err != nil {
+		writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
+			RunID: runID,
+			JobID: jobID,
+			Error: err.Error(),
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
+		RunID:      runID,
+		JobID:      jobID,
+		Count:      len(logs),
+		Logs:       logs,
+		Correlated: !startTime.IsZero(),
+	})
 }
 
 func (s *Server) handleTelemetry(w http.ResponseWriter, r *http.Request) {

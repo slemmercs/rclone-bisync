@@ -219,50 +219,74 @@
                 </div>
             </div>
 
-            <!-- Full-Width Stacked Terminal Log Streams (Restored layout) -->
-            <div class="space-y-6">
-                <!-- 1. bisync.log Terminal (Full Width, Height: 320px) -->
-                <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
+            <!-- Streamlined Orchestrator Terminal & Correlated Log Feed -->
+            <div class="space-y-4">
+                <!-- bisync.log Terminal (Full Width, Height: 384px) -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-lg">
                     <div class="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
-                        <span class="text-xs font-mono font-semibold text-slate-300 tracking-wider">bisync.log (Structured JSON)</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-mono font-semibold text-slate-300 tracking-wider">bisync.log (Execution Ledger)</span>
+                            <span class="text-[10px] font-mono text-emerald-400/90 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900/40">1 Entry / Run</span>
+                        </div>
                         <div class="flex items-center gap-3">
-                            <a href="/api/logs/bisync/raw" target="_blank" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors">Open Raw ↗</a>
+                            <button @click="openDaemonModal(null)" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                <span>Daemon Stream</span>
+                            </button>
+                            <a href="/api/logs/bisync/raw" target="_blank" class="text-[11px] font-sans text-slate-400 hover:text-slate-200 transition-colors">Raw Bisync ↗</a>
                             <span class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800/60" x-text="'Tail: ' + currentLogLimit + ' lines'"></span>
                         </div>
                     </div>
-                    <div id="log-bisync" class="p-4 font-mono text-xs text-slate-400 overflow-y-auto h-80 space-y-1 bg-slate-950 text-left">
+                    <div id="log-bisync" class="p-4 font-mono text-xs text-slate-400 overflow-y-auto h-96 space-y-1.5 bg-slate-950 text-left">
                         <template x-for="(entry, idx) in parsedBisyncLogs" :key="idx">
-                            <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex items-start gap-x-2.5 text-[11px] font-mono leading-relaxed text-left">
-                                <span class="text-slate-500 select-none shrink-0" x-text="'[' + entry.time + ']'"></span>
-                                <span :class="entry.levelClass" class="select-none shrink-0 w-14" x-text="entry.level"></span>
-                                <div class="text-slate-200 min-w-0 flex-1 break-words text-left"><span class="whitespace-pre-wrap" x-text="entry.msg"></span></div>
-                                <span x-show="entry.origin" class="shrink-0 px-1.5 py-0.2 text-[9px] rounded font-bold uppercase tracking-wider" :class="entry.origin === 'timer' ? 'bg-blue-950/80 text-blue-300 border border-blue-800/40' : 'bg-purple-950/80 text-purple-300 border border-purple-800/40'" x-text="'[' + entry.origin + ']'"></span>
+                            <div class="py-1.5 px-2 rounded border border-transparent hover:border-slate-800 hover:bg-slate-900/40 transition-all flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-[11px] font-mono leading-relaxed text-left">
+                                <div class="flex items-center gap-x-2.5 min-w-0 flex-1 truncate">
+                                    <span class="text-slate-500 select-none shrink-0" x-text="'[' + entry.time + ']'"></span>
+                                    <span :class="entry.levelClass" class="select-none shrink-0 w-14 font-bold" x-text="entry.level"></span>
+
+                                    <!-- Status Badge -->
+                                    <template x-if="entry.status">
+                                        <span class="shrink-0 px-1.5 py-0.2 text-[9px] rounded font-bold uppercase tracking-wider"
+                                              :class="{
+                                                  'bg-emerald-950/90 text-emerald-300 border border-emerald-800/60': entry.status === 'SUCCESS',
+                                                  'bg-rose-950/90 text-rose-300 border border-rose-800/60': entry.status === 'FAULT',
+                                                  'bg-amber-950/90 text-amber-300 border border-amber-800/60': entry.status === 'ABORTED'
+                                              }"
+                                              x-text="entry.status">
+                                        </span>
+                                    </template>
+
+                                    <!-- Duration & Transfer Summary -->
+                                    <template x-if="entry.duration_sec != null">
+                                        <span class="text-slate-400 text-[10px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 shrink-0 font-mono"
+                                              x-text="`${entry.duration_sec.toFixed(1)}s • ${entry.files_synced != null ? entry.files_synced + ' transferred' : ''}`">
+                                        </span>
+                                    </template>
+
+                                    <!-- Message -->
+                                    <span class="text-slate-200 truncate" x-text="entry.msg" :title="entry.msg"></span>
+                                </div>
+
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <!-- Origin Badge -->
+                                    <span x-show="entry.origin" class="px-1.5 py-0.2 text-[9px] rounded font-bold uppercase tracking-wider shrink-0"
+                                          :class="entry.origin === 'timer' ? 'bg-blue-950/80 text-blue-300 border border-blue-800/40' : 'bg-purple-950/80 text-purple-300 border border-purple-800/40'"
+                                          x-text="'[' + entry.origin + ']'">
+                                    </span>
+
+                                    <!-- Detail Action Button: opens Correlated Daemon Logs -->
+                                    <button @click="openDaemonModal(entry)"
+                                            class="px-2 py-0.5 text-[10px] font-mono font-medium rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60 transition-colors flex items-center gap-1 shadow-sm">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <span>Daemon Logs</span>
+                                    </button>
+                                </div>
                             </div>
                         </template>
-                        <div x-show="parsedBisyncLogs.length === 0" class="text-slate-600 animate-pulse text-center py-4">Awaiting data stream lines...</div>
+                        <div x-show="parsedBisyncLogs.length === 0" class="text-slate-600 animate-pulse text-center py-6">Awaiting sync execution records...</div>
                     </div>
                 </div>
 
-                <!-- 2. rclone-daemon.log Terminal (Full Width, Double Height: 640px) -->
-                <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
-                    <div class="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
-                        <span class="text-xs font-mono font-semibold text-slate-300 tracking-wider">rclone-daemon.log (Structured JSON)</span>
-                        <div class="flex items-center gap-3">
-                            <a href="/api/logs/daemon/raw" target="_blank" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors">Open Raw ↗</a>
-                            <span class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800/60" x-text="'Tail: ' + currentLogLimit + ' lines'"></span>
-                        </div>
-                    </div>
-                    <div id="log-daemon" class="p-4 font-mono text-xs text-slate-400 overflow-y-auto h-[40rem] space-y-1 bg-slate-950 text-left">
-                        <template x-for="(entry, idx) in parsedDaemonLogs" :key="idx">
-                            <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex items-start gap-x-2.5 text-[11px] font-mono leading-relaxed text-left">
-                                <span class="text-slate-500 select-none shrink-0" x-text="'[' + entry.time + ']'"></span>
-                                <span :class="entry.levelClass" class="select-none shrink-0 w-14" x-text="entry.level"></span>
-                                <div class="text-slate-200 min-w-0 flex-1 break-words text-left"><span class="whitespace-pre-wrap" x-text="entry.msg"></span><span x-show="entry.object" class="text-indigo-400/90 text-[10px] bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-900/40 ml-1.5 font-sans inline-block" x-text="'→ ' + entry.object"></span></div>
-                            </div>
-                        </template>
-                        <div x-show="parsedDaemonLogs.length === 0" class="text-slate-600 animate-pulse text-center py-4">Awaiting data stream lines...</div>
-                    </div>
-                </div>
             </div>
         </main>
         </div> <!-- End View 1: Telemetry & Engine -->
@@ -862,6 +886,80 @@
             </div>
         </div>
     </div>
+    <!-- Focused Correlated Daemon Log Modal (Branch 6) -->
+    <div x-show="showDaemonModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Correlated Daemon Logs</h3>
+                            <span x-show="daemonModalRun?.run_id" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60" x-text="daemonModalRun?.run_id"></span>
+                            <span x-show="daemonModalRun?.job_id" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60" x-text="'Job: #' + daemonModalRun?.job_id"></span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-0.5 flex items-center gap-3 font-mono">
+                            <span x-text="daemonModalRun ? `${daemonModalRun.duration_sec != null ? daemonModalRun.duration_sec.toFixed(1) + 's' : ''} • ${daemonModalRun.files_synced != null ? daemonModalRun.files_synced + ' transferred' : ''}` : 'Continuous stream'"></span>
+                            <span class="text-slate-600">|</span>
+                            <span x-text="`${filteredDaemonModalLogs.length} line(s) loaded`"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button @click="copyDaemonLogs()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 border border-slate-700/60">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <span x-text="daemonModalCopied ? 'Copied!' : 'Copy'"></span>
+                    </button>
+                    <a href="/api/logs/daemon/raw" target="_blank" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 border border-slate-700/60">
+                        <span>Raw ↗</span>
+                    </a>
+                    <button @click="closeDaemonModal()" class="text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Filter Bar -->
+            <div class="px-4 py-2.5 bg-slate-950/80 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-500 font-mono text-[11px]">Filter:</span>
+                    <button @click="daemonModalLevelFilter = 'all'" :class="daemonModalLevelFilter === 'all' ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors">All</button>
+                    <button @click="daemonModalLevelFilter = 'error'" :class="daemonModalLevelFilter === 'error' ? 'bg-rose-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-rose-400'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors">Errors</button>
+                    <button @click="daemonModalLevelFilter = 'warning'" :class="daemonModalLevelFilter === 'warning' ? 'bg-amber-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-amber-400'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors">Warnings</button>
+                    <button @click="daemonModalLevelFilter = 'info'" :class="daemonModalLevelFilter === 'info' ? 'bg-emerald-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-emerald-400'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors">Info</button>
+                </div>
+                <div class="flex-1 max-w-xs">
+                    <input type="text" x-model="daemonModalSearch" placeholder="Search daemon output..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono transition-colors">
+                </div>
+            </div>
+            <!-- Modal Body (Terminal Box) -->
+            <div class="p-4 font-mono text-xs overflow-y-auto flex-1 h-[28rem] bg-slate-950 text-left space-y-1">
+                <div x-show="daemonModalLoading" class="text-indigo-400 animate-pulse text-center py-10 font-mono">Loading correlated daemon logs...</div>
+                <template x-for="(entry, idx) in filteredDaemonModalLogs" :key="idx">
+                    <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex items-start gap-x-2 text-[11px] font-mono leading-relaxed text-left">
+                        <span class="text-slate-500 select-none shrink-0" x-text="'[' + entry.time + ']'"></span>
+                        <span :class="entry.levelClass" class="select-none shrink-0 w-14 font-bold" x-text="entry.level"></span>
+                        <div class="text-slate-200 min-w-0 flex-1 break-words text-left">
+                            <span class="whitespace-pre-wrap" x-text="entry.msg"></span>
+                            <span x-show="entry.object" class="text-indigo-400/90 text-[10px] bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-900/40 ml-1.5 font-sans inline-block" x-text="'→ ' + entry.object"></span>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="!daemonModalLoading && filteredDaemonModalLogs.length === 0" class="text-slate-500 text-center py-10 font-mono text-xs">No daemon logs found matching the filter or run window.</div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3 border-t border-slate-800 bg-slate-950/60 flex justify-between items-center text-xs text-slate-500">
+                <span x-show="daemonModalRun" class="font-mono text-[11px]" x-text="'Window: ' + (daemonModalRun?.start_time || '--') + ' → ' + (daemonModalRun?.end_time || '--')"></span>
+                <span x-show="!daemonModalRun" class="font-mono text-[11px]">Unfiltered recent tail</span>
+                <button @click="closeDaemonModal()" class="px-4 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-700 transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Global Notification Toast -->
     <div x-show="toast.show" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2" class="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl p-3.5 shadow-2xl border text-xs font-medium flex items-center gap-3 backdrop-blur-md" :class="toast.type === 'success' ? 'bg-emerald-950/90 text-emerald-200 border-emerald-700/60' : (toast.type === 'error' ? 'bg-rose-950/90 text-rose-200 border-rose-700/60' : 'bg-slate-900/90 text-slate-200 border-slate-700/60')">

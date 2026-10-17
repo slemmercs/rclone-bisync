@@ -107,3 +107,35 @@ type TelemetryPayload struct {
 	IsSyncing         bool                     `json:"is_syncing"`
 	TransferStats     *TransferStats           `json:"transfer_stats"`
 }
+
+type BisyncLogEntry struct {
+	Time        string  `json:"time"`
+	Level       string  `json:"level"`
+	Msg         string  `json:"msg"`
+	RunID       string  `json:"run_id"`
+	JobID       int     `json:"job_id,omitempty"`
+	Origin      string  `json:"origin,omitempty"`
+	Status      string  `json:"status"`               // SUCCESS, FAULT, ABORTED
+	ErrorType   string  `json:"error_type,omitempty"` // TOO_MANY_DELETES, RATE_LIMIT, etc.
+	DurationSec float64 `json:"duration_sec"`
+	FilesSynced int     `json:"files_synced"`
+	StartTime   string  `json:"start_time"` // RFC3339
+	EndTime     string  `json:"end_time"`   // RFC3339
+}
+
+type DaemonLogsQuery struct {
+	RunID     string `json:"run_id"`
+	JobID     int    `json:"job_id"`
+	StartTime string `json:"start_time"` // RFC3339
+	EndTime   string `json:"end_time"`   // RFC3339
+	Limit     int    `json:"limit"`
+}
+
+type DaemonLogsResponse struct {
+	RunID      string   `json:"run_id,omitempty"`
+	JobID      int      `json:"job_id,omitempty"`
+	Count      int      `json:"count"`
+	Logs       []string `json:"logs"`
+	Correlated bool     `json:"correlated"`
+	Error      string   `json:"error,omitempty"`
+}
