@@ -56,6 +56,11 @@ class BrowseResponse(BaseModel):
 class CanaryResponse(BaseModel):
     """Response model for canary provisioning."""
     status: str = Field(..., description="'success' or 'error'")
+    remote: Optional[str] = Field(None, description="Target remote")
+    path: Optional[str] = Field(None, description="Path where canary was created")
+    msg: Optional[str] = Field(None, description="Status details")
+    error: Optional[str] = Field(None, description="Error reason if provisioning failed")
+
 
 class CopyRequest(BaseModel):
     """Request model for copying files or directories between remotes."""
