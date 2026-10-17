@@ -187,7 +187,8 @@ document.addEventListener("alpine:init", () => {
                 error: null,
                 hasCanary: false,
                 totalSize: 0,
-                itemCount: 0
+                itemCount: 0,
+                copied: false
             },
             right: {
                 target: "gdrive",
@@ -197,7 +198,8 @@ document.addEventListener("alpine:init", () => {
                 error: null,
                 hasCanary: false,
                 totalSize: 0,
-                itemCount: 0
+                itemCount: 0,
+                copied: false
             }
         },
 
@@ -546,6 +548,44 @@ document.addEventListener("alpine:init", () => {
             this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
             this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
         },
+
+        getBreadcrumbs(paneKey) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return [];
+            const rootLabel = paneKey === "left" ? "~" : `${pane.target}:`;
+            const crumbs = [{ name: rootLabel, path: "" }];
+            if (!pane.path) return crumbs;
+
+            const parts = pane.path.split("/").filter(Boolean);
+            let cumulative = "";
+            for (const part of parts) {
+                cumulative = cumulative ? `${cumulative}/${part}` : part;
+                crumbs.push({ name: part, path: cumulative });
+            }
+            return crumbs;
+        },
+
+        async copyPanePath(paneKey) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return;
+            let fullPath = "";
+            if (paneKey === "left") {
+                const base = this.telemetry.config?.LOCAL_PATH || "~/gdrive";
+                fullPath = pane.path ? `${base.replace(/\/+$/, "")}/${pane.path}` : base;
+            } else {
+                fullPath = pane.path ? `${pane.target}:${pane.path}` : `${pane.target}:`;
+            }
+            try {
+                await navigator.clipboard.writeText(fullPath);
+                pane.copied = true;
+                setTimeout(() => {
+                    pane.copied = false;
+                }, 1800);
+            } catch (err) {
+                console.warn("Clipboard access failed:", err);
+            }
+        },
+
 
 
         getQuotaPct(used, total) {
