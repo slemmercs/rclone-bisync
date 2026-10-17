@@ -6,10 +6,14 @@ Requires=rclone-daemon.service
 [Service]
 Type=simple
 WorkingDirectory=%h/rclone-bisync
-# Runs the dashboard app via uvicorn module
-ExecStart=%h/rclone-bisync/.venv/bin/python3 -m uvicorn dashboard.backend.main:app --host 127.0.0.1 --port 8080 --log-level warning
+ExecStart=%h/rclone-bisync/bin/rclone-bisync dashboard --host 127.0.0.1 --port 8080
 Restart=always
 RestartSec=5s
+
+# Resource constraints
+MemoryMax=512M
+CPUQuota=50%
+NoNewPrivileges=true
 
 [Install]
 WantedBy=default.target

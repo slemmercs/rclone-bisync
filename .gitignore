@@ -1,8 +1,4 @@
-__pycache__/
-_pycache_/
-*.pyc
-.venv/
-.pytest_cache/
 rclone.conf
 *.conf
 rc-secrets.env
+bin/

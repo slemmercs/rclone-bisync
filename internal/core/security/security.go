@@ -1,0 +1,174 @@
+package security
+
+import (
+"reflect"
+"regexp"
+"strings"
+)
+
+// SensitiveKeywords identifies identifiers hinting at sensitive configuration values.
+var SensitiveKeywords = []string{
+	"PASS",
+	"SECRET",
+	"TOKEN",
+	"KEY",
+	"CREDENTIAL",
+	"AUTH",
+	"WEBHOOK",
+	"PRIVATE",
+}
+
+// SensitiveValueRegexes detects token strings matching high-risk patterns.
+var SensitiveValueRegexes = []*regexp.Regexp{
+	regexp.MustCompile(`ghp_[A-Za-z0-9_]{36,}`),         // GitHub PAT
+	regexp.MustCompile(`xox[baprs]-[0-9a-zA-Z-]{10,}`), // Slack Token
+	regexp.MustCompile(`ya29\.[0-9A-Za-z\-_]+`),         // Google OAuth Access Token
+}
+
+const RedactedString = "********"
+
+// IsSensitiveKeyName checks if a string identifier hints at confidential data.
+func IsSensitiveKeyName(key string) bool {
+	upper := strings.ToUpper(key)
+	for _, kw := range SensitiveKeywords {
+		if strings.Contains(upper, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSensitiveValue checks if a string value matches known high-risk token signatures.
+func IsSensitiveValue(val string) bool {
+	for _, pat := range SensitiveValueRegexes {
+		if pat.MatchString(val) {
+			return true
+		}
+	}
+	return false
+}
+
+// RedactSecrets recursively traverses maps, slices, arrays, and structs,
+// sanitizing values with sensitive keys or values matching token patterns.
+func RedactSecrets(data interface{}) interface{} {
+	if data == nil {
+		return nil
+	}
+
+	val := reflect.ValueOf(data)
+
+	// If pointer or interface, unwrap
+	for val.Kind() == reflect.Pointer || val.Kind() == reflect.Interface {
+		if val.IsNil() {
+			return nil
+		}
+		val = val.Elem()
+	}
+
+	switch val.Kind() {
+	case reflect.Map:
+		out := make(map[string]interface{})
+		iter := val.MapRange()
+		for iter.Next() {
+			k := iter.Key()
+			v := iter.Value()
+			kStr := k.String()
+
+			vInterface := v.Interface()
+			vVal := reflect.ValueOf(vInterface)
+			isNested := false
+			if vVal.IsValid() {
+				kind := vVal.Kind()
+				for kind == reflect.Pointer || kind == reflect.Interface {
+					if vVal.IsNil() {
+						break
+					}
+					vVal = vVal.Elem()
+					kind = vVal.Kind()
+				}
+				if kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array || kind == reflect.Struct {
+					isNested = true
+				}
+			}
+
+			if isNested {
+				out[kStr] = RedactSecrets(vInterface)
+			} else if IsSensitiveKeyName(kStr) {
+				if vInterface != nil && vInterface != "" {
+					out[kStr] = RedactedString
+				} else {
+					out[kStr] = vInterface
+				}
+			} else {
+				out[kStr] = RedactSecrets(vInterface)
+			}
+		}
+		return out
+
+	case reflect.Slice, reflect.Array:
+		out := make([]interface{}, val.Len())
+		for i := 0; i < val.Len(); i++ {
+			out[i] = RedactSecrets(val.Index(i).Interface())
+		}
+		return out
+
+	case reflect.Struct:
+		// Convert struct to map based on json tags or field names
+		out := make(map[string]interface{})
+		t := val.Type()
+		for i := 0; i < val.NumField(); i++ {
+			f := t.Field(i)
+			if !f.IsExported() {
+				continue
+			}
+
+			key := f.Name
+			if tag := f.Tag.Get("json"); tag != "" && tag != "-" {
+				parts := strings.Split(tag, ",")
+				if parts[0] != "" {
+					key = parts[0]
+				}
+			}
+
+			fieldVal := val.Field(i).Interface()
+			fVal := reflect.ValueOf(fieldVal)
+			isNested := false
+			if fVal.IsValid() {
+				kind := fVal.Kind()
+				for kind == reflect.Pointer || kind == reflect.Interface {
+					if fVal.IsNil() {
+						break
+					}
+					fVal = fVal.Elem()
+					kind = fVal.Kind()
+				}
+				if kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array || kind == reflect.Struct {
+					isNested = true
+				}
+			}
+
+			if isNested {
+				out[key] = RedactSecrets(fieldVal)
+			} else if IsSensitiveKeyName(key) {
+				if fieldVal != nil && fieldVal != "" {
+					out[key] = RedactedString
+				} else {
+					out[key] = fieldVal
+				}
+			} else {
+				out[key] = RedactSecrets(fieldVal)
+			}
+		}
+		return out
+
+	case reflect.String:
+		s := val.String()
+		if IsSensitiveValue(s) {
+			return RedactedString
+		}
+		return s
+
+	default:
+		return data
+	}
+}
