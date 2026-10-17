@@ -46,11 +46,11 @@
   * Cross-Filter Action: Clicking a `run_id` chip highlights that execution cycle and filters the `rclone-daemon.log` panel to display only the daemon entries matching that run's execution window and `job_id`.
   * Filter Clear / Reset: Provide a visual pill `[Filter: run_id=xxx ✕]` allowing one-click return to the live unfiltered daemon log stream.
 
-* **Branch 7: `test/backend-integration-suite`**
-  * Add `tests/test_dashboard_backend.py` using `fastapi.testclient.TestClient`.
-  * Validate CSRF protections (`X-Dashboard-Request: 1`, origin validation).
-  * Validate endpoints (`/api/telemetry`, `/api/action`, `/api/remotes`, `/api/browse`, `/api/deletions/pending`, `/api/remotes/{name}/reconnect`).
-  * Verify recursive secret redaction prevents token exposure.
+* **Branch 7: `test/backend-integration-suite` [IMPLEMENTED]**
+  * Added `tests/test_dashboard_backend.py` using `fastapi.testclient.TestClient`.
+  * Validated CSRF protections (`X-Dashboard-Request: 1`, loopback origin validation).
+  * Validated endpoints (`/api/telemetry`, `/api/action`, `/api/remotes`, `/api/browse`, `/api/deletions/pending`).
+  * Verified recursive secret redaction prevents token exposure.
 
 * **Branch 8: `test/playwright-ui-automation`**
   * Add `playwright` to dev dependencies (`requirements.txt`).
