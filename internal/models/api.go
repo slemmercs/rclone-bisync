@@ -1,0 +1,109 @@
+package models
+
+type ActionRequest struct {
+	Action string `json:"action"`
+}
+
+type ActionResponse struct {
+	Status string `json:"status"`
+	Msg    string `json:"msg,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+type BrowseRequest struct {
+	Remote string `json:"remote"`
+	Path   string `json:"path"`
+}
+
+type BrowseItem struct {
+	Path     string `json:"Path,omitempty"`
+	Name     string `json:"Name"`
+	Size     int64  `json:"Size"`
+	Mtime    string `json:"Mtime,omitempty"`
+	ModTime  string `json:"ModTime,omitempty"`
+	MimeType string `json:"MimeType,omitempty"`
+	IsDir    bool   `json:"IsDir"`
+}
+
+type BrowseResponse struct {
+	Remote    string                   `json:"remote"`
+	Path      string                   `json:"path"`
+	Items     []map[string]interface{} `json:"items"`
+	HasCanary bool                     `json:"has_canary"`
+	Error     string                   `json:"error,omitempty"`
+}
+
+type CanaryResponse struct {
+	Status string `json:"status"`
+	Remote string `json:"remote,omitempty"`
+	Path   string `json:"path,omitempty"`
+	Msg    string `json:"msg,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+type CopyRequest struct {
+	SrcRemote string `json:"src_remote"`
+	SrcPath   string `json:"src_path"`
+	DstRemote string `json:"dst_remote"`
+	DstPath   string `json:"dst_path"`
+	IsDir     bool   `json:"is_dir"`
+}
+
+type CopyResponse struct {
+	Status string `json:"status"`
+	Msg    string `json:"msg,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+type DeleteRequest struct {
+	Remote string `json:"remote"`
+	Path   string `json:"path"`
+	IsDir  bool   `json:"is_dir"`
+}
+
+type DeleteResponse struct {
+	Status string `json:"status"`
+	Msg    string `json:"msg,omitempty"`
+	Remote string `json:"remote,omitempty"`
+	Path   string `json:"path,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+type RemotesResponse struct {
+	Remotes      []map[string]interface{} `json:"remotes"`
+	Count        int                      `json:"count"`
+	ActiveRemote interface{}              `json:"active_remote"`
+	Summary      map[string]interface{}   `json:"summary"`
+}
+
+type PendingDeletionsResponse struct {
+	HasDeletions bool          `json:"has_deletions"`
+	TotalCount   int           `json:"total_count"`
+	Source       string        `json:"source,omitempty"`
+	TargetAction string        `json:"target_action,omitempty"`
+	Message      string        `json:"message,omitempty"`
+	Files        []interface{} `json:"files"`
+	Error        string        `json:"error,omitempty"`
+	AbortedAt    *float64      `json:"aborted_at,omitempty"`
+}
+
+type TransferStats struct {
+	Bytes        int64                    `json:"bytes"`
+	TotalBytes   int64                    `json:"total_bytes"`
+	Speed        float64                  `json:"speed"`
+	SpeedStr     string                   `json:"speed_str"`
+	ETA          *int                     `json:"eta,omitempty"`
+	Percentage   float64                  `json:"percentage"`
+	Transferring []map[string]interface{} `json:"transferring"`
+}
+
+type TelemetryPayload struct {
+	DaemonHealth      interface{}              `json:"daemon_health"`
+	NotificationState map[string]interface{}   `json:"notification_state"`
+	Metrics           []map[string]interface{} `json:"metrics"`
+	BisyncLogs        []string                 `json:"bisync_logs"`
+	DaemonLogs        []string                 `json:"daemon_logs"`
+	Config            map[string]interface{}   `json:"config"`
+	IsSyncing         bool                     `json:"is_syncing"`
+	TransferStats     *TransferStats           `json:"transfer_stats"`
+}

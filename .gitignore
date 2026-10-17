@@ -6,3 +6,4 @@ _pycache_/
 rclone.conf
 *.conf
 rc-secrets.env
+bin/
