@@ -30,28 +30,8 @@ else
     PYTEST_BIN="$(command -v pytest || true)"
 fi
 
-# 5. Run Go Unit Test Suite
-if command -v go >/dev/null 2>&1; then
-    echo -e "${BLUE}[5/5] Running Go unit test suite (go test ./...)...${NC}"
-    if ! go test ./...; then
-        echo -e "${RED}[FAIL] Go unit tests failed!${NC}"
-        exit 1
-    fi
-    echo -e "  ${GREEN}✓${NC} Go test suite clean."
-fi
-
-
-if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then
-    echo -e "${RED}[FAIL] Python 3 interpreter not found.${NC}"
-    exit 1
-fi
-
-echo -e "Using Python: ${YELLOW}${PYTHON_BIN}${NC}"
-echo -e "Using Pytest: ${YELLOW}${PYTEST_BIN}${NC}"
-echo ""
-
-# 2. Check Shell Script Syntax
-echo -e "${BLUE}[1/4] Checking shell script syntax (bash -n)...${NC}"
+# 1. Check Shell Script Syntax
+echo -e "${BLUE}[1/5] Checking shell script syntax (bash -n)...${NC}"
 SHELL_SCRIPTS=$(find "${REPO_ROOT}" -maxdepth 2 -name "*.sh" -not -path "*/.*")
 for script in $SHELL_SCRIPTS; do
     bash -n "$script"
@@ -59,13 +39,13 @@ for script in $SHELL_SCRIPTS; do
 done
 echo -e "${GREEN}Shell script syntax OK.${NC}\n"
 
-# 3. Check Python Syntax & Compilation
-echo -e "${BLUE}[2/4] Compiling Python source files (compileall)...${NC}"
+# 2. Check Python Syntax & Compilation
+echo -e "${BLUE}[2/5] Compiling Python source files (compileall)...${NC}"
 "$PYTHON_BIN" -m compileall -q "${REPO_ROOT}/rclone_bisync" "${REPO_ROOT}/dashboard" "${REPO_ROOT}/tests"
 echo -e "${GREEN}Python compilation clean.${NC}\n"
 
-# 4. Check for Tracked Secrets & Leaks
-echo -e "${BLUE}[3/4] Verifying secret isolation & git hygiene...${NC}"
+# 3. Check for Tracked Secrets & Leaks
+echo -e "${BLUE}[3/5] Verifying secret isolation & git hygiene...${NC}"
 if git -C "${REPO_ROOT}" ls-files --error-unmatch rc-secrets.env 2>/dev/null; then
     echo -e "${RED}[FAIL] rc-secrets.env is tracked by git! Untrack it immediately.${NC}"
     exit 1
@@ -82,15 +62,29 @@ fi
 echo -e "  ${GREEN}✓${NC} No hardcoded passwords detected in tracked files"
 echo -e "${GREEN}Secret isolation OK.${NC}\n"
 
-# 5. Execute Test Suite
-echo -e "${BLUE}[4/4] Running automated unit test suite (pytest)...${NC}"
+# 4. Execute Go Unit Test Suite
+echo -e "${BLUE}[4/5] Running Go unit test suite (go test ./...)...${NC}"
+if command -v go >/dev/null 2>&1; then
+    cd "${REPO_ROOT}"
+    if ! go test -count=1 ./...; then
+        echo -e "${RED}[FAIL] Go unit tests failed!${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}Go test suite passed.${NC}\n"
+else
+    echo -e "${RED}[FAIL] Go toolchain not found in PATH.${NC}"
+    exit 1
+fi
+
+# 5. Execute Python Test Suite
+echo -e "${BLUE}[5/5] Running Python unit test suite (pytest)...${NC}"
 cd "${REPO_ROOT}"
 if [[ -x "$PYTEST_BIN" ]]; then
     "$PYTEST_BIN" tests
 else
     "$PYTHON_BIN" -m pytest tests
 fi
-echo -e "${GREEN}All unit tests passed.${NC}\n"
+echo -e "${GREEN}All Python unit tests passed.${NC}\n"
 
 echo -e "${GREEN}====================================================${NC}"
 echo -e "${GREEN}    Pre-Flight Passed: Ready to commit & push!     ${NC}"
