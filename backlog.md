@@ -20,12 +20,11 @@
     * Record Rclone RC `job_id` into `bisync.log` and `metrics.jsonl` alongside `run_id`.
   * Streamline `dashboard/backend/main.py` to a thin HTTP controller.
 
-* **Branch 3: `feat/security-pydantic-dtos-and-redaction` [ESTIMATE: 2-3h | 2 SP]**
-  * Define strict centralized Pydantic response models in `rclone_bisync/models/api.py`:
-    * `ActionResponse`, `RemotesResponse`, `PendingDeletionsResponse`, `BrowseResponse`, `CopyResponse`, `DeleteResponse`, `CanaryResponse`, and refined sub-models (`RemoteItem`, `RemoteCardInfo`, `PendingDeletionEntry`).
-  * Implement recursive deep secret sanitization (`redact_secrets()`) in `rclone_bisync/core/security.py` traversing nested dictionaries, lists, and objects to scrub credentials matching `PASS`, `TOKEN`, `KEY`, `SECRET`, `CREDENTIAL`.
-  * Enforce `response_model` across all FastAPI route handlers in `dashboard/backend/main.py`.
-  * Add unit tests in `tests/test_dashboard_backend.py` and `tests/test_security.py` verifying strict schema validation, extra key stripping, and zero secret exposure.
+* **Branch 3: `feat/security-pydantic-dtos-and-redaction` [IMPLEMENTED]**
+  * Centralized Pydantic API response models and DTOs in `rclone_bisync/models/api.py`.
+  * Recursive deep secret sanitization engine (`redact_secrets()`) in `rclone_bisync/core/security.py` scrubbing credentials, tokens, and webhook URLs.
+  * Enforced `response_model` across all FastAPI route handlers in `dashboard/backend/main.py`.
+  * Comprehensive test suite with 77 passing tests in `tests/test_dashboard_backend.py` and `tests/test_security.py`.
 
 * **Branch 4: `feat/remote-oauth-reauth` [ESTIMATE: 3-4h | 3 SP]**
   * Backend: Implement `reconnect_remote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
