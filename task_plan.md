@@ -1,23 +1,29 @@
-# Task Plan: Phase 2 - Go RC Client & Recursive Security Engine
+# Task Plan: Phase 3 - Go Sync Service & Explorer Architecture
 
 ## Goal
-Port the Rclone Remote Control (RC) HTTP client (`internal/core/client`) and recursive secret redaction engine (`internal/core/security`) into Go with 100% test coverage.
+Port domain orchestration, explorer services, state tracking, and log parsing to native Go (`internal/core/state` and `internal/services`) while strictly enforcing safety circuit breakers (path traversal jails, canary protection, non-interactive flock checks).
 
 ## Tasks
-- [x] Task 1: Recursive Secret Redaction Engine (`internal/core/security/security.go`)
-  - **Scope**: Implement recursive data structure traversal (maps, slices, arrays, structs) with key substring matching (`PASS`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL`, `AUTH`, `WEBHOOK`, `PRIVATE`) and value regex signatures (`ghp_*`, `xox*`, `ya29.*`).
-  - **Verification**: `go test -v ./internal/core/security`
-- [x] Task 2: Rclone RC HTTP Client (`internal/core/client/client.go`)
-  - **Scope**: Port connection-pooled HTTP client with basic auth support covering `/core/stats` (health), `/sync/bisync` (trigger), `/job/status`, `/job/stop`, `/job/list`, `/config/listremotes`, `/config/get` (with safe key filtering), `/operations/about`, `/operations/list` (with canary detection), `/operations/touch`, `/operations/copyfile`, `/sync/copy`, `/operations/deletefile`, `/operations/purge`.
-  - **Verification**: `go test -v ./internal/core/client`
+- [x] Task 1: State Management & Atomic File Operations (`internal/core/state`)
+  - **Scope**: Implement `WriteJSONAtomic` (.tmp + sync + rename), `PendingDeletionsData` parser/record/clear, and rate limit backoff clearance.
+  - **Verification**: `go test -v ./internal/core/state`
+- [x] Task 2: Sync & Explorer Service Domain Logic (`internal/services`)
+  - **Scope**:
+    - Dual-pane path browsing (`BrowsePath`) with path traversal jail (`filepath.Rel` escape prevention) and canary detection (`RCLONE_TEST`).
+    - Canary provisioning (`CreateCanary`) on local and remote filesystems.
+    - File/directory copy (`CopyItem`) and deletion (`DeleteItem`) with root deletion and canary deletion blocks.
+    - Reverse log seeking file tailing (`TailFile` / `TailJSONLog`) unwrapping nested JSON.
+    - Pending deletions parsing fallback from daemon log.
+    - System actions (`HandleAction`: start, stop, force_resync, force_sync, dry_run, remove_lock).
+    - Daemon health tracking with memory caching.
+  - **Verification**: `go test -v ./internal/services`
 - [x] Task 3: Quality Gate Verification
-  - **Scope**: Run full pre-flight check `./scripts/check.sh` ensuring all 5 Go packages compile and pass tests, alongside Python tests and secret scanners.
-  - **Verification**: `./scripts/check.sh`
+  - **Scope**: Run full pre-flight quality check (`./scripts/check.sh`).
+  - **Verification**: All 7 Go packages pass tests, 77 Python tests pass, secret scanners clean.
 
 ## Status Updates
-- 2026-10-17: Initialized Phase 2 implementation.
-- 2026-10-17: Implemented `internal/core/security` with 4 test scenarios (basic, nested, regex, struct). Passed.
-- 2026-10-17: Implemented `internal/core/client` with 4 test scenarios (health, bisync trigger, canary list, config sanitization). Passed.
-- 2026-10-17: Executed `./scripts/check.sh`. 100% clean across Go and Python suites.
+- 2026-10-17: Implemented `internal/core/state` with atomic file persistence and pending deletion models.
+- 2026-10-17: Implemented `internal/services` (SyncService & explorer operations).
+- 2026-10-17: Validated quality gate via `./scripts/check.sh` - 100% green across Go & Python suites.
 
 
