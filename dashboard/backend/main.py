@@ -156,6 +156,12 @@ def browse_files(req: BrowseRequest):
     """Browses remote directories and checks for canary RCLONE_TEST presence."""
     return sync_service.browse_path(remote=req.remote, path=req.path or "")
 
+@app.post("/api/browse/canary")
+def provision_canary(req: BrowseRequest):
+    """Provisions RCLONE_TEST canary file on target local or remote filesystem."""
+    return sync_service.create_canary(remote=req.remote or "local", path=req.path or "")
+
+
 # Mount static files cleanly
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

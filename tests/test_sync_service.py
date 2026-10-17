@@ -250,3 +250,30 @@ def test_browse_path_local_security_jail(tmp_path):
     assert "does not exist" in res_nonexistent.get("error", "").lower()
     assert res_nonexistent["items"] == []
 
+
+def test_create_canary_local_and_remote(tmp_path):
+    base = tmp_path / "gdrive"
+    base.mkdir()
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+    mock_client = mock.Mock()
+    mock_client.touch_file.return_value = {"status": "success", "remote": "gdrive:", "path": "RCLONE_TEST"}
+    service = SyncService(config=cfg, rc_client=mock_client)
+
+    # 1. Local canary creation
+    canary_path = base / "RCLONE_TEST"
+    assert not canary_path.exists()
+    res = service.create_canary(remote="local", path="")
+    assert res["status"] == "success"
+    assert canary_path.exists()
+
+    # 2. Local jail violation
+    res_jail = service.create_canary(remote="local", path="../../etc")
+    assert res_jail["status"] == "error"
+    assert "forbidden" in res_jail["error"].lower()
+
+    # 3. Remote canary creation
+    res_remote = service.create_canary(remote="gdrive", path="subfolder")
+    mock_client.touch_file.assert_called_once_with(remote="gdrive", path="subfolder/RCLONE_TEST")
+    assert res_remote["status"] == "success"
+

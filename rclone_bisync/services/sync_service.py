@@ -578,3 +578,75 @@ class SyncService:
 
         return self.client.list_directory(remote=remote_clean, path=clean_path)
 
+    def create_canary(self, remote: str, path: str = "") -> Dict[str, Any]:
+        """
+        Provisions an RCLONE_TEST canary file in the specified target path.
+        Enforces path traversal safety jail for local filesystem operations.
+        """
+        clean_path = (path or "").strip().strip("/")
+        remote_clean = (remote or "").strip()
+
+        if remote_clean.lower() in ("local", ""):
+            raw_base = getattr(self.config, "LOCAL_PATH", "~/gdrive")
+            base_dir = os.path.abspath(os.path.expanduser(raw_base))
+            target_dir = os.path.abspath(os.path.join(base_dir, clean_path))
+
+            try:
+                if os.path.commonpath([base_dir, target_dir]) != base_dir:
+                    return {
+                        "status": "error",
+                        "error": "Directory traversal forbidden",
+                        "remote": "local",
+                        "path": clean_path,
+                    }
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": "Invalid path",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            if not os.path.exists(target_dir):
+                return {
+                    "status": "error",
+                    "error": f"Target directory does not exist: {clean_path or '/'}",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            canary_file = os.path.join(target_dir, "RCLONE_TEST")
+            try:
+                with open(canary_file, "a"):
+                    os.utime(canary_file, None)
+                return {
+                    "status": "success",
+                    "msg": f"Canary created successfully at {clean_path + '/' if clean_path else ''}RCLONE_TEST",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "error": f"Failed to create canary file: {e}",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+        canary_remote_path = f"{clean_path}/RCLONE_TEST".strip("/")
+        res = self.client.touch_file(remote=remote_clean, path=canary_remote_path)
+        if res.get("status") == "success":
+            return {
+                "status": "success",
+                "msg": f"Canary created successfully at {remote_clean}:{canary_remote_path}",
+                "remote": remote_clean,
+                "path": clean_path,
+            }
+        return {
+            "status": "error",
+            "error": res.get("error", "Failed to create remote canary"),
+            "remote": remote_clean,
+            "path": clean_path,
+        }
+
+
