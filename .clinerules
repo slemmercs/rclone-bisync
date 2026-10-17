@@ -68,7 +68,7 @@ When completing a verified task, halt and output:
   - <path/to/file1>: <summary of changes>
   - <path/to/file2>: <summary of changes>
   ```
-- **Validation Before Commit**: Run `py_compile` and `pytest` prior to proposing commits.
+- **Validation Before Commit**: Run pre-flight checks (`./scripts/check.sh` or `py_compile` + `pytest`) prior to proposing commits.
 - **Push Before PR Creation**: Always push local commits to the remote tracking branch (`git push -u origin <branch>`) before generating or proposing PR titles and descriptions.
 
 ### 2.3 Safety, Circuit Breakers & Atomicity
