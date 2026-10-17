@@ -200,7 +200,7 @@ document.addEventListener("alpine:init", () => {
             setInterval(() => this.poll(), 3000);
             this.setupLogScroll("log-bisync");
             this.setupLogScroll("log-daemon");
-        },,
+        },
 
         async poll() {
             try {
@@ -270,7 +270,7 @@ document.addEventListener("alpine:init", () => {
                     });
                 }
             });
-        },,
+        },
 
         switchTab(tab) {
             this.currentTab = tab;

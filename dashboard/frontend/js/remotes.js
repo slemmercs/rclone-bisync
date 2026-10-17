@@ -21,7 +21,7 @@ window.RemotesModule = {
             } finally {
                 if (showLoading) this.remotesData.loading = false;
             }
-        },,
+        },
 
     getQuotaPct(used, total) {
             if (!total || total <= 0 || !used) return 0;
