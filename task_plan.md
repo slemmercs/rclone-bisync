@@ -7,7 +7,7 @@ Establish strict Pydantic response models (DTOs) for all FastAPI dashboard endpo
 - [x] Task 1: Recursive Secret Sanitization Engine (`rclone_bisync/core/security.py`)
   - **Scope**: Create `rclone_bisync/core/security.py` with `redact_secrets()` supporting recursive dicts, lists, sets, tuples, and Pydantic models. Add comprehensive unit tests in `tests/test_security.py`.
   - **Verification**: `/home/csaba/rclone-bisync/.venv/bin/pytest tests/test_security.py`
-- [ ] Task 2: Centralized API Response Models & DTOs (`rclone_bisync/models/api.py`)
+- [x] Task 2: Centralized API Response Models & DTOs (`rclone_bisync/models/api.py`)
   - **Scope**: Create `rclone_bisync/models/__init__.py` and `rclone_bisync/models/api.py`. Define `ActionResponse`, `BrowseItem`, `BrowseResponse`, `CanaryResponse`, `CopyResponse`, `DeleteResponse`, `PendingDeletionEntry`, `RemoteCardInfo`, `RemotesSummary`, `RemotesResponse`, `TelemetryPayload`.
   - **Verification**: `python3 -m py_compile rclone_bisync/models/api.py`
 - [ ] Task 3: Integrate Models and Recursive Redaction in Dashboard Backend (`dashboard/backend/main.py`)
@@ -20,6 +20,8 @@ Establish strict Pydantic response models (DTOs) for all FastAPI dashboard endpo
 ## Status Updates
 - 2026-10-17: Initialized Branch 3 task plan on `feat/security-pydantic-dtos-and-redaction`.
 - 2026-10-17: Completed Task 1 (Recursive Secret Sanitization Engine). Added `rclone_bisync/core/security.py` and 5 unit tests in `tests/test_security.py`. All 73 tests green.
+- 2026-10-17: Completed Task 2 (Centralized API Response Models & DTOs). Created `rclone_bisync/models/__init__.py` and `rclone_bisync/models/api.py`. Verified compilation.
+
 
 
 
