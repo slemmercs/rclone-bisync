@@ -148,7 +148,7 @@ def get_remotes():
     return sync_service.get_remotes_summary()
 
 class BrowseRequest(BaseModel):
-    remote: str
+    remote: Optional[str] = "local"
     path: Optional[str] = ""
 
 @app.post("/api/browse")

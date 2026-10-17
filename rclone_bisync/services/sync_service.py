@@ -10,6 +10,7 @@ import json
 import time
 import requests
 import subprocess
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 import rclone_bisync.config as default_config
@@ -486,6 +487,94 @@ class SyncService:
         }
 
     def browse_path(self, remote: str, path: str = "") -> Dict[str, Any]:
-        """Lists directory contents and checks canary presence."""
-        return self.client.list_directory(remote=remote, path=path or "")
+        """
+        Lists directory contents and checks canary presence.
+        Supports both remote (via Rclone RC) and local filesystem (LOCAL_PATH).
+        Enforces path traversal safety jails for local filesystem operations.
+        """
+        clean_path = (path or "").strip().strip("/")
+        remote_clean = (remote or "").strip()
+
+        if remote_clean.lower() in ("local", ""):
+            raw_base = getattr(self.config, "LOCAL_PATH", "~/gdrive")
+            base_dir = os.path.abspath(os.path.expanduser(raw_base))
+
+            # Security check: prevent directory traversal escaping base_dir
+            target_dir = os.path.abspath(os.path.join(base_dir, clean_path))
+            try:
+                if os.path.commonpath([base_dir, target_dir]) != base_dir:
+                    return {
+                        "items": [],
+                        "has_canary": False,
+                        "error": "Directory traversal forbidden",
+                        "remote": "local",
+                        "path": clean_path,
+                    }
+            except ValueError:
+                return {
+                    "items": [],
+                    "has_canary": False,
+                    "error": "Invalid path",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            if not os.path.exists(target_dir):
+                return {
+                    "items": [],
+                    "has_canary": False,
+                    "error": f"Directory does not exist: {clean_path or '/'}",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            if not os.path.isdir(target_dir):
+                return {
+                    "items": [],
+                    "has_canary": False,
+                    "error": "Target is not a directory",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            items = []
+            try:
+                with os.scandir(target_dir) as entries:
+                    for entry in entries:
+                        try:
+                            stat = entry.stat()
+                            is_dir = entry.is_dir()
+                            mod_time = datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
+                            size = -1 if is_dir else stat.st_size
+                            item_rel_path = f"{clean_path}/{entry.name}".strip("/") if clean_path else entry.name
+
+                            items.append({
+                                "Path": item_rel_path,
+                                "Name": entry.name,
+                                "Size": size,
+                                "MimeType": "inode/directory" if is_dir else "application/octet-stream",
+                                "ModTime": mod_time,
+                                "IsDir": is_dir,
+                            })
+                        except (OSError, PermissionError) as e:
+                            pass
+            except Exception as e:
+                return {
+                    "items": [],
+                    "has_canary": False,
+                    "error": str(e),
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            items.sort(key=lambda x: (not x["IsDir"], x["Name"].lower()))
+            has_canary = any(item.get("Name") == "RCLONE_TEST" for item in items)
+            return {
+                "items": items,
+                "has_canary": has_canary,
+                "remote": "local",
+                "path": clean_path,
+            }
+
+        return self.client.list_directory(remote=remote_clean, path=clean_path)
 
