@@ -177,6 +177,30 @@ document.addEventListener("alpine:init", () => {
         deletionsData: { total_count: 0, source: "", target_action: "", files: [] },
         deletionsSearch: "",
 
+        // Dual-Pane File Explorer State
+        explorer: {
+            left: {
+                target: "local",
+                path: "",
+                items: [],
+                loading: false,
+                error: null,
+                hasCanary: false,
+                totalSize: 0,
+                itemCount: 0
+            },
+            right: {
+                target: "gdrive",
+                path: "",
+                items: [],
+                loading: false,
+                error: null,
+                hasCanary: false,
+                totalSize: 0,
+                itemCount: 0
+            }
+        },
+
         get parsedBisyncLogs() {
             return (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
         },
@@ -428,6 +452,101 @@ document.addEventListener("alpine:init", () => {
                 }
             }
         },
+
+        initExplorer() {
+            if (this.remotesData.remotes.length === 0) {
+                this.fetchRemotes(false);
+            }
+            if (this.explorer.left.items.length === 0) {
+                this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
+            }
+            if (this.explorer.right.items.length === 0) {
+                if (this.remotesData.remotes && this.remotesData.remotes.length > 0) {
+                    const active = this.remotesData.remotes.find(r => r.is_active_target);
+                    if (active) {
+                        this.explorer.right.target = active.name;
+                    } else {
+                        this.explorer.right.target = this.remotesData.remotes[0].name;
+                    }
+                }
+                this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
+            }
+        },
+
+        openRemoteInExplorer(remoteName) {
+            this.currentTab = "explorer";
+            this.explorer.right.target = remoteName;
+            this.explorer.right.path = "";
+            this.fetchExplorerDirectory("right", remoteName, "");
+            if (this.explorer.left.items.length === 0) {
+                this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
+            }
+        },
+
+        async fetchExplorerDirectory(paneKey, target, path = "") {
+            const pane = this.explorer[paneKey];
+            if (!pane) return;
+            pane.loading = true;
+            pane.error = null;
+            try {
+                const res = await fetch("/api/browse", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Dashboard-Request": "1"
+                    },
+                    body: JSON.stringify({ remote: target, path: path })
+                });
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                const data = await res.json();
+                if (data.error) {
+                    pane.error = data.error;
+                    pane.items = [];
+                    pane.hasCanary = false;
+                } else {
+                    pane.path = data.path || "";
+                    pane.hasCanary = Boolean(data.has_canary);
+                    pane.items = data.items || [];
+                    pane.itemCount = pane.items.length;
+                    pane.totalSize = pane.items.reduce((acc, item) => (item.Size > 0 ? acc + item.Size : acc), 0);
+                }
+            } catch (err) {
+                pane.error = err.message || "Failed to load directory";
+                pane.items = [];
+            } finally {
+                pane.loading = false;
+            }
+        },
+
+        navigateFolder(paneKey, folderName) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return;
+            let newPath = "";
+            if (folderName === "..") {
+                const parts = pane.path.split("/").filter(Boolean);
+                parts.pop();
+                newPath = parts.join("/");
+            } else {
+                newPath = pane.path ? `${pane.path}/${folderName}` : folderName;
+            }
+            this.fetchExplorerDirectory(paneKey, pane.target, newPath);
+        },
+
+        changePaneTarget(paneKey, newTarget) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return;
+            pane.target = newTarget;
+            pane.path = "";
+            this.fetchExplorerDirectory(paneKey, newTarget, "");
+        },
+
+        refreshExplorer() {
+            this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
+            this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
+        },
+
 
         getQuotaPct(used, total) {
             if (!total || total <= 0 || !used) return 0;

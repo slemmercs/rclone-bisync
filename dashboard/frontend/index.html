@@ -366,8 +366,9 @@
                         <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
                             <span class="text-[11px] text-slate-500">Authenticated via RC</span>
                             <div class="flex items-center gap-2">
+                                <button @click="openRemoteInExplorer(remote.name)" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1 font-medium">📁 Browse Files ↗</button>
                                 <button @click="fetchRemotes(true)" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors">Test Ping</button>
-                                <button @click="switchTab('telemetry')" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded border border-indigo-700/40 transition-colors">View Sync</button>
+                                <button @click="switchTab('telemetry')" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-400 rounded border border-slate-800 transition-colors">View Sync</button>
                             </div>
                         </div>
                     </div>
@@ -383,14 +384,193 @@
         </div> <!-- End View 2: Remote Storage Manager -->
 
         <!-- View 3: File Explorer Workspace -->
-        <div x-show="currentTab === 'explorer'" x-transition.opacity.duration.200ms class="space-y-6">
-            <!-- Explorer Placeholder Shell -->
-            <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-8 text-center">
-                <div class="w-12 h-12 mx-auto rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-3 border border-indigo-500/20">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+        <div x-show="currentTab === 'explorer'" x-transition.opacity.duration.200ms class="space-y-5">
+            <!-- Explorer Cockpit Subheader Toolbar -->
+            <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-200">Dual-Pane Directory Explorer</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block">Local ↔ Remote</span>
                 </div>
-                <h3 class="text-base font-bold text-white">Dual-Pane File Explorer</h3>
-                <p class="text-xs text-slate-400 max-w-md mx-auto mt-1">Direct directory traversal, canary guard verification, and 1-click sync between local and remote storage.</p>
+
+                <div class="flex items-center gap-2">
+                    <button @click="refreshExplorer()" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
+                        <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': explorer.left.loading || explorer.right.loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span>Refresh Panes</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dual Pane Columns Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Left Pane: Local Storage -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
+                    <!-- Pane Header -->
+                    <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Local</span>
+                            <span class="text-xs font-semibold text-slate-200 truncate" x-text="telemetry.config.LOCAL_PATH || '~/gdrive'"></span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.left.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="explorer.left.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                            <span x-text="explorer.left.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Path Display & Item Count Bar -->
+                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
+                        <div class="truncate text-[11px]">
+                            <span class="text-slate-500 font-sans">Path: </span>
+                            <span class="text-indigo-300" x-text="'/' + explorer.left.path"></span>
+                        </div>
+                        <span class="text-[10px] text-slate-500 shrink-0 ml-2" x-text="`${explorer.left.items.length} items`"></span>
+                    </div>
+
+                    <!-- Directory Listing Table -->
+                    <div class="flex-1 overflow-y-auto max-h-[30rem] min-h-[18rem] divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
+                        <!-- Loading State -->
+                        <div x-show="explorer.left.loading" class="p-8 text-center text-slate-500">
+                            <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <span>Reading local directory...</span>
+                        </div>
+
+                        <!-- Error State -->
+                        <div x-show="!explorer.left.loading && explorer.left.error" class="p-6 text-center text-rose-400 text-xs">
+                            <p x-text="explorer.left.error"></p>
+                        </div>
+
+                        <!-- Parent Directory Link -->
+                        <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.path !== ''" @click="navigateFolder('left', '..')" class="p-2.5 hover:bg-slate-800/50 cursor-pointer flex items-center gap-2 text-indigo-400 transition-colors">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path></svg>
+                            <span class="font-sans font-medium text-[11px]">.. (Parent Directory)</span>
+                        </div>
+
+                        <!-- File & Folder Rows -->
+                        <template x-for="item in explorer.left.items" :key="item.Path">
+                            <div class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <template x-if="item.IsDir">
+                                        <button @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate">
+                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                                            <span class="font-medium truncate" x-text="item.Name"></span>
+                                        </button>
+                                    </template>
+                                    <template x-if="!item.IsDir">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <template x-if="item.Name === 'RCLONE_TEST'">
+                                                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                            </template>
+                                            <template x-if="item.Name !== 'RCLONE_TEST'">
+                                                <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            </template>
+                                            <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="flex items-center gap-3 shrink-0 text-[11px] text-slate-500 font-mono">
+                                    <span x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Empty State -->
+                        <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.items.length === 0" class="p-8 text-center text-slate-500 text-xs">
+                            Empty directory
+                        </div>
+                    </div>
+
+                    <!-- Pane Footer -->
+                    <div class="px-3.5 py-2 bg-slate-950/40 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+                        <span x-text="`${explorer.left.itemCount} items`"></span>
+                        <span x-text="formatBytes(explorer.left.totalSize) + ' total'"></span>
+                    </div>
+                </div>
+                <!-- Right Pane: Remote Cloud Storage -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
+                    <!-- Pane Header with Remote Selector Dropdown -->
+                    <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Remote</span>
+                            <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
+                                <template x-for="r in remotesData.remotes" :key="r.name">
+                                    <option :value="r.name" x-text="r.name + ':' + (r.is_active_target ? ' (Active)' : '')"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.right.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="explorer.right.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                            <span x-text="explorer.right.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Path Display & Item Count Bar -->
+                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
+                        <div class="truncate text-[11px]">
+                            <span class="text-slate-500 font-sans">Path: </span>
+                            <span class="text-emerald-400" x-text="explorer.right.target + ':/' + explorer.right.path"></span>
+                        </div>
+                        <span class="text-[10px] text-slate-500 shrink-0 ml-2" x-text="`${explorer.right.items.length} items`"></span>
+                    </div>
+
+                    <!-- Directory Listing Table -->
+                    <div class="flex-1 overflow-y-auto max-h-[30rem] min-h-[18rem] divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
+                        <!-- Loading State -->
+                        <div x-show="explorer.right.loading" class="p-8 text-center text-slate-500">
+                            <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <span>Querying remote directory via RC...</span>
+                        </div>
+
+                        <!-- Error State -->
+                        <div x-show="!explorer.right.loading && explorer.right.error" class="p-6 text-center text-rose-400 text-xs">
+                            <p x-text="explorer.right.error"></p>
+                        </div>
+
+                        <!-- Parent Directory Link -->
+                        <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.path !== ''" @click="navigateFolder('right', '..')" class="p-2.5 hover:bg-slate-800/50 cursor-pointer flex items-center gap-2 text-indigo-400 transition-colors">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path></svg>
+                            <span class="font-sans font-medium text-[11px]">.. (Parent Directory)</span>
+                        </div>
+
+                        <!-- File & Folder Rows -->
+                        <template x-for="item in explorer.right.items" :key="item.Path">
+                            <div class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <template x-if="item.IsDir">
+                                        <button @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate">
+                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                                            <span class="font-medium truncate" x-text="item.Name"></span>
+                                        </button>
+                                    </template>
+                                    <template x-if="!item.IsDir">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <template x-if="item.Name === 'RCLONE_TEST'">
+                                                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                            </template>
+                                            <template x-if="item.Name !== 'RCLONE_TEST'">
+                                                <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            </template>
+                                            <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="flex items-center gap-3 shrink-0 text-[11px] text-slate-500 font-mono">
+                                    <span x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Empty State -->
+                        <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.items.length === 0" class="p-8 text-center text-slate-500 text-xs">
+                            Empty directory
+                        </div>
+                    </div>
+
+                    <!-- Pane Footer -->
+                    <div class="px-3.5 py-2 bg-slate-950/40 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+                        <span x-text="`${explorer.right.itemCount} items`"></span>
+                        <span x-text="formatBytes(explorer.right.totalSize) + ' total'"></span>
+                    </div>
+                </div>
             </div>
         </div> <!-- End View 3: File Explorer Workspace -->
 
