@@ -1,0 +1,77 @@
+# rclone-bisync Engineering & Task Execution Rules
+
+## 1. Task Planning & Token Optimization Engine
+
+### 1.1 Task Planning Protocol
+Before modifying code for non-trivial features, bug fixes, or refactors:
+1. **Check for Existing Plan**: Search for `task_plan.md` in the repository root.
+   - If missing, create `task_plan.md` outlining the goal, system breakdown, and sequential micro-tasks.
+   - If present, review the next unchecked task `[ ]` and proceed with that task only.
+2. **Micro-Task Granularity**: Break the workflow into self-contained units. Each micro-task must:
+   - Target a single logical concern (e.g., "Add delete_item endpoint to sync_service").
+   - Define a concrete automated verification step (e.g., `pytest tests/test_sync_service.py -k test_delete_item`).
+
+### 1.2 task_plan.md Standard Template
+```markdown
+# Task Plan: [Feature / Refactor Name]
+
+## Goal
+[Concise description of the objective]
+
+## Tasks
+- [ ] Task 1: [Short Title]
+  - **Scope**: [Files, functions, or UI elements to change]
+  - **Verification**: [Exact test command or script]
+- [ ] Task 2: [Short Title]
+  - **Scope**: [Files, functions, or UI elements to change]
+  - **Verification**: [Exact test command or script]
+
+## Status Updates
+- YYYY-MM-DD: Initialized plan.
+```
+
+### 1.3 Step-by-Step Task Loop
+For **EVERY** individual task in `task_plan.md`:
+1. **Execute**: Implement changes strictly scoped to the active micro-task.
+2. **Verify**: Run the specified test/verification command in the local `.venv`.
+3. **Update Plan**: Mark the task as `[x]` in `task_plan.md` with a timestamped status update.
+4. **Checkpoint Commit**: Propose a conventional git checkpoint commit.
+5. **Halt & Hand-off**: Print the hand-off prompt and halt further edits.
+
+### 1.4 Mandatory Hand-off Prompt
+When completing a verified task, halt and output:
+
+> ⚠️ **Task Complete & Plan Updated**
+> - **Completed**: [Task Name]
+> - **Verification**: Passed (`[Verification Command]`)
+> - **Next Up**: [Next Task in task_plan.md]
+> 💡 *Please run `/newtask` to clear the context window and resume with clean token usage.*
+
+---
+
+## 2. Tech Stack & Engineering Standards
+
+### 2.1 Environment & Python Isolation
+- **Interpreter**: Always use the project virtual environment: `/home/csaba/rclone-bisync/.venv/bin/python3` and `/home/csaba/rclone-bisync/.venv/bin/pytest`.
+- **Zero Global Pollution**: Never run system `pip install` or `apt-get install` for Python packages.
+
+### 2.2 Git Workflow & Checkpoints
+- **Always Branch**: Never work directly on `main`. Always create a descriptive branch from `main` (e.g., `feat/...`, `fix/...`, `chore/...`, `refactor/...`).
+- **Commit Format**:
+  ```
+  <type>(<scope>): <concise action-oriented summary>
+
+  - <path/to/file1>: <summary of changes>
+  - <path/to/file2>: <summary of changes>
+  ```
+- **Validation Before Commit**: Run `py_compile` and `pytest` prior to proposing commits.
+- **Push Before PR Creation**: Always push local commits to the remote tracking branch (`git push -u origin <branch>`) before generating or proposing PR titles and descriptions.
+
+### 2.3 Safety, Circuit Breakers & Atomicity
+- **Canary Protection**: Never bypass, delete, or modify `RCLONE_TEST` canary files unless explicitly testing canary detection.
+- **Local Filesystem Jail**: All file operations under `local` storage must strictly enforce `os.path.commonpath([base_dir, target]) == base_dir`.
+- **Atomic Writes**: Any telemetry, health, or state writes to disk must use `.tmp` + `os.replace`.
+
+### 2.4 Frontend Conventions (Dashboard)
+- **Zero-Build Alpine.js & Tailwind**: Keep frontend dependencies CDN/local-script compatible without adding Node.js/npm build steps.
+- **Drag & Click Isolation**: In draggable rows (`draggable="true"`), always set `draggable="false"` and `@mousedown.stop` on child `<button>` and interactive elements.
