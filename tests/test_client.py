@@ -105,3 +105,17 @@ def test_list_directory_canary_detection():
         assert data["has_canary"] is True
         assert data["remote"] == "gdrive:"
 
+
+
+def test_touch_file():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        res = client.touch_file("gdrive", "Documents/RCLONE_TEST")
+        assert res["status"] == "success"
+        assert res["remote"] == "gdrive:"
+        assert res["path"] == "Documents/RCLONE_TEST"
+

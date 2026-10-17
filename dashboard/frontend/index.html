@@ -411,9 +411,14 @@
                             <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Local</span>
                             <span class="text-xs font-semibold text-slate-200 truncate" x-text="telemetry.config.LOCAL_PATH || '~/gdrive'"></span>
                         </div>
-                        <div class="flex items-center gap-1 shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.left.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
-                            <span class="w-1.5 h-1.5 rounded-full" :class="explorer.left.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-                            <span x-text="explorer.left.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <div class="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.left.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="explorer.left.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                <span x-text="explorer.left.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
+                            </div>
+                            <button x-show="!explorer.left.hasCanary && !explorer.left.loading" @click="provisionCanary('left')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-sans font-medium transition-colors border border-amber-500/40" title="Create RCLONE_TEST in this directory">
+                                + Touch Canary
+                            </button>
                         </div>
                     </div>
 
@@ -524,9 +529,14 @@
                                 </template>
                             </select>
                         </div>
-                        <div class="flex items-center gap-1 shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.right.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
-                            <span class="w-1.5 h-1.5 rounded-full" :class="explorer.right.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-                            <span x-text="explorer.right.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <div class="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.right.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="explorer.right.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                <span x-text="explorer.right.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
+                            </div>
+                            <button x-show="!explorer.right.hasCanary && !explorer.right.loading" @click="provisionCanary('right')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-sans font-medium transition-colors border border-amber-500/40" title="Create RCLONE_TEST in this directory">
+                                + Touch Canary
+                            </button>
                         </div>
                     </div>
 

@@ -597,6 +597,30 @@ document.addEventListener("alpine:init", () => {
         },
 
 
+        async provisionCanary(paneKey) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return;
+            try {
+                const res = await fetch("/api/browse/canary", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Dashboard-Request": "1"
+                    },
+                    body: JSON.stringify({ remote: pane.target, path: pane.path })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    this.fetchExplorerDirectory(paneKey, pane.target, pane.path);
+                } else {
+                    alert(data.error || "Failed to provision canary");
+                }
+            } catch (err) {
+                alert("Network error: " + err.message);
+            }
+        },
+
+
 
 
         getQuotaPct(used, total) {

@@ -204,4 +204,20 @@ class RcloneClient:
             return {"items": [], "has_canary": False, "error": str(e), "remote": fs, "path": clean_path}
         return {"items": [], "has_canary": False, "remote": fs, "path": clean_path}
 
+    def touch_file(self, remote: str, path: str) -> Dict[str, Any]:
+        """
+        Calls /operations/touch to create or update timestamp on a remote file.
+        """
+        fs = remote if remote.endswith(":") else f"{remote}:"
+        clean_path = path.strip("/")
+        payload = {"fs": fs, "remote": clean_path}
+        try:
+            res = requests.post(f"{self.api_url}/operations/touch", json=payload, timeout=10, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "remote": fs, "path": clean_path}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}", "remote": fs, "path": clean_path}
+        except Exception as e:
+            logging.warning(f"Failed to touch file {fs}{clean_path}: {e}")
+            return {"status": "error", "error": str(e), "remote": fs, "path": clean_path}
+
 
