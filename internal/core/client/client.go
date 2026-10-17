@@ -410,3 +410,14 @@ func (c *RcloneClient) PurgeDir(ctx context.Context, fs, remote string) (bool, e
 	}
 	return true, nil
 }
+
+func (c *RcloneClient) GetCoreStats(ctx context.Context) ([]byte, error) {
+	resp, body, err := c.post(ctx, "/core/stats", nil, 2*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+	return body, nil
+}
