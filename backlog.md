@@ -31,11 +31,11 @@
   * Endpoint: `POST /api/remotes/{name}/reconnect`.
   * Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
 
-* **Branch 5: `feat/dual-pane-file-explorer`**
-  * Backend: Extend `/api/browse` to support both `target="local"` (`~/gdrive`) and `target="{remote}:"`; add `/api/browse/canary` provisioning via `/operations/touch`.
-  * Frontend: Build dual-pane File Explorer tab in Alpine.js with **Local on Left** and **Remote on Right**.
-  * Clickable breadcrumbs, folder drill-down, MIME-type icons, and live `RCLONE_TEST` canary pill with 1-click provisioning.
-  * "Browse Files" direct action links on Remote storage cards.
+* **Branch 5: `feat/cockpit-workspace-and-file-explorer` [IMPLEMENTED]**
+  * Backend: Safe local and remote directory traversal with path traversal jails; `/api/browse/canary` provisioning via `/operations/touch`; `/api/browse/copy` file & folder transfers via `/operations/copyfile` & `/sync/copy`.
+  * Frontend: Cockpit-inspired 3-tab workspace navigation (`Engine & Telemetry`, `Storage Remotes`, `File Explorer`) with live latency and health pills.
+  * Explorer: Dual-pane layout (Local Left, Remote Right) with equalized heights, interactive breadcrumbs with one-click path clipboard copy, real-time client-side search filters, canary status pills with one-click touch provisioning, 1-click directional transfer buttons, folder sync triggers, and HTML5 drag-and-drop transfers.
+
 
 * **Branch 6: `feat/interactive-log-cross-filtering`**
   * UI Component: Render `run_id` as an interactive, clickable chip/pill in the Bisync log viewer.
