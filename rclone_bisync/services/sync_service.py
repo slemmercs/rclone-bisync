@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import time
+import shutil
 import requests
 import subprocess
 from datetime import datetime, timezone
@@ -728,5 +729,58 @@ class SyncService:
             return self.client.copy_dir(src_fs=src_fs, dst_fs=dst_fs)
         else:
             return self.client.copy_file(src_fs=src_fs, src_remote=src_file, dst_fs=dst_fs, dst_remote=dst_file)
+
+    def delete_item(
+        self,
+        remote: str,
+        path: str,
+        is_dir: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Deletes a file or directory from local storage or cloud remotes.
+        Enforces path traversal safety jails for local filesystem operations,
+        forbids root deletion, and prevents deleting RCLONE_TEST canary.
+        """
+        clean_path = (path or "").strip().strip("/")
+        if not clean_path:
+            return {"status": "error", "error": "Root directory cannot be deleted"}
+
+        # Canary protection
+        if os.path.basename(clean_path) == "RCLONE_TEST":
+            return {"status": "error", "error": "Canary test file (RCLONE_TEST) cannot be deleted"}
+
+        remote_clean = (remote or "").strip()
+        is_local = remote_clean.lower() in ("local", "")
+
+        if is_local:
+            raw_base = getattr(self.config, "LOCAL_PATH", "~/gdrive")
+            base_dir = os.path.abspath(os.path.expanduser(raw_base))
+            target = os.path.abspath(os.path.join(base_dir, clean_path))
+
+            try:
+                if os.path.commonpath([base_dir, target]) != base_dir or target == base_dir:
+                    return {"status": "error", "error": "Path traversal or root deletion forbidden"}
+            except ValueError:
+                return {"status": "error", "error": "Invalid path"}
+
+            if not os.path.exists(target):
+                return {"status": "error", "error": f"Target does not exist: {clean_path}"}
+
+            try:
+                if is_dir or os.path.isdir(target):
+                    shutil.rmtree(target)
+                else:
+                    os.remove(target)
+                return {"status": "success", "msg": f"Deleted {clean_path}", "remote": "local", "path": clean_path}
+            except Exception as e:
+                return {"status": "error", "error": f"Failed to delete local path: {e}"}
+        else:
+            remote_name = remote_clean.rstrip(":") + ":"
+            if is_dir:
+                res = self.client.purge_dir(fs=remote_name, remote=clean_path)
+            else:
+                res = self.client.delete_file(fs=remote_name, remote=clean_path)
+            return res
+
 
 
