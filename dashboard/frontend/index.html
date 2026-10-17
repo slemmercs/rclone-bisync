@@ -410,7 +410,14 @@
             <!-- Dual Pane Columns Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <!-- Left Pane: Local Storage -->
-                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem]">
+                <div @dragover="onDragOver('left', $event)" @dragleave="onDragLeave('left', $event)" @drop="onDrop('left', $event)" class="bg-slate-900/60 border rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem] transition-colors relative" :class="explorer.isDragOverLeft ? 'border-2 border-dashed border-indigo-400 bg-indigo-950/30' : 'border-slate-800'">
+                    <!-- Drag-and-Drop Active Overlay -->
+                    <div x-show="explorer.isDragOverLeft" class="absolute inset-0 bg-indigo-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-indigo-400 rounded-2xl">
+                        <svg class="w-10 h-10 text-indigo-400 animate-bounce mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                        <div class="text-sm font-bold text-white uppercase tracking-wider">Drop to Copy to Local</div>
+                        <div class="text-xs text-indigo-300 mt-1 font-mono" x-text="explorer.draggedItem ? explorer.draggedItem.Name : ''"></div>
+                    </div>
+
                     <!-- Pane Header -->
                     <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2 h-14 shrink-0">
                         <div class="flex items-center gap-2 min-w-0">
@@ -479,7 +486,7 @@
 
                         <!-- File & Folder Rows -->
                         <template x-for="item in getFilteredItems('left')" :key="item.Path">
-                            <div class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                            <div draggable="true" @dragstart="onDragStart('left', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-grab active:cursor-grabbing select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
                                         <button @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate">
@@ -527,7 +534,14 @@
                     </div>
                 </div>
                 <!-- Right Pane: Remote Cloud Storage -->
-                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem]">
+                <div @dragover="onDragOver('right', $event)" @dragleave="onDragLeave('right', $event)" @drop="onDrop('right', $event)" class="bg-slate-900/60 border rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem] transition-colors relative" :class="explorer.isDragOverRight ? 'border-2 border-dashed border-emerald-400 bg-emerald-950/30' : 'border-slate-800'">
+                    <!-- Drag-and-Drop Active Overlay -->
+                    <div x-show="explorer.isDragOverRight" class="absolute inset-0 bg-emerald-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-emerald-400 rounded-2xl">
+                        <svg class="w-10 h-10 text-emerald-400 animate-bounce mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                        <div class="text-sm font-bold text-white uppercase tracking-wider">Drop to Copy to Remote</div>
+                        <div class="text-xs text-emerald-300 mt-1 font-mono" x-text="explorer.draggedItem ? explorer.draggedItem.Name : ''"></div>
+                    </div>
+
                     <!-- Pane Header with Remote Selector Dropdown -->
                     <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2 h-14 shrink-0">
                         <div class="flex items-center gap-2 min-w-0">
@@ -600,7 +614,7 @@
 
                         <!-- File & Folder Rows -->
                         <template x-for="item in getFilteredItems('right')" :key="item.Path">
-                            <div class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                            <div draggable="true" @dragstart="onDragStart('right', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-grab active:cursor-grabbing select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
                                         <button @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate">

@@ -203,6 +203,11 @@ document.addEventListener("alpine:init", () => {
                 copied: false,
                 search: ""
             }
+            draggedItem: null,
+            draggedSourcePane: null,
+            isDragOverLeft: false,
+            isDragOverRight: false,
+
         },
         toast: {
             show: false,
@@ -713,6 +718,49 @@ document.addEventListener("alpine:init", () => {
                 this.showToast(`Network error: ${err.message}`, "error");
             }
         },
+
+        onDragStart(sourcePaneKey, item, event) {
+            this.explorer.draggedItem = item;
+            this.explorer.draggedSourcePane = sourcePaneKey;
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = "copy";
+                try {
+                    event.dataTransfer.setData("text/plain", item.Path || item.Name);
+                } catch (e) {}
+            }
+        },
+
+        onDragOver(targetPaneKey, event) {
+            if (this.explorer.draggedSourcePane && this.explorer.draggedSourcePane !== targetPaneKey) {
+                event.preventDefault();
+                if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect = "copy";
+                }
+                if (targetPaneKey === "left") this.explorer.isDragOverLeft = true;
+                if (targetPaneKey === "right") this.explorer.isDragOverRight = true;
+            }
+        },
+
+        onDragLeave(targetPaneKey, event) {
+            if (targetPaneKey === "left") this.explorer.isDragOverLeft = false;
+            if (targetPaneKey === "right") this.explorer.isDragOverRight = false;
+        },
+
+        onDrop(targetPaneKey, event) {
+            event.preventDefault();
+            this.explorer.isDragOverLeft = false;
+            this.explorer.isDragOverRight = false;
+
+            const item = this.explorer.draggedItem;
+            const srcPane = this.explorer.draggedSourcePane;
+            this.explorer.draggedItem = null;
+            this.explorer.draggedSourcePane = null;
+
+            if (item && srcPane && srcPane !== targetPaneKey) {
+                this.transferItem(srcPane, item);
+            }
+        },
+
 
 
 
