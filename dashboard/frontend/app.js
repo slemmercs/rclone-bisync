@@ -204,6 +204,13 @@ document.addEventListener("alpine:init", () => {
                 search: ""
             }
         },
+        toast: {
+            show: false,
+            message: "",
+            type: "info",
+            timeout: null
+        },
+
 
         get parsedBisyncLogs() {
             return (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
@@ -619,6 +626,94 @@ document.addEventListener("alpine:init", () => {
                 alert("Network error: " + err.message);
             }
         },
+
+        showToast(message, type = "info") {
+            if (this.toast.timeout) clearTimeout(this.toast.timeout);
+            this.toast.message = message;
+            this.toast.type = type;
+            this.toast.show = true;
+            this.toast.timeout = setTimeout(() => {
+                this.toast.show = false;
+            }, 3000);
+        },
+
+        async transferItem(sourcePaneKey, item) {
+            item._copying = true;
+            const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";
+            const src_remote = this.explorer[sourcePaneKey].target;
+            const src_path = item.Path;
+            const dst_remote = this.explorer[targetPaneKey].target;
+            const dst_path = this.explorer[targetPaneKey].path;
+
+            try {
+                const res = await fetch("/api/browse/copy", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Dashboard-Request": "1"
+                    },
+                    body: JSON.stringify({
+                        src_remote,
+                        src_path,
+                        dst_remote,
+                        dst_path,
+                        is_dir: item.IsDir
+                    })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    this.showToast(`Transferred "${item.Name}" successfully!`, "success");
+                    this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
+                } else {
+                    this.showToast(`Transfer failed: ${data.error || 'Unknown error'}`, "error");
+                }
+            } catch (err) {
+                this.showToast(`Network error: ${err.message}`, "error");
+            } finally {
+                item._copying = false;
+            }
+        },
+
+        async syncCurrentDirectory(sourcePaneKey) {
+            const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";
+            const src_remote = this.explorer[sourcePaneKey].target;
+            const src_path = this.explorer[sourcePaneKey].path;
+            const dst_remote = this.explorer[targetPaneKey].target;
+            const dst_path = this.explorer[targetPaneKey].path;
+
+            const dirName = sourcePaneKey === "left" ? `Local (${src_remote}:${src_path || '/'}) ➔ Remote (${dst_remote}:${dst_path || '/'})` : `Remote (${src_remote}:${src_path || '/'}) ➔ Local (${dst_remote}:${dst_path || '/'})`;
+            if (!confirm(`Are you sure you want to copy directory contents:\n${dirName}?`)) {
+                return;
+            }
+
+            this.showToast("Initiating directory synchronization...", "info");
+            try {
+                const res = await fetch("/api/browse/copy", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Dashboard-Request": "1"
+                    },
+                    body: JSON.stringify({
+                        src_remote,
+                        src_path,
+                        dst_remote,
+                        dst_path,
+                        is_dir: true
+                    })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    this.showToast("Directory synchronization complete!", "success");
+                    this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
+                } else {
+                    this.showToast(`Sync failed: ${data.error || 'Unknown error'}`, "error");
+                }
+            } catch (err) {
+                this.showToast(`Network error: ${err.message}`, "error");
+            }
+        },
+
 
 
 

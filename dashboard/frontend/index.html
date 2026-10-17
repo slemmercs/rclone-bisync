@@ -393,10 +393,16 @@
                     <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block">Local ↔ Remote</span>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button @click="syncCurrentDirectory('left')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-indigo-500/30" title="Sync current local directory contents to remote">
+                        <span>➔ Sync Local to Remote</span>
+                    </button>
+                    <button @click="syncCurrentDirectory('right')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-emerald-500/30" title="Sync current remote directory contents to local">
+                        <span>⬅ Sync Remote to Local</span>
+                    </button>
                     <button @click="refreshExplorer()" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
                         <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': explorer.left.loading || explorer.right.loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        <span>Refresh Panes</span>
+                        <span>Refresh</span>
                     </button>
                 </div>
             </div>
@@ -404,9 +410,9 @@
             <!-- Dual Pane Columns Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <!-- Left Pane: Local Storage -->
-                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem]">
                     <!-- Pane Header -->
-                    <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2">
+                    <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2 h-14 shrink-0">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Local</span>
                             <span class="text-xs font-semibold text-slate-200 truncate" x-text="telemetry.config.LOCAL_PATH || '~/gdrive'"></span>
@@ -423,7 +429,7 @@
                     </div>
 
                     <!-- Interactive Breadcrumb & Path Bar -->
-                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
+                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400 h-10 shrink-0">
                         <div class="flex items-center gap-1 min-w-0 overflow-x-auto text-[11px] py-0.5">
                             <span class="text-slate-500 font-sans shrink-0">Path:</span>
                             <template x-for="(crumb, idx) in getBreadcrumbs('left')" :key="crumb.path">
@@ -442,7 +448,7 @@
                     </div>
 
                     <!-- Search & Filter Bar -->
-                    <div class="px-3.5 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-2">
+                    <div class="px-3.5 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-2 h-11 shrink-0">
                         <div class="relative flex-1">
                             <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -453,7 +459,7 @@
                     </div>
 
                     <!-- Directory Listing Table -->
-                    <div class="flex-1 overflow-y-auto max-h-[30rem] min-h-[18rem] divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
+                    <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
                         <!-- Loading State -->
                         <div x-show="explorer.left.loading" class="p-8 text-center text-slate-500">
                             <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -493,8 +499,11 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div class="flex items-center gap-3 shrink-0 text-[11px] text-slate-500 font-mono">
+                                <div class="flex items-center gap-2 shrink-0 text-[11px] text-slate-500 font-mono">
                                     <span x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
+                                    <button @click.stop="transferItem('left', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-indigo-500/40" title="Copy to opposing remote pane">
+                                        <span x-text="item._copying ? 'Copying...' : '➔ Copy'"></span>
+                                    </button>
                                 </div>
                             </div>
                         </template>
@@ -518,9 +527,9 @@
                     </div>
                 </div>
                 <!-- Right Pane: Remote Cloud Storage -->
-                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem]">
                     <!-- Pane Header with Remote Selector Dropdown -->
-                    <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2">
+                    <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2 h-14 shrink-0">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Remote</span>
                             <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
@@ -541,7 +550,7 @@
                     </div>
 
                     <!-- Interactive Breadcrumb & Path Bar -->
-                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
+                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400 h-10 shrink-0">
                         <div class="flex items-center gap-1 min-w-0 overflow-x-auto text-[11px] py-0.5">
                             <span class="text-slate-500 font-sans shrink-0">Path:</span>
                             <template x-for="(crumb, idx) in getBreadcrumbs('right')" :key="crumb.path">
@@ -560,7 +569,7 @@
                     </div>
 
                     <!-- Search & Filter Bar -->
-                    <div class="px-3.5 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-2">
+                    <div class="px-3.5 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-2 h-11 shrink-0">
                         <div class="relative flex-1">
                             <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -571,7 +580,7 @@
                     </div>
 
                     <!-- Directory Listing Table -->
-                    <div class="flex-1 overflow-y-auto max-h-[30rem] min-h-[18rem] divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
+                    <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
                         <!-- Loading State -->
                         <div x-show="explorer.right.loading" class="p-8 text-center text-slate-500">
                             <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -611,8 +620,11 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div class="flex items-center gap-3 shrink-0 text-[11px] text-slate-500 font-mono">
+                                <div class="flex items-center gap-2 shrink-0 text-[11px] text-slate-500 font-mono">
                                     <span x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
+                                    <button @click.stop="transferItem('right', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/60 text-emerald-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-emerald-500/40" title="Copy to opposing local pane">
+                                        <span x-text="item._copying ? 'Copying...' : '⬅ Copy'"></span>
+                                    </button>
                                 </div>
                             </div>
                         </template>
@@ -705,6 +717,13 @@
                 </button>
             </div>
         </div>
+    </div>
+
+    <!-- Global Notification Toast -->
+    <div x-show="toast.show" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2" class="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl p-3.5 shadow-2xl border text-xs font-medium flex items-center gap-3 backdrop-blur-md" :class="toast.type === 'success' ? 'bg-emerald-950/90 text-emerald-200 border-emerald-700/60' : (toast.type === 'error' ? 'bg-rose-950/90 text-rose-200 border-rose-700/60' : 'bg-slate-900/90 text-slate-200 border-slate-700/60')">
+        <span class="w-2 h-2 rounded-full shrink-0" :class="toast.type === 'success' ? 'bg-emerald-400' : (toast.type === 'error' ? 'bg-rose-400' : 'bg-indigo-400')"></span>
+        <span class="flex-1" x-text="toast.message"></span>
+        <button @click="toast.show = false" class="text-slate-400 hover:text-white text-sm">✕</button>
     </div>
 
     <script src="/static/app.js?v=6"></script>
