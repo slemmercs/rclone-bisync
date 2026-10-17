@@ -120,7 +120,7 @@ window.ExplorerModule = {
             if (!pane) return;
             let fullPath = "";
             if (paneKey === "left") {
-                const base = this.telemetry.config?.LOCAL_PATH || "~/gdrive";
+                const base = this.telemetry.config?.LOCAL_PATH || this.telemetry.config?.LOCALPATH || "~/gdrive";
                 fullPath = pane.path ? `${base.replace(/\/+$/, "")}/${pane.path}` : base;
             } else {
                 fullPath = pane.path ? `${pane.target}:${pane.path}` : `${pane.target}:`;

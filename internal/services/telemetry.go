@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"unicode"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -102,22 +103,41 @@ func (s *SyncService) GetRuntimeConfig() map[string]interface{} {
 		if !f.IsExported() {
 			continue
 		}
+		keySnake := toUpperSnakeCase(f.Name)
 		keyUpper := strings.ToUpper(f.Name)
 		v := val.Field(i).Interface()
 
-		if isKeySensitive(keyUpper) {
+		var finalVal interface{} = v
+		if isKeySensitive(keySnake) || isKeySensitive(keyUpper) {
 			if strVal, ok := v.(string); ok && strVal != "" {
-				res[keyUpper] = "********"
+				finalVal = "********"
 			} else if v != nil {
-				res[keyUpper] = "********"
-			} else {
-				res[keyUpper] = v
+				finalVal = "********"
 			}
-		} else {
-			res[keyUpper] = v
+		}
+
+		res[keySnake] = finalVal
+		if keyUpper != keySnake {
+			res[keyUpper] = finalVal
 		}
 	}
 	return res
+}
+
+func toUpperSnakeCase(s string) string {
+	var result []rune
+	runes := []rune(s)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		if i > 0 && unicode.IsUpper(r) {
+			prev := runes[i-1]
+			if unicode.IsLower(prev) || (i+1 < len(runes) && unicode.IsLower(runes[i+1]) && unicode.IsUpper(prev)) {
+				result = append(result, '_')
+			}
+		}
+		result = append(result, unicode.ToUpper(r))
+	}
+	return string(result)
 }
 
 func isKeySensitive(key string) bool {
