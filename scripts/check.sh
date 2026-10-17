@@ -30,6 +30,17 @@ else
     PYTEST_BIN="$(command -v pytest || true)"
 fi
 
+# 5. Run Go Unit Test Suite
+if command -v go >/dev/null 2>&1; then
+    echo -e "${BLUE}[5/5] Running Go unit test suite (go test ./...)...${NC}"
+    if ! go test ./...; then
+        echo -e "${RED}[FAIL] Go unit tests failed!${NC}"
+        exit 1
+    fi
+    echo -e "  ${GREEN}✓${NC} Go test suite clean."
+fi
+
+
 if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then
     echo -e "${RED}[FAIL] Python 3 interpreter not found.${NC}"
     exit 1

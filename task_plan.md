@@ -1,29 +1,27 @@
-# Task Plan: Branch 3 - Security Pydantic DTOs & Recursive Redaction
+# Task Plan: Phase 1 - Go Core Engine & Configuration Loader
 
 ## Goal
-Establish strict Pydantic response models (DTOs) for all FastAPI dashboard endpoints and implement a deep recursive secret sanitization pipeline (`redact_secrets()`) to prevent token, password, or webhook leakage over HTTP.
+Establish the foundational Go module, port the environment/secret configuration parser, port the POSIX flock lock manager with PID liveness tracking, and port the desktop notification dispatcher (`notify-send` / webhooks).
 
 ## Tasks
-- [x] Task 1: Recursive Secret Sanitization Engine (`rclone_bisync/core/security.py`)
-  - **Scope**: Create `rclone_bisync/core/security.py` with `redact_secrets()` supporting recursive dicts, lists, sets, tuples, and Pydantic models. Add comprehensive unit tests in `tests/test_security.py`.
-  - **Verification**: `/home/csaba/rclone-bisync/.venv/bin/pytest tests/test_security.py`
-- [x] Task 2: Centralized API Response Models & DTOs (`rclone_bisync/models/api.py`)
-  - **Scope**: Create `rclone_bisync/models/__init__.py` and `rclone_bisync/models/api.py`. Define `ActionResponse`, `BrowseItem`, `BrowseResponse`, `CanaryResponse`, `CopyResponse`, `DeleteResponse`, `PendingDeletionEntry`, `RemoteCardInfo`, `RemotesSummary`, `RemotesResponse`, `TelemetryPayload`.
-  - **Verification**: `python3 -m py_compile rclone_bisync/models/api.py`
-- [x] Task 3: Integrate Models and Recursive Redaction in Dashboard Backend (`dashboard/backend/main.py`)
-  - **Scope**: Update `dashboard/backend/main.py` to import models from `rclone_bisync.models.api`, apply `response_model` across all endpoints (`/api/action`, `/api/browse`, `/api/browse/canary`, `/api/browse/copy`, `/api/browse/delete`, `/api/remotes`, `/api/deletions/pending`, `/api/telemetry`), and apply `redact_secrets()` middleware/interceptor to sanitize all outgoing payloads defense-in-depth.
-  - **Verification**: `/home/csaba/rclone-bisync/.venv/bin/pytest tests/test_dashboard_backend.py`
-- [x] Task 4: Backend Contract Validation & Leak-Proofing Tests (`tests/test_dashboard_backend.py`)
-  - **Scope**: Extend `tests/test_dashboard_backend.py` with contract compliance tests for all newly typed endpoints and verify recursive secret redaction under simulated leaks. Run full pre-flight check `./scripts/check.sh`.
-  - **Verification**: `./scripts/check.sh`
+- [x] Task 1: Bootstrap Go Toolchain & Module
+  - **Scope**: Ensure Go 1.22+ is available in the environment, initialize `go.mod` with module `github.com/slemmercs/rclone-bisync`. Setup basic directory layout (`internal/config`, `internal/core/lock`, `internal/core/notifier`).
+  - **Verification**: `go version` and `go build ./...`
+- [x] Task 2: Port Configuration Loader (`internal/config/config.go`)
+  - **Scope**: Implement `.env` and `rc-secrets.env` parsing, dynamic search directory traversal, fail-fast validation for mandatory `RC_PASS`, defaults for all bisync options (`CHECK_ACCESS`, `MAX_DELETE_RATIO`, etc.).
+  - **Verification**: Unit tests in `internal/config/config_test.go` (`go test ./internal/config/...`)
+- [x] Task 3: Port POSIX Advisory Lock Manager (`internal/core/lock/lock.go`)
+  - **Scope**: Port `fcntl.flock` semantics using `golang.org/x/sys/unix` (or `syscall`), PID recording, stale PID detection via `kill -0` (`unix.Kill(pid, 0)`), probe execution, and safe cleanup.
+  - **Verification**: Unit tests in `internal/core/lock/lock_test.go` (`go test ./internal/core/lock/...`)
+- [x] Task 4: Port Notification Dispatcher (`internal/core/notifier/notifier.go`)
+  - **Scope**: Implement `NotificationDispatcher` supporting `notify-send` subprocess invocation with icon path resolution (`cloud-sync-light.svg`), urgency handling, and HTTP webhook dispatch.
+  - **Verification**: Unit tests in `internal/core/notifier/notifier_test.go` (`go test ./internal/core/notifier/...`)
 
 ## Status Updates
-- 2026-10-17: Initialized Branch 3 task plan on `feat/security-pydantic-dtos-and-redaction`.
-- 2026-10-17: Completed Task 1 (Recursive Secret Sanitization Engine). Added `rclone_bisync/core/security.py` and 5 unit tests in `tests/test_security.py`. All 73 tests green.
-- 2026-10-17: Completed Task 2 (Centralized API Response Models & DTOs). Created `rclone_bisync/models/__init__.py` and `rclone_bisync/models/api.py`. Verified compilation.
-- 2026-10-17: Completed Task 3 (Integrate Models and Recursive Redaction in Dashboard Backend). Applied Pydantic response models and recursive secret redaction to all endpoints.
+- 2026-10-17: Transitioned active roadmap to Go Single-Binary Architecture. Created Phase 1 task plan.
+- 2026-10-17: Bootstrapped Go toolchain (go 1.26/1.22), initialized `go.mod`, implemented `internal/config`, `internal/core/lock`, and `internal/core/notifier` with comprehensive unit tests. Integrated `go test ./...` into `./scripts/check.sh`. 100% tests passing (all Go unit tests + 77 Python tests).
 
-- 2026-10-17: Completed Task 4 (Backend Contract Validation & Leak-Proofing Tests). Added contract tests for `/api/browse/canary`, `/api/browse/copy`, `/api/browse/delete`, and deep recursive secret scrubbing. 77/77 tests passing.
+
 
 
 
