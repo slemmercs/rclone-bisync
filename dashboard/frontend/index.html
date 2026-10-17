@@ -417,13 +417,23 @@
                         </div>
                     </div>
 
-                    <!-- Path Display & Item Count Bar -->
-                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
-                        <div class="truncate text-[11px]">
-                            <span class="text-slate-500 font-sans">Path: </span>
-                            <span class="text-indigo-300" x-text="'/' + explorer.left.path"></span>
+                    <!-- Interactive Breadcrumb & Path Bar -->
+                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
+                        <div class="flex items-center gap-1 min-w-0 overflow-x-auto text-[11px] py-0.5">
+                            <span class="text-slate-500 font-sans shrink-0">Path:</span>
+                            <template x-for="(crumb, idx) in getBreadcrumbs('left')" :key="crumb.path">
+                                <div class="flex items-center shrink-0">
+                                    <span x-show="idx > 0" class="text-slate-600 px-1 select-none">/</span>
+                                    <button @click="fetchExplorerDirectory('left', explorer.left.target, crumb.path)" class="hover:text-white transition-colors underline-offset-2 hover:underline" :class="idx === getBreadcrumbs('left').length - 1 ? 'text-indigo-300 font-bold' : 'text-slate-400'" x-text="crumb.name"></button>
+                                </div>
+                            </template>
                         </div>
-                        <span class="text-[10px] text-slate-500 shrink-0 ml-2" x-text="`${explorer.left.items.length} items`"></span>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button @click="copyPanePath('left')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-sans transition-all flex items-center gap-1 border border-slate-700/60" :class="explorer.left.copied ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : ''">
+                                <span x-text="explorer.left.copied ? '✓ Copied' : '📋 Copy'"></span>
+                            </button>
+                            <span class="text-[10px] text-slate-500 hidden sm:inline-block" x-text="`${explorer.left.items.length} items`"></span>
+                        </div>
                     </div>
 
                     <!-- Directory Listing Table -->
@@ -503,13 +513,23 @@
                         </div>
                     </div>
 
-                    <!-- Path Display & Item Count Bar -->
-                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
-                        <div class="truncate text-[11px]">
-                            <span class="text-slate-500 font-sans">Path: </span>
-                            <span class="text-emerald-400" x-text="explorer.right.target + ':/' + explorer.right.path"></span>
+                    <!-- Interactive Breadcrumb & Path Bar -->
+                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
+                        <div class="flex items-center gap-1 min-w-0 overflow-x-auto text-[11px] py-0.5">
+                            <span class="text-slate-500 font-sans shrink-0">Path:</span>
+                            <template x-for="(crumb, idx) in getBreadcrumbs('right')" :key="crumb.path">
+                                <div class="flex items-center shrink-0">
+                                    <span x-show="idx > 0" class="text-slate-600 px-1 select-none">/</span>
+                                    <button @click="fetchExplorerDirectory('right', explorer.right.target, crumb.path)" class="hover:text-white transition-colors underline-offset-2 hover:underline" :class="idx === getBreadcrumbs('right').length - 1 ? 'text-emerald-400 font-bold' : 'text-slate-400'" x-text="crumb.name"></button>
+                                </div>
+                            </template>
                         </div>
-                        <span class="text-[10px] text-slate-500 shrink-0 ml-2" x-text="`${explorer.right.items.length} items`"></span>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button @click="copyPanePath('right')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-sans transition-all flex items-center gap-1 border border-slate-700/60" :class="explorer.right.copied ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : ''">
+                                <span x-text="explorer.right.copied ? '✓ Copied' : '📋 Copy'"></span>
+                            </button>
+                            <span class="text-[10px] text-slate-500 hidden sm:inline-block" x-text="`${explorer.right.items.length} items`"></span>
+                        </div>
                     </div>
 
                     <!-- Directory Listing Table -->
