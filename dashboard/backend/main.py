@@ -162,6 +162,25 @@ def provision_canary(req: BrowseRequest):
     return sync_service.create_canary(remote=req.remote or "local", path=req.path or "")
 
 
+class CopyRequest(BaseModel):
+    src_remote: str = "local"
+    src_path: str
+    dst_remote: str
+    dst_path: str = ""
+    is_dir: bool = False
+
+@app.post("/api/browse/copy")
+def copy_item(req: CopyRequest):
+    """Copies a file or folder between local and remote directories."""
+    return sync_service.copy_item(
+        src_remote=req.src_remote,
+        src_path=req.src_path,
+        dst_remote=req.dst_remote,
+        dst_path=req.dst_path,
+        is_dir=req.is_dir
+    )
+
+
 # Mount static files cleanly
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

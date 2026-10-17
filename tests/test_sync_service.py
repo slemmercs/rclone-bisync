@@ -277,3 +277,33 @@ def test_create_canary_local_and_remote(tmp_path):
     mock_client.touch_file.assert_called_once_with(remote="gdrive", path="subfolder/RCLONE_TEST")
     assert res_remote["status"] == "success"
 
+
+
+def test_copy_item_local_to_remote(tmp_path):
+    base = tmp_path / "gdrive"
+    base.mkdir()
+    sample = base / "notes.txt"
+    sample.write_text("my notes")
+
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+    mock_client = mock.Mock()
+    mock_client.copy_file.return_value = {"status": "success"}
+    mock_client.copy_dir.return_value = {"status": "success"}
+    service = SyncService(config=cfg, rc_client=mock_client)
+
+    # 1. Copy file local to remote
+    res = service.copy_item(src_remote="local", src_path="notes.txt", dst_remote="gdrive", dst_path="docs")
+    assert res["status"] == "success"
+    mock_client.copy_file.assert_called_once_with(
+        src_fs=str(base),
+        src_remote="notes.txt",
+        dst_fs="gdrive:docs",
+        dst_remote="notes.txt"
+    )
+
+    # 2. Local jail escape attempt
+    res_jail = service.copy_item(src_remote="local", src_path="../../etc/passwd", dst_remote="gdrive", dst_path="pwn")
+    assert res_jail["status"] == "error"
+    assert "forbidden" in res_jail["error"].lower()
+
