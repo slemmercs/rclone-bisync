@@ -485,7 +485,7 @@
                         </div>
 
                         <!-- File & Folder Rows -->
-                        <template x-for="item in getFilteredItems('left')" :key="item.Path">
+                        <template x-for="(item, idx) in getFilteredItems('left')" :key="(item.Path || item.Name) + '_' + idx">
                             <div draggable="true" @dragstart="onDragStart('left', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-grab active:cursor-grabbing select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
@@ -613,7 +613,7 @@
                         </div>
 
                         <!-- File & Folder Rows -->
-                        <template x-for="item in getFilteredItems('right')" :key="item.Path">
+                        <template x-for="(item, idx) in getFilteredItems('right')" :key="(item.ID || item.Path || item.Name) + '_' + idx">
                             <div draggable="true" @dragstart="onDragStart('right', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-grab active:cursor-grabbing select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">

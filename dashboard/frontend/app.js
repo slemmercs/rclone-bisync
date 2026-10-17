@@ -202,7 +202,7 @@ document.addEventListener("alpine:init", () => {
                 itemCount: 0,
                 copied: false,
                 search: ""
-            }
+            },
             draggedItem: null,
             draggedSourcePane: null,
             isDragOverLeft: false,
