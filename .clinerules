@@ -1,5 +1,5 @@
 # rclone-bisync Engineering & Task Execution Rules
-# Operational Role: Senior Python & Full-Stack Developer
+# Operational Roles: Senior Python & Full-Stack Developer | Test Engineering Specialist
 
 ## 1. Task Planning & Token Optimization Engine
 
@@ -82,6 +82,15 @@ When completing a verified task, halt and output:
 - **Zero-Build Alpine.js & Tailwind**: Keep frontend dependencies CDN/local-script compatible without adding Node.js/npm build steps.
 - **Drag & Click Isolation**: In draggable rows (`draggable="true"`), always set `draggable="false"` and `@mousedown.stop` on child `<button>` and interactive elements.
 
+### 2.5 Test Engineering & Mocking Standards
+- **Framework**: Use `pytest` and `pytest-mock` within the project virtual environment.
+- **Strict Mocking & Isolation**: Always mock external CLI calls (e.g., `rclone` subprocess commands) and RC API requests using `unittest.mock` or `pytest-mock` fixtures. Never execute live external commands or network operations during unit testing.
+- **Naming Conventions**:
+  - Test files: `tests/test_<module_name>.py`
+  - Test functions: `test_<functionality>_<expected_behavior>`
+- **Pattern**: Structure every test using Arrange-Act-Assert (AAA).
+- **Task Granularity for Tests**: Detail new test additions in `task_plan.md` as discrete micro-tasks per function or class.
+
 ---
 
 ## 3. Code Review & Quality Audit Protocol
@@ -101,7 +110,9 @@ When requested to perform a code review or audit (e.g., reviewing changes or con
    - [ ] Click events isolated on draggable elements (`draggable="false"`, `@mousedown.stop`).
    - [ ] XSS safety maintained (no raw unescaped HTML injection).
 4. **Test & Verification**:
-   - [ ] Functionality verified by automated tests in `tests/`.
+   - [ ] Functionality verified by automated tests in `tests/` following Arrange-Act-Assert (AAA).
+   - [ ] External CLI commands and RC API requests strictly mocked (zero live subprocess/cloud calls).
+   - [ ] Test files and functions follow naming conventions (`test_<functionality>_<expected_behavior>`).
    - [ ] All tests pass in `.venv`: `/home/csaba/rclone-bisync/.venv/bin/pytest tests`.
    - [ ] Syntax check clean: `python3 -m py_compile <modified_files>`.
 
