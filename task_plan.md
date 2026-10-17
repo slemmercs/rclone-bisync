@@ -12,7 +12,7 @@ Conduct a systematic audit of the entire rclone-bisync repository against Sectio
   - **Scope**: `services/sync_service.py`
   - **Checklist**: Path traversal jail (`commonpath`), deletion safeguards, canary protection, atomic file operations (`.tmp` + `os.replace`), secret masking, error resilience.
   - **Verification**: `./scripts/check.sh && pytest tests/test_sync_service.py`
-- [ ] Task 3: Audit Module 3 — Dashboard Backend & Security (`dashboard/backend/main.py` & `config.py`)
+- [x] Task 3: Audit Module 3 — Dashboard Backend & Security (`dashboard/backend/main.py` & `config.py`)
   - **Scope**: `dashboard/backend/main.py`, `rclone_bisync/config.py`
   - **Checklist**: CSRF middleware (`X-Dashboard-Request: 1`, loopback origin), thin controller pattern, error handling, configuration parsing from `.env`, secret exposure risks.
   - **Verification**: `./scripts/check.sh && pytest tests/test_config.py`
@@ -29,6 +29,7 @@ Conduct a systematic audit of the entire rclone-bisync repository against Sectio
 - 2026-10-17: Initialized audit plan on branch `audit/full-repo-safety-and-quality-review`.
 - 2026-10-17: Completed Module 1 audit (Core Engine & Safety): Grade A. Verified 22 unit tests green, zero-race lock acquisition, strict atomic writes, and credential whitelisting in RC client.
 - 2026-10-17: Completed Module 2 audit (Service Layer & Path Jails): Grade A. Verified 19 unit tests green, path traversal jails (commonpath) on browse/copy/delete, root deletion & canary protection guards, and secret masking in runtime config.
+- 2026-10-17: Completed Module 3 audit (Dashboard Backend & Security): Grade A. Verified CSRF middleware (header enforcement + loopback origin validation), clean Pydantic routing, strict fail-fast on missing RC_PASS, and zero-leak credential masking.
 
 
 
