@@ -21,10 +21,11 @@
   * Streamline `dashboard/backend/main.py` to a thin HTTP controller.
 
 * **Branch 3: `feat/security-pydantic-dtos-and-redaction` [ESTIMATE: 2-3h | 2 SP]**
-  * Define strict Pydantic response models in `rclone_bisync/models/api.py`:
-    * `ActionResponse`, `RemotesResponse`, `PendingDeletionsResponse`, `BrowseResponse`, `ReconnectResponse`, `CanaryResponse`.
-  * Implement recursive deep secret sanitization (`redact_secrets()`) to prevent credential, token, or webhook leakage over HTTP.
-  * Enforce `response_model` across all FastAPI route handlers.
+  * Define strict centralized Pydantic response models in `rclone_bisync/models/api.py`:
+    * `ActionResponse`, `RemotesResponse`, `PendingDeletionsResponse`, `BrowseResponse`, `CopyResponse`, `DeleteResponse`, `CanaryResponse`, and refined sub-models (`RemoteItem`, `RemoteCardInfo`, `PendingDeletionEntry`).
+  * Implement recursive deep secret sanitization (`redact_secrets()`) in `rclone_bisync/core/security.py` traversing nested dictionaries, lists, and objects to scrub credentials matching `PASS`, `TOKEN`, `KEY`, `SECRET`, `CREDENTIAL`.
+  * Enforce `response_model` across all FastAPI route handlers in `dashboard/backend/main.py`.
+  * Add unit tests in `tests/test_dashboard_backend.py` and `tests/test_security.py` verifying strict schema validation, extra key stripping, and zero secret exposure.
 
 * **Branch 4: `feat/remote-oauth-reauth` [ESTIMATE: 3-4h | 3 SP]**
   * Backend: Implement `reconnect_remote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
@@ -79,3 +80,13 @@
 
 * **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]:**
   * Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration.
+
+* **Architectural Refactoring — Service & Frontend Decomposition [ESTIMATE: 6-8h | 5 SP]:**
+  * **Backend Domain Service Decomposition**:
+    * Decompose monolithic `SyncService` (786 LOC) into cohesive, single-responsibility services:
+      * `ExplorerService`: Dedicated boundary for path jails (`commonpath`), local/remote browsing, canary creation, file copying, and deletion.
+      * `TelemetryService`: Dedicated boundary for reverse-seeking log parsing, metrics aggregation, and cached daemon health.
+      * `SyncService`: Streamlined domain orchestrator strictly managing process lifecycle, systemd transients, and POSIX lock management.
+  * **Frontend Component Modularization**:
+    * Decompose monolithic `app.js` (962 LOC) and `index.html` (875 LOC) into modular Alpine components/stores (`fileExplorer`, `telemetryView`, `deletionModal`) or zero-build ES modules without introducing heavy Node.js tooling.
+
