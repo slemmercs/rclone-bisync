@@ -8,7 +8,7 @@ Conduct a systematic audit of the entire rclone-bisync repository against Sectio
   - **Scope**: `core/client.py`, `core/lock.py`, `core/state.py`, `core/compiler.py`
   - **Checklist**: Race-free locking, stale PID recovery, canary integrity, rate-limit backoff, RC client timeouts/auth, type annotations & docstrings.
   - **Verification**: `./scripts/check.sh && pytest tests/test_lock.py tests/test_client.py tests/test_state.py tests/test_compiler.py`
-- [ ] Task 2: Audit Module 2 — Service Layer & Path Jails (`rclone_bisync/services/`)
+- [x] Task 2: Audit Module 2 — Service Layer & Path Jails (`rclone_bisync/services/`)
   - **Scope**: `services/sync_service.py`
   - **Checklist**: Path traversal jail (`commonpath`), deletion safeguards, canary protection, atomic file operations (`.tmp` + `os.replace`), secret masking, error resilience.
   - **Verification**: `./scripts/check.sh && pytest tests/test_sync_service.py`
@@ -28,6 +28,8 @@ Conduct a systematic audit of the entire rclone-bisync repository against Sectio
 ## Status Updates
 - 2026-10-17: Initialized audit plan on branch `audit/full-repo-safety-and-quality-review`.
 - 2026-10-17: Completed Module 1 audit (Core Engine & Safety): Grade A. Verified 22 unit tests green, zero-race lock acquisition, strict atomic writes, and credential whitelisting in RC client.
+- 2026-10-17: Completed Module 2 audit (Service Layer & Path Jails): Grade A. Verified 19 unit tests green, path traversal jails (commonpath) on browse/copy/delete, root deletion & canary protection guards, and secret masking in runtime config.
+
 
 
 
