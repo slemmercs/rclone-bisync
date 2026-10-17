@@ -34,6 +34,7 @@ func TestSyncRunnerExecution(t *testing.T) {
 		RCAPIURL:          srv.URL,
 		LocalPath:         tmpDir,
 		RemotePath:        "gdrive:",
+		LogFile:           tmpDir + "/bisync.log",
 		LockFile:          tmpDir + "/bisync.lock",
 		NotificationStateFile: tmpDir + "/notify.json",
 		PendingDeletionsFile:  tmpDir + "/deletions.json",
@@ -49,6 +50,24 @@ func TestSyncRunnerExecution(t *testing.T) {
 	success := r.Run(context.Background(), false, false, false, "test", "test_run", false)
 	if !success {
 		t.Fatalf("expected sync run to succeed")
+	}
+
+	// Verify structured single-line log output in bisync.log
+	logData, err := os.ReadFile(cfg.LogFile)
+	if err != nil {
+		t.Fatalf("failed to read bisync.log: %v", err)
+	}
+
+	var entry map[string]interface{}
+	if err := json.Unmarshal(logData, &entry); err != nil {
+		t.Fatalf("failed to parse bisync.log entry: %v, content=%s", err, string(logData))
+	}
+
+	if entry["run_id"] != "test_run" || entry["status"] != "SUCCESS" || entry["job_id"] != float64(10) {
+		t.Fatalf("unexpected log entry content: %+v", entry)
+	}
+	if entry["start_time"] == nil || entry["end_time"] == nil {
+		t.Fatalf("expected start_time and end_time in log entry: %+v", entry)
 	}
 }
 

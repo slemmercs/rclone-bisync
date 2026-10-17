@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
@@ -250,6 +254,45 @@ func TestLogDownloadEndpoints(t *testing.T) {
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte("daemon log content")) {
 		t.Fatal("expected daemon log content in response")
+	}
+
+	// 3. GET /api/logs/daemon (tail without window)
+	req, _ = http.NewRequest("GET", "/api/logs/daemon?limit=10", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for daemon logs query, got: %d", rec.Code)
+	}
+	var daemonResp models.DaemonLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &daemonResp); err != nil {
+		t.Fatalf("failed to parse daemon logs response: %v", err)
+	}
+	if daemonResp.Count == 0 || daemonResp.Correlated {
+		t.Fatalf("expected tail response: %+v", daemonResp)
+	}
+
+	// 4. GET /api/logs/daemon (correlated with time window)
+	// Write JSON log lines to daemon log
+	now := time.Now()
+	jsonDaemonLog := fmt.Sprintf(`{"level":"info","msg":"file1 synced","time":"%s"}`+"\n"+`{"level":"info","msg":"file2 synced","time":"%s"}`+"\n",
+		now.Format(time.RFC3339Nano), now.Add(2*time.Second).Format(time.RFC3339Nano))
+	_ = os.WriteFile(daemonLog, []byte(jsonDaemonLog), 0644)
+
+	windowURL := fmt.Sprintf("/api/logs/daemon?run_id=sync_123&job_id=99&start_time=%s&end_time=%s&limit=50",
+		url.QueryEscape(now.Add(-1*time.Second).Format(time.RFC3339)),
+		url.QueryEscape(now.Add(3*time.Second).Format(time.RFC3339)))
+	req, _ = http.NewRequest("GET", windowURL, nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for correlated daemon logs, got: %d", rec.Code)
+	}
+	var corrResp models.DaemonLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &corrResp); err != nil {
+		t.Fatalf("failed to parse correlated response: %v", err)
+	}
+	if !corrResp.Correlated || corrResp.RunID != "sync_123" || corrResp.JobID != 99 || corrResp.Count != 2 {
+		t.Fatalf("unexpected correlated response: %+v", corrResp)
 	}
 }
 
