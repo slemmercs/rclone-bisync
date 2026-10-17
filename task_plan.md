@@ -13,7 +13,7 @@ Establish strict Pydantic response models (DTOs) for all FastAPI dashboard endpo
 - [x] Task 3: Integrate Models and Recursive Redaction in Dashboard Backend (`dashboard/backend/main.py`)
   - **Scope**: Update `dashboard/backend/main.py` to import models from `rclone_bisync.models.api`, apply `response_model` across all endpoints (`/api/action`, `/api/browse`, `/api/browse/canary`, `/api/browse/copy`, `/api/browse/delete`, `/api/remotes`, `/api/deletions/pending`, `/api/telemetry`), and apply `redact_secrets()` middleware/interceptor to sanitize all outgoing payloads defense-in-depth.
   - **Verification**: `/home/csaba/rclone-bisync/.venv/bin/pytest tests/test_dashboard_backend.py`
-- [ ] Task 4: Backend Contract Validation & Leak-Proofing Tests (`tests/test_dashboard_backend.py`)
+- [x] Task 4: Backend Contract Validation & Leak-Proofing Tests (`tests/test_dashboard_backend.py`)
   - **Scope**: Extend `tests/test_dashboard_backend.py` with contract compliance tests for all newly typed endpoints and verify recursive secret redaction under simulated leaks. Run full pre-flight check `./scripts/check.sh`.
   - **Verification**: `./scripts/check.sh`
 
@@ -22,6 +22,8 @@ Establish strict Pydantic response models (DTOs) for all FastAPI dashboard endpo
 - 2026-10-17: Completed Task 1 (Recursive Secret Sanitization Engine). Added `rclone_bisync/core/security.py` and 5 unit tests in `tests/test_security.py`. All 73 tests green.
 - 2026-10-17: Completed Task 2 (Centralized API Response Models & DTOs). Created `rclone_bisync/models/__init__.py` and `rclone_bisync/models/api.py`. Verified compilation.
 - 2026-10-17: Completed Task 3 (Integrate Models and Recursive Redaction in Dashboard Backend). Applied Pydantic response models and recursive secret redaction to all endpoints.
+
+- 2026-10-17: Completed Task 4 (Backend Contract Validation & Leak-Proofing Tests). Added contract tests for `/api/browse/canary`, `/api/browse/copy`, `/api/browse/delete`, and deep recursive secret scrubbing. 77/77 tests passing.
 
 
 
