@@ -180,3 +180,73 @@ def test_get_remotes_summary():
     assert res["remotes"][0]["is_active_target"] is True
     assert res["remotes"][1]["is_active_target"] is False
 
+
+
+def test_browse_path_remote_delegation():
+    cfg = DummyConfig()
+    mock_client = mock.Mock()
+    mock_client.list_directory.return_value = {
+        "items": [{"Name": "test.txt", "IsDir": False}],
+        "has_canary": False,
+        "remote": "gdrive:",
+        "path": "docs"
+    }
+    service = SyncService(config=cfg, rc_client=mock_client)
+    res = service.browse_path(remote="gdrive", path="docs")
+    mock_client.list_directory.assert_called_once_with(remote="gdrive", path="docs")
+    assert res["remote"] == "gdrive:"
+    assert len(res["items"]) == 1
+
+
+def test_browse_path_local_success_and_canary(tmp_path):
+    # Setup test directory structure
+    base = tmp_path / "gdrive"
+    base.mkdir()
+    (base / "file1.txt").write_text("hello")
+    (base / "RCLONE_TEST").write_text("canary")
+    sub = base / "SubDir"
+    sub.mkdir()
+    (sub / "nested.txt").write_text("world")
+
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+    service = SyncService(config=cfg, rc_client=mock.Mock())
+
+    # Root browse
+    res = service.browse_path(remote="local", path="")
+    assert res["remote"] == "local"
+    assert res["path"] == ""
+    assert res["has_canary"] is True
+    # Verify subfolder is sorted first
+    names = [i["Name"] for i in res["items"]]
+    assert names[0] == "SubDir"
+    assert "file1.txt" in names
+    assert "RCLONE_TEST" in names
+
+    # SubDir browse
+    sub_res = service.browse_path(remote="local", path="SubDir")
+    assert sub_res["remote"] == "local"
+    assert sub_res["path"] == "SubDir"
+    assert sub_res["has_canary"] is False
+    assert len(sub_res["items"]) == 1
+    assert sub_res["items"][0]["Name"] == "nested.txt"
+    assert sub_res["items"][0]["IsDir"] is False
+
+
+def test_browse_path_local_security_jail(tmp_path):
+    base = tmp_path / "gdrive"
+    base.mkdir()
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+    service = SyncService(config=cfg, rc_client=mock.Mock())
+
+    # Attempt path traversal
+    res = service.browse_path(remote="local", path="../../etc")
+    assert "forbidden" in res.get("error", "").lower()
+    assert res["items"] == []
+
+    # Nonexistent folder inside base
+    res_nonexistent = service.browse_path(remote="local", path="does_not_exist")
+    assert "does not exist" in res_nonexistent.get("error", "").lower()
+    assert res_nonexistent["items"] == []
+
