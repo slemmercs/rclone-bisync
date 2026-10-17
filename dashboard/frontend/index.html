@@ -47,12 +47,12 @@
                 <!-- Global Daemon Health & Latency Pill -->
                 <div class="flex items-center gap-2.5 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl self-start md:self-auto font-mono text-xs">
                     <span class="relative flex h-2 w-2">
-                        <span :class="telemetry.daemon_running ? 'bg-emerald-400' : 'bg-rose-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
-                        <span :class="telemetry.daemon_running ? 'bg-emerald-500' : 'bg-rose-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
+                        <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-rose-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
+                        <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-500' : 'bg-rose-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
                     </span>
-                    <span :class="telemetry.daemon_running ? 'text-emerald-400' : 'text-rose-400'" class="font-bold tracking-wider" x-text="telemetry.daemon_running ? 'LIVE' : 'OFFLINE'"></span>
+                    <span :class="telemetry.daemon_health?.status === 'healthy' ? 'text-emerald-400' : 'text-rose-400'" class="font-bold tracking-wider" x-text="telemetry.daemon_health?.status === 'healthy' ? 'LIVE' : 'OFFLINE'"></span>
                     <span class="text-slate-600">|</span>
-                    <span class="text-slate-400" x-text="telemetry.daemon_latency_ms !== null && telemetry.daemon_latency_ms !== undefined ? telemetry.daemon_latency_ms + 'ms' : '-- ms'"></span>
+                    <span class="text-slate-400" x-text="daemonLatencyText !== '--' ? daemonLatencyText + 'ms' : '-- ms'"></span>
                 </div>
             </div>
         </header>
@@ -394,6 +394,14 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-2 py-1 rounded-lg text-xs">
+                        <span class="text-[11px] text-slate-400 font-sans">Delete Safety:</span>
+                        <select x-model="deleteConfirmMode" @change="setDeleteConfirmMode(deleteConfirmMode)" class="bg-slate-900 border border-slate-700/80 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium">
+                            <option value="double">Double Confirmation (Default)</option>
+                            <option value="single">Single Confirmation</option>
+                            <option value="none">Direct (No Confirmation)</option>
+                        </select>
+                    </div>
                     <button @click="syncCurrentDirectory('left')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-indigo-500/30" title="Sync current local directory contents to remote">
                         <span>➔ Sync Local to Remote</span>
                     </button>
@@ -465,6 +473,31 @@
                         </div>
                     </div>
 
+                    <!-- Column Sort Header -->
+                    <div class="px-3.5 py-1.5 bg-slate-950/90 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-500 flex items-center justify-between select-none tracking-wider shrink-0 font-sans">
+                        <div class="flex items-center gap-2">
+                            <button @click="toggleSort('left', 'name')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort alphabetically by Name">
+                                <span>Name</span>
+                                <span x-show="explorer.left.sortBy === 'name'" x-text="explorer.left.sortAsc ? '▲' : '▼'" class="text-indigo-400"></span>
+                            </button>
+                            <span class="text-slate-700">|</span>
+                            <button @click="toggleSort('left', 'type')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by File Type">
+                                <span>Type</span>
+                                <span x-show="explorer.left.sortBy === 'type'" x-text="explorer.left.sortAsc ? '▲' : '▼'" class="text-indigo-400"></span>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <button @click="toggleSort('left', 'mtime')" class="hidden sm:flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by Last Modified Date">
+                                <span>Modified</span>
+                                <span x-show="explorer.left.sortBy === 'mtime'" x-text="explorer.left.sortAsc ? '▲' : '▼'" class="text-indigo-400"></span>
+                            </button>
+                            <button @click="toggleSort('left', 'size')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by File Size">
+                                <span>Size</span>
+                                <span x-show="explorer.left.sortBy === 'size'" x-text="explorer.left.sortAsc ? '▲' : '▼'" class="text-indigo-400"></span>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Directory Listing Table -->
                     <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
                         <!-- Loading State -->
@@ -486,10 +519,10 @@
 
                         <!-- File & Folder Rows -->
                         <template x-for="(item, idx) in getFilteredItems('left')" :key="(item.Path || item.Name) + '_' + idx">
-                            <div draggable="true" @dragstart="onDragStart('left', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-grab active:cursor-grabbing select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                            <div draggable="true" @dragstart="onDragStart('left', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
-                                        <button @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate">
+                                        <button draggable="false" @mousedown.stop @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
                                             <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
                                             <span class="font-medium truncate" x-text="item.Name"></span>
                                         </button>
@@ -506,10 +539,14 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div class="flex items-center gap-2 shrink-0 text-[11px] text-slate-500 font-mono">
-                                    <span x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
-                                    <button @click.stop="transferItem('left', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-indigo-500/40" title="Copy to opposing remote pane">
+                                <div class="flex items-center gap-2.5 shrink-0 text-[11px] text-slate-500 font-mono">
+                                    <span class="text-slate-500 text-[10px] hidden sm:inline-block" x-text="formatModTime(item.ModTime)"></span>
+                                    <span class="w-16 text-right" x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
+                                    <button draggable="false" @mousedown.stop @click.stop="transferItem('left', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-indigo-500/40 cursor-pointer" title="Copy to opposing remote pane">
                                         <span x-text="item._copying ? 'Copying...' : '➔ Copy'"></span>
+                                    </button>
+                                    <button draggable="false" @mousedown.stop @click.stop="promptDeleteItem('left', item)" :disabled="item.Name === 'RCLONE_TEST'" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 rounded text-[10px] transition-all flex items-center cursor-pointer disabled:opacity-0" title="Delete from local storage">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                     </button>
                                 </div>
                             </div>
@@ -593,6 +630,31 @@
                         </div>
                     </div>
 
+                    <!-- Column Sort Header -->
+                    <div class="px-3.5 py-1.5 bg-slate-950/90 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-500 flex items-center justify-between select-none tracking-wider shrink-0 font-sans">
+                        <div class="flex items-center gap-2">
+                            <button @click="toggleSort('right', 'name')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort alphabetically by Name">
+                                <span>Name</span>
+                                <span x-show="explorer.right.sortBy === 'name'" x-text="explorer.right.sortAsc ? '▲' : '▼'" class="text-emerald-400"></span>
+                            </button>
+                            <span class="text-slate-700">|</span>
+                            <button @click="toggleSort('right', 'type')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by File Type">
+                                <span>Type</span>
+                                <span x-show="explorer.right.sortBy === 'type'" x-text="explorer.right.sortAsc ? '▲' : '▼'" class="text-emerald-400"></span>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <button @click="toggleSort('right', 'mtime')" class="hidden sm:flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by Last Modified Date">
+                                <span>Modified</span>
+                                <span x-show="explorer.right.sortBy === 'mtime'" x-text="explorer.right.sortAsc ? '▲' : '▼'" class="text-emerald-400"></span>
+                            </button>
+                            <button @click="toggleSort('right', 'size')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by File Size">
+                                <span>Size</span>
+                                <span x-show="explorer.right.sortBy === 'size'" x-text="explorer.right.sortAsc ? '▲' : '▼'" class="text-emerald-400"></span>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Directory Listing Table -->
                     <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
                         <!-- Loading State -->
@@ -614,10 +676,10 @@
 
                         <!-- File & Folder Rows -->
                         <template x-for="(item, idx) in getFilteredItems('right')" :key="(item.ID || item.Path || item.Name) + '_' + idx">
-                            <div draggable="true" @dragstart="onDragStart('right', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-grab active:cursor-grabbing select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                            <div draggable="true" @dragstart="onDragStart('right', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
-                                        <button @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate">
+                                        <button draggable="false" @mousedown.stop @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
                                             <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
                                             <span class="font-medium truncate" x-text="item.Name"></span>
                                         </button>
@@ -634,10 +696,14 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div class="flex items-center gap-2 shrink-0 text-[11px] text-slate-500 font-mono">
-                                    <span x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
-                                    <button @click.stop="transferItem('right', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/60 text-emerald-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-emerald-500/40" title="Copy to opposing local pane">
+                                <div class="flex items-center gap-2.5 shrink-0 text-[11px] text-slate-500 font-mono">
+                                    <span class="text-slate-500 text-[10px] hidden sm:inline-block" x-text="formatModTime(item.ModTime)"></span>
+                                    <span class="w-16 text-right" x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
+                                    <button draggable="false" @mousedown.stop @click.stop="transferItem('right', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/60 text-emerald-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-emerald-500/40 cursor-pointer" title="Copy to opposing local pane">
                                         <span x-text="item._copying ? 'Copying...' : '⬅ Copy'"></span>
+                                    </button>
+                                    <button draggable="false" @mousedown.stop @click.stop="promptDeleteItem('right', item)" :disabled="item.Name === 'RCLONE_TEST'" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 rounded text-[10px] transition-all flex items-center cursor-pointer disabled:opacity-0" title="Delete from remote storage">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                     </button>
                                 </div>
                             </div>
@@ -663,6 +729,70 @@
                 </div>
             </div>
         </div> <!-- End View 3: File Explorer Workspace -->
+
+        <!-- Delete Confirmation Modal (Configurable 1 or 2 Steps) -->
+        <div x-show="deleteModal.show" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-transition.opacity.duration.200ms>
+            <div @click.away="cancelDelete()" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4">
+                <!-- Header -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Confirm Deletion</h3>
+                            <div class="text-[11px] text-slate-400" x-text="deleteModal.step === 1 ? 'Step 1 of 2: Review Item' : 'Step 2 of 2: Final Confirmation'"></div>
+                        </div>
+                    </div>
+                    <button @click="cancelDelete()" class="text-slate-500 hover:text-white text-lg">✕</button>
+                </div>
+
+                <!-- Target Item Info Box -->
+                <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3 space-y-1.5 font-mono text-xs">
+                    <div class="flex items-center justify-between text-slate-400">
+                        <span class="text-slate-500">Storage Target:</span>
+                        <span class="font-bold" :class="deleteModal.paneKey === 'left' ? 'text-indigo-400' : 'text-emerald-400'" x-text="deleteModal.paneKey ? explorer[deleteModal.paneKey].target.toUpperCase() : ''"></span>
+                    </div>
+                    <div class="flex items-center justify-between text-slate-400">
+                        <span class="text-slate-500">Item Name:</span>
+                        <span class="text-slate-200 font-semibold truncate max-w-[14rem]" x-text="deleteModal.item ? deleteModal.item.Name : ''"></span>
+                    </div>
+                    <div class="flex items-center justify-between text-slate-400">
+                        <span class="text-slate-500">Type:</span>
+                        <span x-text="deleteModal.item?.IsDir ? 'Directory (all contents)' : 'Single File'"></span>
+                    </div>
+                </div>
+
+                <!-- Step 1 Notice -->
+                <template x-if="deleteModal.step === 1">
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Are you sure you want to delete <span class="font-bold text-rose-300 font-mono" x-text="deleteModal.item?.Name"></span>?
+                        This action will permanently remove it from storage.
+                    </p>
+                </template>
+
+                <!-- Step 2 Notice -->
+                <template x-if="deleteModal.step === 2">
+                    <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 space-y-1">
+                        <p class="font-semibold text-rose-200 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <span>Permanent Deletion Warning</span>
+                        </p>
+                        <p class="text-[11px] text-rose-300/80">Please confirm once more. This cannot be undone.</p>
+                    </div>
+                </template>
+
+                <!-- Actions -->
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                    <button @click="cancelDelete()" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+                        Cancel
+                    </button>
+                    <button @click="advanceDeleteStep()" :disabled="deleteModal.deleting" class="px-4 py-1.5 rounded-lg text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5" :class="deleteModal.step === 1 ? 'bg-amber-600 hover:bg-amber-500' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-950/50'">
+                        <span x-text="deleteModal.deleting ? 'Deleting...' : (deleteModal.step === 1 ? 'Next ➔' : 'Confirm & Delete')"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
 
 
 

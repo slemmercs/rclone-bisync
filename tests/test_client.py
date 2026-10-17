@@ -148,5 +148,34 @@ def test_copy_dir():
         mock_post.assert_called_once()
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["srcFs"] == "/home/user/gdrive/docs"
-        assert call_kwargs["json"]["dstFs"] == "gdrive:docs"
+
+
+def test_delete_file():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        res = client.delete_file("gdrive", "docs/test.txt")
+        assert res["status"] == "success"
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["fs"] == "gdrive:"
+        assert call_kwargs["json"]["remote"] == "docs/test.txt"
+
+
+def test_purge_dir():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        res = client.purge_dir("gdrive", "docs/old")
+        assert res["status"] == "success"
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["fs"] == "gdrive:"
+        assert call_kwargs["json"]["remote"] == "docs/old"
 

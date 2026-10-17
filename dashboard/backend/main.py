@@ -185,6 +185,22 @@ def copy_item(req: CopyRequest):
     )
 
 
+class DeleteRequest(BaseModel):
+    remote: str = "local"
+    path: str
+    is_dir: bool = False
+
+@app.post("/api/browse/delete")
+def delete_item(req: DeleteRequest):
+    """Deletes a file or directory from local or remote filesystem."""
+    return sync_service.delete_item(
+        remote=req.remote,
+        path=req.path,
+        is_dir=req.is_dir
+    )
+
+
+
 # Mount static files cleanly
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

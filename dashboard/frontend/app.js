@@ -147,6 +147,20 @@ function formatBytes(bytes, decimals = 1) {
     return parseFloat((bytes / Math.pow(k, idx)).toFixed(dm)) + " " + sizes[idx];
 }
 
+
+function formatModTime(isoStr) {
+    if (!isoStr) return "--";
+    try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return "--";
+        const datePart = d.toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" });
+        const timePart = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+        return `${datePart} ${timePart}`;
+    } catch (e) {
+        return "--";
+    }
+}
+
 document.addEventListener("alpine:init", () => {
     Alpine.data("dashboard", () => ({
         currentTab: "telemetry", // 'telemetry' | 'remotes' | 'explorer'
@@ -189,7 +203,10 @@ document.addEventListener("alpine:init", () => {
                 totalSize: 0,
                 itemCount: 0,
                 copied: false,
-                search: ""
+                search: "",
+                sortBy: "name",
+                sortAsc: true,
+                foldersFirst: true
             },
             right: {
                 target: "gdrive",
@@ -201,7 +218,10 @@ document.addEventListener("alpine:init", () => {
                 totalSize: 0,
                 itemCount: 0,
                 copied: false,
-                search: ""
+                search: "",
+                sortBy: "name",
+                sortAsc: true,
+                foldersFirst: true
             },
             draggedItem: null,
             draggedSourcePane: null,
@@ -214,6 +234,15 @@ document.addEventListener("alpine:init", () => {
             message: "",
             type: "info",
             timeout: null
+        },
+
+        deleteConfirmMode: localStorage.getItem("rclone_delete_confirm_mode") || "double",
+        deleteModal: {
+            show: false,
+            step: 1,
+            paneKey: null,
+            item: null,
+            deleting: false
         },
 
 
@@ -600,12 +629,61 @@ document.addEventListener("alpine:init", () => {
             }
         },
 
+        formatModTime(isoStr) {
+            return formatModTime(isoStr);
+        },
+
+        toggleSort(paneKey, field) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return;
+            if (pane.sortBy === field) {
+                pane.sortAsc = !pane.sortAsc;
+            } else {
+                pane.sortBy = field;
+                pane.sortAsc = (field === "name" || field === "type");
+            }
+        },
+
         getFilteredItems(paneKey) {
             const pane = this.explorer[paneKey];
             if (!pane) return [];
             const q = (pane.search || "").toLowerCase().trim();
-            if (!q) return pane.items;
-            return pane.items.filter(item => (item.Name || "").toLowerCase().includes(q));
+            let items = pane.items || [];
+            if (q) {
+                items = items.filter(item => (item.Name || "").toLowerCase().includes(q));
+            }
+
+            const sortBy = pane.sortBy || "name";
+            const asc = pane.sortAsc !== false;
+            const foldersFirst = pane.foldersFirst !== false;
+
+            return [...items].sort((a, b) => {
+                if (foldersFirst && a.IsDir !== b.IsDir) {
+                    return a.IsDir ? -1 : 1;
+                }
+
+                let res = 0;
+                if (sortBy === "size") {
+                    const sizeA = a.IsDir ? -1 : (a.Size || 0);
+                    const sizeB = b.IsDir ? -1 : (b.Size || 0);
+                    res = sizeA - sizeB;
+                } else if (sortBy === "mtime") {
+                    const timeA = a.ModTime ? new Date(a.ModTime).getTime() : 0;
+                    const timeB = b.ModTime ? new Date(b.ModTime).getTime() : 0;
+                    res = timeA - timeB;
+                } else if (sortBy === "type") {
+                    const extA = a.IsDir ? "" : (a.Name.split(".").pop() || "").toLowerCase();
+                    const extB = b.IsDir ? "" : (b.Name.split(".").pop() || "").toLowerCase();
+                    res = extA.localeCompare(extB);
+                    if (res === 0) {
+                        res = (a.Name || "").localeCompare(b.Name || "", undefined, { numeric: true, sensitivity: "base" });
+                    }
+                } else {
+                    res = (a.Name || "").localeCompare(b.Name || "", undefined, { numeric: true, sensitivity: "base" });
+                }
+
+                return asc ? res : -res;
+            });
         },
 
 
@@ -646,7 +724,11 @@ document.addEventListener("alpine:init", () => {
             item._copying = true;
             const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";
             const src_remote = this.explorer[sourcePaneKey].target;
-            const src_path = item.Path;
+            let src_path = item.Path || item.Name;
+            const currentPanePath = this.explorer[sourcePaneKey].path;
+            if (currentPanePath && !src_path.startsWith(currentPanePath)) {
+                src_path = `${currentPanePath}/${src_path}`.replace(/^\/+/, "");
+            }
             const dst_remote = this.explorer[targetPaneKey].target;
             const dst_path = this.explorer[targetPaneKey].path;
 
@@ -678,6 +760,96 @@ document.addEventListener("alpine:init", () => {
                 item._copying = false;
             }
         },
+
+        setDeleteConfirmMode(mode) {
+            this.deleteConfirmMode = mode;
+            try {
+                localStorage.setItem("rclone_delete_confirm_mode", mode);
+            } catch (e) {}
+        },
+
+        promptDeleteItem(paneKey, item) {
+            if (!item || item.Name === "RCLONE_TEST") {
+                this.showToast("Canary file (RCLONE_TEST) cannot be deleted.", "warning");
+                return;
+            }
+            if (this.deleteConfirmMode === "none") {
+                this.executeDeleteItem(paneKey, item);
+            } else if (this.deleteConfirmMode === "single") {
+                this.deleteModal = {
+                    show: true,
+                    step: 2,
+                    paneKey,
+                    item,
+                    deleting: false
+                };
+            } else {
+                // Default: double confirmation
+                this.deleteModal = {
+                    show: true,
+                    step: 1,
+                    paneKey,
+                    item,
+                    deleting: false
+                };
+            }
+        },
+
+        advanceDeleteStep() {
+            if (this.deleteModal.step === 1) {
+                this.deleteModal.step = 2;
+            } else {
+                this.executeDeleteItem(this.deleteModal.paneKey, this.deleteModal.item);
+            }
+        },
+
+        cancelDelete() {
+            this.deleteModal.show = false;
+            this.deleteModal.item = null;
+            this.deleteModal.paneKey = null;
+            this.deleteModal.step = 1;
+            this.deleteModal.deleting = false;
+        },
+
+        async executeDeleteItem(paneKey, item) {
+            if (!item || !paneKey) return;
+            this.deleteModal.deleting = true;
+            const remote = this.explorer[paneKey].target;
+            let path = item.Path || item.Name;
+            const currentPanePath = this.explorer[paneKey].path;
+            if (currentPanePath && !path.startsWith(currentPanePath)) {
+                path = `${currentPanePath}/${path}`.replace(/^\/+/, "");
+            }
+            const is_dir = !!item.IsDir;
+
+            try {
+                const res = await fetch("/api/browse/delete", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Dashboard-Request": "1"
+                    },
+                    body: JSON.stringify({
+                        remote,
+                        path,
+                        is_dir
+                    })
+                });
+                const data = await res.json();
+                if (data.status === "success") {
+                    this.showToast(`Deleted "${item.Name}" successfully`, "success");
+                    this.cancelDelete();
+                    this.fetchExplorerDirectory(paneKey, remote, this.explorer[paneKey].path);
+                } else {
+                    this.showToast(`Delete failed: ${data.error || 'Unknown error'}`, "error");
+                }
+            } catch (err) {
+                this.showToast(`Network error: ${err.message}`, "error");
+            } finally {
+                this.deleteModal.deleting = false;
+            }
+        },
+
 
         async syncCurrentDirectory(sourcePaneKey) {
             const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";

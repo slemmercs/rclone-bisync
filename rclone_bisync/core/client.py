@@ -197,6 +197,11 @@ class RcloneClient:
             res = requests.post(f"{self.api_url}/operations/list", json=payload, timeout=10, auth=self.auth)
             if res.status_code == 200:
                 items = res.json().get("list", [])
+                if clean_path:
+                    for it in items:
+                        rel = it.get("Path") or it.get("Name") or ""
+                        if not rel.startswith(clean_path):
+                            it["Path"] = f"{clean_path}/{rel}".strip("/")
                 has_canary = any(item.get("Name") == "RCLONE_TEST" for item in items)
                 return {"items": items, "has_canary": has_canary, "remote": fs, "path": clean_path}
         except Exception as e:
@@ -255,6 +260,45 @@ class RcloneClient:
         except Exception as e:
             logging.warning(f"Failed to copy directory from {src_fs} to {dst_fs}: {e}")
             return {"status": "error", "error": str(e)}
+
+    def delete_file(self, fs: str, remote: str) -> Dict[str, Any]:
+        """
+        Calls /operations/deletefile to delete a single file on a remote storage system.
+        """
+        clean_fs = fs if fs.endswith(":") else f"{fs}:"
+        clean_remote = remote.strip("/")
+        payload = {
+            "fs": clean_fs,
+            "remote": clean_remote
+        }
+        try:
+            res = requests.post(f"{self.api_url}/operations/deletefile", json=payload, timeout=20, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "fs": clean_fs, "remote": clean_remote}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logging.warning(f"Failed to delete file {clean_fs}{clean_remote}: {e}")
+            return {"status": "error", "error": str(e)}
+
+    def purge_dir(self, fs: str, remote: str) -> Dict[str, Any]:
+        """
+        Calls /operations/purge to delete a directory and all of its contents.
+        """
+        clean_fs = fs if fs.endswith(":") else f"{fs}:"
+        clean_remote = remote.strip("/")
+        payload = {
+            "fs": clean_fs,
+            "remote": clean_remote
+        }
+        try:
+            res = requests.post(f"{self.api_url}/operations/purge", json=payload, timeout=30, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "fs": clean_fs, "remote": clean_remote}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logging.warning(f"Failed to purge directory {clean_fs}{clean_remote}: {e}")
+            return {"status": "error", "error": str(e)}
+
 
 
 
