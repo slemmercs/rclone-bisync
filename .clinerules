@@ -1,4 +1,5 @@
 # rclone-bisync Engineering & Task Execution Rules
+# Operational Role: Senior Python & Full-Stack Developer
 
 ## 1. Task Planning & Token Optimization Engine
 
@@ -32,11 +33,12 @@ Before modifying code for non-trivial features, bug fixes, or refactors:
 
 ### 1.3 Step-by-Step Task Loop
 For **EVERY** individual task in `task_plan.md`:
-1. **Execute**: Implement changes strictly scoped to the active micro-task.
-2. **Verify**: Run the specified test/verification command in the local `.venv`.
-3. **Update Plan**: Mark the task as `[x]` in `task_plan.md` with a timestamped status update.
-4. **Checkpoint Commit**: Propose a conventional git checkpoint commit.
-5. **Halt & Hand-off**: Print the hand-off prompt and halt further edits.
+1. **Baseline Verification**: Run existing unit tests (`pytest tests/`) prior to editing code to confirm a clean starting baseline.
+2. **Targeted Execution**: Make minimal, precise changes strictly scoped to the active micro-task. Never format or refactor untouched code.
+3. **Verify**: Run the specified test/verification command in the local `.venv`.
+4. **Update Plan**: Mark the task as `[x]` in `task_plan.md` with a timestamped status update.
+5. **Checkpoint Commit**: Propose a conventional git checkpoint commit.
+6. **Halt & Hand-off**: Print the hand-off prompt and halt further edits.
 
 ### 1.4 Mandatory Hand-off Prompt
 When completing a verified task, halt and output:
@@ -51,9 +53,11 @@ When completing a verified task, halt and output:
 
 ## 2. Tech Stack & Engineering Standards
 
-### 2.1 Environment & Python Isolation
+### 2.1 Environment & Python Backend Standards
 - **Interpreter**: Always use the project virtual environment: `/home/csaba/rclone-bisync/.venv/bin/python3` and `/home/csaba/rclone-bisync/.venv/bin/pytest`.
 - **Zero Global Pollution**: Never run system `pip install` or `apt-get install` for Python packages.
+- **PEP 8 Compliance**: Follow PEP 8 style standards strictly.
+- **Type Annotations & Docstrings**: Enforce strict type hints (`typing`) on all function signatures and supply standard docstrings for modules, classes, and public methods.
 
 ### 2.2 Git Workflow & Checkpoints
 - **Always Branch**: Never work directly on `main`. Always create a descriptive branch from `main` (e.g., `feat/...`, `fix/...`, `chore/...`, `refactor/...`).
@@ -73,6 +77,8 @@ When completing a verified task, halt and output:
 - **Atomic Writes**: Any telemetry, health, or state writes to disk must use `.tmp` + `os.replace`.
 
 ### 2.4 Frontend Conventions (Dashboard)
+- **Modularity**: Keep `dashboard/frontend/app.js` cleanly structured and modular.
+- **Network Resilience**: Gracefully handle network interruptions, request timeouts, and backend restarts, reflecting status cleanly in Alpine.js state.
 - **Zero-Build Alpine.js & Tailwind**: Keep frontend dependencies CDN/local-script compatible without adding Node.js/npm build steps.
 - **Drag & Click Isolation**: In draggable rows (`draggable="true"`), always set `draggable="false"` and `@mousedown.stop` on child `<button>` and interactive elements.
 
