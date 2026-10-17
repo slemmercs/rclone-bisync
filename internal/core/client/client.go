@@ -49,6 +49,9 @@ func (c *RcloneClient) post(ctx context.Context, endpoint string, payload interf
 			return nil, nil, fmt.Errorf("failed to marshal request: %w", err)
 		}
 		bodyReader = bytes.NewReader(data)
+	} else {
+		// Rclone RC endpoints strictly require a valid JSON body (at least `{}`)
+		bodyReader = bytes.NewReader([]byte("{}"))
 	}
 
 	reqCtx := ctx

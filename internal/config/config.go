@@ -165,9 +165,12 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	baseDir := filepath.Join(home, "rclone-bisync")
 
 	var dirs []string
-	if len(searchDirs) > 0 {
-		dirs = searchDirs
-	} else {
+	for _, d := range searchDirs {
+		if strings.TrimSpace(d) != "" {
+			dirs = append(dirs, strings.TrimSpace(d))
+		}
+	}
+	if len(dirs) == 0 {
 		dirs = []string{
 			baseDir,
 			".",
