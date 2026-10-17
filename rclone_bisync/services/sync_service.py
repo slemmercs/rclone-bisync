@@ -650,3 +650,83 @@ class SyncService:
         }
 
 
+    def copy_item(
+        self,
+        src_remote: str,
+        src_path: str,
+        dst_remote: str,
+        dst_path: str,
+        is_dir: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Transfers a file or directory between local storage and cloud remotes.
+        Enforces path traversal safety jail for any local paths.
+        """
+        clean_src_path = (src_path or "").strip().strip("/")
+        clean_dst_path = (dst_path or "").strip().strip("/")
+        src_is_local = (src_remote or "").strip().lower() in ("local", "")
+        dst_is_local = (dst_remote or "").strip().lower() in ("local", "")
+
+        raw_base = getattr(self.config, "LOCAL_PATH", "~/gdrive")
+        base_dir = os.path.abspath(os.path.expanduser(raw_base))
+
+        if src_is_local:
+            target_src = os.path.abspath(os.path.join(base_dir, clean_src_path))
+            try:
+                if os.path.commonpath([base_dir, target_src]) != base_dir:
+                    return {"status": "error", "error": "Source path traversal forbidden"}
+            except ValueError:
+                return {"status": "error", "error": "Invalid source path"}
+
+            if not os.path.exists(target_src):
+                return {"status": "error", "error": f"Source does not exist: {clean_src_path}"}
+
+            if is_dir:
+                src_fs = target_src
+                src_file = ""
+            else:
+                src_fs = os.path.dirname(target_src)
+                src_file = os.path.basename(target_src)
+        else:
+            remote_name = src_remote.rstrip(":") + ":"
+            if is_dir:
+                src_fs = f"{remote_name}{clean_src_path}" if clean_src_path else remote_name
+                src_file = ""
+            else:
+                parent_dir = os.path.dirname(clean_src_path)
+                src_fs = f"{remote_name}{parent_dir}" if parent_dir else remote_name
+                src_file = os.path.basename(clean_src_path)
+
+        if dst_is_local:
+            target_dst = os.path.abspath(os.path.join(base_dir, clean_dst_path))
+            try:
+                if os.path.commonpath([base_dir, target_dst]) != base_dir:
+                    return {"status": "error", "error": "Destination path traversal forbidden"}
+            except ValueError:
+                return {"status": "error", "error": "Invalid destination path"}
+
+            if is_dir:
+                dst_fs = target_dst
+                dst_file = ""
+            else:
+                if os.path.isdir(target_dst) or clean_dst_path.endswith("/"):
+                    dst_fs = target_dst
+                    dst_file = src_file
+                else:
+                    dst_fs = os.path.dirname(target_dst)
+                    dst_file = os.path.basename(target_dst) or src_file
+        else:
+            remote_name = dst_remote.rstrip(":") + ":"
+            if is_dir:
+                dst_fs = f"{remote_name}{clean_dst_path}" if clean_dst_path else remote_name
+                dst_file = ""
+            else:
+                dst_fs = f"{remote_name}{clean_dst_path}" if clean_dst_path else remote_name
+                dst_file = src_file
+
+        if is_dir:
+            return self.client.copy_dir(src_fs=src_fs, dst_fs=dst_fs)
+        else:
+            return self.client.copy_file(src_fs=src_fs, src_remote=src_file, dst_fs=dst_fs, dst_remote=dst_file)
+
+

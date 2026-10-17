@@ -220,4 +220,41 @@ class RcloneClient:
             logging.warning(f"Failed to touch file {fs}{clean_path}: {e}")
             return {"status": "error", "error": str(e), "remote": fs, "path": clean_path}
 
+    def copy_file(self, src_fs: str, src_remote: str, dst_fs: str, dst_remote: str) -> Dict[str, Any]:
+        """
+        Calls /operations/copyfile to copy a single file between storage systems.
+        """
+        payload = {
+            "srcFs": src_fs,
+            "srcRemote": src_remote,
+            "dstFs": dst_fs,
+            "dstRemote": dst_remote
+        }
+        try:
+            res = requests.post(f"{self.api_url}/operations/copyfile", json=payload, timeout=30, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "src": f"{src_fs}/{src_remote}", "dst": f"{dst_fs}/{dst_remote}"}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logging.warning(f"Failed to copy file from {src_fs}/{src_remote} to {dst_fs}/{dst_remote}: {e}")
+            return {"status": "error", "error": str(e)}
+
+    def copy_dir(self, src_fs: str, dst_fs: str) -> Dict[str, Any]:
+        """
+        Calls /sync/copy to copy a directory tree between storage systems.
+        """
+        payload = {
+            "srcFs": src_fs,
+            "dstFs": dst_fs
+        }
+        try:
+            res = requests.post(f"{self.api_url}/sync/copy", json=payload, timeout=60, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "src": src_fs, "dst": dst_fs}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logging.warning(f"Failed to copy directory from {src_fs} to {dst_fs}: {e}")
+            return {"status": "error", "error": str(e)}
+
+
 
