@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from urllib.parse import urlparse
 
 # Get the absolute path of backend/main.py
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # ~/dashboard/backend
@@ -33,12 +34,15 @@ rc_client = sync_service.client
 
 app = FastAPI(title="Rclone Bisync Telemetry API")
 
-ALLOWED_ORIGINS = {
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost",
-    "http://127.0.0.1"
-}
+def is_allowed_origin(url_str: Optional[str]) -> bool:
+    if not url_str:
+        return True
+    try:
+        parsed = urlparse(url_str)
+        # Allow requests originating from local loopback (any port)
+        return parsed.hostname in ("localhost", "127.0.0.1")
+    except Exception:
+        return False
 
 class CSRFProtectionMiddleware(BaseHTTPMiddleware):
     """Enforces origin validation and custom header checks on state-changing API requests."""
@@ -54,14 +58,14 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
 
             # 2. Origin & Referer checks
             origin = request.headers.get("origin")
-            if origin and origin not in ALLOWED_ORIGINS:
+            if origin and not is_allowed_origin(origin):
                 return JSONResponse(
                     status_code=403,
                     content={"status": "error", "msg": f"Security policy violation: Untrusted request origin '{origin}'."}
                 )
 
             referer = request.headers.get("referer")
-            if referer and not any(referer.startswith(allowed) for allowed in ALLOWED_ORIGINS):
+            if referer and not is_allowed_origin(referer):
                 return JSONResponse(
                     status_code=403,
                     content={"status": "error", "msg": "Security policy violation: Untrusted request referer."}
