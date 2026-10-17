@@ -32,9 +32,13 @@
   * Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
 
 * **Branch 5: `feat/cockpit-workspace-and-file-explorer` [IMPLEMENTED]**
-  * Backend: Safe local and remote directory traversal with path traversal jails; `/api/browse/canary` provisioning via `/operations/touch`; `/api/browse/copy` file & folder transfers via `/operations/copyfile` & `/sync/copy`.
-  * Frontend: Cockpit-inspired 3-tab workspace navigation (`Engine & Telemetry`, `Storage Remotes`, `File Explorer`) with live latency and health pills.
-  * Explorer: Dual-pane layout (Local Left, Remote Right) with equalized heights, interactive breadcrumbs with one-click path clipboard copy, real-time client-side search filters, canary status pills with one-click touch provisioning, 1-click directional transfer buttons, folder sync triggers, and HTML5 drag-and-drop transfers.
+  * Backend: Safe local and remote directory traversal with path traversal jails; `/api/browse/canary` provisioning via `/operations/touch`; `/api/browse/copy` file & folder transfers via `/operations/copyfile` & `/sync/copy`; `/api/browse/delete` file & directory deletion via `/operations/deletefile` & `/operations/purge` with jail checks, root guards, and canary protection.
+  * Frontend: Cockpit-inspired 3-tab workspace navigation (`Engine & Telemetry`, `Storage Remotes`, `File Explorer`) with live pulsing latency and daemon health pills (`● LIVE | <latency>ms`).
+  * Explorer:
+    * Dual-pane layout (Local Left, Remote Right) with equalized heights, interactive breadcrumbs with one-click path clipboard copy, real-time client-side search filters, and canary status pills with one-click touch provisioning.
+    * Classic multi-key column sorting (`Name`, `Type`, `Modified`, `Size`) with folders pinned first on **both** local and remote panes with interactive direction indicators (`▲`/`▼`) and formatted row modification dates.
+    * Directional file/folder transfers via 1-click copy buttons and HTML5 drag-and-drop with drag-conflict prevention (`draggable="false"`, `@mousedown.stop`) and standard mouse hover cursor (`cursor-default`).
+    * Configurable multi-step file & folder deletion: toolbar safety selector (`Double Confirmation (Default - Safe)`, `Single Confirmation`, `Direct`) persisted in `localStorage` with a 2-step review modal and automated pane refresh.
 
 
 * **Branch 6: `feat/interactive-log-cross-filtering`**
