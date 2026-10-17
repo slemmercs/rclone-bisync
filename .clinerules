@@ -75,3 +75,48 @@ When completing a verified task, halt and output:
 ### 2.4 Frontend Conventions (Dashboard)
 - **Zero-Build Alpine.js & Tailwind**: Keep frontend dependencies CDN/local-script compatible without adding Node.js/npm build steps.
 - **Drag & Click Isolation**: In draggable rows (`draggable="true"`), always set `draggable="false"` and `@mousedown.stop` on child `<button>` and interactive elements.
+
+---
+
+## 3. Code Review & Quality Audit Protocol
+
+### 3.1 Systematic Review Checklist
+When requested to perform a code review or audit (e.g., reviewing changes or conducting a periodic full-repository audit):
+1. **Safety & Circuit Breakers**:
+   - [ ] Path traversal jails strictly enforced (`os.path.commonpath([base_dir, target]) == base_dir`).
+   - [ ] Canary files (`RCLONE_TEST`) protected from unauthorized modification or deletion.
+   - [ ] Lock files and PID checks are race-free (`O_RDWR | O_CREAT`, POSIX locks).
+   - [ ] Rate-limit backoff flag checks respected.
+2. **Architecture & Standards**:
+   - [ ] Domain logic separated into service layer (`rclone_bisync/services/`), not embedded in API routes.
+   - [ ] Atomic file writes used for state/telemetry (`.tmp` + `os.replace`).
+   - [ ] Sensitive keys (`RC_PASS`, tokens, webhooks) redacted from logs and API payloads.
+3. **Frontend & Event Safety**:
+   - [ ] Click events isolated on draggable elements (`draggable="false"`, `@mousedown.stop`).
+   - [ ] XSS safety maintained (no raw unescaped HTML injection).
+4. **Test & Verification**:
+   - [ ] Functionality verified by automated tests in `tests/`.
+   - [ ] All tests pass in `.venv`: `/home/csaba/rclone-bisync/.venv/bin/pytest tests`.
+   - [ ] Syntax check clean: `python3 -m py_compile <modified_files>`.
+
+### 3.2 Periodic Full-Repository Audit Execution
+When performing a periodic full-repo review:
+1. **Plan Execution in `task_plan.md`**: Break the codebase into modular review passes to preserve token efficiency:
+   - Module 1: Core Engine & Safety (`rclone_bisync/core/` — client, locks, rate limits, canary).
+   - Module 2: Service Layer & Jails (`rclone_bisync/services/` — traversal, deletions, sync actions).
+   - Module 3: Dashboard Backend & Secrets (`dashboard/backend/main.py`, config parsing).
+   - Module 4: Dashboard Frontend (`dashboard/frontend/` — Alpine.js state, event handlers).
+   - Module 5: Report Synthesis (`code-review.md`).
+2. **One Pass Per Session**: Execute each review pass, verify against test suite, and check off in `task_plan.md` before prompting `/newtask`.
+3. **Report Output**: Document findings, grades, and recommendations in `code-review.md`.
+
+### 3.3 Review Report Format
+Reviews must output in a structured markdown format:
+- **Verdict**: `APPROVED` | `CHANGES REQUESTED` | `ADVISORY`
+- **Strengths**: Bullet points of robust architectural and safety choices.
+- **Findings by Severity**:
+  - 🔴 **High (Safety / Security / Regression)**: Concrete issue + remediation.
+  - 🟡 **Medium (Reliability / Edge Case)**: Issue + remediation.
+  - 🟢 **Low (Polish / Dead Code / Maintainability)**: Minor cleanup items.
+- **Verification Evidence**: Automated test and lint execution outputs.
+
