@@ -20,13 +20,13 @@
     * Record Rclone RC `job_id` into `bisync.log` and `metrics.jsonl` alongside `run_id`.
   * Streamline `dashboard/backend/main.py` to a thin HTTP controller.
 
-* **Branch 3: `feat/security-pydantic-dtos-and-redaction`**
+* **Branch 3: `feat/security-pydantic-dtos-and-redaction` [ESTIMATE: 2-3h | 2 SP]**
   * Define strict Pydantic response models in `rclone_bisync/models/api.py`:
     * `ActionResponse`, `RemotesResponse`, `PendingDeletionsResponse`, `BrowseResponse`, `ReconnectResponse`, `CanaryResponse`.
   * Implement recursive deep secret sanitization (`redact_secrets()`) to prevent credential, token, or webhook leakage over HTTP.
   * Enforce `response_model` across all FastAPI route handlers.
 
-* **Branch 4: `feat/remote-oauth-reauth`**
+* **Branch 4: `feat/remote-oauth-reauth` [ESTIMATE: 3-4h | 3 SP]**
   * Backend: Implement `reconnect_remote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
   * Endpoint: `POST /api/remotes/{name}/reconnect`.
   * Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
@@ -41,18 +41,18 @@
     * Configurable multi-step file & folder deletion: toolbar safety selector (`Double Confirmation (Default - Safe)`, `Single Confirmation`, `Direct`) persisted in `localStorage` with a 2-step review modal and automated pane refresh.
 
 
-* **Branch 6: `feat/interactive-log-cross-filtering`**
+* **Branch 6: `feat/interactive-log-cross-filtering` [ESTIMATE: 2.5-3.5h | 3 SP]**
   * UI Component: Render `run_id` as an interactive, clickable chip/pill in the Bisync log viewer.
   * Cross-Filter Action: Clicking a `run_id` chip highlights that execution cycle and filters the `rclone-daemon.log` panel to display only the daemon entries matching that run's execution window and `job_id`.
   * Filter Clear / Reset: Provide a visual pill `[Filter: run_id=xxx ✕]` allowing one-click return to the live unfiltered daemon log stream.
 
-* **Branch 7: `test/backend-integration-suite`**
-  * Add `tests/test_dashboard_backend.py` using `fastapi.testclient.TestClient`.
-  * Validate CSRF protections (`X-Dashboard-Request: 1`, origin validation).
-  * Validate endpoints (`/api/telemetry`, `/api/action`, `/api/remotes`, `/api/browse`, `/api/deletions/pending`, `/api/remotes/{name}/reconnect`).
-  * Verify recursive secret redaction prevents token exposure.
+* **Branch 7: `test/backend-integration-suite` [IMPLEMENTED]**
+  * Added `tests/test_dashboard_backend.py` using `fastapi.testclient.TestClient`.
+  * Validated CSRF protections (`X-Dashboard-Request: 1`, loopback origin validation).
+  * Validated endpoints (`/api/telemetry`, `/api/action`, `/api/remotes`, `/api/browse`, `/api/deletions/pending`).
+  * Verified recursive secret redaction prevents token exposure.
 
-* **Branch 8: `test/playwright-ui-automation`**
+* **Branch 8: `test/playwright-ui-automation` [ESTIMATE: 4-5h | 5 SP]**
   * Add `playwright` to dev dependencies (`requirements.txt`).
   * Implement headless browser test suite (`tests/ui/test_dashboard_ui.py`) leveraging the native `/usr/bin/google-chrome-stable` binary.
   * Verify Alpine.js reactive components: health pills, tab navigation, remote cards, dual-pane explorer (left local, right remote), log cross-filtering, and pending deletions modal.
@@ -61,21 +61,21 @@
 
 ## 2. Future Releases & Extended Backlog
 
-* **Multi-Profile Synchronization Hub:**
+* **Multi-Profile Synchronization Hub [ESTIMATE: 8-12h | 8 SP]:**
   * Profile registry supporting independent cloud remotes (e.g., Google Drive personal, OneDrive work, Nextcloud).
   * Profile-scoped locks (`bisync_<profile>.lock`) and isolated metric streams (`metrics_<profile>.jsonl`).
   * Multi-tab navigation in the UI to switch profile telemetry.
 
-* **In-Dashboard Configuration Editor & 3-Layer Safety Pipeline:**
+* **In-Dashboard Configuration Editor & 3-Layer Safety Pipeline [ESTIMATE: 6-8h | 5 SP]:**
   * Visual parameter adjustment for `--buffer-size`, `--tpslimit`, and conflict resolution strategies.
   * 3-Layer Safety Pipeline: Automated snapshot backup, SHA-256 integrity match, and schema validation.
   * Rollback API: One-click restore of historical configurations.
 
-* **Side-by-Side Deletion & Conflict Diff Visualizer:**
+* **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]:**
   * When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
 
-* **Desktop Mode via PyWebView (`--mode=desktop`):**
+* **Desktop Mode via PyWebView (`--mode=desktop`) [ESTIMATE: 3-4h | 3 SP]:**
   * Optional launch flag to spawn the dashboard in a borderless native window without needing an external browser.
 
-* **Portable Bundle Generator:**
+* **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]:**
   * Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration.
