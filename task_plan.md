@@ -1,41 +1,34 @@
 
-# Task Plan: Go Test Coverage Uplift & Quality Gate (>80%)
+# Task Plan: Central JSON Logger & Interactive Log Cross-Filtering (Branch 6)
 
 ## Goal
-Resolve root package covdata toolchain error under `go test -cover ./...`, modernize engineering rules, fix UI frontend issues, and uplift automated test coverage across all packages to >80%.
+Establish a centralized JSON logging package (`internal/core/logger`), condense bisync run entries in `bisync.log` to a single high-signal line, implement time-window daemon log slicing (`/api/logs/daemon`), and replace the dual-terminal layout with a unified orchestrator feed and on-demand focused daemon log modal dialog.
 
 ## Tasks
-- [x] Task 1: UI Bug Fixes & Rules Modernization (`.clinerules`, `utils.js`, `charts.js`, `remotes.js`, `app.js`, `telemetry.go`, `index.html`)
-  - **Scope**:
-    - Fixed duplicate `performanceChart` declaration in global scope (`utils.js` / `charts.js`).
-    - Fixed double comma syntax errors in `remotes.js` and `app.js`.
-    - Modernized `.clinerules` to Go toolchain standards.
-    - Fixed active local topology empty tiles by converting Config struct fields to upper snake_case (`LOCAL_PATH`, `REMOTE_PATH`, `BASE_DIR`).
-  - **Verification**: `./scripts/check.sh` and browser console error-free.
-- [x] Task 2: Fix Root Package covdata Toolchain Issue (`main_test.go`)
-  - **Scope**: Add `main_test.go` covering CLI flag parsing and subcommands (`dashboard`, `sync`, `canary`).
-  - **Verification**: `go test -cover ./...` succeeds without `covdata` error.
-- [x] Task 3: Uplift `internal/core/state` Test Coverage (>90%)
-  - **Scope**: Add unit tests for rate-limit backoff flag lifecycle, notification state persistence, metrics JSONL appending, and pending deletions edge cases (`internal/core/state/state_test.go`).
-  - **Verification**: `go test -cover ./internal/core/state` (achieved 91.3%).
-- [x] Task 4: Uplift `internal/core/client` Test Coverage (>85%)
-  - **Scope**: Add mock HTTP tests for `TouchFile`, `CopyFile`, `CopyDir`, `DeleteFile`, `PurgeDir`, `ListRemotes`, `GetRemoteAbout`, `GetCoreStats`, and retry backoff (`internal/core/client/client_test.go`, `monitor_test.go`).
-  - **Verification**: `go test -cover ./internal/core/client` (achieved 85.5%).
-- [x] Task 5: Uplift `internal/services` Test Coverage (>80%)
-  - **Scope**: Add `internal/services/telemetry_test.go` (stats, cached metrics, secret redaction, telemetry payload) and expand `internal/services/sync_service_test.go` (`CopyItem`, log parsing, `GetRemotesSummary`, action handling, remote deletions).
-  - **Verification**: `go test -cover ./internal/services` (achieved 82.9%).
-- [x] Task 6: Uplift `internal/engine/runner` & `internal/server` Test Coverage (>85%)
-  - **Scope**: Add tests for lock contention, rate-limit aborts, and job failure error classification (`runner_test.go`). Add tests for logs, actions, pending deletions, remotes, browse, copy, and delete routes (`server_test.go`).
-  - **Verification**: `go test -cover ./internal/engine/runner ./internal/server` (runner: 88.4%, server: 87.2%).
-- [x] Task 7: Final Quality Gate & End-to-End Build Verification
-  - **Scope**: Run full `./scripts/check.sh`, `go test -cover ./...` verifying >80% statement coverage across all packages.
-  - **Verification**: `./scripts/check.sh` passed cleanly with all packages >80%.
+- [x] Task 1: Models & Central Logger Package (`internal/models/api.go`, `internal/core/logger/logger.go`, `internal/core/logger/logger_test.go`)
+  - **Scope**: Define `BisyncLogEntry`, `DaemonLogsQuery`, and `DaemonLogsResponse` DTOs. Implement `internal/core/logger` standard library `log/slog` wrapper supporting multi-output dispatch (rotating JSON file and console).
+  - **Verification**: `go test -count=1 -cover ./internal/core/logger` (achieved 92.2%).
+- [x] Task 2: Log Slice Scanner Service (`internal/services/log_service.go`, `internal/services/log_service_test.go`)
+  - **Scope**: Implement `LogService` with `FilterDaemonLogs` using `bufio.Scanner` to extract entries bounded by execution timestamp windows `[startTime - 1s, endTime + 1s]`.
+  - **Verification**: `go test -count=1 -cover ./internal/services` (achieved 83.7%).
+- [x] Task 3: Single-Line Bisync Run Logging in Runner (`internal/engine/runner/runner.go`, `internal/engine/runner/runner_test.go`, `internal/core/client/monitor.go`)
+  - **Scope**: Refactor `SyncRunner` to record execution start/end times and emit exactly 1 high-density JSON ledger line to `bisync.log` via central logger. Downgrade verbose polling logs in `monitor.go` to debug.
+  - **Verification**: `go test -count=1 -cover ./internal/engine/runner ./internal/core/client` (runner: 90.2%, client: 85.5%).
+- [x] Task 4: Server Correlated Daemon Logs Route (`internal/server/server.go`, `internal/server/server_test.go`)
+  - **Scope**: Add `GET /api/logs/daemon` endpoint accepting `start_time`, `end_time`, `run_id`, `job_id`, `limit` and serving `DaemonLogsResponse`.
+  - **Verification**: `go test -count=1 -cover ./internal/server` (achieved 86.2%).
+- [x] Task 5: Frontend Streamlined Feed & Focused Daemon Log Modal (`dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/utils.js`)
+  - **Scope**: Remove 640px stacked daemon terminal, add "Daemon Logs" detail button per row, embed focused modal dialog with search, level filters, copy button, and JSON preview.
+  - **Verification**: Verified DOM structure, event handlers, and data bindings.
+- [x] Task 6: Pre-Flight Verification & Quality Gate (`./scripts/check.sh`, `go test -cover ./...`)
+  - **Scope**: Run full pre-flight quality gate, verify statement coverage >80% across all packages, and compile single binary.
+  - **Verification**: `./scripts/check.sh` and `go build -o bin/rclone-bisync main.go` passed cleanly.
 
 ## Status Updates
-- 2026-10-17: Completed Task 1 (UI syntax fixes, topology snake_case mapping, .clinerules modernization).
-- 2026-10-17: Completed Task 2 (Fixed root package `covdata` issue by adding `main_test.go`).
-- 2026-10-17: Completed Task 3 (`internal/core/state` uplifted to 91.3%).
-- 2026-10-17: Completed Task 4 (`internal/core/client` uplifted to 85.5%).
-- 2026-10-17: Completed Task 5 (`internal/services` uplifted to 82.9%).
-- 2026-10-17: Completed Task 6 (`internal/engine/runner` to 88.4%, `internal/server` to 87.2%).
-- 2026-10-17: Completed Task 7 (`internal/config`: 92.6%, `internal/core/compiler`: 90.2%, `internal/core/notifier`: 89.4%, `internal/core/lock`: 85.7%). Entire repo passes quality gate.
+- 2026-10-17: Initialized Branch 6 plan for central JSON logger and interactive log cross-filtering.
+- 2026-10-17: Completed Task 1 (Models & `internal/core/logger` with 92.2% coverage).
+- 2026-10-17: Completed Task 2 (`internal/services/log_service.go` with 83.7% coverage).
+- 2026-10-17: Completed Task 3 (Single-line structured ledger logging in `SyncRunner`, runner coverage 90.2%).
+- 2026-10-17: Completed Task 4 (`GET /api/logs/daemon` endpoint in `internal/server`, coverage 86.2%).
+- 2026-10-17: Completed Task 5 (Streamlined orchestrator terminal, 640px stacked terminal removed, focused daemon modal implemented).
+- 2026-10-17: Completed Task 6 (All packages verified >80% statement coverage, quality gate passed, binary compiled).
