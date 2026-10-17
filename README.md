@@ -43,3 +43,18 @@ sudo apt install python3-requests python3-plyer python3-fastapi python3-uvicorn 
     # View synchronization runner history
     journalctl --user -u bisync-gdrive.service -f
     ```
+
+## Development & Testing
+
+Run the automated pre-flight quality and safety check before committing or opening a PR:
+
+```bash
+./scripts/check.sh
+```
+
+This verifies:
+1. Shell script syntax linting (`bash -n`).
+2. Python bytecode compilation across packages (`compileall`).
+3. Secret isolation (preventing `rc-secrets.env` or plaintext credentials from entering git).
+4. Full automated test suite execution (`pytest tests/`).
+
