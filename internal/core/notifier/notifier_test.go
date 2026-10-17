@@ -52,3 +52,32 @@ _ = json.NewDecoder(r.Body).Decode(&receivedPayload)
 		t.Fatalf("expected app TestApp, got %v", receivedPayload["app"])
 	}
 }
+
+func TestNotifierEdgeCases(t *testing.T) {
+	// 1. Defaults in NewDispatcher
+	d := NewDispatcher("", "", 0, false, 0, "")
+	if d.AppName != "Rclone Bisync" || d.WebhookTimeoutSec != 5 || d.ErrorRepeatHours != 6.0 {
+		t.Fatalf("unexpected defaults: %+v", d)
+	}
+
+	// 2. ShouldNotifyError when smart notifications disabled
+	if !d.ShouldNotifyError("ERR", "ERR", float64(time.Now().Unix())) {
+		t.Fatal("expected true when smart notifications disabled")
+	}
+
+	// 3. SendWebhook with empty URL
+	if err := d.SendWebhook("test", nil); err != nil {
+		t.Fatalf("expected nil for empty webhook URL: %v", err)
+	}
+
+	// 4. SendDesktop execution
+	_ = d.SendDesktop("Test Title", "Test Message", "normal")
+	_ = d.SendDesktop("Test Critical", "Test Message", "critical")
+
+	// 5. resolveIcon
+	icon := d.resolveIcon()
+	if icon == "" {
+		t.Fatal("expected non-empty icon string")
+	}
+}
+

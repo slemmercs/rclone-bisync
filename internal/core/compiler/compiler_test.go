@@ -64,3 +64,42 @@ func TestCanaryGuard(t *testing.T) {
 		t.Fatalf("expected checkAccess true")
 	}
 }
+
+func TestCompileAdvancedParameters(t *testing.T) {
+	args := []string{
+		"--use-json-log",
+		"--color", "NEVER",
+		"--drive-skip-gdocs",
+		"--drive-use-trash",
+		"--drive-export-formats", "docx,xlsx",
+		"--conflict-resolve", "newer",
+		"--conflict-loser", "num",
+		"--tpslimit", "15.5",
+		"--tpslimit-burst", "20",
+		"--recover",
+	}
+
+	payload, err := CompileBisyncPayload(args, "/tmp/local", "gdrive:", true, true, true)
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+
+	if payload["resync"] != true || payload["force"] != true || payload["dryRun"] != true {
+		t.Fatalf("expected flags to be true: %v", payload)
+	}
+
+	// Path1 should have backend options appended
+	path1, ok := payload["path1"].(string)
+	if !ok || path1 == "gdrive:" {
+		t.Fatalf("expected backend options attached to path1, got: %v", path1)
+	}
+
+	cfg, ok := payload["_config"].(map[string]interface{})
+	if !ok {
+		t.Fatal("missing _config in payload")
+	}
+	if cfg["TPSLimit"] != 15.5 || cfg["TPSLimitBurst"] != 20 {
+		t.Fatalf("expected TPSLimit 15.5 and TPSLimitBurst 20, got: %v", cfg)
+	}
+}
+

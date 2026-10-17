@@ -1,0 +1,97 @@
+package main
+
+import (
+	"flag"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestEmbeddedFrontendFS(t *testing.T) {
+	// Verify embedded files exist in frontendFS
+	data, err := fs.ReadFile(frontendFS, "dashboard/frontend/index.html")
+	if err != nil {
+		t.Fatalf("expected dashboard/frontend/index.html in embedded FS, got: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("embedded index.html is empty")
+	}
+
+	dataApp, err := fs.ReadFile(frontendFS, "dashboard/frontend/app.js")
+	if err != nil {
+		t.Fatalf("expected dashboard/frontend/app.js in embedded FS, got: %v", err)
+	}
+	if len(dataApp) == 0 {
+		t.Fatal("embedded app.js is empty")
+	}
+}
+
+func TestSubcommandFlagParsing(t *testing.T) {
+	// 1. Dashboard subcommand flagset
+	dashCmd := flag.NewFlagSet("dashboard", flag.ContinueOnError)
+	host := dashCmd.String("host", "127.0.0.1", "")
+	port := dashCmd.Int("port", 8080, "")
+	envFile := dashCmd.String("env-file", "", "")
+
+	err := dashCmd.Parse([]string{"--host", "0.0.0.0", "--port", "9090", "--env-file", "/tmp/bisync.env"})
+	if err != nil {
+		t.Fatalf("failed to parse dashboard flags: %v", err)
+	}
+	if *host != "0.0.0.0" || *port != 9090 || *envFile != "/tmp/bisync.env" {
+		t.Fatalf("unexpected dashboard parsed flags: host=%s, port=%d, env=%s", *host, *port, *envFile)
+	}
+
+	// 2. Sync subcommand flagset
+	syncCmd := flag.NewFlagSet("sync", flag.ContinueOnError)
+	resync := syncCmd.Bool("resync", false, "")
+	force := syncCmd.Bool("force", false, "")
+	dryRun := syncCmd.Bool("dry-run", false, "")
+	noNotify := syncCmd.Bool("no-notify", false, "")
+	origin := syncCmd.String("origin", "cli", "")
+	syncEnv := syncCmd.String("env-file", "", "")
+
+	err = syncCmd.Parse([]string{"--resync", "--force", "--dry-run", "--no-notify", "--origin", "timer", "--env-file", "/tmp/test.env"})
+	if err != nil {
+		t.Fatalf("failed to parse sync flags: %v", err)
+	}
+	if !*resync || !*force || !*dryRun || !*noNotify || *origin != "timer" || *syncEnv != "/tmp/test.env" {
+		t.Fatalf("unexpected sync parsed flags: resync=%v force=%v dryRun=%v noNotify=%v origin=%s env=%s",
+			*resync, *force, *dryRun, *noNotify, *origin, *syncEnv)
+	}
+
+	// 3. Canary subcommand flagset
+	canaryCmd := flag.NewFlagSet("canary", flag.ContinueOnError)
+	remote := canaryCmd.String("remote", "local", "")
+	path := canaryCmd.String("path", "", "")
+	canaryEnv := canaryCmd.String("env-file", "", "")
+
+	err = canaryCmd.Parse([]string{"--remote", "gdrive", "--path", "sub/folder", "--env-file", "/tmp/c.env"})
+	if err != nil {
+		t.Fatalf("failed to parse canary flags: %v", err)
+	}
+	if *remote != "gdrive" || *path != "sub/folder" || *canaryEnv != "/tmp/c.env" {
+		t.Fatalf("unexpected canary flags: remote=%s path=%s env=%s", *remote, *path, *canaryEnv)
+	}
+}
+
+func TestRunCanaryLocalExecution(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "main-canary-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	envContent := "LOCAL_PATH=" + tmpDir + "\nRC_PASS=testpass123\n"
+	envPath := filepath.Join(tmpDir, "bisync.env")
+	_ = os.WriteFile(envPath, []byte(envContent), 0644)
+
+	// Invoke runCanary with local target
+	runCanary("local", "", envPath)
+
+	// Verify RCLONE_TEST created
+	canaryFile := filepath.Join(tmpDir, "RCLONE_TEST")
+	if _, err := os.Stat(canaryFile); os.IsNotExist(err) {
+		t.Fatalf("expected canary file to be created at %s", canaryFile)
+	}
+}
