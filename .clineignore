@@ -1,0 +1,29 @@
+# ==========================================
+# Security & Secrets
+# ==========================================
+*.env
+!*.env.example
+rclone.conf
+
+# ==========================================
+# Python Bytecode & Cache Directories
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# External Vendor & Minified Dependencies
+# ==========================================
+dashboard/frontend/vendor/
+
+# ==========================================
+# Metadata & Temporary Files
+# ==========================================
+project-structure.txt
+.git/
+.DS_Store
+*.log
