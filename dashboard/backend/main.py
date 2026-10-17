@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from urllib.parse import urlparse
 
 # Get the absolute path of backend/main.py
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))  # ~/dashboard/backend
@@ -33,12 +34,15 @@ rc_client = sync_service.client
 
 app = FastAPI(title="Rclone Bisync Telemetry API")
 
-ALLOWED_ORIGINS = {
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost",
-    "http://127.0.0.1"
-}
+def is_allowed_origin(url_str: Optional[str]) -> bool:
+    if not url_str:
+        return True
+    try:
+        parsed = urlparse(url_str)
+        # Allow requests originating from local loopback (any port)
+        return parsed.hostname in ("localhost", "127.0.0.1")
+    except Exception:
+        return False
 
 class CSRFProtectionMiddleware(BaseHTTPMiddleware):
     """Enforces origin validation and custom header checks on state-changing API requests."""
@@ -54,14 +58,14 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
 
             # 2. Origin & Referer checks
             origin = request.headers.get("origin")
-            if origin and origin not in ALLOWED_ORIGINS:
+            if origin and not is_allowed_origin(origin):
                 return JSONResponse(
                     status_code=403,
                     content={"status": "error", "msg": f"Security policy violation: Untrusted request origin '{origin}'."}
                 )
 
             referer = request.headers.get("referer")
-            if referer and not any(referer.startswith(allowed) for allowed in ALLOWED_ORIGINS):
+            if referer and not is_allowed_origin(referer):
                 return JSONResponse(
                     status_code=403,
                     content={"status": "error", "msg": "Security policy violation: Untrusted request referer."}
@@ -148,13 +152,54 @@ def get_remotes():
     return sync_service.get_remotes_summary()
 
 class BrowseRequest(BaseModel):
-    remote: str
+    remote: Optional[str] = "local"
     path: Optional[str] = ""
 
 @app.post("/api/browse")
 def browse_files(req: BrowseRequest):
     """Browses remote directories and checks for canary RCLONE_TEST presence."""
     return sync_service.browse_path(remote=req.remote, path=req.path or "")
+
+@app.post("/api/browse/canary")
+def provision_canary(req: BrowseRequest):
+    """Provisions RCLONE_TEST canary file on target local or remote filesystem."""
+    return sync_service.create_canary(remote=req.remote or "local", path=req.path or "")
+
+
+class CopyRequest(BaseModel):
+    src_remote: str = "local"
+    src_path: str
+    dst_remote: str
+    dst_path: str = ""
+    is_dir: bool = False
+
+@app.post("/api/browse/copy")
+def copy_item(req: CopyRequest):
+    """Copies a file or folder between local and remote directories."""
+    return sync_service.copy_item(
+        src_remote=req.src_remote,
+        src_path=req.src_path,
+        dst_remote=req.dst_remote,
+        dst_path=req.dst_path,
+        is_dir=req.is_dir
+    )
+
+
+class DeleteRequest(BaseModel):
+    remote: str = "local"
+    path: str
+    is_dir: bool = False
+
+@app.post("/api/browse/delete")
+def delete_item(req: DeleteRequest):
+    """Deletes a file or directory from local or remote filesystem."""
+    return sync_service.delete_item(
+        remote=req.remote,
+        path=req.path,
+        is_dir=req.is_dir
+    )
+
+
 
 # Mount static files cleanly
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")

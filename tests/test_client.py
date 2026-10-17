@@ -105,3 +105,77 @@ def test_list_directory_canary_detection():
         assert data["has_canary"] is True
         assert data["remote"] == "gdrive:"
 
+
+
+def test_touch_file():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        res = client.touch_file("gdrive", "Documents/RCLONE_TEST")
+        assert res["status"] == "success"
+        assert res["remote"] == "gdrive:"
+        assert res["path"] == "Documents/RCLONE_TEST"
+
+
+
+def test_copy_file():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        res = client.copy_file("/home/user/gdrive", "test.txt", "gdrive:", "test.txt")
+        assert res["status"] == "success"
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["srcFs"] == "/home/user/gdrive"
+        assert call_kwargs["json"]["srcRemote"] == "test.txt"
+
+
+def test_copy_dir():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        res = client.copy_dir("/home/user/gdrive/docs", "gdrive:docs")
+        assert res["status"] == "success"
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["srcFs"] == "/home/user/gdrive/docs"
+
+
+def test_delete_file():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        res = client.delete_file("gdrive", "docs/test.txt")
+        assert res["status"] == "success"
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["fs"] == "gdrive:"
+        assert call_kwargs["json"]["remote"] == "docs/test.txt"
+
+
+def test_purge_dir():
+    client = RcloneClient("http://localhost:5572")
+    with mock.patch("requests.post") as mock_post:
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        res = client.purge_dir("gdrive", "docs/old")
+        assert res["status"] == "success"
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["fs"] == "gdrive:"
+        assert call_kwargs["json"]["remote"] == "docs/old"
+

@@ -8,8 +8,10 @@ import os
 import sys
 import json
 import time
+import shutil
 import requests
 import subprocess
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 import rclone_bisync.config as default_config
@@ -486,6 +488,299 @@ class SyncService:
         }
 
     def browse_path(self, remote: str, path: str = "") -> Dict[str, Any]:
-        """Lists directory contents and checks canary presence."""
-        return self.client.list_directory(remote=remote, path=path or "")
+        """
+        Lists directory contents and checks canary presence.
+        Supports both remote (via Rclone RC) and local filesystem (LOCAL_PATH).
+        Enforces path traversal safety jails for local filesystem operations.
+        """
+        clean_path = (path or "").strip().strip("/")
+        remote_clean = (remote or "").strip()
+
+        if remote_clean.lower() in ("local", ""):
+            raw_base = getattr(self.config, "LOCAL_PATH", "~/gdrive")
+            base_dir = os.path.abspath(os.path.expanduser(raw_base))
+
+            # Security check: prevent directory traversal escaping base_dir
+            target_dir = os.path.abspath(os.path.join(base_dir, clean_path))
+            try:
+                if os.path.commonpath([base_dir, target_dir]) != base_dir:
+                    return {
+                        "items": [],
+                        "has_canary": False,
+                        "error": "Directory traversal forbidden",
+                        "remote": "local",
+                        "path": clean_path,
+                    }
+            except ValueError:
+                return {
+                    "items": [],
+                    "has_canary": False,
+                    "error": "Invalid path",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            if not os.path.exists(target_dir):
+                return {
+                    "items": [],
+                    "has_canary": False,
+                    "error": f"Directory does not exist: {clean_path or '/'}",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            if not os.path.isdir(target_dir):
+                return {
+                    "items": [],
+                    "has_canary": False,
+                    "error": "Target is not a directory",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            items = []
+            try:
+                with os.scandir(target_dir) as entries:
+                    for entry in entries:
+                        try:
+                            stat = entry.stat()
+                            is_dir = entry.is_dir()
+                            mod_time = datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
+                            size = -1 if is_dir else stat.st_size
+                            item_rel_path = f"{clean_path}/{entry.name}".strip("/") if clean_path else entry.name
+
+                            items.append({
+                                "Path": item_rel_path,
+                                "Name": entry.name,
+                                "Size": size,
+                                "MimeType": "inode/directory" if is_dir else "application/octet-stream",
+                                "ModTime": mod_time,
+                                "IsDir": is_dir,
+                            })
+                        except (OSError, PermissionError) as e:
+                            pass
+            except Exception as e:
+                return {
+                    "items": [],
+                    "has_canary": False,
+                    "error": str(e),
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            items.sort(key=lambda x: (not x["IsDir"], x["Name"].lower()))
+            has_canary = any(item.get("Name") == "RCLONE_TEST" for item in items)
+            return {
+                "items": items,
+                "has_canary": has_canary,
+                "remote": "local",
+                "path": clean_path,
+            }
+
+        return self.client.list_directory(remote=remote_clean, path=clean_path)
+
+    def create_canary(self, remote: str, path: str = "") -> Dict[str, Any]:
+        """
+        Provisions an RCLONE_TEST canary file in the specified target path.
+        Enforces path traversal safety jail for local filesystem operations.
+        """
+        clean_path = (path or "").strip().strip("/")
+        remote_clean = (remote or "").strip()
+
+        if remote_clean.lower() in ("local", ""):
+            raw_base = getattr(self.config, "LOCAL_PATH", "~/gdrive")
+            base_dir = os.path.abspath(os.path.expanduser(raw_base))
+            target_dir = os.path.abspath(os.path.join(base_dir, clean_path))
+
+            try:
+                if os.path.commonpath([base_dir, target_dir]) != base_dir:
+                    return {
+                        "status": "error",
+                        "error": "Directory traversal forbidden",
+                        "remote": "local",
+                        "path": clean_path,
+                    }
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": "Invalid path",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            if not os.path.exists(target_dir):
+                return {
+                    "status": "error",
+                    "error": f"Target directory does not exist: {clean_path or '/'}",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+            canary_file = os.path.join(target_dir, "RCLONE_TEST")
+            try:
+                with open(canary_file, "a"):
+                    os.utime(canary_file, None)
+                return {
+                    "status": "success",
+                    "msg": f"Canary created successfully at {clean_path + '/' if clean_path else ''}RCLONE_TEST",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "error": f"Failed to create canary file: {e}",
+                    "remote": "local",
+                    "path": clean_path,
+                }
+
+        canary_remote_path = f"{clean_path}/RCLONE_TEST".strip("/")
+        res = self.client.touch_file(remote=remote_clean, path=canary_remote_path)
+        if res.get("status") == "success":
+            return {
+                "status": "success",
+                "msg": f"Canary created successfully at {remote_clean}:{canary_remote_path}",
+                "remote": remote_clean,
+                "path": clean_path,
+            }
+        return {
+            "status": "error",
+            "error": res.get("error", "Failed to create remote canary"),
+            "remote": remote_clean,
+            "path": clean_path,
+        }
+
+
+    def copy_item(
+        self,
+        src_remote: str,
+        src_path: str,
+        dst_remote: str,
+        dst_path: str,
+        is_dir: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Transfers a file or directory between local storage and cloud remotes.
+        Enforces path traversal safety jail for any local paths.
+        """
+        clean_src_path = (src_path or "").strip().strip("/")
+        clean_dst_path = (dst_path or "").strip().strip("/")
+        src_is_local = (src_remote or "").strip().lower() in ("local", "")
+        dst_is_local = (dst_remote or "").strip().lower() in ("local", "")
+
+        raw_base = getattr(self.config, "LOCAL_PATH", "~/gdrive")
+        base_dir = os.path.abspath(os.path.expanduser(raw_base))
+
+        if src_is_local:
+            target_src = os.path.abspath(os.path.join(base_dir, clean_src_path))
+            try:
+                if os.path.commonpath([base_dir, target_src]) != base_dir:
+                    return {"status": "error", "error": "Source path traversal forbidden"}
+            except ValueError:
+                return {"status": "error", "error": "Invalid source path"}
+
+            if not os.path.exists(target_src):
+                return {"status": "error", "error": f"Source does not exist: {clean_src_path}"}
+
+            if is_dir:
+                src_fs = target_src
+                src_file = ""
+            else:
+                src_fs = os.path.dirname(target_src)
+                src_file = os.path.basename(target_src)
+        else:
+            remote_name = src_remote.rstrip(":") + ":"
+            if is_dir:
+                src_fs = f"{remote_name}{clean_src_path}" if clean_src_path else remote_name
+                src_file = ""
+            else:
+                parent_dir = os.path.dirname(clean_src_path)
+                src_fs = f"{remote_name}{parent_dir}" if parent_dir else remote_name
+                src_file = os.path.basename(clean_src_path)
+
+        if dst_is_local:
+            target_dst = os.path.abspath(os.path.join(base_dir, clean_dst_path))
+            try:
+                if os.path.commonpath([base_dir, target_dst]) != base_dir:
+                    return {"status": "error", "error": "Destination path traversal forbidden"}
+            except ValueError:
+                return {"status": "error", "error": "Invalid destination path"}
+
+            if is_dir:
+                dst_fs = target_dst
+                dst_file = ""
+            else:
+                if os.path.isdir(target_dst) or clean_dst_path.endswith("/"):
+                    dst_fs = target_dst
+                    dst_file = src_file
+                else:
+                    dst_fs = os.path.dirname(target_dst)
+                    dst_file = os.path.basename(target_dst) or src_file
+        else:
+            remote_name = dst_remote.rstrip(":") + ":"
+            if is_dir:
+                dst_fs = f"{remote_name}{clean_dst_path}" if clean_dst_path else remote_name
+                dst_file = ""
+            else:
+                dst_fs = f"{remote_name}{clean_dst_path}" if clean_dst_path else remote_name
+                dst_file = src_file
+
+        if is_dir:
+            return self.client.copy_dir(src_fs=src_fs, dst_fs=dst_fs)
+        else:
+            return self.client.copy_file(src_fs=src_fs, src_remote=src_file, dst_fs=dst_fs, dst_remote=dst_file)
+
+    def delete_item(
+        self,
+        remote: str,
+        path: str,
+        is_dir: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Deletes a file or directory from local storage or cloud remotes.
+        Enforces path traversal safety jails for local filesystem operations,
+        forbids root deletion, and prevents deleting RCLONE_TEST canary.
+        """
+        clean_path = (path or "").strip().strip("/")
+        if not clean_path:
+            return {"status": "error", "error": "Root directory cannot be deleted"}
+
+        # Canary protection
+        if os.path.basename(clean_path) == "RCLONE_TEST":
+            return {"status": "error", "error": "Canary test file (RCLONE_TEST) cannot be deleted"}
+
+        remote_clean = (remote or "").strip()
+        is_local = remote_clean.lower() in ("local", "")
+
+        if is_local:
+            raw_base = getattr(self.config, "LOCAL_PATH", "~/gdrive")
+            base_dir = os.path.abspath(os.path.expanduser(raw_base))
+            target = os.path.abspath(os.path.join(base_dir, clean_path))
+
+            try:
+                if os.path.commonpath([base_dir, target]) != base_dir or target == base_dir:
+                    return {"status": "error", "error": "Path traversal or root deletion forbidden"}
+            except ValueError:
+                return {"status": "error", "error": "Invalid path"}
+
+            if not os.path.exists(target):
+                return {"status": "error", "error": f"Target does not exist: {clean_path}"}
+
+            try:
+                if is_dir or os.path.isdir(target):
+                    shutil.rmtree(target)
+                else:
+                    os.remove(target)
+                return {"status": "success", "msg": f"Deleted {clean_path}", "remote": "local", "path": clean_path}
+            except Exception as e:
+                return {"status": "error", "error": f"Failed to delete local path: {e}"}
+        else:
+            remote_name = remote_clean.rstrip(":") + ":"
+            if is_dir:
+                res = self.client.purge_dir(fs=remote_name, remote=clean_path)
+            else:
+                res = self.client.delete_file(fs=remote_name, remote=clean_path)
+            return res
+
+
 
