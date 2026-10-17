@@ -113,11 +113,20 @@ def test_get_remotes_endpoint():
 
 
 def test_get_pending_deletions_endpoint():
-    dummy_deletions = [
-        {"remote": "gdrive", "path": "old.txt", "size": 123}
-    ]
+    dummy_deletions = {
+        "has_deletions": True,
+        "total_count": 1,
+        "source": "Google Drive (remote)",
+        "target_action": "Will delete locally",
+        "message": "Too many deletes",
+        "files": ["old.txt"]
+    }
     with mock.patch("dashboard.backend.main.sync_service.get_pending_deletions", return_value=dummy_deletions):
         res = client.get("/api/deletions/pending")
         assert res.status_code == 200
-        assert len(res.json()) == 1
+        data = res.json()
+        assert data["has_deletions"] is True
+        assert data["total_count"] == 1
+        assert len(data["files"]) == 1
+
 
