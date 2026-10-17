@@ -1,5 +1,5 @@
 # rclone-bisync Engineering & Task Execution Rules
-# Operational Roles: Senior Python & Full-Stack Developer | Test Engineering Specialist | Software Architect & System Designer
+# Operational Roles: Senior Go & Full-Stack Developer | Test Engineering Specialist | Software Architect & System Designer
 
 ## 1. Task Planning & Token Optimization Engine
 
@@ -9,8 +9,8 @@ Before modifying code for non-trivial features, bug fixes, or refactors:
    - If missing, create `task_plan.md` outlining the goal, system breakdown, and sequential micro-tasks.
    - If present, review the next unchecked task `[ ]` and proceed with that task only.
 2. **Micro-Task Granularity**: Break the workflow into self-contained units. Each micro-task must:
-   - Target a single logical concern (e.g., "Add delete_item endpoint to sync_service").
-   - Define a concrete automated verification step (e.g., `pytest tests/test_sync_service.py -k test_delete_item`).
+   - Target a single logical concern (e.g., "Add CopyItem method to SyncService").
+   - Define a concrete automated verification step (e.g., `go test -count=1 ./internal/services -run TestCopyItem`).
 
 ### 1.2 task_plan.md Standard Template
 ```markdown
@@ -21,10 +21,10 @@ Before modifying code for non-trivial features, bug fixes, or refactors:
 
 ## Tasks
 - [ ] Task 1: [Short Title]
-  - **Scope**: [Files, functions, or UI elements to change]
+  - **Scope**: [Files, packages, or UI components to change]
   - **Verification**: [Exact test command or script]
 - [ ] Task 2: [Short Title]
-  - **Scope**: [Files, functions, or UI elements to change]
+  - **Scope**: [Files, packages, or UI components to change]
   - **Verification**: [Exact test command or script]
 
 ## Status Updates
@@ -33,9 +33,9 @@ Before modifying code for non-trivial features, bug fixes, or refactors:
 
 ### 1.3 Step-by-Step Task Loop
 For **EVERY** individual task in `task_plan.md`:
-1. **Baseline Verification**: Run existing unit tests (`pytest tests/`) prior to editing code to confirm a clean starting baseline.
+1. **Baseline Verification**: Run existing automated tests (`go test -count=1 ./...` or `./scripts/check.sh`) prior to editing code to confirm a clean starting baseline.
 2. **Targeted Execution**: Make minimal, precise changes strictly scoped to the active micro-task. Never format or refactor untouched code.
-3. **Verify**: Run the specified test/verification command in the local `.venv`.
+3. **Verify**: Run the specified test/verification command using the local Go toolchain.
 4. **Update Plan**: Mark the task as `[x]` in `task_plan.md` with a timestamped status update.
 5. **Checkpoint Commit**: Propose a conventional git checkpoint commit.
 6. **Halt & Hand-off**: Print the hand-off prompt and halt further edits.
@@ -53,14 +53,14 @@ When completing a verified task, halt and output:
 
 ## 2. Tech Stack & Engineering Standards
 
-### 2.1 Environment & Python Backend Standards
-- **Interpreter**: Always use the project virtual environment: `/home/csaba/rclone-bisync/.venv/bin/python3` and `/home/csaba/rclone-bisync/.venv/bin/pytest`.
-- **Zero Global Pollution**: Never run system `pip install` or `apt-get install` for Python packages.
-- **PEP 8 Compliance**: Follow PEP 8 style standards strictly.
-- **Type Annotations & Docstrings**: Enforce strict type hints (`typing`) on all function signatures and supply standard docstrings for modules, classes, and public methods.
+### 2.1 Go Toolchain & Backend Standards
+- **Toolchain**: Use native Go toolchain (`go test -count=1 ./...`, `go vet ./...`, `go build ./...`).
+- **Zero Global Pollution**: Native Go single binary distribution; zero external system Python/pip/npm runtime dependencies.
+- **Idiomatic Go**: Strict error checking, structured concurrency with `context.Context`, POSIX flock file isolation, and clean package boundaries.
+- **Explicit Types & Contracts**: Concrete Go structs defined in `internal/models` for all API payloads and internal state representation.
 
 ### 2.2 Git Workflow & Checkpoints
-- **Always Branch**: Never work directly on `main`. Always create a descriptive branch from `main` (e.g., `feat/...`, `fix/...`, `chore/...`, `refactor/...`).
+- **Always Branch**: Never work directly on `main` for non-trivial features (unless explicitly instructed for maintenance/configuration directly on main). Always create a descriptive branch from `main` (e.g., `feat/...`, `fix/...`, `test/...`, `chore/...`, `refactor/...`).
 - **Commit Format**:
   ```
   <type>(<scope>): <concise action-oriented summary>
@@ -68,60 +68,61 @@ When completing a verified task, halt and output:
   - <path/to/file1>: <summary of changes>
   - <path/to/file2>: <summary of changes>
   ```
-- **Validation Before Commit**: Run pre-flight checks (`./scripts/check.sh` or `py_compile` + `pytest`) prior to proposing commits.
+- **Validation Before Commit**: Run pre-flight checks (`./scripts/check.sh`) prior to proposing commits.
 - **Push Before PR Creation**: Always push local commits to the remote tracking branch (`git push -u origin <branch>`) before generating or proposing PR titles and descriptions.
 
 ### 2.3 Safety, Circuit Breakers & Atomicity
 - **Canary Protection**: Never bypass, delete, or modify `RCLONE_TEST` canary files unless explicitly testing canary detection.
-- **Local Filesystem Jail**: All file operations under `local` storage must strictly enforce `os.path.commonpath([base_dir, target]) == base_dir`.
-- **Atomic Writes**: Any telemetry, health, or state writes to disk must use `.tmp` + `os.replace`.
+- **Local Filesystem Jail**: All file operations under `local` storage must strictly enforce path confinement (`filepath.Rel` and `strings.HasPrefix(..., "..")` checks).
+- **Atomic Writes**: Any telemetry, health, or state writes to disk must use atomic rename patterns (`.tmp.<pid>` + `os.Rename`).
+- **Advisory POSIX Locking**: Process execution must strictly enforce race-free advisory locks (`flock`, `syscall.Flock`).
 
 ### 2.4 Frontend Conventions (Dashboard)
-- **Modularity**: Keep `dashboard/frontend/app.js` cleanly structured and modular.
+- **Modularity**: Zero-build Alpine.js & Tailwind architecture. Scripts cleanly modularized under `dashboard/frontend/js/` (`utils.js`, `charts.js`, `remotes.js`, `explorer.js`) and unified by `app.js`.
 - **Network Resilience**: Gracefully handle network interruptions, request timeouts, and backend restarts, reflecting status cleanly in Alpine.js state.
-- **Zero-Build Alpine.js & Tailwind**: Keep frontend dependencies CDN/local-script compatible without adding Node.js/npm build steps.
 - **Drag & Click Isolation**: In draggable rows (`draggable="true"`), always set `draggable="false"` and `@mousedown.stop` on child `<button>` and interactive elements.
+- **Chart Isolation**: External Chart.js instances must remain outside Alpine reactive proxy wrappers to avoid proxy recursion.
 
 ### 2.5 Test Engineering & Mocking Standards
-- **Framework**: Use `pytest` and `pytest-mock` within the project virtual environment.
-- **Strict Mocking & Isolation**: Always mock external CLI calls (e.g., `rclone` subprocess commands) and RC API requests using `unittest.mock` or `pytest-mock` fixtures. Never execute live external commands or network operations during unit testing.
+- **Framework**: Standard Go `testing` package and `net/http/httptest`.
+- **Strict Mocking & Isolation**: Always mock external CLI calls and Rclone RC API requests using `httptest.NewServer`. Never execute live external commands or network operations during unit testing.
 - **Naming Conventions**:
-  - Test files: `tests/test_<module_name>.py`
-  - Test functions: `test_<functionality>_<expected_behavior>`
+  - Test files: `*_test.go` adjacent to source files.
+  - Test functions: `Test<Functionality>_<Scenario>`.
 - **Pattern**: Structure every test using Arrange-Act-Assert (AAA).
-- **Task Granularity for Tests**: Detail new test additions in `task_plan.md` as discrete micro-tasks per function or class.
+- **Coverage Target**: Maintain statement coverage >80% across all packages (`go test -cover ./...`).
 
 ---
 
 ## 3. Code Review & Quality Audit Protocol
 
 ### 3.1 Systematic Review Checklist
-When requested to perform a code review or audit (e.g., reviewing changes or conducting a periodic full-repository audit):
+When requested to perform a code review or audit:
 1. **Safety & Circuit Breakers**:
-   - [ ] Path traversal jails strictly enforced (`os.path.commonpath([base_dir, target]) == base_dir`).
-   - [ ] Canary files (`RCLONE_TEST`) protected from unauthorized modification or deletion.
-   - [ ] Lock files and PID checks are race-free (`O_RDWR | O_CREAT`, POSIX locks).
+   - [ ] Path traversal jails strictly enforced for local filesystem browsing and file operations.
+   - [ ] Canary files (`RCLONE_TEST`) protected from deletion or unauthorized modification.
+   - [ ] Lock files and PID checks are race-free (`flock` POSIX advisory locks).
    - [ ] Rate-limit backoff flag checks respected.
 2. **Architecture & Standards**:
-   - [ ] Domain logic separated into service layer (`rclone_bisync/services/`), not embedded in API routes.
-   - [ ] Atomic file writes used for state/telemetry (`.tmp` + `os.replace`).
-   - [ ] Sensitive keys (`RC_PASS`, tokens, webhooks) redacted from logs and API payloads.
+   - [ ] Domain logic separated into service layer (`internal/services/`), not embedded in API routes (`internal/server/`).
+   - [ ] Atomic file writes used for state/telemetry (`.tmp.<pid>` + `os.Rename`).
+   - [ ] Sensitive keys (`RC_PASS`, tokens, webhooks) redacted from logs and API payloads via `security.RedactSecrets`.
 3. **Frontend & Event Safety**:
    - [ ] Click events isolated on draggable elements (`draggable="false"`, `@mousedown.stop`).
-   - [ ] XSS safety maintained (no raw unescaped HTML injection).
+   - [ ] XSS safety maintained (HTML escaping for raw user inputs and log messages).
+   - [ ] No JavaScript syntax errors or unhandled global scope collisions.
 4. **Test & Verification**:
-   - [ ] Functionality verified by automated tests in `tests/` following Arrange-Act-Assert (AAA).
-   - [ ] External CLI commands and RC API requests strictly mocked (zero live subprocess/cloud calls).
-   - [ ] Test files and functions follow naming conventions (`test_<functionality>_<expected_behavior>`).
-   - [ ] All tests pass in `.venv`: `/home/csaba/rclone-bisync/.venv/bin/pytest tests`.
-   - [ ] Syntax check clean: `python3 -m py_compile <modified_files>`.
+   - [ ] Functionality verified by automated tests in `*_test.go` following Arrange-Act-Assert (AAA).
+   - [ ] External RC API requests strictly mocked (zero live subprocess/cloud calls).
+   - [ ] All tests pass via `./scripts/check.sh` and `go test -count=1 ./...`.
+   - [ ] Static analysis clean via `go vet ./...`.
 
 ### 3.2 Periodic Full-Repository Audit Execution
 When performing a periodic full-repo review:
-1. **Plan Execution in `task_plan.md`**: Break the codebase into modular review passes to preserve token efficiency:
-   - Module 1: Core Engine & Safety (`rclone_bisync/core/` — client, locks, rate limits, canary).
-   - Module 2: Service Layer & Jails (`rclone_bisync/services/` — traversal, deletions, sync actions).
-   - Module 3: Dashboard Backend & Secrets (`dashboard/backend/main.py`, config parsing).
+1. **Plan Execution in `task_plan.md`**: Break the codebase into modular review passes:
+   - Module 1: Core Engine & Safety (`internal/core/` — client, lock, notifier, security, state).
+   - Module 2: Service Layer & Jails (`internal/services/` — traversal, deletions, sync actions).
+   - Module 3: Server & Endpoints (`internal/server/`, `main.go`).
    - Module 4: Dashboard Frontend (`dashboard/frontend/` — Alpine.js state, event handlers).
    - Module 5: Report Synthesis (`code-review.md`).
 2. **One Pass Per Session**: Execute each review pass, verify against test suite, and check off in `task_plan.md` before prompting `/newtask`.
@@ -137,19 +138,18 @@ Reviews must output in a structured markdown format:
   - 🟢 **Low (Polish / Dead Code / Maintainability)**: Minor cleanup items.
 - **Verification Evidence**: Automated test and lint execution outputs.
 
-
 ### 3.4 Architecture & Modularity Audit Protocol
 In addition to line-level safety and testing, conduct structural and architectural reviews:
 1. **Bounded Contexts & Service Cohesion**:
-   - Flag "God Objects" or bloated services: if a service class exceeds ~400–500 LOC or spans multiple uncoupled domains (e.g., mixing process lifecycle orchestration with filesystem exploration and log seeking), propose decomposing it into dedicated cohesive domain services (e.g., `ExplorerService`, `TelemetryService`, `SyncService`).
+   - Flag "God Objects" or bloated services: if a service class exceeds ~400–500 LOC or spans multiple uncoupled domains, propose decomposing it into dedicated cohesive domain services (e.g., `ExplorerService`, `TelemetryService`, `SyncService`).
 2. **Schema & Contract Governance**:
-   - Web API endpoints must never return untyped loose dictionaries or generic primitives.
-   - Enforce explicit Pydantic response models (`response_model=...`) defined in centralized schema modules (`rclone_bisync/models/api.py`).
-   - Validate that API responses are tested against schema contract compliance in `tests/test_dashboard_backend.py`.
+   - Web API endpoints must never return untyped loose maps without structure.
+   - Enforce explicit Go models defined in centralized schema modules (`internal/models`).
+   - Validate that API responses are tested against schema contract compliance.
 3. **Deep Defense-in-Depth Secret Sanitization**:
-   - Never rely exclusively on shallow dictionary key filtering.
-   - Implement recursive key sanitization (`redact_secrets()`) traversing nested dictionaries, lists, and serialized models to mask any field matching credential patterns (`PASS`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL`).
+   - Never rely exclusively on shallow map key filtering.
+   - Implement recursive key sanitization (`security.RedactSecrets`) traversing nested maps, slices, and structs to mask any field matching credential patterns (`PASS`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL`).
 4. **Frontend Decoupling & Component Isolation**:
-   - Monitor frontend script volume (`dashboard/frontend/app.js`): when an Alpine component aggregates too many distinct views (telemetry, charts, file explorer, modal dialogues), break it into modular sub-components, stores, or decoupled ES modules.
+   - Monitor frontend script volume (`dashboard/frontend/`): keep modules focused (`utils.js`, `charts.js`, `remotes.js`, `explorer.js`).
    - Ensure external chart/rendering libraries maintain unproxied references outside reactive proxy wrappers.
 

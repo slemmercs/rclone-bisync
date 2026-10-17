@@ -14,9 +14,6 @@ function escapeHtml(str) {
         .replace(/'/g, "&#39;");
 }
 
-// Module-level unproxied Chart instance to prevent Alpine Proxy recursion
-let performanceChart = null;
-
 // Rich styling helper for config parameters (restores original parameter cards design)
 function formatConfigValue(key, value) {
     if (Array.isArray(value)) {
