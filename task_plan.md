@@ -20,7 +20,7 @@ Conduct a systematic audit of the entire rclone-bisync repository against Sectio
   - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
   - **Checklist**: Alpine.js state isolation, drag-and-drop vs click interference (`draggable="false"`, `@mousedown.stop`), XSS sanitization (`escapeHtml`), network failure handling.
   - **Verification**: `./scripts/check.sh`
-- [ ] Task 5: Audit Module 5 — Test Suite Quality & Synthesis (`tests/` & `code-review.md`)
+- [x] Task 5: Audit Module 5 — Test Suite Quality & Synthesis (`tests/` & `code-review.md`)
   - **Scope**: All unit tests in `tests/`, test mocking (zero live subprocess/cloud calls), AAA pattern compliance, naming conventions (`test_<func>_<behavior>`).
   - **Synthesis**: Update `code-review.md` with structured verdict, grade cards, findings by severity (🔴 High, 🟡 Medium, 🟢 Low), and remediation suggestions.
   - **Verification**: `./scripts/check.sh`
@@ -31,6 +31,7 @@ Conduct a systematic audit of the entire rclone-bisync repository against Sectio
 - 2026-10-17: Completed Module 2 audit (Service Layer & Path Jails): Grade A. Verified 19 unit tests green, path traversal jails (commonpath) on browse/copy/delete, root deletion & canary protection guards, and secret masking in runtime config.
 - 2026-10-17: Completed Module 3 audit (Dashboard Backend & Security): Grade A. Verified CSRF middleware (header enforcement + loopback origin validation), clean Pydantic routing, strict fail-fast on missing RC_PASS, and zero-leak credential masking.
 - 2026-10-17: Completed Module 4 audit (Dashboard Frontend): Grade A. Verified universal XSS sanitization (`escapeHtml`), Alpine.js reactivity protection with unproxied module-level Chart.js, robust event isolation (`draggable="false"`, `@mousedown.stop`, `@click.stop`), universal `X-Dashboard-Request: 1` header on state mutations, and Canary deletion guard.
+- 2026-10-17: Completed Module 5 audit (Test Suite Quality & Synthesis): Grade A. Added `test_dashboard_backend.py` covering FastAPI routing and CSRF protections, updated lock subprocess test isolation with `sys.executable`, verified 68 tests green, and synthesized full audit into `code-review.md`. All 5 audit milestones completed.
 
 
 
