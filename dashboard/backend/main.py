@@ -25,6 +25,25 @@ if PROJECT_ROOT not in sys.path:
 try:
     import rclone_bisync.config as config
     from rclone_bisync.services.sync_service import SyncService
+    from rclone_bisync.core.security import redact_secrets
+    from rclone_bisync.models.api import (
+        ActionRequest,
+        ActionResponse,
+        BrowseRequest,
+        BrowseResponse,
+        CanaryResponse,
+        CopyRequest,
+        CopyResponse,
+        DeleteRequest,
+        DeleteResponse,
+        RemotesResponse,
+        PendingDeletionsResponse,
+        TelemetryPayload,
+        DaemonHealth,
+        NotificationState,
+        MetricEntry,
+        TransferStats,
+    )
 except ImportError as e:
     print(f"ERROR: Failed to import rclone_bisync modules: {e}")
     sys.exit(1)
@@ -75,45 +94,6 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CSRFProtectionMiddleware)
 
-class DaemonHealth(BaseModel):
-    status: str
-    response_time_ms: float
-    last_check: float
-
-class NotificationState(BaseModel):
-    last_success_timestamp: Optional[float] = None
-    last_error_type: Optional[str] = None
-    last_error_timestamp: Optional[float] = None
-
-class MetricEntry(BaseModel):
-    timestamp: float
-    datetime: str
-    run_id: Optional[str] = None
-    job_id: Optional[int] = None
-    origin: Optional[str] = "unknown"
-    success: bool
-    duration_seconds: float
-    error_type: Optional[str] = None
-    files_synced: int
-
-class TransferStats(BaseModel):
-    bytes: int = 0
-    total_bytes: int = 0
-    speed: float = 0.0
-    speed_str: str = "0 B/s"
-    eta: Optional[int] = None
-    percentage: float = 0.0
-    transferring: List[dict] = []
-
-class TelemetryPayload(BaseModel):
-    daemon_health: DaemonHealth
-    notification_state: NotificationState
-    metrics: List[MetricEntry]
-    bisync_logs: List[str]
-    daemon_logs: List[str]
-    config: dict
-    is_syncing: bool = False
-    transfer_stats: Optional[TransferStats] = None
 
 @app.get("/api/logs/bisync/raw")
 def get_raw_bisync_log():
@@ -132,72 +112,70 @@ def get_raw_daemon_log():
 
 @app.get("/api/telemetry", response_model=TelemetryPayload)
 def get_telemetry(limit: int = 40):
-    return sync_service.get_telemetry_payload(limit=limit)
+    payload = sync_service.get_telemetry_payload(limit=limit)
+    return redact_secrets(payload)
 
-class ActionRequest(BaseModel):
-    action: str
-
-@app.post("/api/action")
+@app.post("/api/action", response_model=ActionResponse)
 def perform_action(req: ActionRequest):
-    return sync_service.handle_action(req.action)
+    res = sync_service.handle_action(req.action)
+    return redact_secrets(res)
 
-@app.get("/api/deletions/pending")
+@app.get("/api/deletions/pending", response_model=PendingDeletionsResponse)
 def get_pending_deletions():
     """Returns the list of pending deletions detected during the last safety abort."""
-    return sync_service.get_pending_deletions()
+    raw = sync_service.get_pending_deletions()
+    if isinstance(raw, list):
+        payload = {
+            "has_deletions": len(raw) > 0,
+            "total_count": len(raw),
+            "files": raw,
+        }
+    elif isinstance(raw, dict):
+        payload = raw
+    else:
+        payload = {"has_deletions": False, "total_count": 0, "files": []}
+    return redact_secrets(payload)
 
-@app.get("/api/remotes")
+@app.get("/api/remotes", response_model=RemotesResponse)
 def get_remotes():
     """Discovers configured Rclone remotes, provider types, and capacity quotas."""
-    return sync_service.get_remotes_summary()
+    summary = sync_service.get_remotes_summary()
+    return redact_secrets(summary)
 
-class BrowseRequest(BaseModel):
-    remote: Optional[str] = "local"
-    path: Optional[str] = ""
-
-@app.post("/api/browse")
+@app.post("/api/browse", response_model=BrowseResponse)
 def browse_files(req: BrowseRequest):
     """Browses remote directories and checks for canary RCLONE_TEST presence."""
-    return sync_service.browse_path(remote=req.remote, path=req.path or "")
+    res = sync_service.browse_path(remote=req.remote or "local", path=req.path or "")
+    return redact_secrets(res)
 
-@app.post("/api/browse/canary")
+@app.post("/api/browse/canary", response_model=CanaryResponse)
 def provision_canary(req: BrowseRequest):
     """Provisions RCLONE_TEST canary file on target local or remote filesystem."""
-    return sync_service.create_canary(remote=req.remote or "local", path=req.path or "")
+    res = sync_service.create_canary(remote=req.remote or "local", path=req.path or "")
+    return redact_secrets(res)
 
-
-class CopyRequest(BaseModel):
-    src_remote: str = "local"
-    src_path: str
-    dst_remote: str
-    dst_path: str = ""
-    is_dir: bool = False
-
-@app.post("/api/browse/copy")
+@app.post("/api/browse/copy", response_model=CopyResponse)
 def copy_item(req: CopyRequest):
     """Copies a file or folder between local and remote directories."""
-    return sync_service.copy_item(
+    res = sync_service.copy_item(
         src_remote=req.src_remote,
         src_path=req.src_path,
         dst_remote=req.dst_remote,
         dst_path=req.dst_path,
         is_dir=req.is_dir
     )
+    return redact_secrets(res)
 
-
-class DeleteRequest(BaseModel):
-    remote: str = "local"
-    path: str
-    is_dir: bool = False
-
-@app.post("/api/browse/delete")
+@app.post("/api/browse/delete", response_model=DeleteResponse)
 def delete_item(req: DeleteRequest):
     """Deletes a file or directory from local or remote filesystem."""
-    return sync_service.delete_item(
+    res = sync_service.delete_item(
         remote=req.remote,
         path=req.path,
         is_dir=req.is_dir
     )
+    return redact_secrets(res)
+
 
 
 

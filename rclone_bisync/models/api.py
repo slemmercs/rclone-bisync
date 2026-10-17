@@ -2,7 +2,7 @@
 Pydantic API schemas and response DTOs for dashboard and operational endpoints.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
 
 
@@ -34,11 +34,14 @@ class BrowseRequest(BaseModel):
 
 class BrowseItem(BaseModel):
     """Directory entry representation."""
-    Path: str = Field(..., description="Item relative path")
+    Path: Optional[str] = Field(None, description="Item relative path")
     Name: str = Field(..., description="File or directory name")
     Size: int = Field(0, description="Size in bytes (-1 or 0 for directories)")
     Mtime: Optional[str] = Field(None, description="ISO-8601 modification timestamp")
+    ModTime: Optional[str] = Field(None, description="ISO-8601 modification timestamp alias from Rclone")
+    MimeType: Optional[str] = Field(None, description="MIME type if available")
     IsDir: bool = Field(False, description="True if entry is a directory")
+
 
 
 class BrowseResponse(BaseModel):
@@ -94,7 +97,10 @@ class RemoteCardInfo(BaseModel):
     """Detailed summary card for a configured remote."""
     name: str
     type: str
+    fs: Optional[str] = None
+    type_label: Optional[str] = None
     is_active_target: bool = False
+    about: Dict[str, Any] = Field(default_factory=dict)
     total_bytes: Optional[int] = None
     used_bytes: Optional[int] = None
     free_bytes: Optional[int] = None
@@ -108,6 +114,8 @@ class RemotesSummary(BaseModel):
     total_capacity_bytes: int = 0
     total_used_bytes: int = 0
     total_free_bytes: int = 0
+    provider_count: Optional[int] = None
+
 
 
 class RemotesResponse(BaseModel):
@@ -124,6 +132,19 @@ class PendingDeletionEntry(BaseModel):
     remote: Optional[str] = None
     size: Optional[int] = None
     modified: Optional[str] = None
+
+
+class PendingDeletionsResponse(BaseModel):
+    """Structured response model for pending deletions review."""
+    has_deletions: bool = False
+    total_count: int = 0
+    source: Optional[str] = None
+    target_action: Optional[str] = None
+    message: Optional[str] = None
+    files: List[Any] = Field(default_factory=list)
+    error: Optional[str] = None
+    aborted_at: Optional[float] = None
+
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +195,3 @@ class TelemetryPayload(BaseModel):
     is_syncing: bool = False
     transfer_stats: Optional[TransferStats] = None
 
-    remote: str = Field(..., description="Target remote")
-    path: str = Field(..., description="Path where canary was created")
-    error: Optional[str] = Field(None, description="Error reason if provisioning failed")
