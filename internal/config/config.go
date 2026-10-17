@@ -178,6 +178,12 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	}
 
 	for _, d := range dirs {
+		fi, err := os.Stat(d)
+		if err == nil && !fi.IsDir() {
+			_ = LoadEnvFile(d)
+			_ = LoadEnvFile(filepath.Join(filepath.Dir(d), "rc-secrets.env"))
+			continue
+		}
 		_ = LoadEnvFile(filepath.Join(d, "rc-secrets.env"))
 		_ = LoadEnvFile(filepath.Join(d, "bisync.env"))
 	}

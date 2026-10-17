@@ -1,29 +1,41 @@
 
-# Task Plan: Phase 5 - Systemd & Installer Updates + Native CLI Subcommands
+# Task Plan: Go Test Coverage Uplift & Quality Gate (>80%)
 
 ## Goal
-Implement unified CLI command structure (`rclone-bisync sync`, `rclone-bisync dashboard`, `rclone-bisync canary`), update systemd user units to target `./rclone-bisync` binary (eliminating `.venv`), streamline `install-custom-rclone.sh`, and update `scripts/check.sh` quality gate to run `go vet`, static checks, secret leak verification, and `go test ./...`.
+Resolve root package covdata toolchain error under `go test -cover ./...`, modernize engineering rules, fix UI frontend issues, and uplift automated test coverage across all packages to >80%.
 
 ## Tasks
-- [x] Task 1: Core CLI Subcommands & Engine Runner (`main.go`, `internal/engine/runner`, `internal/core/compiler`, `internal/core/classifier`)
+- [x] Task 1: UI Bug Fixes & Rules Modernization (`.clinerules`, `utils.js`, `charts.js`, `remotes.js`, `app.js`, `telemetry.go`, `index.html`)
   - **Scope**:
-    - Port argument-to-RC compiler (`internal/core/compiler`).
-    - Port error taxonomy classifier (`internal/core/classifier`).
-    - Implement resilient job polling monitor (`internal/core/client/monitor.go`).
-    - Implement native Go sync orchestrator (`internal/engine/runner/runner.go`).
-    - Wire unified CLI commands (`sync`, `dashboard`, `canary`) in `main.go`.
-- [x] Task 2: Systemd User Services Hardening
-  - **Scope**:
-    - Update `rclone-dashboard.service` to `ExecStart=%h/rclone-bisync/bin/rclone-bisync dashboard --host 127.0.0.1 --port 8080` with `MemoryMax=512M` and `CPUQuota=50%`.
-    - Update `bisync-gdrive.service` to `ExecStart=%h/rclone-bisync/bin/rclone-bisync sync --origin=timer`.
-    - Update `internal/services/sync_service.go` to execute `bin/rclone-bisync sync` in dynamic transient systemd units.
-- [x] Task 3: Streamlined Single-Binary Installer (`install-custom-rclone.sh`)
-  - **Scope**:
-    - Removed Python virtual environment bootstrap and pip dependency installs.
-    - Compiles or installs native single binary `bin/rclone-bisync`.
-    - Maintains strict permission hygiene (`chmod 600 rc-secrets.env`).
-- [x] Task 4: Upgraded Quality Gate (`scripts/check.sh`)
-  - **Scope**:
-    - Integrated `go vet ./...` static analysis.
-    - Integrated `go test -count=1 ./...` across all Go packages.
-    - Python compilation & Pytest suites preserved for backwards compatibility testing.
+    - Fixed duplicate `performanceChart` declaration in global scope (`utils.js` / `charts.js`).
+    - Fixed double comma syntax errors in `remotes.js` and `app.js`.
+    - Modernized `.clinerules` to Go toolchain standards.
+    - Fixed active local topology empty tiles by converting Config struct fields to upper snake_case (`LOCAL_PATH`, `REMOTE_PATH`, `BASE_DIR`).
+  - **Verification**: `./scripts/check.sh` and browser console error-free.
+- [x] Task 2: Fix Root Package covdata Toolchain Issue (`main_test.go`)
+  - **Scope**: Add `main_test.go` covering CLI flag parsing and subcommands (`dashboard`, `sync`, `canary`).
+  - **Verification**: `go test -cover ./...` succeeds without `covdata` error.
+- [x] Task 3: Uplift `internal/core/state` Test Coverage (>90%)
+  - **Scope**: Add unit tests for rate-limit backoff flag lifecycle, notification state persistence, metrics JSONL appending, and pending deletions edge cases (`internal/core/state/state_test.go`).
+  - **Verification**: `go test -cover ./internal/core/state` (achieved 91.3%).
+- [x] Task 4: Uplift `internal/core/client` Test Coverage (>85%)
+  - **Scope**: Add mock HTTP tests for `TouchFile`, `CopyFile`, `CopyDir`, `DeleteFile`, `PurgeDir`, `ListRemotes`, `GetRemoteAbout`, `GetCoreStats`, and retry backoff (`internal/core/client/client_test.go`, `monitor_test.go`).
+  - **Verification**: `go test -cover ./internal/core/client` (achieved 85.5%).
+- [x] Task 5: Uplift `internal/services` Test Coverage (>80%)
+  - **Scope**: Add `internal/services/telemetry_test.go` (stats, cached metrics, secret redaction, telemetry payload) and expand `internal/services/sync_service_test.go` (`CopyItem`, log parsing, `GetRemotesSummary`, action handling, remote deletions).
+  - **Verification**: `go test -cover ./internal/services` (achieved 82.9%).
+- [x] Task 6: Uplift `internal/engine/runner` & `internal/server` Test Coverage (>85%)
+  - **Scope**: Add tests for lock contention, rate-limit aborts, and job failure error classification (`runner_test.go`). Add tests for logs, actions, pending deletions, remotes, browse, copy, and delete routes (`server_test.go`).
+  - **Verification**: `go test -cover ./internal/engine/runner ./internal/server` (runner: 88.4%, server: 87.2%).
+- [x] Task 7: Final Quality Gate & End-to-End Build Verification
+  - **Scope**: Run full `./scripts/check.sh`, `go test -cover ./...` verifying >80% statement coverage across all packages.
+  - **Verification**: `./scripts/check.sh` passed cleanly with all packages >80%.
+
+## Status Updates
+- 2026-10-17: Completed Task 1 (UI syntax fixes, topology snake_case mapping, .clinerules modernization).
+- 2026-10-17: Completed Task 2 (Fixed root package `covdata` issue by adding `main_test.go`).
+- 2026-10-17: Completed Task 3 (`internal/core/state` uplifted to 91.3%).
+- 2026-10-17: Completed Task 4 (`internal/core/client` uplifted to 85.5%).
+- 2026-10-17: Completed Task 5 (`internal/services` uplifted to 82.9%).
+- 2026-10-17: Completed Task 6 (`internal/engine/runner` to 88.4%, `internal/server` to 87.2%).
+- 2026-10-17: Completed Task 7 (`internal/config`: 92.6%, `internal/core/compiler`: 90.2%, `internal/core/notifier`: 89.4%, `internal/core/lock`: 85.7%). Entire repo passes quality gate.

@@ -1,42 +1,57 @@
 # Rclone Bisync Enterprise Automation Hub - Architecture & Roadmap Backlog
 
-## 1. Active Implementation Sprint: Go Single-Binary Architecture Port
+## 1. Completed Go Single-Binary Architecture Port (Phases 1–6)
 
-The project is actively transitioning from Python to a native, single-binary Go architecture. This eliminates virtual environments (`.venv`), eliminates global pip/apt conflicts, provides embedded SPA dashboard distribution via `//go:embed`, reduces RAM footprint from ~60MB to ~12MB, and native Rclone RC ecosystem alignment.
+The project has transitioned from Python to a native, single-binary Go architecture. This eliminates virtual environments (`.venv`), eliminates global pip/apt conflicts, provides embedded SPA dashboard distribution via `//go:embed`, reduces RAM footprint from ~60MB to ~12MB, and native Rclone RC ecosystem alignment.
 
-* **Phase 1: `feat/go-core-engine-and-config` [ESTIMATE: 3-4h | 3 SP]**
-  - Bootstrap Go toolchain and initialize Go module (`github.com/slemmercs/rclone-bisync`).
-  - Port configuration loader (`config.go`): parsing `bisync.env` and `rc-secrets.env`, strict missing `RC_PASS` fail-fast validation.
-  - Port POSIX advisory lock manager (`lock.go`): `flock` semantics, PID liveness check, stale lock recovery.
-  - Port notification dispatcher (`notifier.go`): `notify-send` desktop integration with dynamic icon lookup and optional webhook delivery.
-  - Port unit tests for config, lock, and notifier.
+* **Phase 1: `feat/go-core-engine-and-config` [COMPLETED - PR #9]**
+  - Bootstrapped Go toolchain and initialized Go module (`github.com/slemmercs/rclone-bisync`).
+  - Ported configuration loader (`config.go`): parsing `bisync.env` and `rc-secrets.env`, strict missing `RC_PASS` fail-fast validation.
+  - Ported POSIX advisory lock manager (`lock.go`): `flock` semantics, PID liveness check, stale lock recovery.
+  - Ported notification dispatcher (`notifier.go`): `notify-send` desktop integration with dynamic icon lookup and optional webhook delivery.
+  - Ported unit tests for config, lock, and notifier.
 
-* **Phase 2: `feat/go-rc-client-and-security` [ESTIMATE: 3-4h | 3 SP]**
-  - Port Rclone RC HTTP client (`client.go`): HTTP connection pooling, basic auth, timeouts, error classification.
-  - Implement recursive deep secret sanitization engine (`security.go`): scrubbing nested maps, slices, structs for credentials and tokens.
-  - Port unit tests for RC client and recursive secret redaction.
+* **Phase 2: `feat/go-rc-client-and-security` [COMPLETED - PR #9, PR #10]**
+  - Ported Rclone RC HTTP client (`client.go`): HTTP connection pooling, basic auth, timeouts, error classification.
+  - Implemented recursive deep secret sanitization engine (`security.go`): scrubbing nested maps, slices, structs for credentials and tokens.
+  - Fixed empty JSON payload handling on RC POST endpoints (PR #10).
+  - Ported unit tests for RC client and recursive secret redaction.
 
-* **Phase 3: `feat/go-sync-service-and-explorer` [ESTIMATE: 3-4h | 3 SP]**
-  - Port `SyncService` & `ExplorerService`: path traversal jail enforcement (`filepath.Rel` / clean path boundaries), canary check and provisioning (`touch_file`), file/folder copy and deletion guards.
-  - Port pending deletion parsing and backward-seeking log reader.
-  - Port unit tests for services and explorer safety.
+* **Phase 3: `feat/go-sync-service-and-explorer` [COMPLETED - PR #9]**
+  - Ported `SyncService` & dual-pane explorer backend: path traversal jail enforcement (`filepath.Rel`), canary check and provisioning (`touch_file`), file/folder copy and deletion guards.
+  - Ported pending deletion parsing and backward-seeking log reader.
+  - Ported unit tests for services and explorer safety.
 
-* **Phase 4: `feat/go-rest-api-and-embedded-ui` [ESTIMATE: 3-4h | 3 SP]**
-  - Implement lightweight HTTP REST router (Chi or standard library `net/http`).
-  - Strict Go struct request/response DTOs matching current JSON contracts.
-  - Embed the existing Vue/Alpine frontend SPA directly into the compiled executable via `//go:embed`.
-  - Wire CSRF protection (`X-Dashboard-Request`, loopback origin checking).
-  - Port HTTP API integration tests.
+* **Phase 4: `feat/go-rest-api-and-embedded-ui` [COMPLETED - PR #9]**
+  - Implemented standard library HTTP REST router with CSRF protection (`X-Dashboard-Request`, loopback origin checking).
+  - Concrete Go struct request/response DTOs matching JSON contracts.
+  - Embedded Alpine/Tailwind frontend SPA directly into the compiled executable via `//go:embed`.
+  - Ported HTTP API integration tests.
 
-* **Phase 5: `feat/go-systemd-and-installer` [COMPLETED]**
+* **Phase 5: `feat/go-systemd-and-installer` [COMPLETED - PR #9]**
   - Unified CLI command structure (`rclone-bisync sync`, `rclone-bisync dashboard`, `rclone-bisync canary`).
-  - Update systemd user units to target `./rclone-bisync` binary (eliminating `.venv` references).
-  - Streamline `install-custom-rclone.sh` to a fast single-binary installer.
-  - Update `scripts/check.sh` quality gate to run `go vet`, static checks, secret leak verification, and `go test ./...`.
+  - Updated systemd user units to target `./rclone-bisync` binary (eliminating `.venv` references).
+  - Streamlined `install-custom-rclone.sh` to a fast single-binary installer.
+  - Updated `scripts/check.sh` quality gate to run `go vet`, static checks, secret leak verification, and `go test ./...`.
+
+* **Phase 6: `refactor/frontend-modularization` [COMPLETED - PR #11]**
+  - Modularized frontend scripts into zero-build sub-modules: `utils.js`, `charts.js`, `remotes.js`, `explorer.js`, coordinated by `app.js`.
+  - Maintained zero npm/Node build dependencies.
 
 ---
 
-## 2. Post-Go Migration Feature Roadmap
+## 2. Active Implementation Sprint: Test Coverage Uplift & Quality Gate (>80%)
+
+Targeting statement coverage >80% across all Go packages and resolving toolchain coverage caveats:
+- Add `main_test.go` to eliminate root package empty-test `covdata` toolchain error under `go test -cover ./...`.
+- Uplift `internal/core/state` (>90%): rate-limit backoff flag lifecycle, notification state persistence, metrics JSONL appending.
+- Uplift `internal/core/client` (>85%): mock tests for `TouchFile`, `CopyFile`, `CopyDir`, `DeleteFile`, `PurgeDir`, `ListRemotes`, `GetRemoteAbout`.
+- Uplift `internal/services` (>80%): add `telemetry_test.go` (stats, cached metrics, secret redaction, telemetry payload) and test `CopyItem`, pending deletion log parsing, and remote actions.
+- Uplift `internal/engine/runner` & `internal/server` (>85%): lock contention, rate limit abort, job error classification, and full HTTP endpoint integration tests.
+
+---
+
+## 3. Post-Go Migration Feature Roadmap
 
 * **Branch 4 (Go): `feat/remote-oauth-reauth` [ESTIMATE: 3-4h | 3 SP]**
   - Backend: Implement `ReconnectRemote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
@@ -55,7 +70,7 @@ The project is actively transitioning from Python to a native, single-binary Go 
 
 ---
 
-## 3. Completed Historical Branches (Python Reference Implementation)
+## 4. Completed Historical Branches (Python Reference Implementation)
 
 * **Branch 1: `refactor/clean-env-breaking-change` [MERGED]**
 * **Branch 2: `refactor/service-layer-and-rc-correlation` [MERGED]**
@@ -65,12 +80,7 @@ The project is actively transitioning from Python to a native, single-binary Go 
 
 ---
 
-## 2. Future Releases & Extended Backlog
-
-* **Multi-Profile Synchronization Hub [ESTIMATE: 8-12h | 8 SP]:**
-  * Profile registry supporting independent cloud remotes (e.g., Google Drive personal, OneDrive work, Nextcloud).
-  * Profile-scoped locks (`bisync_<profile>.lock`) and isolated metric streams (`metrics_<profile>.jsonl`).
-  * Multi-tab navigation in the UI to switch profile telemetry.
+## 5. Future Releases & Extended Backlog
 
 * **In-Dashboard Configuration Editor & 3-Layer Safety Pipeline [ESTIMATE: 6-8h | 5 SP]:**
   * Visual parameter adjustment for `--buffer-size`, `--tpslimit`, and conflict resolution strategies.
@@ -80,18 +90,6 @@ The project is actively transitioning from Python to a native, single-binary Go 
 * **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]:**
   * When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
 
-* **Desktop Mode via PyWebView (`--mode=desktop`) [ESTIMATE: 3-4h | 3 SP]:**
-  * Optional launch flag to spawn the dashboard in a borderless native window without needing an external browser.
-
 * **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]:**
   * Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration.
-
-* **Architectural Refactoring — Service & Frontend Decomposition [ESTIMATE: 6-8h | 5 SP]:**
-  * **Backend Domain Service Decomposition**:
-    * Decompose monolithic `SyncService` (786 LOC) into cohesive, single-responsibility services:
-      * `ExplorerService`: Dedicated boundary for path jails (`commonpath`), local/remote browsing, canary creation, file copying, and deletion.
-      * `TelemetryService`: Dedicated boundary for reverse-seeking log parsing, metrics aggregation, and cached daemon health.
-      * `SyncService`: Streamlined domain orchestrator strictly managing process lifecycle, systemd transients, and POSIX lock management.
-  * **Frontend Component Modularization**:
-    * Decompose monolithic `app.js` (962 LOC) and `index.html` (875 LOC) into modular Alpine components/stores (`fileExplorer`, `telemetryView`, `deletionModal`) or zero-build ES modules without introducing heavy Node.js tooling.
 
