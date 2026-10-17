@@ -58,9 +58,11 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
   - Endpoint: `POST /api/remotes/{name}/reconnect`.
   - Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
 
-* **Branch 6 (Go): `feat/interactive-log-cross-filtering` [ESTIMATE: 2.5-3.5h | 3 SP]**
-  - High-performance log stream parsing in Go via `bufio.Scanner`.
-  - UI Component: Clickable `run_id` pills cross-filtering daemon and orchestrator logs by execution window and `job_id`.
+* **Branch 6 (Go): `feat/interactive-log-cross-filtering` [COMPLETED]**
+  - High-performance log stream parsing in Go via `bufio.Scanner` (`internal/services/log_service.go`).
+  - Central structured JSON logger (`internal/core/logger`) recording single-line ledger records in `bisync.log`.
+  - Endpoint `GET /api/logs/daemon` serving correlated time-window slices.
+  - UI Component: Streamlined orchestrator feed with on-demand focused daemon log modal dialog featuring live search, level filtering, and copy-to-clipboard.
 
 * **Multi-Profile Synchronization Hub [ESTIMATE: 6-8h | 5 SP]**
   - Single background Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, etc.) with isolated flock files and telemetry streams.

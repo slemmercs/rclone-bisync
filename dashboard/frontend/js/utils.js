@@ -88,7 +88,15 @@ function parseJsonLogLine(rawLine) {
             object: parsed.object || null,
             origin: parsed.origin || null,
             run_id: parsed.run_id || null,
-            isJson: true
+            job_id: parsed.job_id || null,
+            status: parsed.status || null,
+            error_type: parsed.error_type || null,
+            duration_sec: parsed.duration_sec !== undefined ? parsed.duration_sec : null,
+            files_synced: parsed.files_synced !== undefined ? parsed.files_synced : null,
+            start_time: parsed.start_time || null,
+            end_time: parsed.end_time || null,
+            isJson: true,
+            raw: rawLine
         };
     } catch (e) {
         // Regex fallback for legacy format: "YYYY-MM-DD HH:MM:SS [LEVEL] message"
