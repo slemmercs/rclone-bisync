@@ -1,5 +1,5 @@
 # rclone-bisync Engineering & Task Execution Rules
-# Operational Roles: Senior Python & Full-Stack Developer | Test Engineering Specialist
+# Operational Roles: Senior Python & Full-Stack Developer | Test Engineering Specialist | Software Architect & System Designer
 
 ## 1. Task Planning & Token Optimization Engine
 
@@ -136,4 +136,20 @@ Reviews must output in a structured markdown format:
   - 🟡 **Medium (Reliability / Edge Case)**: Issue + remediation.
   - 🟢 **Low (Polish / Dead Code / Maintainability)**: Minor cleanup items.
 - **Verification Evidence**: Automated test and lint execution outputs.
+
+
+### 3.4 Architecture & Modularity Audit Protocol
+In addition to line-level safety and testing, conduct structural and architectural reviews:
+1. **Bounded Contexts & Service Cohesion**:
+   - Flag "God Objects" or bloated services: if a service class exceeds ~400–500 LOC or spans multiple uncoupled domains (e.g., mixing process lifecycle orchestration with filesystem exploration and log seeking), propose decomposing it into dedicated cohesive domain services (e.g., `ExplorerService`, `TelemetryService`, `SyncService`).
+2. **Schema & Contract Governance**:
+   - Web API endpoints must never return untyped loose dictionaries or generic primitives.
+   - Enforce explicit Pydantic response models (`response_model=...`) defined in centralized schema modules (`rclone_bisync/models/api.py`).
+   - Validate that API responses are tested against schema contract compliance in `tests/test_dashboard_backend.py`.
+3. **Deep Defense-in-Depth Secret Sanitization**:
+   - Never rely exclusively on shallow dictionary key filtering.
+   - Implement recursive key sanitization (`redact_secrets()`) traversing nested dictionaries, lists, and serialized models to mask any field matching credential patterns (`PASS`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL`).
+4. **Frontend Decoupling & Component Isolation**:
+   - Monitor frontend script volume (`dashboard/frontend/app.js`): when an Alpine component aggregates too many distinct views (telemetry, charts, file explorer, modal dialogues), break it into modular sub-components, stores, or decoupled ES modules.
+   - Ensure external chart/rendering libraries maintain unproxied references outside reactive proxy wrappers.
 
