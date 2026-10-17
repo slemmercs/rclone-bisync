@@ -95,3 +95,8 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 * **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]:**
   * Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration.
 
+To Discuss
+
+- daemon log modal needs more structure, the log has a message field that contains json formatted log which should be extracted displayed in a structured form
+- sync service needs modularization probably
+- switch to svelte/vue evaluation
