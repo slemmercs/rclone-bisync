@@ -10,7 +10,7 @@ Add an executable pre-flight verification script (`scripts/check.sh`) to automat
 - [x] Task 2: Document Pre-Flight Script in `README.md` & `.clinerules`
   - **Scope**: `README.md` and `.clinerules` commit validation references
   - **Verification**: `./scripts/check.sh`
-- [ ] Task 3: Checkpoint Commit & Push to Remote
+- [x] Task 3: Checkpoint Commit & Push to Remote
   - **Scope**: Commit and push branch to `origin/chore/add-preflight-check-script`
   - **Verification**: `git status && git log -1`
 
@@ -18,4 +18,6 @@ Add an executable pre-flight verification script (`scripts/check.sh`) to automat
 - 2026-10-17: Initialized task plan on branch `chore/add-preflight-check-script`.
 - 2026-10-17: Created and verified `scripts/check.sh` with 4-stage automated gate.
 - 2026-10-17: Updated `README.md` and `.clinerules` with pre-flight check references.
+- 2026-10-17: Pushed branch `chore/add-preflight-check-script` with commit `2a7cbb8`.
+
 
