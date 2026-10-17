@@ -180,8 +180,14 @@ document.addEventListener("alpine:init", () => {
 
         get filteredConfigEntries() {
             const cfg = this.telemetry.config || {};
-            const exclude = new Set(["LOCAL_PATH", "REMOTE_PATH", "BASE_DIR"]);
-            return Object.entries(cfg).filter(([k]) => !exclude.has(k));
+            const exclude = new Set(["LOCAL_PATH", "REMOTE_PATH", "BASE_DIR", "LOCALPATH", "REMOTEPATH", "BASEDIR"]);
+            return Object.entries(cfg).filter(([k]) => {
+                if (exclude.has(k)) return false;
+                // Exclude flat uppercase aliases when snake_case version is present
+                const snake = k.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
+                if (!k.includes("_") && cfg[snake] !== undefined && snake !== k) return false;
+                return true;
+            });
         },
 
         formatConfig(key, val) {
