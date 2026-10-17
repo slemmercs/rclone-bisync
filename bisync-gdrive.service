@@ -17,9 +17,9 @@ EnvironmentFile=%h/rclone-bisync/bisync.env
 # Set the working directory to the script's location
 WorkingDirectory=%h/rclone-bisync
 
-# Command to execute the Python script
-# -u flag ensures unbuffered output for immediate logging
-ExecStart=%h/rclone-bisync/.venv/bin/python3 -u %h/rclone-bisync/bisync_gdrive_advanced.py --origin=timer
+# Command to execute the native Go binary
+# Subcommand 'sync' runs the safe bidirectional synchronization loop
+ExecStart=%h/rclone-bisync/bin/rclone-bisync sync --origin=timer
 
 # Only restart on actual failures, not on successful completion
 # This service is designed to be triggered by timer, not run continuously
