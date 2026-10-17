@@ -14,39 +14,82 @@
     <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <!-- Header -->
         <header class="flex flex-col md:flex-row md:items-center justify-between pb-4 mb-6 border-b border-slate-800 gap-4">
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight text-white">Rclone Sync Hub</h1>
-                <p class="text-xs text-slate-400 mt-1">Real-time background automation engine monitoring</p>
+            <div class="flex items-center gap-3">
+                <img src="/static/favicon.svg" alt="Rclone Logo" class="w-8 h-8 rounded-lg shadow-sm">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                        <span>Rclone Sync Hub</span>
+                        <span class="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-slate-800 text-slate-400 border border-slate-700/60 uppercase tracking-widest">v2.4 Enterprise</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 mt-0.5">Automated bidirectional cloud synchronizer & health monitor</p>
+                </div>
             </div>
 
-            <!-- Navigation Pills (Option A) & Live Indicator -->
+            <!-- Cockpit Navigation Pills & Global Status Strip -->
             <div class="flex flex-wrap items-center gap-3">
+                <!-- Nav Pills -->
                 <div class="flex items-center bg-slate-900 border border-slate-800/80 p-1 rounded-xl text-xs font-medium">
-                    <button @click="switchTab('telemetry')" :class="currentTab === 'telemetry' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                    <button @click="switchTab('telemetry')" :class="currentTab === 'telemetry' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                        <span>Telemetry & Engine</span>
+                        <span>Engine & Telemetry</span>
                     </button>
-                    <button @click="switchTab('remotes')" :class="currentTab === 'remotes' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                    <button @click="switchTab('remotes')" :class="currentTab === 'remotes' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
                         <span>Storage Remotes</span>
                         <span x-show="remotesData.count > 0" x-text="remotesData.count" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono"></span>
                     </button>
+                    <button @click="switchTab('explorer')" :class="currentTab === 'explorer' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                        <span>File Explorer</span>
+                    </button>
                 </div>
 
-                <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl self-start md:self-auto">
+                <!-- Global Daemon Health & Latency Pill -->
+                <div class="flex items-center gap-2.5 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl self-start md:self-auto font-mono text-xs">
                     <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                        <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-rose-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
+                        <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-500' : 'bg-rose-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
                     </span>
-                    <span class="text-xs font-mono text-indigo-400 tracking-wider">LIVE TELEMETRY</span>
+                    <span :class="telemetry.daemon_health?.status === 'healthy' ? 'text-emerald-400' : 'text-rose-400'" class="font-bold tracking-wider" x-text="telemetry.daemon_health?.status === 'healthy' ? 'LIVE' : 'OFFLINE'"></span>
+                    <span class="text-slate-600">|</span>
+                    <span class="text-slate-400" x-text="daemonLatencyText !== '--' ? daemonLatencyText + 'ms' : '-- ms'"></span>
                 </div>
             </div>
         </header>
 
         <!-- View 1: Telemetry & Engine -->
-        <div x-show="currentTab === 'telemetry'" class="space-y-6">
+        <div x-show="currentTab === 'telemetry'" class="space-y-5">
 
-        <!-- Configuration Topology Banner -->
+            <!-- Cockpit Telemetry Workspace Subheader Toolbar -->
+            <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
+                <div class="flex items-center gap-2 px-1">
+                    <span class="w-2 h-2 rounded-full" :class="telemetry.execution_status === 'SYNCING' ? 'bg-amber-400 animate-pulse' : (telemetry.execution_status === 'IDLE' ? 'bg-emerald-400' : 'bg-slate-500')"></span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono" x-text="'Engine: ' + (telemetry.execution_status || 'IDLE')"></span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button @click="triggerAction('start_sync')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1">
+                        <span x-text="actionLoading === 'start_sync' ? 'WAIT...' : '▶ Start Sync'"></span>
+                    </button>
+                    <button @click="triggerAction('dry_run')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1" title="Simulate bidirectional sync without modifying files">
+                        <span x-text="actionLoading === 'dry_run' ? 'WAIT...' : '🔍 Dry Run'"></span>
+                    </button>
+                    <button @click="openDeletionsModal()" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1" title="Inspect and authorize mass deletions with --force">
+                        <span x-text="actionLoading === 'force_sync' ? 'WAIT...' : '⚡ Force Deletions'"></span>
+                    </button>
+                    <button @click="triggerAction('stop_sync')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg hover:bg-rose-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1">
+                        <span x-text="actionLoading === 'stop_sync' ? 'WAIT...' : '■ Stop'"></span>
+                    </button>
+                    <button @click="confirmResync()" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1">
+                        <span x-text="actionLoading === 'force_resync' ? 'WAIT...' : '⚠ Resync'"></span>
+                    </button>
+                    <button @click="triggerAction('remove_lock')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-lg hover:bg-slate-700 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1" title="Clear stale bisync lock">
+                        <span x-text="actionLoading === 'remove_lock' ? 'WAIT...' : '⏏ Clear Lock'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration Topology Banner -->
         <div x-show="telemetry.config && Object.keys(telemetry.config).length > 0" x-transition.duration.300ms class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 mb-6 text-xs text-slate-400 font-mono">
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-3">
                 <div class="flex items-center gap-2">
@@ -88,34 +131,6 @@
         </div>
 
         <main class="space-y-6">
-            <!-- Quick Actions Control Panel -->
-            <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div class="flex items-center gap-2 w-full md:w-auto">
-                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Quick Actions</span>
-                </div>
-                <div class="flex flex-wrap gap-2 w-full md:w-auto">
-                    <button @click="triggerAction('start_sync')" :disabled="actionLoading !== null" class="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded hover:bg-emerald-500/20 text-[10px] uppercase font-bold tracking-wider transition-colors flex-1 md:flex-none">
-                        <span x-text="actionLoading === 'start_sync' ? 'WAIT...' : '▶ Start Sync'"></span>
-                    </button>
-                    <button @click="triggerAction('dry_run')" :disabled="actionLoading !== null" class="px-3 py-1.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded hover:bg-sky-500/20 text-[10px] uppercase font-bold tracking-wider transition-colors flex-1 md:flex-none" title="Simulate bidirectional sync without modifying files">
-                        <span x-text="actionLoading === 'dry_run' ? 'WAIT...' : '🔍 Dry Run'"></span>
-                    </button>
-                    <button @click="openDeletionsModal()" :disabled="actionLoading !== null" class="px-3 py-1.5 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded hover:bg-purple-500/20 text-[10px] uppercase font-bold tracking-wider transition-colors flex-1 md:flex-none" title="Inspect and authorize mass deletions with --force">
-                        <span x-text="actionLoading === 'force_sync' ? 'WAIT...' : '⚡ Force Deletions'"></span>
-                    </button>
-                    <button @click="triggerAction('stop_sync')" :disabled="actionLoading !== null" class="px-3 py-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded hover:bg-rose-500/20 text-[10px] uppercase font-bold tracking-wider transition-colors flex-1 md:flex-none">
-                        <span x-text="actionLoading === 'stop_sync' ? 'WAIT...' : '■ Stop Sync'"></span>
-                    </button>
-                    <button @click="confirmResync()" :disabled="actionLoading !== null" class="px-3 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded hover:bg-amber-500/20 text-[10px] uppercase font-bold tracking-wider transition-colors flex-1 md:flex-none">
-                        <span x-text="actionLoading === 'force_resync' ? 'WAIT...' : '⚠ Force Resync'"></span>
-                    </button>
-                    <button @click="triggerAction('remove_lock')" :disabled="actionLoading !== null" class="px-3 py-1.5 bg-slate-800 text-slate-400 border border-slate-700 rounded hover:bg-slate-700 text-[10px] uppercase font-bold tracking-wider transition-colors flex-1 md:flex-none">
-                        <span x-text="actionLoading === 'remove_lock' ? 'WAIT...' : '⏏ Clear Lock'"></span>
-                    </button>
-                </div>
-            </div>
-
             <!-- Deletion Guardrail Alert Banner -->
             <div x-show="isTooManyDeletesActive" x-transition.duration.300ms class="bg-rose-950/40 border border-rose-500/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-rose-950/20">
                 <div class="flex items-center gap-3">
@@ -351,8 +366,9 @@
                         <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
                             <span class="text-[11px] text-slate-500">Authenticated via RC</span>
                             <div class="flex items-center gap-2">
+                                <button @click="openRemoteInExplorer(remote.name)" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1 font-medium">📁 Browse Files ↗</button>
                                 <button @click="fetchRemotes(true)" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors">Test Ping</button>
-                                <button @click="switchTab('telemetry')" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded border border-indigo-700/40 transition-colors">View Sync</button>
+                                <button @click="switchTab('telemetry')" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-400 rounded border border-slate-800 transition-colors">View Sync</button>
                             </div>
                         </div>
                     </div>
@@ -366,6 +382,417 @@
                 </div>
             </div>
         </div> <!-- End View 2: Remote Storage Manager -->
+
+        <!-- View 3: File Explorer Workspace -->
+        <div x-show="currentTab === 'explorer'" x-transition.opacity.duration.200ms class="space-y-5">
+            <!-- Explorer Cockpit Subheader Toolbar -->
+            <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-200">Dual-Pane Directory Explorer</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block">Local ↔ Remote</span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-2 py-1 rounded-lg text-xs">
+                        <span class="text-[11px] text-slate-400 font-sans">Delete Safety:</span>
+                        <select x-model="deleteConfirmMode" @change="setDeleteConfirmMode(deleteConfirmMode)" class="bg-slate-900 border border-slate-700/80 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium">
+                            <option value="double">Double Confirmation (Default)</option>
+                            <option value="single">Single Confirmation</option>
+                            <option value="none">Direct (No Confirmation)</option>
+                        </select>
+                    </div>
+                    <button @click="syncCurrentDirectory('left')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-indigo-500/30" title="Sync current local directory contents to remote">
+                        <span>➔ Sync Local to Remote</span>
+                    </button>
+                    <button @click="syncCurrentDirectory('right')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-emerald-500/30" title="Sync current remote directory contents to local">
+                        <span>⬅ Sync Remote to Local</span>
+                    </button>
+                    <button @click="refreshExplorer()" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
+                        <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': explorer.left.loading || explorer.right.loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dual Pane Columns Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Left Pane: Local Storage -->
+                <div @dragover="onDragOver('left', $event)" @dragleave="onDragLeave('left', $event)" @drop="onDrop('left', $event)" class="bg-slate-900/60 border rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem] transition-colors relative" :class="explorer.isDragOverLeft ? 'border-2 border-dashed border-indigo-400 bg-indigo-950/30' : 'border-slate-800'">
+                    <!-- Drag-and-Drop Active Overlay -->
+                    <div x-show="explorer.isDragOverLeft" class="absolute inset-0 bg-indigo-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-indigo-400 rounded-2xl">
+                        <svg class="w-10 h-10 text-indigo-400 animate-bounce mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                        <div class="text-sm font-bold text-white uppercase tracking-wider">Drop to Copy to Local</div>
+                        <div class="text-xs text-indigo-300 mt-1 font-mono" x-text="explorer.draggedItem ? explorer.draggedItem.Name : ''"></div>
+                    </div>
+
+                    <!-- Pane Header -->
+                    <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2 h-14 shrink-0">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Local</span>
+                            <span class="text-xs font-semibold text-slate-200 truncate" x-text="telemetry.config.LOCAL_PATH || '~/gdrive'"></span>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <div class="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.left.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="explorer.left.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                <span x-text="explorer.left.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
+                            </div>
+                            <button x-show="!explorer.left.hasCanary && !explorer.left.loading" @click="provisionCanary('left')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-sans font-medium transition-colors border border-amber-500/40" title="Create RCLONE_TEST in this directory">
+                                + Touch Canary
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Breadcrumb & Path Bar -->
+                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400 h-10 shrink-0">
+                        <div class="flex items-center gap-1 min-w-0 overflow-x-auto text-[11px] py-0.5">
+                            <span class="text-slate-500 font-sans shrink-0">Path:</span>
+                            <template x-for="(crumb, idx) in getBreadcrumbs('left')" :key="crumb.path">
+                                <div class="flex items-center shrink-0">
+                                    <span x-show="idx > 0" class="text-slate-600 px-1 select-none">/</span>
+                                    <button @click="fetchExplorerDirectory('left', explorer.left.target, crumb.path)" class="hover:text-white transition-colors underline-offset-2 hover:underline" :class="idx === getBreadcrumbs('left').length - 1 ? 'text-indigo-300 font-bold' : 'text-slate-400'" x-text="crumb.name"></button>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button @click="copyPanePath('left')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-sans transition-all flex items-center gap-1 border border-slate-700/60" :class="explorer.left.copied ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : ''">
+                                <span x-text="explorer.left.copied ? '✓ Copied' : '📋 Copy'"></span>
+                            </button>
+                            <span class="text-[10px] text-slate-500 hidden sm:inline-block" x-text="`${explorer.left.items.length} items`"></span>
+                        </div>
+                    </div>
+
+                    <!-- Search & Filter Bar -->
+                    <div class="px-3.5 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-2 h-11 shrink-0">
+                        <div class="relative flex-1">
+                            <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </span>
+                            <input x-model="explorer.left.search" type="text" placeholder="Filter files in view..." class="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-7 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors font-sans">
+                            <button x-show="explorer.left.search" @click="explorer.left.search = ''" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-white text-xs">✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Column Sort Header -->
+                    <div class="px-3.5 py-1.5 bg-slate-950/90 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-500 flex items-center justify-between select-none tracking-wider shrink-0 font-sans">
+                        <div class="flex items-center gap-2">
+                            <button @click="toggleSort('left', 'name')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort alphabetically by Name">
+                                <span>Name</span>
+                                <span x-show="explorer.left.sortBy === 'name'" x-text="explorer.left.sortAsc ? '▲' : '▼'" class="text-indigo-400"></span>
+                            </button>
+                            <span class="text-slate-700">|</span>
+                            <button @click="toggleSort('left', 'type')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by File Type">
+                                <span>Type</span>
+                                <span x-show="explorer.left.sortBy === 'type'" x-text="explorer.left.sortAsc ? '▲' : '▼'" class="text-indigo-400"></span>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <button @click="toggleSort('left', 'mtime')" class="hidden sm:flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by Last Modified Date">
+                                <span>Modified</span>
+                                <span x-show="explorer.left.sortBy === 'mtime'" x-text="explorer.left.sortAsc ? '▲' : '▼'" class="text-indigo-400"></span>
+                            </button>
+                            <button @click="toggleSort('left', 'size')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by File Size">
+                                <span>Size</span>
+                                <span x-show="explorer.left.sortBy === 'size'" x-text="explorer.left.sortAsc ? '▲' : '▼'" class="text-indigo-400"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Directory Listing Table -->
+                    <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
+                        <!-- Loading State -->
+                        <div x-show="explorer.left.loading" class="p-8 text-center text-slate-500">
+                            <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <span>Reading local directory...</span>
+                        </div>
+
+                        <!-- Error State -->
+                        <div x-show="!explorer.left.loading && explorer.left.error" class="p-6 text-center text-rose-400 text-xs">
+                            <p x-text="explorer.left.error"></p>
+                        </div>
+
+                        <!-- Parent Directory Link -->
+                        <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.path !== ''" @click="navigateFolder('left', '..')" class="p-2.5 hover:bg-slate-800/50 cursor-pointer flex items-center gap-2 text-indigo-400 transition-colors">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path></svg>
+                            <span class="font-sans font-medium text-[11px]">.. (Parent Directory)</span>
+                        </div>
+
+                        <!-- File & Folder Rows -->
+                        <template x-for="(item, idx) in getFilteredItems('left')" :key="(item.Path || item.Name) + '_' + idx">
+                            <div draggable="true" @dragstart="onDragStart('left', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <template x-if="item.IsDir">
+                                        <button draggable="false" @mousedown.stop @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
+                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                                            <span class="font-medium truncate" x-text="item.Name"></span>
+                                        </button>
+                                    </template>
+                                    <template x-if="!item.IsDir">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <template x-if="item.Name === 'RCLONE_TEST'">
+                                                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                            </template>
+                                            <template x-if="item.Name !== 'RCLONE_TEST'">
+                                                <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            </template>
+                                            <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="flex items-center gap-2.5 shrink-0 text-[11px] text-slate-500 font-mono">
+                                    <span class="text-slate-500 text-[10px] hidden sm:inline-block" x-text="formatModTime(item.ModTime)"></span>
+                                    <span class="w-16 text-right" x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
+                                    <button draggable="false" @mousedown.stop @click.stop="transferItem('left', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-indigo-500/40 cursor-pointer" title="Copy to opposing remote pane">
+                                        <span x-text="item._copying ? 'Copying...' : '➔ Copy'"></span>
+                                    </button>
+                                    <button draggable="false" @mousedown.stop @click.stop="promptDeleteItem('left', item)" :disabled="item.Name === 'RCLONE_TEST'" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 rounded text-[10px] transition-all flex items-center cursor-pointer disabled:opacity-0" title="Delete from local storage">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Empty State -->
+                        <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.items.length === 0" class="p-8 text-center text-slate-500 text-xs">
+                            Empty directory
+                        </div>
+
+                        <!-- No Filter Matches -->
+                        <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.items.length > 0 && getFilteredItems('left').length === 0" class="p-8 text-center text-slate-500 text-xs">
+                            <span>No items match "</span><span class="text-indigo-400 font-semibold" x-text="explorer.left.search"></span><span>"</span>
+                            <button @click="explorer.left.search = ''" class="block mx-auto mt-2 text-indigo-400 hover:text-indigo-300 underline font-medium">Clear Filter</button>
+                        </div>
+                    </div>
+
+                    <!-- Pane Footer -->
+                    <div class="px-3.5 py-2 bg-slate-950/40 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+                        <span x-text="explorer.left.search ? `Filtered: ${getFilteredItems('left').length} of ${explorer.left.items.length}` : `${explorer.left.itemCount} items`"></span>
+                        <span x-text="formatBytes(explorer.left.totalSize) + ' total'"></span>
+                    </div>
+                </div>
+                <!-- Right Pane: Remote Cloud Storage -->
+                <div @dragover="onDragOver('right', $event)" @dragleave="onDragLeave('right', $event)" @drop="onDrop('right', $event)" class="bg-slate-900/60 border rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem] transition-colors relative" :class="explorer.isDragOverRight ? 'border-2 border-dashed border-emerald-400 bg-emerald-950/30' : 'border-slate-800'">
+                    <!-- Drag-and-Drop Active Overlay -->
+                    <div x-show="explorer.isDragOverRight" class="absolute inset-0 bg-emerald-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-emerald-400 rounded-2xl">
+                        <svg class="w-10 h-10 text-emerald-400 animate-bounce mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                        <div class="text-sm font-bold text-white uppercase tracking-wider">Drop to Copy to Remote</div>
+                        <div class="text-xs text-emerald-300 mt-1 font-mono" x-text="explorer.draggedItem ? explorer.draggedItem.Name : ''"></div>
+                    </div>
+
+                    <!-- Pane Header with Remote Selector Dropdown -->
+                    <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2 h-14 shrink-0">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Remote</span>
+                            <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
+                                <template x-for="r in remotesData.remotes" :key="r.name">
+                                    <option :value="r.name" x-text="r.name + ':' + (r.is_active_target ? ' (Active)' : '')"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <div class="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.right.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="explorer.right.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                <span x-text="explorer.right.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
+                            </div>
+                            <button x-show="!explorer.right.hasCanary && !explorer.right.loading" @click="provisionCanary('right')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-sans font-medium transition-colors border border-amber-500/40" title="Create RCLONE_TEST in this directory">
+                                + Touch Canary
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Breadcrumb & Path Bar -->
+                    <div class="px-3.5 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400 h-10 shrink-0">
+                        <div class="flex items-center gap-1 min-w-0 overflow-x-auto text-[11px] py-0.5">
+                            <span class="text-slate-500 font-sans shrink-0">Path:</span>
+                            <template x-for="(crumb, idx) in getBreadcrumbs('right')" :key="crumb.path">
+                                <div class="flex items-center shrink-0">
+                                    <span x-show="idx > 0" class="text-slate-600 px-1 select-none">/</span>
+                                    <button @click="fetchExplorerDirectory('right', explorer.right.target, crumb.path)" class="hover:text-white transition-colors underline-offset-2 hover:underline" :class="idx === getBreadcrumbs('right').length - 1 ? 'text-emerald-400 font-bold' : 'text-slate-400'" x-text="crumb.name"></button>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button @click="copyPanePath('right')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-sans transition-all flex items-center gap-1 border border-slate-700/60" :class="explorer.right.copied ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : ''">
+                                <span x-text="explorer.right.copied ? '✓ Copied' : '📋 Copy'"></span>
+                            </button>
+                            <span class="text-[10px] text-slate-500 hidden sm:inline-block" x-text="`${explorer.right.items.length} items`"></span>
+                        </div>
+                    </div>
+
+                    <!-- Search & Filter Bar -->
+                    <div class="px-3.5 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-2 h-11 shrink-0">
+                        <div class="relative flex-1">
+                            <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </span>
+                            <input x-model="explorer.right.search" type="text" placeholder="Filter files in view..." class="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-7 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors font-sans">
+                            <button x-show="explorer.right.search" @click="explorer.right.search = ''" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-white text-xs">✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Column Sort Header -->
+                    <div class="px-3.5 py-1.5 bg-slate-950/90 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-500 flex items-center justify-between select-none tracking-wider shrink-0 font-sans">
+                        <div class="flex items-center gap-2">
+                            <button @click="toggleSort('right', 'name')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort alphabetically by Name">
+                                <span>Name</span>
+                                <span x-show="explorer.right.sortBy === 'name'" x-text="explorer.right.sortAsc ? '▲' : '▼'" class="text-emerald-400"></span>
+                            </button>
+                            <span class="text-slate-700">|</span>
+                            <button @click="toggleSort('right', 'type')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by File Type">
+                                <span>Type</span>
+                                <span x-show="explorer.right.sortBy === 'type'" x-text="explorer.right.sortAsc ? '▲' : '▼'" class="text-emerald-400"></span>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <button @click="toggleSort('right', 'mtime')" class="hidden sm:flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by Last Modified Date">
+                                <span>Modified</span>
+                                <span x-show="explorer.right.sortBy === 'mtime'" x-text="explorer.right.sortAsc ? '▲' : '▼'" class="text-emerald-400"></span>
+                            </button>
+                            <button @click="toggleSort('right', 'size')" class="flex items-center gap-1 hover:text-slate-200 transition-colors" title="Sort by File Size">
+                                <span>Size</span>
+                                <span x-show="explorer.right.sortBy === 'size'" x-text="explorer.right.sortAsc ? '▲' : '▼'" class="text-emerald-400"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Directory Listing Table -->
+                    <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
+                        <!-- Loading State -->
+                        <div x-show="explorer.right.loading" class="p-8 text-center text-slate-500">
+                            <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <span>Querying remote directory via RC...</span>
+                        </div>
+
+                        <!-- Error State -->
+                        <div x-show="!explorer.right.loading && explorer.right.error" class="p-6 text-center text-rose-400 text-xs">
+                            <p x-text="explorer.right.error"></p>
+                        </div>
+
+                        <!-- Parent Directory Link -->
+                        <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.path !== ''" @click="navigateFolder('right', '..')" class="p-2.5 hover:bg-slate-800/50 cursor-pointer flex items-center gap-2 text-indigo-400 transition-colors">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path></svg>
+                            <span class="font-sans font-medium text-[11px]">.. (Parent Directory)</span>
+                        </div>
+
+                        <!-- File & Folder Rows -->
+                        <template x-for="(item, idx) in getFilteredItems('right')" :key="(item.ID || item.Path || item.Name) + '_' + idx">
+                            <div draggable="true" @dragstart="onDragStart('right', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <template x-if="item.IsDir">
+                                        <button draggable="false" @mousedown.stop @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
+                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                                            <span class="font-medium truncate" x-text="item.Name"></span>
+                                        </button>
+                                    </template>
+                                    <template x-if="!item.IsDir">
+                                        <div class="flex items-center gap-2 truncate">
+                                            <template x-if="item.Name === 'RCLONE_TEST'">
+                                                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                            </template>
+                                            <template x-if="item.Name !== 'RCLONE_TEST'">
+                                                <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            </template>
+                                            <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="flex items-center gap-2.5 shrink-0 text-[11px] text-slate-500 font-mono">
+                                    <span class="text-slate-500 text-[10px] hidden sm:inline-block" x-text="formatModTime(item.ModTime)"></span>
+                                    <span class="w-16 text-right" x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
+                                    <button draggable="false" @mousedown.stop @click.stop="transferItem('right', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/60 text-emerald-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-emerald-500/40 cursor-pointer" title="Copy to opposing local pane">
+                                        <span x-text="item._copying ? 'Copying...' : '⬅ Copy'"></span>
+                                    </button>
+                                    <button draggable="false" @mousedown.stop @click.stop="promptDeleteItem('right', item)" :disabled="item.Name === 'RCLONE_TEST'" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 rounded text-[10px] transition-all flex items-center cursor-pointer disabled:opacity-0" title="Delete from remote storage">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Empty State -->
+                        <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.items.length === 0" class="p-8 text-center text-slate-500 text-xs">
+                            Empty directory
+                        </div>
+
+                        <!-- No Filter Matches -->
+                        <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.items.length > 0 && getFilteredItems('right').length === 0" class="p-8 text-center text-slate-500 text-xs">
+                            <span>No items match "</span><span class="text-emerald-400 font-semibold" x-text="explorer.right.search"></span><span>"</span>
+                            <button @click="explorer.right.search = ''" class="block mx-auto mt-2 text-indigo-400 hover:text-indigo-300 underline font-medium">Clear Filter</button>
+                        </div>
+                    </div>
+
+                    <!-- Pane Footer -->
+                    <div class="px-3.5 py-2 bg-slate-950/40 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+                        <span x-text="explorer.right.search ? `Filtered: ${getFilteredItems('right').length} of ${explorer.right.items.length}` : `${explorer.right.itemCount} items`"></span>
+                        <span x-text="formatBytes(explorer.right.totalSize) + ' total'"></span>
+                    </div>
+                </div>
+            </div>
+        </div> <!-- End View 3: File Explorer Workspace -->
+
+        <!-- Delete Confirmation Modal (Configurable 1 or 2 Steps) -->
+        <div x-show="deleteModal.show" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-transition.opacity.duration.200ms>
+            <div @click.away="cancelDelete()" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4">
+                <!-- Header -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Confirm Deletion</h3>
+                            <div class="text-[11px] text-slate-400" x-text="deleteModal.step === 1 ? 'Step 1 of 2: Review Item' : 'Step 2 of 2: Final Confirmation'"></div>
+                        </div>
+                    </div>
+                    <button @click="cancelDelete()" class="text-slate-500 hover:text-white text-lg">✕</button>
+                </div>
+
+                <!-- Target Item Info Box -->
+                <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3 space-y-1.5 font-mono text-xs">
+                    <div class="flex items-center justify-between text-slate-400">
+                        <span class="text-slate-500">Storage Target:</span>
+                        <span class="font-bold" :class="deleteModal.paneKey === 'left' ? 'text-indigo-400' : 'text-emerald-400'" x-text="deleteModal.paneKey ? explorer[deleteModal.paneKey].target.toUpperCase() : ''"></span>
+                    </div>
+                    <div class="flex items-center justify-between text-slate-400">
+                        <span class="text-slate-500">Item Name:</span>
+                        <span class="text-slate-200 font-semibold truncate max-w-[14rem]" x-text="deleteModal.item ? deleteModal.item.Name : ''"></span>
+                    </div>
+                    <div class="flex items-center justify-between text-slate-400">
+                        <span class="text-slate-500">Type:</span>
+                        <span x-text="deleteModal.item?.IsDir ? 'Directory (all contents)' : 'Single File'"></span>
+                    </div>
+                </div>
+
+                <!-- Step 1 Notice -->
+                <template x-if="deleteModal.step === 1">
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Are you sure you want to delete <span class="font-bold text-rose-300 font-mono" x-text="deleteModal.item?.Name"></span>?
+                        This action will permanently remove it from storage.
+                    </p>
+                </template>
+
+                <!-- Step 2 Notice -->
+                <template x-if="deleteModal.step === 2">
+                    <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 space-y-1">
+                        <p class="font-semibold text-rose-200 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <span>Permanent Deletion Warning</span>
+                        </p>
+                        <p class="text-[11px] text-rose-300/80">Please confirm once more. This cannot be undone.</p>
+                    </div>
+                </template>
+
+                <!-- Actions -->
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                    <button @click="cancelDelete()" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+                        Cancel
+                    </button>
+                    <button @click="advanceDeleteStep()" :disabled="deleteModal.deleting" class="px-4 py-1.5 rounded-lg text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5" :class="deleteModal.step === 1 ? 'bg-amber-600 hover:bg-amber-500' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-950/50'">
+                        <span x-text="deleteModal.deleting ? 'Deleting...' : (deleteModal.step === 1 ? 'Next ➔' : 'Confirm & Delete')"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
 
 
 
@@ -434,6 +861,13 @@
                 </button>
             </div>
         </div>
+    </div>
+
+    <!-- Global Notification Toast -->
+    <div x-show="toast.show" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2" class="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl p-3.5 shadow-2xl border text-xs font-medium flex items-center gap-3 backdrop-blur-md" :class="toast.type === 'success' ? 'bg-emerald-950/90 text-emerald-200 border-emerald-700/60' : (toast.type === 'error' ? 'bg-rose-950/90 text-rose-200 border-rose-700/60' : 'bg-slate-900/90 text-slate-200 border-slate-700/60')">
+        <span class="w-2 h-2 rounded-full shrink-0" :class="toast.type === 'success' ? 'bg-emerald-400' : (toast.type === 'error' ? 'bg-rose-400' : 'bg-indigo-400')"></span>
+        <span class="flex-1" x-text="toast.message"></span>
+        <button @click="toast.show = false" class="text-slate-400 hover:text-white text-sm">✕</button>
     </div>
 
     <script src="/static/app.js?v=6"></script>

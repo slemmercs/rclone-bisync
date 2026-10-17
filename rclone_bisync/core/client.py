@@ -197,11 +197,108 @@ class RcloneClient:
             res = requests.post(f"{self.api_url}/operations/list", json=payload, timeout=10, auth=self.auth)
             if res.status_code == 200:
                 items = res.json().get("list", [])
+                if clean_path:
+                    for it in items:
+                        rel = it.get("Path") or it.get("Name") or ""
+                        if not rel.startswith(clean_path):
+                            it["Path"] = f"{clean_path}/{rel}".strip("/")
                 has_canary = any(item.get("Name") == "RCLONE_TEST" for item in items)
                 return {"items": items, "has_canary": has_canary, "remote": fs, "path": clean_path}
         except Exception as e:
             logging.warning(f"Failed to list directory {fs}{clean_path}: {e}")
             return {"items": [], "has_canary": False, "error": str(e), "remote": fs, "path": clean_path}
         return {"items": [], "has_canary": False, "remote": fs, "path": clean_path}
+
+    def touch_file(self, remote: str, path: str) -> Dict[str, Any]:
+        """
+        Calls /operations/touch to create or update timestamp on a remote file.
+        """
+        fs = remote if remote.endswith(":") else f"{remote}:"
+        clean_path = path.strip("/")
+        payload = {"fs": fs, "remote": clean_path}
+        try:
+            res = requests.post(f"{self.api_url}/operations/touch", json=payload, timeout=10, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "remote": fs, "path": clean_path}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}", "remote": fs, "path": clean_path}
+        except Exception as e:
+            logging.warning(f"Failed to touch file {fs}{clean_path}: {e}")
+            return {"status": "error", "error": str(e), "remote": fs, "path": clean_path}
+
+    def copy_file(self, src_fs: str, src_remote: str, dst_fs: str, dst_remote: str) -> Dict[str, Any]:
+        """
+        Calls /operations/copyfile to copy a single file between storage systems.
+        """
+        payload = {
+            "srcFs": src_fs,
+            "srcRemote": src_remote,
+            "dstFs": dst_fs,
+            "dstRemote": dst_remote
+        }
+        try:
+            res = requests.post(f"{self.api_url}/operations/copyfile", json=payload, timeout=30, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "src": f"{src_fs}/{src_remote}", "dst": f"{dst_fs}/{dst_remote}"}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logging.warning(f"Failed to copy file from {src_fs}/{src_remote} to {dst_fs}/{dst_remote}: {e}")
+            return {"status": "error", "error": str(e)}
+
+    def copy_dir(self, src_fs: str, dst_fs: str) -> Dict[str, Any]:
+        """
+        Calls /sync/copy to copy a directory tree between storage systems.
+        """
+        payload = {
+            "srcFs": src_fs,
+            "dstFs": dst_fs
+        }
+        try:
+            res = requests.post(f"{self.api_url}/sync/copy", json=payload, timeout=60, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "src": src_fs, "dst": dst_fs}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logging.warning(f"Failed to copy directory from {src_fs} to {dst_fs}: {e}")
+            return {"status": "error", "error": str(e)}
+
+    def delete_file(self, fs: str, remote: str) -> Dict[str, Any]:
+        """
+        Calls /operations/deletefile to delete a single file on a remote storage system.
+        """
+        clean_fs = fs if fs.endswith(":") else f"{fs}:"
+        clean_remote = remote.strip("/")
+        payload = {
+            "fs": clean_fs,
+            "remote": clean_remote
+        }
+        try:
+            res = requests.post(f"{self.api_url}/operations/deletefile", json=payload, timeout=20, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "fs": clean_fs, "remote": clean_remote}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logging.warning(f"Failed to delete file {clean_fs}{clean_remote}: {e}")
+            return {"status": "error", "error": str(e)}
+
+    def purge_dir(self, fs: str, remote: str) -> Dict[str, Any]:
+        """
+        Calls /operations/purge to delete a directory and all of its contents.
+        """
+        clean_fs = fs if fs.endswith(":") else f"{fs}:"
+        clean_remote = remote.strip("/")
+        payload = {
+            "fs": clean_fs,
+            "remote": clean_remote
+        }
+        try:
+            res = requests.post(f"{self.api_url}/operations/purge", json=payload, timeout=30, auth=self.auth)
+            if res.status_code == 200:
+                return {"status": "success", "fs": clean_fs, "remote": clean_remote}
+            return {"status": "error", "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logging.warning(f"Failed to purge directory {clean_fs}{clean_remote}: {e}")
+            return {"status": "error", "error": str(e)}
+
+
 
 

@@ -180,3 +180,180 @@ def test_get_remotes_summary():
     assert res["remotes"][0]["is_active_target"] is True
     assert res["remotes"][1]["is_active_target"] is False
 
+
+
+def test_browse_path_remote_delegation():
+    cfg = DummyConfig()
+    mock_client = mock.Mock()
+    mock_client.list_directory.return_value = {
+        "items": [{"Name": "test.txt", "IsDir": False}],
+        "has_canary": False,
+        "remote": "gdrive:",
+        "path": "docs"
+    }
+    service = SyncService(config=cfg, rc_client=mock_client)
+    res = service.browse_path(remote="gdrive", path="docs")
+    mock_client.list_directory.assert_called_once_with(remote="gdrive", path="docs")
+    assert res["remote"] == "gdrive:"
+    assert len(res["items"]) == 1
+
+
+def test_browse_path_local_success_and_canary(tmp_path):
+    # Setup test directory structure
+    base = tmp_path / "gdrive"
+    base.mkdir()
+    (base / "file1.txt").write_text("hello")
+    (base / "RCLONE_TEST").write_text("canary")
+    sub = base / "SubDir"
+    sub.mkdir()
+    (sub / "nested.txt").write_text("world")
+
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+    service = SyncService(config=cfg, rc_client=mock.Mock())
+
+    # Root browse
+    res = service.browse_path(remote="local", path="")
+    assert res["remote"] == "local"
+    assert res["path"] == ""
+    assert res["has_canary"] is True
+    # Verify subfolder is sorted first
+    names = [i["Name"] for i in res["items"]]
+    assert names[0] == "SubDir"
+    assert "file1.txt" in names
+    assert "RCLONE_TEST" in names
+
+    # SubDir browse
+    sub_res = service.browse_path(remote="local", path="SubDir")
+    assert sub_res["remote"] == "local"
+    assert sub_res["path"] == "SubDir"
+    assert sub_res["has_canary"] is False
+    assert len(sub_res["items"]) == 1
+    assert sub_res["items"][0]["Name"] == "nested.txt"
+    assert sub_res["items"][0]["IsDir"] is False
+
+
+def test_browse_path_local_security_jail(tmp_path):
+    base = tmp_path / "gdrive"
+    base.mkdir()
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+    service = SyncService(config=cfg, rc_client=mock.Mock())
+
+    # Attempt path traversal
+    res = service.browse_path(remote="local", path="../../etc")
+    assert "forbidden" in res.get("error", "").lower()
+    assert res["items"] == []
+
+    # Nonexistent folder inside base
+    res_nonexistent = service.browse_path(remote="local", path="does_not_exist")
+    assert "does not exist" in res_nonexistent.get("error", "").lower()
+    assert res_nonexistent["items"] == []
+
+
+def test_create_canary_local_and_remote(tmp_path):
+    base = tmp_path / "gdrive"
+    base.mkdir()
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+    mock_client = mock.Mock()
+    mock_client.touch_file.return_value = {"status": "success", "remote": "gdrive:", "path": "RCLONE_TEST"}
+    service = SyncService(config=cfg, rc_client=mock_client)
+
+    # 1. Local canary creation
+    canary_path = base / "RCLONE_TEST"
+    assert not canary_path.exists()
+    res = service.create_canary(remote="local", path="")
+    assert res["status"] == "success"
+    assert canary_path.exists()
+
+    # 2. Local jail violation
+    res_jail = service.create_canary(remote="local", path="../../etc")
+    assert res_jail["status"] == "error"
+    assert "forbidden" in res_jail["error"].lower()
+
+    # 3. Remote canary creation
+    res_remote = service.create_canary(remote="gdrive", path="subfolder")
+    mock_client.touch_file.assert_called_once_with(remote="gdrive", path="subfolder/RCLONE_TEST")
+    assert res_remote["status"] == "success"
+
+
+
+def test_copy_item_local_to_remote(tmp_path):
+    base = tmp_path / "gdrive"
+    base.mkdir()
+    sample = base / "notes.txt"
+    sample.write_text("my notes")
+
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+    mock_client = mock.Mock()
+    mock_client.copy_file.return_value = {"status": "success"}
+    mock_client.copy_dir.return_value = {"status": "success"}
+    service = SyncService(config=cfg, rc_client=mock_client)
+
+    # 1. Copy file local to remote
+    res = service.copy_item(src_remote="local", src_path="notes.txt", dst_remote="gdrive", dst_path="docs")
+    assert res["status"] == "success"
+    mock_client.copy_file.assert_called_once_with(
+        src_fs=str(base),
+        src_remote="notes.txt",
+        dst_fs="gdrive:docs",
+        dst_remote="notes.txt"
+    )
+
+    # 2. Local jail escape attempt
+    res_jail = service.copy_item(src_remote="local", src_path="../../etc/passwd", dst_remote="gdrive", dst_path="pwn")
+    assert res_jail["status"] == "error"
+    assert "forbidden" in res_jail["error"].lower()
+
+
+def test_delete_item(tmp_path):
+    base = tmp_path / "gdrive_local"
+    base.mkdir()
+    file_to_del = base / "trash.txt"
+    file_to_del.write_text("goodbye")
+    dir_to_del = base / "old_folder"
+    dir_to_del.mkdir()
+    canary = base / "RCLONE_TEST"
+    canary.write_text("safety")
+
+    cfg = DummyConfig()
+    cfg.LOCAL_PATH = str(base)
+
+    mock_client = mock.Mock()
+    mock_client.delete_file.return_value = {"status": "success"}
+    mock_client.purge_dir.return_value = {"status": "success"}
+    service = SyncService(config=cfg, rc_client=mock_client)
+
+    # 1. Local file deletion
+    res_del = service.delete_item(remote="local", path="trash.txt", is_dir=False)
+    assert res_del["status"] == "success"
+    assert not file_to_del.exists()
+
+    # 2. Local folder deletion
+    res_dir = service.delete_item(remote="local", path="old_folder", is_dir=True)
+    assert res_dir["status"] == "success"
+    assert not dir_to_del.exists()
+
+    # 3. Cannot delete canary
+    res_canary = service.delete_item(remote="local", path="RCLONE_TEST", is_dir=False)
+    assert res_canary["status"] == "error"
+    assert "canary" in res_canary["error"].lower()
+    assert canary.exists()
+
+    # 4. Cannot delete root
+    res_root = service.delete_item(remote="local", path="", is_dir=True)
+    assert res_root["status"] == "error"
+
+    # 5. Jail traversal blocked
+    res_jail = service.delete_item(remote="local", path="../../etc/shadow", is_dir=False)
+    assert res_jail["status"] == "error"
+    assert "forbidden" in res_jail["error"].lower()
+
+    # 6. Remote deletion delegation
+    res_remote = service.delete_item(remote="gdrive", path="photos/pic.jpg", is_dir=False)
+    assert res_remote["status"] == "success"
+    mock_client.delete_file.assert_called_once_with(fs="gdrive:", remote="photos/pic.jpg")
+
+
