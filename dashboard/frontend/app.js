@@ -188,7 +188,8 @@ document.addEventListener("alpine:init", () => {
                 hasCanary: false,
                 totalSize: 0,
                 itemCount: 0,
-                copied: false
+                copied: false,
+                search: ""
             },
             right: {
                 target: "gdrive",
@@ -199,7 +200,8 @@ document.addEventListener("alpine:init", () => {
                 hasCanary: false,
                 totalSize: 0,
                 itemCount: 0,
-                copied: false
+                copied: false,
+                search: ""
             }
         },
 
@@ -585,6 +587,15 @@ document.addEventListener("alpine:init", () => {
                 console.warn("Clipboard access failed:", err);
             }
         },
+
+        getFilteredItems(paneKey) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return [];
+            const q = (pane.search || "").toLowerCase().trim();
+            if (!q) return pane.items;
+            return pane.items.filter(item => (item.Name || "").toLowerCase().includes(q));
+        },
+
 
 
 
