@@ -113,11 +113,98 @@ def test_get_remotes_endpoint():
 
 
 def test_get_pending_deletions_endpoint():
-    dummy_deletions = [
-        {"remote": "gdrive", "path": "old.txt", "size": 123}
-    ]
+    dummy_deletions = {
+        "has_deletions": True,
+        "total_count": 1,
+        "source": "Google Drive (remote)",
+        "target_action": "Will delete locally",
+        "message": "Too many deletes",
+        "files": ["old.txt"]
+    }
     with mock.patch("dashboard.backend.main.sync_service.get_pending_deletions", return_value=dummy_deletions):
         res = client.get("/api/deletions/pending")
         assert res.status_code == 200
-        assert len(res.json()) == 1
+        data = res.json()
+        assert data["has_deletions"] is True
+        assert data["total_count"] == 1
+        assert len(data["files"]) == 1
+
+
+def test_browse_canary_endpoint():
+    dummy_res = {"status": "success", "remote": "gdrive:", "path": "photos"}
+    with mock.patch("dashboard.backend.main.sync_service.create_canary", return_value=dummy_res):
+        res = client.post(
+            "/api/browse/canary",
+            json={"remote": "gdrive", "path": "photos"},
+            headers={"X-Dashboard-Request": "1"}
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["remote"] == "gdrive:"
+        assert data["path"] == "photos"
+
+
+def test_browse_copy_endpoint():
+    dummy_res = {"status": "success", "msg": "Copied photo.jpg"}
+    with mock.patch("dashboard.backend.main.sync_service.copy_item", return_value=dummy_res):
+        res = client.post(
+            "/api/browse/copy",
+            json={
+                "src_remote": "local",
+                "src_path": "photo.jpg",
+                "dst_remote": "gdrive",
+                "dst_path": "photos/photo.jpg",
+                "is_dir": False
+            },
+            headers={"X-Dashboard-Request": "1"}
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert "photo.jpg" in data["msg"]
+
+
+def test_browse_delete_endpoint():
+    dummy_res = {"status": "success", "msg": "Deleted old.txt", "remote": "local", "path": "old.txt"}
+    with mock.patch("dashboard.backend.main.sync_service.delete_item", return_value=dummy_res):
+        res = client.post(
+            "/api/browse/delete",
+            json={"remote": "local", "path": "old.txt", "is_dir": False},
+            headers={"X-Dashboard-Request": "1"}
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["path"] == "old.txt"
+
+
+def test_recursive_redaction_on_api_endpoints():
+    # Verify that if an endpoint returns a payload containing sensitive keys,
+    # the response is automatically redacted before transmission.
+    leaky_remotes = {
+        "remotes": [
+            {
+                "name": "gdrive",
+                "type": "drive",
+                "client_id": "public_id",
+                "client_secret": "SUPER_SECRET_LEAK",
+                "about": {
+                    "access_token": "ya29.leaked_token",
+                    "total": 500,
+                    "used": 100,
+                    "free": 400
+                }
+            }
+        ],
+        "count": 1,
+        "active_remote": "gdrive",
+        "summary": {"total_capacity_bytes": 500, "total_used_bytes": 100, "total_free_bytes": 400}
+    }
+    with mock.patch("dashboard.backend.main.sync_service.get_remotes_summary", return_value=leaky_remotes):
+        res = client.get("/api/remotes")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["remotes"][0]["about"]["access_token"] == "********"
+
 
