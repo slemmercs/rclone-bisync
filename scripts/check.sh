@@ -62,10 +62,18 @@ fi
 echo -e "  ${GREEN}✓${NC} No hardcoded passwords detected in tracked files"
 echo -e "${GREEN}Secret isolation OK.${NC}\n"
 
-# 4. Execute Go Unit Test Suite
-echo -e "${BLUE}[4/5] Running Go unit test suite (go test ./...)...${NC}"
+# 4. Execute Go Static Analysis & Unit Test Suite
+echo -e "${BLUE}[4/5] Running Go checks (go vet, static analysis & go test ./...)...${NC}"
 if command -v go >/dev/null 2>&1; then
     cd "${REPO_ROOT}"
+    echo -e "  • Running go vet ./..."
+    if ! go vet ./...; then
+        echo -e "${RED}[FAIL] go vet failed!${NC}"
+        exit 1
+    fi
+    echo -e "  ${GREEN}✓${NC} go vet clean."
+
+    echo -e "  • Running go test -count=1 ./..."
     if ! go test -count=1 ./...; then
         echo -e "${RED}[FAIL] Go unit tests failed!${NC}"
         exit 1

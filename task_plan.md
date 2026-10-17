@@ -1,36 +1,29 @@
-# Task Plan: Phase 4 - Embedded Single-Binary HTTP Server & UI
+
+# Task Plan: Phase 5 - Systemd & Installer Updates + Native CLI Subcommands
 
 ## Goal
-Implement single-binary Go embedded dashboard (`//go:embed`), REST API routing, CSRF protection middleware, models, telemetry compilation, and binary build.
+Implement unified CLI command structure (`rclone-bisync sync`, `rclone-bisync dashboard`, `rclone-bisync canary`), update systemd user units to target `./rclone-bisync` binary (eliminating `.venv`), streamline `install-custom-rclone.sh`, and update `scripts/check.sh` quality gate to run `go vet`, static checks, secret leak verification, and `go test ./...`.
 
 ## Tasks
-- [x] Task 1: API Response & Request DTO Models (`internal/models`)
-  - **Scope**: Port all REST API schema definitions matching FastAPI pydantic models (`ActionRequest`, `BrowseResponse`, `TelemetryPayload`, `TransferStats`, `RemotesResponse`, etc.).
-  - **Verification**: `go build ./internal/models`
-- [x] Task 2: Telemetry Aggregation & Transfer Statistics (`internal/services/telemetry.go`)
+- [x] Task 1: Core CLI Subcommands & Engine Runner (`main.go`, `internal/engine/runner`, `internal/core/compiler`, `internal/core/classifier`)
   - **Scope**:
-    - Port `GetTransferStats` via Rclone RC `/core/stats`.
-    - Port `GetCachedMetrics` caching lines and detecting mtime/size.
-    - Port `GetRuntimeConfig` with key sanitization.
-    - Port `GetTelemetryPayload` with unified metrics, logs, health, and notification state.
-  - **Verification**: `go test -v ./internal/services`
-- [x] Task 3: Embedded Web Server & REST Endpoints (`internal/server`)
+    - Port argument-to-RC compiler (`internal/core/compiler`).
+    - Port error taxonomy classifier (`internal/core/classifier`).
+    - Implement resilient job polling monitor (`internal/core/client/monitor.go`).
+    - Implement native Go sync orchestrator (`internal/engine/runner/runner.go`).
+    - Wire unified CLI commands (`sync`, `dashboard`, `canary`) in `main.go`.
+- [x] Task 2: Systemd User Services Hardening
   - **Scope**:
-    - CSRF Protection middleware enforcing `X-Dashboard-Request` header and allowed loopback origin checks.
-    - REST Endpoints: `/api/logs/bisync/raw`, `/api/logs/daemon/raw`, `/api/telemetry`, `/api/action`, `/api/deletions/pending`, `/api/remotes`, `/api/browse`, `/api/browse/canary`, `/api/browse/copy`, `/api/browse/delete`.
-    - Automatic secret redaction using `security.RedactSecrets` on all outgoing JSON responses.
-    - Single-binary static assets & SPA serving: `//go:embed dashboard/frontend/*` with `/static/`, `/favicon.ico`, and `/` SPA routing.
-  - **Verification**: `go test -v ./internal/server`
-- [x] Task 4: Single-Binary Compilation (`main.go` -> `bin/rclone-bisync`)
-  - **Scope**: Build stand-alone Linux executable embedding the full dashboard UI.
-  - **Verification**: `go build -o bin/rclone-bisync main.go && ./bin/rclone-bisync --help`
-- [x] Task 5: Quality Gate Verification
-  - **Scope**: Execute full pre-flight quality check (`./scripts/check.sh`).
-  - **Verification**: All 8 Go packages pass tests, 77 Python tests pass, secret scanners clean.
-
-## Status Updates
-- 2026-10-17: Implemented `internal/models/api.go`.
-- 2026-10-17: Implemented `internal/services/telemetry.go` and extended `client.GetCoreStats`.
-- 2026-10-17: Implemented `internal/server` with CSRF protection, endpoint routing, secret sanitization, and embedded static assets.
-- 2026-10-17: Built standalone native binary `bin/rclone-bisync` (11MB self-contained executable).
-- 2026-10-17: Quality gate `./scripts/check.sh` 100% clean.
+    - Update `rclone-dashboard.service` to `ExecStart=%h/rclone-bisync/bin/rclone-bisync dashboard --host 127.0.0.1 --port 8080` with `MemoryMax=512M` and `CPUQuota=50%`.
+    - Update `bisync-gdrive.service` to `ExecStart=%h/rclone-bisync/bin/rclone-bisync sync --origin=timer`.
+    - Update `internal/services/sync_service.go` to execute `bin/rclone-bisync sync` in dynamic transient systemd units.
+- [x] Task 3: Streamlined Single-Binary Installer (`install-custom-rclone.sh`)
+  - **Scope**:
+    - Removed Python virtual environment bootstrap and pip dependency installs.
+    - Compiles or installs native single binary `bin/rclone-bisync`.
+    - Maintains strict permission hygiene (`chmod 600 rc-secrets.env`).
+- [x] Task 4: Upgraded Quality Gate (`scripts/check.sh`)
+  - **Scope**:
+    - Integrated `go vet ./...` static analysis.
+    - Integrated `go test -count=1 ./...` across all Go packages.
+    - Python compilation & Pytest suites preserved for backwards compatibility testing.
