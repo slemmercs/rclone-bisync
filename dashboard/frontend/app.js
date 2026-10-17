@@ -149,7 +149,7 @@ function formatBytes(bytes, decimals = 1) {
 
 document.addEventListener("alpine:init", () => {
     Alpine.data("dashboard", () => ({
-        currentTab: "telemetry", // 'telemetry' | 'remotes'
+        currentTab: "telemetry", // 'telemetry' | 'remotes' | 'explorer'
         remotesData: {
             remotes: [],
             summary: {},
@@ -422,6 +422,10 @@ document.addEventListener("alpine:init", () => {
             this.currentTab = tab;
             if (tab === "remotes") {
                 this.fetchRemotes(true);
+            } else if (tab === "explorer") {
+                if (typeof this.initExplorer === "function") {
+                    this.initExplorer();
+                }
             }
         },
 
