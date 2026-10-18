@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -23,6 +24,8 @@ type timeExtractor struct {
 
 // FilterDaemonLogs reads the daemon JSON log and returns lines occurring within [startTime-1s, endTime+1s].
 // If startTime is zero, it falls back to returning the tail of the log up to limit entries.
+// If a daemon log line wraps nested JSON logs in its msg field (e.g. from bisync/rc.go),
+// it unwraps them into individual, normalized JSON entries.
 func (s *LogService) FilterDaemonLogs(logPath string, startTime, endTime time.Time, limit int) ([]string, error) {
 	if limit <= 0 {
 		limit = 200
@@ -64,6 +67,43 @@ func (s *LogService) FilterDaemonLogs(logPath string, startTime, endTime time.Ti
 			continue
 		}
 
+		// Check if line wraps nested JSON events inside msg (e.g. bisync RC sub-logs)
+		subEntries, isWrapper := extractNestedJSONLogs(line)
+		if isWrapper && len(subEntries) > 0 {
+			for _, subEntry := range subEntries {
+				if !useWindow {
+					matchedLines = append(matchedLines, subEntry)
+					if len(matchedLines) > limit {
+						matchedLines = matchedLines[1:]
+					}
+					continue
+				}
+
+				subTime, ok := parseLogTime(subEntry)
+				if !ok {
+					// Fall back to outer wrapper line timestamp if subEntry has no time
+					wrapTime, wrapOk := parseLogTime(line)
+					if wrapOk && (wrapTime.Equal(windowStart) || wrapTime.After(windowStart)) &&
+						(wrapTime.Equal(windowEnd) || wrapTime.Before(windowEnd)) {
+						matchedLines = append(matchedLines, subEntry)
+						if len(matchedLines) > limit {
+							matchedLines = matchedLines[1:]
+						}
+					}
+					continue
+				}
+
+				if (subTime.Equal(windowStart) || subTime.After(windowStart)) &&
+					(subTime.Equal(windowEnd) || subTime.Before(windowEnd)) {
+					matchedLines = append(matchedLines, subEntry)
+					if len(matchedLines) > limit {
+						matchedLines = matchedLines[1:]
+					}
+				}
+			}
+			continue
+		}
+
 		if !useWindow {
 			matchedLines = append(matchedLines, line)
 			if len(matchedLines) > limit {
@@ -92,6 +132,65 @@ func (s *LogService) FilterDaemonLogs(logPath string, startTime, endTime time.Ti
 	}
 
 	return matchedLines, nil
+}
+
+// extractNestedJSONLogs checks if a JSON log entry wraps nested JSON logs in its msg field,
+// and extracts each nested JSON object as a normalized JSON string.
+func extractNestedJSONLogs(line string) ([]string, bool) {
+	if !strings.HasPrefix(line, "{") {
+		return nil, false
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(line), &parsed); err != nil {
+		return nil, false
+	}
+	msg, ok := parsed["msg"].(string)
+	if !ok || (!strings.Contains(msg, `{"`) && !strings.Contains(msg, `{'`)) {
+		return nil, false
+	}
+
+	var entries []string
+	dec := json.NewDecoder(strings.NewReader(msg))
+	for {
+		var inner map[string]interface{}
+		err := dec.Decode(&inner)
+		if err == io.EOF {
+			break
+		}
+		if err == nil && len(inner) > 0 {
+			b, err := json.Marshal(inner)
+			if err == nil {
+				entries = append(entries, string(b))
+			}
+		} else {
+			break
+		}
+	}
+
+	if len(entries) > 0 {
+		return entries, true
+	}
+
+	// Line-by-line fallback
+	sublines := strings.Split(msg, "\n")
+	for _, sub := range sublines {
+		subTrim := strings.TrimSpace(sub)
+		if strings.HasPrefix(subTrim, "{") && strings.HasSuffix(subTrim, "}") {
+			var inner map[string]interface{}
+			if err := json.Unmarshal([]byte(subTrim), &inner); err == nil && len(inner) > 0 {
+				b, err := json.Marshal(inner)
+				if err == nil {
+					entries = append(entries, string(b))
+				}
+			}
+		}
+	}
+
+	if len(entries) > 0 {
+		return entries, true
+	}
+
+	return nil, false
 }
 
 // parseLogTime attempts to extract and parse the timestamp from a JSON or legacy log line.

@@ -109,3 +109,19 @@ Testing approach:
 4. `internal/server`: Register and test `GET /api/logs/daemon`.
 5. `dashboard/frontend`: Update `utils.js`, `index.html`, and `app.js` with single-stream UI and focused daemon modal.
 6. Verification & Quality Gate: Run `./scripts/check.sh` and compile binary.
+
+---
+
+# Phase: Structured Daemon Log Unwrapping & Modal Refinement
+
+[Overview]
+When rclone executes bisync via the RC API (`sync/bisync`), the rclone daemon wraps the entire bisync run output into a single daemon log entry (`source: bisync/rc.go`) with all sub-events concatenated as newline-separated JSON records inside the `msg` field.
+This phase enhances `LogService.FilterDaemonLogs` to unpack these nested JSON records, evaluates each sub-event timestamp individually against the execution time window, and delivers clean, discrete log entries to `/api/logs/daemon`. On the frontend, `parseJsonLogLine` and the modal template are enhanced to capture `objectType` and `source`, render structured badges, cleanly display nested settings (e.g. comparison parameters), and provide full level and text filtering.
+
+[File Modifications]
+1. `internal/services/log_service.go`: Update `FilterDaemonLogs` to unwrap nested JSON sub-events from `msg`, evaluate each sub-event timestamp against `[windowStart, windowEnd]`, and return discrete single-line JSON records.
+2. `internal/services/log_service_test.go`: Add test cases validating unwrapping of multi-line `msg` fields, timestamp boundary checks on sub-events, and tail limit enforcement.
+3. `dashboard/frontend/js/utils.js`: Extend `parseJsonLogLine` to extract `objectType`, `source`, and parse embedded JSON payloads into structured `details`.
+4. `dashboard/frontend/app.js`: Add defensive client-side unwrapper to ensure any nested payloads are gracefully expanded.
+5. `dashboard/frontend/index.html`: Update the modal template to show accurate unwrapped line counts, source tags, object badges, and structured formatting for comparison settings.
+
