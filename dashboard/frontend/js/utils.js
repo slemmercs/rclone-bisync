@@ -80,12 +80,36 @@ function parseJsonLogLine(rawLine) {
             }
         }
 
+        let structuredDetails = null;
+        let cleanMsg = (parsed.msg || "").trim();
+        // Detect if msg contains embedded JSON (e.g. comparison settings or error payloads)
+        if (cleanMsg.includes("{") && cleanMsg.includes("}")) {
+            const jsonMatch = cleanMsg.match(/(\{[\s\S]*\})/);
+            if (jsonMatch) {
+                try {
+                    const parsedObj = JSON.parse(jsonMatch[1]);
+                    if (typeof parsedObj === "object" && parsedObj !== null) {
+                        structuredDetails = parsedObj;
+                        const headerPart = cleanMsg.substring(0, jsonMatch.index).trim();
+                        if (headerPart) {
+                            cleanMsg = headerPart.replace(/:$/, "");
+                        }
+                    }
+                } catch (e) {
+                    // Ignore parse error, keep cleanMsg
+                }
+            }
+        }
+
         return {
             time: timeStr,
             level: level.toUpperCase().padEnd(7),
             levelClass: levelClass,
-            msg: (parsed.msg || "").trim(),
+            msg: cleanMsg,
             object: parsed.object || null,
+            objectType: parsed.objectType || null,
+            source: parsed.source || null,
+            details: structuredDetails,
             origin: parsed.origin || null,
             run_id: parsed.run_id || null,
             job_id: parsed.job_id || null,
@@ -139,6 +163,44 @@ function parseJsonLogLine(rawLine) {
         };
     }
 }
+
+// Unwraps potential wrapper logs and parses each line into structured format
+function unwrapAndParseLogLines(rawLines) {
+    if (!Array.isArray(rawLines)) return [];
+    const results = [];
+    for (const line of rawLines) {
+        if (!line) continue;
+        if (typeof line === "string" && line.startsWith("{") && (line.includes(`"msg":"{\\"`) || line.includes(`"msg":"{\'`))) {
+            try {
+                const outer = JSON.parse(line);
+                if (typeof outer.msg === "string" && (outer.msg.includes('{"') || outer.msg.includes("{'"))) {
+                    const sublines = outer.msg.split("\n");
+                    let unwrappedAny = false;
+                    for (const sub of sublines) {
+                        const subTrim = sub.trim();
+                        if (subTrim.startsWith("{") && subTrim.endsWith("}")) {
+                            const parsedSub = parseJsonLogLine(subTrim);
+                            if (parsedSub) {
+                                results.push(parsedSub);
+                                unwrappedAny = true;
+                            }
+                        }
+                    }
+                    if (unwrappedAny) continue;
+                }
+            } catch (e) {
+                // Fall through to regular line parsing
+            }
+        }
+
+        const parsed = parseJsonLogLine(line);
+        if (parsed) {
+            results.push(parsed);
+        }
+    }
+    return results;
+}
+
 
 // Helper to format bytes into human-readable strings
 function formatBytes(bytes, decimals = 1) {

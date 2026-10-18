@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -86,6 +87,72 @@ func TestLogService_FilterDaemonLogs(t *testing.T) {
 	}
 	if len(clampedMax) == 0 {
 		t.Fatal("expected max clamped limit")
+	}
+
+	// 7. Test nested JSON unwrapping (bisync RC log wrapper pattern)
+	nestedLogPath := filepath.Join(tmpDir, "nested-daemon.log")
+	t1 := baseTime.Add(1 * time.Second).Format(time.RFC3339Nano)
+	t2 := baseTime.Add(2 * time.Second).Format(time.RFC3339Nano)
+	tOut := baseTime.Add(100 * time.Second).Format(time.RFC3339Nano)
+
+	inner1 := fmt.Sprintf(`{"level":"info","msg":"nested event 1","time":"%s"}`, t1)
+	inner2 := fmt.Sprintf(`{"level":"notice","msg":"Duplicate object found","object":"pic.jpg","objectType":"*drive.Object","time":"%s"}`, t2)
+	innerOutOfWindow := fmt.Sprintf(`{"level":"info","msg":"late event","time":"%s"}`, tOut)
+
+	// Combine into wrapper line
+	rawMsg := fmt.Sprintf("%s\n%s\n%s\n", inner1, inner2, innerOutOfWindow)
+	wrapperLine, err := json.Marshal(map[string]interface{}{
+		"level":  "notice",
+		"msg":    rawMsg,
+		"source": "bisync/rc.go:186",
+		"time":   t2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(nestedLogPath, append(wrapperLine, '\n'), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Window [baseTime, baseTime + 5s] should match inner1 and inner2, but not innerOutOfWindow
+	unwrapped, err := svc.FilterDaemonLogs(nestedLogPath, baseTime, baseTime.Add(5*time.Second), 100)
+	if err != nil {
+		t.Fatalf("unexpected error filtering nested logs: %v", err)
+	}
+	if len(unwrapped) != 2 {
+		t.Fatalf("expected 2 unwrapped inner entries matching time window, got %d: %v", len(unwrapped), unwrapped)
+	}
+
+	// Tail mode on nested log
+	tailNested, err := svc.FilterDaemonLogs(nestedLogPath, time.Time{}, time.Time{}, 2)
+	if err != nil {
+		t.Fatalf("unexpected error in tail mode: %v", err)
+	}
+	if len(tailNested) != 2 {
+		t.Fatalf("expected 2 clamped tail entries, got %d", len(tailNested))
+	}
+}
+
+func TestExtractNestedJSONLogs(t *testing.T) {
+	// Not a JSON line
+	_, ok := extractNestedJSONLogs("plain text")
+	if ok {
+		t.Fatal("expected false for plain text")
+	}
+
+	// JSON line without nested JSON in msg
+	simpleJSON := `{"level":"info","msg":"regular message"}`
+	_, ok = extractNestedJSONLogs(simpleJSON)
+	if ok {
+		t.Fatal("expected false for regular JSON message")
+	}
+
+	// JSON with nested sub-lines
+	nestedJSON := `{"level":"notice","msg":"{\"level\":\"info\",\"msg\":\"sub1\"}\n{\"level\":\"error\",\"msg\":\"sub2\"}"}`
+	entries, ok := extractNestedJSONLogs(nestedJSON)
+	if !ok || len(entries) != 2 {
+		t.Fatalf("expected 2 extracted entries, got ok=%v, count=%d", ok, len(entries))
 	}
 }
 
