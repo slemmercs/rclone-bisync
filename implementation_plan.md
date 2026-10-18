@@ -125,3 +125,11 @@ This phase enhances `LogService.FilterDaemonLogs` to unpack these nested JSON re
 4. `dashboard/frontend/app.js`: Add defensive client-side unwrapper to ensure any nested payloads are gracefully expanded.
 5. `dashboard/frontend/index.html`: Update the modal template to show accurate unwrapped line counts, source tags, object badges, and structured formatting for comparison settings.
 
+
+[Verification & Deployment Outcome]
+- PR #13 merged cleanly into `main`.
+- Unit test suite (`internal/services/log_service_test.go`) confirms nested stream unpacking of 75 discrete sub-events from `bisync/rc.go` wrapper entries.
+- Quality gate (`./scripts/check.sh`) passed with statement coverage >80% across all packages (`internal/services` at 81.7%).
+- Compiled and deployed binary to `~/rclone-bisync/bin/rclone-bisync`.
+- Verified live service (`rclone-dashboard.service`, PID 108100) responding on `/api/logs/daemon` with 75 discrete events, individual timestamps, level pills, source tags, and formatted comparison settings.
+
