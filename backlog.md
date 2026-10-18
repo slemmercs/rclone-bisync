@@ -1,4 +1,4 @@
-# Rclone Bisync Enterprise Automation Hub - Architecture & Roadmap Backlog
+# Rclone Bisync Enterprise Automation Hub - Architecture & Extended Roadmap Backlog
 
 ## 1. Completed Go Single-Binary Architecture Port (Phases 1–6)
 
@@ -51,28 +51,7 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ---
 
-## 3. Post-Go Migration Feature Roadmap
-
-* **Branch 4 (Go): `feat/remote-oauth-reauth` [ESTIMATE: 3-4h | 3 SP]**
-  - Backend: Implement `ReconnectRemote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
-  - Endpoint: `POST /api/remotes/{name}/reconnect`.
-  - Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
-
-* **Branch 6 (Go): `feat/interactive-log-cross-filtering` [COMPLETED]**
-  - High-performance log stream parsing in Go via `bufio.Scanner` (`internal/services/log_service.go`).
-  - Central structured JSON logger (`internal/core/logger`) recording single-line ledger records in `bisync.log`.
-  - Endpoint `GET /api/logs/daemon` serving correlated time-window slices.
-  - UI Component: Streamlined orchestrator feed with on-demand focused daemon log modal dialog featuring live search, level filtering, and copy-to-clipboard.
-
-* **Multi-Profile Synchronization Hub [ESTIMATE: 6-8h | 5 SP]**
-  - Single background Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, etc.) with isolated flock files and telemetry streams.
-
-* **Desktop Mode via Wails / Native Window [ESTIMATE: 3-4h | 3 SP]**
-  - Package Go backend and embedded frontend as a standalone borderless native desktop app using Wails.
-
----
-
-## 4. Completed Historical Branches (Python Reference Implementation)
+## 3. Historical Branches Reference (Python Implementation)
 
 * **Branch 1: `refactor/clean-env-breaking-change` [MERGED]**
 * **Branch 2: `refactor/service-layer-and-rc-correlation` [MERGED]**
@@ -82,81 +61,72 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ---
 
-## 5. Future Releases & Extended Backlog
+## 4. Extended Roadmap & Backlog
 
-* **In-Dashboard Configuration Editor & 3-Layer Safety Pipeline [ESTIMATE: 6-8h | 5 SP]:**
-  * Visual parameter adjustment for `--buffer-size`, `--tpslimit`, and conflict resolution strategies.
-  * 3-Layer Safety Pipeline: Automated snapshot backup, SHA-256 integrity match, and schema validation.
-  * Rollback API: One-click restore of historical configurations.
+### Phase 3: Immediate Go Enhancements & Evaluation Tasks (Near-Term)
 
-* **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]:**
-  * When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
+* **Remote OAuth Re-Authentication Flow [ESTIMATE: 3-4h | 3 SP]**
+  - Backend: Implement `ReconnectRemote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
+  - Endpoint: `POST /api/remotes/{name}/reconnect`.
+  - Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
 
-* **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]:**
-  * Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration.
+* **Structured Daemon Log Modal Refinement [ESTIMATE: 3-4h | 3 SP]**
+  - Refine `internal/services/log_service.go` and daemon log modal frontend to parse JSON-formatted log strings in the `msg` field.
+  - Render parsed payload fields dynamically in a structured syntax-highlighted key-value viewer rather than plain text strings.
 
-## Open for Evulation
+* **Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
+  - Decouple `internal/services/sync_service.go` by extracting canary check operations, pending deletion parsing, and path validation into discrete domain components.
 
-- daemon log modal needs more structure, the log has a message field that contains json formatted log which should be extracted displayed in a structured form
-- sync service needs modularization probably
-- switch to svelte/vue evaluation
-
-
-### Phase 1: Local MVP (Core Requirements)
-
-#### Epic 1: Local Inter-Process Communication (Unix Domain Sockets)
-
-##### Target A: Bare-Metal / Local Host Execution
-- [ ] **Task 1.1.A.1 (Rclone Socket Config):** Update `rclone rcd` launch configuration to listen on a local Unix socket (`unix:///tmp/rclone.sock`) instead of a TCP port.
-- [ ] **Task 1.1.A.2 (Go Custom HTTP Dialer):** Implement custom `net.DialContext` in the Go HTTP client to route all API calls over `/tmp/rclone.sock`.
-- [ ] **Task 1.1.A.3 (Socket File Permissions):** Ensure socket file creation sets strict `0600` permissions owned by the running user.
-- [ ] **Task 1.1.A.4 (Socket Cleanup):** Implement a graceful shutdown handler in Go to unlink/remove `/tmp/rclone.sock` on process termination.
-
-##### Target B: Docker Container Deployment
-- [ ] **Task 1.1.B.1 (Volume Bind-Mount):** Configure `docker-compose.yml` to share the IPC socket directory between the host and container (`/tmp/rclone-ipc:/tmp/rclone-ipc:rw`).
-- [ ] **Task 1.1.B.2 (Container Path Mapping):** Pass `RCLONE_RC_ADDR=unix:///tmp/rclone-ipc/rclone.sock` via environment variables to the containerized dashboard.
-- [ ] **Task 1.1.B.3 (Container Startup Order):** Add healthchecks/retries to wait until `/tmp/rclone-ipc/rclone.sock` exists before booting the Go WebUI HTTP listener.
+* **Frontend Framework Trade-Off Evaluation (Svelte / Vue vs. Vanilla JS) [ESTIMATE: 2-3h | 2 SP]**
+  - Evaluate replacing zero-build Alpine/Tailwind setup with Svelte/Vue compiled SPA assets embedded via `//go:embed`.
+  - Compare build complexity, asset footprint, developer experience, and maintainability against the existing zero-npm constraint.
 
 ---
 
-#### Epic 2: Host File Permissions Alignment (`rwx` Ownership)
+### Phase 4: Core Enterprise Feature Extensions (Medium-Term)
 
-##### Target A: Bare-Metal / Local Host Execution
-- [ ] **Task 1.2.A.1 (Systemd User Execution):** Configure Systemd service unit (`rclone-dashboard.service`) using `User=%I` and `Group=%I` so the process inherits the active user's environment.
-- [ ] **Task 1.2.A.2 (Umask Enforcement):** Set explicit `UMask=0022` in the service definition to guarantee default `0755` directory and `0644` file permissions on synced data.
+* **Multi-Profile Synchronization Hub [ESTIMATE: 6-8h | 5 SP]**
+  - Single background Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, etc.) with isolated flock files and telemetry streams.
 
-##### Target B: Docker Container Deployment
-- [ ] **Task 1.2.B.1 (Host UID/GID Passing):** Configure `docker-compose.yml` to accept dynamic user environment variables (`user: "${UID}:${GID}"`).
-- [ ] **Task 1.2.B.2 (Non-Root Docker Base):** Update `Dockerfile` to ensure runtime process executes under an unprivileged user space matching the host `UID`/`GID`.
-- [ ] **Task 1.2.B.3 (Volume Permission Verification):** Add pre-flight check in container entrypoint script to verify write access on host bind-mounted sync folders without requiring `sudo chown`.
+* **In-Dashboard Configuration Editor & 3-Layer Safety Pipeline [ESTIMATE: 6-8h | 5 SP]**
+  - Visual parameter adjustment for `--buffer-size`, `--tpslimit`, and conflict resolution strategies.
+  - 3-Layer Safety Pipeline: Automated snapshot backup, SHA-256 integrity match, and schema validation.
+  - Rollback API: One-click restore of historical configurations.
 
----
+* **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]**
+  - When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
 
-#### Epic 3: Auto-Generated Cryptographic Credentials (`.env`)
+* **Desktop Mode via Wails / Native Window [ESTIMATE: 3-4h | 3 SP]**
+  - Package Go backend and embedded frontend as a standalone borderless native desktop app using Wails.
 
-##### Target A: Bare-Metal / Local Host Execution
-- [ ] **Task 1.3.A.1 (Installer Script):** Create `install.sh` shell script using `openssl` / `/dev/urandom` to auto-generate 32-character random credentials in `/etc/rclone-dashboard/env` with `0600` permissions.
-- [ ] **Task 1.3.A.2 (Go CLI Rotation Command):** Implement `rclone-dashboard rotate-creds` sub-command using Go `crypto/rand` to overwrite `.env` with fresh credentials on demand.
-- [ ] **Task 1.3.A.3 (Systemd ExecStartPre):** Configure Systemd unit with `ExecStartPre=` hook to invoke credential generation if `.env` file is missing prior to main app launch.
-
-##### Target B: Docker Container Deployment
-- [ ] **Task 1.3.B.1 (Container Entrypoint Wrapper):** Add an `entrypoint.sh` script to the Docker image that generates `/app/.env` on container first boot if the mounted file is missing or empty.
-- [ ] **Task 1.3.B.2 (Docker Secret / Env File Mount):** Configure `docker-compose.yml` to bind-mount host `.env` or use Docker Secrets for credential persistence across container updates.
+* **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]**
+  - Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration.
 
 ---
 
-### Phase 2: Remote & Multi-Node Platform (Future / Optional)
+### Phase 5: Local MVP Deployment Hardening (Core Infrastructure Requirements)
 
-#### Epic 4: Remote API mTLS Authentication Engine
-- [ ] **Task 2.1 (Go CertManager Package):** Implement Go package using `crypto/ecdsa` and `crypto/x509` to generate internal CA, server cert/key, and client cert/key bundles.
-- [ ] **Task 2.2 (Go Custom CA Client Pool):** Configure Go HTTP client to load client certificates and trust server certificates signed by internal CA (`MinVersion: tls.VersionTLS13`).
-- [ ] **Task 2.3 (Transport Auto-Selector):** Add WebUI settings toggle to automatically switch between Unix Socket (local) and mTLS over TCP (remote).
+* **Local Inter-Process Communication via Unix Sockets [ESTIMATE: 4-6h | 3 SP]**
+  - Update `rclone rcd` launch configuration and Go HTTP client (`net.DialContext`) to communicate over a local Unix domain socket (`unix:///tmp/rclone.sock`) with strict `0600` permissions and graceful process cleanup.
+  - Support dual deployment modes: bare-metal user socket management and Docker container volume bind-mounting (`/tmp/rclone-ipc`) with container startup healthchecks.
 
-#### Epic 5: Remote SSH Certificate Deployment & Rotation Engine
-- [ ] **Task 3.1 (Go SSH/SFTP Client Engine):** Build Go SSH client module (`golang.org/x/crypto/ssh`) for key-authenticated remote file management.
-- [ ] **Task 3.2 (Staged Dual-CA Deployment):** Implement 3-phase rotation workflow (Push new CA $\rightarrow$ Swap server/client certs $\rightarrow$ Prune old CA) to prevent remote API lockout.
-- [ ] **Task 3.3 (Remote Process Reload Trigger):** Execute remote systemd or Docker restart commands over SSH after writing updated certificate bundles.
-- [ ] **Task 3.4 (Verification & Rollback Safeguard):** Validate mTLS handshake post-rotation; automatically revert certificate files on remote host if connection check fails.
+* **Host File Permissions & Ownership Alignment [ESTIMATE: 3-4h | 2 SP]**
+  - Enforce systemd user unit execution (`User=%I`, `Group=%I`, `UMask=0022`) to guarantee standard file permissions on synced data.
+  - Provide Docker compose setups with dynamic host user passing (`user: "${UID}:${GID}"`), non-root container base images, and entrypoint write-permission verification.
 
-#### Epic 6: Edge Proxy Integration
-- [ ] **Task 4.1 (Traefik / Caddy Sidecar Architectures):** Provide production configurations for running Traefik or Caddy in front of remote `rclone` API instances for hot-reloading TLS certs without restarting `rclone`.
+* **Auto-Generated Cryptographic Credentials Engine [ESTIMATE: 3-4h | 2 SP]**
+  - Automated installer script (`install.sh`) generating 32-character random credentials in `/etc/rclone-dashboard/env` with `0600` permissions.
+  - Go CLI rotation command (`rclone-dashboard rotate-creds`) using `crypto/rand`, systemd `ExecStartPre` auto-generation, and Docker container boot wrapper for environment isolation.
+
+---
+
+### Phase 6: Remote & Multi-Node Platform (Future / Optional Expansion)
+
+* **Remote API mTLS Authentication Engine [ESTIMATE: 6-8h | 5 SP]**
+  - Go `CertManager` package utilizing `crypto/ecdsa` and `crypto/x509` to handle automatic CA generation, server/client cert issuance (`MinVersion: tls.VersionTLS13`), and WebUI transport switching between Unix Sockets and TCP mTLS.
+
+* **Remote SSH Certificate Deployment & Rotation Engine [ESTIMATE: 8-10h | 8 SP]**
+  - Automated 3-phase certificate rotation pipeline over SSH (`golang.org/x/crypto/ssh`) featuring staged dual-CA deployment, remote process reloading, mTLS verification handshakes, and automatic rollback safeguards.
+
+* **Edge Proxy Sidecar Integration [ESTIMATE: 2-3h | 2 SP]**
+  - Reference Traefik and Caddy sidecar configurations for running in front of remote `rclone` API instances to enable zero-downtime hot-reloading of TLS certificates.
