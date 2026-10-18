@@ -939,13 +939,27 @@
             <div class="p-4 font-mono text-xs overflow-y-auto flex-1 h-[28rem] bg-slate-950 text-left space-y-1">
                 <div x-show="daemonModalLoading" class="text-indigo-400 animate-pulse text-center py-10 font-mono">Loading correlated daemon logs...</div>
                 <template x-for="(entry, idx) in filteredDaemonModalLogs" :key="idx">
-                    <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex items-start gap-x-2 text-[11px] font-mono leading-relaxed text-left">
+                    <div class="py-1.5 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex items-start gap-x-2 text-[11px] font-mono leading-relaxed text-left">
                         <span class="text-slate-500 select-none shrink-0" x-text="'[' + entry.time + ']'"></span>
                         <span :class="entry.levelClass" class="select-none shrink-0 w-14 font-bold" x-text="entry.level"></span>
                         <div class="text-slate-200 min-w-0 flex-1 break-words text-left">
                             <span class="whitespace-pre-wrap" x-text="entry.msg"></span>
                             <span x-show="entry.object" class="text-indigo-400/90 text-[10px] bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-900/40 ml-1.5 font-sans inline-block" x-text="'→ ' + entry.object"></span>
+                            <span x-show="entry.objectType" class="text-slate-400 text-[9px] bg-slate-900 px-1 py-0.2 rounded border border-slate-800 ml-1 font-mono inline-block" x-text="entry.objectType"></span>
+
+                            <!-- Structured Details Grid (e.g. Comparison Settings) -->
+                            <template x-if="entry.details">
+                                <div class="mt-1.5 p-2 rounded-lg bg-slate-900/80 border border-slate-800/70 grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px] font-mono">
+                                    <template x-for="(val, key) in entry.details" :key="key">
+                                        <div class="flex items-center justify-between px-2 py-0.5 rounded bg-slate-950 border border-slate-800/50">
+                                            <span class="text-slate-400 truncate mr-2" x-text="key + ':'"></span>
+                                            <span :class="typeof val === 'boolean' ? (val ? 'text-emerald-400 font-semibold' : 'text-slate-500') : 'text-amber-400 font-medium'" x-text="String(val)"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
                         </div>
+                        <span x-show="entry.source" class="text-slate-600 text-[10px] font-mono shrink-0 select-none hidden sm:inline-block" x-text="entry.source"></span>
                     </div>
                 </template>
                 <div x-show="!daemonModalLoading && filteredDaemonModalLogs.length === 0" class="text-slate-500 text-center py-10 font-mono text-xs">No daemon logs found matching the filter or run window.</div>
@@ -969,10 +983,10 @@
     </div>
 
     <!-- Modular Frontend Scripts -->
-    <script src="/static/js/utils.js?v=7"></script>
-    <script src="/static/js/charts.js?v=7"></script>
-    <script src="/static/js/remotes.js?v=7"></script>
-    <script src="/static/js/explorer.js?v=7"></script>
-    <script src="/static/app.js?v=7"></script>
+    <script src="/static/js/utils.js?v=8"></script>
+    <script src="/static/js/charts.js?v=8"></script>
+    <script src="/static/js/remotes.js?v=8"></script>
+    <script src="/static/js/explorer.js?v=8"></script>
+    <script src="/static/app.js?v=8"></script>
 </body>
 </html>

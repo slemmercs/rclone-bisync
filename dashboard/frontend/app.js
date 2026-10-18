@@ -102,7 +102,7 @@ document.addEventListener("alpine:init", () => {
         },
 
         get parsedDaemonLogs() {
-            return (this.telemetry.daemon_logs || []).map(parseJsonLogLine).filter(Boolean);
+            return unwrapAndParseLogLines(this.telemetry.daemon_logs || []);
         },
 
         get filteredDaemonModalLogs() {
@@ -121,7 +121,7 @@ document.addEventListener("alpine:init", () => {
             }
 
             if (q) {
-                logs = logs.filter(l => (l.msg || "").toLowerCase().includes(q) || (l.object || "").toLowerCase().includes(q));
+                logs = logs.filter(l => (l.msg || "").toLowerCase().includes(q) || (l.object || "").toLowerCase().includes(q) || (l.source || "").toLowerCase().includes(q));
             }
             return logs;
         },
@@ -306,7 +306,7 @@ document.addEventListener("alpine:init", () => {
                 const res = await fetch(url);
                 const data = await res.json();
                 if (data && Array.isArray(data.logs)) {
-                    this.daemonModalLogs = data.logs.map(parseJsonLogLine).filter(Boolean);
+                    this.daemonModalLogs = unwrapAndParseLogLines(data.logs);
                 } else {
                     this.daemonModalLogs = [];
                 }

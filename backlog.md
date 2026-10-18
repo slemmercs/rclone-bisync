@@ -70,9 +70,9 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
   - Endpoint: `POST /api/remotes/{name}/reconnect`.
   - Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
 
-* **Structured Daemon Log Modal Refinement [ESTIMATE: 3-4h | 3 SP]**
-  - Refine `internal/services/log_service.go` and daemon log modal frontend to parse JSON-formatted log strings in the `msg` field.
-  - Render parsed payload fields dynamically in a structured syntax-highlighted key-value viewer rather than plain text strings.
+* **[COMPLETED] Structured Daemon Log Modal Refinement [ESTIMATE: 3-4h | 3 SP]**
+  - Refined `internal/services/log_service.go` to unwrap nested JSON log strings from `bisync/rc.go` wrapper entries and match individual event timestamps.
+  - Enhanced frontend `utils.js` and `app.js` with structured metadata parsing (`objectType`, `source`, `details`), comparison settings grid, and defense-in-depth unwrapping.
 
 * **Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
   - Decouple `internal/services/sync_service.go` by extracting canary check operations, pending deletion parsing, and path validation into discrete domain components.
