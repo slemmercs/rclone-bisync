@@ -191,3 +191,98 @@ func TestGetTelemetryPayload(t *testing.T) {
 		t.Fatalf("expected parsed bisync_logs in payload: %v", payload["bisync_logs"])
 	}
 }
+func TestTelemetryService_Direct(t *testing.T) {
+	// Test nil client / empty config handling
+	telNil := NewTelemetryService(nil, nil)
+	healthOffline := telNil.GetDaemonHealth(context.Background())
+	if healthOffline["status"] != "offline" {
+		t.Fatalf("expected offline for nil client, got: %v", healthOffline["status"])
+	}
+
+	_, err := telNil.GetRemotesSummary(context.Background())
+	if err == nil {
+		t.Fatal("expected error from GetRemotesSummary on nil client")
+	}
+
+	statsNil := telNil.GetTransferStats(context.Background())
+	if statsNil != nil {
+		t.Fatalf("expected nil transfer stats for nil client, got: %v", statsNil)
+	}
+
+	metricsNil := telNil.GetCachedMetrics(10)
+	if len(metricsNil) != 0 {
+		t.Fatalf("expected empty metrics for nil config, got: %d", len(metricsNil))
+	}
+
+	cfgNil := telNil.GetRuntimeConfig()
+	if len(cfgNil) != 0 {
+		t.Fatalf("expected empty runtime config for nil config, got: %v", cfgNil)
+	}
+
+	// Mock server for TelemetryService
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/core/stats":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"bytes": 1000, "totalBytes": 2000, "speed": 102400.0, "transferring": []}`))
+		case "/config/listremotes":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"remotes":["myremote:"]}`))
+		case "/config/get":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"type":"drive"}`))
+		case "/operations/about":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"total": 100000.0, "used": 40000.0, "free": 60000.0}`))
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer srv.Close()
+
+	rcClient := client.NewRcloneClient(srv.URL, "user", "pass")
+	cfg := &config.Config{
+		RemotePath: "myremote:",
+	}
+	telSvc := NewTelemetryService(cfg, rcClient)
+
+	// 1. GetDaemonHealth
+	h := telSvc.GetDaemonHealth(context.Background())
+	if h["status"] != "healthy" {
+		t.Fatalf("expected healthy daemon status, got: %v", h["status"])
+	}
+
+	// 2. GetRemotesSummary
+	summary, err := telSvc.GetRemotesSummary(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error from GetRemotesSummary: %v", err)
+	}
+	if summary["count"] != 1 {
+		t.Fatalf("expected 1 remote, got: %v", summary["count"])
+	}
+
+	// 3. GetTransferStats
+	ts := telSvc.GetTransferStats(context.Background())
+	if ts == nil || ts.Bytes != 1000 {
+		t.Fatalf("expected 1000 bytes, got: %v", ts)
+	}
+
+	// 4. GetTelemetryPayload with isSyncing = true
+	payload := telSvc.GetTelemetryPayload(context.Background(), true, 5)
+	if payload["is_syncing"] != true {
+		t.Fatalf("expected is_syncing true, got: %v", payload["is_syncing"])
+	}
+	if payload["transfer_stats"] == nil {
+		t.Fatal("expected non-nil transfer_stats in payload when is_syncing is true")
+	}
+
+	// 5. GetTelemetryPayload with isSyncing = false
+	payloadIdle := telSvc.GetTelemetryPayload(context.Background(), false, 5)
+	if payloadIdle["is_syncing"] != false {
+		t.Fatalf("expected is_syncing false, got: %v", payloadIdle["is_syncing"])
+	}
+	if payloadIdle["transfer_stats"] != nil {
+		t.Fatalf("expected nil transfer_stats when idle, got: %v", payloadIdle["transfer_stats"])
+	}
+}
+

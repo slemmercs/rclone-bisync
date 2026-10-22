@@ -9,15 +9,13 @@ import (
 "os"
 "os/exec"
 "path/filepath"
-"sort"
 "strings"
-"sync"
-"time"
 
 "github.com/slemmercs/rclone-bisync/internal/config"
 "github.com/slemmercs/rclone-bisync/internal/core/client"
 "github.com/slemmercs/rclone-bisync/internal/core/lock"
 "github.com/slemmercs/rclone-bisync/internal/core/state"
+"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 var ProviderLabels = map[string]string{
@@ -51,11 +49,12 @@ type LiveHealthCache struct {
 
 // SyncService orchestrates bisync operations, exploration, and telemetry.
 type SyncService struct {
-	Config          *config.Config
-	Client          *client.RcloneClient
-	lockMu          sync.Mutex
-	fileCache       map[string]FileCacheItem
-	liveHealthCache LiveHealthCache
+	Config    *config.Config
+	Client    *client.RcloneClient
+	Canary    *CanaryService
+	Deletion  *DeletionService
+	Telemetry *TelemetryService
+	Explorer  *ExplorerService
 }
 
 // NewSyncService initializes a new SyncService.
@@ -69,10 +68,17 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 		}
 		rcClient = client.NewRcloneClient(cfg.RCAPIURL, user, pass)
 	}
+	canarySvc := NewCanaryService(cfg, rcClient)
+	deletionSvc := NewDeletionService(cfg)
+	telemetrySvc := NewTelemetryService(cfg, rcClient)
+	explorerSvc := NewExplorerService(cfg, rcClient, canarySvc)
 	return &SyncService{
 		Config:    cfg,
 		Client:    rcClient,
-		fileCache: make(map[string]FileCacheItem),
+		Canary:    canarySvc,
+		Deletion:  deletionSvc,
+		Telemetry: telemetrySvc,
+		Explorer:  explorerSvc,
 	}
 }
 
@@ -203,36 +209,7 @@ func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin stri
 
 // GetDaemonHealth retrieves daemon health with caching.
 func (s *SyncService) GetDaemonHealth(ctx context.Context) map[string]interface{} {
-	now := float64(time.Now().Unix())
-
-	s.lockMu.Lock()
-	if s.liveHealthCache.Data != nil && (now-s.liveHealthCache.Time) <= 5 {
-		data := s.liveHealthCache.Data
-		s.lockMu.Unlock()
-		return data
-	}
-	s.lockMu.Unlock()
-
-	healthy, latency, _ := s.Client.CheckHealth(ctx, 1, 0)
-	statusStr := "offline"
-	if healthy {
-		statusStr = "healthy"
-	} else {
-		latency = 0.0
-	}
-
-	health := map[string]interface{}{
-		"status":           statusStr,
-		"response_time_ms": latency,
-		"last_check":       now,
-	}
-
-	s.lockMu.Lock()
-	s.liveHealthCache.Time = now
-	s.liveHealthCache.Data = health
-	s.lockMu.Unlock()
-
-	return health
+	return s.Telemetry.GetDaemonHealth(ctx)
 }
 
 // TailFile reads the last N whole lines from a file by seeking from EOF.
@@ -342,540 +319,55 @@ func TailJSONLog(filepathStr string, entriesCount int) []string {
 
 // ParsePendingDeletionsFromLog scans daemon log for aborted deletions.
 func (s *SyncService) ParsePendingDeletionsFromLog() state.PendingDeletionsData {
-	daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
-	if _, err := os.Stat(daemonLog); os.IsNotExist(err) {
-		return state.PendingDeletionsData{HasDeletions: false, TotalCount: 0, Files: []string{}, Source: "unknown"}
-	}
-
-	var deletedFiles []string
-	abortMsg := ""
-	source := "Google Drive (remote)"
-	targetAction := "Will be deleted from local disk (~/gdrive)"
-
-	lines := TailFile(daemonLog, 2000)
-	for i := len(lines) - 1; i >= 0; i-- {
-		lineStr := strings.TrimSpace(lines[i])
-		if lineStr == "" {
-			continue
-		}
-
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(lineStr), &data); err != nil {
-			continue
-		}
-
-		rawMsg, _ := data["msg"].(string)
-		sublines := strings.Split(rawMsg, "\n")
-		for j := len(sublines) - 1; j >= 0; j-- {
-			imsg := strings.TrimSpace(sublines[j])
-			if strings.HasPrefix(imsg, "{") && strings.HasSuffix(imsg, "}") {
-				var inner map[string]interface{}
-				if err := json.Unmarshal([]byte(imsg), &inner); err == nil {
-					if innerMsg, ok := inner["msg"].(string); ok {
-						imsg = innerMsg
-					}
-				}
-			}
-
-			lower := strings.ToLower(imsg)
-			if strings.Contains(lower, "too many deletes") {
-				abortMsg = imsg
-				if strings.Contains(lower, "path2") {
-					source = "Local (~/gdrive)"
-					targetAction = "Will be deleted from Google Drive"
-				} else {
-					source = "Google Drive (remote)"
-					targetAction = "Will be deleted from local disk (~/gdrive)"
-				}
-			}
-
-			if strings.Contains(imsg, "File was deleted") {
-				parts := strings.SplitN(imsg, "File was deleted", 2)
-				if len(parts) == 2 {
-					fp := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(parts[1]), "-"))
-					if fp != "" {
-						found := false
-						for _, f := range deletedFiles {
-							if f == fp {
-								found = true
-								break
-							}
-						}
-						if !found {
-							deletedFiles = append(deletedFiles, fp)
-						}
-					}
-				}
-			}
-		}
-
-		if abortMsg != "" && strings.Contains(lineStr, "Synching Path1") {
-			break
-		}
-	}
-
-	if len(deletedFiles) > 0 || abortMsg != "" {
-		// Reverse deletedFiles to preserve chronological order
-		for i, j := 0, len(deletedFiles)-1; i < j; i, j = i+1, j-1 {
-			deletedFiles[i], deletedFiles[j] = deletedFiles[j], deletedFiles[i]
-		}
-		msg := abortMsg
-		if msg == "" {
-			msg = fmt.Sprintf("%d files deleted", len(deletedFiles))
-		}
-		return state.PendingDeletionsData{
-			HasDeletions: true,
-			TotalCount:   len(deletedFiles),
-			Source:       source,
-			TargetAction: targetAction,
-			Message:      msg,
-			Files:        deletedFiles,
-		}
-	}
-
-	return state.PendingDeletionsData{HasDeletions: false, TotalCount: 0, Files: []string{}}
+	return s.Deletion.ParsePendingDeletionsFromLog()
 }
 
 // GetPendingDeletions returns structured pending deletions or falls back to log parsing.
 func (s *SyncService) GetPendingDeletions() state.PendingDeletionsData {
-	structured, err := state.ReadPendingDeletions(s.Config.PendingDeletionsFile)
-	if err == nil && structured != nil {
-		return *structured
-	}
-	return s.ParsePendingDeletionsFromLog()
+	return s.Deletion.GetPendingDeletions()
 }
 
 // GetRemotesSummary queries remotes and storage metrics.
 func (s *SyncService) GetRemotesSummary(ctx context.Context) (map[string]interface{}, error) {
-	remotes, err := s.Client.ListRemotes(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return s.Telemetry.GetRemotesSummary(ctx)
+}
 
-	remoteData := make([]map[string]interface{}, 0, len(remotes))
-	var totalCap, totalUsed, totalFree int64
+// GetTransferStats queries transfer statistics.
+func (s *SyncService) GetTransferStats(ctx context.Context) *models.TransferStats {
+	return s.Telemetry.GetTransferStats(ctx)
+}
 
-	activeRemote := strings.TrimRight(s.Config.RemotePath, ":")
+// GetCachedMetrics returns parsed and cached metrics lines.
+func (s *SyncService) GetCachedMetrics(linesCount int) []map[string]interface{} {
+	return s.Telemetry.GetCachedMetrics(linesCount)
+}
 
-	for _, r := range remotes {
-		cleanName := strings.TrimRight(r, ":")
-		cfg := s.Client.GetRemoteConfig(ctx, cleanName)
-		about := s.Client.GetRemoteAbout(ctx, cleanName)
+// GetRuntimeConfig returns sanitized configuration map with masked credentials.
+func (s *SyncService) GetRuntimeConfig() map[string]interface{} {
+	return s.Telemetry.GetRuntimeConfig()
+}
 
-		rtype := "unknown"
-		if cfg != nil {
-			if t, ok := cfg["type"].(string); ok {
-				rtype = t
-			}
-		}
-
-		typeLabel := strings.ToUpper(rtype)
-		if lbl, ok := ProviderLabels[rtype]; ok {
-			typeLabel = lbl
-		}
-
-		isActive := (cleanName == activeRemote)
-
-		if about != nil {
-			if total, ok := about["total"].(float64); ok {
-				totalCap += int64(total)
-			}
-			if used, ok := about["used"].(float64); ok {
-				totalUsed += int64(used)
-			}
-			if free, ok := about["free"].(float64); ok {
-				totalFree += int64(free)
-			}
-		}
-
-		if about == nil {
-			about = make(map[string]interface{})
-		}
-
-		remoteData = append(remoteData, map[string]interface{}{
-"name":             cleanName,
-"fs":               fmt.Sprintf("%s:", cleanName),
-"type":             rtype,
-"type_label":       typeLabel,
-"is_active_target": isActive,
-"about":            about,
-})
-	}
-
-	summary := map[string]interface{}{
-		"total_capacity_bytes": totalCap,
-		"total_used_bytes":     totalUsed,
-		"total_free_bytes":     totalFree,
-		"provider_count":       len(remoteData),
-	}
-
-	var activeRemoteFormatted interface{}
-	if activeRemote != "" {
-		activeRemoteFormatted = fmt.Sprintf("%s:", activeRemote)
-	}
-
-	return map[string]interface{}{
-		"remotes":       remoteData,
-		"summary":       summary,
-		"active_remote": activeRemoteFormatted,
-		"count":         len(remoteData),
-	}, nil
+// GetTelemetryPayload aggregates daemon health, logs, metrics, config, and transfer stats.
+func (s *SyncService) GetTelemetryPayload(ctx context.Context, limit int) map[string]interface{} {
+	return s.Telemetry.GetTelemetryPayload(ctx, s.IsSyncing(), limit)
 }
 
 // BrowsePath lists directory items and verifies canary presence, enforcing path jails for local FS.
 func (s *SyncService) BrowsePath(ctx context.Context, remote, path string) client.DirectoryListing {
-	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
-	remoteClean := strings.TrimSpace(remote)
-
-	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := s.Config.LocalPath
-		if rawBase == "" {
-			rawBase = "~/gdrive"
-		}
-		if strings.HasPrefix(rawBase, "~") {
-			home, _ := os.UserHomeDir()
-			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-		}
-		baseDir, err := filepath.Abs(rawBase)
-		if err != nil {
-			return client.DirectoryListing{Remote: "local", Path: cleanPath, Error: "Invalid base directory"}
-		}
-
-		targetDir, err := filepath.Abs(filepath.Join(baseDir, cleanPath))
-		if err != nil {
-			return client.DirectoryListing{Remote: "local", Path: cleanPath, Error: "Invalid target path"}
-		}
-
-		// Security Check: enforce path traversal jail
-		rel, err := filepath.Rel(baseDir, targetDir)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return client.DirectoryListing{
-				Remote: "local",
-				Path:   cleanPath,
-				Error:  "Directory traversal forbidden",
-			}
-		}
-
-		fi, err := os.Stat(targetDir)
-		if os.IsNotExist(err) {
-			return client.DirectoryListing{
-				Remote: "local",
-				Path:   cleanPath,
-				Error:  fmt.Sprintf("Directory does not exist: %s", cleanPath),
-			}
-		}
-		if err != nil || !fi.IsDir() {
-			return client.DirectoryListing{
-				Remote: "local",
-				Path:   cleanPath,
-				Error:  "Target is not a directory",
-			}
-		}
-
-		entries, err := os.ReadDir(targetDir)
-		if err != nil {
-			return client.DirectoryListing{
-				Remote: "local",
-				Path:   cleanPath,
-				Error:  err.Error(),
-			}
-		}
-
-		items := make([]map[string]interface{}, 0, len(entries))
-		hasCanary := false
-
-		for _, entry := range entries {
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-
-			isDir := entry.IsDir()
-			var size int64 = -1
-			if !isDir {
-				size = info.Size()
-			}
-
-			itemRelPath := entry.Name()
-			if cleanPath != "" {
-				itemRelPath = fmt.Sprintf("%s/%s", cleanPath, entry.Name())
-			}
-
-			mimeType := "application/octet-stream"
-			if isDir {
-				mimeType = "inode/directory"
-			}
-
-			items = append(items, map[string]interface{}{
-"Path":     itemRelPath,
-"Name":     entry.Name(),
-				"Size":     size,
-				"MimeType": mimeType,
-				"ModTime":  info.ModTime().UTC().Format(time.RFC3339),
-				"IsDir":    isDir,
-			})
-
-			if entry.Name() == "RCLONE_TEST" {
-				hasCanary = true
-			}
-		}
-
-		// Sort: directories first, then alphabetical
-		sort.Slice(items, func(i, j int) bool {
-dirI := items[i]["IsDir"].(bool)
-dirJ := items[j]["IsDir"].(bool)
-if dirI != dirJ {
-return dirI
-}
-return strings.ToLower(items[i]["Name"].(string)) < strings.ToLower(items[j]["Name"].(string))
-		})
-
-		return client.DirectoryListing{
-			Remote:    "local",
-			Path:      cleanPath,
-			HasCanary: hasCanary,
-			Items:     items,
-		}
-	}
-
-	return s.Client.ListDirectory(ctx, remoteClean, cleanPath)
+	return s.Explorer.BrowsePath(ctx, remote, path)
 }
 
 // CreateCanary provisions an RCLONE_TEST canary file on target local or remote filesystem.
 func (s *SyncService) CreateCanary(ctx context.Context, remote, path string) (map[string]interface{}, error) {
-	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
-	remoteClean := strings.TrimSpace(remote)
-
-	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := s.Config.LocalPath
-		if strings.HasPrefix(rawBase, "~") {
-			home, _ := os.UserHomeDir()
-			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-		}
-		baseDir, _ := filepath.Abs(rawBase)
-		targetDir, _ := filepath.Abs(filepath.Join(baseDir, cleanPath))
-
-		rel, err := filepath.Rel(baseDir, targetDir)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
-		}
-
-		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Target directory does not exist: %s", cleanPath), "remote": "local", "path": cleanPath}, nil
-		}
-
-		canaryFile := filepath.Join(targetDir, "RCLONE_TEST")
-		f, err := os.OpenFile(canaryFile, os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to create canary file: %v", err), "remote": "local", "path": cleanPath}, nil
-		}
-		_ = f.Close()
-		now := time.Now()
-		_ = os.Chtimes(canaryFile, now, now)
-
-		return map[string]interface{}{
-			"status": "success",
-			"msg":    fmt.Sprintf("Canary created successfully at %s/RCLONE_TEST", cleanPath),
-			"remote": "local",
-			"path":   cleanPath,
-		}, nil
-	}
-
-	canaryRemotePath := "RCLONE_TEST"
-	if cleanPath != "" {
-		canaryRemotePath = fmt.Sprintf("%s/RCLONE_TEST", cleanPath)
-	}
-
-	ok, err := s.Client.TouchFile(ctx, remoteClean, canaryRemotePath)
-	if err != nil || !ok {
-		errStr := "Failed to create remote canary"
-		if err != nil {
-			errStr = err.Error()
-		}
-		return map[string]interface{}{"status": "error", "error": errStr, "remote": remoteClean, "path": cleanPath}, nil
-	}
-
-	return map[string]interface{}{
-		"status": "success",
-		"msg":    fmt.Sprintf("Canary created successfully at %s:%s", remoteClean, canaryRemotePath),
-		"remote": remoteClean,
-		"path":   cleanPath,
-	}, nil
+	return s.Canary.CreateCanary(ctx, remote, path)
 }
 
 // CopyItem transfers a file or directory with path jail enforcement.
 func (s *SyncService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (map[string]interface{}, error) {
-	cleanSrcPath := strings.Trim(strings.TrimSpace(srcPath), "/")
-	cleanDstPath := strings.Trim(strings.TrimSpace(dstPath), "/")
-	srcIsLocal := strings.ToLower(strings.TrimSpace(srcRemote)) == "local" || strings.TrimSpace(srcRemote) == ""
-	dstIsLocal := strings.ToLower(strings.TrimSpace(dstRemote)) == "local" || strings.TrimSpace(dstRemote) == ""
-
-	rawBase := s.Config.LocalPath
-	if strings.HasPrefix(rawBase, "~") {
-		home, _ := os.UserHomeDir()
-		rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-	}
-	baseDir, _ := filepath.Abs(rawBase)
-
-	var srcFs, srcFile, dstFs, dstFile string
-
-	if srcIsLocal {
-		targetSrc, _ := filepath.Abs(filepath.Join(baseDir, cleanSrcPath))
-		rel, err := filepath.Rel(baseDir, targetSrc)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return map[string]interface{}{"status": "error", "error": "Source path traversal forbidden"}, nil
-		}
-
-		if _, err := os.Stat(targetSrc); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Source does not exist: %s", cleanSrcPath)}, nil
-		}
-
-		if isDir {
-			srcFs = targetSrc
-			srcFile = ""
-		} else {
-			srcFs = filepath.Dir(targetSrc)
-			srcFile = filepath.Base(targetSrc)
-		}
-	} else {
-		remoteName := strings.TrimRight(srcRemote, ":") + ":"
-		if isDir {
-			if cleanSrcPath != "" {
-				srcFs = fmt.Sprintf("%s%s", remoteName, cleanSrcPath)
-			} else {
-				srcFs = remoteName
-			}
-			srcFile = ""
-		} else {
-			parentDir := filepath.Dir(cleanSrcPath)
-			if parentDir == "." || parentDir == "/" {
-				srcFs = remoteName
-			} else {
-				srcFs = fmt.Sprintf("%s%s", remoteName, parentDir)
-			}
-			srcFile = filepath.Base(cleanSrcPath)
-		}
-	}
-
-	if dstIsLocal {
-		targetDst, _ := filepath.Abs(filepath.Join(baseDir, cleanDstPath))
-		rel, err := filepath.Rel(baseDir, targetDst)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return map[string]interface{}{"status": "error", "error": "Destination path traversal forbidden"}, nil
-		}
-
-		if isDir {
-			dstFs = targetDst
-			dstFile = ""
-		} else {
-			fi, err := os.Stat(targetDst)
-			if (err == nil && fi.IsDir()) || strings.HasSuffix(dstPath, "/") {
-				dstFs = targetDst
-				dstFile = srcFile
-			} else {
-				dstFs = filepath.Dir(targetDst)
-				dstFile = filepath.Base(targetDst)
-				if dstFile == "" || dstFile == "." {
-					dstFile = srcFile
-				}
-			}
-		}
-	} else {
-		remoteName := strings.TrimRight(dstRemote, ":") + ":"
-		if isDir {
-			if cleanDstPath != "" {
-				dstFs = fmt.Sprintf("%s%s", remoteName, cleanDstPath)
-			} else {
-				dstFs = remoteName
-			}
-			dstFile = ""
-		} else {
-			dstFs = remoteName
-			if cleanDstPath != "" {
-				dstFs = fmt.Sprintf("%s%s", remoteName, cleanDstPath)
-			}
-			dstFile = srcFile
-		}
-	}
-
-	if isDir {
-		ok, err := s.Client.CopyDir(ctx, srcFs, dstFs)
-		if err != nil || !ok {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("copy dir failed: %v", err)}, nil
-		}
-		return map[string]interface{}{"status": "success", "src": srcFs, "dst": dstFs}, nil
-	}
-
-	ok, err := s.Client.CopyFile(ctx, srcFs, srcFile, dstFs, dstFile)
-	if err != nil || !ok {
-		return map[string]interface{}{"status": "error", "error": fmt.Sprintf("copy file failed: %v", err)}, nil
-	}
-	return map[string]interface{}{"status": "success", "src": fmt.Sprintf("%s/%s", srcFs, srcFile), "dst": fmt.Sprintf("%s/%s", dstFs, dstFile)}, nil
+	return s.Explorer.CopyItem(ctx, srcRemote, srcPath, dstRemote, dstPath, isDir)
 }
 
 // DeleteItem removes a file or directory, safeguarding RCLONE_TEST canary and enforcing path jail.
 func (s *SyncService) DeleteItem(ctx context.Context, remote, path string, isDir bool) (map[string]interface{}, error) {
-	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
-	if cleanPath == "" {
-		return map[string]interface{}{"status": "error", "error": "Root directory cannot be deleted"}, nil
-	}
-
-	// Canary protection
-	if filepath.Base(cleanPath) == "RCLONE_TEST" {
-		return map[string]interface{}{"status": "error", "error": "Canary test file (RCLONE_TEST) cannot be deleted"}, nil
-	}
-
-	remoteClean := strings.TrimSpace(remote)
-	isLocal := strings.ToLower(remoteClean) == "local" || remoteClean == ""
-
-	if isLocal {
-		rawBase := s.Config.LocalPath
-		if strings.HasPrefix(rawBase, "~") {
-			home, _ := os.UserHomeDir()
-			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-		}
-		baseDir, _ := filepath.Abs(rawBase)
-		target, _ := filepath.Abs(filepath.Join(baseDir, cleanPath))
-
-		rel, err := filepath.Rel(baseDir, target)
-		if err != nil || strings.HasPrefix(rel, "..") || target == baseDir {
-			return map[string]interface{}{"status": "error", "error": "Path traversal or root deletion forbidden"}, nil
-		}
-
-		if _, err := os.Stat(target); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Target does not exist: %s", cleanPath)}, nil
-		}
-
-		if isDir {
-			if err := os.RemoveAll(target); err != nil {
-				return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to delete local directory: %v", err)}, nil
-			}
-		} else {
-			if err := os.Remove(target); err != nil {
-				return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to delete local file: %v", err)}, nil
-			}
-		}
-
-		return map[string]interface{}{
-			"status": "success",
-			"msg":    fmt.Sprintf("Deleted %s", cleanPath),
-			"remote": "local",
-			"path":   cleanPath,
-		}, nil
-	}
-
-	remoteName := strings.TrimRight(remoteClean, ":") + ":"
-	if isDir {
-		ok, err := s.Client.PurgeDir(ctx, remoteName, cleanPath)
-		if err != nil || !ok {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Purge failed: %v", err)}, nil
-		}
-		return map[string]interface{}{"status": "success", "fs": remoteName, "remote": cleanPath}, nil
-	}
-
-	ok, err := s.Client.DeleteFile(ctx, remoteName, cleanPath)
-	if err != nil || !ok {
-		return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Delete file failed: %v", err)}, nil
-	}
-	return map[string]interface{}{"status": "success", "fs": remoteName, "remote": cleanPath}, nil
+	return s.Explorer.DeleteItem(ctx, remote, path, isDir)
 }

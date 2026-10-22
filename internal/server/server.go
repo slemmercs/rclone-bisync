@@ -22,12 +22,16 @@ import (
 )
 
 type Server struct {
-	Config      *config.Config
-	SyncService *services.SyncService
-	LogService  *services.LogService
-	AuthService *remoteauth.RemoteAuthService
-	FrontendFS  embed.FS
-	Mux         *http.ServeMux
+	Config           *config.Config
+	SyncService      *services.SyncService
+	TelemetryService *services.TelemetryService
+	CanaryService    *services.CanaryService
+	DeletionService  *services.DeletionService
+	ExplorerService  *services.ExplorerService
+	LogService       *services.LogService
+	AuthService      *remoteauth.RemoteAuthService
+	FrontendFS       embed.FS
+	Mux              *http.ServeMux
 }
 
 func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS embed.FS) *Server {
@@ -35,13 +39,41 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 	if syncService != nil {
 		rcClient = syncService.Client
 	}
+	var telemetrySvc *services.TelemetryService
+	var canarySvc *services.CanaryService
+	var deletionSvc *services.DeletionService
+	var explorerSvc *services.ExplorerService
+
+	if syncService != nil {
+		telemetrySvc = syncService.Telemetry
+		canarySvc = syncService.Canary
+		deletionSvc = syncService.Deletion
+		explorerSvc = syncService.Explorer
+	}
+	if telemetrySvc == nil {
+		telemetrySvc = services.NewTelemetryService(cfg, rcClient)
+	}
+	if canarySvc == nil {
+		canarySvc = services.NewCanaryService(cfg, rcClient)
+	}
+	if deletionSvc == nil {
+		deletionSvc = services.NewDeletionService(cfg)
+	}
+	if explorerSvc == nil {
+		explorerSvc = services.NewExplorerService(cfg, rcClient, canarySvc)
+	}
+
 	s := &Server{
-		Config:      cfg,
-		SyncService: syncService,
-		LogService:  services.NewLogService(),
-		AuthService: remoteauth.NewRemoteAuthService(cfg, rcClient, nil),
-		FrontendFS:  frontendFS,
-		Mux:         http.NewServeMux(),
+		Config:           cfg,
+		SyncService:      syncService,
+		TelemetryService: telemetrySvc,
+		CanaryService:    canarySvc,
+		DeletionService:  deletionSvc,
+		ExplorerService:  explorerSvc,
+		LogService:       services.NewLogService(),
+		AuthService:      remoteauth.NewRemoteAuthService(cfg, rcClient, nil),
+		FrontendFS:       frontendFS,
+		Mux:              http.NewServeMux(),
 	}
 	s.routes()
 	return s
@@ -239,7 +271,11 @@ func (s *Server) handleTelemetry(w http.ResponseWriter, r *http.Request) {
 			limit = parsed
 		}
 	}
-	payload := s.SyncService.GetTelemetryPayload(r.Context(), limit)
+	isSyncing := false
+	if s.SyncService != nil {
+		isSyncing = s.SyncService.IsSyncing()
+	}
+	payload := s.TelemetryService.GetTelemetryPayload(r.Context(), isSyncing, limit)
 	writeJSON(w, http.StatusOK, payload)
 }
 
@@ -247,6 +283,10 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 	var req models.ActionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid request body"})
+		return
+	}
+	if s.SyncService == nil {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": "SyncService not initialized"})
 		return
 	}
 	res, err := s.SyncService.HandleAction(r.Context(), req.Action)
@@ -258,12 +298,12 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePendingDeletions(w http.ResponseWriter, r *http.Request) {
-	data := s.SyncService.GetPendingDeletions()
+	data := s.DeletionService.GetPendingDeletions()
 	writeJSON(w, http.StatusOK, data)
 }
 
 func (s *Server) handleRemotes(w http.ResponseWriter, r *http.Request) {
-	summary, err := s.SyncService.GetRemotesSummary(r.Context())
+	summary, err := s.TelemetryService.GetRemotesSummary(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]interface{}{
 			"remotes": []interface{}{},
@@ -283,7 +323,7 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	if remote == "" {
 		remote = "local"
 	}
-	res := s.SyncService.BrowsePath(r.Context(), remote, req.Path)
+	res := s.ExplorerService.BrowsePath(r.Context(), remote, req.Path)
 	writeJSON(w, http.StatusOK, res)
 }
 
@@ -294,7 +334,7 @@ func (s *Server) handleProvisionCanary(w http.ResponseWriter, r *http.Request) {
 	if remote == "" {
 		remote = "local"
 	}
-	res, err := s.SyncService.CreateCanary(r.Context(), remote, req.Path)
+	res, err := s.CanaryService.CreateCanary(r.Context(), remote, req.Path)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
 		return
@@ -308,7 +348,7 @@ func (s *Server) handleCopyItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid request body"})
 		return
 	}
-	res, err := s.SyncService.CopyItem(r.Context(), req.SrcRemote, req.SrcPath, req.DstRemote, req.DstPath, req.IsDir)
+	res, err := s.ExplorerService.CopyItem(r.Context(), req.SrcRemote, req.SrcPath, req.DstRemote, req.DstPath, req.IsDir)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
 		return
@@ -322,7 +362,7 @@ func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid request body"})
 		return
 	}
-	res, err := s.SyncService.DeleteItem(r.Context(), req.Remote, req.Path, req.IsDir)
+	res, err := s.ExplorerService.DeleteItem(r.Context(), req.Remote, req.Path, req.IsDir)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
 		return
