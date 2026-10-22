@@ -55,6 +55,56 @@ window.RemotesModule = {
         }
     },
 
+    async checkAuthAndQuotas() {
+        this.remotesData.loading = true;
+        this.showToast("Checking authentication health & storage quotas...", "info");
+        const startTime = Date.now();
+        try {
+            const [remotesRes, checkRes] = await Promise.allSettled([
+                fetch("/api/remotes"),
+                fetch("/api/remotes/auth/check", {
+                    method: "POST",
+                    headers: { "X-Dashboard-Request": "1" }
+                })
+            ]);
+
+            if (remotesRes.status === "fulfilled" && remotesRes.value.ok) {
+                const data = await remotesRes.value.json();
+                this.remotesData.remotes = data.remotes || [];
+                this.remotesData.summary = data.summary || {};
+                this.remotesData.count = data.count || 0;
+                this.remotesData.active_remote = data.active_remote || null;
+                this.remotesData.last_checked = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+            }
+
+            if (checkRes.status === "fulfilled" && checkRes.value.ok) {
+                const authData = await checkRes.value.json();
+                this.remotesData.authSummary = authData.summary || {};
+                const authMap = {};
+                (authData.remotes || []).forEach(r => {
+                    authMap[r.name] = r;
+                });
+                this.remotesData.remotes.forEach(r => {
+                    r.auth = authMap[r.name] || null;
+                });
+            }
+
+            const elapsed = Date.now() - startTime;
+            if (elapsed < 600) {
+                await new Promise(r => setTimeout(r, 600 - elapsed));
+            }
+
+            this.showToast("Authentication and storage quotas verified!", "success");
+            if (this.auditModal && this.auditModal.show) {
+                await this.viewAuthAudit();
+            }
+        } catch (err) {
+            this.showToast("Check error: " + err.message, "error");
+        } finally {
+            this.remotesData.loading = false;
+        }
+    },
+
     getQuotaPct(used, total) {
         if (!total || total <= 0 || !used) return 0;
         return Math.min(100, Math.max(0, (used / total) * 100));

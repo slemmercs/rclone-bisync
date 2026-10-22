@@ -194,3 +194,63 @@ func (s *RemoteAuthService) GetAllRemotesAuthStatus(ctx context.Context) (models
 		Remotes: infos,
 	}, nil
 }
+
+// CheckAllRemotesAuth explicitly validates authentication for all configured remotes,
+// recording audit entries for each OAuth-capable remote, and calculates aggregate authentication health.
+// This is invoked when the user explicitly clicks "Check Auth & Quotas".
+func (s *RemoteAuthService) CheckAllRemotesAuth(ctx context.Context) (models.AuthStatusResponse, error) {
+	remotes, err := s.Client.ListRemotes(ctx)
+	if err != nil {
+		return models.AuthStatusResponse{}, err
+	}
+
+	infos := make([]models.RemoteAuthInfo, 0, len(remotes))
+	summary := models.AuthHealthSummary{
+		TotalRemotes: len(remotes),
+	}
+
+	for _, r := range remotes {
+		cleanName := strings.TrimRight(r, ":")
+		cfg, _ := s.Client.GetRemoteAuthConfig(ctx, cleanName)
+		pType, _ := cfg["type"].(string)
+
+		// Explicit user check: validate connectivity and log to audit trail for OAuth remotes
+		if IsOAuthProvider(pType) {
+			_, _ = s.ValidateRemote(ctx, cleanName)
+		}
+
+		info, err := s.GetRemoteAuthHealth(ctx, cleanName)
+		if err != nil {
+			info = models.RemoteAuthInfo{
+				Name:          cleanName,
+				Status:        models.AuthStatusError,
+				StatusMessage: err.Error(),
+				LastChecked:   time.Now().UTC().Format(time.RFC3339),
+			}
+		}
+
+		if info.IsOAuth {
+			summary.OAuthRemotes++
+		}
+
+		switch info.Status {
+		case models.AuthStatusConnected:
+			summary.Connected++
+		case models.AuthStatusMigrationRequired:
+			summary.MigrationRequired++
+		case models.AuthStatusAuthorizationRequired:
+			summary.AuthorizationRequired++
+		case models.AuthStatusConfigurationRequired:
+			summary.ConfigurationRequired++
+		case models.AuthStatusError:
+			summary.Errors++
+		}
+
+		infos = append(infos, info)
+	}
+
+	return models.AuthStatusResponse{
+		Summary: summary,
+		Remotes: infos,
+	}, nil
+}

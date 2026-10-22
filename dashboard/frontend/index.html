@@ -350,11 +350,11 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button @click="viewAuthAudit()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors border border-slate-700/60 flex items-center gap-1.5">
+                    <button type="button" @click.stop="viewAuthAudit()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors border border-slate-700/60 flex items-center gap-1.5 cursor-pointer">
                         <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         <span>Audit Log</span>
                     </button>
-                    <button @click="fetchRemotes(true)" :disabled="remotesData.loading" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors border border-indigo-500/30 flex items-center gap-1.5">
+                    <button type="button" @click.stop="checkAuthAndQuotas()" :disabled="remotesData.loading" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors border border-indigo-500/30 flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                         <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': remotesData.loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         <span>Check Auth & Quotas</span>
                     </button>
@@ -1265,10 +1265,10 @@
     </div>
 
     <!-- Modular Frontend Scripts -->
-    <script src="/static/js/utils.js?v=12"></script>
-    <script src="/static/js/charts.js?v=12"></script>
-    <script src="/static/js/remotes.js?v=12"></script>
-    <script src="/static/js/explorer.js?v=12"></script>
-    <script src="/static/app.js?v=12"></script>
+    <script src="/static/js/utils.js?v=13"></script>
+    <script src="/static/js/charts.js?v=13"></script>
+    <script src="/static/js/remotes.js?v=13"></script>
+    <script src="/static/js/explorer.js?v=13"></script>
+    <script src="/static/app.js?v=13"></script>
 </body>
 </html>
