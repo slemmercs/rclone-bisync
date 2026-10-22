@@ -6,7 +6,7 @@ The roadmap may evolve as the project grows.
 
 ---
 
-# Vision
+## Vision
 
 Become the safest and most understandable way to operate Rclone Bisync.
 
@@ -14,9 +14,23 @@ Review. Decide. Sync.
 
 ---
 
-# Near-Term Priorities
+## Community Participation
 
-## Test Coverage Expansion
+Roadmap priorities are primarily driven by:
+
+1. User safety
+2. Reliability
+3. Maintainer capacity
+4. Community feedback
+5. Long-term architectural direction
+
+Roadmap items are not commitments and may change based on project needs.
+
+---
+
+## Near-Term Priorities
+
+### Test Coverage Expansion
 
 Goals:
 
@@ -27,7 +41,7 @@ Goals:
 
 ---
 
-## OAuth Reconnect
+### OAuth Reconnect
 
 Allow users to re-authenticate remotes directly from the dashboard.
 
@@ -39,7 +53,7 @@ Benefits:
 
 ---
 
-# Interactive Sync Review
+### Interactive Sync Review
 
 Primary strategic feature.
 
@@ -54,7 +68,7 @@ Capabilities:
 
 ---
 
-# Multi-Profile Synchronization
+### Multi-Profile Synchronization
 
 Support multiple synchronization profiles from a single dashboard.
 
@@ -66,7 +80,7 @@ Examples:
 
 ---
 
-# Configuration Management
+### Configuration Management
 
 Provide safe editing of:
 
@@ -78,7 +92,7 @@ with validation and rollback capabilities.
 
 ---
 
-# Hardening
+### Hardening
 
 Future improvements:
 
@@ -88,7 +102,7 @@ Future improvements:
 
 ---
 
-# Long-Term Direction
+### Long-Term Direction
 
 Bisync Hub is not intended to become:
 
