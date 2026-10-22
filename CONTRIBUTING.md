@@ -31,9 +31,9 @@ This helps avoid duplicate work and architectural drift.
 
 Please review:
 
-- ARCHITECTURE_PRINCIPLES.md
-- GOVERNANCE.md
-- AI_DISCLOSURE.md
+- [ARCHITECTURE_PRINCIPLES.md](docs/architecture/ARCHITECTURE_PRINCIPLES.md)
+- [GOVERNANCE.md](GOVERNANCE.md)
+- [AI_DISCLOSURE.md](AI_DISCLOSURE.md)
 
 before submitting major changes.
 
