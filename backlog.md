@@ -65,6 +65,9 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ### Phase 3: Immediate Go Enhancements & Evaluation Tasks (Near-Term)
 
+* **Rebrand to Bisync Hub**
+  - Rebrand the UI to Bisync Hub
+
 * **Remote OAuth Re-Authentication Flow [ESTIMATE: 3-4h | 3 SP]**
   - Backend: Implement `ReconnectRemote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
   - Endpoint: `POST /api/remotes/{name}/reconnect`.
