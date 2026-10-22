@@ -14,7 +14,7 @@ Fix broken deployment and documentation references resulting from the repo reorg
 - [x] Task 2: Align markdown links and purge obsolete test references
   - **Scope**: `CONTRIBUTING.md`, `docs/roadmap/backlog.md`, `README.md`, `SECURITY.md`
   - **Verification**: Regex search verifying zero broken relative `.md` links
-- [ ] Task 3: Setup GitHub Actions CI Workflow and Dependabot
+- [x] Task 3: Setup GitHub Actions CI Workflow and Dependabot
   - **Scope**: `.github/workflows/ci.yml`, `.github/dependabot.yml`
   - **Verification**: Lint workflow YAML and verify test step matches `./scripts/check.sh`
 - [ ] Task 4: Setup GitHub Community & Security Templates
@@ -29,5 +29,6 @@ Fix broken deployment and documentation references resulting from the repo reorg
 - 2026-10-22: Completed Task 0 (Updated `.clinerules` to support `docs/roadmap/task_plan.md` and `docs/architecture/code-review.md`).
 - 2026-10-22: Completed Task 1 (Remediated `deploy/install.sh` dynamic repo root resolution, fixed config and systemd source paths, purged deleted manual desktop entry).
 - 2026-10-22: Completed Task 2 (Aligned markdown relative links in `CONTRIBUTING.md`, `docs/roadmap/backlog.md`, `code-review.md`; updated `SECURITY.md` with GitHub advisories; purged obsolete `pytest` from `README.md`).
+- 2026-10-22: Completed Task 3 (Created `.github/workflows/ci.yml` running pre-flight quality gate and single-binary build, and configured `.github/dependabot.yml` for gomod and github-actions).
 
 
