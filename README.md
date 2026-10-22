@@ -40,7 +40,7 @@ The application compiles into a self-contained, single-binary executable with no
 2. Run the automated deployment script with administrative elevations:
 
     ```bash
-    sudo bash install-custom-rclone.sh
+    sudo bash deploy/install.sh
     ```
 
 ## CLI Commands
