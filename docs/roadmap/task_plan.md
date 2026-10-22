@@ -20,7 +20,7 @@ Fix broken deployment and documentation references resulting from the repo reorg
 - [x] Task 4: Setup GitHub Community & Security Templates
   - **Scope**: `.github/CODEOWNERS`, `.github/ISSUE_TEMPLATE/*`, `.github/PULL_REQUEST_TEMPLATE.md`
   - **Verification**: File existence and syntax check
-- [ ] Task 5: Pre-Flight Verification & Checkpoint Commit
+- [x] Task 5: Pre-Flight Verification & Checkpoint Commit
   - **Scope**: Entire repository
   - **Verification**: `./scripts/check.sh` and `go build -o bin/rclone-bisync main.go`
 
@@ -31,5 +31,6 @@ Fix broken deployment and documentation references resulting from the repo reorg
 - 2026-10-22: Completed Task 2 (Aligned markdown relative links in `CONTRIBUTING.md`, `docs/roadmap/backlog.md`, `code-review.md`; updated `SECURITY.md` with GitHub advisories; purged obsolete `pytest` from `README.md`).
 - 2026-10-22: Completed Task 3 (Created `.github/workflows/ci.yml` running pre-flight quality gate and single-binary build, and configured `.github/dependabot.yml` for gomod and github-actions).
 - 2026-10-22: Completed Task 4 (Created `.github/CODEOWNERS`, `.github/ISSUE_TEMPLATE/config.yml`, `.github/ISSUE_TEMPLATE/bug_report.md`, `feature_request.md`, and `.github/PULL_REQUEST_TEMPLATE.md`).
+- 2026-10-22: Completed Task 5 (Executed full pre-flight quality gate `./scripts/check.sh`, compiled clean native binary `bin/rclone-bisync`, and verified zero regressions).
 
 
