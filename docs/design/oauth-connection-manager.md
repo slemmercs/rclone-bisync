@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Implemented (v2.4 Enterprise)
 
 ## Priority
 

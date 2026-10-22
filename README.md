@@ -28,7 +28,8 @@ The project is evolving beyond a traditional dashboard toward a review-driven sy
 1. **Rclone Daemon (`rclone-daemon.service`)**: Background controller exposing internal statistics and control APIs.
 2. **Telemetry UI Backend (`rclone-dashboard.service`)**: High-performance native Go web server (`rclone-bisync dashboard`) running continuously with embedded Alpine.js + Tailwind frontend, aggregating log streams, operational state vectors, and real-time charts.
 3. **Synchronization Engine (`bisync-gdrive.service`)**: Native Go execution engine (`rclone-bisync sync`) triggered by systemd timer or manual command to execute bidirectional sync cycles safely with kernel-level flock locking and canary validation.
-4. **Systemd Timer (`bisync-gdrive.timer`)**: Automatically runs the sync iteration every 15 minutes.
+4. **OAuth Connection Manager**: Centralized remote authentication health monitor, Google Drive shared client ID deprecation detector and migration wizard, desktop-integrated OAuth re-authentication runner, and in-memory audit trail.
+5. **Systemd Timer (`bisync-gdrive.timer`)**: Automatically runs the sync iteration every 15 minutes.
 
 ## Prerequisites & Installation
 
