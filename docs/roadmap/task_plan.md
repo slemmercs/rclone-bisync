@@ -23,6 +23,9 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - [x] Task 6: Validate Button Reactivity Fix & Option 2 Status Bar Redesign
   - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh` and browser state verification
+- [x] Task 7: Disentangle Passive Health Checks from Audit Log & Enhance Visual Validation Feedback
+  - **Scope**: `internal/remoteauth/validator.go`, `internal/remoteauth/health.go`, `internal/remoteauth/service_test.go`, `dashboard/frontend/js/remotes.js`, `dashboard/frontend/index.html`
+  - **Verification**: `./scripts/check.sh`, live unit tests, and live daemon verification
 
 ## Status Updates
 - 2026-10-22: Initialized plan on branch `feat/oauth-connection-manager`.
@@ -32,6 +35,7 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - 2026-10-22: Completed Task 4 (Implemented Dashboard UI with Authentication Health overview bar, remote card status badges, shared client ID deprecation alert banners, Google Drive Migration Wizard modal, Reconnect status modal, and OAuth Audit Trail modal).
 - 2026-10-22: Completed Task 5 (Updated design documentation, backlog, and README; enhanced reconnect with `--auto-confirm`, localized audit timestamps, added persistent 'Connected ✓' feedback, and verified 100% clean check suite).
 - 2026-10-22: Completed Task 6 (Fixed Validate button reactivity via immutable Alpine object updates, auto-refreshed audit modal on validation, implemented Option 2 Compact Status Bar Strip, generalized App Credentials modal for all OAuth providers, and bumped cache-busters to v11).
+- 2026-10-22: Completed Task 7 (Separated passive background health probes from user-initiated audit logging, eliminated spurious duplicate audit entries on dashboard reload, isolated `showToast` in `RemotesModule`, guaranteed a minimum 600ms visual spinner duration, extended persistent "Connected ✓" pill to 4000ms, added explicit button click isolation, and deployed live binary).
 
 
 

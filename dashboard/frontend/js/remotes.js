@@ -6,6 +6,17 @@
  */
 
 window.RemotesModule = {
+    showToast(message, type = "info") {
+        if (!this.toast) return;
+        if (this.toast.timeout) clearTimeout(this.toast.timeout);
+        this.toast.message = message;
+        this.toast.type = type;
+        this.toast.show = true;
+        this.toast.timeout = setTimeout(() => {
+            if (this.toast) this.toast.show = false;
+        }, 3000);
+    },
+
     async fetchRemotes(showLoading = true) {
         if (showLoading) this.remotesData.loading = true;
         this.remotesData.error = null;
@@ -121,22 +132,31 @@ window.RemotesModule = {
     },
 
     async validateRemote(name) {
+        if (!name) return;
         // Immutable updates ensure Alpine.js reactivity triggers DOM re-render immediately
         this.remotesData.validating = { ...(this.remotesData.validating || {}), [name]: true };
         this.remotesData.validated = { ...(this.remotesData.validated || {}), [name]: false };
         this.showToast(`Testing connection to "${name}"...`, "info");
+        const startTime = Date.now();
         try {
             const res = await fetch(`/api/remotes/${encodeURIComponent(name)}/validate`, {
                 method: "POST",
                 headers: { "X-Dashboard-Request": "1" }
             });
             const data = await res.json();
+
+            // Enforce minimum visual duration (600ms) so user clearly perceives the check
+            const elapsed = Date.now() - startTime;
+            if (elapsed < 600) {
+                await new Promise(r => setTimeout(r, 600 - elapsed));
+            }
+
             if (data.valid) {
                 this.showToast(`Remote "${name}" is connected and healthy!`, "success");
                 this.remotesData.validated = { ...(this.remotesData.validated || {}), [name]: true };
                 setTimeout(() => {
                     this.remotesData.validated = { ...(this.remotesData.validated || {}), [name]: false };
-                }, 3000);
+                }, 4000);
             } else {
                 this.showToast(`Validation issue on "${name}": ${data.msg || data.error || 'Connection failed'}`, "error");
             }

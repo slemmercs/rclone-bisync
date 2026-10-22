@@ -481,13 +481,13 @@
                                         </button>
                                     </div>
                                 </template>
-                                <button @click="validateRemote(remote.name)" :disabled="remotesData.validating && remotesData.validating[remote.name]" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors flex items-center gap-1">
+                                <button type="button" @click.stop="validateRemote(remote.name)" :disabled="remotesData.validating && remotesData.validating[remote.name]" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                                     <svg x-show="remotesData.validating && remotesData.validating[remote.name]" class="w-3 h-3 animate-spin text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                                     <svg x-show="remotesData.validated && remotesData.validated[remote.name]" class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                     <span :class="(remotesData.validated && remotesData.validated[remote.name]) ? 'text-emerald-400 font-medium' : ''" x-text="(remotesData.validating && remotesData.validating[remote.name]) ? 'Validating...' : ((remotesData.validated && remotesData.validated[remote.name]) ? 'Connected ✓' : 'Validate')"></span>
                                 </button>
                                 <template x-if="remote.auth && remote.auth.is_oauth">
-                                    <button @click="openMigrationWizard(remote)" class="px-2.5 py-1 text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1" title="Configure personal OAuth client ID and secret">
+                                    <button type="button" @click.stop="openMigrationWizard(remote)" class="px-2.5 py-1 text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1 cursor-pointer" title="Configure personal OAuth client ID and secret">
                                         <span>🔑</span>
                                         <span>App Credentials</span>
                                     </button>
@@ -1265,10 +1265,10 @@
     </div>
 
     <!-- Modular Frontend Scripts -->
-    <script src="/static/js/utils.js?v=11"></script>
-    <script src="/static/js/charts.js?v=11"></script>
-    <script src="/static/js/remotes.js?v=11"></script>
-    <script src="/static/js/explorer.js?v=11"></script>
-    <script src="/static/app.js?v=11"></script>
+    <script src="/static/js/utils.js?v=12"></script>
+    <script src="/static/js/charts.js?v=12"></script>
+    <script src="/static/js/remotes.js?v=12"></script>
+    <script src="/static/js/explorer.js?v=12"></script>
+    <script src="/static/app.js?v=12"></script>
 </body>
 </html>
