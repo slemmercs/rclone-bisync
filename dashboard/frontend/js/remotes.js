@@ -67,23 +67,22 @@ window.RemotesModule = {
     getAuthBadge(status) {
         switch ((status || "").toLowerCase()) {
             case "connected":
-                return { text: "Connected", class: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", dot: "bg-emerald-400" };
+                return { text: "Connected", class: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", textClass: "text-emerald-400", dot: "bg-emerald-400" };
             case "migration_required":
-                return { text: "Migration Required", class: "bg-amber-500/10 text-amber-300 border-amber-500/30", dot: "bg-amber-400" };
+                return { text: "Migration Recommended", class: "bg-amber-500/10 text-amber-300 border-amber-500/30", textClass: "text-amber-400", dot: "bg-amber-400" };
             case "authorization_required":
-                return { text: "Auth Required", class: "bg-rose-500/10 text-rose-300 border-rose-500/30", dot: "bg-rose-400" };
+                return { text: "Auth Required", class: "bg-rose-500/10 text-rose-300 border-rose-500/30", textClass: "text-rose-400", dot: "bg-rose-400" };
             case "configuration_required":
-                return { text: "Config Required", class: "bg-amber-500/10 text-amber-300 border-amber-500/30", dot: "bg-amber-400" };
+                return { text: "Config Required", class: "bg-amber-500/10 text-amber-300 border-amber-500/30", textClass: "text-amber-400", dot: "bg-amber-400" };
             case "error":
-                return { text: "Auth Error", class: "bg-red-500/10 text-red-300 border-red-500/30", dot: "bg-red-400" };
+                return { text: "Auth Error", class: "bg-red-500/10 text-red-300 border-red-500/30", textClass: "text-rose-400", dot: "bg-red-400" };
             default:
-                return { text: "Standard", class: "bg-slate-800 text-slate-400 border-slate-700/60", dot: "bg-slate-500" };
+                return { text: "Standard", class: "bg-slate-800 text-slate-400 border-slate-700/60", textClass: "text-slate-400", dot: "bg-slate-500" };
         }
     },
 
     async reconnectRemote(name) {
-        if (!this.remotesData.reconnecting) this.remotesData.reconnecting = {};
-        this.remotesData.reconnecting[name] = true;
+        this.remotesData.reconnecting = { ...(this.remotesData.reconnecting || {}), [name]: true };
         this.reconnectModal = {
             show: true,
             remote: name,
@@ -104,6 +103,9 @@ window.RemotesModule = {
                 this.reconnectModal.authUrl = data.auth_url || null;
                 this.showToast(`Re-authenticated ${name} successfully!`, "success");
                 await this.fetchRemotes(false);
+                if (this.auditModal && this.auditModal.show) {
+                    await this.viewAuthAudit();
+                }
             } else {
                 this.reconnectModal.error = data.error || data.msg || "Re-authentication failed.";
                 this.reconnectModal.authUrl = data.auth_url || null;
@@ -113,16 +115,15 @@ window.RemotesModule = {
             this.reconnectModal.error = "Network error: " + err.message;
             this.showToast("Reconnect network error: " + err.message, "error");
         } finally {
-            this.remotesData.reconnecting[name] = false;
+            this.remotesData.reconnecting = { ...(this.remotesData.reconnecting || {}), [name]: false };
             this.reconnectModal.loading = false;
         }
     },
 
     async validateRemote(name) {
-        if (!this.remotesData.validating) this.remotesData.validating = {};
-        if (!this.remotesData.validated) this.remotesData.validated = {};
-        this.remotesData.validating[name] = true;
-        this.remotesData.validated[name] = false;
+        // Immutable updates ensure Alpine.js reactivity triggers DOM re-render immediately
+        this.remotesData.validating = { ...(this.remotesData.validating || {}), [name]: true };
+        this.remotesData.validated = { ...(this.remotesData.validated || {}), [name]: false };
         this.showToast(`Testing connection to "${name}"...`, "info");
         try {
             const res = await fetch(`/api/remotes/${encodeURIComponent(name)}/validate`, {
@@ -132,18 +133,21 @@ window.RemotesModule = {
             const data = await res.json();
             if (data.valid) {
                 this.showToast(`Remote "${name}" is connected and healthy!`, "success");
-                this.remotesData.validated[name] = true;
+                this.remotesData.validated = { ...(this.remotesData.validated || {}), [name]: true };
                 setTimeout(() => {
-                    if (this.remotesData.validated) this.remotesData.validated[name] = false;
-                }, 2500);
+                    this.remotesData.validated = { ...(this.remotesData.validated || {}), [name]: false };
+                }, 3000);
             } else {
                 this.showToast(`Validation issue on "${name}": ${data.msg || data.error || 'Connection failed'}`, "error");
             }
             await this.fetchRemotes(false);
+            if (this.auditModal && this.auditModal.show) {
+                await this.viewAuthAudit();
+            }
         } catch (err) {
             this.showToast(`Validation error: ${err.message}`, "error");
         } finally {
-            this.remotesData.validating[name] = false;
+            this.remotesData.validating = { ...(this.remotesData.validating || {}), [name]: false };
         }
     },
 
@@ -217,15 +221,16 @@ window.RemotesModule = {
         } catch (e) {
             console.error(e);
         } finally {
-            if (this.remotesData.reconnecting) {
-                this.remotesData.reconnecting[name] = false;
-            }
+            this.remotesData.reconnecting = { ...(this.remotesData.reconnecting || {}), [name]: false };
             if (this.reconnectModal.remote === name) {
                 this.reconnectModal.show = false;
                 this.reconnectModal.loading = false;
             }
             this.showToast(`Re-authentication cancelled for "${name}".`, "info");
             await this.fetchRemotes(false);
+            if (this.auditModal && this.auditModal.show) {
+                await this.viewAuthAudit();
+            }
         }
     },
 
