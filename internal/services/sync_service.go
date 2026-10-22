@@ -54,6 +54,7 @@ type SyncService struct {
 	Config          *config.Config
 	Client          *client.RcloneClient
 	Canary          *CanaryService
+	Deletion        *DeletionService
 	lockMu          sync.Mutex
 	fileCache       map[string]FileCacheItem
 	liveHealthCache LiveHealthCache
@@ -71,10 +72,12 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 		rcClient = client.NewRcloneClient(cfg.RCAPIURL, user, pass)
 	}
 	canarySvc := NewCanaryService(cfg, rcClient)
+	deletionSvc := NewDeletionService(cfg)
 	return &SyncService{
 		Config:    cfg,
 		Client:    rcClient,
 		Canary:    canarySvc,
+		Deletion:  deletionSvc,
 		fileCache: make(map[string]FileCacheItem),
 	}
 }
@@ -345,107 +348,12 @@ func TailJSONLog(filepathStr string, entriesCount int) []string {
 
 // ParsePendingDeletionsFromLog scans daemon log for aborted deletions.
 func (s *SyncService) ParsePendingDeletionsFromLog() state.PendingDeletionsData {
-	daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
-	if _, err := os.Stat(daemonLog); os.IsNotExist(err) {
-		return state.PendingDeletionsData{HasDeletions: false, TotalCount: 0, Files: []string{}, Source: "unknown"}
-	}
-
-	var deletedFiles []string
-	abortMsg := ""
-	source := "Google Drive (remote)"
-	targetAction := "Will be deleted from local disk (~/gdrive)"
-
-	lines := TailFile(daemonLog, 2000)
-	for i := len(lines) - 1; i >= 0; i-- {
-		lineStr := strings.TrimSpace(lines[i])
-		if lineStr == "" {
-			continue
-		}
-
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(lineStr), &data); err != nil {
-			continue
-		}
-
-		rawMsg, _ := data["msg"].(string)
-		sublines := strings.Split(rawMsg, "\n")
-		for j := len(sublines) - 1; j >= 0; j-- {
-			imsg := strings.TrimSpace(sublines[j])
-			if strings.HasPrefix(imsg, "{") && strings.HasSuffix(imsg, "}") {
-				var inner map[string]interface{}
-				if err := json.Unmarshal([]byte(imsg), &inner); err == nil {
-					if innerMsg, ok := inner["msg"].(string); ok {
-						imsg = innerMsg
-					}
-				}
-			}
-
-			lower := strings.ToLower(imsg)
-			if strings.Contains(lower, "too many deletes") {
-				abortMsg = imsg
-				if strings.Contains(lower, "path2") {
-					source = "Local (~/gdrive)"
-					targetAction = "Will be deleted from Google Drive"
-				} else {
-					source = "Google Drive (remote)"
-					targetAction = "Will be deleted from local disk (~/gdrive)"
-				}
-			}
-
-			if strings.Contains(imsg, "File was deleted") {
-				parts := strings.SplitN(imsg, "File was deleted", 2)
-				if len(parts) == 2 {
-					fp := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(parts[1]), "-"))
-					if fp != "" {
-						found := false
-						for _, f := range deletedFiles {
-							if f == fp {
-								found = true
-								break
-							}
-						}
-						if !found {
-							deletedFiles = append(deletedFiles, fp)
-						}
-					}
-				}
-			}
-		}
-
-		if abortMsg != "" && strings.Contains(lineStr, "Synching Path1") {
-			break
-		}
-	}
-
-	if len(deletedFiles) > 0 || abortMsg != "" {
-		// Reverse deletedFiles to preserve chronological order
-		for i, j := 0, len(deletedFiles)-1; i < j; i, j = i+1, j-1 {
-			deletedFiles[i], deletedFiles[j] = deletedFiles[j], deletedFiles[i]
-		}
-		msg := abortMsg
-		if msg == "" {
-			msg = fmt.Sprintf("%d files deleted", len(deletedFiles))
-		}
-		return state.PendingDeletionsData{
-			HasDeletions: true,
-			TotalCount:   len(deletedFiles),
-			Source:       source,
-			TargetAction: targetAction,
-			Message:      msg,
-			Files:        deletedFiles,
-		}
-	}
-
-	return state.PendingDeletionsData{HasDeletions: false, TotalCount: 0, Files: []string{}}
+	return s.Deletion.ParsePendingDeletionsFromLog()
 }
 
 // GetPendingDeletions returns structured pending deletions or falls back to log parsing.
 func (s *SyncService) GetPendingDeletions() state.PendingDeletionsData {
-	structured, err := state.ReadPendingDeletions(s.Config.PendingDeletionsFile)
-	if err == nil && structured != nil {
-		return *structured
-	}
-	return s.ParsePendingDeletionsFromLog()
+	return s.Deletion.GetPendingDeletions()
 }
 
 // GetRemotesSummary queries remotes and storage metrics.
