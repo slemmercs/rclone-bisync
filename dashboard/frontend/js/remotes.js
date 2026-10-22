@@ -183,6 +183,7 @@ window.RemotesModule = {
 
     async validateRemote(name) {
         if (!name) return;
+        if (this.remotesData.validating && this.remotesData.validating[name]) return;
         // Immutable updates ensure Alpine.js reactivity triggers DOM re-render immediately
         this.remotesData.validating = { ...(this.remotesData.validating || {}), [name]: true };
         this.remotesData.validated = { ...(this.remotesData.validated || {}), [name]: false };
