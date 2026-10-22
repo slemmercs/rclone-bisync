@@ -89,3 +89,15 @@ Support is entirely optional and the project will remain free and open source.
 - Buy Me a Coffee
 - PayPal
 
+## Built on Rclone
+
+This project integrates with Rclone and relies on the
+Rclone Remote Control (RC) API for synchronization
+operations.
+
+Rclone is an open source project developed by
+Nick Craig-Wood and contributors.
+
+[rclone.org](https://rclone.org)
+
+
