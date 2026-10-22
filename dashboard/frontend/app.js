@@ -15,7 +15,8 @@ document.addEventListener("alpine:init", () => {
             last_checked: null,
             authSummary: { total_remotes: 0, oauth_remotes: 0, connected: 0, migration_required: 0, authorization_required: 0, configuration_required: 0, errors: 0 },
             reconnecting: {},
-            validating: {}
+            validating: {},
+            validated: {}
         },
         migrationModal: {
             show: false,

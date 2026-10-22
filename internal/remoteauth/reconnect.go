@@ -98,9 +98,9 @@ func (s *RemoteAuthService) ReconnectRemote(ctx context.Context, remoteName stri
 	// Check if rclone RC already has an active OAuth server running with an auth URL
 	_, authURL, _ := s.Client.OAuthStatus(ctx)
 
-	// Execute `rclone config reconnect <remoteName>:`
+	// Execute `rclone config reconnect <remoteName>: --auto-confirm`
 	env := collectSessionEnvironment()
-	args := []string{"config", "reconnect", fmt.Sprintf("%s:", cleanName)}
+	args := []string{"config", "reconnect", fmt.Sprintf("%s:", cleanName), "--auto-confirm"}
 
 	output, err := s.Runner(reconnectCtx, "rclone", env, args...)
 	if err != nil {
