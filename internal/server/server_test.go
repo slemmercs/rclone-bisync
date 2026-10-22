@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -14,7 +15,9 @@ import (
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/remoteauth"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
@@ -387,3 +390,183 @@ func TestServerAdditionalBranches(t *testing.T) {
 		t.Fatal("expected isAllowedOrigin to return false on invalid url")
 	}
 }
+
+func TestAuthEndpoints(t *testing.T) {
+	// Arrange
+	mockRCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/config/listremotes":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"remotes": ["gdrive"]}`))
+		case "/config/get":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"type":"drive","client_id":"app-id.apps.googleusercontent.com","client_secret":"super_secret_value_123","token":"{\"access_token\":\"ya29.sample\"}"}`))
+		case "/operations/about":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"total": 1000}`))
+		case "/config/update":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		case "/config/oauthstatus":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status": "stopped"}`))
+		case "/config/oauthstop":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer mockRCServer.Close()
+
+	rcClient := client.NewRcloneClient(mockRCServer.URL, "user", "pass")
+	cfg := &config.Config{
+		RCAPIURL: mockRCServer.URL,
+	}
+
+	mockRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
+		return "Mock browser reconnect executed", nil
+	}
+
+	syncSvc := services.NewSyncService(cfg, rcClient)
+	srv := NewServer(cfg, syncSvc, embed.FS{})
+	srv.AuthService = remoteauth.NewRemoteAuthService(cfg, rcClient, mockRunner)
+
+	// 1. GET /api/remotes/auth
+	req, _ := http.NewRequest("GET", "/api/remotes/auth", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for remotes auth, got: %d", rec.Code)
+	}
+	var authResp models.AuthStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &authResp); err != nil {
+		t.Fatalf("failed to decode auth response: %v", err)
+	}
+	if len(authResp.Remotes) != 1 || authResp.Remotes[0].Name != "gdrive" {
+		t.Fatalf("unexpected remotes in auth response: %+v", authResp)
+	}
+
+	// 2. POST /api/remotes/{name}/reconnect without CSRF header -> 403
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/reconnect", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for reconnect missing CSRF header, got: %d", rec.Code)
+	}
+
+	// 3. POST /api/remotes/{name}/reconnect with CSRF header -> 200
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/reconnect", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for reconnect, got: %d", rec.Code)
+	}
+	var reconResp models.ReconnectResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &reconResp); err != nil {
+		t.Fatalf("failed to decode reconnect response: %v", err)
+	}
+	if reconResp.Status != "success" || reconResp.Remote != "gdrive" {
+		t.Fatalf("unexpected reconnect response: %+v", reconResp)
+	}
+
+	// 4. POST /api/remotes/{name}/credentials with secret -> ensure NO secret leak in response
+	credBody := `{"client_id":"new-id.apps.googleusercontent.com","client_secret":"super_secret_value_123"}`
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/credentials", bytes.NewBuffer([]byte(credBody)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for credentials update, got: %d", rec.Code)
+	}
+	bodyStr := rec.Body.String()
+	if bytes.Contains([]byte(bodyStr), []byte("super_secret_value_123")) {
+		t.Fatalf("security violation: client_secret leaked in response: %s", bodyStr)
+	}
+
+	// 5. POST /api/remotes/{name}/credentials bad request
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/credentials", bytes.NewBuffer([]byte(`invalid-json`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for bad credentials body, got: %d", rec.Code)
+	}
+
+	// 6. POST /api/remotes/{name}/validate
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/validate", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for remote validate, got: %d", rec.Code)
+	}
+
+	// 7. GET /api/remotes/auth/audit
+	req, _ = http.NewRequest("GET", "/api/remotes/auth/audit?limit=25", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for audit events, got: %d", rec.Code)
+	}
+	var auditResp models.AuditEventsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &auditResp); err != nil {
+		t.Fatalf("failed to decode audit events: %v", err)
+	}
+	if auditResp.Count == 0 {
+		t.Fatal("expected non-zero audit events after reconnect and credential update")
+	}
+
+	// 8. POST /api/remotes/auth/oauth-stop
+	req, _ = http.NewRequest("POST", "/api/remotes/auth/oauth-stop", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for oauth-stop, got: %d", rec.Code)
+	}
+
+	// 9. Nil AuthService branches
+	nilAuthSrv := NewServer(cfg, syncSvc, embed.FS{})
+	nilAuthSrv.AuthService = nil
+
+	req, _ = http.NewRequest("GET", "/api/remotes/auth", nil)
+	rec = httptest.NewRecorder()
+	nilAuthSrv.ServeHTTP(rec, req)
+
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/reconnect", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilAuthSrv.ServeHTTP(rec, req)
+
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/credentials", bytes.NewBuffer([]byte(`{}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilAuthSrv.ServeHTTP(rec, req)
+
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/validate", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilAuthSrv.ServeHTTP(rec, req)
+
+	req, _ = http.NewRequest("GET", "/api/remotes/auth/audit", nil)
+	rec = httptest.NewRecorder()
+	nilAuthSrv.ServeHTTP(rec, req)
+
+	req, _ = http.NewRequest("POST", "/api/remotes/auth/oauth-stop", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilAuthSrv.ServeHTTP(rec, req)
+
+	// 10. Update credentials validation failure (empty client_id)
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/credentials", bytes.NewBuffer([]byte(`{"client_id":""}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !bytes.Contains(rec.Body.Bytes(), []byte("cannot be empty")) {
+		t.Fatalf("expected error on empty client_id: %s", rec.Body.String())
+	}
+
+}
+
