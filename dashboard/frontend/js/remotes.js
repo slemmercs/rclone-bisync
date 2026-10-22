@@ -192,13 +192,12 @@ window.RemotesModule = {
             });
             const data = await res.json();
             if (data.status === "success") {
-                this.migrationModal.success = "Credentials saved! Starting re-authorization...";
-                this.showToast("OAuth credentials saved successfully!", "success");
-                const targetRemote = this.migrationModal.remote;
+                this.migrationModal.success = "OAuth credentials successfully saved!";
+                this.showToast("Credentials saved successfully!", "success");
+                await this.fetchRemotes(false);
                 setTimeout(() => {
                     this.closeMigrationWizard();
-                    this.reconnectRemote(targetRemote);
-                }, 1000);
+                }, 1200);
             } else {
                 this.migrationModal.error = data.error || "Failed to update OAuth credentials.";
             }
@@ -206,6 +205,27 @@ window.RemotesModule = {
             this.migrationModal.error = "Network error: " + err.message;
         } finally {
             this.migrationModal.loading = false;
+        }
+    },
+
+    async cancelReconnect(name) {
+        try {
+            await fetch(`/api/remotes/${encodeURIComponent(name)}/reconnect/cancel`, {
+                method: "POST",
+                headers: { "X-Dashboard-Request": "1" }
+            });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            if (this.remotesData.reconnecting) {
+                this.remotesData.reconnecting[name] = false;
+            }
+            if (this.reconnectModal.remote === name) {
+                this.reconnectModal.show = false;
+                this.reconnectModal.loading = false;
+            }
+            this.showToast(`Re-authentication cancelled for "${name}".`, "info");
+            await this.fetchRemotes(false);
         }
     },
 

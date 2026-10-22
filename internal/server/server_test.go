@@ -526,6 +526,15 @@ func TestAuthEndpoints(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for oauth-stop, got: %d", rec.Code)
 	}
+	// Reconnect cancel
+	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/reconnect/cancel", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for reconnect cancel, got: %d", rec.Code)
+	}
+
 
 	// 9. Nil AuthService branches
 	nilAuthSrv := NewServer(cfg, syncSvc, embed.FS{})
