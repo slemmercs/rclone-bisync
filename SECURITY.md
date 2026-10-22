@@ -65,3 +65,17 @@ Bisync Hub follows several core security principles:
 - No intentional collection of user data
 
 Users remain responsible for securing their own systems, accounts, and Rclone configurations.
+
+## Third-Party Components
+
+Bisync Hub integrates with third-party software and libraries that are distributed under their own licenses.
+
+Security reports relating to third-party dependencies may be redirected to the appropriate upstream project when necessary.
+
+See:
+
+- NOTICE
+- go.mod
+- Dependency license documentation
+
+
