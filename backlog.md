@@ -83,6 +83,7 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 * **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]**
   - When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
+  - Refer to [interactive-sync-review.md](interactive-sync-review.md)
 
 * **Multi-Profile Synchronization Hub [ESTIMATE: 6-8h | 5 SP]**
   - Single background Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, etc.) with isolated flock files and telemetry streams.
