@@ -9,9 +9,7 @@ import (
 "os"
 "os/exec"
 "path/filepath"
-"sort"
 "strings"
-"time"
 
 "github.com/slemmercs/rclone-bisync/internal/config"
 "github.com/slemmercs/rclone-bisync/internal/core/client"
@@ -56,6 +54,7 @@ type SyncService struct {
 	Canary    *CanaryService
 	Deletion  *DeletionService
 	Telemetry *TelemetryService
+	Explorer  *ExplorerService
 }
 
 // NewSyncService initializes a new SyncService.
@@ -72,12 +71,14 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 	canarySvc := NewCanaryService(cfg, rcClient)
 	deletionSvc := NewDeletionService(cfg)
 	telemetrySvc := NewTelemetryService(cfg, rcClient)
+	explorerSvc := NewExplorerService(cfg, rcClient, canarySvc)
 	return &SyncService{
 		Config:    cfg,
 		Client:    rcClient,
 		Canary:    canarySvc,
 		Deletion:  deletionSvc,
 		Telemetry: telemetrySvc,
+		Explorer:  explorerSvc,
 	}
 }
 
@@ -353,121 +354,7 @@ func (s *SyncService) GetTelemetryPayload(ctx context.Context, limit int) map[st
 
 // BrowsePath lists directory items and verifies canary presence, enforcing path jails for local FS.
 func (s *SyncService) BrowsePath(ctx context.Context, remote, path string) client.DirectoryListing {
-	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
-	remoteClean := strings.TrimSpace(remote)
-
-	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := s.Config.LocalPath
-		if rawBase == "" {
-			rawBase = "~/gdrive"
-		}
-		if strings.HasPrefix(rawBase, "~") {
-			home, _ := os.UserHomeDir()
-			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-		}
-		baseDir, err := filepath.Abs(rawBase)
-		if err != nil {
-			return client.DirectoryListing{Remote: "local", Path: cleanPath, Error: "Invalid base directory"}
-		}
-
-		targetDir, err := filepath.Abs(filepath.Join(baseDir, cleanPath))
-		if err != nil {
-			return client.DirectoryListing{Remote: "local", Path: cleanPath, Error: "Invalid target path"}
-		}
-
-		// Security Check: enforce path traversal jail
-		rel, err := filepath.Rel(baseDir, targetDir)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return client.DirectoryListing{
-				Remote: "local",
-				Path:   cleanPath,
-				Error:  "Directory traversal forbidden",
-			}
-		}
-
-		fi, err := os.Stat(targetDir)
-		if os.IsNotExist(err) {
-			return client.DirectoryListing{
-				Remote: "local",
-				Path:   cleanPath,
-				Error:  fmt.Sprintf("Directory does not exist: %s", cleanPath),
-			}
-		}
-		if err != nil || !fi.IsDir() {
-			return client.DirectoryListing{
-				Remote: "local",
-				Path:   cleanPath,
-				Error:  "Target is not a directory",
-			}
-		}
-
-		entries, err := os.ReadDir(targetDir)
-		if err != nil {
-			return client.DirectoryListing{
-				Remote: "local",
-				Path:   cleanPath,
-				Error:  err.Error(),
-			}
-		}
-
-		items := make([]map[string]interface{}, 0, len(entries))
-		hasCanary := false
-
-		for _, entry := range entries {
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-
-			isDir := entry.IsDir()
-			var size int64 = -1
-			if !isDir {
-				size = info.Size()
-			}
-
-			itemRelPath := entry.Name()
-			if cleanPath != "" {
-				itemRelPath = fmt.Sprintf("%s/%s", cleanPath, entry.Name())
-			}
-
-			mimeType := "application/octet-stream"
-			if isDir {
-				mimeType = "inode/directory"
-			}
-
-			items = append(items, map[string]interface{}{
-"Path":     itemRelPath,
-"Name":     entry.Name(),
-				"Size":     size,
-				"MimeType": mimeType,
-				"ModTime":  info.ModTime().UTC().Format(time.RFC3339),
-				"IsDir":    isDir,
-			})
-
-			if entry.Name() == "RCLONE_TEST" {
-				hasCanary = true
-			}
-		}
-
-		// Sort: directories first, then alphabetical
-		sort.Slice(items, func(i, j int) bool {
-dirI := items[i]["IsDir"].(bool)
-dirJ := items[j]["IsDir"].(bool)
-if dirI != dirJ {
-return dirI
-}
-return strings.ToLower(items[i]["Name"].(string)) < strings.ToLower(items[j]["Name"].(string))
-		})
-
-		return client.DirectoryListing{
-			Remote:    "local",
-			Path:      cleanPath,
-			HasCanary: hasCanary,
-			Items:     items,
-		}
-	}
-
-	return s.Client.ListDirectory(ctx, remoteClean, cleanPath)
+	return s.Explorer.BrowsePath(ctx, remote, path)
 }
 
 // CreateCanary provisions an RCLONE_TEST canary file on target local or remote filesystem.
@@ -477,177 +364,10 @@ func (s *SyncService) CreateCanary(ctx context.Context, remote, path string) (ma
 
 // CopyItem transfers a file or directory with path jail enforcement.
 func (s *SyncService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (map[string]interface{}, error) {
-	cleanSrcPath := strings.Trim(strings.TrimSpace(srcPath), "/")
-	cleanDstPath := strings.Trim(strings.TrimSpace(dstPath), "/")
-	srcIsLocal := strings.ToLower(strings.TrimSpace(srcRemote)) == "local" || strings.TrimSpace(srcRemote) == ""
-	dstIsLocal := strings.ToLower(strings.TrimSpace(dstRemote)) == "local" || strings.TrimSpace(dstRemote) == ""
-
-	rawBase := s.Config.LocalPath
-	if strings.HasPrefix(rawBase, "~") {
-		home, _ := os.UserHomeDir()
-		rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-	}
-	baseDir, _ := filepath.Abs(rawBase)
-
-	var srcFs, srcFile, dstFs, dstFile string
-
-	if srcIsLocal {
-		targetSrc, _ := filepath.Abs(filepath.Join(baseDir, cleanSrcPath))
-		rel, err := filepath.Rel(baseDir, targetSrc)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return map[string]interface{}{"status": "error", "error": "Source path traversal forbidden"}, nil
-		}
-
-		if _, err := os.Stat(targetSrc); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Source does not exist: %s", cleanSrcPath)}, nil
-		}
-
-		if isDir {
-			srcFs = targetSrc
-			srcFile = ""
-		} else {
-			srcFs = filepath.Dir(targetSrc)
-			srcFile = filepath.Base(targetSrc)
-		}
-	} else {
-		remoteName := strings.TrimRight(srcRemote, ":") + ":"
-		if isDir {
-			if cleanSrcPath != "" {
-				srcFs = fmt.Sprintf("%s%s", remoteName, cleanSrcPath)
-			} else {
-				srcFs = remoteName
-			}
-			srcFile = ""
-		} else {
-			parentDir := filepath.Dir(cleanSrcPath)
-			if parentDir == "." || parentDir == "/" {
-				srcFs = remoteName
-			} else {
-				srcFs = fmt.Sprintf("%s%s", remoteName, parentDir)
-			}
-			srcFile = filepath.Base(cleanSrcPath)
-		}
-	}
-
-	if dstIsLocal {
-		targetDst, _ := filepath.Abs(filepath.Join(baseDir, cleanDstPath))
-		rel, err := filepath.Rel(baseDir, targetDst)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return map[string]interface{}{"status": "error", "error": "Destination path traversal forbidden"}, nil
-		}
-
-		if isDir {
-			dstFs = targetDst
-			dstFile = ""
-		} else {
-			fi, err := os.Stat(targetDst)
-			if (err == nil && fi.IsDir()) || strings.HasSuffix(dstPath, "/") {
-				dstFs = targetDst
-				dstFile = srcFile
-			} else {
-				dstFs = filepath.Dir(targetDst)
-				dstFile = filepath.Base(targetDst)
-				if dstFile == "" || dstFile == "." {
-					dstFile = srcFile
-				}
-			}
-		}
-	} else {
-		remoteName := strings.TrimRight(dstRemote, ":") + ":"
-		if isDir {
-			if cleanDstPath != "" {
-				dstFs = fmt.Sprintf("%s%s", remoteName, cleanDstPath)
-			} else {
-				dstFs = remoteName
-			}
-			dstFile = ""
-		} else {
-			dstFs = remoteName
-			if cleanDstPath != "" {
-				dstFs = fmt.Sprintf("%s%s", remoteName, cleanDstPath)
-			}
-			dstFile = srcFile
-		}
-	}
-
-	if isDir {
-		ok, err := s.Client.CopyDir(ctx, srcFs, dstFs)
-		if err != nil || !ok {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("copy dir failed: %v", err)}, nil
-		}
-		return map[string]interface{}{"status": "success", "src": srcFs, "dst": dstFs}, nil
-	}
-
-	ok, err := s.Client.CopyFile(ctx, srcFs, srcFile, dstFs, dstFile)
-	if err != nil || !ok {
-		return map[string]interface{}{"status": "error", "error": fmt.Sprintf("copy file failed: %v", err)}, nil
-	}
-	return map[string]interface{}{"status": "success", "src": fmt.Sprintf("%s/%s", srcFs, srcFile), "dst": fmt.Sprintf("%s/%s", dstFs, dstFile)}, nil
+	return s.Explorer.CopyItem(ctx, srcRemote, srcPath, dstRemote, dstPath, isDir)
 }
 
 // DeleteItem removes a file or directory, safeguarding RCLONE_TEST canary and enforcing path jail.
 func (s *SyncService) DeleteItem(ctx context.Context, remote, path string, isDir bool) (map[string]interface{}, error) {
-	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
-	if cleanPath == "" {
-		return map[string]interface{}{"status": "error", "error": "Root directory cannot be deleted"}, nil
-	}
-
-	// Canary protection
-	if filepath.Base(cleanPath) == "RCLONE_TEST" {
-		return map[string]interface{}{"status": "error", "error": "Canary test file (RCLONE_TEST) cannot be deleted"}, nil
-	}
-
-	remoteClean := strings.TrimSpace(remote)
-	isLocal := strings.ToLower(remoteClean) == "local" || remoteClean == ""
-
-	if isLocal {
-		rawBase := s.Config.LocalPath
-		if strings.HasPrefix(rawBase, "~") {
-			home, _ := os.UserHomeDir()
-			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-		}
-		baseDir, _ := filepath.Abs(rawBase)
-		target, _ := filepath.Abs(filepath.Join(baseDir, cleanPath))
-
-		rel, err := filepath.Rel(baseDir, target)
-		if err != nil || strings.HasPrefix(rel, "..") || target == baseDir {
-			return map[string]interface{}{"status": "error", "error": "Path traversal or root deletion forbidden"}, nil
-		}
-
-		if _, err := os.Stat(target); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Target does not exist: %s", cleanPath)}, nil
-		}
-
-		if isDir {
-			if err := os.RemoveAll(target); err != nil {
-				return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to delete local directory: %v", err)}, nil
-			}
-		} else {
-			if err := os.Remove(target); err != nil {
-				return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to delete local file: %v", err)}, nil
-			}
-		}
-
-		return map[string]interface{}{
-			"status": "success",
-			"msg":    fmt.Sprintf("Deleted %s", cleanPath),
-			"remote": "local",
-			"path":   cleanPath,
-		}, nil
-	}
-
-	remoteName := strings.TrimRight(remoteClean, ":") + ":"
-	if isDir {
-		ok, err := s.Client.PurgeDir(ctx, remoteName, cleanPath)
-		if err != nil || !ok {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Purge failed: %v", err)}, nil
-		}
-		return map[string]interface{}{"status": "success", "fs": remoteName, "remote": cleanPath}, nil
-	}
-
-	ok, err := s.Client.DeleteFile(ctx, remoteName, cleanPath)
-	if err != nil || !ok {
-		return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Delete file failed: %v", err)}, nil
-	}
-	return map[string]interface{}{"status": "success", "fs": remoteName, "remote": cleanPath}, nil
+	return s.Explorer.DeleteItem(ctx, remote, path, isDir)
 }
