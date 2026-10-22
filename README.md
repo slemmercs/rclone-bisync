@@ -1,4 +1,4 @@
-# Rclone Bisync Automation Engine & Telemetry Hub
+# Bisync Hub
 
 This solution provides an automated, bidirectional synchronization between your local machine and Google Drive using the **Rclone Remote Control (RC) API** paired with a single-binary native Go operational dashboard and sync orchestrator.
 
