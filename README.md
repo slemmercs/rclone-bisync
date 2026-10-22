@@ -1,6 +1,27 @@
 # Bisync Hub
 
-This solution provides an automated, bidirectional synchronization between your local machine and Google Drive using the **Rclone Remote Control (RC) API** paired with a single-binary native Go operational dashboard and sync orchestrator.
+> The safety-first dashboard for Rclone Bisync.
+
+**Review conflicts, inspect deletions, and make informed synchronization decisions before data changes occur.**
+
+Bisync Hub provides automated, bidirectional synchronization between your local machine and cloud storage using the **Rclone Remote Control (RC) API**, paired with a single-binary native Go operational dashboard and sync orchestrator.
+
+The project focuses on making Rclone Bisync easier to understand, operate, and recover when synchronization becomes complex. Instead of relying solely on logs, listing files, and force flags, Bisync Hub aims to provide visibility, safety controls, and guided recovery workflows for synchronization operations.
+
+### Future Vision
+
+**Review. Decide. Sync.**
+
+The long-term goal of Bisync Hub is to become the safest and most understandable way to operate Rclone Bisync by providing:
+
+- Interactive conflict resolution
+- Deletion review workflows
+- Synchronization previews
+- Transactional rollback capabilities
+- Guided recovery from synchronization failures
+- Visual insight into synchronization decisions
+
+The project is evolving beyond a traditional dashboard toward a review-driven synchronization platform where users can understand and control synchronization outcomes before data changes occur.
 
 ## Core Components
 
