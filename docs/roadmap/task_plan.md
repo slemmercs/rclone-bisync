@@ -5,7 +5,7 @@
 Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/services/sync_service.go` and `internal/services/telemetry.go`) into focused, single-responsibility domain services (`TelemetryService`, `CanaryService`, `DeletionService`, `ExplorerService`, and `SyncService`), maintaining strict path jail safety, backward compatibility, and statement coverage >80%.
 
 ## Tasks
-- [ ] Task 1: Extract CanaryService (`canary_service.go` & `canary_service_test.go`)
+- [x] Task 1: Extract CanaryService (`canary_service.go` & `canary_service_test.go`)
   - **Scope**: Extract canary creation (`CreateCanary`), canary presence checks (`CanaryExists`), and deletion safeguard (`SafeguardCanary`).
   - **Verification**: `go test -count=1 ./internal/services -run TestCanary`
 - [ ] Task 2: Extract DeletionService (`deletion_service.go` & `deletion_service_test.go`)
@@ -26,6 +26,8 @@ Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/s
 
 ## Status Updates
 - 2026-10-22: Initialized plan on branch `refactor/sync-service-modularization`.
+- 2026-10-22: Completed Task 1 (Extracted `CanaryService` in `canary_service.go` with `CanaryExists`, `CreateCanary`, `SafeguardCanary`, wired into `SyncService`, and verified with `canary_service_test.go`).
+
 
 
 
