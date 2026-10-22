@@ -1,4 +1,4 @@
-# Rclone Bisync Enterprise Automation Hub - Architecture & Extended Roadmap Backlog
+# Bisync Hub - Architecture & Extended Roadmap Backlog
 
 ## 1. Completed Go Single-Binary Architecture Port (Phases 1–6)
 
