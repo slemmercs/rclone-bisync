@@ -5,7 +5,7 @@
 Transition all dashboard UI templates, documentation, deployment scripts, and service definitions to **Bisync Hub** (*"The safety-first dashboard for Rclone Bisync"*), and standardize all dashboard SVG icons with the [Lucide](https://lucide.dev) design system without adding external build or runtime dependencies.
 
 ## Tasks
-- [ ] Task 1: UI Header Branding & Tagline Updates
+- [x] Task 1: UI Header Branding & Tagline Updates
   - **Scope**: `dashboard/frontend/index.html` (title, h1, edition badge, subtitle, positioning) and `main.go` startup logs.
   - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
 - [ ] Task 2: Standardize Header, Global Status & Action Controls (Lucide SVGs)
@@ -29,6 +29,8 @@ Transition all dashboard UI templates, documentation, deployment scripts, and se
 
 ## Status Updates
 - 2026-10-22: Initialized plan on branch `feat/rebrand-bisync-hub`.
+- 2026-10-22: Added `THIRD_PARTY_LICENSES.md` documenting Lucide (ISC/MIT), Alpine.js (MIT), Chart.js (MIT), Tailwind CSS (MIT), and Go sys (BSD 3-Clause).
+- 2026-10-22: Completed Task 1 (Updated `dashboard/frontend/index.html` and `main.go` with Bisync Hub title, header, and vision tagline).
 
 
 
