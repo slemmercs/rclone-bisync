@@ -77,13 +77,12 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 * **Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
   - Decouple `internal/services/sync_service.go` by extracting canary check operations, pending deletion parsing, and path validation into discrete domain components.
 
-* **Frontend Framework Trade-Off Evaluation (Svelte / Vue vs. Vanilla JS) [ESTIMATE: 2-3h | 2 SP]**
-  - Evaluate replacing zero-build Alpine/Tailwind setup with Svelte/Vue compiled SPA assets embedded via `//go:embed`.
-  - Compare build complexity, asset footprint, developer experience, and maintainability against the existing zero-npm constraint.
-
 ---
 
 ### Phase 4: Core Enterprise Feature Extensions (Medium-Term)
+
+* **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]**
+  - When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
 
 * **Multi-Profile Synchronization Hub [ESTIMATE: 6-8h | 5 SP]**
   - Single background Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, etc.) with isolated flock files and telemetry streams.
@@ -92,15 +91,6 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
   - Visual parameter adjustment for `--buffer-size`, `--tpslimit`, and conflict resolution strategies.
   - 3-Layer Safety Pipeline: Automated snapshot backup, SHA-256 integrity match, and schema validation.
   - Rollback API: One-click restore of historical configurations.
-
-* **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]**
-  - When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
-
-* **Desktop Mode via Wails / Native Window [ESTIMATE: 3-4h | 3 SP]**
-  - Package Go backend and embedded frontend as a standalone borderless native desktop app using Wails.
-
-* **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]**
-  - Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration.
 
 ---
 
@@ -120,13 +110,10 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ---
 
-### Phase 6: Remote & Multi-Node Platform (Future / Optional Expansion)
+### Phase 6: Desktop Application packaging
 
-* **Remote API mTLS Authentication Engine [ESTIMATE: 6-8h | 5 SP]**
-  - Go `CertManager` package utilizing `crypto/ecdsa` and `crypto/x509` to handle automatic CA generation, server/client cert issuance (`MinVersion: tls.VersionTLS13`), and WebUI transport switching between Unix Sockets and TCP mTLS.
+* **Desktop Mode via Wails / Native Window [ESTIMATE: 3-4h | 3 SP]**
+  - Package Go backend and embedded frontend as a standalone borderless native desktop app using Wails.
 
-* **Remote SSH Certificate Deployment & Rotation Engine [ESTIMATE: 8-10h | 8 SP]**
-  - Automated 3-phase certificate rotation pipeline over SSH (`golang.org/x/crypto/ssh`) featuring staged dual-CA deployment, remote process reloading, mTLS verification handshakes, and automatic rollback safeguards.
-
-* **Edge Proxy Sidecar Integration [ESTIMATE: 2-3h | 2 SP]**
-  - Reference Traefik and Caddy sidecar configurations for running in front of remote `rclone` API instances to enable zero-downtime hot-reloading of TLS certificates.
+* **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]**
+  - Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration
