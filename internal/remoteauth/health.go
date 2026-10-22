@@ -112,8 +112,8 @@ func (s *RemoteAuthService) GetRemoteAuthHealth(ctx context.Context, remoteName 
 		}, nil
 	}
 
-	// Check connectivity / token validity
-	valResp, _ := s.ValidateRemote(ctx, cleanName)
+	// Check connectivity / token validity via passive probe (do not generate audit log records)
+	valResp, _ := s.probeRemote(ctx, cleanName)
 	var finalStatus string
 	var finalMsg string
 

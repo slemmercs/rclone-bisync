@@ -123,6 +123,12 @@ func TestValidator(t *testing.T) {
 	if err != nil || resp4.Valid || resp4.Status != models.AuthStatusError {
 		t.Fatalf("expected error status for connection refused: %+v, err=%v", resp4, err)
 	}
+
+	// Scenario 5: User-initiated ValidateRemote records audit events
+	auditEvents := svc.GetAuditEvents(10)
+	if len(auditEvents) == 0 {
+		t.Fatal("expected audit events to be recorded for ValidateRemote calls")
+	}
 }
 
 func TestHealthAssessment(t *testing.T) {
@@ -249,6 +255,11 @@ func TestHealthAssessment(t *testing.T) {
 	}
 	if allResp.Summary.Errors != 1 {
 		t.Fatalf("expected 1 error, got %d", allResp.Summary.Errors)
+	}
+
+	// Act & Assert 7: Passive health assessment must NEVER pollute the audit log
+	if len(svc.GetAuditEvents(10)) != 0 {
+		t.Fatalf("expected 0 audit events during passive health assessment, got %d", len(svc.GetAuditEvents(10)))
 	}
 }
 
