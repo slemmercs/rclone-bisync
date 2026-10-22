@@ -12,7 +12,35 @@ document.addEventListener("alpine:init", () => {
             count: 0,
             loading: false,
             error: null,
-            last_checked: null
+            last_checked: null,
+            authSummary: { total_remotes: 0, oauth_remotes: 0, connected: 0, migration_required: 0, authorization_required: 0, configuration_required: 0, errors: 0 },
+            reconnecting: {},
+            validating: {}
+        },
+        migrationModal: {
+            show: false,
+            remote: "",
+            type: "",
+            typeLabel: "",
+            clientId: "",
+            clientSecret: "",
+            showSecret: false,
+            loading: false,
+            error: null,
+            success: null
+        },
+        reconnectModal: {
+            show: false,
+            remote: "",
+            loading: false,
+            authUrl: null,
+            msg: null,
+            error: null
+        },
+        auditModal: {
+            show: false,
+            loading: false,
+            events: []
         },
         telemetry: {
             daemon_health: { status: "evaluating", response_time_ms: 0 },

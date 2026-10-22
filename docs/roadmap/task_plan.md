@@ -14,7 +14,7 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - [x] Task 3: Server API Endpoints & Wiring
   - **Scope**: `internal/server/server.go`, `internal/server/server_test.go`, `main.go`
   - **Verification**: `go test -count=1 ./internal/server -run TestAuthEndpoints`
-- [ ] Task 4: Dashboard UI & Google Drive Migration Wizard
+- [x] Task 4: Dashboard UI & Google Drive Migration Wizard
   - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh`
 - [ ] Task 5: Pre-Flight Verification & Documentation Update
@@ -26,6 +26,8 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - 2026-10-22: Completed Task 1 (Introduced `internal/models/auth.go` DTOs, added `GetRemoteAuthConfig`, `UpdateRemoteConfig`, `OAuthStatus`, and `OAuthStop` to `RcloneClient` with leak-free unit tests).
 - 2026-10-22: Completed Task 2 (Created `internal/remoteauth` domain service covering auth health monitoring, shared Google Drive client ID migration, desktop-integrated OAuth reconnect runner, connectivity validator, and ring-buffer audit logger with 85.9% test coverage).
 - 2026-10-22: Completed Task 3 (Wired `RemoteAuthService` into server routes with CSRF and secret leak validation, added endpoints for auth health, reconnect, credentials update, validate, audit, and oauth-stop with 85.3% coverage).
+- 2026-10-22: Completed Task 4 (Implemented Dashboard UI with Authentication Health overview bar, remote card status badges, shared client ID deprecation alert banners, Google Drive Migration Wizard modal, Reconnect status modal, and OAuth Audit Trail modal).
+
 
 
 
