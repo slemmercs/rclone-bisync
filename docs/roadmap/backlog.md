@@ -65,10 +65,16 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ### Phase 3: Immediate Go Enhancements & Evaluation Tasks (Near-Term)
 
+* **[COMPLETED] Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
+  - Decoupled monolithic `internal/services/sync_service.go` into cohesive single-responsibility domain services: `TelemetryService`, `CanaryService`, `DeletionService`, `ExplorerService`, and a lean `SyncService`.
+  - Maintained strict path traversal jails, atomic operations, backward-compatible delegators, and >80% statement test coverage across all domain services (internal/services: 85.4%, internal/server: 83.2%).
+  - Established prerequisite foundation for Phase 4 Interactive Sync Review and Multi-Profile Hub.
+
 * **Rebrand to Bisync Hub**
   - Rename the project, dashboard, documentation, and user-facing assets to **Bisync Hub**
   - Adopt the new project positioning: *"The safety-first dashboard for Rclone Bisync"*
   - Introduce the long-term vision: *"Review. Decide. Sync."*
+  - Standardize and replace all dashboard UI icons with clean SVG icons preferably from the [Lucide](https://lucide.dev) icon pack for Vanilla JS (enforcing uniform stroke width, 16x16/20x20 sizing, and consistent slate/indigo theme integration without npm/Node build dependencies)
   - Update README, screenshots, installer messaging, service descriptions, GitHub metadata, and release notes
   - Align future feature messaging around synchronization safety, review workflows, conflict resolution, and guided recovery rather than generic dashboard functionality
 
@@ -82,8 +88,6 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
   - Refined `internal/services/log_service.go` to unwrap nested JSON log strings from `bisync/rc.go` wrapper entries and match individual event timestamps.
   - Enhanced frontend `utils.js` and `app.js` with structured metadata parsing (`objectType`, `source`, `details`), comparison settings grid, and defense-in-depth unwrapping.
 
-* **Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
-  - Decouple `internal/services/sync_service.go` by extracting canary check operations, pending deletion parsing, and path validation into discrete domain components.
 
 ---
 
