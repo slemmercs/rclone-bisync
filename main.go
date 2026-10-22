@@ -120,8 +120,8 @@ func runCanary(remote, path, envFile string) {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	syncSvc := services.NewSyncService(cfg, nil)
-	res, err := syncSvc.CreateCanary(context.Background(), remote, path)
+	canarySvc := services.NewCanaryService(cfg, nil)
+	res, err := canarySvc.CreateCanary(context.Background(), remote, path)
 	if err != nil {
 		log.Fatalf("Failed to provision canary: %v", err)
 	}

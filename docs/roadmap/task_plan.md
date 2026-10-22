@@ -17,7 +17,7 @@ Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/s
 - [x] Task 4: Extract ExplorerService (`explorer_service.go` & `explorer_service_test.go`)
   - **Scope**: Extract `BrowsePath`, `CopyItem`, `DeleteItem`, and `isLocalPathJailed` with strict `filepath.Rel` path traversal checks.
   - **Verification**: `go test -count=1 ./internal/services -run TestExplorer`
-- [ ] Task 5: Slim Down SyncService & Server Wiring
+- [x] Task 5: Slim Down SyncService & Server Wiring
   - **Scope**: Refactor `internal/services/sync_service.go` to focus exclusively on systemd actions and flock locking; wire decomposed services into `internal/server/server.go` and `main.go`.
   - **Verification**: `go test -count=1 ./internal/services ./internal/server`
 - [ ] Task 6: Pre-flight Verification & Quality Gate
@@ -30,6 +30,7 @@ Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/s
 - 2026-10-22: Completed Task 2 (Extracted `DeletionService` in `deletion_service.go` with `ParsePendingDeletionsFromLog` and `GetPendingDeletions`, wired into `SyncService`, verified with `deletion_service_test.go`, coverage at 83.0%).
 - 2026-10-22: Completed Task 3 (Extracted `TelemetryService` in `telemetry_service.go`, decoupled telemetry and metrics caching from `SyncService`, verified with `telemetry_service_test.go`, coverage at 84.3%).
 - 2026-10-22: Completed Task 4 (Extracted `ExplorerService` in `explorer_service.go` with `BrowsePath`, `CopyItem`, `DeleteItem`, and `isLocalPathJailed`, verified with `explorer_service_test.go`, coverage at 85.4%).
+- 2026-10-22: Completed Task 5 (Slimmed down `SyncService`, wired domain services into `Server` and `main.go`, verified with `go test -count=1 ./internal/services ./internal/server`, coverage at 85.4% services / 83.2% server).
 
 
 
