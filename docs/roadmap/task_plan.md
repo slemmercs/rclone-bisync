@@ -8,7 +8,7 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - [x] Task 1: Core Domain Models & Rclone RC Client Extensions
   - **Scope**: `internal/models/auth.go`, `internal/core/client/client.go`, `internal/core/client/client_test.go`
   - **Verification**: `go test -count=1 ./internal/core/client -run TestOAuthClient`
-- [ ] Task 2: Remote Auth Domain Service (`internal/remoteauth`)
+- [x] Task 2: Remote Auth Domain Service (`internal/remoteauth`)
   - **Scope**: `internal/remoteauth/` (service, health, reconnect, migration, validator, audit)
   - **Verification**: `go test -count=1 ./internal/remoteauth/...`
 - [ ] Task 3: Server API Endpoints & Wiring
@@ -24,6 +24,8 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 ## Status Updates
 - 2026-10-22: Initialized plan on branch `feat/oauth-connection-manager`.
 - 2026-10-22: Completed Task 1 (Introduced `internal/models/auth.go` DTOs, added `GetRemoteAuthConfig`, `UpdateRemoteConfig`, `OAuthStatus`, and `OAuthStop` to `RcloneClient` with leak-free unit tests).
+- 2026-10-22: Completed Task 2 (Created `internal/remoteauth` domain service covering auth health monitoring, shared Google Drive client ID migration, desktop-integrated OAuth reconnect runner, connectivity validator, and ring-buffer audit logger with 85.9% test coverage).
+
 
 
 
