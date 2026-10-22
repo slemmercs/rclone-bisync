@@ -1,37 +1,34 @@
 
-# Task Plan: Sync Service Modularization & Code Cleanup
+# Task Plan: Rebrand to Bisync Hub & Lucide Icon Standardization
 
 ## Goal
-Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/services/sync_service.go` and `internal/services/telemetry.go`) into focused, single-responsibility domain services (`TelemetryService`, `CanaryService`, `DeletionService`, `ExplorerService`, and `SyncService`), maintaining strict path jail safety, backward compatibility, and statement coverage >80%.
+Transition all dashboard UI templates, documentation, deployment scripts, and service definitions to **Bisync Hub** (*"The safety-first dashboard for Rclone Bisync"*), and standardize all dashboard SVG icons with the [Lucide](https://lucide.dev) design system without adding external build or runtime dependencies.
 
 ## Tasks
-- [x] Task 1: Extract CanaryService (`canary_service.go` & `canary_service_test.go`)
-  - **Scope**: Extract canary creation (`CreateCanary`), canary presence checks (`CanaryExists`), and deletion safeguard (`SafeguardCanary`).
-  - **Verification**: `go test -count=1 ./internal/services -run TestCanary`
-- [x] Task 2: Extract DeletionService (`deletion_service.go` & `deletion_service_test.go`)
-  - **Scope**: Extract `ParsePendingDeletionsFromLog` and `GetPendingDeletions` with reverse seeking and regex abort parsing.
-  - **Verification**: `go test -count=1 ./internal/services -run TestDeletion`
-- [x] Task 3: Extract TelemetryService (`telemetry_service.go` & `telemetry_service_test.go`)
-  - **Scope**: Decouple `telemetry.go` into `TelemetryService`, covering daemon health caching, transfer stats, JSONL metrics cache, and runtime config.
-  - **Verification**: `go test -count=1 ./internal/services -run TestTelemetry`
-- [x] Task 4: Extract ExplorerService (`explorer_service.go` & `explorer_service_test.go`)
-  - **Scope**: Extract `BrowsePath`, `CopyItem`, `DeleteItem`, and `isLocalPathJailed` with strict `filepath.Rel` path traversal checks.
-  - **Verification**: `go test -count=1 ./internal/services -run TestExplorer`
-- [x] Task 5: Slim Down SyncService & Server Wiring
-  - **Scope**: Refactor `internal/services/sync_service.go` to focus exclusively on systemd actions and flock locking; wire decomposed services into `internal/server/server.go` and `main.go`.
-  - **Verification**: `go test -count=1 ./internal/services ./internal/server`
-- [x] Task 6: Pre-flight Verification & Quality Gate
-  - **Scope**: Full check suite (`./scripts/check.sh`), statement coverage check (>80%), binary build (`go build -o bin/rclone-bisync main.go`).
+- [ ] Task 1: UI Header Branding & Tagline Updates
+  - **Scope**: `dashboard/frontend/index.html` (title, h1, edition badge, subtitle, positioning) and `main.go` startup logs.
+  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
+- [ ] Task 2: Standardize Header, Global Status & Action Controls (Lucide SVGs)
+  - **Scope**: `dashboard/frontend/index.html` navigation pills and quick action buttons (`Play`, `Square`, `RefreshCw`, `ShieldAlert`, `Eye`, `Unlock`, `TimerReset`).
+  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
+- [ ] Task 3: Standardize Engine & Telemetry Tab Icons (Lucide SVGs)
+  - **Scope**: `dashboard/frontend/index.html` stat cards, parameter collapse disclosure (`ChevronDown`), charts header, and daemon log stream buttons.
+  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
+- [ ] Task 4: Standardize Storage Remotes & File Explorer Tab Icons (Lucide SVGs)
+  - **Scope**: `dashboard/frontend/index.html` remote cards, OAuth health summary badges, breadcrumbs, folder/file glyphs, copy/delete buttons, and canary provisioning button.
+  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
+- [ ] Task 5: Standardize Modals & Log Viewer Icons (Lucide SVGs)
+  - **Scope**: `dashboard/frontend/index.html` daemon log modal, raw log downloads, client ID migration wizard, reconnect progress spinner (`Loader2`), and audit trail modal.
+  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
+- [ ] Task 6: Systemd, Desktop Shortcut & Deployment Alignment
+  - **Scope**: `deploy/desktop/rclone-dashboard.desktop`, `deploy/systemd/rclone-dashboard.service`, `deploy/install.sh`, `AI_DISCLOSURE.md`.
   - **Verification**: `./scripts/check.sh`
+- [ ] Task 7: Full Verification Gate, Binary Build & Installation
+  - **Scope**: Run `./scripts/check.sh`, verify coverage >80%, build `bin/rclone-bisync`, install to active environment, and test live dashboard endpoints.
+  - **Verification**: `./scripts/check.sh` && `systemctl --user status rclone-dashboard.service`
 
 ## Status Updates
-- 2026-10-22: Initialized plan on branch `refactor/sync-service-modularization`.
-- 2026-10-22: Completed Task 1 (Extracted `CanaryService` in `canary_service.go` with `CanaryExists`, `CreateCanary`, `SafeguardCanary`, wired into `SyncService`, and verified with `canary_service_test.go`).
-- 2026-10-22: Completed Task 2 (Extracted `DeletionService` in `deletion_service.go` with `ParsePendingDeletionsFromLog` and `GetPendingDeletions`, wired into `SyncService`, verified with `deletion_service_test.go`, coverage at 83.0%).
-- 2026-10-22: Completed Task 3 (Extracted `TelemetryService` in `telemetry_service.go`, decoupled telemetry and metrics caching from `SyncService`, verified with `telemetry_service_test.go`, coverage at 84.3%).
-- 2026-10-22: Completed Task 4 (Extracted `ExplorerService` in `explorer_service.go` with `BrowsePath`, `CopyItem`, `DeleteItem`, and `isLocalPathJailed`, verified with `explorer_service_test.go`, coverage at 85.4%).
-- 2026-10-22: Completed Task 5 (Slimmed down `SyncService`, wired domain services into `Server` and `main.go`, verified with `go test -count=1 ./internal/services ./internal/server`, coverage at 85.4% services / 83.2% server).
-- 2026-10-22: Completed Task 6 (Passed full quality gate `./scripts/check.sh`, confirmed statement coverage >80% across all packages with `internal/services` at 85.4% and `internal/server` at 83.2%, successfully verified binary compilation `bin/rclone-bisync`). Plan completed.
+- 2026-10-22: Initialized plan on branch `feat/rebrand-bisync-hub`.
 
 
 
