@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/security"
 	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/remoteauth"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
@@ -23,15 +25,21 @@ type Server struct {
 	Config      *config.Config
 	SyncService *services.SyncService
 	LogService  *services.LogService
+	AuthService *remoteauth.RemoteAuthService
 	FrontendFS  embed.FS
 	Mux         *http.ServeMux
 }
 
 func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS embed.FS) *Server {
+	var rcClient *client.RcloneClient
+	if syncService != nil {
+		rcClient = syncService.Client
+	}
 	s := &Server{
 		Config:      cfg,
 		SyncService: syncService,
 		LogService:  services.NewLogService(),
+		AuthService: remoteauth.NewRemoteAuthService(cfg, rcClient, nil),
 		FrontendFS:  frontendFS,
 		Mux:         http.NewServeMux(),
 	}
@@ -99,6 +107,12 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("POST /api/action", s.handleAction)
 	s.Mux.HandleFunc("GET /api/deletions/pending", s.handlePendingDeletions)
 	s.Mux.HandleFunc("GET /api/remotes", s.handleRemotes)
+	s.Mux.HandleFunc("GET /api/remotes/auth", s.handleRemotesAuth)
+	s.Mux.HandleFunc("GET /api/remotes/auth/audit", s.handleRemotesAuthAudit)
+	s.Mux.HandleFunc("POST /api/remotes/auth/oauth-stop", s.handleOAuthStop)
+	s.Mux.HandleFunc("POST /api/remotes/{name}/reconnect", s.handleRemoteReconnect)
+	s.Mux.HandleFunc("POST /api/remotes/{name}/credentials", s.handleRemoteCredentials)
+	s.Mux.HandleFunc("POST /api/remotes/{name}/validate", s.handleRemoteValidate)
 	s.Mux.HandleFunc("POST /api/browse", s.handleBrowse)
 	s.Mux.HandleFunc("POST /api/browse/canary", s.handleProvisionCanary)
 	s.Mux.HandleFunc("POST /api/browse/copy", s.handleCopyItem)
@@ -312,4 +326,123 @@ func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+func (s *Server) handleRemotesAuth(w http.ResponseWriter, r *http.Request) {
+	if s.AuthService == nil {
+		writeJSON(w, http.StatusOK, models.AuthStatusResponse{})
+		return
+	}
+	resp, err := s.AuthService.GetAuthStatus(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"error":   err.Error(),
+			"summary": models.AuthHealthSummary{},
+			"remotes": []interface{}{},
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleRemoteReconnect(w http.ResponseWriter, r *http.Request) {
+	if s.AuthService == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
+		return
+	}
+	name := r.PathValue("name")
+	if strings.TrimSpace(name) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Remote name parameter required"})
+		return
+	}
+
+	resp, err := s.AuthService.ReconnectRemote(r.Context(), name)
+	if err != nil {
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleRemoteCredentials(w http.ResponseWriter, r *http.Request) {
+	if s.AuthService == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
+		return
+	}
+	name := r.PathValue("name")
+	if strings.TrimSpace(name) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Remote name parameter required"})
+		return
+	}
+
+	var req models.UpdateCredentialsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid request payload"})
+		return
+	}
+
+	err := s.AuthService.UpdateCredentials(r.Context(), name, req.ClientID, req.ClientSecret)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
+		return
+	}
+
+	// Immediate validation check post-update
+	val, _ := s.AuthService.ValidateRemote(r.Context(), name)
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":     "success",
+		"remote":     name,
+		"msg":        "Credentials successfully saved.",
+		"validation": val,
+	})
+}
+
+func (s *Server) handleRemoteValidate(w http.ResponseWriter, r *http.Request) {
+	if s.AuthService == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
+		return
+	}
+	name := r.PathValue("name")
+	if strings.TrimSpace(name) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Remote name parameter required"})
+		return
+	}
+
+	res, err := s.AuthService.ValidateRemote(r.Context(), name)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"status": "error", "error": err.Error(), "valid": false})
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (s *Server) handleRemotesAuthAudit(w http.ResponseWriter, r *http.Request) {
+	if s.AuthService == nil {
+		writeJSON(w, http.StatusOK, models.AuditEventsResponse{})
+		return
+	}
+	limit := 50
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	events := s.AuthService.GetAuditEvents(limit)
+	writeJSON(w, http.StatusOK, models.AuditEventsResponse{
+		Events: events,
+		Count:  len(events),
+	})
+}
+
+func (s *Server) handleOAuthStop(w http.ResponseWriter, r *http.Request) {
+	if s.AuthService == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
+		return
+	}
+	_ = s.AuthService.StopOAuth(r.Context())
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status": "success",
+		"msg":    "OAuth processes stopped",
+	})
 }

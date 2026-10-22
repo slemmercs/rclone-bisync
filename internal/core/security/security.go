@@ -27,9 +27,24 @@ var SensitiveValueRegexes = []*regexp.Regexp{
 
 const RedactedString = "********"
 
+// isRedactableValue checks if a value is of a type that can represent a secret string or byte sequence.
+func isRedactableValue(val reflect.Value) bool {
+	if !val.IsValid() {
+		return false
+	}
+	k := val.Kind()
+	return k == reflect.String || k == reflect.Slice || k == reflect.Array
+}
+
 // IsSensitiveKeyName checks if a string identifier hints at confidential data.
 func IsSensitiveKeyName(key string) bool {
 	upper := strings.ToUpper(key)
+	if strings.HasPrefix(upper, "HAS_") || strings.HasPrefix(upper, "IS_") {
+		return false
+	}
+	if strings.HasSuffix(upper, "_REQUIRED") || strings.HasSuffix(upper, "_STATUS") || strings.HasSuffix(upper, "_COUNT") || strings.HasSuffix(upper, "_MSG") || strings.HasSuffix(upper, "_MESSAGE") {
+		return false
+	}
 	for _, kw := range SensitiveKeywords {
 		if strings.Contains(upper, kw) {
 			return true
@@ -93,7 +108,7 @@ func RedactSecrets(data interface{}) interface{} {
 
 			if isNested {
 				out[kStr] = RedactSecrets(vInterface)
-			} else if IsSensitiveKeyName(kStr) {
+			} else if IsSensitiveKeyName(kStr) && isRedactableValue(vVal) {
 				if vInterface != nil && vInterface != "" {
 					out[kStr] = RedactedString
 				} else {
@@ -149,7 +164,7 @@ func RedactSecrets(data interface{}) interface{} {
 
 			if isNested {
 				out[key] = RedactSecrets(fieldVal)
-			} else if IsSensitiveKeyName(key) {
+			} else if IsSensitiveKeyName(key) && isRedactableValue(fVal) {
 				if fieldVal != nil && fieldVal != "" {
 					out[key] = RedactedString
 				} else {
