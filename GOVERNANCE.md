@@ -15,6 +15,18 @@ The Lead Maintainer retains final decision authority over:
 
 Community participation is strongly encouraged.
 
+## Open Source Licensing
+
+Bisync Hub is licensed under the Apache License 2.0.
+
+The project welcomes contributions from the community and follows the principle that accepted contributions become part of the Apache-licensed codebase.
+
+For contribution terms, refer to:
+
+- LICENSE
+- NOTICE
+- CONTRIBUTING.md
+
 ---
 
 ## Project Priorities
