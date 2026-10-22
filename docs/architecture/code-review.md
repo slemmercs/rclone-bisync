@@ -1,5 +1,7 @@
 # Comprehensive Repository Safety & Quality Review — rclone-bisync
 
+> **Historical Architecture Review**: This document records the original quality and safety audit performed during the Python/FastAPI v1.0 architecture prior to the Go single-binary migration. For current architectural guidelines, refer to [ARCHITECTURE_PRINCIPLES.md](ARCHITECTURE_PRINCIPLES.md).
+>
 > Audit performed against Section 3 of `.clinerules`. Exhaustive review across architecture, safety guards, core synchronization engine, service layer path jails, dashboard backend/frontend, test suite quality, and systemd integration.
 
 ---

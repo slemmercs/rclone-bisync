@@ -4,14 +4,15 @@
 
 Please do not report security vulnerabilities through public GitHub issues.
 
-Instead, contact the project maintainer privately with:
+To report a vulnerability:
+1. **GitHub Security Advisory**: Use the "Report a vulnerability" button under the **Security** tab of the repository on GitHub.
+2. **Private Email**: Alternatively, contact the maintainer privately with:
+   - A description of the issue
+   - Steps to reproduce
+   - Potential impact
+   - Any proposed mitigations
 
-- A description of the issue
-- Steps to reproduce
-- Potential impact
-- Any proposed mitigations
-
-Security reports will be acknowledged as quickly as possible.
+Security reports will be acknowledged promptly.
 
 ---
 
