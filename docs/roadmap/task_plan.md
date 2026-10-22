@@ -17,7 +17,7 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - [x] Task 4: Dashboard UI & Google Drive Migration Wizard
   - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh`
-- [ ] Task 5: Pre-Flight Verification & Documentation Update
+- [x] Task 5: Pre-Flight Verification & Documentation Update
   - **Scope**: `docs/design/oauth-connection-manager.md`, `docs/roadmap/backlog.md`, `README.md`
   - **Verification**: `./scripts/check.sh` and `go build -o bin/rclone-bisync main.go`
 
@@ -27,6 +27,8 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - 2026-10-22: Completed Task 2 (Created `internal/remoteauth` domain service covering auth health monitoring, shared Google Drive client ID migration, desktop-integrated OAuth reconnect runner, connectivity validator, and ring-buffer audit logger with 85.9% test coverage).
 - 2026-10-22: Completed Task 3 (Wired `RemoteAuthService` into server routes with CSRF and secret leak validation, added endpoints for auth health, reconnect, credentials update, validate, audit, and oauth-stop with 85.3% coverage).
 - 2026-10-22: Completed Task 4 (Implemented Dashboard UI with Authentication Health overview bar, remote card status badges, shared client ID deprecation alert banners, Google Drive Migration Wizard modal, Reconnect status modal, and OAuth Audit Trail modal).
+- 2026-10-22: Completed Task 5 (Updated design documentation, backlog, and README; enhanced reconnect with `--auto-confirm`, localized audit timestamps, added persistent 'Connected ✓' feedback, and verified 100% clean check suite).
+
 
 
 
