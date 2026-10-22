@@ -2,20 +2,23 @@ Bisync Hub
 
 Copyright 2026 Csaba Slemmer
 
+Licensed under the Apache License, Version 2.0.
+
 This project integrates with Rclone through the Rclone
-Remote Control (RC) API and is designed to enhance the
-user experience around Rclone Bisync operations.
+Remote Control (RC) API and related synchronization
+capabilities.
 
-Rclone is an independent open source project created and
-maintained by Nick Craig-Wood and contributors, and is
-distributed under the MIT License. 【1-26a01c】【2-46d30b】
+Rclone is developed by Nick Craig-Wood and contributors
+and is distributed under the MIT License.
 
-Rclone project:
 https://rclone.org
 
-This project is not affiliated with, endorsed by, or
-sponsored by the Rclone project.
+This project is independent and is not affiliated with,
+endorsed by, or sponsored by the Rclone project.
 
-Unless explicitly stated otherwise, all contributions
-to this project are licensed under the Apache License,
-Version 2.0.
+Contributions
+
+Unless explicitly stated otherwise, any contribution
+intentionally submitted for inclusion in this project
+shall be licensed under the Apache License, Version 2.0,
+without additional terms or conditions.
