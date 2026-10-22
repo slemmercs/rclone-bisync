@@ -72,10 +72,10 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
   - Update README, screenshots, installer messaging, service descriptions, GitHub metadata, and release notes
   - Align future feature messaging around synchronization safety, review workflows, conflict resolution, and guided recovery rather than generic dashboard functionality
 
-* **Remote OAuth Re-Authentication Flow [ESTIMATE: 3-4h | 3 SP]**
-  - Backend: Implement `ReconnectRemote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
-  - Endpoint: `POST /api/remotes/{name}/reconnect`.
-  - Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
+* **[COMPLETED] Centralized OAuth Connection Manager & Google Drive Migration Wizard [ESTIMATE: 3-4h | 3 SP]**
+  - Backend: Implemented `RemoteAuthService` covering auth health assessment, desktop-integrated OAuth reconnect runner (`rclone config reconnect {name}: --auto-confirm`), credentials updater, provider validator, and thread-safe audit logger (`internal/remoteauth`).
+  - Endpoints: `GET /api/remotes/auth`, `POST /api/remotes/{name}/reconnect`, `POST /api/remotes/{name}/credentials`, `POST /api/remotes/{name}/validate`, `GET /api/remotes/auth/audit`, `POST /api/remotes/auth/oauth-stop`.
+  - Frontend: Integrated Authentication Health overview bar, remote card badges, Google Drive client ID migration wizard, reconnect progress popup, and localized audit trail viewer.
   - Refer to [oauth-connection-manager.md](../design/oauth-connection-manager.md)
 
 * **[COMPLETED] Structured Daemon Log Modal Refinement [ESTIMATE: 3-4h | 3 SP]**
