@@ -69,4 +69,23 @@ This verifies:
 4. Go static analysis (`go vet ./...`) and complete Go unit test suite (`go test -count=1 ./...`).
 5. Automated test suite execution (`pytest tests/`).
 
+## Support Development
+
+This project is developed and maintained in personal time.
+
+If the software helps you manage Rclone Bisync safely and efficiently,
+consider supporting ongoing development.
+
+Support helps fund:
+
+- AI-assisted development and code review
+- Testing and quality improvements
+- Documentation
+- Future feature development
+
+Support is entirely optional and the project will remain free and open source.
+
+- GitHub Sponsors
+- Buy Me a Coffee
+- PayPal
 
