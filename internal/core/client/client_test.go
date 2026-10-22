@@ -334,4 +334,148 @@ func TestClientErrorBranches(t *testing.T) {
 
 }
 
+func TestOAuthClient(t *testing.T) {
+	// Arrange
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/config/get":
+			var req map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			if req["name"] == "drive_shared" {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"type": "drive",
+					"scope": "drive",
+					"client_id": "",
+					"client_secret": "",
+					"token": "{\"access_token\":\"ya29.sample\",\"token_type\":\"Bearer\",\"refresh_token\":\"1//sample\",\"expiry\":\"2026-10-22T20:00:00Z\"}"
+				}`))
+			} else if req["name"] == "drive_custom" {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"type": "drive",
+					"scope": "drive",
+					"client_id": "custom-id.apps.googleusercontent.com",
+					"client_secret": "custom-secret",
+					"token": "{\"access_token\":\"ya29.sample2\",\"token_type\":\"Bearer\",\"refresh_token\":\"1//sample2\",\"expiry\":\"2026-10-22T21:00:00Z\"}"
+				}`))
+			} else if req["name"] == "bad_json_token" {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"type": "drive",
+					"token": "not-a-valid-json"
+				}`))
+			} else if req["name"] == "map_token" {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"type": "onedrive",
+					"token": {"access_token":"token123","refresh_token":"ref123","expiry":"2026-10-23T00:00:00Z"}
+				}`))
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"error": "remote not found"}`))
+			}
+		case "/config/update":
+			var req map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			if req["name"] == "drive_custom" {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{}`))
+			} else {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error": "cannot update remote"}`))
+			}
+		case "/config/oauthstatus":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status": "running", "authUrl": "http://127.0.0.1:53682/auth?state=123"}`))
+		case "/config/oauthstop":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	ctx := context.Background()
+
+	// Act & Assert 1: GetRemoteAuthConfig for shared client_id remote
+	infoShared, err := c.GetRemoteAuthConfig(ctx, "drive_shared:")
+	if err != nil {
+		t.Fatalf("unexpected error for drive_shared: %v", err)
+	}
+	if infoShared["type"] != "drive" {
+		t.Fatalf("expected type drive, got %v", infoShared["type"])
+	}
+	if infoShared["client_id"] != "" {
+		t.Fatalf("expected empty client_id, got %v", infoShared["client_id"])
+	}
+	if infoShared["has_client_secret"] != false {
+		t.Fatalf("expected has_client_secret=false, got %v", infoShared["has_client_secret"])
+	}
+	if infoShared["has_token"] != true {
+		t.Fatalf("expected has_token=true, got %v", infoShared["has_token"])
+	}
+	if infoShared["token_expiry"] != "2026-10-22T20:00:00Z" {
+		t.Fatalf("expected expiry 2026-10-22T20:00:00Z, got %v", infoShared["token_expiry"])
+	}
+	// Assert no secret keys leaked
+	if _, leaked := infoShared["client_secret"]; leaked {
+		t.Fatal("security violation: client_secret leaked in GetRemoteAuthConfig")
+	}
+	if _, leaked := infoShared["token"]; leaked {
+		t.Fatal("security violation: raw token leaked in GetRemoteAuthConfig")
+	}
+
+	// Act & Assert 2: GetRemoteAuthConfig for custom credentials remote
+	infoCustom, err := c.GetRemoteAuthConfig(ctx, "drive_custom")
+	if err != nil {
+		t.Fatalf("unexpected error for drive_custom: %v", err)
+	}
+	if infoCustom["client_id"] != "custom-id.apps.googleusercontent.com" {
+		t.Fatalf("unexpected client_id: %v", infoCustom["client_id"])
+	}
+	if infoCustom["has_client_secret"] != true {
+		t.Fatalf("expected has_client_secret=true, got %v", infoCustom["has_client_secret"])
+	}
+
+	// Act & Assert 3: bad json token and map token
+	infoBad, err := c.GetRemoteAuthConfig(ctx, "bad_json_token")
+	if err != nil || infoBad["has_token"] != true {
+		t.Fatalf("expected has_token=true for bad_json_token fallback, got: %v, %v", infoBad, err)
+	}
+	infoMap, err := c.GetRemoteAuthConfig(ctx, "map_token")
+	if err != nil || infoMap["has_token"] != true || infoMap["token_expiry"] != "2026-10-23T00:00:00Z" {
+		t.Fatalf("expected has_token=true and expiry for map_token, got: %v, %v", infoMap, err)
+	}
+
+	// Act & Assert 4: not found remote
+	if _, err := c.GetRemoteAuthConfig(ctx, "nonexistent"); err == nil {
+		t.Fatal("expected error for nonexistent remote")
+	}
+
+	// Act & Assert 5: UpdateRemoteConfig success and error
+	if err := c.UpdateRemoteConfig(ctx, "drive_custom", map[string]string{"client_id": "new-id"}); err != nil {
+		t.Fatalf("expected UpdateRemoteConfig to succeed: %v", err)
+	}
+	if err := c.UpdateRemoteConfig(ctx, "unknown_remote", map[string]string{"client_id": "bad"}); err == nil {
+		t.Fatal("expected error on UpdateRemoteConfig for unknown_remote")
+	}
+
+	// Act & Assert 6: OAuthStatus
+	status, authURL, err := c.OAuthStatus(ctx)
+	if err != nil {
+		t.Fatalf("expected OAuthStatus to succeed: %v", err)
+	}
+	if status != "running" || authURL != "http://127.0.0.1:53682/auth?state=123" {
+		t.Fatalf("unexpected OAuthStatus result: status=%s, authURL=%s", status, authURL)
+	}
+
+	// Act & Assert 7: OAuthStop
+	if err := c.OAuthStop(ctx); err != nil {
+		t.Fatalf("expected OAuthStop to succeed: %v", err)
+	}
+}
+
 
