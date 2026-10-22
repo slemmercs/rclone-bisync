@@ -5,8 +5,8 @@
 
 ### 1.1 Task Planning Protocol
 Before modifying code for non-trivial features, bug fixes, or refactors:
-1. **Check for Existing Plan**: Search for `task_plan.md` in the repository root.
-   - If missing, create `task_plan.md` outlining the goal, system breakdown, and sequential micro-tasks.
+1. **Check for Existing Plan**: Search for `docs/roadmap/task_plan.md` (or root `task_plan.md` fallback).
+   - If missing, create `docs/roadmap/task_plan.md` outlining the goal, system breakdown, and sequential micro-tasks.
    - If present, review the next unchecked task `[ ]` and proceed with that task only.
 2. **Micro-Task Granularity**: Break the workflow into self-contained units. Each micro-task must:
    - Target a single logical concern (e.g., "Add CopyItem method to SyncService").
@@ -124,9 +124,9 @@ When performing a periodic full-repo review:
    - Module 2: Service Layer & Jails (`internal/services/` — traversal, deletions, sync actions).
    - Module 3: Server & Endpoints (`internal/server/`, `main.go`).
    - Module 4: Dashboard Frontend (`dashboard/frontend/` — Alpine.js state, event handlers).
-   - Module 5: Report Synthesis (`code-review.md`).
-2. **One Pass Per Session**: Execute each review pass, verify against test suite, and check off in `task_plan.md` before prompting `/newtask`.
-3. **Report Output**: Document findings, grades, and recommendations in `code-review.md`.
+   - Module 5: Report Synthesis (`docs/architecture/code-review.md`).
+2. **One Pass Per Session**: Execute each review pass, verify against test suite, and check off in `docs/roadmap/task_plan.md` before prompting `/newtask`.
+3. **Report Output**: Document findings, grades, and recommendations in `docs/architecture/code-review.md`.
 
 ### 3.3 Review Report Format
 Reviews must output in a structured markdown format:
