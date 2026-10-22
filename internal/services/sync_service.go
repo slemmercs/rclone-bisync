@@ -11,13 +11,13 @@ import (
 "path/filepath"
 "sort"
 "strings"
-"sync"
 "time"
 
 "github.com/slemmercs/rclone-bisync/internal/config"
 "github.com/slemmercs/rclone-bisync/internal/core/client"
 "github.com/slemmercs/rclone-bisync/internal/core/lock"
 "github.com/slemmercs/rclone-bisync/internal/core/state"
+"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 var ProviderLabels = map[string]string{
@@ -51,13 +51,11 @@ type LiveHealthCache struct {
 
 // SyncService orchestrates bisync operations, exploration, and telemetry.
 type SyncService struct {
-	Config          *config.Config
-	Client          *client.RcloneClient
-	Canary          *CanaryService
-	Deletion        *DeletionService
-	lockMu          sync.Mutex
-	fileCache       map[string]FileCacheItem
-	liveHealthCache LiveHealthCache
+	Config    *config.Config
+	Client    *client.RcloneClient
+	Canary    *CanaryService
+	Deletion  *DeletionService
+	Telemetry *TelemetryService
 }
 
 // NewSyncService initializes a new SyncService.
@@ -73,12 +71,13 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 	}
 	canarySvc := NewCanaryService(cfg, rcClient)
 	deletionSvc := NewDeletionService(cfg)
+	telemetrySvc := NewTelemetryService(cfg, rcClient)
 	return &SyncService{
 		Config:    cfg,
 		Client:    rcClient,
 		Canary:    canarySvc,
 		Deletion:  deletionSvc,
-		fileCache: make(map[string]FileCacheItem),
+		Telemetry: telemetrySvc,
 	}
 }
 
@@ -209,36 +208,7 @@ func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin stri
 
 // GetDaemonHealth retrieves daemon health with caching.
 func (s *SyncService) GetDaemonHealth(ctx context.Context) map[string]interface{} {
-	now := float64(time.Now().Unix())
-
-	s.lockMu.Lock()
-	if s.liveHealthCache.Data != nil && (now-s.liveHealthCache.Time) <= 5 {
-		data := s.liveHealthCache.Data
-		s.lockMu.Unlock()
-		return data
-	}
-	s.lockMu.Unlock()
-
-	healthy, latency, _ := s.Client.CheckHealth(ctx, 1, 0)
-	statusStr := "offline"
-	if healthy {
-		statusStr = "healthy"
-	} else {
-		latency = 0.0
-	}
-
-	health := map[string]interface{}{
-		"status":           statusStr,
-		"response_time_ms": latency,
-		"last_check":       now,
-	}
-
-	s.lockMu.Lock()
-	s.liveHealthCache.Time = now
-	s.liveHealthCache.Data = health
-	s.lockMu.Unlock()
-
-	return health
+	return s.Telemetry.GetDaemonHealth(ctx)
 }
 
 // TailFile reads the last N whole lines from a file by seeking from EOF.
@@ -358,79 +328,27 @@ func (s *SyncService) GetPendingDeletions() state.PendingDeletionsData {
 
 // GetRemotesSummary queries remotes and storage metrics.
 func (s *SyncService) GetRemotesSummary(ctx context.Context) (map[string]interface{}, error) {
-	remotes, err := s.Client.ListRemotes(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return s.Telemetry.GetRemotesSummary(ctx)
+}
 
-	remoteData := make([]map[string]interface{}, 0, len(remotes))
-	var totalCap, totalUsed, totalFree int64
+// GetTransferStats queries transfer statistics.
+func (s *SyncService) GetTransferStats(ctx context.Context) *models.TransferStats {
+	return s.Telemetry.GetTransferStats(ctx)
+}
 
-	activeRemote := strings.TrimRight(s.Config.RemotePath, ":")
+// GetCachedMetrics returns parsed and cached metrics lines.
+func (s *SyncService) GetCachedMetrics(linesCount int) []map[string]interface{} {
+	return s.Telemetry.GetCachedMetrics(linesCount)
+}
 
-	for _, r := range remotes {
-		cleanName := strings.TrimRight(r, ":")
-		cfg := s.Client.GetRemoteConfig(ctx, cleanName)
-		about := s.Client.GetRemoteAbout(ctx, cleanName)
+// GetRuntimeConfig returns sanitized configuration map with masked credentials.
+func (s *SyncService) GetRuntimeConfig() map[string]interface{} {
+	return s.Telemetry.GetRuntimeConfig()
+}
 
-		rtype := "unknown"
-		if cfg != nil {
-			if t, ok := cfg["type"].(string); ok {
-				rtype = t
-			}
-		}
-
-		typeLabel := strings.ToUpper(rtype)
-		if lbl, ok := ProviderLabels[rtype]; ok {
-			typeLabel = lbl
-		}
-
-		isActive := (cleanName == activeRemote)
-
-		if about != nil {
-			if total, ok := about["total"].(float64); ok {
-				totalCap += int64(total)
-			}
-			if used, ok := about["used"].(float64); ok {
-				totalUsed += int64(used)
-			}
-			if free, ok := about["free"].(float64); ok {
-				totalFree += int64(free)
-			}
-		}
-
-		if about == nil {
-			about = make(map[string]interface{})
-		}
-
-		remoteData = append(remoteData, map[string]interface{}{
-"name":             cleanName,
-"fs":               fmt.Sprintf("%s:", cleanName),
-"type":             rtype,
-"type_label":       typeLabel,
-"is_active_target": isActive,
-"about":            about,
-})
-	}
-
-	summary := map[string]interface{}{
-		"total_capacity_bytes": totalCap,
-		"total_used_bytes":     totalUsed,
-		"total_free_bytes":     totalFree,
-		"provider_count":       len(remoteData),
-	}
-
-	var activeRemoteFormatted interface{}
-	if activeRemote != "" {
-		activeRemoteFormatted = fmt.Sprintf("%s:", activeRemote)
-	}
-
-	return map[string]interface{}{
-		"remotes":       remoteData,
-		"summary":       summary,
-		"active_remote": activeRemoteFormatted,
-		"count":         len(remoteData),
-	}, nil
+// GetTelemetryPayload aggregates daemon health, logs, metrics, config, and transfer stats.
+func (s *SyncService) GetTelemetryPayload(ctx context.Context, limit int) map[string]interface{} {
+	return s.Telemetry.GetTelemetryPayload(ctx, s.IsSyncing(), limit)
 }
 
 // BrowsePath lists directory items and verifies canary presence, enforcing path jails for local FS.
