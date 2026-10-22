@@ -20,6 +20,9 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - [x] Task 5: Pre-Flight Verification & Documentation Update
   - **Scope**: `docs/design/oauth-connection-manager.md`, `docs/roadmap/backlog.md`, `README.md`
   - **Verification**: `./scripts/check.sh` and `go build -o bin/rclone-bisync main.go`
+- [x] Task 6: Validate Button Reactivity Fix & Option 2 Status Bar Redesign
+  - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh` and browser state verification
 
 ## Status Updates
 - 2026-10-22: Initialized plan on branch `feat/oauth-connection-manager`.
@@ -28,6 +31,7 @@ Implement a centralized OAuth Connection Manager for Bisync Hub allowing users t
 - 2026-10-22: Completed Task 3 (Wired `RemoteAuthService` into server routes with CSRF and secret leak validation, added endpoints for auth health, reconnect, credentials update, validate, audit, and oauth-stop with 85.3% coverage).
 - 2026-10-22: Completed Task 4 (Implemented Dashboard UI with Authentication Health overview bar, remote card status badges, shared client ID deprecation alert banners, Google Drive Migration Wizard modal, Reconnect status modal, and OAuth Audit Trail modal).
 - 2026-10-22: Completed Task 5 (Updated design documentation, backlog, and README; enhanced reconnect with `--auto-confirm`, localized audit timestamps, added persistent 'Connected ✓' feedback, and verified 100% clean check suite).
+- 2026-10-22: Completed Task 6 (Fixed Validate button reactivity via immutable Alpine object updates, auto-refreshed audit modal on validation, implemented Option 2 Compact Status Bar Strip, generalized App Credentials modal for all OAuth providers, and bumped cache-busters to v11).
 
 
 

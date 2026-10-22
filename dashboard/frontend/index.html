@@ -377,10 +377,10 @@
                 <template x-for="remote in remotesData.remotes" :key="remote.name">
                     <div class="bg-slate-900/60 border rounded-2xl p-5 flex flex-col justify-between transition-all hover:border-slate-700/80" :class="getProviderColor(remote.type).border">
                         <div>
-                            <!-- Card Header -->
-                            <div class="flex items-start justify-between gap-3 mb-4">
+                            <!-- Card Header (Option 2: Streamlined Header & Compact Metadata Strip) -->
+                            <div class="flex items-start justify-between gap-3 mb-3">
                                 <div class="flex items-center gap-3">
-                                    <div class="p-2.5 rounded-xl border flex items-center justify-center font-bold font-mono text-sm" :class="`${getProviderColor(remote.type).bg} ${getProviderColor(remote.type).border} ${getProviderColor(remote.type).text}`">
+                                    <div class="p-2.5 rounded-xl border flex items-center justify-center font-bold font-mono text-sm shrink-0" :class="`${getProviderColor(remote.type).bg} ${getProviderColor(remote.type).border} ${getProviderColor(remote.type).text}`">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
                                     </div>
                                     <div>
@@ -388,24 +388,40 @@
                                             <h3 class="text-base font-bold text-white font-mono" x-text="remote.fs"></h3>
                                             <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded border" :class="getProviderColor(remote.type).badge" x-text="remote.type_label"></span>
                                         </div>
-                                        <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                                            <span class="text-[11px] text-slate-400">Backend: <span class="font-mono text-slate-300" x-text="remote.type"></span></span>
-                                            <template x-if="remote.auth">
-                                                <span class="text-[10px] font-medium px-2 py-0.2 rounded-full border flex items-center gap-1" :class="getAuthBadge(remote.auth.status).class">
-                                                    <span class="w-1.5 h-1.5 rounded-full" :class="getAuthBadge(remote.auth.status).dot"></span>
-                                                    <span x-text="getAuthBadge(remote.auth.status).text"></span>
-                                                </span>
+                                        <!-- Unified Compact Metadata Strip -->
+                                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[11px] text-slate-400">
+                                            <span>Backend: <span class="font-mono text-slate-300" x-text="remote.type"></span></span>
+                                            <template x-if="remote.auth && remote.auth.is_oauth">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-slate-600">•</span>
+                                                    <span x-show="remote.auth.has_client_secret" class="inline-flex items-center gap-1 text-indigo-300 font-medium">
+                                                        <span>🔑</span>
+                                                        <span>Personal App</span>
+                                                    </span>
+                                                    <span x-show="!remote.auth.has_client_secret" class="inline-flex items-center gap-1 font-medium" :class="remote.auth.status === 'migration_required' ? 'text-amber-400' : 'text-slate-400'">
+                                                        <span x-text="remote.auth.status === 'migration_required' ? '⚠️ Shared App ID' : 'Shared App ID'"></span>
+                                                    </span>
+                                                </div>
                                             </template>
-                                            <span x-show="remote.auth && remote.auth.has_client_secret" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/40" title="Configured with personal OAuth application">🔑 Custom App</span>
+                                            <template x-if="remote.auth">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-slate-600">•</span>
+                                                    <span class="inline-flex items-center gap-1.5 font-medium" :class="getAuthBadge(remote.auth.status).textClass">
+                                                        <span class="w-1.5 h-1.5 rounded-full" :class="getAuthBadge(remote.auth.status).dot"></span>
+                                                        <span x-text="getAuthBadge(remote.auth.status).text"></span>
+                                                    </span>
+                                                </div>
+                                            </template>
+                                            <span class="text-slate-600">•</span>
+                                            <span class="font-medium" :class="remote.about?.total ? 'text-slate-300' : 'text-slate-500'" x-text="remote.about?.total ? 'Quota Active' : 'No Quota API'"></span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="flex flex-col items-end gap-1">
-                                    <span x-show="remote.is_active_target" class="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 flex items-center gap-1">
+                                <div class="shrink-0 flex items-center">
+                                    <span x-show="remote.is_active_target" class="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1 shadow-sm">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                                         <span>Active Target</span>
                                     </span>
-                                    <span class="text-[10px] font-mono" :class="remote.about?.total ? 'text-emerald-400' : 'text-slate-500'" x-text="remote.about?.total ? '● ONLINE' : '○ NO QUOTA API'"></span>
                                 </div>
                             </div>
 
@@ -470,8 +486,8 @@
                                     <svg x-show="remotesData.validated && remotesData.validated[remote.name]" class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                     <span :class="(remotesData.validated && remotesData.validated[remote.name]) ? 'text-emerald-400 font-medium' : ''" x-text="(remotesData.validating && remotesData.validating[remote.name]) ? 'Validating...' : ((remotesData.validated && remotesData.validated[remote.name]) ? 'Connected ✓' : 'Validate')"></span>
                                 </button>
-                                <template x-if="remote.type === 'drive'">
-                                    <button @click="openMigrationWizard(remote)" class="px-2.5 py-1 text-[11px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded border border-amber-500/30 transition-colors flex items-center gap-1">
+                                <template x-if="remote.auth && remote.auth.is_oauth">
+                                    <button @click="openMigrationWizard(remote)" class="px-2.5 py-1 text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1" title="Configure personal OAuth client ID and secret">
                                         <span>🔑</span>
                                         <span>App Credentials</span>
                                     </button>
@@ -1093,20 +1109,43 @@
                         <span>Why personal credentials?</span>
                     </div>
                     <p class="text-slate-400 leading-relaxed text-[11px]">
-                        Rclone's shared Google Drive client ID is subject to global API quotas and upcoming retirement. Creating your own free Google Cloud OAuth client guarantees reliable bidirectional syncing without quota throttling.
+                        Using your own personal OAuth client credentials provides dedicated API rate limits, isolates your remote from shared quotas, and ensures reliable synchronization without third-party throttling.
                     </p>
                 </div>
 
                 <!-- Guided Steps Accordion -->
                 <div class="space-y-2 text-[11px]">
                     <div class="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">Setup Instructions:</div>
-                    <ol class="list-decimal list-inside space-y-1.5 text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                        <li>Open the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" class="text-indigo-400 underline hover:text-indigo-300">Google Cloud Console ↗</a> and create a project.</li>
-                        <li>Enable the <strong>Google Drive API</strong> under <em>APIs & Services → Library</em>.</li>
-                        <li>Configure the <strong>OAuth Consent Screen</strong> (User Type: <em>External</em>, Publishing status: <em>Testing</em>, add your email as a test user).</li>
-                        <li>Go to <strong>Credentials → Create Credentials → OAuth Client ID</strong>.</li>
-                        <li>Select <strong>Desktop app</strong> as Application Type, then copy the Client ID and Client Secret below.</li>
-                    </ol>
+                    <template x-if="migrationModal.type === 'drive'">
+                        <ol class="list-decimal list-inside space-y-1.5 text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                            <li>Open the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" class="text-indigo-400 underline hover:text-indigo-300">Google Cloud Console ↗</a> and create a project.</li>
+                            <li>Enable the <strong>Google Drive API</strong> under <em>APIs & Services → Library</em>.</li>
+                            <li>Configure the <strong>OAuth Consent Screen</strong> (User Type: <em>External</em>, Publishing status: <em>Testing</em>, add your email as a test user).</li>
+                            <li>Go to <strong>Credentials → Create Credentials → OAuth Client ID</strong>.</li>
+                            <li>Select <strong>Desktop app</strong> as Application Type, then copy the Client ID and Client Secret below.</li>
+                        </ol>
+                    </template>
+                    <template x-if="migrationModal.type === 'onedrive'">
+                        <ol class="list-decimal list-inside space-y-1.5 text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                            <li>Open the <a href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" class="text-indigo-400 underline hover:text-indigo-300">Azure Portal App Registrations ↗</a> and register an app.</li>
+                            <li>Under <em>Supported account types</em>, select <em>Personal Microsoft accounts only</em> (or multitenant if needed).</li>
+                            <li>Under <em>Authentication</em>, add a platform for <strong>Mobile and desktop applications</strong> with redirect URI <code>http://localhost:53682/</code>.</li>
+                            <li>Generate a new Client Secret under <em>Certificates & secrets</em>, then copy the Application (client) ID and Client Secret below.</li>
+                        </ol>
+                    </template>
+                    <template x-if="migrationModal.type === 'dropbox'">
+                        <ol class="list-decimal list-inside space-y-1.5 text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                            <li>Open the <a href="https://www.dropbox.com/developers/apps" target="_blank" rel="noopener noreferrer" class="text-indigo-400 underline hover:text-indigo-300">Dropbox App Console ↗</a> and click <em>Create app</em>.</li>
+                            <li>Choose <em>Scoped access</em> and <em>Full Dropbox</em> (or App folder).</li>
+                            <li>Add redirect URI <code>http://localhost:53682/</code> under the <em>OAuth 2</em> tab.</li>
+                            <li>Copy the <strong>App key</strong> (Client ID) and <strong>App secret</strong> (Client Secret) below.</li>
+                        </ol>
+                    </template>
+                    <template x-if="migrationModal.type !== 'drive' && migrationModal.type !== 'onedrive' && migrationModal.type !== 'dropbox'">
+                        <div class="text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 leading-relaxed">
+                            Create an OAuth 2.0 application in your provider's developer console with redirect URI <code>http://localhost:53682/</code>, then copy the Client ID and Client Secret below.
+                        </div>
+                    </template>
                 </div>
                 <!-- Form Fields -->
                 <div class="space-y-3 pt-1">
@@ -1226,10 +1265,10 @@
     </div>
 
     <!-- Modular Frontend Scripts -->
-    <script src="/static/js/utils.js?v=9"></script>
-    <script src="/static/js/charts.js?v=9"></script>
-    <script src="/static/js/remotes.js?v=9"></script>
-    <script src="/static/js/explorer.js?v=9"></script>
-    <script src="/static/app.js?v=9"></script>
+    <script src="/static/js/utils.js?v=11"></script>
+    <script src="/static/js/charts.js?v=11"></script>
+    <script src="/static/js/remotes.js?v=11"></script>
+    <script src="/static/js/explorer.js?v=11"></script>
+    <script src="/static/app.js?v=11"></script>
 </body>
 </html>
