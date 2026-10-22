@@ -92,24 +92,22 @@ Support is completely optional. The project will remain free and open source reg
 - ❤️ GitHub Sponsors (recommended for recurring support)
 - ☕ Buy Me a Coffee (one-time contributions)
 
-### Transparency
+### Transparency on AI-Assisted Development
 
 The project follows a maintainer-reviewed, AI-assisted development model. All code included in releases is reviewed, validated, and approved by the project maintainer before being merged.
 
-Continued feature development and roadmap delivery are strongly influenced by the availability of AI development tooling and community support.
+This project is developed using a human-reviewed, AI-assisted engineering workflow.
 
-Thank you for helping make the project sustainable.
+AI tools are used to accelerate implementation, testing, documentation, and architectural exploration, while all project decisions, reviews, and releases remain under maintainer control.
+
+For details, see [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
 
 ## Acknowledgements
 
-This project integrates with and depends on
-[Rclone](https://rclone.org), the open-source cloud
-storage synchronization and file transfer tool created
-by Nick Craig-Wood and maintained by the Rclone
-community. Rclone is distributed under the MIT License. 【1-26a01c】【2-46d30b】
+This project integrates with and depends on [Rclone](https://rclone.org), the open-source cloud storage synchronization and file transfer tool created by Nick Craig-Wood and maintained by the Rclone community.
+Rclone is distributed under the MIT License. 【1-26a01c】【2-46d30b】
 
-This project is independent and is not affiliated with
-or endorsed by the Rclone project.
+This project is independent and is not affiliated with or endorsed by the Rclone project.
 
 ---
 
