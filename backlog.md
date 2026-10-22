@@ -66,7 +66,11 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 ### Phase 3: Immediate Go Enhancements & Evaluation Tasks (Near-Term)
 
 * **Rebrand to Bisync Hub**
-  - Rebrand the UI to Bisync Hub
+  - Rename the project, dashboard, documentation, and user-facing assets to **Bisync Hub**
+  - Adopt the new project positioning: *"The safety-first dashboard for Rclone Bisync"*
+  - Introduce the long-term vision: *"Review. Decide. Sync."*
+  - Update README, screenshots, installer messaging, service descriptions, GitHub metadata, and release notes
+  - Align future feature messaging around synchronization safety, review workflows, conflict resolution, and guided recovery rather than generic dashboard functionality
 
 * **Remote OAuth Re-Authentication Flow [ESTIMATE: 3-4h | 3 SP]**
   - Backend: Implement `ReconnectRemote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
