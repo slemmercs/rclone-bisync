@@ -8,7 +8,7 @@ Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/s
 - [x] Task 1: Extract CanaryService (`canary_service.go` & `canary_service_test.go`)
   - **Scope**: Extract canary creation (`CreateCanary`), canary presence checks (`CanaryExists`), and deletion safeguard (`SafeguardCanary`).
   - **Verification**: `go test -count=1 ./internal/services -run TestCanary`
-- [ ] Task 2: Extract DeletionService (`deletion_service.go` & `deletion_service_test.go`)
+- [x] Task 2: Extract DeletionService (`deletion_service.go` & `deletion_service_test.go`)
   - **Scope**: Extract `ParsePendingDeletionsFromLog` and `GetPendingDeletions` with reverse seeking and regex abort parsing.
   - **Verification**: `go test -count=1 ./internal/services -run TestDeletion`
 - [ ] Task 3: Extract TelemetryService (`telemetry_service.go` & `telemetry_service_test.go`)
@@ -27,6 +27,8 @@ Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/s
 ## Status Updates
 - 2026-10-22: Initialized plan on branch `refactor/sync-service-modularization`.
 - 2026-10-22: Completed Task 1 (Extracted `CanaryService` in `canary_service.go` with `CanaryExists`, `CreateCanary`, `SafeguardCanary`, wired into `SyncService`, and verified with `canary_service_test.go`).
+- 2026-10-22: Completed Task 2 (Extracted `DeletionService` in `deletion_service.go` with `ParsePendingDeletionsFromLog` and `GetPendingDeletions`, wired into `SyncService`, verified with `deletion_service_test.go`, coverage at 83.0%).
+
 
 
 
