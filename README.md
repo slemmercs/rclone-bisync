@@ -61,8 +61,10 @@ The unified single binary supports modular subcommands:
 ## Access & Monitoring Commands
 
 - **Telemetry UI Instance**: Open your Application Launcher and select **Rclone Custom Dashboard**, or directly navigate to `http://localhost:8080` in your browser.
-- **Manual Sync Execution**: Run **Rclone Force Bisync** from your app launcher or call:
+- **Manual Sync Execution**: Run synchronization manually via the CLI or trigger the systemd service:
     ```bash
+    ./bin/rclone-bisync sync
+    # Or via systemd:
     systemctl --user start bisync-gdrive.service
     ```
 - **Real-Time Service Journal Streams**:
@@ -85,10 +87,9 @@ Run the automated pre-flight quality and safety gate before committing or openin
 
 This verifies:
 1. Shell script syntax linting (`bash -n`).
-2. Python bytecode compilation across packages (`compileall`).
-3. Secret isolation (preventing `rc-secrets.env` or plaintext credentials from entering git).
-4. Go static analysis (`go vet ./...`) and complete Go unit test suite (`go test -count=1 ./...`).
-5. Automated test suite execution (`pytest tests/`).
+2. Secret isolation (preventing `rc-secrets.env` or plaintext credentials from entering git).
+3. Go static analysis (`go vet ./...`).
+4. Complete Go automated test suite (`go test -count=1 ./...`).
 
 ## Support Development
 

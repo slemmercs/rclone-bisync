@@ -76,6 +76,7 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
   - Backend: Implement `ReconnectRemote(name)` executing desktop-integrated OAuth flow (`rclone config reconnect {name}:`) preserving user session environment (`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `XDG_RUNTIME_DIR`).
   - Endpoint: `POST /api/remotes/{name}/reconnect`.
   - Frontend: Add "Reconnect / Re-Auth" action button to Remote Cards with reactive loading state and notification toasts.
+  - Refer to [oauth-connection-manager.md](../design/oauth-connection-manager.md)
 
 * **[COMPLETED] Structured Daemon Log Modal Refinement [ESTIMATE: 3-4h | 3 SP]**
   - Refined `internal/services/log_service.go` to unwrap nested JSON log strings from `bisync/rc.go` wrapper entries and match individual event timestamps.
@@ -90,7 +91,7 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 * **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]**
   - When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
-  - Refer to [interactive-sync-review.md](interactive-sync-review.md)
+  - Refer to [interactive-sync-review.md](../design/interactive-sync-review.md)
 
 * **Multi-Profile Synchronization Hub [ESTIMATE: 6-8h | 5 SP]**
   - Single background Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, etc.) with isolated flock files and telemetry streams.
