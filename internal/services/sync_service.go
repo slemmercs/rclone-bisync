@@ -53,6 +53,7 @@ type LiveHealthCache struct {
 type SyncService struct {
 	Config          *config.Config
 	Client          *client.RcloneClient
+	Canary          *CanaryService
 	lockMu          sync.Mutex
 	fileCache       map[string]FileCacheItem
 	liveHealthCache LiveHealthCache
@@ -69,9 +70,11 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 		}
 		rcClient = client.NewRcloneClient(cfg.RCAPIURL, user, pass)
 	}
+	canarySvc := NewCanaryService(cfg, rcClient)
 	return &SyncService{
 		Config:    cfg,
 		Client:    rcClient,
+		Canary:    canarySvc,
 		fileCache: make(map[string]FileCacheItem),
 	}
 }
@@ -643,64 +646,7 @@ return strings.ToLower(items[i]["Name"].(string)) < strings.ToLower(items[j]["Na
 
 // CreateCanary provisions an RCLONE_TEST canary file on target local or remote filesystem.
 func (s *SyncService) CreateCanary(ctx context.Context, remote, path string) (map[string]interface{}, error) {
-	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
-	remoteClean := strings.TrimSpace(remote)
-
-	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := s.Config.LocalPath
-		if strings.HasPrefix(rawBase, "~") {
-			home, _ := os.UserHomeDir()
-			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-		}
-		baseDir, _ := filepath.Abs(rawBase)
-		targetDir, _ := filepath.Abs(filepath.Join(baseDir, cleanPath))
-
-		rel, err := filepath.Rel(baseDir, targetDir)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
-		}
-
-		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Target directory does not exist: %s", cleanPath), "remote": "local", "path": cleanPath}, nil
-		}
-
-		canaryFile := filepath.Join(targetDir, "RCLONE_TEST")
-		f, err := os.OpenFile(canaryFile, os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to create canary file: %v", err), "remote": "local", "path": cleanPath}, nil
-		}
-		_ = f.Close()
-		now := time.Now()
-		_ = os.Chtimes(canaryFile, now, now)
-
-		return map[string]interface{}{
-			"status": "success",
-			"msg":    fmt.Sprintf("Canary created successfully at %s/RCLONE_TEST", cleanPath),
-			"remote": "local",
-			"path":   cleanPath,
-		}, nil
-	}
-
-	canaryRemotePath := "RCLONE_TEST"
-	if cleanPath != "" {
-		canaryRemotePath = fmt.Sprintf("%s/RCLONE_TEST", cleanPath)
-	}
-
-	ok, err := s.Client.TouchFile(ctx, remoteClean, canaryRemotePath)
-	if err != nil || !ok {
-		errStr := "Failed to create remote canary"
-		if err != nil {
-			errStr = err.Error()
-		}
-		return map[string]interface{}{"status": "error", "error": errStr, "remote": remoteClean, "path": cleanPath}, nil
-	}
-
-	return map[string]interface{}{
-		"status": "success",
-		"msg":    fmt.Sprintf("Canary created successfully at %s:%s", remoteClean, canaryRemotePath),
-		"remote": remoteClean,
-		"path":   cleanPath,
-	}, nil
+	return s.Canary.CreateCanary(ctx, remote, path)
 }
 
 // CopyItem transfers a file or directory with path jail enforcement.
