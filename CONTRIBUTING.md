@@ -1,67 +1,97 @@
-# Security Policy
+# Contributing
 
-## Reporting a Vulnerability
+Thank you for your interest in contributing to Bisync Hub.
 
-Please do not report security vulnerabilities through public GitHub issues.
+Contributions of all sizes are welcome.
 
-Instead, contact the project maintainer privately with:
+## Contributor License
 
-- A description of the issue
-- Steps to reproduce
-- Potential impact
-- Any proposed mitigations
+By submitting a contribution to this project, you agree that your contribution will be licensed under the Apache License 2.0, unless explicitly stated otherwise.
 
-Security reports will be acknowledged as quickly as possible.
+Contributions intentionally submitted for inclusion in the project are accepted under the same license as the project itself, consistent with Section 5 ("Submission of Contributions") of the Apache License 2.0.
 
----
-
-## Scope
-
-Security-sensitive areas include:
-
-- Authentication and authorization
-- Credential handling
-- Rclone RC integration
-- Dashboard APIs
-- File operations
-- Synchronization workflows
-- Configuration management
-- Session management
+You must have the legal right to submit any code, documentation, or other material you contribute.
 
 ---
 
-## Examples of Security Issues
+## Before Opening a Pull Request
 
-Please report issues involving:
+For significant changes:
 
-- Credential disclosure
-- Authentication bypass
-- Authorization bypass
-- Directory traversal
-- Arbitrary file access
-- Remote code execution
-- Unsafe synchronization actions
-- Exposure of secrets in logs or telemetry
+1. Open an issue first.
+2. Describe the problem being solved.
+3. Discuss the proposed approach.
+4. Wait for maintainer feedback before implementation.
+
+This helps avoid duplicate work and architectural drift.
 
 ---
 
-## Responsible Disclosure
+## Development Principles
 
-Please provide reasonable time for investigation and remediation before publicly disclosing any security vulnerability.
+Please review:
 
-The goal is to protect users while addressing issues responsibly.
+- ARCHITECTURE_PRINCIPLES.md
+- GOVERNANCE.md
+- AI_DISCLOSURE.md
+
+before submitting major changes.
 
 ---
 
-## Security Design Principles
+## Pull Request Requirements
 
-Bisync Hub follows several core security principles:
+Pull requests should:
 
-- Local-first operation
-- Principle of least privilege
-- Credential redaction by default
-- Explicit user actions for destructive operations
-- Review before synchronization changes
-- No intentional collection of user data
+- Have a clear purpose
+- Be reasonably scoped
+- Include tests where appropriate
+- Include documentation updates when required
+- Pass CI checks
 
-Users remain responsible for securing their own systems, accounts, and Rclone configurations.
+---
+
+## Pull Request Checklist
+
+- [ ] Code builds successfully
+- [ ] Tests added or updated
+- [ ] Documentation updated
+- [ ] No secrets introduced
+- [ ] Existing tests pass
+- [ ] Architecture principles respected
+
+---
+
+## Use of AI
+
+Contributors may use AI-assisted development tools.
+
+However, contributors remain responsible for:
+
+- Understanding their changes
+- Testing their changes
+- Reviewing generated code
+- Maintaining project quality
+
+Generated code that is unreviewed or poorly understood may be rejected.
+
+---
+
+## Good First Contributions
+
+Examples include:
+
+- Documentation improvements
+- Test coverage improvements
+- Bug fixes
+- UX enhancements
+- Accessibility improvements
+- Installation documentation
+
+---
+
+## Questions
+
+If unsure whether an idea fits the project direction, please open a discussion or issue before investing significant implementation effort.
+
+Thank you for helping improve Bisync Hub.
