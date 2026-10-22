@@ -261,6 +261,18 @@ func TestHealthAssessment(t *testing.T) {
 	if len(svc.GetAuditEvents(10)) != 0 {
 		t.Fatalf("expected 0 audit events during passive health assessment, got %d", len(svc.GetAuditEvents(10)))
 	}
+
+	// Act & Assert 8: Explicit CheckAllRemotesAuth validates and records audit events
+	checkResp, err := svc.CheckAllRemotesAuth(ctx)
+	if err != nil {
+		t.Fatalf("unexpected CheckAllRemotesAuth error: %v", err)
+	}
+	if checkResp.Summary.TotalRemotes != 5 {
+		t.Fatalf("expected 5 total remotes, got %d", checkResp.Summary.TotalRemotes)
+	}
+	if len(svc.GetAuditEvents(10)) == 0 {
+		t.Fatal("expected audit events to be recorded for explicit CheckAllRemotesAuth")
+	}
 }
 
 func TestMigrationUpdateCredentials(t *testing.T) {

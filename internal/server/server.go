@@ -108,6 +108,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/deletions/pending", s.handlePendingDeletions)
 	s.Mux.HandleFunc("GET /api/remotes", s.handleRemotes)
 	s.Mux.HandleFunc("GET /api/remotes/auth", s.handleRemotesAuth)
+	s.Mux.HandleFunc("POST /api/remotes/auth/check", s.handleRemotesAuthCheck)
 	s.Mux.HandleFunc("GET /api/remotes/auth/audit", s.handleRemotesAuthAudit)
 	s.Mux.HandleFunc("POST /api/remotes/auth/oauth-stop", s.handleOAuthStop)
 	s.Mux.HandleFunc("POST /api/remotes/{name}/reconnect", s.handleRemoteReconnect)
@@ -417,6 +418,20 @@ func (s *Server) handleRemoteCredentials(w http.ResponseWriter, r *http.Request)
 		"msg":        "Credentials successfully saved.",
 		"validation": val,
 	})
+}
+
+func (s *Server) handleRemotesAuthCheck(w http.ResponseWriter, r *http.Request) {
+	if s.AuthService == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
+		return
+	}
+
+	res, err := s.AuthService.CheckAllRemotesAuth(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]interface{}{"status": "error", "error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (s *Server) handleRemoteValidate(w http.ResponseWriter, r *http.Request) {

@@ -526,6 +526,23 @@ func TestAuthEndpoints(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for oauth-stop, got: %d", rec.Code)
 	}
+
+	// 9. POST /api/remotes/auth/check (active check with CSRF header)
+	req, _ = http.NewRequest("POST", "/api/remotes/auth/check", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for auth check, got: %d", rec.Code)
+	}
+	var checkResp models.AuthStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &checkResp); err != nil {
+		t.Fatalf("failed to decode auth check response: %v", err)
+	}
+	if len(checkResp.Remotes) != 1 {
+		t.Fatalf("expected 1 remote in auth check, got: %d", len(checkResp.Remotes))
+	}
+
 	// Reconnect cancel
 	req, _ = http.NewRequest("POST", "/api/remotes/gdrive/reconnect/cancel", nil)
 	req.Header.Set("X-Dashboard-Request", "1")
@@ -535,10 +552,14 @@ func TestAuthEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 for reconnect cancel, got: %d", rec.Code)
 	}
 
-
-	// 9. Nil AuthService branches
+	// 10. Nil AuthService branches
 	nilAuthSrv := NewServer(cfg, syncSvc, embed.FS{})
 	nilAuthSrv.AuthService = nil
+
+	req, _ = http.NewRequest("POST", "/api/remotes/auth/check", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilAuthSrv.ServeHTTP(rec, req)
 
 	req, _ = http.NewRequest("GET", "/api/remotes/auth", nil)
 	rec = httptest.NewRecorder()
