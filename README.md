@@ -71,23 +71,34 @@ This verifies:
 
 ## Support Development
 
-This project is developed and maintained in personal time.
+Rclone Bisync Automation Engine & Telemetry Hub is developed and maintained in personal time.
 
-If the software helps you manage Rclone Bisync safely and efficiently,
-consider supporting ongoing development.
+This project makes extensive use of modern AI-assisted engineering workflows for implementation, testing, documentation, architecture reviews, and ongoing maintenance. While the software is free and open source, the tools used to build and evolve it incur recurring costs.
 
-Support helps fund:
+If this project helps you manage your synchronization workflows, improve reliability, or save time, please consider supporting continued development.
 
-- AI-assisted development and code review
-- Testing and quality improvements
-- Documentation
-- Future feature development
+Your support helps fund:
 
-Support is entirely optional and the project will remain free and open source.
+- AI-assisted development and code review tooling
+- Automated testing and quality improvements
+- Documentation and user guides
+- New features and long-term maintenance
+- Infrastructure required for project releases and distribution
 
-- GitHub Sponsors
-- Buy Me a Coffee
-- PayPal
+Support is completely optional. The project will remain free and open source regardless of sponsorship levels.
+
+### Sponsorship Options
+
+- ❤️ GitHub Sponsors (recommended for recurring support)
+- ☕ Buy Me a Coffee (one-time contributions)
+
+### Transparency
+
+The project follows a maintainer-reviewed, AI-assisted development model. All code included in releases is reviewed, validated, and approved by the project maintainer before being merged.
+
+Continued feature development and roadmap delivery are strongly influenced by the availability of AI development tooling and community support.
+
+Thank you for helping make the project sustainable.
 
 ## Acknowledgements
 
@@ -100,4 +111,6 @@ community. Rclone is distributed under the MIT License. 【1-26a01c】【2-46d30
 This project is independent and is not affiliated with
 or endorsed by the Rclone project.
 
+---
 
+Special thanks to everyone who reports bugs, submits pull requests, improves documentation, shares feedback, or supports the project financially. All forms of contribution are equally appreciated.
