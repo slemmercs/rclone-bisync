@@ -124,6 +124,23 @@ func (s *RemoteAuthService) ReconnectRemote(ctx context.Context, remoteName stri
 	}, nil
 }
 
+// CancelReconnect cancels any ongoing reconnect runner for a specific remote and releases its lock.
+func (s *RemoteAuthService) CancelReconnect(remoteName string) bool {
+	cleanName := strings.TrimRight(remoteName, ":")
+	s.mu.Lock()
+	cancel, exists := s.activeReconnects[cleanName]
+	if exists {
+		cancel()
+		delete(s.activeReconnects, cleanName)
+	}
+	s.mu.Unlock()
+
+	if exists {
+		s.AuditLogger.LogEvent("oauth_reconnect_cancelled", cleanName, "info", "User cancelled OAuth reconnect process")
+	}
+	return exists
+}
+
 // StopOAuth cancels any ongoing reconnect runners and stops the rclone OAuth web server.
 func (s *RemoteAuthService) StopOAuth(ctx context.Context) error {
 	s.mu.Lock()

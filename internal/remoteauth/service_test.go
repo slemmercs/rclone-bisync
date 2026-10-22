@@ -381,6 +381,30 @@ func TestReconnectRemote(t *testing.T) {
 	}
 	wg.Wait()
 
+	// Test CancelReconnect
+	var wg2 sync.WaitGroup
+	started2 := make(chan struct{})
+	blockRunner2 := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
+		close(started2)
+		<-ctx.Done()
+		return "", ctx.Err()
+	}
+	cancellingSvc := NewRemoteAuthService(&config.Config{}, rClient, blockRunner2)
+	wg2.Add(1)
+	go func() {
+		defer wg2.Done()
+		_, _ = cancellingSvc.ReconnectRemote(ctx, "gdrive")
+	}()
+	<-started2
+	if !cancellingSvc.CancelReconnect("gdrive") {
+		t.Fatal("expected CancelReconnect to return true for active reconnect")
+	}
+	if cancellingSvc.CancelReconnect("nonexistent") {
+		t.Fatal("expected CancelReconnect to return false for nonexistent reconnect")
+	}
+	wg2.Wait()
+
+
 	// Act 4: Runner error handling
 	failRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
 		return "", errors.New("browser execution failed")

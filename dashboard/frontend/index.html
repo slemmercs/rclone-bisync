@@ -455,10 +455,15 @@
                         <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
                             <div class="flex items-center gap-1.5">
                                 <template x-if="remote.auth && remote.auth.is_oauth">
-                                    <button @click="reconnectRemote(remote.name)" :disabled="remotesData.reconnecting && remotesData.reconnecting[remote.name]" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded border border-slate-700/60 transition-colors flex items-center gap-1 font-medium">
-                                        <svg x-show="remotesData.reconnecting && remotesData.reconnecting[remote.name]" class="w-3 h-3 animate-spin text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                                        <span x-text="(remotesData.reconnecting && remotesData.reconnecting[remote.name]) ? 'Reconnecting...' : 'Reconnect'"></span>
-                                    </button>
+                                    <div>
+                                        <button x-show="!remotesData.reconnecting || !remotesData.reconnecting[remote.name]" @click="reconnectRemote(remote.name)" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700/60 transition-colors flex items-center gap-1 font-medium">
+                                            <span>Reconnect</span>
+                                        </button>
+                                        <button x-show="remotesData.reconnecting && remotesData.reconnecting[remote.name]" @click="cancelReconnect(remote.name)" class="px-2.5 py-1 text-[11px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded border border-amber-500/30 transition-colors flex items-center gap-1.5 font-medium" title="Authorization flow in progress. Click to cancel.">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                            <span>Authorizing... (Cancel)</span>
+                                        </button>
+                                    </div>
                                 </template>
                                 <button @click="validateRemote(remote.name)" :disabled="remotesData.validating && remotesData.validating[remote.name]" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors flex items-center gap-1">
                                     <svg x-show="remotesData.validating && remotesData.validating[remote.name]" class="w-3 h-3 animate-spin text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -1132,12 +1137,15 @@
             </div>
 
             <!-- Modal Footer -->
-            <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex justify-end gap-2.5">
-                <button type="button" @click="closeMigrationWizard()" :disabled="migrationModal.loading" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50">Cancel</button>
-                <button type="button" @click="saveMigrationCredentials()" :disabled="migrationModal.loading || !migrationModal.clientId.trim()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm shadow-indigo-950">
-                    <svg x-show="migrationModal.loading" class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    <span x-text="migrationModal.loading ? 'Saving...' : 'Save & Reauthorize'"></span>
-                </button>
+            <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+                <span class="text-[10px] text-slate-500">Credentials save directly to rclone.conf</span>
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="closeMigrationWizard()" :disabled="migrationModal.loading" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50">Cancel</button>
+                    <button type="button" @click="saveMigrationCredentials()" :disabled="migrationModal.loading || !migrationModal.clientId.trim()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm shadow-indigo-950">
+                        <svg x-show="migrationModal.loading" class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span x-text="migrationModal.loading ? 'Saving...' : 'Save Credentials'"></span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

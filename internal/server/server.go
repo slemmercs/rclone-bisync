@@ -111,6 +111,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/remotes/auth/audit", s.handleRemotesAuthAudit)
 	s.Mux.HandleFunc("POST /api/remotes/auth/oauth-stop", s.handleOAuthStop)
 	s.Mux.HandleFunc("POST /api/remotes/{name}/reconnect", s.handleRemoteReconnect)
+	s.Mux.HandleFunc("POST /api/remotes/{name}/reconnect/cancel", s.handleRemoteReconnectCancel)
 	s.Mux.HandleFunc("POST /api/remotes/{name}/credentials", s.handleRemoteCredentials)
 	s.Mux.HandleFunc("POST /api/remotes/{name}/validate", s.handleRemoteValidate)
 	s.Mux.HandleFunc("POST /api/browse", s.handleBrowse)
@@ -363,6 +364,26 @@ func (s *Server) handleRemoteReconnect(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
+func (s *Server) handleRemoteReconnectCancel(w http.ResponseWriter, r *http.Request) {
+	if s.AuthService == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
+		return
+	}
+	name := r.PathValue("name")
+	if strings.TrimSpace(name) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Remote name parameter required"})
+		return
+	}
+
+	cancelled := s.AuthService.CancelReconnect(name)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":    "success",
+		"remote":    name,
+		"cancelled": cancelled,
+		"msg":       "Reconnect process cancelled.",
+	})
+}
+
 
 func (s *Server) handleRemoteCredentials(w http.ResponseWriter, r *http.Request) {
 	if s.AuthService == nil {
