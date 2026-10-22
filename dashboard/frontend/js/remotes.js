@@ -120,7 +120,9 @@ window.RemotesModule = {
 
     async validateRemote(name) {
         if (!this.remotesData.validating) this.remotesData.validating = {};
+        if (!this.remotesData.validated) this.remotesData.validated = {};
         this.remotesData.validating[name] = true;
+        this.remotesData.validated[name] = false;
         this.showToast(`Testing connection to "${name}"...`, "info");
         try {
             const res = await fetch(`/api/remotes/${encodeURIComponent(name)}/validate`, {
@@ -130,6 +132,10 @@ window.RemotesModule = {
             const data = await res.json();
             if (data.valid) {
                 this.showToast(`Remote "${name}" is connected and healthy!`, "success");
+                this.remotesData.validated[name] = true;
+                setTimeout(() => {
+                    if (this.remotesData.validated) this.remotesData.validated[name] = false;
+                }, 2500);
             } else {
                 this.showToast(`Validation issue on "${name}": ${data.msg || data.error || 'Connection failed'}`, "error");
             }

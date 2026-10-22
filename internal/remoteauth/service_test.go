@@ -322,7 +322,7 @@ func TestReconnectRemote(t *testing.T) {
 	mockRunnerCalled := false
 	mockRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
 		mockRunnerCalled = true
-		if len(args) != 3 || args[0] != "config" || args[1] != "reconnect" || args[2] != "gdrive:" {
+		if len(args) != 4 || args[0] != "config" || args[1] != "reconnect" || args[2] != "gdrive:" || args[3] != "--auto-confirm" {
 			return "", fmt.Errorf("unexpected args: %v", args)
 		}
 		return "Log in to Google Drive in your browser", nil
