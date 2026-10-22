@@ -20,7 +20,7 @@ Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/s
 - [x] Task 5: Slim Down SyncService & Server Wiring
   - **Scope**: Refactor `internal/services/sync_service.go` to focus exclusively on systemd actions and flock locking; wire decomposed services into `internal/server/server.go` and `main.go`.
   - **Verification**: `go test -count=1 ./internal/services ./internal/server`
-- [ ] Task 6: Pre-flight Verification & Quality Gate
+- [x] Task 6: Pre-flight Verification & Quality Gate
   - **Scope**: Full check suite (`./scripts/check.sh`), statement coverage check (>80%), binary build (`go build -o bin/rclone-bisync main.go`).
   - **Verification**: `./scripts/check.sh`
 
@@ -31,6 +31,7 @@ Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/s
 - 2026-10-22: Completed Task 3 (Extracted `TelemetryService` in `telemetry_service.go`, decoupled telemetry and metrics caching from `SyncService`, verified with `telemetry_service_test.go`, coverage at 84.3%).
 - 2026-10-22: Completed Task 4 (Extracted `ExplorerService` in `explorer_service.go` with `BrowsePath`, `CopyItem`, `DeleteItem`, and `isLocalPathJailed`, verified with `explorer_service_test.go`, coverage at 85.4%).
 - 2026-10-22: Completed Task 5 (Slimmed down `SyncService`, wired domain services into `Server` and `main.go`, verified with `go test -count=1 ./internal/services ./internal/server`, coverage at 85.4% services / 83.2% server).
+- 2026-10-22: Completed Task 6 (Passed full quality gate `./scripts/check.sh`, confirmed statement coverage >80% across all packages with `internal/services` at 85.4% and `internal/server` at 83.2%, successfully verified binary compilation `bin/rclone-bisync`). Plan completed.
 
 
 

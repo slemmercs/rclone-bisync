@@ -65,10 +65,10 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ### Phase 3: Immediate Go Enhancements & Evaluation Tasks (Near-Term)
 
-* **[ACTIVE SPRINT - IN PROGRESS] Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
-  - Decouple monolithic `internal/services/sync_service.go` (~1,089 LOC) into single-responsibility domain services: `TelemetryService`, `CanaryService`, `DeletionService`, `ExplorerService`, and a lean `SyncService`.
-  - Maintain strict path traversal jails, atomic operations, backward-compatible delegators, and >80% statement test coverage across all domain services.
-  - Establish prerequisite foundation for Phase 4 Interactive Sync Review and Multi-Profile Hub.
+* **[COMPLETED] Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
+  - Decoupled monolithic `internal/services/sync_service.go` into cohesive single-responsibility domain services: `TelemetryService`, `CanaryService`, `DeletionService`, `ExplorerService`, and a lean `SyncService`.
+  - Maintained strict path traversal jails, atomic operations, backward-compatible delegators, and >80% statement test coverage across all domain services (internal/services: 85.4%, internal/server: 83.2%).
+  - Established prerequisite foundation for Phase 4 Interactive Sync Review and Multi-Profile Hub.
 
 * **Rebrand to Bisync Hub**
   - Rename the project, dashboard, documentation, and user-facing assets to **Bisync Hub**
