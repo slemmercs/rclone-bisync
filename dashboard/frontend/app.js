@@ -253,15 +253,17 @@ document.addEventListener("alpine:init", () => {
             return formatConfigValue(key, val);
         },
 
-        // Module Compositions (Remotes & Dual-Pane File Explorer)
+        // Module Compositions (Remotes, Dual-Pane File Explorer & Interactive Review)
         ...(window.RemotesModule || {}),
         ...(window.ExplorerModule || {}),
+        ...(window.ReviewModule || {}),
 
         // Lifecycle & Navigation
         async initDashboard() {
             initPerformanceChart();
             await this.poll();
             this.fetchRemotes(false);
+            this.fetchReviewSession(false);
             setInterval(() => this.poll(), 3000);
             this.setupLogScroll("log-bisync");
         },
@@ -273,6 +275,7 @@ document.addEventListener("alpine:init", () => {
                 const data = await res.json();
                 this.telemetry = data;
                 updatePerformanceChart(data.metrics || []);
+                this.fetchReviewSession(false);
             } catch (err) {
                 console.error("Telemetry poll failed:", err);
             }
