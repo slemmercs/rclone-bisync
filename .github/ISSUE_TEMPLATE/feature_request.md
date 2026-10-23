@@ -18,6 +18,7 @@ A clear and concise description of what you want to happen.
 ## Architecture & Principles Alignment
 
 How does this feature align with [Architecture Principles](docs/architecture/ARCHITECTURE_PRINCIPLES.md)?
+
 - [ ] Single Binary First (no heavy runtime dependencies)
 - [ ] Local-First Design (operates on the user machine)
 - [ ] Safety Before Automation (review before destructive action)
