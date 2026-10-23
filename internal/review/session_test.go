@@ -181,11 +181,21 @@ func TestSession_DecisionAndTransitionHelpers(t *testing.T) {
 		models.DecisionKeepBoth,
 		models.DecisionAcceptDelete,
 		models.DecisionRestoreItem,
+		models.DecisionSkip,
+		"restore-local",
+		"restore-remote",
+		"preserve",
 	}
 	for _, d := range validDecisions {
 		if !IsValidDecision(d) {
 			t.Errorf("expected %s to be valid", d)
 		}
+	}
+	if NormalizeDecision("restore-local") != models.DecisionRestoreItem {
+		t.Errorf("expected restore-local to normalize to restore-item")
+	}
+	if NormalizeDecision("skip") != models.DecisionSkip {
+		t.Errorf("expected skip to normalize to skip")
 	}
 	if IsValidDecision("invalid-decision") {
 		t.Fatal("expected invalid-decision to be false")

@@ -1063,7 +1063,7 @@
             <div class="px-4 py-2 bg-slate-950/80 border-b border-slate-800/60 flex flex-wrap items-center gap-2 text-xs">
                 <span class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Quick Batch:</span>
                 <button x-show="reviewStats.deletions > 0" @click="batchStageReviewDecisions('accept-delete', 'deletion')" class="px-2.5 py-1 rounded bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 font-medium text-[11px] transition-colors" title="Authorize deleting all queued deletion candidates">Accept All Deletions</button>
-                <button x-show="reviewStats.deletions > 0" @click="batchStageReviewDecisions('restore-local', 'deletion')" class="px-2.5 py-1 rounded bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/60 font-medium text-[11px] transition-colors" title="Preserve all files from being deleted">Preserve All Files</button>
+                <button x-show="reviewStats.deletions > 0" @click="batchStageReviewDecisions('restore-item', 'deletion')" class="px-2.5 py-1 rounded bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/60 font-medium text-[11px] transition-colors" title="Preserve all files from being deleted">Preserve All Files</button>
                 <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-local', 'conflict')" class="px-2.5 py-1 rounded bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 font-medium text-[11px] transition-colors">Keep All Local</button>
                 <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-remote', 'conflict')" class="px-2.5 py-1 rounded bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 font-medium text-[11px] transition-colors">Keep All Remote</button>
                 <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-both', 'conflict')" class="px-2.5 py-1 rounded bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/60 font-medium text-[11px] transition-colors">Keep Both (Rename)</button>
@@ -1109,9 +1109,9 @@
                                             :class="candidate.decision === 'accept-delete' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-rose-300'">
                                         Accept Delete
                                     </button>
-                                    <button @click="stageReviewDecision(candidate.id, 'restore-local')"
+                                    <button @click="stageReviewDecision(candidate.id, 'restore-item')"
                                             class="px-2.5 py-1 rounded text-[11px] font-bold transition-colors"
-                                            :class="candidate.decision === 'restore-local' || candidate.decision === 'restore-remote' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-emerald-300'">
+                                            :class="candidate.decision === 'restore-item' || candidate.decision === 'restore-local' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-emerald-300'">
                                         Preserve File
                                     </button>
                                     <button @click="stageReviewDecision(candidate.id, 'skip')"
@@ -1525,11 +1525,11 @@
     </div>
 
     <!-- Modular Frontend Scripts -->
-    <script src="/static/js/utils.js?v=16"></script>
-    <script src="/static/js/charts.js?v=16"></script>
-    <script src="/static/js/remotes.js?v=16"></script>
-    <script src="/static/js/explorer.js?v=16"></script>
-    <script src="/static/js/review.js?v=16"></script>
-    <script src="/static/app.js?v=16"></script>
+    <script src="/static/js/utils.js?v=17"></script>
+    <script src="/static/js/charts.js?v=17"></script>
+    <script src="/static/js/remotes.js?v=17"></script>
+    <script src="/static/js/explorer.js?v=17"></script>
+    <script src="/static/js/review.js?v=17"></script>
+    <script src="/static/app.js?v=17"></script>
 </body>
 </html>

@@ -52,7 +52,7 @@ func (e *ResolutionExecutor) ExecuteSession(ctx context.Context, session *models
 
 	// Execute staged deletions
 	for _, cand := range session.Deletions {
-		if !cand.Resolved || cand.Decision == "" {
+		if !cand.Resolved || cand.Decision == "" || cand.Decision == models.DecisionSkip {
 			continue
 		}
 		if err := e.executeDeletion(ctx, session, cand); err != nil {
@@ -63,7 +63,7 @@ func (e *ResolutionExecutor) ExecuteSession(ctx context.Context, session *models
 
 	// Execute staged conflicts
 	for _, cand := range session.Conflicts {
-		if !cand.Resolved || cand.Decision == "" {
+		if !cand.Resolved || cand.Decision == "" || cand.Decision == models.DecisionSkip {
 			continue
 		}
 		if err := e.executeConflict(ctx, session, cand); err != nil {
