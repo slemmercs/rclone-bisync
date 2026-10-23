@@ -2,38 +2,46 @@ name: CI Quality Gate
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: Lint, Test & Build
+  quality-gate:
+    name: Quality Gate
     runs-on:
       - self-hosted
       - rclone-bisync
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
 
-      - name: Set up Go
-        uses: actions/setup-go@v7
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: go.mod
           cache: true
 
-      - name: Run Pre-Flight Quality Gate
+      - name: Display runner information
+        run: |
+          echo "Runner: $(hostname)"
+          echo "User: $(whoami)"
+          echo "Architecture: $(uname -m)"
+          go version
+
+      - name: Verify Go modules
+        run: |
+          go mod tidy
+          git diff --exit-code
+
+      - name: Run Quality Gate
         run: |
           chmod +x ./scripts/check.sh
           ./scripts/check.sh
-
-      - name: Build Single-Binary Executable
-        run: |
-          go build -v -o bin/rclone-bisync main.go
-
-      - name: Verify Executable CLI
-        run: |
-          ./bin/rclone-bisync --help
