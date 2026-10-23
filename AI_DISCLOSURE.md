@@ -2,7 +2,7 @@
 
 ## Overview
 
-Rclone Bisync Automation Engine & Telemetry Hub is developed using an AI-assisted software engineering workflow.
+Bisync Hub (Safety-First Dashboard & Automation Engine for Rclone Bisync) is developed using an AI-assisted software engineering workflow.
 
 Artificial intelligence tools are used throughout the lifecycle of the project to accelerate development, improve documentation quality, assist with testing, and explore architectural options.
 
