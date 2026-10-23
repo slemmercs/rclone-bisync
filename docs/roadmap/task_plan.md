@@ -14,7 +14,7 @@ Implement an interactive synchronization review and resolution engine ("Review. 
 - [x] Task 3: Dual Backup Strategy Provider & Saga Resolution Executor
   - **Scope**: Implement `backup.go` (local zero-byte hardlink + cloud server-side copy + `statfs`), `executor.go` (reversible commands), and `rollback.go` in `internal/review/`.
   - **Verification**: `go test -count=1 ./internal/review -run TestExecutor`
-- [ ] Task 4: Service Facade & Pre-Sync Safety Barrier
+- [x] Task 4: Service Facade & Pre-Sync Safety Barrier
   - **Scope**: Implement `internal/services/review_service.go`, wire into `SyncService.HandleAction`, connect sync abort hooks in `internal/engine/runner/runner.go`.
   - **Verification**: `go test -count=1 ./internal/services`
 - [ ] Task 5: Server REST Handlers & Route Integration
@@ -28,7 +28,7 @@ Implement an interactive synchronization review and resolution engine ("Review. 
   - **Verification**: `./scripts/check.sh`
 
 ## Next Up
-- **Task 4: Service Facade & Pre-Sync Safety Barrier**
+- **Task 5: Server REST Handlers & Route Integration**
 
 ## Status Updates
 - 2026-10-23: Phase 3 and Maintenance Milestone (Quality hardening, security jails, modularization) merged to `main`.
@@ -36,6 +36,7 @@ Implement an interactive synchronization review and resolution engine ("Review. 
 - 2026-10-23: Completed Task 1: Defined `ReviewSession`, `DeletionCandidate`, `ConflictCandidate`, `ResolutionAction`, `WALEntry`, and API DTOs in `internal/models/review.go`. Added review paths and backup TTL configuration to `internal/config/config.go`. Verified via `go test -count=1 ./internal/models ./internal/config` and `./scripts/check.sh`.
 - 2026-10-23: Completed Task 2: Implemented `session.go` (formal FSM lifecycle, candidate decision staging), `discovery.go` (structured state and log-based deletion/conflict discovery), and `journal.go` (atomic persistence, WAL append/read, crash recovery reconciliation) in `internal/review/`. Verified via `go test -count=1 ./internal/review` (86.3% statement coverage) and `./scripts/check.sh` (85.0% total statement coverage).
 - 2026-10-23: Completed Task 3: Implemented `backup.go` (dual local zero-byte hardlink + cloud server-side copy + statfs safety), `executor.go` (reversible resolution executor), and `rollback.go` (Saga compensation runner in reverse order) in `internal/review/`. Verified via `go test -count=1 ./internal/review -run TestExecutor` and `./scripts/check.sh` (84.0% repository statement coverage).
+- 2026-10-23: Completed Task 4: Implemented `internal/services/review_service.go`, integrated pre-sync safety barrier into `SyncService.HandleAction` blocking sync when active reviews exist, connected sync abort hooks in `internal/engine/runner/runner.go`. Verified via `go test -count=1 ./internal/services` (82.3% statement coverage) and `./scripts/check.sh` (83.1% overall repository statement coverage).
 
 
 
