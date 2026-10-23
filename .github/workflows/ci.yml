@@ -12,7 +12,9 @@ permissions:
 jobs:
   test:
     name: Lint, Test & Build
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - rclone-bisync
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
