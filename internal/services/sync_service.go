@@ -88,16 +88,16 @@ func (s *SyncService) IsSyncing() bool {
 }
 
 // HandleAction executes system actions (start_sync, stop_sync, force_resync, etc.).
-func (s *SyncService) HandleAction(ctx context.Context, action string) (map[string]interface{}, error) {
+func (s *SyncService) HandleAction(ctx context.Context, action string) (models.ActionResponse, error) {
 	switch action {
 	case "start_sync":
 		if s.IsSyncing() {
-			return map[string]interface{}{"status": "error", "msg": "Sync already in progress."}, nil
+			return models.ActionResponse{Status: "error", Msg: "Sync already in progress."}, nil
 		}
 		if err := s.runBisyncSystemd(nil, "bisync-gdrive-manual", "dashboard"); err != nil {
-			return nil, err
+			return models.ActionResponse{}, err
 		}
-		return map[string]interface{}{"status": "success", "msg": "Sync started via systemd (origin: dashboard)"}, nil
+		return models.ActionResponse{Status: "success", Msg: "Sync started via systemd (origin: dashboard)"}, nil
 
 	case "stop_sync":
 		stopped := 0
@@ -113,56 +113,56 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (map[stri
 			"bisync-gdrive-force.service",
 			"bisync-gdrive-dryrun.service",
 		).Run()
-		return map[string]interface{}{
-			"status": "success",
-			"msg":    fmt.Sprintf("Sync stopped (%d daemon jobs halted)", stopped),
+		return models.ActionResponse{
+			Status: "success",
+			Msg:    fmt.Sprintf("Sync stopped (%d daemon jobs halted)", stopped),
 		}, nil
 
 	case "force_resync":
 		if s.IsSyncing() {
-			return map[string]interface{}{"status": "error", "msg": "Cannot resync: another sync is actively running."}, nil
+			return models.ActionResponse{Status: "error", Msg: "Cannot resync: another sync is actively running."}, nil
 		}
 		if err := s.runBisyncSystemd([]string{"--resync"}, "bisync-gdrive-resync", "dashboard"); err != nil {
-			return nil, err
+			return models.ActionResponse{}, err
 		}
-		return map[string]interface{}{"status": "success", "msg": "Resync initiated via systemd (origin: dashboard)"}, nil
+		return models.ActionResponse{Status: "success", Msg: "Resync initiated via systemd (origin: dashboard)"}, nil
 
 	case "force_sync":
 		if s.IsSyncing() {
-			return map[string]interface{}{"status": "error", "msg": "Cannot force sync: another sync is actively running."}, nil
+			return models.ActionResponse{Status: "error", Msg: "Cannot force sync: another sync is actively running."}, nil
 		}
 		if err := s.runBisyncSystemd([]string{"--force"}, "bisync-gdrive-force", "dashboard"); err != nil {
-			return nil, err
+			return models.ActionResponse{}, err
 		}
-		return map[string]interface{}{"status": "success", "msg": "Force sync initiated via systemd (deletions authorized)"}, nil
+		return models.ActionResponse{Status: "success", Msg: "Force sync initiated via systemd (deletions authorized)"}, nil
 
 	case "dry_run":
 		if s.IsSyncing() {
-			return map[string]interface{}{"status": "error", "msg": "Cannot start dry run: another sync is actively running."}, nil
+			return models.ActionResponse{Status: "error", Msg: "Cannot start dry run: another sync is actively running."}, nil
 		}
 		if err := s.runBisyncSystemd([]string{"--dry-run"}, "bisync-gdrive-dryrun", "dashboard"); err != nil {
-			return nil, err
+			return models.ActionResponse{}, err
 		}
-		return map[string]interface{}{"status": "success", "msg": "Dry-run simulation started via systemd (origin: dashboard)"}, nil
+		return models.ActionResponse{Status: "success", Msg: "Dry-run simulation started via systemd (origin: dashboard)"}, nil
 
 	case "remove_lock":
 		if s.IsSyncing() {
-			return map[string]interface{}{"status": "error", "msg": "Cannot remove lock: a synchronization run is actively in progress."}, nil
+			return models.ActionResponse{Status: "error", Msg: "Cannot remove lock: a synchronization run is actively in progress."}, nil
 		}
 		if _, err := os.Stat(s.Config.LockFile); err == nil {
 			_ = os.Remove(s.Config.LockFile)
-			return map[string]interface{}{"status": "success", "msg": "Lock file removed"}, nil
+			return models.ActionResponse{Status: "success", Msg: "Lock file removed"}, nil
 		}
-		return map[string]interface{}{"status": "info", "msg": "No lock file found"}, nil
+		return models.ActionResponse{Status: "info", Msg: "No lock file found"}, nil
 
 	case "clear_rate_limit":
 		if state.ClearRateLimitBackoff(s.Config.RateLimitBackoffFile) {
-			return map[string]interface{}{"status": "success", "msg": "Rate limit backoff cleared"}, nil
+			return models.ActionResponse{Status: "success", Msg: "Rate limit backoff cleared"}, nil
 		}
-		return map[string]interface{}{"status": "info", "msg": "No active rate limit flag found"}, nil
+		return models.ActionResponse{Status: "info", Msg: "No active rate limit flag found"}, nil
 
 	default:
-		return map[string]interface{}{"status": "error", "msg": fmt.Sprintf("Unknown action: '%s'", action)}, nil
+		return models.ActionResponse{Status: "error", Msg: fmt.Sprintf("Unknown action: '%s'", action)}, nil
 	}
 }
 
@@ -328,7 +328,7 @@ func (s *SyncService) GetPendingDeletions() state.PendingDeletionsData {
 }
 
 // GetRemotesSummary queries remotes and storage metrics.
-func (s *SyncService) GetRemotesSummary(ctx context.Context) (map[string]interface{}, error) {
+func (s *SyncService) GetRemotesSummary(ctx context.Context) (models.RemotesResponse, error) {
 	return s.Telemetry.GetRemotesSummary(ctx)
 }
 
@@ -363,7 +363,7 @@ func (s *SyncService) CreateCanary(ctx context.Context, remote, path string) (ma
 }
 
 // CopyItem transfers a file or directory with path jail enforcement.
-func (s *SyncService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (map[string]interface{}, error) {
+func (s *SyncService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (models.CopyResponse, error) {
 	return s.Explorer.CopyItem(ctx, srcRemote, srcPath, dstRemote, dstPath, isDir)
 }
 

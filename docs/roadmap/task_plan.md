@@ -1,35 +1,46 @@
 
-# Task Plan: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer
+# Task Plan: Repository Quality Hardening, Security Jails & Modularization (Maintenance Milestone)
 
 ## Goal
-Implement the **Interactive Sync Review & Resolution Workflow** ([`docs/design/interactive-sync-review.md`](../design/interactive-sync-review.md)). When Rclone Bisync encounters dangerous synchronization conditions (`TOO_MANY_DELETES` or unresolved file conflicts), Bisync Hub captures the event, provisions an atomic, persistent `ReviewSession`, visualizes affected items in the Dual-Pane Explorer, allows granular per-item user decisions (`keep-local`, `keep-remote`, `keep-both`, `accept-delete`, `restore-item`), stages backups, and supports rollback prior to final synchronization.
+Execute a comprehensive repository maintenance and quality hardening milestone that resolves all High-, Medium-, and Low-severity findings identified in the architectural code review (`docs/architecture/code-review.md`) and decomposes monolithic packages (`internal/server/` and `internal/core/client/`) into cohesive domain components. This aligns the codebase with Bisync Hub's core principles in `README.md`—**"Visibility Before Action"**, **"Safety Before Automation"**, and **"Recovery Before Rebuild"**—providing the robust, modular foundation needed for Bisync Hub's main differentiator: the **Interactive Sync Review & Resolution Engine ("Review. Decide. Sync.")**.
 
 ## Tasks
-- [ ] Task 1: Review Domain Models & Contract Schemas
-  - **Scope**: Create `internal/models/review.go` defining `ReviewSession`, `DeletionCandidate`, `ConflictCandidate`, `ResolutionAction`, `ReviewSessionStatus`, and resolution action types.
-  - **Verification**: `go test -count=1 ./internal/models`
-- [ ] Task 2: Review Service Engine & Persistent Journal
-  - **Scope**: Create `internal/services/review_service.go` with thread-safe session lifecycle, atomic JSON journal persistence (`.tmp.<pid>` + `os.Rename`), crash recovery on startup, and pre-sync validation barrier.
-  - **Verification**: `go test -count=1 ./internal/services -run TestReviewService`
-- [ ] Task 3: Candidate Discovery & Abort Interceptor
-  - **Scope**: Enhance `internal/services/sync_service.go` and `internal/engine/runner/runner.go` to intercept `TOO_MANY_DELETES` and conflict aborts, extract affected paths from bisync execution logs, and automatically provision a populated `ReviewSession`.
-  - **Verification**: `go test -count=1 ./internal/services -run TestReviewService_CandidateDiscovery`
-- [ ] Task 4: Resolution Executor, Backup Staging & Rollback Engine
-  - **Scope**: Implement execution logic in `ReviewService` utilizing Rclone RC operations, pre-mutation file backups into `.bisync-backup/<session-id>/`, and atomic rollback to restore backups.
-  - **Verification**: `go test -count=1 ./internal/services -run TestReviewService_ExecuteAndRollback`
-- [ ] Task 5: REST API Endpoints & Request Routing
-  - **Scope**: Implement `GET /api/review/session`, `POST /api/review/action`, `POST /api/review/execute`, `POST /api/review/rollback`, and `POST /api/review/dismiss` in `internal/server/server.go`.
-  - **Verification**: `go test -count=1 ./internal/server -run TestReviewEndpoints`
-- [ ] Task 6: Frontend Dual-Pane Explorer Highlighting & Interactive Review Modal
-  - **Scope**: Update `dashboard/frontend/` (`index.html`, `js/explorer.js`, `js/app.js`) with visual highlighting (Red=deletion, Amber=conflict, Green=new) and dedicated Review Modal.
-  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [ ] Task 7: Full Verification Gate & Service Deployment
-  - **Scope**: Run full `./scripts/check.sh` quality gate, verify statement test coverage >80%, compile `bin/rclone-bisync`, deploy to user service, and verify live endpoints.
-  - **Verification**: `./scripts/check.sh` && `systemctl --user status rclone-dashboard.service`
+- [x] Task 1: Stale Lock Race Condition Remediation (Finding H-1)
+  - **Scope**: Update `handleStaleLock()` in `internal/core/lock/lock.go` so locks held by an active PID past `LockStaleTimeoutSeconds` (3600s) are never unlinked or stolen; add unit tests in `internal/core/lock/lock_test.go`.
+  - **Verification**: `go test -count=1 ./internal/core/lock`
+- [x] Task 2: Path Confinement Symlink Resolution & Recursive Canary Safeguard (Findings H-2, H-3)
+  - **Scope**: Update `IsLocalPathJailed()` in `internal/services/explorer_service.go` to evaluate real filesystem targets using `filepath.EvalSymlinks()`; update `DeleteItem()` to check if directories contain `RCLONE_TEST` before deletion. Add unit tests in `internal/services/explorer_service_test.go`.
+  - **Verification**: `go test -count=1 ./internal/services -run TestExplorer`
+- [x] Task 3: Homelab LAN Access & Graceful Server Drain (Findings M-2, M-3)
+  - **Scope**: Update `isAllowedOrigin()` in `internal/server/server.go` to permit private RFC 1918 subnets (`192.168.x.x`, `10.x.x.x`, `172.16.x.x`), `.local` domains, and the configured host. Add graceful `httpServer.Shutdown(ctx)` on `SIGINT`/`SIGTERM` in `main.go`.
+  - **Verification**: `go test -count=1 ./internal/server` && `go test -count=1 .`
+- [x] Task 4: Duplicate Secret Sanitization Cleanup & Safe Env Parser (Findings M-4, L-1)
+  - **Scope**: Streamline `GetRuntimeConfig()` in `internal/services/telemetry_service.go` to delegate directly to `security.RedactSecrets()`; add non-mutating `ParseEnvFile()` in `internal/config/config.go`.
+  - **Verification**: `go test -count=1 ./internal/services ./internal/config`
+- [x] Task 5: Core Client Modularization
+  - **Scope**: Decompose `internal/core/client/client.go` (551 LOC) into cohesive domain components: `jobs.go` (job tracking), `remotes.go` (remote configurations & OAuth), and `fs_ops.go` (directory listings & file operations).
+  - **Verification**: `go test -count=1 ./internal/core/client`
+- [x] Task 6: Server Route Modularization & Schema Contract Hardening (Finding M-1)
+  - **Scope**: Define concrete DTOs in `internal/models/api.go` for `/api/action`, `/api/health`, `/api/remotes`; decompose `internal/server/server.go` (523 LOC) into domain handlers: `handlers_telemetry.go`, `handlers_explorer.go`, `handlers_auth.go`, and `handlers_sync.go`.
+  - **Verification**: `go test -count=1 ./internal/server ./internal/models`
+- [x] Task 7: Full Quality Gate & Pre-Flight Verification
+  - **Scope**: Run full `./scripts/check.sh` quality gate, verify statement test coverage >= 80%, verify cross-platform builds (`linux/amd64`, `linux/arm64`), and commit cleanly.
+  - **Verification**: `./scripts/check.sh`
+
+## Next Up
+- **Phase 4: Interactive Sync Review & Deletion Diff Visualizer** (Tasks 1–7 in `docs/design/interactive-sync-review.md`).
 
 ## Status Updates
 - 2026-10-23: Phase 3 (OAuth Reconnect, SyncService modularization PR #18, Rebrand to Bisync Hub PR #20) completed and merged into `main`.
-- 2026-10-23: Initialized Phase 4 Interactive Sync Review task plan based on `docs/design/interactive-sync-review.md`.
+- 2026-10-23: Initialized Maintenance Milestone to address all architectural audit findings and complete core modularization prior to Phase 4.
+- 2026-10-23: Completed Task 1 (Finding H-1): Protected locks held by active PIDs from eviction or unlinking regardless of elapsed age; verified via `go test -count=1 ./internal/core/lock`.
+- 2026-10-23: Completed Task 2 (Findings H-2, H-3): Implemented symlink realpath confinement via `filepath.EvalSymlinks` and recursive directory deletion canary protection in `internal/services/`; verified via `go test -count=1 ./internal/services -run TestExplorer` and `./scripts/check.sh`.
+- 2026-10-23: Completed Task 3 (Findings M-2, M-3): Permitted private RFC 1918 subnets, Tailscale CGNAT, and .local/.lan domains in `isAllowedOrigin()`; implemented 5-second graceful HTTP drain via `httpServer.Shutdown(ctx)` in `main.go`. Verified via tests and `./scripts/check.sh`.
+- 2026-10-23: Completed Task 4 (Findings M-4, L-1): Deduplicated secret key sanitization in `TelemetryService` via `security.IsSensitiveKeyName()`; implemented non-mutating `ParseEnvFile()` with balanced quote stripping in `internal/config/config.go`. Verified via unit tests and `./scripts/check.sh`.
+- 2026-10-23: Completed Task 5: Modularized `internal/core/client/` by decomposing monolithic `client.go` (551 LOC) into `client.go` (127 LOC), `jobs.go` (75 LOC), `remotes.go` (165 LOC), and `fs_ops.go` (150 LOC). Verified via unit tests and `./scripts/check.sh`.
+- 2026-10-23: Completed Task 6 (Finding M-1): Decomposed monolithic `internal/server/server.go` (523 LOC) into `server.go` (205 LOC), `handlers_auth.go` (176 LOC), `handlers_telemetry.go` (122 LOC), `handlers_explorer.go` (62 LOC), and `handlers_sync.go` (31 LOC). Replaced untyped maps with concrete Go DTOs (`ActionResponse`, `RemotesResponse`, `CopyResponse`, `DaemonHealthResponse`, `UpdateCredentialsResponse`, `CancelReconnectResponse`, `OAuthStopResponse`, `ErrorResponse`) and exposed `/api/health`. Verified via `go test -count=1 ./internal/server ./internal/models`.
+- 2026-10-23: Completed Task 7: Executed full repository quality gate `./scripts/check.sh`. Verified 84.8% statement test coverage across all packages, clean static analysis (`go vet`), shell linting, and native + cross-platform builds (`linux/amd64`, `linux/arm64`). Ready for Phase 4 staging.
+
 
 
 
