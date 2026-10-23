@@ -55,6 +55,7 @@ type SyncService struct {
 	Deletion  *DeletionService
 	Telemetry *TelemetryService
 	Explorer  *ExplorerService
+	Review    *ReviewService
 }
 
 // NewSyncService initializes a new SyncService.
@@ -72,6 +73,7 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 	deletionSvc := NewDeletionService(cfg)
 	telemetrySvc := NewTelemetryService(cfg, rcClient)
 	explorerSvc := NewExplorerService(cfg, rcClient, canarySvc)
+	reviewSvc := NewReviewService(cfg, rcClient)
 	return &SyncService{
 		Config:    cfg,
 		Client:    rcClient,
@@ -79,6 +81,7 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 		Deletion:  deletionSvc,
 		Telemetry: telemetrySvc,
 		Explorer:  explorerSvc,
+		Review:    reviewSvc,
 	}
 }
 
@@ -93,6 +96,12 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 	case "start_sync":
 		if s.IsSyncing() {
 			return models.ActionResponse{Status: "error", Msg: "Sync already in progress."}, nil
+		}
+		if s.Review != nil && s.Review.HasBlockingReview() {
+			return models.ActionResponse{
+				Status: "error",
+				Msg:    "Sync blocked: unresolved interactive review session requires action. Review pending deletions or dismiss the session.",
+			}, nil
 		}
 		if err := s.runBisyncSystemd(nil, "bisync-gdrive-manual", "dashboard"); err != nil {
 			return models.ActionResponse{}, err
@@ -121,6 +130,12 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 	case "force_resync":
 		if s.IsSyncing() {
 			return models.ActionResponse{Status: "error", Msg: "Cannot resync: another sync is actively running."}, nil
+		}
+		if s.Review != nil && s.Review.HasBlockingReview() {
+			return models.ActionResponse{
+				Status: "error",
+				Msg:    "Resync blocked: unresolved interactive review session requires action. Review pending deletions or dismiss the session.",
+			}, nil
 		}
 		if err := s.runBisyncSystemd([]string{"--resync"}, "bisync-gdrive-resync", "dashboard"); err != nil {
 			return models.ActionResponse{}, err
@@ -370,4 +385,44 @@ func (s *SyncService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemot
 // DeleteItem removes a file or directory, safeguarding RCLONE_TEST canary and enforcing path jail.
 func (s *SyncService) DeleteItem(ctx context.Context, remote, path string, isDir bool) (map[string]interface{}, error) {
 	return s.Explorer.DeleteItem(ctx, remote, path, isDir)
+}
+
+// GetActiveReviewSession returns the active review session, if any.
+func (s *SyncService) GetActiveReviewSession(ctx context.Context) (*models.ReviewSession, error) {
+	if s.Review == nil {
+		return nil, fmt.Errorf("review service not initialized")
+	}
+	return s.Review.GetActiveSession(ctx)
+}
+
+// StageReviewDecision stages a decision on an active review candidate.
+func (s *SyncService) StageReviewDecision(sessionID, candidateID string, decision models.ActionDecision) (*models.ReviewSession, error) {
+	if s.Review == nil {
+		return nil, fmt.Errorf("review service not initialized")
+	}
+	return s.Review.StageCandidateDecision(sessionID, candidateID, decision)
+}
+
+// ApplyReviewSession applies staged decisions on an active review session.
+func (s *SyncService) ApplyReviewSession(ctx context.Context, sessionID string) (*models.ReviewSession, error) {
+	if s.Review == nil {
+		return nil, fmt.Errorf("review service not initialized")
+	}
+	return s.Review.ApplyReviewSession(ctx, sessionID)
+}
+
+// RollbackReviewSession performs Saga compensation on an applied review session.
+func (s *SyncService) RollbackReviewSession(ctx context.Context, sessionID string) (*models.ReviewSession, error) {
+	if s.Review == nil {
+		return nil, fmt.Errorf("review service not initialized")
+	}
+	return s.Review.RollbackReviewSession(ctx, sessionID)
+}
+
+// DismissReviewSession dismisses and archives an active review session.
+func (s *SyncService) DismissReviewSession(sessionID string) error {
+	if s.Review == nil {
+		return fmt.Errorf("review service not initialized")
+	}
+	return s.Review.DismissReviewSession(sessionID)
 }

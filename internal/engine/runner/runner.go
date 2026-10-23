@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -16,6 +18,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/core/notifier"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
 	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/review"
 )
 
 // SyncRunner coordinates bidirectional synchronization runs.
@@ -269,13 +272,36 @@ func (r *SyncRunner) Run(
 		_ = state.SetRateLimitBackoff(r.Config.RateLimitBackoffFile, 3600)
 	}
 
-	if errType == "TOO_MANY_DELETES" {
+	if errType == "TOO_MANY_DELETES" || errType == "CONFLICT" {
 		_ = state.WriteJSONAtomic(r.Config.PendingDeletionsFile, map[string]interface{}{
 			"aborted_at":    float64(time.Now().Unix()),
-			"has_deletions": true,
+			"has_deletions": errType == "TOO_MANY_DELETES",
 			"error":         monitorRes.ErrorMessage,
 			"message":       monitorRes.ErrorMessage,
+			"error_type":    errType,
 		})
+
+		if r.Config.ActiveReviewFile != "" {
+			var logLines []string
+			if r.Config.LogFile != "" {
+				if data, err := os.ReadFile(r.Config.LogFile); err == nil {
+					logLines = strings.Split(string(data), "\n")
+				}
+			}
+			if len(logLines) == 0 && monitorRes.ErrorMessage != "" {
+				logLines = []string{monitorRes.ErrorMessage}
+			}
+			deletions, conflicts, _ := review.DiscoverCandidates(
+				logLines,
+				r.Config.PendingDeletionsFile,
+				r.Config.LocalPath,
+			)
+			if len(deletions) > 0 || len(conflicts) > 0 {
+				sess := review.NewSession(errType, monitorRes.ErrorMessage, deletions, conflicts)
+				_ = review.Transition(sess, models.ReviewStatusReviewing)
+				_ = review.SaveActiveSession(r.Config.ActiveReviewFile, sess)
+			}
+		}
 	}
 
 	if !noNotify && r.Notifier.ShouldNotifyError(errType, notificationState.LastErrorType, notificationState.LastErrorTimestamp) {

@@ -33,6 +33,14 @@ func TestEmbeddedFrontendFS(t *testing.T) {
 	if len(dataRemotes) == 0 {
 		t.Fatal("embedded remotes.js is empty")
 	}
+
+	dataReview, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/review.js")
+	if err != nil {
+		t.Fatalf("expected dashboard/frontend/js/review.js in embedded FS, got: %v", err)
+	}
+	if len(dataReview) == 0 {
+		t.Fatal("embedded review.js is empty")
+	}
 }
 
 func TestSubcommandFlagParsing(t *testing.T) {

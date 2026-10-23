@@ -127,40 +127,41 @@ Foundational maintenance milestone resolving all findings from `docs/architectur
 
 ---
 
-### Immediate Next Strategic Epic: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer
+### Strategic Epic: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer [DELIVERED - feat/interactive-sync-review]
 
 Primary strategic feature transforming Bisync Hub from an observer dashboard into an interactive safety controller. When synchronization aborts due to safety circuit breakers (`TOO_MANY_DELETES` or unresolved file conflicts), the hub launches an interactive review session instead of requiring manual CLI `--force` intervention. Refer to [interactive-sync-review.md](../design/interactive-sync-review.md).
 
-* **Micro-Task 1: Review Domain Models & Contract Definitions (`internal/models/review.go`)**
+* **Micro-Task 1: Review Domain Models & Contract Definitions (`internal/models/review.go`)** [COMPLETED]
   - Concrete DTOs: `ReviewSession`, `DeletionCandidate`, `ConflictCandidate`, `ResolutionAction`, `ReviewSessionStatus`.
   - Action types: `keep-local`, `keep-remote`, `keep-both`, `accept-delete`, `restore-item`.
 
-* **Micro-Task 2: Review Service & Persistent Journal Engine (`internal/services/review_service.go`)**
-  - Thread-safe `ReviewService` managing session lifecycle, discovery, execution, backup snapshots, and rollback.
-  - Atomic JSON journal persistence (`.review-session.<id>.json.tmp.<pid>` + `os.Rename`) ensuring durability across daemon restarts.
+* **Micro-Task 2: Review Service & Persistent Journal Engine (`internal/services/review_service.go`, `internal/review/`)** [COMPLETED]
+  - Thread-safe `ReviewService` and `ReviewStateMachine` managing session lifecycle, discovery, execution, backup snapshots, and rollback.
+  - Atomic JSON journal persistence (`.review-session.<id>.json.tmp.<pid>` + `os.Rename`) and append-only write-ahead log (`WAL`) ensuring durability across daemon restarts.
   - Pre-sync barrier integration: `sync_service.go` blocks bisync triggering if active unresolved review sessions exist.
 
-* **Micro-Task 3: Candidate Discovery & Abort Interceptor**
+* **Micro-Task 3: Candidate Discovery & Abort Interceptor (`internal/review/discovery.go`)** [COMPLETED]
   - Parse candidate items from bisync execution output and abort states (`TOO_MANY_DELETES`, unhandled conflicts).
   - Populate candidate metadata (local/remote paths, sizes, mod times, detected condition).
 
-* **Micro-Task 4: Resolution Executor, Backup Staging & Rollback Engine**
-  - Safe execution of user decisions using Rclone RC operations.
-  - Pre-mutation safety snapshot backups in isolated directory before executing destructive changes.
-  - Rollback capability to restore pre-resolution snapshot states if the user cancels or before bisync initiates.
+* **Micro-Task 4: Resolution Executor, Backup Staging & Rollback Engine (`internal/review/backup.go`, `executor.go`, `rollback.go`)** [COMPLETED]
+  - Safe execution of user decisions using zero-byte POSIX hard links for local files and cloud-to-cloud server-side copy (`operations/copyfile`) for remote files.
+  - Pre-flight `statfs` validation checking local disk space before fallback copies.
+  - Saga rollback runner compensating and restoring previous snapshots in reverse execution order.
 
-* **Micro-Task 5: REST API Handlers & Routing (`internal/server/server.go`)**
+* **Micro-Task 5: REST API Handlers & Routing (`internal/server/handlers_review.go`, `server.go`)** [COMPLETED]
   - `GET /api/review/session`: Retrieve active session status and candidates.
-  - `POST /api/review/action`: Stage per-candidate decision.
-  - `POST /api/review/execute`: Execute staged decisions with atomic progress tracking.
+  - `POST /api/review/action`: Stage per-candidate decision or batch decisions.
+  - `POST /api/review/execute`: Execute staged decisions with atomic progress tracking and pre-mutation backups.
   - `POST /api/review/rollback`: Roll back executed decisions from backups.
-  - `POST /api/review/dismiss`: Dismiss/abort review session.
+  - `POST /api/review/dismiss`: Dismiss/abort review session safely.
 
-* **Micro-Task 6: Frontend Dual-Pane Explorer Highlighting & Review Modal (`dashboard/frontend/`)**
-  - Visual status highlighting in Explorer: Red (deletion candidate), Amber (conflict candidate), Green (new addition).
-  - Dedicated interactive Review Modal with per-item decisions, side-by-side comparison, backup notices, and resolution status badges.
+* **Micro-Task 6: Frontend Dual-Pane Explorer Highlighting & Review Modal (`dashboard/frontend/`)** [COMPLETED]
+  - Visual status highlighting in Explorer: Red (deletion queued), Amber (conflict candidate), Green (decision staged/preserved).
+  - Dedicated interactive Review Modal ("Review. Decide. Sync.") with per-item decisions, quick batch actions, safety callouts, and resolution status badges.
+  - Synchronized polling in `app.js` and dynamic status banner in dashboard header.
 
-* **Micro-Task 7: Automated Verification Suite & End-to-End Quality Gate**
+* **Micro-Task 7: Automated Verification Suite & End-to-End Quality Gate** [COMPLETED]
   - Comprehensive unit and integration tests with `httptest.NewServer` RC mocking.
   - Verify statement coverage >80% across all packages (`./scripts/check.sh`).
 

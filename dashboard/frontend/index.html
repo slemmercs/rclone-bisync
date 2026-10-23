@@ -141,22 +141,28 @@
         </div>
 
         <main class="space-y-6">
-            <!-- Deletion Guardrail Alert Banner -->
-            <div x-show="isTooManyDeletesActive" x-transition.duration.300ms class="bg-rose-950/40 border border-rose-500/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-rose-950/20">
+            <!-- Interactive Sync Review Barrier Alert Banner -->
+            <div x-show="reviewState.active || isTooManyDeletesActive" x-transition.duration.300ms class="bg-gradient-to-r from-amber-950/40 via-indigo-950/30 to-slate-900 border border-amber-500/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
                 <div class="flex items-center gap-3">
                     <span class="flex h-3 w-3 relative shrink-0">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
                     </span>
                     <div>
-                        <div class="text-rose-200 font-bold text-xs uppercase tracking-wider">Mass Deletions Blocked by Guardrail</div>
-                        <div class="text-slate-300 text-xs mt-0.5">Files were deleted on remote. Inspection required before proceeding.</div>
+                        <div class="text-amber-200 font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                            <span>Sync Review Barrier Active</span>
+                            <span class="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono" x-text="reviewStats.total > 0 ? `${reviewStats.total} Pending Review` : 'Mass Deletions Detected'"></span>
+                        </div>
+                        <div class="text-slate-300 text-xs mt-0.5" x-text="reviewState.session?.reason || 'Sync paused by safety barrier. Inspect candidates and stage decisions before proceeding.'"></div>
                     </div>
                 </div>
-                <div class="flex gap-2 w-full sm:w-auto">
-                    <button @click="openDeletionsModal()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition-colors flex-1 sm:flex-none flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/40">
-                        <span>Inspect Deleted Files</span>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <button @click="openReviewModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex-1 sm:flex-none flex items-center justify-center gap-1.5 shadow-md shadow-indigo-950/40 cursor-pointer">
+                        <span>Review & Resolve</span>
                         <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </button>
+                    <button x-show="isTooManyDeletesActive" @click="openDeletionsModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors cursor-pointer" title="View raw deletion log list">
+                        <span>Raw Deletions</span>
                     </button>
                 </div>
             </div>
@@ -573,6 +579,10 @@
                         <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': explorer.left.loading || explorer.right.loading }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
                         <span>Refresh</span>
                     </button>
+                    <button x-show="reviewState.active" @click="openReviewModal()" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-amber-500/40 animate-pulse cursor-pointer" title="Open Review & Resolution Center">
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+                        <span x-text="`Review Active (${reviewStats.total})`"></span>
+                    </button>
                 </div>
             </div>
 
@@ -690,7 +700,7 @@
 
                         <!-- File & Folder Rows -->
                         <template x-for="(item, idx) in getFilteredItems('left')" :key="(item.Path || item.Name) + '_' + idx">
-                            <div draggable="true" @dragstart="onDragStart('left', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                            <div draggable="true" @dragstart="onDragStart('left', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="getItemReviewRowClass('left', item)">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
                                         <button draggable="false" @mousedown.stop @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
@@ -707,6 +717,12 @@
                                                 <svg class="w-4 h-4 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                                             </template>
                                             <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
+                                            <template x-if="getItemReviewBadge('left', item)">
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold border shrink-0 tracking-wider"
+                                                      :class="getItemReviewBadge('left', item).class"
+                                                      :title="getItemReviewBadge('left', item).title"
+                                                      x-text="getItemReviewBadge('left', item).label"></span>
+                                            </template>
                                         </div>
                                     </template>
                                 </div>
@@ -859,7 +875,7 @@
 
                         <!-- File & Folder Rows -->
                         <template x-for="(item, idx) in getFilteredItems('right')" :key="(item.ID || item.Path || item.Name) + '_' + idx">
-                            <div draggable="true" @dragstart="onDragStart('right', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="item.Name === 'RCLONE_TEST' ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''">
+                            <div draggable="true" @dragstart="onDragStart('right', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="getItemReviewRowClass('right', item)">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
                                         <button draggable="false" @mousedown.stop @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
@@ -876,6 +892,12 @@
                                                 <svg class="w-4 h-4 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                                             </template>
                                             <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
+                                            <template x-if="getItemReviewBadge('right', item)">
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold border shrink-0 tracking-wider"
+                                                      :class="getItemReviewBadge('right', item).class"
+                                                      :title="getItemReviewBadge('right', item).title"
+                                                      x-text="getItemReviewBadge('right', item).label"></span>
+                                            </template>
                                         </div>
                                     </template>
                                 </div>
@@ -986,6 +1008,175 @@
 
 
     </div>
+
+    <!-- Interactive Sync Review & Resolution Engine Modal ("Review. Decide. Sync.") -->
+    <div x-show="reviewState.showModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20 shrink-0">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Sync Review & Resolution</h3>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700/60" x-text="reviewState.session?.id || 'NO ACTIVE SESSION'"></span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider" :class="reviewState.session?.status === 'COMPLETED' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-amber-950 text-amber-300 border border-amber-800'" x-text="reviewState.session?.status || 'IDLE'"></span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5 truncate">Review. Decide. Sync. &mdash; Stage per-item decisions with pre-mutation backups and rollback capability.</p>
+                    </div>
+                </div>
+                <button @click="closeReviewModal()" class="text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800 shrink-0 ml-2">
+                    <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Safety Guarantee Callout -->
+            <div class="px-4 py-2.5 bg-indigo-950/30 border-b border-indigo-900/30 flex items-center justify-between text-xs text-indigo-300 gap-2 shrink-0">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                    <span><strong>Pre-Mutation Safety Guarantee:</strong> All mutations create instant zero-byte POSIX hard links (local) or cloud server-side copies before changing files.</span>
+                </div>
+                <span class="text-[11px] font-mono text-indigo-400 shrink-0 hidden sm:inline-block">TTL: 24h</span>
+            </div>
+            <!-- Filter & Batch Action Toolbar -->
+            <div class="p-3 sm:p-4 border-b border-slate-800 bg-slate-950/40 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+                <div class="flex items-center gap-2 flex-1 min-w-[200px]">
+                    <input type="text" x-model="reviewState.search" placeholder="Filter candidates by path or reason..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono transition-colors">
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                    <div class="flex rounded-lg bg-slate-950 border border-slate-800 p-0.5">
+                        <button @click="reviewState.filter = 'all'" :class="reviewState.filter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded text-[11px] font-semibold transition-colors" x-text="`All (${reviewStats.total})`"></button>
+                        <button @click="reviewState.filter = 'deletions'" :class="reviewState.filter === 'deletions' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded text-[11px] font-semibold transition-colors" x-text="`Deletions (${reviewStats.deletions})`"></button>
+                        <button @click="reviewState.filter = 'conflicts'" :class="reviewState.filter === 'conflicts' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded text-[11px] font-semibold transition-colors" x-text="`Conflicts (${reviewStats.conflicts})`"></button>
+                    </div>
+                    <div class="flex rounded-lg bg-slate-950 border border-slate-800 p-0.5">
+                        <button @click="reviewState.statusFilter = 'all'" :class="reviewState.statusFilter === 'all' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded text-[11px] font-semibold transition-colors">All</button>
+                        <button @click="reviewState.statusFilter = 'pending'" :class="reviewState.statusFilter === 'pending' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded text-[11px] font-semibold transition-colors" x-text="`Pending (${reviewStats.pending})`"></button>
+                        <button @click="reviewState.statusFilter = 'decided'" :class="reviewState.statusFilter === 'decided' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded text-[11px] font-semibold transition-colors" x-text="`Decided (${reviewStats.decided})`"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Action Quick Buttons -->
+            <div class="px-4 py-2 bg-slate-950/80 border-b border-slate-800/60 flex flex-wrap items-center gap-2 text-xs">
+                <span class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Quick Batch:</span>
+                <button x-show="reviewStats.deletions > 0" @click="batchStageReviewDecisions('accept-delete', 'deletion')" class="px-2.5 py-1 rounded bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 font-medium text-[11px] transition-colors" title="Authorize deleting all queued deletion candidates">Accept All Deletions</button>
+                <button x-show="reviewStats.deletions > 0" @click="batchStageReviewDecisions('restore-item', 'deletion')" class="px-2.5 py-1 rounded bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/60 font-medium text-[11px] transition-colors" title="Preserve all files from being deleted">Preserve All Files</button>
+                <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-local', 'conflict')" class="px-2.5 py-1 rounded bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 font-medium text-[11px] transition-colors">Keep All Local</button>
+                <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-remote', 'conflict')" class="px-2.5 py-1 rounded bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 font-medium text-[11px] transition-colors">Keep All Remote</button>
+                <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-both', 'conflict')" class="px-2.5 py-1 rounded bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/60 font-medium text-[11px] transition-colors">Keep Both (Rename)</button>
+            </div>
+
+            <!-- Candidates Body List -->
+            <div class="p-4 overflow-y-auto space-y-2.5 flex-1 min-h-[220px]">
+                <div x-show="reviewState.loading" class="p-12 text-center text-slate-500">
+                    <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    <span>Loading review candidates...</span>
+                </div>
+
+                <div x-show="!reviewState.loading && filteredReviewCandidates.length === 0" class="p-12 text-center text-slate-500 font-mono text-xs">
+                    No candidates match the selected filters or search query.
+                </div>
+
+                <template x-for="candidate in filteredReviewCandidates" :key="candidate.id">
+                    <div class="p-3 rounded-xl border bg-slate-950/70 hover:bg-slate-950 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-colors"
+                         :class="candidate.type === 'deletion' ? (candidate.decision === 'accept-delete' ? 'border-rose-800/60 bg-rose-950/10' : 'border-slate-800') : (candidate.decision && candidate.decision !== 'pending' ? 'border-indigo-800/60 bg-indigo-950/10' : 'border-slate-800')">
+                        <!-- Left Details -->
+                        <div class="space-y-1 min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono uppercase tracking-wider"
+                                      :class="candidate.type === 'deletion' ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-amber-950 text-amber-300 border border-amber-800'"
+                                      x-text="candidate.type === 'deletion' ? 'DELETION' : 'CONFLICT'"></span>
+                                <span class="text-xs font-mono font-bold text-slate-200 truncate" x-text="candidate.path" :title="candidate.path"></span>
+                                <span x-show="candidate.decision && candidate.decision !== 'pending'" class="px-1.5 py-0.2 rounded text-[9px] font-bold font-mono bg-emerald-950 text-emerald-300 border border-emerald-800" x-text="'STAGED: ' + candidate.decision"></span>
+                            </div>
+                            <div class="text-[11px] text-slate-400 flex items-center gap-3 flex-wrap">
+                                <span x-show="candidate.size !== undefined" x-text="'Size: ' + formatBytes(candidate.size)"></span>
+                                <span x-show="candidate.local_size !== undefined" x-text="`Local: ${formatBytes(candidate.local_size)} | Remote: ${formatBytes(candidate.remote_size)}`"></span>
+                                <span class="text-slate-500" x-text="candidate.reason || 'Pending review'"></span>
+                            </div>
+                        </div>
+
+                        <!-- Right Decision Controls -->
+                        <div class="flex items-center gap-1.5 shrink-0 self-end md:self-center">
+                            <!-- Deletion Decision Buttons -->
+                            <template x-if="candidate.type === 'deletion'">
+                                <div class="flex rounded-lg bg-slate-900 border border-slate-800 p-0.5">
+                                    <button @click="stageReviewDecision(candidate.id, 'accept-delete')"
+                                            class="px-2.5 py-1 rounded text-[11px] font-bold transition-colors"
+                                            :class="candidate.decision === 'accept-delete' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-rose-300'">
+                                        Accept Delete
+                                    </button>
+                                    <button @click="stageReviewDecision(candidate.id, 'restore-item')"
+                                            class="px-2.5 py-1 rounded text-[11px] font-bold transition-colors"
+                                            :class="candidate.decision === 'restore-item' || candidate.decision === 'restore-local' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-emerald-300'">
+                                        Preserve File
+                                    </button>
+                                    <button @click="stageReviewDecision(candidate.id, 'skip')"
+                                            class="px-2 py-1 rounded text-[11px] font-bold transition-colors"
+                                            :class="candidate.decision === 'skip' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'">
+                                        Skip
+                                    </button>
+                                </div>
+                            </template>
+
+                            <!-- Conflict Decision Buttons -->
+                            <template x-if="candidate.type === 'conflict'">
+                                <div class="flex rounded-lg bg-slate-900 border border-slate-800 p-0.5">
+                                    <button @click="stageReviewDecision(candidate.id, 'keep-local')"
+                                            class="px-2.5 py-1 rounded text-[11px] font-bold transition-colors"
+                                            :class="candidate.decision === 'keep-local' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-indigo-300'">
+                                        Local
+                                    </button>
+                                    <button @click="stageReviewDecision(candidate.id, 'keep-remote')"
+                                            class="px-2.5 py-1 rounded text-[11px] font-bold transition-colors"
+                                            :class="candidate.decision === 'keep-remote' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-indigo-300'">
+                                        Remote
+                                    </button>
+                                    <button @click="stageReviewDecision(candidate.id, 'keep-both')"
+                                            class="px-2.5 py-1 rounded text-[11px] font-bold transition-colors"
+                                            :class="candidate.decision === 'keep-both' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-cyan-300'">
+                                        Both
+                                    </button>
+                                    <button @click="stageReviewDecision(candidate.id, 'skip')"
+                                            class="px-2 py-1 rounded text-[11px] font-bold transition-colors"
+                                            :class="candidate.decision === 'skip' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'">
+                                        Skip
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0">
+                <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                    <span class="text-xs font-mono text-slate-400" x-text="`${reviewStats.decided} of ${reviewStats.total} decided (${reviewStats.pending} pending)`"></span>
+                    <button @click="dismissReviewSession()" :disabled="reviewState.dismissing" class="text-slate-500 hover:text-rose-400 text-xs underline font-medium transition-colors" title="Abort this session without mutating files">
+                        Dismiss Session
+                    </button>
+                </div>
+                <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                    <button @click="closeReviewModal()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors">
+                        Close
+                    </button>
+                    <button x-show="canRollbackReview" @click="rollbackReviewSession()" :disabled="reviewState.rollingBack" class="px-3.5 py-2 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5">
+                        <svg x-show="reviewState.rollingBack" class="w-3.5 h-3.5 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <span>Rollback Resolutions</span>
+                    </button>
+                    <button @click="executeReviewSession()" :disabled="!canApplyReview || reviewState.executing" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-lg shadow-emerald-950/40 cursor-pointer">
+                        <svg x-show="reviewState.executing" class="w-3.5 h-3.5 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <span x-text="reviewState.executing ? 'Applying Resolutions...' : 'Apply Resolutions & Sync'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Review Pending Deletions Modal -->
     <div x-show="showDeletionsModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1334,10 +1525,11 @@
     </div>
 
     <!-- Modular Frontend Scripts -->
-    <script src="/static/js/utils.js?v=14"></script>
-    <script src="/static/js/charts.js?v=14"></script>
-    <script src="/static/js/remotes.js?v=14"></script>
-    <script src="/static/js/explorer.js?v=14"></script>
-    <script src="/static/app.js?v=14"></script>
+    <script src="/static/js/utils.js?v=17"></script>
+    <script src="/static/js/charts.js?v=17"></script>
+    <script src="/static/js/remotes.js?v=17"></script>
+    <script src="/static/js/explorer.js?v=17"></script>
+    <script src="/static/js/review.js?v=17"></script>
+    <script src="/static/app.js?v=17"></script>
 </body>
 </html>
