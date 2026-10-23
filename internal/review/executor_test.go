@@ -378,3 +378,101 @@ func TestExecutor_ClientErrors(t *testing.T) {
 		t.Fatal("expected error on failed restore copy")
 	}
 }
+
+func TestExecutor_HTTP401UnauthorizedAndRetry(t *testing.T) {
+	tmpDir := t.TempDir()
+	localRoot := filepath.Join(tmpDir, "local")
+	walPath := filepath.Join(tmpDir, "review.wal")
+	_ = os.MkdirAll(localRoot, 0755)
+
+	unauthClient := &mockRemoteClient{
+		copyFileFunc: func(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
+			return false, fmt.Errorf("copyfile failed (HTTP 401): 401 Unauthorized")
+		},
+	}
+
+	exec := NewResolutionExecutor(localRoot, "gdrive", tmpDir, walPath, unauthClient)
+
+	sess := NewSession("TOO_MANY_DELETES", "Auth fail test", []models.DeletionCandidate{
+		{
+			ID:       "del-401",
+			Path:     "document.pdf",
+			Source:   models.SideLocal,
+			Decision: models.DecisionRestoreItem,
+			Resolved: true,
+		},
+	}, nil)
+
+	// Execute should fail with 401
+	err := exec.ExecuteSession(context.Background(), sess)
+	if err == nil {
+		t.Fatal("expected 401 error, got nil")
+	}
+	if sess.Status != models.ReviewStatusFailed {
+		t.Fatalf("expected session status FAILED, got %s", sess.Status)
+	}
+
+	// Staging on FAILED session should transition it back to REVIEWING
+	if err := StageDecision(sess, "del-401", models.DecisionSkip); err != nil {
+		t.Fatalf("failed to stage decision on FAILED session: %v", err)
+	}
+	if sess.Status != models.ReviewStatusReviewing {
+		t.Fatalf("expected session status REVIEWING after re-staging, got %s", sess.Status)
+	}
+
+	// Retrying execution with skip should now succeed
+	if err := exec.ExecuteSession(context.Background(), sess); err != nil {
+		t.Fatalf("expected retry with skip to succeed, got: %v", err)
+	}
+	if sess.Status != models.ReviewStatusReady {
+		t.Fatalf("expected session status READY, got %s", sess.Status)
+	}
+}
+
+func TestExecutor_SkipCandidates(t *testing.T) {
+	tmpDir := t.TempDir()
+	localRoot := filepath.Join(tmpDir, "local")
+	_ = os.MkdirAll(localRoot, 0755)
+
+	called := false
+	mockClient := &mockRemoteClient{
+		copyFileFunc: func(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
+			called = true
+			return true, nil
+		},
+		deleteFileFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+			called = true
+			return true, nil
+		},
+	}
+
+	exec := NewResolutionExecutor(localRoot, "gdrive", tmpDir, "", mockClient)
+
+	sess := NewSession("MIXED", "Skip test", []models.DeletionCandidate{
+		{
+			ID:       "del-skip",
+			Path:     "file.txt",
+			Source:   models.SideRemote,
+			Decision: models.DecisionSkip,
+			Resolved: true,
+		},
+	}, []models.ConflictCandidate{
+		{
+			ID:       "conf-skip",
+			Path:     "conf.txt",
+			Decision: models.DecisionSkip,
+			Resolved: true,
+		},
+	})
+
+	if err := exec.ExecuteSession(context.Background(), sess); err != nil {
+		t.Fatalf("ExecuteSession failed with skipped items: %v", err)
+	}
+
+	if sess.Status != models.ReviewStatusReady {
+		t.Fatalf("expected READY status, got %s", sess.Status)
+	}
+	if called {
+		t.Fatal("expected no client mutations for skipped items")
+	}
+}

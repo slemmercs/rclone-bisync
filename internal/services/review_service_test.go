@@ -154,3 +154,89 @@ func TestReviewService_DismissAndPrune(t *testing.T) {
 		t.Fatalf("unexpected prune result: %d, err: %v", pruned, err)
 	}
 }
+
+func TestReviewService_AutoSkipAndFailedRetry(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	isAuthorized := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isAuthorized {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"401 Unauthorized"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	rcClient := client.NewRcloneClient(server.URL, "user", "pass")
+	svc := NewReviewService(cfg, rcClient)
+
+	// Create dummy session with 2 candidates
+	sess, err := svc.DiscoverSession(context.Background(), "TOO_MANY_DELETES", "Safety abort")
+	if err != nil || sess == nil {
+		t.Fatalf("DiscoverSession failed: %v", err)
+	}
+
+	// Manually inject 2 deletion candidates
+	svc.mu.Lock()
+	sess.Deletions = []models.DeletionCandidate{
+		{
+			ID:       "del-auth",
+			Path:     "auth_test.pdf",
+			Source:   models.SideLocal,
+			Decision: "",
+			Resolved: false,
+		},
+		{
+			ID:       "del-pending",
+			Path:     "pending_test.pdf",
+			Source:   models.SideLocal,
+			Decision: "",
+			Resolved: false,
+		},
+	}
+	svc.mu.Unlock()
+
+	// Stage first candidate using alias "restore-local"
+	updated, err := svc.StageCandidateDecision(sess.ID, "del-auth", "restore-local")
+	if err != nil {
+		t.Fatalf("StageCandidateDecision with restore-local alias failed: %v", err)
+	}
+	if updated.Deletions[0].Decision != models.DecisionRestoreItem {
+		t.Fatalf("expected restore-local to normalize to restore-item, got %s", updated.Deletions[0].Decision)
+	}
+
+	// Apply review session with pending candidate remaining:
+	// It will auto-mark del-pending as skip, then attempt to restore del-auth.
+	// Since isAuthorized == false, it will fail with 401 Unauthorized!
+	_, err = svc.ApplyReviewSession(context.Background(), sess.ID)
+	if err == nil {
+		t.Fatal("expected error due to 401 Unauthorized, got nil")
+	}
+
+	// Session should now be FAILED
+	active, _ := svc.GetActiveSession(context.Background())
+	if active.Status != models.ReviewStatusFailed {
+		t.Fatalf("expected FAILED status after 401, got %s", active.Status)
+	}
+
+	// Re-stage decision to 'skip' on FAILED session
+	reStaged, err := svc.StageCandidateDecision(sess.ID, "del-auth", models.DecisionSkip)
+	if err != nil {
+		t.Fatalf("failed to stage decision on FAILED session: %v", err)
+	}
+	if reStaged.Status != models.ReviewStatusReviewing {
+		t.Fatalf("expected status REVIEWING after re-staging, got %s", reStaged.Status)
+	}
+
+	// Re-apply: since all candidates are now skipped, apply should succeed without remote calls
+	applied, err := svc.ApplyReviewSession(context.Background(), sess.ID)
+	if err != nil {
+		t.Fatalf("expected second apply to succeed with skipped candidates, got: %v", err)
+	}
+	if applied.Status != models.ReviewStatusReady {
+		t.Fatalf("expected READY status, got %s", applied.Status)
+	}
+}
