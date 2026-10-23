@@ -2,3 +2,8 @@ rclone.conf
 *.conf
 rc-secrets.env
 bin/
+# Build artifacts
+.build/
+
+# Coverage reports
+coverage.out
