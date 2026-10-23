@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -530,4 +531,77 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 
 	// 14. runBisyncSystemd execution path
 	_ = svc.runBisyncSystemd([]string{"--dry-run"}, "test-unit", "test")
+}
+
+func TestSyncService_ReviewBarrierAndFacade(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessionFile := filepath.Join(tmpDir, "review_session.json")
+	cfg := &config.Config{
+		LocalPath:        filepath.Join(tmpDir, "local"),
+		RemotePath:       "gdrive:data",
+		BaseDir:          tmpDir,
+		ActiveReviewFile: sessionFile,
+		ReviewDir:        tmpDir,
+		ReviewBackupsDir: filepath.Join(tmpDir, "backups"),
+	}
+	_ = os.MkdirAll(cfg.LocalPath, 0755)
+
+	svc := NewSyncService(cfg, nil)
+	ctx := context.Background()
+
+	// Initially no active review
+	if svc.Review.HasBlockingReview() {
+		t.Fatal("expected no blocking review initially")
+	}
+
+	// Create an active review session blocking sync
+	sess, err := svc.Review.DiscoverSession(ctx, "TOO_MANY_DELETES", "Safety abort")
+	if err != nil || sess == nil {
+		t.Fatalf("failed creating session: %v", err)
+	}
+
+	// 1. Pre-sync safety barrier should block start_sync
+	resBlocked, err := svc.HandleAction(ctx, "start_sync")
+	if err != nil || resBlocked.Status != "error" || !strings.Contains(resBlocked.Msg, "Sync blocked") {
+		t.Fatalf("expected start_sync to be blocked by active review session: %v, err: %v", resBlocked, err)
+	}
+
+	// 2. Pre-sync safety barrier should block force_resync
+	resBlockedResync, err := svc.HandleAction(ctx, "force_resync")
+	if err != nil || resBlockedResync.Status != "error" || !strings.Contains(resBlockedResync.Msg, "Resync blocked") {
+		t.Fatalf("expected force_resync to be blocked by active review session: %v, err: %v", resBlockedResync, err)
+	}
+
+	// 3. Facade GetActiveReviewSession
+	activeSess, err := svc.GetActiveReviewSession(ctx)
+	if err != nil || activeSess == nil || activeSess.ID != sess.ID {
+		t.Fatalf("expected active review session from facade: %v", activeSess)
+	}
+
+	// 4. Facade DismissReviewSession unblocks sync
+	if err := svc.DismissReviewSession(sess.ID); err != nil {
+		t.Fatalf("failed dismissing session via facade: %v", err)
+	}
+
+	if svc.Review.HasBlockingReview() {
+		t.Fatal("expected review to no longer be blocking after dismiss")
+	}
+
+	// 5. Facade error handling with nil ReviewService
+	svcNilReview := &SyncService{}
+	if _, err := svcNilReview.GetActiveReviewSession(ctx); err == nil {
+		t.Fatal("expected error on nil review service")
+	}
+	if _, err := svcNilReview.StageReviewDecision("s", "c", "accept-delete"); err == nil {
+		t.Fatal("expected error on nil review service")
+	}
+	if _, err := svcNilReview.ApplyReviewSession(ctx, "s"); err == nil {
+		t.Fatal("expected error on nil review service")
+	}
+	if _, err := svcNilReview.RollbackReviewSession(ctx, "s"); err == nil {
+		t.Fatal("expected error on nil review service")
+	}
+	if err := svcNilReview.DismissReviewSession("s"); err == nil {
+		t.Fatal("expected error on nil review service")
+	}
 }
