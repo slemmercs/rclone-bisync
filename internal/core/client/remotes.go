@@ -61,10 +61,7 @@ func (c *RcloneClient) GetRemoteConfig(ctx context.Context, remoteName string) m
 
 // GetRemoteAbout queries /operations/about for quota details.
 func (c *RcloneClient) GetRemoteAbout(ctx context.Context, remote string) map[string]interface{} {
-	fs := remote
-	if !strings.HasSuffix(fs, ":") {
-		fs += ":"
-	}
+	fs := NormalizeFs(remote)
 	resp, body, err := c.post(ctx, "operations/about", map[string]string{"fs": fs}, 5*time.Second)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return nil

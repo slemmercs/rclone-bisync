@@ -18,12 +18,23 @@ type DirectoryListing struct {
 	Error     string                   `json:"error,omitempty"`
 }
 
+// NormalizeFs formats a remote identifier or local path into a valid rclone fs string.
+// Absolute or relative local paths are preserved without a trailing colon.
+// Remote identifiers are given a trailing colon (e.g., "gdrive:").
+func NormalizeFs(remote string) string {
+	clean := strings.TrimSpace(remote)
+	if strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, ".") {
+		return strings.TrimSuffix(clean, ":")
+	}
+	if !strings.HasSuffix(clean, ":") {
+		return clean + ":"
+	}
+	return clean
+}
+
 // ListDirectory queries /operations/list to explore contents non-recursively.
 func (c *RcloneClient) ListDirectory(ctx context.Context, remote, path string) DirectoryListing {
-	fs := remote
-	if !strings.HasSuffix(fs, ":") {
-		fs += ":"
-	}
+	fs := NormalizeFs(remote)
 	cleanPath := strings.Trim(path, "/")
 
 	payload := map[string]interface{}{
@@ -78,10 +89,7 @@ func (c *RcloneClient) ListDirectory(ctx context.Context, remote, path string) D
 
 // TouchFile calls /operations/touch to create/update timestamp on a file.
 func (c *RcloneClient) TouchFile(ctx context.Context, remote, path string) (bool, error) {
-	fs := remote
-	if !strings.HasSuffix(fs, ":") {
-		fs += ":"
-	}
+	fs := NormalizeFs(remote)
 	cleanPath := strings.Trim(path, "/")
 
 	payload := map[string]string{
@@ -102,9 +110,9 @@ func (c *RcloneClient) TouchFile(ctx context.Context, remote, path string) (bool
 // CopyFile calls /operations/copyfile to copy an individual file.
 func (c *RcloneClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
 	payload := map[string]string{
-		"srcFs":     srcFs,
+		"srcFs":     NormalizeFs(srcFs),
 		"srcRemote": srcRemote,
-		"dstFs":     dstFs,
+		"dstFs":     NormalizeFs(dstFs),
 		"dstRemote": dstRemote,
 	}
 	resp, body, err := c.post(ctx, "operations/copyfile", payload, 30*time.Second)
@@ -120,8 +128,8 @@ func (c *RcloneClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, ds
 // CopyDir calls /sync/copy to copy an entire directory tree.
 func (c *RcloneClient) CopyDir(ctx context.Context, srcFs, dstFs string) (bool, error) {
 	payload := map[string]string{
-		"srcFs": srcFs,
-		"dstFs": dstFs,
+		"srcFs": NormalizeFs(srcFs),
+		"dstFs": NormalizeFs(dstFs),
 	}
 	resp, body, err := c.post(ctx, "sync/copy", payload, 60*time.Second)
 	if err != nil {
@@ -135,10 +143,7 @@ func (c *RcloneClient) CopyDir(ctx context.Context, srcFs, dstFs string) (bool, 
 
 // DeleteFile calls /operations/deletefile to delete a single file.
 func (c *RcloneClient) DeleteFile(ctx context.Context, fs, remote string) (bool, error) {
-	cleanFs := fs
-	if !strings.HasSuffix(cleanFs, ":") {
-		cleanFs += ":"
-	}
+	cleanFs := NormalizeFs(fs)
 	payload := map[string]string{
 		"fs":     cleanFs,
 		"remote": strings.Trim(remote, "/"),
@@ -155,10 +160,7 @@ func (c *RcloneClient) DeleteFile(ctx context.Context, fs, remote string) (bool,
 
 // PurgeDir calls /operations/purge to delete an entire directory.
 func (c *RcloneClient) PurgeDir(ctx context.Context, fs, remote string) (bool, error) {
-	cleanFs := fs
-	if !strings.HasSuffix(cleanFs, ":") {
-		cleanFs += ":"
-	}
+	cleanFs := NormalizeFs(fs)
 	payload := map[string]string{
 		"fs":     cleanFs,
 		"remote": strings.Trim(remote, "/"),
