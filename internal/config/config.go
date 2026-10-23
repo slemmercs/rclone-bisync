@@ -72,17 +72,19 @@ type Config struct {
 	Features map[string]bool
 }
 
-// LoadEnvFile reads a simple .env file and sets values into the environment if not already set.
-func LoadEnvFile(path string) error {
+// ParseEnvFile reads a simple .env file and parses its key-value pairs into a map.
+// It supports comments (#), balanced single/double quotes, and ignores missing files.
+func ParseEnvFile(path string) (map[string]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return make(map[string]string), nil
 		}
-		return err
+		return nil, err
 	}
 	defer f.Close()
 
+	envMap := make(map[string]string)
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -95,13 +97,34 @@ func LoadEnvFile(path string) error {
 		}
 		key := strings.TrimSpace(line[:idx])
 		val := strings.TrimSpace(line[idx+1:])
-		val = strings.Trim(val, "\"'")
 
+		// Strip balanced matching quotes only
+		if len(val) >= 2 {
+			if (strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`)) ||
+				(strings.HasPrefix(val, `'`) && strings.HasSuffix(val, `'`)) {
+				val = val[1 : len(val)-1]
+			}
+		}
+
+		if key != "" {
+			envMap[key] = val
+		}
+	}
+	return envMap, scanner.Err()
+}
+
+// LoadEnvFile reads a simple .env file and sets values into the environment if not already set.
+func LoadEnvFile(path string) error {
+	envMap, err := ParseEnvFile(path)
+	if err != nil {
+		return err
+	}
+	for key, val := range envMap {
 		if current := os.Getenv(key); current == "" {
 			_ = os.Setenv(key, val)
 		}
 	}
-	return scanner.Err()
+	return nil
 }
 
 func str2bool(val string, def bool) bool {

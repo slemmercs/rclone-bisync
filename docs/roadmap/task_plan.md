@@ -14,7 +14,7 @@ Execute a comprehensive repository maintenance and quality hardening milestone t
 - [x] Task 3: Homelab LAN Access & Graceful Server Drain (Findings M-2, M-3)
   - **Scope**: Update `isAllowedOrigin()` in `internal/server/server.go` to permit private RFC 1918 subnets (`192.168.x.x`, `10.x.x.x`, `172.16.x.x`), `.local` domains, and the configured host. Add graceful `httpServer.Shutdown(ctx)` on `SIGINT`/`SIGTERM` in `main.go`.
   - **Verification**: `go test -count=1 ./internal/server` && `go test -count=1 .`
-- [ ] Task 4: Duplicate Secret Sanitization Cleanup & Safe Env Parser (Findings M-4, L-1)
+- [x] Task 4: Duplicate Secret Sanitization Cleanup & Safe Env Parser (Findings M-4, L-1)
   - **Scope**: Streamline `GetRuntimeConfig()` in `internal/services/telemetry_service.go` to delegate directly to `security.RedactSecrets()`; add non-mutating `ParseEnvFile()` in `internal/config/config.go`.
   - **Verification**: `go test -count=1 ./internal/services ./internal/config`
 - [ ] Task 5: Core Client Modularization
@@ -36,6 +36,7 @@ Execute a comprehensive repository maintenance and quality hardening milestone t
 - 2026-10-23: Completed Task 1 (Finding H-1): Protected locks held by active PIDs from eviction or unlinking regardless of elapsed age; verified via `go test -count=1 ./internal/core/lock`.
 - 2026-10-23: Completed Task 2 (Findings H-2, H-3): Implemented symlink realpath confinement via `filepath.EvalSymlinks` and recursive directory deletion canary protection in `internal/services/`; verified via `go test -count=1 ./internal/services -run TestExplorer` and `./scripts/check.sh`.
 - 2026-10-23: Completed Task 3 (Findings M-2, M-3): Permitted private RFC 1918 subnets, Tailscale CGNAT, and .local/.lan domains in `isAllowedOrigin()`; implemented 5-second graceful HTTP drain via `httpServer.Shutdown(ctx)` in `main.go`. Verified via tests and `./scripts/check.sh`.
+- 2026-10-23: Completed Task 4 (Findings M-4, L-1): Deduplicated secret key sanitization in `TelemetryService` via `security.IsSensitiveKeyName()`; implemented non-mutating `ParseEnvFile()` with balanced quote stripping in `internal/config/config.go`. Verified via unit tests and `./scripts/check.sh`.
 
 
 
