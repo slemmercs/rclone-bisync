@@ -1,5 +1,5 @@
 [Unit]
-Description=Rclone Telemetry Dashboard UI Backend
+Description=Bisync Hub - Safety-First Dashboard UI Backend for Rclone Bisync
 After=network.target rclone-daemon.service
 Requires=rclone-daemon.service
 

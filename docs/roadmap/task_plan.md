@@ -20,7 +20,7 @@ Transition all dashboard UI templates, documentation, deployment scripts, and se
 - [x] Task 5: Standardize Modals & Log Viewer Icons (Lucide SVGs)
   - **Scope**: `dashboard/frontend/index.html` daemon log modal, raw log downloads, client ID migration wizard, reconnect progress spinner (`Loader2`), and audit trail modal.
   - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [ ] Task 6: Systemd, Desktop Shortcut & Deployment Alignment
+- [x] Task 6: Systemd, Desktop Shortcut & Deployment Alignment
   - **Scope**: `deploy/desktop/rclone-dashboard.desktop`, `deploy/systemd/rclone-dashboard.service`, `deploy/install.sh`, `AI_DISCLOSURE.md`.
   - **Verification**: `./scripts/check.sh`
 - [ ] Task 7: Full Verification Gate, Binary Build & Installation
@@ -35,6 +35,7 @@ Transition all dashboard UI templates, documentation, deployment scripts, and se
 - 2026-10-23: Completed Task 3 (Standardized Engine & Telemetry tab icons including status tiles, config accordion, performance chart, and bisync.log terminal controls with Lucide SVGs).
 - 2026-10-23: Completed Task 4 (Standardized Storage Remotes and File Explorer tab icons with Lucide SVGs across health bar, remote cards, dual-pane explorer controls, breadcrumbs, folders, and item actions).
 - 2026-10-23: Completed Task 5 (Standardized Modals and Log Viewer icons with Lucide SVGs across Delete Confirmation, Deletions Review, Correlated Daemon Logs, Migration Wizard, Reconnect Status, Audit Trail, and Notification Toast).
+- 2026-10-23: Completed Task 6 (Aligned systemd unit description, desktop shortcut name and comment, installer script, AI disclosure, and README with Bisync Hub branding).
 
 
 

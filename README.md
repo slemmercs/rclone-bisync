@@ -61,7 +61,7 @@ The unified single binary supports modular subcommands:
 
 ## Access & Monitoring Commands
 
-- **Telemetry UI Instance**: Open your Application Launcher and select **Rclone Custom Dashboard**, or directly navigate to `http://localhost:8080` in your browser.
+- **Telemetry UI Instance**: Open your Application Launcher and select **Bisync Hub**, or directly navigate to `http://localhost:8080` in your browser.
 - **Manual Sync Execution**: Run synchronization manually via the CLI or trigger the systemd service:
     ```bash
     ./bin/rclone-bisync sync

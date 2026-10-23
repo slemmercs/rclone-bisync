@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Rclone Bisync Installation Script (Dashboard Architecture) ---
+# --- Bisync Hub Installation Script ---
 set -e
 
 if [[ "$EUID" -ne 0 ]]; then
@@ -155,7 +155,7 @@ sudo -u "$REAL_USER" $DBUS_ENV systemctl --user start bisync-gdrive.timer
 if sudo -u "$REAL_USER" $DBUS_ENV systemctl --user is-active --quiet rclone-daemon.service; then
     echo "----------------------------------------------------"
     echo "✅ Installation Complete successfully!"
-    echo "Custom Telemetry UI is running live at http://127.0.0.1:8080"
+    echo "Bisync Hub is running live at http://127.0.0.1:8080"
 else
     echo "----------------------------------------------------"
     echo "⚠️ Warning: rclone-daemon.service failed to report active status."
