@@ -110,7 +110,7 @@ func TestStalePIDLockRecovery(t *testing.T) {
 		t.Fatal("expected acquire to fail when live process holds lock")
 	}
 
-	// 3. Holder holds flock with LIVE PID but stale timeout age
+	// 3. Holder holds flock with LIVE PID past stale timeout age: lock must NOT be stolen or unlinked
 	lockPathAge := filepath.Join(tmpDir, "stale_age.lock")
 	holderAge, err := os.OpenFile(lockPathAge, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
@@ -128,10 +128,16 @@ func TestStalePIDLockRecovery(t *testing.T) {
 
 	lmAge := NewLockManager(lockPathAge, 3600, true)
 	acqAge, err := lmAge.Acquire()
-	if err != nil || !acqAge {
-		t.Fatalf("expected lock recovery via age timeout: %v", err)
+	if err != nil {
+		t.Fatalf("unexpected error when checking live PID with old timestamp: %v", err)
 	}
-	_ = lmAge.Release()
+	if acqAge {
+		t.Fatal("expected acquire to fail: lock must never be stolen while process is alive")
+	}
+	// Verify lockfile was NOT deleted
+	if _, err := os.Stat(lockPathAge); err != nil {
+		t.Fatalf("lockfile should not be unlinked while PID is alive: %v", err)
+	}
 }
 
 func TestLockEdgeCasesAndHelpers(t *testing.T) {
