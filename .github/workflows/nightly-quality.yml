@@ -2,12 +2,21 @@ name: Nightly Deep Quality Gate
 
 on:
   schedule:
-    - cron: "0 1 * * *"
+    # Daily at 01:17 UTC
+    - cron: "17 1 * * *"
 
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: nightly-quality
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   nightly:
@@ -19,42 +28,79 @@ jobs:
 
     timeout-minutes: 60
 
+    env:
+      MIN_COVERAGE: "85.0"
+      COVERAGE_FILE: coverage.out
+
+      GOFLAGS: "-mod=readonly"
+      GOTOOLCHAIN: local
+
+      STATICCHECK_VERSION: "2025.1.1"
+      GOVULNCHECK_VERSION: "v1.9.0"
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: "1.26.10"
           cache: false
 
       - name: Show environment
         run: |
+          echo "=== Environment ==="
+
           which go
           go version
-          go env GOVERSION
+
+          which gcc || true
+
           go env GOOS
           go env GOARCH
+          go env GOFLAGS
+          go env GOTOOLCHAIN
+          go env GOPATH
 
-      - name: Install Staticcheck
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-
-      - name: Run Staticcheck
-        run: |
-          staticcheck ./...
-
-      - name: Run Race Detector
-        run: |
-          CGO_ENABLED=1 go test \
-            -race \
-            -count=1 \
-            ./...
-
-      - name: Run Extended Quality Gate
-        env:
-          MIN_COVERAGE: "85.0"
+      - name: Run Quality Gate
         run: |
           chmod +x scripts/check.sh
           ./scripts/check.sh
+
+      - name: Install Staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}
+
+      - name: Run Staticcheck
+        run: |
+          "$(go env GOPATH)/bin/staticcheck" ./...
+
+      - name: Install govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}
+
+      - name: Run govulncheck
+        run: |
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+      - name: Run Race Detector
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          go test \
+            -race \
+            -shuffle=on \
+            -count=1 \
+            ./...
+
+      - name: Upload Coverage Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-coverage
+          path: coverage.out
+          if-no-files-found: error
+          retention-days: 14
