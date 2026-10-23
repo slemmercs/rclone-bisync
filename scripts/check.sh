@@ -11,6 +11,7 @@
 #   - Go formatting
 #   - Go static analysis
 #   - Unit tests
+#   - Code coverage (minimum threshold)
 #   - Native build
 #   - Cross-platform build verification
 #   - Executable validation
@@ -22,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BUILD_DIR="${REPO_ROOT}/.build"
 
-trap 'rm -rf "${BUILD_DIR}"' EXIT
+trap 'rm -rf "${BUILD_DIR}" coverage.out' EXIT
 
 # ----------------------------------------------------------------------
 # Colors
@@ -35,7 +36,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # ----------------------------------------------------------------------
-# Logging helpers
+# Logging Helpers
 # ----------------------------------------------------------------------
 
 info() {
@@ -77,7 +78,7 @@ cd "${REPO_ROOT}"
 # 1. Tool Validation
 # ----------------------------------------------------------------------
 
-info "[1/7] Validating required tooling..."
+info "[1/8] Validating required tooling..."
 
 for tool in bash git go gofmt; do
     require_tool "$tool"
@@ -116,7 +117,7 @@ echo
 # 2. Shell Script Validation
 # ----------------------------------------------------------------------
 
-info "[2/7] Validating shell scripts..."
+info "[2/8] Validating shell scripts..."
 
 FOUND_SCRIPT=false
 
@@ -143,9 +144,15 @@ echo
 # 3. Go Formatting
 # ----------------------------------------------------------------------
 
-info "[3/7] Checking Go formatting..."
+info "[3/8] Checking Go formatting..."
 
-UNFORMATTED="$(gofmt -l .)"
+UNFORMATTED="$(
+    find . \
+        -type f \
+        -name "*.go" \
+        -not -path "./vendor/*" \
+        -exec gofmt -l {} +
+)"
 
 if [[ -n "${UNFORMATTED}" ]]; then
     echo
@@ -161,7 +168,7 @@ echo
 # 4. Go Static Analysis
 # ----------------------------------------------------------------------
 
-info "[4/7] Running go vet..."
+info "[4/8] Running go vet..."
 
 go vet ./...
 
@@ -169,23 +176,50 @@ success "Go static analysis passed."
 echo
 
 # ----------------------------------------------------------------------
-# 5. Unit Tests
+# 5. Unit Tests & Coverage
 # ----------------------------------------------------------------------
 
-info "[5/7] Running unit tests..."
+info "[5/8] Running unit tests with coverage..."
 
-go test -count=1 ./...
+go test \
+    -count=1 \
+    -coverprofile=coverage.out \
+    ./...
 
 success "All unit tests passed."
 echo
 
+info "Coverage breakdown:"
+
+go tool cover -func=coverage.out
+
+COVERAGE=$(
+    go tool cover -func=coverage.out |
+    awk '/^total:/ {print substr($3,1,length($3)-1)}'
+)
+
+MIN_COVERAGE=80.0
+
+echo
+echo "Total coverage: ${COVERAGE}%"
+echo "Required coverage: ${MIN_COVERAGE}%"
+
+awk -v cov="$COVERAGE" -v min="$MIN_COVERAGE" '
+BEGIN {
+    exit (cov >= min ? 0 : 1)
+}
+' || fail "[FAIL] Coverage ${COVERAGE}% is below required ${MIN_COVERAGE}%"
+
+success "Coverage threshold met (${COVERAGE}%)."
+echo
+
 # ----------------------------------------------------------------------
-# 6. Build Verification
+# 6. Native Build Verification
 # ----------------------------------------------------------------------
 
 mkdir -p "${BUILD_DIR}"
 
-info "[6/7] Verifying native build..."
+info "[6/8] Verifying native build..."
 
 go build -v -o "${BUILD_DIR}/native-build" .
 
@@ -196,22 +230,30 @@ echo
 # 7. Cross-Platform Build Verification
 # ----------------------------------------------------------------------
 
-info "[7/7] Verifying cross-platform builds..."
+info "[7/8] Verifying cross-platform builds..."
 
-GOOS=linux GOARCH=amd64 go build \
-    -o "${BUILD_DIR}/rclone-bisync-linux-amd64" .
+info "Building linux/amd64..."
 
-GOOS=linux GOARCH=arm64 go build \
-    -o "${BUILD_DIR}/rclone-bisync-linux-arm64" .
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+go build -o "${BUILD_DIR}/rclone-bisync-linux-amd64" .
+
+success "linux/amd64 build passed."
+
+info "Building linux/arm64..."
+
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+go build -o "${BUILD_DIR}/rclone-bisync-linux-arm64" .
+
+success "linux/arm64 build passed."
 
 success "Cross-platform build verification passed."
 echo
 
 # ----------------------------------------------------------------------
-# Executable Validation
+# 8. Executable Validation
 # ----------------------------------------------------------------------
 
-info "Validating executable CLI..."
+info "[8/8] Validating executable CLI..."
 
 "${BUILD_DIR}/native-build" --help >/dev/null
 
@@ -225,3 +267,4 @@ echo
 echo -e "${GREEN}====================================================${NC}"
 echo -e "${GREEN}      Quality Gate Passed - Ready to Merge         ${NC}"
 echo -e "${GREEN}====================================================${NC}"
+echo -e "${GREEN}Coverage: ${COVERAGE}%${NC}"
