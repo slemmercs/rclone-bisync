@@ -52,6 +52,8 @@ type CopyRequest struct {
 type CopyResponse struct {
 	Status string `json:"status"`
 	Msg    string `json:"msg,omitempty"`
+	Src    string `json:"src,omitempty"`
+	Dst    string `json:"dst,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
@@ -74,6 +76,41 @@ type RemotesResponse struct {
 	Count        int                      `json:"count"`
 	ActiveRemote interface{}              `json:"active_remote"`
 	Summary      map[string]interface{}   `json:"summary"`
+	Error        string                   `json:"error,omitempty"`
+}
+
+type DaemonHealthResponse struct {
+	Status         string  `json:"status"`
+	ResponseTimeMs float64 `json:"response_time_ms"`
+	LastCheck      float64 `json:"last_check"`
+	Error          string  `json:"error,omitempty"`
+}
+
+type UpdateCredentialsResponse struct {
+	Status     string            `json:"status"`
+	Remote     string            `json:"remote,omitempty"`
+	Msg        string            `json:"msg,omitempty"`
+	Validation *ValidateResponse `json:"validation,omitempty"`
+	Error      string            `json:"error,omitempty"`
+}
+
+type CancelReconnectResponse struct {
+	Status    string `json:"status"`
+	Remote    string `json:"remote"`
+	Cancelled bool   `json:"cancelled"`
+	Msg       string `json:"msg"`
+}
+
+type OAuthStopResponse struct {
+	Status string `json:"status"`
+	Msg    string `json:"msg"`
+	Error  string `json:"error,omitempty"`
+}
+
+type ErrorResponse struct {
+	Status string `json:"status"`
+	Msg    string `json:"msg,omitempty"`
+	Error  string `json:"error,omitempty"`
 }
 
 type PendingDeletionsResponse struct {

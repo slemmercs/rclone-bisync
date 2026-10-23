@@ -216,6 +216,21 @@ func TestServerAPIEndpoints(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for delete request, got: %d", rec.Code)
 	}
+
+	// 10. GET /api/health -> 200 with DaemonHealthResponse
+	req, _ = http.NewRequest("GET", "/api/health", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /api/health, got: %d", rec.Code)
+	}
+	var healthResp models.DaemonHealthResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &healthResp); err != nil {
+		t.Fatalf("failed to decode health response: %v", err)
+	}
+	if healthResp.Status != "offline" { // nil client reports offline
+		t.Fatalf("expected offline status, got: %s", healthResp.Status)
+	}
 }
 
 func TestLogDownloadEndpoints(t *testing.T) {

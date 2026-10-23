@@ -11,6 +11,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // ExplorerService manages directory browsing, item copying, and deletion with strict path jail enforcement.
@@ -225,7 +226,7 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string) c
 }
 
 // CopyItem transfers a file or directory with path jail enforcement.
-func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (map[string]interface{}, error) {
+func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (models.CopyResponse, error) {
 	cleanSrcPath := strings.Trim(strings.TrimSpace(srcPath), "/")
 	cleanDstPath := strings.Trim(strings.TrimSpace(dstPath), "/")
 	srcIsLocal := strings.ToLower(strings.TrimSpace(srcRemote)) == "local" || strings.TrimSpace(srcRemote) == ""
@@ -244,11 +245,11 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 	if srcIsLocal {
 		_, targetSrc, ok := isLocalPathJailed(rawBase, cleanSrcPath)
 		if !ok {
-			return map[string]interface{}{"status": "error", "error": "Source path traversal forbidden"}, nil
+			return models.CopyResponse{Status: "error", Error: "Source path traversal forbidden"}, nil
 		}
 
 		if _, err := os.Stat(targetSrc); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Source does not exist: %s", cleanSrcPath)}, nil
+			return models.CopyResponse{Status: "error", Error: fmt.Sprintf("Source does not exist: %s", cleanSrcPath)}, nil
 		}
 
 		if isDir {
@@ -281,7 +282,7 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 	if dstIsLocal {
 		_, targetDst, ok := isLocalPathJailed(rawBase, cleanDstPath)
 		if !ok {
-			return map[string]interface{}{"status": "error", "error": "Destination path traversal forbidden"}, nil
+			return models.CopyResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
 		}
 
 		if isDir {
@@ -319,22 +320,22 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 	}
 
 	if e.Client == nil {
-		return map[string]interface{}{"status": "error", "error": "client not configured"}, nil
+		return models.CopyResponse{Status: "error", Error: "client not configured"}, nil
 	}
 
 	if isDir {
 		ok, err := e.Client.CopyDir(ctx, srcFs, dstFs)
 		if err != nil || !ok {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("copy dir failed: %v", err)}, nil
+			return models.CopyResponse{Status: "error", Error: fmt.Sprintf("copy dir failed: %v", err)}, nil
 		}
-		return map[string]interface{}{"status": "success", "src": srcFs, "dst": dstFs}, nil
+		return models.CopyResponse{Status: "success", Src: srcFs, Dst: dstFs}, nil
 	}
 
 	ok, err := e.Client.CopyFile(ctx, srcFs, srcFile, dstFs, dstFile)
 	if err != nil || !ok {
-		return map[string]interface{}{"status": "error", "error": fmt.Sprintf("copy file failed: %v", err)}, nil
+		return models.CopyResponse{Status: "error", Error: fmt.Sprintf("copy file failed: %v", err)}, nil
 	}
-	return map[string]interface{}{"status": "success", "src": fmt.Sprintf("%s/%s", srcFs, srcFile), "dst": fmt.Sprintf("%s/%s", dstFs, dstFile)}, nil
+	return models.CopyResponse{Status: "success", Src: fmt.Sprintf("%s/%s", srcFs, srcFile), Dst: fmt.Sprintf("%s/%s", dstFs, dstFile)}, nil
 }
 
 // DeleteItem removes a file or directory, safeguarding RCLONE_TEST canary and enforcing path jail.

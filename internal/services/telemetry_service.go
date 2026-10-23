@@ -80,13 +80,13 @@ func (t *TelemetryService) GetDaemonHealth(ctx context.Context) map[string]inter
 }
 
 // GetRemotesSummary queries remotes and storage metrics.
-func (t *TelemetryService) GetRemotesSummary(ctx context.Context) (map[string]interface{}, error) {
+func (t *TelemetryService) GetRemotesSummary(ctx context.Context) (models.RemotesResponse, error) {
 	if t.Client == nil {
-		return nil, fmt.Errorf("client not configured")
+		return models.RemotesResponse{}, fmt.Errorf("client not configured")
 	}
 	remotes, err := t.Client.ListRemotes(ctx)
 	if err != nil {
-		return nil, err
+		return models.RemotesResponse{}, err
 	}
 
 	remoteData := make([]map[string]interface{}, 0, len(remotes))
@@ -154,11 +154,11 @@ func (t *TelemetryService) GetRemotesSummary(ctx context.Context) (map[string]in
 		activeRemoteFormatted = fmt.Sprintf("%s:", activeRemote)
 	}
 
-	return map[string]interface{}{
-		"remotes":       remoteData,
-		"summary":       summary,
-		"active_remote": activeRemoteFormatted,
-		"count":         len(remoteData),
+	return models.RemotesResponse{
+		Remotes:      remoteData,
+		Summary:      summary,
+		ActiveRemote: activeRemoteFormatted,
+		Count:        len(remoteData),
 	}, nil
 }
 

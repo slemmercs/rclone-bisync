@@ -178,38 +178,38 @@ func TestExplorerService_CopyItem(t *testing.T) {
 
 	// 1. Source traversal forbidden
 	resTrav, _ := expSvc.CopyItem(context.Background(), "local", "../../../etc/passwd", "local", "out.txt", false)
-	if resTrav["status"] != "error" || resTrav["error"] != "Source path traversal forbidden" {
+	if resTrav.Status != "error" || resTrav.Error != "Source path traversal forbidden" {
 		t.Fatalf("expected source traversal forbidden, got: %v", resTrav)
 	}
 
 	// 2. Destination traversal forbidden
 	resDstTrav, _ := expSvc.CopyItem(context.Background(), "local", "file1.txt", "local", "../out.txt", false)
-	if resDstTrav["status"] != "error" || resDstTrav["error"] != "Destination path traversal forbidden" {
+	if resDstTrav.Status != "error" || resDstTrav.Error != "Destination path traversal forbidden" {
 		t.Fatalf("expected destination traversal forbidden, got: %v", resDstTrav)
 	}
 
 	// 3. Source missing
 	resMissing, _ := expSvc.CopyItem(context.Background(), "local", "non_existent.txt", "local", "out.txt", false)
-	if resMissing["status"] != "error" {
+	if resMissing.Status != "error" {
 		t.Fatalf("expected error for missing source, got: %v", resMissing)
 	}
 
 	// 4. Local-to-local file copy
 	resOk, err := expSvc.CopyItem(context.Background(), "local", "file1.txt", "local", "file1_copy.txt", false)
-	if err != nil || resOk["status"] != "success" {
+	if err != nil || resOk.Status != "success" {
 		t.Fatalf("expected copy success, got: %v, err: %v", resOk, err)
 	}
 
 	// 5. Local-to-remote directory copy
 	resDir, err := expSvc.CopyItem(context.Background(), "local", "folder", "gdrive", "sub/folder", true)
-	if err != nil || resDir["status"] != "success" {
+	if err != nil || resDir.Status != "success" {
 		t.Fatalf("expected copydir success: %v, err: %v", resDir, err)
 	}
 
 	// 6. Nil client error check
 	expNil := NewExplorerService(cfg, nil, nil)
 	resNil, _ := expNil.CopyItem(context.Background(), "gdrive", "file.txt", "local", "file.txt", false)
-	if resNil["status"] != "error" || resNil["error"] != "client not configured" {
+	if resNil.Status != "error" || resNil.Error != "client not configured" {
 		t.Fatalf("expected client not configured, got: %v", resNil)
 	}
 }
