@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+
     paths:
       - ".github/workflows/*.yml"
       - ".github/workflows/*.yaml"
@@ -22,8 +23,12 @@ concurrency:
   group: workflow-validation
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  validate-workflows:
+  actionlint:
     name: Validate GitHub Workflows
 
     runs-on:
@@ -32,37 +37,40 @@ jobs:
 
     timeout-minutes: 10
 
+    env:
+      GOTOOLCHAIN: local
+      ACTIONLINT_VERSION: "latest"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      # ----------------------------------------------------------
-      # YAML Syntax Validation
-      # ----------------------------------------------------------
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.10"
+          cache: false
 
-      - name: Install yamllint
+      - name: Show environment
         run: |
-          python3 -m pip install --user yamllint
+          command -v go
+          go version
 
-      - name: Validate YAML Syntax
-        run: |
-          ~/.local/bin/yamllint \
-            .github/workflows/
-
-      # ----------------------------------------------------------
-      # GitHub Actions Validation
-      # ----------------------------------------------------------
+          go env GOVERSION
+          go env GOOS
+          go env GOARCH
+          go env GOTOOLCHAIN
 
       - name: Install actionlint
         run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          go install github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}
 
       - name: Verify actionlint installation
         run: |
-          "$(go env GOPATH)/bin/actionlint" -version
+          actionlint -version
 
-      - name: Validate GitHub Actions Workflows
+      - name: Validate workflows
         run: |
-          "$(go env GOPATH)/bin/actionlint"
+          actionlint
