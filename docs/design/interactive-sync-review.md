@@ -1,5 +1,17 @@
 # User Story: Interactive Sync Review & Resolution Workflow
 
+## Status
+
+Implemented (Phase 4 - `feat/interactive-sync-review`)
+
+## Delivered Components
+
+- Package `internal/review/`: state machine, abort discovery, atomic write-ahead log (WAL), dual backup staging (zero-byte local hardlink + cloud server-side copy), reversible resolution executor, saga rollback runner.
+- Package `internal/services/review_service.go`: thread-safe facade, pre-sync safety barrier, lazy-load session recovery.
+- Package `internal/server/handlers_review.go`: REST endpoints (`/api/review/session`, `/api/review/action`, `/api/review/execute`, `/api/review/rollback`, `/api/review/dismiss`).
+- Frontend `dashboard/frontend/js/review.js`: interactive review modal, batch staging, visual candidate indicators in dual-pane explorer.
+
+
 ## Epic
 
 **As a user of Rclone Bisync Enterprise Automation Hub, I want to review and selectively resolve sync conflicts and mass deletion events before synchronization proceeds, so that I can safely control the outcome of synchronization without manually inspecting logs or using command-line recovery procedures.**

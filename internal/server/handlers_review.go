@@ -179,3 +179,36 @@ func (s *Server) handleReviewDismiss(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, models.ActionResponse{Status: "success", Msg: "Review session dismissed"})
 }
+
+func (s *Server) handleReviewActionBatch(w http.ResponseWriter, r *http.Request) {
+	if s.ReviewService == nil {
+		writeJSON(w, http.StatusOK, models.BatchReviewActionResponse{Status: "error", Error: "ReviewService not initialized"})
+		return
+	}
+
+	var req models.BatchReviewActionRequest
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	sessionID := req.SessionID
+	if sessionID == "" {
+		active, err := s.ReviewService.GetActiveSession(r.Context())
+		if err != nil || active == nil {
+			writeJSON(w, http.StatusOK, models.BatchReviewActionResponse{Status: "error", Error: "No active review session found"})
+			return
+		}
+		sessionID = active.ID
+	}
+
+	stagedCount, err := s.ReviewService.ApplyBatchRecommendations(r.Context(), sessionID, req.MinConfidence, req.MaxAllowedRisk)
+	if err != nil {
+		writeJSON(w, http.StatusOK, models.BatchReviewActionResponse{Status: "error", Error: err.Error()})
+		return
+	}
+
+	active, _ := s.ReviewService.GetActiveSession(r.Context())
+	writeJSON(w, http.StatusOK, models.BatchReviewActionResponse{
+		Status:      "success",
+		Session:     active,
+		StagedCount: stagedCount,
+	})
+}

@@ -868,6 +868,25 @@ func TestReviewEndpoints(t *testing.T) {
 		t.Fatalf("expected successful dismiss response, got: %+v", dismResp)
 	}
 
+	// 9b. POST /api/review/action-batch
+	batchSess, _ := syncSvc.Review.DiscoverSession(context.Background(), "CONFLICT", "Conflict testing")
+	batchPayload, _ = json.Marshal(models.BatchReviewActionRequest{
+		SessionID:      batchSess.ID,
+		MinConfidence:  0.70,
+		MaxAllowedRisk: "LOW",
+	})
+	req, _ = http.NewRequest("POST", "/api/review/action-batch", bytes.NewBuffer(batchPayload))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for action-batch, got: %d", rec.Code)
+	}
+	var batchResp models.BatchReviewActionResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &batchResp); err != nil || batchResp.Status != "success" {
+		t.Fatalf("expected successful batch response, got: %+v", batchResp)
+	}
+
 	// 10. Nil ReviewService paths
 	nilReviewSrv := NewServer(cfg, syncSvc, embed.FS{})
 	nilReviewSrv.ReviewService = nil
@@ -909,6 +928,14 @@ func TestReviewEndpoints(t *testing.T) {
 	nilReviewSrv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for nil review dismiss, got: %d", rec.Code)
+	}
+
+	req, _ = http.NewRequest("POST", "/api/review/action-batch", bytes.NewBuffer([]byte(`{}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilReviewSrv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for nil review action-batch, got: %d", rec.Code)
 	}
 
 }

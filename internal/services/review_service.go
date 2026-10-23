@@ -11,23 +11,26 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/engine/heuristics"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/review"
 )
 
 // ReviewService orchestrates interactive sync review sessions, candidate staging, and execution.
 type ReviewService struct {
-	Config  *config.Config
-	Client  *client.RcloneClient
-	mu      sync.Mutex
-	session *models.ReviewSession
+	Config           *config.Config
+	Client           *client.RcloneClient
+	HeuristicsEngine *heuristics.Engine
+	mu               sync.Mutex
+	session          *models.ReviewSession
 }
 
 // NewReviewService constructs a new review service and loads any existing persisted active session.
 func NewReviewService(cfg *config.Config, rcClient *client.RcloneClient) *ReviewService {
 	svc := &ReviewService{
-		Config: cfg,
-		Client: rcClient,
+		Config:           cfg,
+		Client:           rcClient,
+		HeuristicsEngine: heuristics.NewEngine(),
 	}
 
 	sessionFile := svc.sessionFilePath()
@@ -130,6 +133,7 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 	defer s.mu.Unlock()
 
 	if s.session != nil {
+		s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
 		return s.session, nil
 	}
 
@@ -137,6 +141,7 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 	if sessionFile != "" {
 		if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
 			s.session = sess
+			s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
 			return s.session, nil
 		}
 	}
@@ -176,6 +181,8 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 		s.Config.LocalPath,
 	)
 
+	conflicts = s.enrichConflictRecommendationsLocked(ctx, conflicts)
+
 	sess := review.NewSession(errType, errMessage, deletions, conflicts)
 	_ = review.Transition(sess, models.ReviewStatusReviewing)
 
@@ -188,6 +195,117 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 
 	s.session = sess
 	return s.session, nil
+}
+
+func (s *ReviewService) enrichConflictRecommendationsLocked(ctx context.Context, conflicts []models.ConflictCandidate) []models.ConflictCandidate {
+	if s.HeuristicsEngine == nil || len(conflicts) == 0 {
+		return conflicts
+	}
+
+	for i := range conflicts {
+		if conflicts[i].Recommendation != nil {
+			continue
+		}
+
+		c := heuristics.Candidate{
+			Path: conflicts[i].Path,
+			Local: heuristics.FileMeta{
+				Path:    conflicts[i].Path,
+				Size:    conflicts[i].LocalSize,
+				ModTime: parseCandidateTime(conflicts[i].LocalModTime),
+			},
+			Remote: heuristics.FileMeta{
+				Path:    conflicts[i].Path,
+				Size:    conflicts[i].RemoteSize,
+				ModTime: parseCandidateTime(conflicts[i].RemoteModTime),
+			},
+		}
+
+		rec := s.HeuristicsEngine.Evaluate(ctx, c)
+		conflicts[i].Recommendation = &rec
+	}
+
+	return conflicts
+}
+
+func parseCandidateTime(ts string) time.Time {
+	if ts == "" {
+		return time.Time{}
+	}
+	if t, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+		return t
+	}
+	if t, err := time.Parse(time.RFC3339, ts); err == nil {
+		return t
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05", ts); err == nil {
+		return t
+	}
+	return time.Time{}
+}
+
+// ApplyBatchRecommendations auto-stages resolutions for conflict candidates matching confidence and risk criteria.
+func (s *ReviewService) ApplyBatchRecommendations(ctx context.Context, sessionID string, minConfidence float64, maxRisk string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.ensureSessionLoadedLocked()
+	if s.session == nil {
+		return 0, fmt.Errorf("no active review session found")
+	}
+	if sessionID != "" && s.session.ID != sessionID {
+		return 0, fmt.Errorf("review session %s not found or inactive", sessionID)
+	}
+
+	if minConfidence <= 0 {
+		minConfidence = 0.70
+	}
+	if maxRisk == "" {
+		maxRisk = "MEDIUM"
+	}
+	maxRiskUpper := strings.ToUpper(maxRisk)
+
+	s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
+
+	stagedCount := 0
+	for i := range s.session.Conflicts {
+		cand := &s.session.Conflicts[i]
+		if cand.Resolved || cand.Recommendation == nil {
+			continue
+		}
+
+		rec := cand.Recommendation
+		if rec.Risk == string(heuristics.RiskCritical) || rec.SuggestedAction == string(heuristics.ActionManual) {
+			continue
+		}
+
+		if maxRiskUpper == string(heuristics.RiskLow) && rec.Risk != string(heuristics.RiskLow) {
+			continue
+		}
+		if maxRiskUpper == string(heuristics.RiskMedium) && rec.Risk != string(heuristics.RiskLow) && rec.Risk != string(heuristics.RiskMedium) {
+			continue
+		}
+
+		if rec.Confidence < minConfidence {
+			continue
+		}
+
+		decision := models.ActionDecision(rec.SuggestedAction)
+		if err := review.StageDecision(s.session, cand.ID, decision); err == nil {
+			stagedCount++
+		}
+	}
+
+	if stagedCount > 0 {
+		sessionFile := s.sessionFilePath()
+		if sessionFile != "" {
+			if err := review.SaveActiveSession(sessionFile, s.session); err != nil {
+				return stagedCount, fmt.Errorf("failed to persist active session after batch staging: %w", err)
+			}
+		}
+	}
+
+	return stagedCount, nil
 }
 
 func (s *ReviewService) ensureSessionLoadedLocked() {

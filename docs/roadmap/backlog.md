@@ -103,67 +103,55 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
 
 ---
 
-### Active Implementation Sprint: Repository Quality Hardening, Security Jails & Architectural Modularization
+* **[COMPLETED] Repository Quality Hardening, Security Jails & Architectural Modularization [COMPLETED - PR #21]**
 
-Foundational maintenance milestone resolving all findings from `docs/architecture/code-review.md` and preparing the codebase for the core differentiator: Interactive Sync Review.
+  - Stale lock PID verification guard preventing lockfile removal while owning PID is alive (`internal/core/lock/lock.go`).
+  - Path confinement symlink evaluation (`filepath.EvalSymlinks`) blocking symlink jail escapes, and canary directory protection preventing purges of folders holding `RCLONE_TEST` (`internal/services/explorer_service.go`).
+  - Private homelab LAN origin support (RFC 1918 subnets + `.local` mDNS) and graceful 5-second HTTP shutdown drain (`internal/server/server.go`, `main.go`).
+  - Non-mutating environment file parser `ParseEnvFile()` and deep secret redaction unification (`internal/config/config.go`, `internal/core/security/security.go`).
+  - Client package decomposition into `jobs.go`, `remotes.go`, `fs_ops.go`, `monitor.go`, and base `client.go` (`internal/core/client/`).
+  - Server route modularization into dedicated handlers (`handlers_telemetry.go`, `handlers_explorer.go`, `handlers_auth.go`, `handlers_sync.go`) with concrete DTO response models (`internal/models/api.go`).
+  - Quality gate uplift maintaining >82% statement coverage across all packages.
 
-* **Micro-Task 1: Stale Lock PID Verification Guard [Finding H-1]**
-  - Prevent lockfile unlinking while the owning PID is alive, preventing dual-sync collisions during long-running syncs.
-* **Micro-Task 2: Path Confinement Symlink Resolution & Canary Protection [Findings H-2, H-3]**
-  - Integrate `filepath.EvalSymlinks()` into path jail validation to eliminate symlink escapes.
-  - Guard recursive directory deletions against purging directories containing `RCLONE_TEST`.
-* **Micro-Task 3: Homelab LAN Access & Graceful HTTP Drain [Findings M-2, M-3]**
-  - Expand origin validation to allow RFC 1918 private subnets and `.local` mDNS domains.
-  - Implement 5-second graceful HTTP shutdown drain in `main.go`.
-* **Micro-Task 4: Secret Sanitization Unification & Non-Mutating Env Parser [Findings M-4, L-1]**
-  - Unify config masking with `security.RedactSecrets()` and introduce `ParseEnvFile()`.
-* **Micro-Task 5: Client Package Decomposition (`internal/core/client/`)**
-  - Split `client.go` into `jobs.go`, `remotes.go`, `fs_ops.go`, and base `client.go`.
-* **Micro-Task 6: Server Route Modularization & Schema Contract Hardening [Finding M-1]**
-  - Split `server.go` into `handlers_telemetry.go`, `handlers_explorer.go`, `handlers_auth.go`, `handlers_sync.go`.
-  - Replace loose `map[string]interface{}` with concrete Go models from `internal/models/api.go`.
-* **Micro-Task 7: Quality Gate & Test Coverage Uplift (>= 85%)**
-  - Run `./scripts/check.sh` and verify native/cross-compilation.
+* **[COMPLETED] Phase 4 — Interactive Sync Review & Deletion Diff Visualizer [COMPLETED - PR #22]**
+
+  - Primary strategic feature transforming Bisync Hub from an observer dashboard into an interactive safety controller.
+  - Review domain models & WAL log contracts (`internal/models/review.go`).
+  - Review service & persistent journal engine with atomic JSON journal and append-only WAL (`internal/review/journal.go`, `internal/services/review_service.go`).
+  - Abort candidate discovery from bisync exit outputs (`internal/review/discovery.go`).
+  - Reversible resolution executor with dual backup staging (zero-byte POSIX hard links for local files and cloud-to-cloud server-side copy for remotes) and saga rollback runner (`internal/review/backup.go`, `executor.go`, `rollback.go`).
+  - REST API endpoints (`/api/review/session`, `/api/review/action`, `/api/review/execute`, `/api/review/rollback`, `/api/review/dismiss`) in `internal/server/handlers_review.go`.
+  - Frontend dual-pane explorer status highlighting (red, amber, green) and interactive Review Modal ("Review. Decide. Sync.") in `dashboard/frontend/js/review.js`.
 
 ---
 
-### Strategic Epic: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer [DELIVERED - feat/interactive-sync-review]
+### Active Strategic Epic: Heuristic Conflict Recommendation Engine
 
-Primary strategic feature transforming Bisync Hub from an observer dashboard into an interactive safety controller. When synchronization aborts due to safety circuit breakers (`TOO_MANY_DELETES` or unresolved file conflicts), the hub launches an interactive review session instead of requiring manual CLI `--force` intervention. Refer to [interactive-sync-review.md](../design/interactive-sync-review.md).
+Augments Phase 4 Interactive Sync Review with an intelligent decision pipeline. Evaluates candidate conflict file pairs concurrently using a chain of deterministic pure-Go heuristics, assigning actionable recommendations (`keep-local`, `keep-remote`, `keep-both`, `manual-review`), normalized confidence scores (0.00 to 1.00), and risk classifications (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`). Refer to [heuristic_conflict_recommendation_engine_design_specification.md](../design/heuristic_conflict_recommendation_engine_design_specification.md).
 
-* **Micro-Task 1: Review Domain Models & Contract Definitions (`internal/models/review.go`)** [COMPLETED]
-  - Concrete DTOs: `ReviewSession`, `DeletionCandidate`, `ConflictCandidate`, `ResolutionAction`, `ReviewSessionStatus`.
-  - Action types: `keep-local`, `keep-remote`, `keep-both`, `accept-delete`, `restore-item`.
+* **Micro-Task 1: Heuristic Domain Contracts & Recommendation Models (`internal/models/review.go`)**
+  - Add `RuleResult`, `ConflictRecommendation`, and `BatchReviewActionRequest` DTOs.
+  - Enrich `ConflictCandidate` with optional `Recommendation`.
 
-* **Micro-Task 2: Review Service & Persistent Journal Engine (`internal/services/review_service.go`, `internal/review/`)** [COMPLETED]
-  - Thread-safe `ReviewService` and `ReviewStateMachine` managing session lifecycle, discovery, execution, backup snapshots, and rollback.
-  - Atomic JSON journal persistence (`.review-session.<id>.json.tmp.<pid>` + `os.Rename`) and append-only write-ahead log (`WAL`) ensuring durability across daemon restarts.
-  - Pre-sync barrier integration: `sync_service.go` blocks bisync triggering if active unresolved review sessions exist.
+* **Micro-Task 2: Pure-Go Analyzers & Scoring Engine (`internal/engine/heuristics/`)**
+  - Implement `types.go`, `analyzers.go`, and `engine.go`.
+  - Analyzers: `TempLockAnalyzer` (locks/tmp files), `HashMatchAnalyzer` (identical content hash), `TruncationAnalyzer` (0-byte / mass shrinkage guard), `ClockSkewAnalyzer` (1h/2h DST or $\le 2\text{s}$ drift), `SizeDivergenceAnalyzer` (>20% size difference), `TimestampRecencyAnalyzer` (timestamp delta).
+  - Scoring aggregator: weighted sum, risk-override guardrails, and parallel worker pool ($G=4$).
 
-* **Micro-Task 3: Candidate Discovery & Abort Interceptor (`internal/review/discovery.go`)** [COMPLETED]
-  - Parse candidate items from bisync execution output and abort states (`TOO_MANY_DELETES`, unhandled conflicts).
-  - Populate candidate metadata (local/remote paths, sizes, mod times, detected condition).
+* **Micro-Task 3: Unit Testing Suite & Concurrency Validation (`internal/engine/heuristics/engine_test.go`)**
+  - Unit tests covering all analyzers, critical risk override, and race-free concurrent evaluation (>85% statement coverage).
 
-* **Micro-Task 4: Resolution Executor, Backup Staging & Rollback Engine (`internal/review/backup.go`, `executor.go`, `rollback.go`)** [COMPLETED]
-  - Safe execution of user decisions using zero-byte POSIX hard links for local files and cloud-to-cloud server-side copy (`operations/copyfile`) for remote files.
-  - Pre-flight `statfs` validation checking local disk space before fallback copies.
-  - Saga rollback runner compensating and restoring previous snapshots in reverse execution order.
+* **Micro-Task 4: Service Facade Integration (`internal/services/review_service.go`)**
+  - Wire `heuristics.Engine` into conflict discovery, automatically enriching conflict candidates with recommendations.
+  - Implement batch decision application method `ApplyBatchRecommendations`.
 
-* **Micro-Task 5: REST API Handlers & Routing (`internal/server/handlers_review.go`, `server.go`)** [COMPLETED]
-  - `GET /api/review/session`: Retrieve active session status and candidates.
-  - `POST /api/review/action`: Stage per-candidate decision or batch decisions.
-  - `POST /api/review/execute`: Execute staged decisions with atomic progress tracking and pre-mutation backups.
-  - `POST /api/review/rollback`: Roll back executed decisions from backups.
-  - `POST /api/review/dismiss`: Dismiss/abort review session safely.
+* **Micro-Task 5: Server REST Batch Endpoint (`internal/server/handlers_review.go`, `server.go`)**
+  - Mount `POST /api/review/action-batch` endpoint for one-click auto-staging of high-confidence, low-risk recommendations.
 
-* **Micro-Task 6: Frontend Dual-Pane Explorer Highlighting & Review Modal (`dashboard/frontend/`)** [COMPLETED]
-  - Visual status highlighting in Explorer: Red (deletion queued), Amber (conflict candidate), Green (decision staged/preserved).
-  - Dedicated interactive Review Modal ("Review. Decide. Sync.") with per-item decisions, quick batch actions, safety callouts, and resolution status badges.
-  - Synchronized polling in `app.js` and dynamic status banner in dashboard header.
+* **Micro-Task 6: Frontend Recommendation Badges & Batch Button (`dashboard/frontend/`)**
+  - Display recommendation badges and reasoning in Review Modal.
+  - Add "Apply High-Confidence Recommendations" batch button.
 
-* **Micro-Task 7: Automated Verification Suite & End-to-End Quality Gate** [COMPLETED]
-  - Comprehensive unit and integration tests with `httptest.NewServer` RC mocking.
-  - Verify statement coverage >80% across all packages (`./scripts/check.sh`).
 
 ---
 

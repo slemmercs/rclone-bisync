@@ -62,16 +62,37 @@ type DeletionCandidate struct {
 
 // ConflictCandidate represents a conflicting file altered concurrently on both sides.
 type ConflictCandidate struct {
-	ID            string             `json:"id"`
-	Path          string             `json:"path"`
-	Name          string             `json:"name"`
-	LocalSize     int64              `json:"local_size"`
-	LocalModTime  string             `json:"local_mod_time"`
-	RemoteSize    int64              `json:"remote_size"`
-	RemoteModTime string             `json:"remote_mod_time"`
-	Condition     CandidateCondition `json:"condition"`
-	Decision      ActionDecision     `json:"decision,omitempty"`
-	Resolved      bool               `json:"resolved"`
+	ID             string                  `json:"id"`
+	Path           string                  `json:"path"`
+	Name           string                  `json:"name"`
+	LocalSize      int64                   `json:"local_size"`
+	LocalModTime   string                  `json:"local_mod_time"`
+	RemoteSize     int64                   `json:"remote_size"`
+	RemoteModTime  string                  `json:"remote_mod_time"`
+	Condition      CandidateCondition      `json:"condition"`
+	Decision       ActionDecision          `json:"decision,omitempty"`
+	Resolved       bool                    `json:"resolved"`
+	Recommendation *ConflictRecommendation `json:"recommendation,omitempty"`
+}
+
+// RuleResult captures the evaluation output of a single heuristic rule.
+type RuleResult struct {
+	RuleName string  `json:"rule_name"`
+	Action   string  `json:"action"` // keep-local, keep-remote, keep-both, manual-review
+	Score    float64 `json:"score"`  // Range: -1.0 (Local) to +1.0 (Remote)
+	Weight   float64 `json:"weight"`
+	Risk     string  `json:"risk"` // LOW, MEDIUM, HIGH, CRITICAL
+	Reason   string  `json:"reason"`
+	Matched  bool    `json:"matched"`
+}
+
+// ConflictRecommendation aggregates analyzer evaluations for a conflict candidate.
+type ConflictRecommendation struct {
+	SuggestedAction string       `json:"suggested_action"`
+	Confidence      float64      `json:"confidence"` // Normalized 0.00 to 1.00
+	Risk            string       `json:"risk"`       // LOW, MEDIUM, HIGH, CRITICAL
+	PrimaryReason   string       `json:"primary_reason"`
+	EvaluatedRules  []RuleResult `json:"evaluated_rules"`
 }
 
 // ResolutionAction logs an individual atomic operation executed or staged for execution.
@@ -166,4 +187,19 @@ type RollbackReviewResponse struct {
 // DismissReviewRequest is the optional request payload for POST /api/review/dismiss.
 type DismissReviewRequest struct {
 	SessionID string `json:"session_id,omitempty"`
+}
+
+// BatchReviewActionRequest defines criteria for auto-staging recommendations.
+type BatchReviewActionRequest struct {
+	SessionID      string  `json:"session_id,omitempty"`
+	MinConfidence  float64 `json:"min_confidence"`
+	MaxAllowedRisk string  `json:"max_allowed_risk"` // LOW, MEDIUM, HIGH
+}
+
+// BatchReviewActionResponse summarizes staged batch actions.
+type BatchReviewActionResponse struct {
+	Status      string         `json:"status"`
+	Session     *ReviewSession `json:"session,omitempty"`
+	StagedCount int            `json:"staged_count"`
+	Error       string         `json:"error,omitempty"`
 }

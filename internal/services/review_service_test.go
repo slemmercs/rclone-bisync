@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
@@ -238,5 +239,76 @@ func TestReviewService_AutoSkipAndFailedRetry(t *testing.T) {
 	}
 	if applied.Status != models.ReviewStatusReady {
 		t.Fatalf("expected READY status, got %s", applied.Status)
+	}
+}
+
+func TestReviewService_ApplyBatchRecommendations(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	rcClient := client.NewRcloneClient("http://127.0.0.1:5572", "", "")
+	svc := NewReviewService(cfg, rcClient)
+
+	now := time.Now().UTC()
+	sess := &models.ReviewSession{
+		ID:        "batch-test-session",
+		CreatedAt: now,
+		Status:    models.ReviewStatusReviewing,
+		Conflicts: []models.ConflictCandidate{
+			{
+				ID:            "conf-temp",
+				Path:          "~$TempDoc.docx",
+				Name:          "~$TempDoc.docx",
+				LocalSize:     100,
+				LocalModTime:  now.Format(time.RFC3339),
+				RemoteSize:    100,
+				RemoteModTime: now.Add(-time.Hour).Format(time.RFC3339),
+			},
+			{
+				ID:            "conf-remote-newer",
+				Path:          "notes.txt",
+				Name:          "notes.txt",
+				LocalSize:     100,
+				LocalModTime:  now.Add(-2 * time.Hour).Format(time.RFC3339),
+				RemoteSize:    120,
+				RemoteModTime: now.Format(time.RFC3339),
+			},
+			{
+				ID:            "conf-truncation",
+				Path:          "corrupted.pdf",
+				Name:          "corrupted.pdf",
+				LocalSize:     0,
+				LocalModTime:  now.Format(time.RFC3339),
+				RemoteSize:    50000,
+				RemoteModTime: now.Add(-10 * time.Minute).Format(time.RFC3339),
+			},
+		},
+	}
+
+	svc.mu.Lock()
+	svc.session = sess
+	svc.mu.Unlock()
+
+	// Apply batch with minConfidence 0.70 and maxRisk LOW
+	staged, err := svc.ApplyBatchRecommendations(context.Background(), sess.ID, 0.70, "LOW")
+	if err != nil {
+		t.Fatalf("unexpected error applying batch recommendations: %v", err)
+	}
+
+	if staged != 2 {
+		t.Fatalf("expected 2 candidates staged, got %d", staged)
+	}
+
+	active, err := svc.GetActiveSession(context.Background())
+	if err != nil || active == nil {
+		t.Fatalf("expected active session, err: %v", err)
+	}
+
+	if active.Conflicts[0].Decision != models.DecisionKeepLocal {
+		t.Errorf("expected conf-temp to be keep-local, got %s", active.Conflicts[0].Decision)
+	}
+	if active.Conflicts[1].Decision != models.DecisionKeepRemote {
+		t.Errorf("expected conf-remote-newer to be keep-remote, got %s", active.Conflicts[1].Decision)
+	}
+	if active.Conflicts[2].Decision != "" || active.Conflicts[2].Resolved {
+		t.Errorf("expected conf-truncation (CRITICAL risk) to remain unresolved, got %s", active.Conflicts[2].Decision)
 	}
 }

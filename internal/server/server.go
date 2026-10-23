@@ -180,6 +180,7 @@ func (s *Server) routes() {
 	// Review & Conflict Resolution Endpoints
 	s.Mux.HandleFunc("GET /api/review/session", s.handleReviewSession)
 	s.Mux.HandleFunc("POST /api/review/action", s.handleReviewAction)
+	s.Mux.HandleFunc("POST /api/review/action-batch", s.handleReviewActionBatch)
 	s.Mux.HandleFunc("POST /api/review/execute", s.handleReviewExecute)
 	s.Mux.HandleFunc("POST /api/review/rollback", s.handleReviewRollback)
 	s.Mux.HandleFunc("POST /api/review/dismiss", s.handleReviewDismiss)
