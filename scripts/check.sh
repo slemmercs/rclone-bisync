@@ -1,43 +1,45 @@
 #!/usr/bin/env bash
-#
-# scripts/check.sh
-#
-# Repository Quality Gate
-#
-# Validates:
-#   - Required tooling
-#   - Runner architecture
-#   - Shell script syntax
-#   - Go formatting
-#   - Go static analysis
-#   - Unit tests
-#   - Code coverage (minimum threshold)
-#   - Native build
-#   - Cross-platform build verification
-#   - Executable validation
-#
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BUILD_DIR="${REPO_ROOT}/.build"
 
-trap 'rm -rf "${BUILD_DIR}" coverage.out' EXIT
+BUILD_DIR="${REPO_ROOT}/.build"
+COVERAGE_FILE="$(mktemp)"
+
+trap 'rm -rf "${BUILD_DIR}" "${COVERAGE_FILE}"' EXIT
 
 # ----------------------------------------------------------------------
 # Colors
 # ----------------------------------------------------------------------
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    NC=''
+fi
 
 # ----------------------------------------------------------------------
-# Logging Helpers
+# Configuration
 # ----------------------------------------------------------------------
+
+MIN_COVERAGE="${MIN_COVERAGE:-80.0}"
+BUILD_TARGET="${BUILD_TARGET:-.}"
+
+# ----------------------------------------------------------------------
+# Logging
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Unknown"
 
 info() {
     echo -e "${BLUE}$1${NC}"
@@ -52,25 +54,31 @@ warning() {
 }
 
 fail() {
-    echo -e "${RED}$1${NC}"
+    echo -e "${RED}$1${NC}" >&2
+    echo "::error::$1"
     exit 1
 }
+
+on_error() {
+    fail "Quality gate failed during: ${CURRENT_STEP}"
+}
+
+trap on_error ERR
 
 require_tool() {
     local tool="$1"
 
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        fail "[FAIL] Required tool not found: ${tool}"
-    fi
+    command -v "$tool" >/dev/null 2>&1 \
+        || fail "Required tool not found: ${tool}"
 }
 
 # ----------------------------------------------------------------------
 # Header
 # ----------------------------------------------------------------------
 
-echo -e "${BLUE}====================================================${NC}"
-echo -e "${BLUE}              Repository Quality Gate              ${NC}"
-echo -e "${BLUE}====================================================${NC}"
+echo "===================================================="
+echo "              Repository Quality Gate"
+echo "===================================================="
 
 cd "${REPO_ROOT}"
 
@@ -78,193 +86,197 @@ cd "${REPO_ROOT}"
 # 1. Tool Validation
 # ----------------------------------------------------------------------
 
+CURRENT_STEP="Tool Validation"
+
 info "[1/8] Validating required tooling..."
 
 for tool in bash git go gofmt; do
-    require_tool "$tool"
+    require_tool "${tool}"
 done
 
 success "Required tooling available."
 echo
 
 # ----------------------------------------------------------------------
-# Architecture Detection
+# Platform Detection
 # ----------------------------------------------------------------------
 
-ARCH="$(uname -m)"
+PLATFORM="$(go env GOOS)/$(go env GOARCH)"
 
-case "${ARCH}" in
-    x86_64)
-        PLATFORM="linux/amd64"
-        ;;
-    aarch64|arm64)
-        PLATFORM="linux/arm64"
-        ;;
-    *)
-        PLATFORM="unknown"
-        ;;
-esac
-
-info "Runner architecture: ${ARCH} (${PLATFORM})"
-
-if [[ "${PLATFORM}" == "unknown" ]]; then
-    warning "Unknown architecture detected. Continuing."
-fi
-
+info "Runner Platform: ${PLATFORM}"
 echo
 
 # ----------------------------------------------------------------------
-# 2. Shell Script Validation
+# 2. Module Verification
 # ----------------------------------------------------------------------
 
-info "[2/8] Validating shell scripts..."
+CURRENT_STEP="Module Verification"
 
-FOUND_SCRIPT=false
+info "[2/8] Verifying Go modules..."
+
+export GOFLAGS="-mod=readonly"
+
+go mod verify
+
+go mod tidy
+
+git diff --exit-code go.mod go.sum \
+    || fail "go.mod/go.sum not tidy"
+
+success "Go modules verified."
+echo
+
+# ----------------------------------------------------------------------
+# 3. Shell Validation
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Shell Validation"
+
+info "[3/8] Validating shell scripts..."
 
 while IFS= read -r script; do
-    FOUND_SCRIPT=true
     bash -n "${script}"
     echo "  ✓ ${script}"
 done < <(
-    find . \
-        -type f \
-        -name "*.sh" \
-        -not -path "./.git/*" \
-        -not -path "./vendor/*"
+    git ls-files '*.sh'
 )
 
-if [[ "${FOUND_SCRIPT}" == "false" ]]; then
-    warning "No shell scripts found."
-fi
-
-success "Shell script validation passed."
+success "Shell validation passed."
 echo
 
 # ----------------------------------------------------------------------
-# 3. Go Formatting
+# 4. Go Formatting
 # ----------------------------------------------------------------------
 
-info "[3/8] Checking Go formatting..."
+CURRENT_STEP="Go Formatting"
+
+info "[4/8] Checking Go formatting..."
 
 UNFORMATTED="$(
-    find . \
-        -type f \
-        -name "*.go" \
-        -not -path "./vendor/*" \
-        -exec gofmt -l {} +
+    gofmt -l -s $(git ls-files '*.go')
 )"
 
 if [[ -n "${UNFORMATTED}" ]]; then
-    echo
     echo "${UNFORMATTED}"
-    echo
-    fail "[FAIL] Go formatting issues detected. Run: gofmt -w ."
+    fail "Go formatting issues detected. Run: gofmt -w ."
 fi
 
 success "Go formatting check passed."
 echo
 
 # ----------------------------------------------------------------------
-# 4. Go Static Analysis
+# 5. Static Analysis
 # ----------------------------------------------------------------------
 
-info "[4/8] Running go vet..."
+CURRENT_STEP="Go Vet"
+
+info "[5/8] Running go vet..."
 
 go vet ./...
 
-success "Go static analysis passed."
+success "Go vet passed."
 echo
 
 # ----------------------------------------------------------------------
-# 5. Unit Tests & Coverage
+# 6. Tests & Coverage
 # ----------------------------------------------------------------------
 
-info "[5/8] Running unit tests with coverage..."
+CURRENT_STEP="Unit Tests"
+
+info "[6/8] Running unit tests..."
 
 go test \
     -count=1 \
-    -coverprofile=coverage.out \
+    -covermode=count \
+    -coverpkg=./... \
+    -coverprofile="${COVERAGE_FILE}" \
     ./...
 
-success "All unit tests passed."
+success "Unit tests passed."
 echo
 
 info "Coverage breakdown:"
 
-go tool cover -func=coverage.out
+COVER_OUT="$(go tool cover -func="${COVERAGE_FILE}")"
 
-COVERAGE=$(
-    go tool cover -func=coverage.out |
-    awk '/^total:/ {print substr($3,1,length($3)-1)}'
-)
+echo "${COVER_OUT}"
 
-MIN_COVERAGE=80.0
+COVERAGE="$(
+    awk '/^total:/ {
+        sub(/%/, "", $3)
+        print $3
+    }' <<< "${COVER_OUT}"
+)"
 
 echo
-echo "Total coverage: ${COVERAGE}%"
-echo "Required coverage: ${MIN_COVERAGE}%"
+echo "Coverage: ${COVERAGE}%"
+echo "Required : ${MIN_COVERAGE}%"
 
 awk -v cov="$COVERAGE" -v min="$MIN_COVERAGE" '
 BEGIN {
     exit (cov >= min ? 0 : 1)
-}
-' || fail "[FAIL] Coverage ${COVERAGE}% is below required ${MIN_COVERAGE}%"
+}' || fail "Coverage ${COVERAGE}% is below required ${MIN_COVERAGE}%"
 
-success "Coverage threshold met (${COVERAGE}%)."
+success "Coverage threshold met."
 echo
 
 # ----------------------------------------------------------------------
-# 6. Native Build Verification
+# 7. Native Build
 # ----------------------------------------------------------------------
+
+CURRENT_STEP="Native Build"
 
 mkdir -p "${BUILD_DIR}"
 
-info "[6/8] Verifying native build..."
+info "[7/8] Verifying native build..."
 
-go build -v -o "${BUILD_DIR}/native-build" .
+go build \
+    -trimpath \
+    -o "${BUILD_DIR}/native-build" \
+    "${BUILD_TARGET}"
 
 success "Native build passed."
 echo
 
 # ----------------------------------------------------------------------
-# 7. Cross-Platform Build Verification
+# 8. Cross Platform Builds
 # ----------------------------------------------------------------------
 
-info "[7/8] Verifying cross-platform builds..."
+CURRENT_STEP="Cross Build"
+
+info "[8/8] Verifying cross-platform builds..."
 
 info "Building linux/amd64..."
 
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-go build -o "${BUILD_DIR}/rclone-bisync-linux-amd64" .
+go build \
+    -trimpath \
+    -o "${BUILD_DIR}/app-linux-amd64" \
+    "${BUILD_TARGET}"
 
 success "linux/amd64 build passed."
 
 info "Building linux/arm64..."
 
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-go build -o "${BUILD_DIR}/rclone-bisync-linux-arm64" .
+go build \
+    -trimpath \
+    -o "${BUILD_DIR}/app-linux-arm64" \
+    "${BUILD_TARGET}"
 
 success "linux/arm64 build passed."
-
-success "Cross-platform build verification passed."
 echo
 
-# ----------------------------------------------------------------------
-# 8. Executable Validation
-# ----------------------------------------------------------------------
+CURRENT_STEP="CLI Validation"
 
-info "[8/8] Validating executable CLI..."
+info "Validating executable..."
 
 "${BUILD_DIR}/native-build" --help >/dev/null
 
-success "Executable validation passed."
+success "CLI validation passed."
 echo
 
-# ----------------------------------------------------------------------
-# Summary
-# ----------------------------------------------------------------------
-
-echo -e "${GREEN}====================================================${NC}"
-echo -e "${GREEN}      Quality Gate Passed - Ready to Merge         ${NC}"
-echo -e "${GREEN}====================================================${NC}"
-echo -e "${GREEN}Coverage: ${COVERAGE}%${NC}"
+echo "===================================================="
+echo "Quality Gate Passed"
+echo "Coverage: ${COVERAGE}%"
+echo "===================================================="
