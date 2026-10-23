@@ -5,6 +5,7 @@
 The project has transitioned from Python to a native, single-binary Go architecture. This eliminates virtual environments (`.venv`), eliminates global pip/apt conflicts, provides embedded SPA dashboard distribution via `//go:embed`, reduces RAM footprint from ~60MB to ~12MB, and native Rclone RC ecosystem alignment.
 
 * **Phase 1: `feat/go-core-engine-and-config` [COMPLETED - PR #9]**
+
   - Bootstrapped Go toolchain and initialized Go module (`github.com/slemmercs/rclone-bisync`).
   - Ported configuration loader (`config.go`): parsing `bisync.env` and `rc-secrets.env`, strict missing `RC_PASS` fail-fast validation.
   - Ported POSIX advisory lock manager (`lock.go`): `flock` semantics, PID liveness check, stale lock recovery.
@@ -12,29 +13,34 @@ The project has transitioned from Python to a native, single-binary Go architect
   - Ported unit tests for config, lock, and notifier.
 
 * **Phase 2: `feat/go-rc-client-and-security` [COMPLETED - PR #9, PR #10]**
+
   - Ported Rclone RC HTTP client (`client.go`): HTTP connection pooling, basic auth, timeouts, error classification.
   - Implemented recursive deep secret sanitization engine (`security.go`): scrubbing nested maps, slices, structs for credentials and tokens.
   - Fixed empty JSON payload handling on RC POST endpoints (PR #10).
   - Ported unit tests for RC client and recursive secret redaction.
 
 * **Phase 3: `feat/go-sync-service-and-explorer` [COMPLETED - PR #9]**
+
   - Ported `SyncService` & dual-pane explorer backend: path traversal jail enforcement (`filepath.Rel`), canary check and provisioning (`touch_file`), file/folder copy and deletion guards.
   - Ported pending deletion parsing and backward-seeking log reader.
   - Ported unit tests for services and explorer safety.
 
 * **Phase 4: `feat/go-rest-api-and-embedded-ui` [COMPLETED - PR #9]**
+
   - Implemented standard library HTTP REST router with CSRF protection (`X-Dashboard-Request`, loopback origin checking).
   - Concrete Go struct request/response DTOs matching JSON contracts.
   - Embedded Alpine/Tailwind frontend SPA directly into the compiled executable via `//go:embed`.
   - Ported HTTP API integration tests.
 
 * **Phase 5: `feat/go-systemd-and-installer` [COMPLETED - PR #9]**
+
   - Unified CLI command structure (`rclone-bisync sync`, `rclone-bisync dashboard`, `rclone-bisync canary`).
   - Updated systemd user units to target `./rclone-bisync` binary (eliminating `.venv` references).
   - Streamlined `install-custom-rclone.sh` to a fast single-binary installer.
   - Updated `scripts/check.sh` quality gate to run `go vet`, static checks, secret leak verification, and `go test ./...`.
 
 * **Phase 6: `refactor/frontend-modularization` [COMPLETED - PR #11]**
+
   - Modularized frontend scripts into zero-build sub-modules: `utils.js`, `charts.js`, `remotes.js`, `explorer.js`, coordinated by `app.js`.
   - Maintained zero npm/Node build dependencies.
 
@@ -43,6 +49,7 @@ The project has transitioned from Python to a native, single-binary Go architect
 ## 2. Active Implementation Sprint: Test Coverage Uplift & Quality Gate (>80%)
 
 Targeting statement coverage >80% across all Go packages and resolving toolchain coverage caveats:
+
 - Add `main_test.go` to eliminate root package empty-test `covdata` toolchain error under `go test -cover ./...`.
 - Uplift `internal/core/state` (>90%): rate-limit backoff flag lifecycle, notification state persistence, metrics JSONL appending.
 - Uplift `internal/core/client` (>85%): mock tests for `TouchFile`, `CopyFile`, `CopyDir`, `DeleteFile`, `PurgeDir`, `ListRemotes`, `GetRemoteAbout`.
@@ -66,11 +73,13 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 ### Phase 3: Immediate Go Enhancements & Evaluation Tasks (Near-Term)
 
 * **[COMPLETED] Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
+
   - Decoupled monolithic `internal/services/sync_service.go` into cohesive single-responsibility domain services: `TelemetryService`, `CanaryService`, `DeletionService`, `ExplorerService`, and a lean `SyncService`.
   - Maintained strict path traversal jails, atomic operations, backward-compatible delegators, and >80% statement test coverage across all domain services (internal/services: 85.4%, internal/server: 83.2%).
   - Established prerequisite foundation for Phase 4 Interactive Sync Review and Multi-Profile Hub.
 
 * **Rebrand to Bisync Hub**
+
   - Rename the project, dashboard, documentation, and user-facing assets to **Bisync Hub**
   - Adopt the new project positioning: *"The safety-first dashboard for Rclone Bisync"*
   - Introduce the long-term vision: *"Review. Decide. Sync."*
@@ -79,12 +88,14 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
   - Align future feature messaging around synchronization safety, review workflows, conflict resolution, and guided recovery rather than generic dashboard functionality
 
 * **[COMPLETED] Centralized OAuth Connection Manager & Google Drive Migration Wizard [ESTIMATE: 3-4h | 3 SP]**
+
   - Backend: Implemented `RemoteAuthService` covering auth health assessment, desktop-integrated OAuth reconnect runner (`rclone config reconnect {name}: --auto-confirm`), credentials updater, provider validator, and thread-safe audit logger (`internal/remoteauth`).
   - Endpoints: `GET /api/remotes/auth`, `POST /api/remotes/{name}/reconnect`, `POST /api/remotes/{name}/credentials`, `POST /api/remotes/{name}/validate`, `GET /api/remotes/auth/audit`, `POST /api/remotes/auth/oauth-stop`.
   - Frontend: Integrated Authentication Health overview bar, remote card badges, Google Drive client ID migration wizard, reconnect progress popup, and localized audit trail viewer.
   - Refer to [oauth-connection-manager.md](../design/oauth-connection-manager.md)
 
 * **[COMPLETED] Structured Daemon Log Modal Refinement [ESTIMATE: 3-4h | 3 SP]**
+
   - Refined `internal/services/log_service.go` to unwrap nested JSON log strings from `bisync/rc.go` wrapper entries and match individual event timestamps.
   - Enhanced frontend `utils.js` and `app.js` with structured metadata parsing (`objectType`, `source`, `details`), comparison settings grid, and defense-in-depth unwrapping.
 
@@ -94,13 +105,16 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 ### Phase 4: Core Enterprise Feature Extensions (Medium-Term)
 
 * **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]**
+
   - When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
   - Refer to [interactive-sync-review.md](../design/interactive-sync-review.md)
 
 * **Multi-Profile Synchronization Hub [ESTIMATE: 6-8h | 5 SP]**
+
   - Single background Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, etc.) with isolated flock files and telemetry streams.
 
 * **In-Dashboard Configuration Editor & 3-Layer Safety Pipeline [ESTIMATE: 6-8h | 5 SP]**
+
   - Visual parameter adjustment for `--buffer-size`, `--tpslimit`, and conflict resolution strategies.
   - 3-Layer Safety Pipeline: Automated snapshot backup, SHA-256 integrity match, and schema validation.
   - Rollback API: One-click restore of historical configurations.
@@ -110,14 +124,17 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 ### Phase 5: Local MVP Deployment Hardening (Core Infrastructure Requirements)
 
 * **Local Inter-Process Communication via Unix Sockets [ESTIMATE: 4-6h | 3 SP]**
+
   - Update `rclone rcd` launch configuration and Go HTTP client (`net.DialContext`) to communicate over a local Unix domain socket (`unix:///tmp/rclone.sock`) with strict `0600` permissions and graceful process cleanup.
   - Support dual deployment modes: bare-metal user socket management and Docker container volume bind-mounting (`/tmp/rclone-ipc`) with container startup healthchecks.
 
 * **Host File Permissions & Ownership Alignment [ESTIMATE: 3-4h | 2 SP]**
+
   - Enforce systemd user unit execution (`User=%I`, `Group=%I`, `UMask=0022`) to guarantee standard file permissions on synced data.
   - Provide Docker compose setups with dynamic host user passing (`user: "${UID}:${GID}"`), non-root container base images, and entrypoint write-permission verification.
 
 * **Auto-Generated Cryptographic Credentials Engine [ESTIMATE: 3-4h | 2 SP]**
+
   - Automated installer script (`install.sh`) generating 32-character random credentials in `/etc/rclone-dashboard/env` with `0600` permissions.
   - Go CLI rotation command (`rclone-dashboard rotate-creds`) using `crypto/rand`, systemd `ExecStartPre` auto-generation, and Docker container boot wrapper for environment isolation.
 
@@ -126,7 +143,9 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 ### Phase 6: Desktop Application packaging
 
 * **Desktop Mode via Wails / Native Window [ESTIMATE: 3-4h | 3 SP]**
+
   - Package Go backend and embedded frontend as a standalone borderless native desktop app using Wails.
 
 * **Portable Bundle Generator [ESTIMATE: 2-3h | 2 SP]**
+
   - Export endpoint packaging sanitized configs, scripts, and systemd units into `.tar.gz` for cross-device migration
