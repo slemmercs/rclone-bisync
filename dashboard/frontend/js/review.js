@@ -107,6 +107,39 @@ window.ReviewModule = {
         }
     },
 
+    async applyBatchRecommendations(minConfidence = 0.70, maxRisk = "MEDIUM") {
+        if (!this.reviewState.session) return;
+        this.reviewState.loading = true;
+        try {
+            const res = await fetch("/api/review/action-batch", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Dashboard-Request": "1"
+                },
+                body: JSON.stringify({
+                    session_id: this.reviewState.session.id,
+                    min_confidence: minConfidence,
+                    max_allowed_risk: maxRisk
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || data.status === "error") {
+                this.showToast("Batch recommendation failed: " + (data.error || "Unknown error"), "error");
+            } else {
+                if (data.session) {
+                    this.reviewState.session = data.session;
+                }
+                this.showToast(`Auto-staged recommendations for ${data.staged_count || 0} conflict(s).`, "success");
+            }
+        } catch (err) {
+            this.showToast("Network error applying batch recommendations: " + err.message, "error");
+        } finally {
+            this.reviewState.loading = false;
+        }
+    },
+
+
     async executeReviewSession() {
         if (!this.reviewState.session) return;
         if (this.hasPendingReviewDecisions) {

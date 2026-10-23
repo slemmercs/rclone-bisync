@@ -1,58 +1,43 @@
 
-# Task Plan: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer
+# Task Plan: Heuristic Conflict Recommendation Engine
 
 ## Goal
-Implement an interactive synchronization review and resolution engine ("Review. Decide. Sync.") that empowers users to inspect, approve, or resolve mass deletion events and file conflicts before synchronization proceeds, replacing risky manual command-line `--force` workarounds with an auditable, rollback-capable dashboard workflow.
+Implement a deterministic, pure-Go heuristic conflict recommendation engine that evaluates file conflict pairs, assigns confidence scores and risk levels, and presents actionable recommendations (`keep-local`, `keep-remote`, `keep-both`, `manual-review`) in the Interactive Review Modal, with one-click batch resolution for safe recommendations.
 
 ## Tasks
-- [x] Task 1: Review Domain Models & Configuration Paths
-  - **Scope**: Create `internal/models/review.go` defining all DTOs and enums; update `internal/config/config.go` with `ReviewDir` and `ActiveReviewFile`.
-  - **Verification**: `go test -count=1 ./internal/models ./internal/config`
-- [x] Task 2: Review Core Domain Package (FSM, Discovery & WAL Journal)
-  - **Scope**: Implement `session.go` (state machine), `discovery.go` (candidate discovery), and `journal.go` (atomic persistence & append-only WAL) in `internal/review/`.
-  - **Verification**: `go test -count=1 ./internal/review`
-- [x] Task 3: Dual Backup Strategy Provider & Saga Resolution Executor
-  - **Scope**: Implement `backup.go` (local zero-byte hardlink + cloud server-side copy + `statfs`), `executor.go` (reversible commands), and `rollback.go` in `internal/review/`.
-  - **Verification**: `go test -count=1 ./internal/review -run TestExecutor`
-- [x] Task 4: Service Facade & Pre-Sync Safety Barrier
-  - **Scope**: Implement `internal/services/review_service.go`, wire into `SyncService.HandleAction`, connect sync abort hooks in `internal/engine/runner/runner.go`.
+- [x] Task 1: Heuristic Domain Contracts & Recommendation Models
+  - **Scope**: Define `RuleResult`, `ConflictRecommendation`, `BatchReviewActionRequest` in `internal/models/review.go`, enrich `ConflictCandidate`.
+  - **Verification**: `go test -count=1 ./internal/models`
+- [x] Task 2: Pure-Go Analyzers & Scoring Engine Core
+  - **Scope**: Implement `internal/engine/heuristics/` (`types.go`, `analyzers.go`, `engine.go`) with worker pool ($G=4$) and scoring aggregation.
+  - **Verification**: `go test -count=1 ./internal/engine/heuristics/...`
+- [x] Task 3: Comprehensive Unit Test Suite
+  - **Scope**: Add unit tests in `internal/engine/heuristics/engine_test.go` covering all analyzers, truncation overrides, and concurrency (>85% coverage).
+  - **Verification**: `go test -race -count=1 ./internal/engine/heuristics/...`
+- [x] Task 4: Service Facade Integration & Batch Application
+  - **Scope**: Wire `heuristics.Engine` into `internal/services/review_service.go`, auto-enrich conflicts on discovery, implement `ApplyBatchRecommendations`.
   - **Verification**: `go test -count=1 ./internal/services`
-- [x] Task 5: Server REST Handlers & Route Integration
-  - **Scope**: Implement `internal/server/handlers_review.go`, mount routes in `server.go`, add integration tests in `server_test.go`.
+- [x] Task 5: Server REST Batch Endpoint
+  - **Scope**: Implement `POST /api/review/action-batch` in `internal/server/handlers_review.go` and `server.go`.
   - **Verification**: `go test -count=1 ./internal/server`
-- [x] Task 6: Frontend Review Module & Dual-Pane Explorer Highlighting
-  - **Scope**: Create `dashboard/frontend/js/review.js`, update `dashboard/frontend/js/explorer.js` with color status badges, add Review Modal and banner to `dashboard/frontend/index.html`, wire into `dashboard/frontend/app.js`.
+- [x] Task 6: Frontend Recommendation Badges & Batch Trigger
+  - **Scope**: Update `dashboard/frontend/js/review.js` and `index.html` to display recommendation badges, reasoning tooltips, and "Apply High-Confidence Recommendations" batch button.
   - **Verification**: `./scripts/check.sh`
 - [x] Task 7: Full Quality Gate & End-to-End Verification
-  - **Scope**: Run full `./scripts/check.sh` (>80% coverage across all packages, clean static analysis, native and cross-platform builds); finalize documentation.
+  - **Scope**: Run full `./scripts/check.sh` (>80% coverage across all packages, clean static analysis, native and cross-platform builds).
   - **Verification**: `./scripts/check.sh`
 
 ## Next Up
-- **Milestone Complete: Phase 4 ("Review. Decide. Sync.") Ready for Review / Merge**
+- **Milestone Complete: Heuristic Conflict Recommendation Engine Ready for Review / Merge**
 
 ## Status Updates
-- 2026-10-23: Phase 3 and Maintenance Milestone (Quality hardening, security jails, modularization) merged to `main`.
-- 2026-10-23: Switched to feature branch `feat/interactive-sync-review`. Verified clean baseline via `./scripts/check.sh` (84.8% coverage). Initialized Phase 4 plan.
-- 2026-10-23: Completed Task 1: Defined `ReviewSession`, `DeletionCandidate`, `ConflictCandidate`, `ResolutionAction`, `WALEntry`, and API DTOs in `internal/models/review.go`. Added review paths and backup TTL configuration to `internal/config/config.go`. Verified via `go test -count=1 ./internal/models ./internal/config` and `./scripts/check.sh`.
-- 2026-10-23: Completed Task 2: Implemented `session.go` (formal FSM lifecycle, candidate decision staging), `discovery.go` (structured state and log-based deletion/conflict discovery), and `journal.go` (atomic persistence, WAL append/read, crash recovery reconciliation) in `internal/review/`. Verified via `go test -count=1 ./internal/review` (86.3% statement coverage) and `./scripts/check.sh` (85.0% total statement coverage).
-- 2026-10-23: Completed Task 3: Implemented `backup.go` (dual local zero-byte hardlink + cloud server-side copy + statfs safety), `executor.go` (reversible resolution executor), and `rollback.go` (Saga compensation runner in reverse order) in `internal/review/`. Verified via `go test -count=1 ./internal/review -run TestExecutor` and `./scripts/check.sh` (84.0% repository statement coverage).
-- 2026-10-23: Completed Task 4: Implemented `internal/services/review_service.go`, integrated pre-sync safety barrier into `SyncService.HandleAction` blocking sync when active reviews exist, connected sync abort hooks in `internal/engine/runner/runner.go`. Verified via `go test -count=1 ./internal/services` (82.3% statement coverage) and `./scripts/check.sh` (83.1% overall repository statement coverage).
-- 2026-10-23: Completed Task 5: Implemented `internal/server/handlers_review.go` (`GET /api/review/session`, `POST /api/review/action`, `POST /api/review/execute`, `POST /api/review/rollback`, `POST /api/review/dismiss`), wired routes in `server.go`, fixed `security.RedactSecrets` struct handling for `time.Time`, and added integration tests in `server_test.go`. Verified via `go test -count=1 ./internal/server` (80.5% statement coverage) and `./scripts/check.sh` (82.8% overall repository statement coverage).
-- 2026-10-23: Completed Task 6: Created `dashboard/frontend/js/review.js` implementing Alpine.js `ReviewModule` with decision staging, batch actions, execution, rollback, and dismissal. Added dynamic row highlighting and candidate status badges to Dual-Pane Explorer. Integrated interactive "Review. Decide. Sync." modal and alert banner into `index.html`. Composed into `app.js` and verified embedded assets in `main_test.go`. Verified via `./scripts/check.sh` (82.8% repository statement coverage, clean formatting, cross-platform builds).
-- 2026-10-23: Completed Task 7: Executed full repository quality gate `./scripts/check.sh` with 82.8% statement coverage, clean formatting, zero vet warnings, and successful native + ARM64 compilation. Finalized documentation across `README.md`, `ROADMAP.md`, `backlog.md`, and `task_plan.md`. Milestone Phase 4 complete.
-- 2026-10-23: Live Sandbox & Edge-Case Hardening: Validated end-to-end interactive review resolution in browser dashboard against live Rclone RC daemon. Implemented `NormalizeFs` in `internal/core/client/` to support both cloud remotes (`gdrive:`) and local filesystem paths without extraneous colons, added lazy-load self-healing across restarts in `ReviewService`, and expanded client test suite with HTTP payload verification. Cleaned up sandbox environment.
-
-
-
-
-
-
-
-
-
-
-
-
+- 2026-10-23: Initialized Heuristic Conflict Recommendation Engine plan on branch `feat/heuristic-conflict-engine`. Updated `docs/design/`, `ROADMAP.md`, and `backlog.md` with delivered milestones.
+- 2026-10-23: Completed Task 1: Defined `RuleResult`, `ConflictRecommendation`, `BatchReviewActionRequest`, `BatchReviewActionResponse` in `internal/models/review.go` and enriched `ConflictCandidate`. Verified via `go test -count=1 ./internal/models`.
+- 2026-10-23: Completed Task 2 & Task 3: Implemented `types.go`, `analyzers.go`, `analyzers_ext.go`, `engine.go`, and comprehensive unit tests in `engine_test.go` with 94.0% statement coverage and zero race conditions under `go test -race`.
+- 2026-10-23: Completed Task 4: Wired `heuristics.Engine` into `ReviewService`, automated conflict enrichment on discovery and retrieval, and implemented `ApplyBatchRecommendations`. Verified via `go test -count=1 ./internal/services/...`.
+- 2026-10-23: Completed Task 5: Implemented `POST /api/review/action-batch` endpoint in `internal/server/handlers_review.go`, registered route in `server.go`, and added tests in `server_test.go`. Verified via `go test -count=1 ./internal/server/...`.
+- 2026-10-23: Completed Task 6 & Task 7: Integrated recommendation badges, confidence meters, and one-click batch trigger in `dashboard/frontend/` (`review.js` and `index.html`). Full quality gate passed with 83.2% statement coverage, clean formatting, zero vet warnings, and successful native + ARM64 compilation.
+- 2026-10-23: Completed Phase 4 (Interactive Sync Review & Deletion Diff Visualizer) and maintenance milestone merged to `main`.
 
 
 

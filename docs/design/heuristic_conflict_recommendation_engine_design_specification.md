@@ -2,11 +2,18 @@
 
 **Feature Name**: Heuristic Conflict Recommendation Engine
 
-**Status**: Draft / Proposed
+**Status**: Implemented (Phase 4 Extension - `feat/heuristic-conflict-engine`)
 
-**Target Milestone**: Phase 4 (Interactive Sync Review)
+**Target Milestone**: Phase 4 Extension (Interactive Sync Review Decision Intelligence)
 
 **Package Path**: `internal/engine/heuristics`
+
+**Delivered Components**:
+- Core Engine & Worker Pool: `internal/engine/heuristics/engine.go`
+- Pure-Go Analyzers: `internal/engine/heuristics/analyzers.go`, `analyzers_ext.go` (`TempLockAnalyzer`, `HashMatchAnalyzer`, `TruncationAnalyzer`, `ClockSkewAnalyzer`, `SizeDivergenceAnalyzer`, `TimestampRecencyAnalyzer`)
+- Service Integration: `internal/services/review_service.go` (`ApplyBatchRecommendations`, conflict enrichment)
+- REST Batch Route: `internal/server/handlers_review.go` (`POST /api/review/action-batch`)
+- Frontend UI: `dashboard/frontend/js/review.js` and `dashboard/frontend/index.html` (recommendation badges, confidence meters, auto-apply button)
 
 **Dependencies**: Rclone Remote Control (RC) API, `internal/audit` (Immutable Audit Ledger)
 
