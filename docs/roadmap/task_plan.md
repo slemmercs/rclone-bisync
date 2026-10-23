@@ -14,7 +14,7 @@ Transition all dashboard UI templates, documentation, deployment scripts, and se
 - [x] Task 3: Standardize Engine & Telemetry Tab Icons (Lucide SVGs)
   - **Scope**: `dashboard/frontend/index.html` stat cards, parameter collapse disclosure (`ChevronDown`), charts header, and daemon log stream buttons.
   - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [ ] Task 4: Standardize Storage Remotes & File Explorer Tab Icons (Lucide SVGs)
+- [x] Task 4: Standardize Storage Remotes & File Explorer Tab Icons (Lucide SVGs)
   - **Scope**: `dashboard/frontend/index.html` remote cards, OAuth health summary badges, breadcrumbs, folder/file glyphs, copy/delete buttons, and canary provisioning button.
   - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
 - [ ] Task 5: Standardize Modals & Log Viewer Icons (Lucide SVGs)
@@ -33,6 +33,7 @@ Transition all dashboard UI templates, documentation, deployment scripts, and se
 - 2026-10-22: Completed Task 1 (Updated `dashboard/frontend/index.html` and `main.go` with Bisync Hub title, header, and vision tagline).
 - 2026-10-23: Completed Task 2 (Standardized header navigation pills and quick action toolbar controls with Lucide SVGs).
 - 2026-10-23: Completed Task 3 (Standardized Engine & Telemetry tab icons including status tiles, config accordion, performance chart, and bisync.log terminal controls with Lucide SVGs).
+- 2026-10-23: Completed Task 4 (Standardized Storage Remotes and File Explorer tab icons with Lucide SVGs across health bar, remote cards, dual-pane explorer controls, breadcrumbs, folders, and item actions).
 
 
 
