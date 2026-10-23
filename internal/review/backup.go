@@ -123,16 +123,25 @@ func LocalBackup(srcPath, backupDir, sessionID, relPath string) (string, error) 
 	return destPath, nil
 }
 
+// FormatRemoteFs formats a remote identifier or local path into a valid rclone fs string.
+func FormatRemoteFs(remote string) string {
+	clean := strings.TrimSpace(remote)
+	if strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, ".") || filepath.IsAbs(clean) {
+		return filepath.Clean(clean)
+	}
+	return strings.TrimSuffix(clean, ":") + ":"
+}
+
 // RemoteBackup initiates a cloud server-side copy for backup with zero local bandwidth.
 func RemoteBackup(ctx context.Context, client RemoteClient, remoteName, remotePath, sessionID string) (string, error) {
 	if client == nil {
 		return "", fmt.Errorf("remote client is nil")
 	}
 
-	cleanRemote := strings.TrimSuffix(remoteName, ":")
+	remoteFs := FormatRemoteFs(remoteName)
 	backupRemotePath := fmt.Sprintf(".review_backups/%s/%s", sessionID, filepath.Clean(remotePath))
 
-	ok, err := client.CopyFile(ctx, cleanRemote+":", remotePath, cleanRemote+":", backupRemotePath)
+	ok, err := client.CopyFile(ctx, remoteFs, remotePath, remoteFs, backupRemotePath)
 	if err != nil || !ok {
 		return "", fmt.Errorf("server-side remote backup failed: %w", err)
 	}
