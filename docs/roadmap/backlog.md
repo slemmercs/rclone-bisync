@@ -46,15 +46,16 @@ The project has transitioned from Python to a native, single-binary Go architect
 
 ---
 
-## 2. Active Implementation Sprint: Test Coverage Uplift & Quality Gate (>80%)
+## 2. Completed Implementation Sprint: Test Coverage Uplift & Quality Gate (>80%) [COMPLETED - PR #17]
 
-Targeting statement coverage >80% across all Go packages and resolving toolchain coverage caveats:
+Targeted and achieved statement coverage >80% across all Go packages and resolved toolchain coverage caveats:
 
-- Add `main_test.go` to eliminate root package empty-test `covdata` toolchain error under `go test -cover ./...`.
-- Uplift `internal/core/state` (>90%): rate-limit backoff flag lifecycle, notification state persistence, metrics JSONL appending.
-- Uplift `internal/core/client` (>85%): mock tests for `TouchFile`, `CopyFile`, `CopyDir`, `DeleteFile`, `PurgeDir`, `ListRemotes`, `GetRemoteAbout`.
-- Uplift `internal/services` (>80%): add `telemetry_test.go` (stats, cached metrics, secret redaction, telemetry payload) and test `CopyItem`, pending deletion log parsing, and remote actions.
-- Uplift `internal/engine/runner` & `internal/server` (>85%): lock contention, rate limit abort, job error classification, and full HTTP endpoint integration tests.
+- Added `main_test.go` eliminating root package empty-test `covdata` toolchain error under `go test -cover ./...`.
+- Uplifted `internal/core/state` (>90%): rate-limit backoff flag lifecycle, notification state persistence, metrics JSONL appending.
+- Uplifted `internal/core/client` (>85%): mock tests for `TouchFile`, `CopyFile`, `CopyDir`, `DeleteFile`, `PurgeDir`, `ListRemotes`, `GetRemoteAbout`.
+- Uplifted `internal/services` (>80%): added `telemetry_test.go` (stats, cached metrics, secret redaction, telemetry payload) and tested `CopyItem`, pending deletion log parsing, and remote actions.
+- Uplifted `internal/engine/runner` & `internal/server` (>85%): lock contention, rate limit abort, job error classification, and full HTTP endpoint integration tests.
+- Enhanced `scripts/check.sh` quality gate to an 8-stage verification pipeline with cross-compilation and automated coverage threshold enforcement.
 
 ---
 
@@ -70,22 +71,22 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ## 4. Extended Roadmap & Backlog
 
-### Phase 3: Immediate Go Enhancements & Evaluation Tasks (Near-Term)
+### Completed Strategic Go Epics
 
-* **[COMPLETED] Sync Service Modularization & Code Cleanup [ESTIMATE: 4-6h | 5 SP]**
+* **[COMPLETED] Sync Service Modularization & Domain Separation [COMPLETED - PR #18]**
 
   - Decoupled monolithic `internal/services/sync_service.go` into cohesive single-responsibility domain services: `TelemetryService`, `CanaryService`, `DeletionService`, `ExplorerService`, and a lean `SyncService`.
   - Maintained strict path traversal jails, atomic operations, backward-compatible delegators, and >80% statement test coverage across all domain services (internal/services: 85.4%, internal/server: 83.2%).
   - Established prerequisite foundation for Phase 4 Interactive Sync Review and Multi-Profile Hub.
 
-* **Rebrand to Bisync Hub**
+* **[COMPLETED] Rebrand to Bisync Hub & Lucide SVG Standard [COMPLETED - PR #20]**
 
-  - Rename the project, dashboard, documentation, and user-facing assets to **Bisync Hub**
-  - Adopt the new project positioning: *"The safety-first dashboard for Rclone Bisync"*
-  - Introduce the long-term vision: *"Review. Decide. Sync."*
-  - Standardize and replace all dashboard UI icons with clean SVG icons preferably from the [Lucide](https://lucide.dev) icon pack for Vanilla JS (enforcing uniform stroke width, 16x16/20x20 sizing, and consistent slate/indigo theme integration without npm/Node build dependencies)
-  - Update README, screenshots, installer messaging, service descriptions, GitHub metadata, and release notes
-  - Align future feature messaging around synchronization safety, review workflows, conflict resolution, and guided recovery rather than generic dashboard functionality
+  - Renamed the project, dashboard, documentation, and user-facing assets to **Bisync Hub**.
+  - Adopted the project positioning: *"The safety-first dashboard for Rclone Bisync"*.
+  - Introduced the long-term vision: *"Review. Decide. Sync."*.
+  - Added `THIRD_PARTY_LICENSES.md` providing legal attribution for Lucide Icons (ISC/MIT), Alpine.js (MIT), Chart.js (MIT), Tailwind CSS (MIT), and Go sys (BSD 3-Clause).
+  - Standardized and replaced all dashboard UI icons with 100% offline, locally-embedded [Lucide](https://lucide.dev) SVGs (enforcing uniform stroke width 2, 24x24 viewBox, and slate/indigo integration without npm/Node build dependencies).
+  - Aligned README, deployment systemd units (`deploy/systemd/rclone-dashboard.service`), desktop launcher (`deploy/desktop/rclone-dashboard.desktop`), installer (`deploy/install.sh`), and AI disclosure.
 
 * **[COMPLETED] Centralized OAuth Connection Manager & Google Drive Migration Wizard [ESTIMATE: 3-4h | 3 SP]**
 
@@ -102,16 +103,51 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ---
 
-### Phase 4: Core Enterprise Feature Extensions (Medium-Term)
+### Active Implementation Sprint: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer
 
-* **Side-by-Side Deletion & Conflict Diff Visualizer [ESTIMATE: 4-6h | 5 SP]**
+Primary strategic feature transforming Bisync Hub from an observer dashboard into an interactive safety controller. When synchronization aborts due to safety circuit breakers (`TOO_MANY_DELETES` or unresolved file conflicts), the hub launches an interactive review session instead of requiring manual CLI `--force` intervention. Refer to [interactive-sync-review.md](../design/interactive-sync-review.md).
 
-  - When `TOO_MANY_DELETES` aborts, automatically open File Explorer highlighting deletions in red and conflicts in amber before requesting authorization with `--force`.
-  - Refer to [interactive-sync-review.md](../design/interactive-sync-review.md)
+* **Micro-Task 1: Review Domain Models & Contract Definitions (`internal/models/review.go`)**
+  - Concrete DTOs: `ReviewSession`, `DeletionCandidate`, `ConflictCandidate`, `ResolutionAction`, `ReviewSessionStatus`.
+  - Action types: `keep-local`, `keep-remote`, `keep-both`, `accept-delete`, `restore-item`.
+
+* **Micro-Task 2: Review Service & Persistent Journal Engine (`internal/services/review_service.go`)**
+  - Thread-safe `ReviewService` managing session lifecycle, discovery, execution, backup snapshots, and rollback.
+  - Atomic JSON journal persistence (`.review-session.<id>.json.tmp.<pid>` + `os.Rename`) ensuring durability across daemon restarts.
+  - Pre-sync barrier integration: `sync_service.go` blocks bisync triggering if active unresolved review sessions exist.
+
+* **Micro-Task 3: Candidate Discovery & Abort Interceptor**
+  - Parse candidate items from bisync execution output and abort states (`TOO_MANY_DELETES`, unhandled conflicts).
+  - Populate candidate metadata (local/remote paths, sizes, mod times, detected condition).
+
+* **Micro-Task 4: Resolution Executor, Backup Staging & Rollback Engine**
+  - Safe execution of user decisions using Rclone RC operations.
+  - Pre-mutation safety snapshot backups in isolated directory before executing destructive changes.
+  - Rollback capability to restore pre-resolution snapshot states if the user cancels or before bisync initiates.
+
+* **Micro-Task 5: REST API Handlers & Routing (`internal/server/server.go`)**
+  - `GET /api/review/session`: Retrieve active session status and candidates.
+  - `POST /api/review/action`: Stage per-candidate decision.
+  - `POST /api/review/execute`: Execute staged decisions with atomic progress tracking.
+  - `POST /api/review/rollback`: Roll back executed decisions from backups.
+  - `POST /api/review/dismiss`: Dismiss/abort review session.
+
+* **Micro-Task 6: Frontend Dual-Pane Explorer Highlighting & Review Modal (`dashboard/frontend/`)**
+  - Visual status highlighting in Explorer: Red (deletion candidate), Amber (conflict candidate), Green (new addition).
+  - Dedicated interactive Review Modal with per-item decisions, side-by-side comparison, backup notices, and resolution status badges.
+
+* **Micro-Task 7: Automated Verification Suite & End-to-End Quality Gate**
+  - Comprehensive unit and integration tests with `httptest.NewServer` RC mocking.
+  - Verify statement coverage >80% across all packages (`./scripts/check.sh`).
+
+---
+
+### Phase 5: Core Enterprise Feature Extensions (Medium-Term)
 
 * **Multi-Profile Synchronization Hub [ESTIMATE: 6-8h | 5 SP]**
 
   - Single background Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, etc.) with isolated flock files and telemetry streams.
+  - Refer to [profile-manager.md](../design/profile-manager.md).
 
 * **In-Dashboard Configuration Editor & 3-Layer Safety Pipeline [ESTIMATE: 6-8h | 5 SP]**
 
@@ -121,7 +157,7 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ---
 
-### Phase 5: Local MVP Deployment Hardening (Core Infrastructure Requirements)
+### Phase 6: Local MVP Deployment Hardening (Core Infrastructure Requirements)
 
 * **Local Inter-Process Communication via Unix Sockets [ESTIMATE: 4-6h | 3 SP]**
 
@@ -140,7 +176,7 @@ Targeting statement coverage >80% across all Go packages and resolving toolchain
 
 ---
 
-### Phase 6: Desktop Application packaging
+### Phase 7: Desktop Application Packaging
 
 * **Desktop Mode via Wails / Native Window [ESTIMATE: 3-4h | 3 SP]**
 

@@ -1,42 +1,36 @@
 
-# Task Plan: Rebrand to Bisync Hub & Lucide Icon Standardization
+# Task Plan: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer
 
 ## Goal
-Transition all dashboard UI templates, documentation, deployment scripts, and service definitions to **Bisync Hub** (*"The safety-first dashboard for Rclone Bisync"*), and standardize all dashboard SVG icons with the [Lucide](https://lucide.dev) design system without adding external build or runtime dependencies.
+Implement the **Interactive Sync Review & Resolution Workflow** ([`docs/design/interactive-sync-review.md`](../design/interactive-sync-review.md)). When Rclone Bisync encounters dangerous synchronization conditions (`TOO_MANY_DELETES` or unresolved file conflicts), Bisync Hub captures the event, provisions an atomic, persistent `ReviewSession`, visualizes affected items in the Dual-Pane Explorer, allows granular per-item user decisions (`keep-local`, `keep-remote`, `keep-both`, `accept-delete`, `restore-item`), stages backups, and supports rollback prior to final synchronization.
 
 ## Tasks
-- [x] Task 1: UI Header Branding & Tagline Updates
-  - **Scope**: `dashboard/frontend/index.html` (title, h1, edition badge, subtitle, positioning) and `main.go` startup logs.
+- [ ] Task 1: Review Domain Models & Contract Schemas
+  - **Scope**: Create `internal/models/review.go` defining `ReviewSession`, `DeletionCandidate`, `ConflictCandidate`, `ResolutionAction`, `ReviewSessionStatus`, and resolution action types.
+  - **Verification**: `go test -count=1 ./internal/models`
+- [ ] Task 2: Review Service Engine & Persistent Journal
+  - **Scope**: Create `internal/services/review_service.go` with thread-safe session lifecycle, atomic JSON journal persistence (`.tmp.<pid>` + `os.Rename`), crash recovery on startup, and pre-sync validation barrier.
+  - **Verification**: `go test -count=1 ./internal/services -run TestReviewService`
+- [ ] Task 3: Candidate Discovery & Abort Interceptor
+  - **Scope**: Enhance `internal/services/sync_service.go` and `internal/engine/runner/runner.go` to intercept `TOO_MANY_DELETES` and conflict aborts, extract affected paths from bisync execution logs, and automatically provision a populated `ReviewSession`.
+  - **Verification**: `go test -count=1 ./internal/services -run TestReviewService_CandidateDiscovery`
+- [ ] Task 4: Resolution Executor, Backup Staging & Rollback Engine
+  - **Scope**: Implement execution logic in `ReviewService` utilizing Rclone RC operations, pre-mutation file backups into `.bisync-backup/<session-id>/`, and atomic rollback to restore backups.
+  - **Verification**: `go test -count=1 ./internal/services -run TestReviewService_ExecuteAndRollback`
+- [ ] Task 5: REST API Endpoints & Request Routing
+  - **Scope**: Implement `GET /api/review/session`, `POST /api/review/action`, `POST /api/review/execute`, `POST /api/review/rollback`, and `POST /api/review/dismiss` in `internal/server/server.go`.
+  - **Verification**: `go test -count=1 ./internal/server -run TestReviewEndpoints`
+- [ ] Task 6: Frontend Dual-Pane Explorer Highlighting & Interactive Review Modal
+  - **Scope**: Update `dashboard/frontend/` (`index.html`, `js/explorer.js`, `js/app.js`) with visual highlighting (Red=deletion, Amber=conflict, Green=new) and dedicated Review Modal.
   - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [x] Task 2: Standardize Header, Global Status & Action Controls (Lucide SVGs)
-  - **Scope**: `dashboard/frontend/index.html` navigation pills and quick action buttons (`Play`, `Square`, `RefreshCw`, `ShieldAlert`, `Eye`, `Unlock`, `TimerReset`).
-  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [x] Task 3: Standardize Engine & Telemetry Tab Icons (Lucide SVGs)
-  - **Scope**: `dashboard/frontend/index.html` stat cards, parameter collapse disclosure (`ChevronDown`), charts header, and daemon log stream buttons.
-  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [x] Task 4: Standardize Storage Remotes & File Explorer Tab Icons (Lucide SVGs)
-  - **Scope**: `dashboard/frontend/index.html` remote cards, OAuth health summary badges, breadcrumbs, folder/file glyphs, copy/delete buttons, and canary provisioning button.
-  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [x] Task 5: Standardize Modals & Log Viewer Icons (Lucide SVGs)
-  - **Scope**: `dashboard/frontend/index.html` daemon log modal, raw log downloads, client ID migration wizard, reconnect progress spinner (`Loader2`), and audit trail modal.
-  - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [x] Task 6: Systemd, Desktop Shortcut & Deployment Alignment
-  - **Scope**: `deploy/desktop/rclone-dashboard.desktop`, `deploy/systemd/rclone-dashboard.service`, `deploy/install.sh`, `AI_DISCLOSURE.md`.
-  - **Verification**: `./scripts/check.sh`
-- [x] Task 7: Full Verification Gate, Binary Build & Installation
-  - **Scope**: Run `./scripts/check.sh`, verify coverage >80%, build `bin/rclone-bisync`, install to active environment, and test live dashboard endpoints.
+- [ ] Task 7: Full Verification Gate & Service Deployment
+  - **Scope**: Run full `./scripts/check.sh` quality gate, verify statement test coverage >80%, compile `bin/rclone-bisync`, deploy to user service, and verify live endpoints.
   - **Verification**: `./scripts/check.sh` && `systemctl --user status rclone-dashboard.service`
 
 ## Status Updates
-- 2026-10-22: Initialized plan on branch `feat/rebrand-bisync-hub`.
-- 2026-10-22: Added `THIRD_PARTY_LICENSES.md` documenting Lucide (ISC/MIT), Alpine.js (MIT), Chart.js (MIT), Tailwind CSS (MIT), and Go sys (BSD 3-Clause).
-- 2026-10-22: Completed Task 1 (Updated `dashboard/frontend/index.html` and `main.go` with Bisync Hub title, header, and vision tagline).
-- 2026-10-23: Completed Task 2 (Standardized header navigation pills and quick action toolbar controls with Lucide SVGs).
-- 2026-10-23: Completed Task 3 (Standardized Engine & Telemetry tab icons including status tiles, config accordion, performance chart, and bisync.log terminal controls with Lucide SVGs).
-- 2026-10-23: Completed Task 4 (Standardized Storage Remotes and File Explorer tab icons with Lucide SVGs across health bar, remote cards, dual-pane explorer controls, breadcrumbs, folders, and item actions).
-- 2026-10-23: Completed Task 5 (Standardized Modals and Log Viewer icons with Lucide SVGs across Delete Confirmation, Deletions Review, Correlated Daemon Logs, Migration Wizard, Reconnect Status, Audit Trail, and Notification Toast).
-- 2026-10-23: Completed Task 6 (Aligned systemd unit description, desktop shortcut name and comment, installer script, AI disclosure, and README with Bisync Hub branding).
-- 2026-10-23: Completed Task 7 (Verified full quality gate `./scripts/check.sh`, confirmed all packages statement coverage >80%, compiled standalone binary `bin/rclone-bisync`, updated active user binary and services, and validated live UI and telemetry endpoints).
+- 2026-10-23: Phase 3 (OAuth Reconnect, SyncService modularization PR #18, Rebrand to Bisync Hub PR #20) completed and merged into `main`.
+- 2026-10-23: Initialized Phase 4 Interactive Sync Review task plan based on `docs/design/interactive-sync-review.md`.
+
 
 
 
