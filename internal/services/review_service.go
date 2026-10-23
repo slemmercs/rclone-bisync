@@ -190,11 +190,24 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 	return s.session, nil
 }
 
+func (s *ReviewService) ensureSessionLoadedLocked() {
+	if s.session != nil {
+		return
+	}
+	sessionFile := s.sessionFilePath()
+	if sessionFile != "" {
+		if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
+			s.session = sess
+		}
+	}
+}
+
 // StageCandidateDecision stages a resolution decision for a specific candidate.
 func (s *ReviewService) StageCandidateDecision(sessionID, candidateID string, decision models.ActionDecision) (*models.ReviewSession, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.ensureSessionLoadedLocked()
 	if s.session == nil || s.session.ID != sessionID {
 		return nil, fmt.Errorf("review session %s not found or inactive", sessionID)
 	}
@@ -218,6 +231,7 @@ func (s *ReviewService) ApplyReviewSession(ctx context.Context, sessionID string
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.ensureSessionLoadedLocked()
 	if s.session == nil || s.session.ID != sessionID {
 		return nil, fmt.Errorf("review session %s not found or inactive", sessionID)
 	}
@@ -283,6 +297,7 @@ func (s *ReviewService) RollbackReviewSession(ctx context.Context, sessionID str
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.ensureSessionLoadedLocked()
 	if s.session == nil || s.session.ID != sessionID {
 		return nil, fmt.Errorf("review session %s not found or inactive", sessionID)
 	}
@@ -310,6 +325,7 @@ func (s *ReviewService) DismissReviewSession(sessionID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.ensureSessionLoadedLocked()
 	if s.session == nil || s.session.ID != sessionID {
 		return fmt.Errorf("review session %s not found or inactive", sessionID)
 	}

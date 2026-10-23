@@ -38,7 +38,7 @@ func RollbackSession(ctx context.Context, session *models.ReviewSession, executo
 		if action.BackupPath != "" {
 			if strings.HasPrefix(action.BackupPath, ".review_backups") && executor.Client != nil {
 				// Remote server-side backup
-				if ok, err := executor.Client.CopyFile(ctx, executor.RemoteName+":", action.BackupPath, executor.RemoteName+":", action.ItemPath); err != nil || !ok {
+				if ok, err := executor.Client.CopyFile(ctx, executor.RemoteFs(), action.BackupPath, executor.RemoteFs(), action.ItemPath); err != nil || !ok {
 					rollbackErr = fmt.Errorf("failed restoring remote backup %s: %w", action.BackupPath, err)
 				}
 			} else {
@@ -55,7 +55,7 @@ func RollbackSession(ctx context.Context, session *models.ReviewSession, executo
 				_ = os.Remove(fullLocal)
 			}
 			if executor.Client != nil {
-				_, _ = executor.Client.DeleteFile(ctx, executor.RemoteName+":", action.ItemPath)
+				_, _ = executor.Client.DeleteFile(ctx, executor.RemoteFs(), action.ItemPath)
 			}
 		}
 
