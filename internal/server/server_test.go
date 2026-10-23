@@ -63,15 +63,15 @@ func TestTelemetryRedaction(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	cfg := &config.Config{
-		BaseDir:                tmpDir,
-		LogFile:                filepath.Join(tmpDir, "bisync.log"),
-		MetricsFile:            filepath.Join(tmpDir, "metrics.jsonl"),
-		NotificationStateFile:  filepath.Join(tmpDir, "notif.json"),
-		RateLimitBackoffFile:   filepath.Join(tmpDir, "rate_limit.json"),
-		PendingDeletionsFile:   filepath.Join(tmpDir, "pending.json"),
-		LockFile:               filepath.Join(tmpDir, "lock.lck"),
-		RCPass:                 "supersecretpassword123",
-		RCUser:                 "myadmin",
+		BaseDir:               tmpDir,
+		LogFile:               filepath.Join(tmpDir, "bisync.log"),
+		MetricsFile:           filepath.Join(tmpDir, "metrics.jsonl"),
+		NotificationStateFile: filepath.Join(tmpDir, "notif.json"),
+		RateLimitBackoffFile:  filepath.Join(tmpDir, "rate_limit.json"),
+		PendingDeletionsFile:  filepath.Join(tmpDir, "pending.json"),
+		LockFile:              filepath.Join(tmpDir, "lock.lck"),
+		RCPass:                "supersecretpassword123",
+		RCUser:                "myadmin",
 	}
 	svc := services.NewSyncService(cfg, nil)
 	srv := NewServer(cfg, svc, embed.FS{})
@@ -125,14 +125,14 @@ func TestServerAPIEndpoints(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	cfg := &config.Config{
-		BaseDir:                tmpDir,
-		LocalPath:              tmpDir,
-		LogFile:                filepath.Join(tmpDir, "bisync.log"),
-		MetricsFile:            filepath.Join(tmpDir, "metrics.jsonl"),
-		NotificationStateFile:  filepath.Join(tmpDir, "notif.json"),
-		RateLimitBackoffFile:   filepath.Join(tmpDir, "rate_limit.json"),
-		PendingDeletionsFile:   filepath.Join(tmpDir, "pending.json"),
-		LockFile:               filepath.Join(tmpDir, "lock.lck"),
+		BaseDir:               tmpDir,
+		LocalPath:             tmpDir,
+		LogFile:               filepath.Join(tmpDir, "bisync.log"),
+		MetricsFile:           filepath.Join(tmpDir, "metrics.jsonl"),
+		NotificationStateFile: filepath.Join(tmpDir, "notif.json"),
+		RateLimitBackoffFile:  filepath.Join(tmpDir, "rate_limit.json"),
+		PendingDeletionsFile:  filepath.Join(tmpDir, "pending.json"),
+		LockFile:              filepath.Join(tmpDir, "lock.lck"),
 	}
 	svc := services.NewSyncService(cfg, nil)
 	srv := NewServer(cfg, svc, embed.FS{})
@@ -299,8 +299,6 @@ func TestLogDownloadEndpoints(t *testing.T) {
 	}
 }
 
-
-
 func TestServerAdditionalBranches(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "server-branches-*")
 	if err != nil {
@@ -313,13 +311,13 @@ func TestServerAdditionalBranches(t *testing.T) {
 	_ = os.WriteFile(sampleFile, []byte("data"), 0644)
 
 	cfg := &config.Config{
-		BaseDir:                tmpDir,
-		LocalPath:              tmpDir,
-		LogFile:                filepath.Join(tmpDir, "missing_bisync.log"),
-		NotificationStateFile:  filepath.Join(tmpDir, "notif.json"),
-		RateLimitBackoffFile:   filepath.Join(tmpDir, "rate_limit.json"),
-		PendingDeletionsFile:   filepath.Join(tmpDir, "pending.json"),
-		LockFile:               filepath.Join(tmpDir, "lock.lck"),
+		BaseDir:               tmpDir,
+		LocalPath:             tmpDir,
+		LogFile:               filepath.Join(tmpDir, "missing_bisync.log"),
+		NotificationStateFile: filepath.Join(tmpDir, "notif.json"),
+		RateLimitBackoffFile:  filepath.Join(tmpDir, "rate_limit.json"),
+		PendingDeletionsFile:  filepath.Join(tmpDir, "pending.json"),
+		LockFile:              filepath.Join(tmpDir, "lock.lck"),
 	}
 	svc := services.NewSyncService(cfg, nil)
 	srv := NewServer(cfg, svc, embed.FS{})
@@ -599,4 +597,3 @@ func TestAuthEndpoints(t *testing.T) {
 	}
 
 }
-

@@ -1,9 +1,9 @@
 package security
 
 import (
-"reflect"
-"regexp"
-"strings"
+	"reflect"
+	"regexp"
+	"strings"
 )
 
 // SensitiveKeywords identifies identifiers hinting at sensitive configuration values.
@@ -20,9 +20,9 @@ var SensitiveKeywords = []string{
 
 // SensitiveValueRegexes detects token strings matching high-risk patterns.
 var SensitiveValueRegexes = []*regexp.Regexp{
-	regexp.MustCompile(`ghp_[A-Za-z0-9_]{36,}`),         // GitHub PAT
+	regexp.MustCompile(`ghp_[A-Za-z0-9_]{36,}`),        // GitHub PAT
 	regexp.MustCompile(`xox[baprs]-[0-9a-zA-Z-]{10,}`), // Slack Token
-	regexp.MustCompile(`ya29\.[0-9A-Za-z\-_]+`),         // Google OAuth Access Token
+	regexp.MustCompile(`ya29\.[0-9A-Za-z\-_]+`),        // Google OAuth Access Token
 }
 
 const RedactedString = "********"

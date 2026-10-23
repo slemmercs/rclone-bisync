@@ -172,6 +172,7 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string) c
 	}
 	return e.Client.ListDirectory(ctx, remoteClean, cleanPath)
 }
+
 // CopyItem transfers a file or directory with path jail enforcement.
 func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (map[string]interface{}, error) {
 	cleanSrcPath := strings.Trim(strings.TrimSpace(srcPath), "/")
@@ -355,4 +356,3 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 	}
 	return map[string]interface{}{"status": "success", "fs": remoteName, "remote": cleanPath}, nil
 }
-
