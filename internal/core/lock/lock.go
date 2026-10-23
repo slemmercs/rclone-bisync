@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -93,22 +92,16 @@ func (lm *LockManager) handleStaleLock() (bool, error) {
 		content := strings.TrimSpace(string(contentBytes))
 		if content != "" {
 			if oldPID, err := strconv.Atoi(content); err == nil {
-				if !CheckPIDExists(oldPID) {
-					// Stale PID: not running
+				if CheckPIDExists(oldPID) {
+					// Active PID is still running; never remove or steal lock regardless of elapsed age
 					_ = lm.closeHandle()
-					_ = os.Remove(lm.LockFilePath)
-					return lm.Acquire()
+					return false, nil
 				}
 
-				if fi, err := os.Stat(lm.LockFilePath); err == nil {
-					lockAge := time.Since(fi.ModTime()).Seconds()
-					if lockAge > float64(lm.StaleTimeoutSeconds) {
-						// Lock age exceeded timeout
-						_ = lm.closeHandle()
-						_ = os.Remove(lm.LockFilePath)
-						return lm.Acquire()
-					}
-				}
+				// PID is dead: safe to reclaim stale lock
+				_ = lm.closeHandle()
+				_ = os.Remove(lm.LockFilePath)
+				return lm.Acquire()
 			}
 		}
 	}
