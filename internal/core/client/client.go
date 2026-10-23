@@ -1,15 +1,15 @@
 package client
 
 import (
-"bytes"
-"context"
-"encoding/json"
-"fmt"
-"io"
-"net/http"
-"net/url"
-"strings"
-"time"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
 )
 
 // RcloneClient communicates with the Rclone Remote Control (RC) HTTP API.

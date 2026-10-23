@@ -1,9 +1,9 @@
 package state
 
 import (
-"os"
-"path/filepath"
-"testing"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestAtomicWriteAndRead(t *testing.T) {
@@ -240,4 +240,3 @@ func TestStateEdgeCases(t *testing.T) {
 		t.Fatal("expected error marshalling unmarshallable type")
 	}
 }
-

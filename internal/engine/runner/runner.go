@@ -271,10 +271,10 @@ func (r *SyncRunner) Run(
 
 	if errType == "TOO_MANY_DELETES" {
 		_ = state.WriteJSONAtomic(r.Config.PendingDeletionsFile, map[string]interface{}{
-			"aborted_at":     float64(time.Now().Unix()),
-			"has_deletions":  true,
-			"error":          monitorRes.ErrorMessage,
-			"message":        monitorRes.ErrorMessage,
+			"aborted_at":    float64(time.Now().Unix()),
+			"has_deletions": true,
+			"error":         monitorRes.ErrorMessage,
+			"message":       monitorRes.ErrorMessage,
 		})
 	}
 

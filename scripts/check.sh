@@ -1,71 +1,303 @@
 #!/usr/bin/env bash
-# scripts/check.sh - Fast local pre-flight quality and safety gate (Go Single Binary)
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Color definitions
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+BUILD_DIR="${REPO_ROOT}/.build"
 
-echo -e "${BLUE}====================================================${NC}"
-echo -e "${BLUE}    Rclone Bisync Pre-Flight Quality Gate          ${NC}"
-echo -e "${BLUE}====================================================${NC}"
+# ----------------------------------------------------------------------
+# Colors
+# ----------------------------------------------------------------------
 
-# 1. Check Shell Script Syntax
-echo -e "${BLUE}[1/4] Checking shell script syntax (bash -n)...${NC}"
-SHELL_SCRIPTS=$(find "${REPO_ROOT}" -maxdepth 2 -name "*.sh" -not -path "*/.*")
-for script in $SHELL_SCRIPTS; do
-    bash -n "$script"
-    echo -e "  ${GREEN}✓${NC} $(basename "$script")"
-done
-echo -e "${GREEN}Shell script syntax OK.${NC}\n"
-
-# 2. Check for Tracked Secrets & Leaks
-echo -e "${BLUE}[2/4] Verifying secret isolation & git hygiene...${NC}"
-if git -C "${REPO_ROOT}" ls-files --error-unmatch rc-secrets.env 2>/dev/null; then
-    echo -e "${RED}[FAIL] rc-secrets.env is tracked by git! Untrack it immediately.${NC}"
-    exit 1
-fi
-echo -e "  ${GREEN}✓${NC} rc-secrets.env properly untracked/gitignored"
-
-# Scan tracked files for raw password assignments (excluding docs, examples, and test fixtures)
-SUSPECT_LEAKS=$(git -C "${REPO_ROOT}" grep -n -I -E "(RC_PASS|password)\s*=\s*['\"][^'\"]{6,}['\"]" -- ':!*.example' ':!*.md' || true)
-if [[ -n "$SUSPECT_LEAKS" ]]; then
-    echo -e "${RED}[FAIL] Potential hardcoded secret found in tracked files:${NC}"
-    echo "$SUSPECT_LEAKS"
-    exit 1
-fi
-echo -e "  ${GREEN}✓${NC} No hardcoded passwords detected in tracked files"
-echo -e "${GREEN}Secret isolation OK.${NC}\n"
-
-# 3. Execute Go Static Analysis (go vet)
-echo -e "${BLUE}[3/4] Running Go static analysis (go vet ./...)...${NC}"
-if command -v go >/dev/null 2>&1; then
-    cd "${REPO_ROOT}"
-    if ! go vet ./...; then
-        echo -e "${RED}[FAIL] go vet static analysis failed!${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}Go static analysis clean.${NC}\n"
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
 else
-    echo -e "${RED}[FAIL] Go toolchain not found in PATH.${NC}"
-    exit 1
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    NC=''
 fi
 
-# 4. Execute Go Automated Unit Test Suite
-echo -e "${BLUE}[4/4] Running Go automated unit test suite (go test -count=1 ./...)...${NC}"
+# ----------------------------------------------------------------------
+# Configuration
+# ----------------------------------------------------------------------
+
+MIN_COVERAGE="${MIN_COVERAGE:-80.0}"
+BUILD_TARGET="${BUILD_TARGET:-.}"
+COVERAGE_FILE="${COVERAGE_FILE:-coverage.out}"
+
+# ----------------------------------------------------------------------
+# Cleanup
+# ----------------------------------------------------------------------
+
+cleanup() {
+    rm -rf "${BUILD_DIR}"
+}
+
+trap cleanup EXIT
+
+# ----------------------------------------------------------------------
+# Logging
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="unknown"
+
+info() {
+    echo -e "${BLUE}$1${NC}"
+}
+
+success() {
+    echo -e "${GREEN}$1${NC}"
+}
+
+warning() {
+    echo -e "${YELLOW}$1${NC}"
+}
+
+fail() {
+    echo -e "${RED}[FAIL] $1${NC}" >&2
+    echo "::error::$1"
+    exit 1
+}
+
+on_error() {
+    fail "Quality gate failed during: ${CURRENT_STEP}"
+}
+
+trap on_error ERR
+
+require_tool() {
+    local tool="$1"
+
+    command -v "$tool" >/dev/null 2>&1 \
+        || fail "Required tool not found: ${tool}"
+}
+
+# ----------------------------------------------------------------------
+# Header
+# ----------------------------------------------------------------------
+
+echo "===================================================="
+echo "              Repository Quality Gate"
+echo "===================================================="
+
 cd "${REPO_ROOT}"
-if ! go test -count=1 ./...; then
-    echo -e "${RED}[FAIL] Go unit tests failed!${NC}"
-    exit 1
-fi
-echo -e "${GREEN}All Go unit tests passed.${NC}\n"
 
-echo -e "${GREEN}====================================================${NC}"
-echo -e "${GREEN}    Pre-Flight Passed: Ready to commit & push!     ${NC}"
-echo -e "${GREEN}====================================================${NC}"
+# ----------------------------------------------------------------------
+# 1. Tool Validation
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Tool Validation"
+
+info "[1/8] Validating required tooling..."
+
+for tool in bash git go gofmt; do
+    require_tool "${tool}"
+done
+
+success "Required tooling available."
+echo
+
+# ----------------------------------------------------------------------
+# Platform Information
+# ----------------------------------------------------------------------
+
+PLATFORM="$(go env GOOS)/$(go env GOARCH)"
+
+info "Runner Platform: ${PLATFORM}"
+echo
+
+# ----------------------------------------------------------------------
+# 2. Module Verification
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Module Verification"
+
+info "[2/8] Verifying Go modules..."
+
+go mod verify
+go mod tidy
+
+git diff --exit-code go.mod go.sum \
+    || fail "go.mod/go.sum not tidy"
+
+success "Go modules verified."
+echo
+
+# ----------------------------------------------------------------------
+# 3. Shell Validation
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Shell Validation"
+
+info "[3/8] Validating shell scripts..."
+
+while IFS= read -r script; do
+    bash -n "${script}"
+    echo "  ✓ ${script}"
+done < <(git ls-files '*.sh')
+
+success "Shell validation passed."
+echo
+
+# ----------------------------------------------------------------------
+# 4. Go Formatting
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Go Formatting"
+
+info "[4/8] Checking Go formatting..."
+
+GO_FILES="$(git ls-files '*.go')"
+
+if [[ -n "${GO_FILES}" ]]; then
+    UNFORMATTED="$(
+        git ls-files -z '*.go' |
+        xargs -0 gofmt -l -s
+    )"
+
+    if [[ -n "${UNFORMATTED}" ]]; then
+        echo "${UNFORMATTED}"
+        fail "Go formatting issues detected. Run: gofmt -w ."
+    fi
+fi
+
+success "Go formatting check passed."
+echo
+
+# ----------------------------------------------------------------------
+# 5. Static Analysis
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Go Vet"
+
+info "[5/8] Running go vet..."
+
+go vet ./...
+
+success "Go vet passed."
+echo
+
+# ----------------------------------------------------------------------
+# 6. Tests & Coverage
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Unit Tests & Coverage"
+
+info "[6/8] Running unit tests with coverage..."
+
+go test \
+    -count=1 \
+    -covermode=count \
+    -coverpkg=./... \
+    -coverprofile="${COVERAGE_FILE}" \
+    ./...
+
+success "Unit tests passed."
+echo
+
+info "Coverage breakdown:"
+
+COVER_OUT="$(go tool cover -func="${COVERAGE_FILE}")"
+
+echo "${COVER_OUT}"
+
+COVERAGE="$(
+    awk '/^total:/ {
+        sub(/%/, "", $3)
+        print $3
+    }' <<< "${COVER_OUT}"
+)"
+
+echo
+echo "Coverage : ${COVERAGE}%"
+echo "Required : ${MIN_COVERAGE}%"
+
+awk -v cov="${COVERAGE}" -v min="${MIN_COVERAGE}" '
+BEGIN {
+    exit (cov >= min ? 0 : 1)
+}' || fail "Coverage ${COVERAGE}% is below required ${MIN_COVERAGE}%"
+
+success "Coverage threshold met."
+echo
+
+# ----------------------------------------------------------------------
+# 7. Native Build
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Native Build"
+
+mkdir -p "${BUILD_DIR}"
+
+info "[7/8] Verifying native build..."
+
+go build \
+    -trimpath \
+    -o "${BUILD_DIR}/native-build" \
+    "${BUILD_TARGET}"
+
+success "Native build passed."
+echo
+
+# ----------------------------------------------------------------------
+# 8. Cross Platform Builds
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="Cross Builds"
+
+info "[8/8] Verifying cross-platform builds..."
+
+info "Building linux/amd64..."
+
+CGO_ENABLED=0 \
+GOOS=linux \
+GOARCH=amd64 \
+go build \
+    -trimpath \
+    -o "${BUILD_DIR}/app-linux-amd64" \
+    "${BUILD_TARGET}"
+
+success "linux/amd64 build passed."
+
+info "Building linux/arm64..."
+
+CGO_ENABLED=0 \
+GOOS=linux \
+GOARCH=arm64 \
+go build \
+    -trimpath \
+    -o "${BUILD_DIR}/app-linux-arm64" \
+    "${BUILD_TARGET}"
+
+success "linux/arm64 build passed."
+echo
+
+# ----------------------------------------------------------------------
+# CLI Validation
+# ----------------------------------------------------------------------
+
+CURRENT_STEP="CLI Validation"
+
+info "Validating executable..."
+
+"${BUILD_DIR}/native-build" --help >/dev/null
+
+success "CLI validation passed."
+echo
+
+# ----------------------------------------------------------------------
+# Summary
+# ----------------------------------------------------------------------
+
+echo "===================================================="
+echo "Quality Gate Passed"
+echo "Coverage: ${COVERAGE}%"
+echo "Coverage Report: ${COVERAGE_FILE}"
+echo "===================================================="

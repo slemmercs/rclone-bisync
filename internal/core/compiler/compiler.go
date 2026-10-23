@@ -43,11 +43,11 @@ var CLIToRCMap = map[string]OptionMapping{
 	// Bisync parameters
 	"--check-access":      {TypeParamBool, "checkAccess"},
 	"--check-first":       {TypeParamBool, "checkFirst"},
-	"--track-renames":      {TypeParamBool, "trackRenames"},
-	"--remove-empty-dirs":  {TypeParamBool, "removeEmptyDirs"},
-	"--resilient":          {TypeParamBool, "resilient"},
-	"--recover":            {TypeParamBool, "recover"},
-	"--compare":            {TypeParam, "compare"},
+	"--track-renames":     {TypeParamBool, "trackRenames"},
+	"--remove-empty-dirs": {TypeParamBool, "removeEmptyDirs"},
+	"--resilient":         {TypeParamBool, "resilient"},
+	"--recover":           {TypeParamBool, "recover"},
+	"--compare":           {TypeParam, "compare"},
 
 	// Conflict handling
 	"--conflict-resolve": {TypeParam, "conflictResolve"},
@@ -55,12 +55,12 @@ var CLIToRCMap = map[string]OptionMapping{
 
 	// Global Engine Config (under _config)
 	"--fast-list":         {TypeConfigBool, "UseListR"},
-	"--buffer-size":        {TypeConfigStr, "BufferSize"},
-	"--retries":            {TypeConfigInt, "Retries"},
-	"--retries-sleep":      {TypeConfigStr, "RetriesSleep"},
-	"--low-level-retries":  {TypeConfigInt, "LowLevelRetries"},
-	"--tpslimit":           {TypeConfigFloat, "TPSLimit"},
-	"--tpslimit-burst":     {TypeConfigInt, "TPSLimitBurst"},
+	"--buffer-size":       {TypeConfigStr, "BufferSize"},
+	"--retries":           {TypeConfigInt, "Retries"},
+	"--retries-sleep":     {TypeConfigStr, "RetriesSleep"},
+	"--low-level-retries": {TypeConfigInt, "LowLevelRetries"},
+	"--tpslimit":          {TypeConfigFloat, "TPSLimit"},
+	"--tpslimit-burst":    {TypeConfigInt, "TPSLimitBurst"},
 }
 
 // CompileBisyncPayload translates CLI arguments into /sync/bisync parameters.
