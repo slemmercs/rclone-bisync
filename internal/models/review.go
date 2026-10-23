@@ -121,8 +121,10 @@ type ReviewSessionResponse struct {
 
 // StageDecisionRequest is the request payload for POST /api/review/action.
 type StageDecisionRequest struct {
-	CandidateID string         `json:"candidate_id"`
-	Decision    ActionDecision `json:"decision"`
+	SessionID    string         `json:"session_id,omitempty"`
+	CandidateID  string         `json:"candidate_id,omitempty"`
+	CandidateIDs []string       `json:"candidate_ids,omitempty"`
+	Decision     ActionDecision `json:"decision"`
 }
 
 // StageDecisionResponse is the response payload for POST /api/review/action.
@@ -130,6 +132,11 @@ type StageDecisionResponse struct {
 	Status  string         `json:"status"`
 	Session *ReviewSession `json:"session,omitempty"`
 	Error   string         `json:"error,omitempty"`
+}
+
+// ExecuteReviewRequest is the optional request payload for POST /api/review/execute.
+type ExecuteReviewRequest struct {
+	SessionID string `json:"session_id,omitempty"`
 }
 
 // ExecuteReviewResponse is the response payload for POST /api/review/execute.
@@ -142,10 +149,20 @@ type ExecuteReviewResponse struct {
 	Error     string             `json:"error,omitempty"`
 }
 
+// RollbackReviewRequest is the optional request payload for POST /api/review/rollback.
+type RollbackReviewRequest struct {
+	SessionID string `json:"session_id,omitempty"`
+}
+
 // RollbackReviewResponse is the response payload for POST /api/review/rollback.
 type RollbackReviewResponse struct {
 	Status    string `json:"status"`
 	SessionID string `json:"session_id"`
 	Restored  int    `json:"restored"`
 	Error     string `json:"error,omitempty"`
+}
+
+// DismissReviewRequest is the optional request payload for POST /api/review/dismiss.
+type DismissReviewRequest struct {
+	SessionID string `json:"session_id,omitempty"`
 }
