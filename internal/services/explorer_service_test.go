@@ -2,10 +2,12 @@ package services
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -44,6 +46,36 @@ func TestExplorerService_IsLocalPathJailed(t *testing.T) {
 	_, _, okSubEscape := IsLocalPathJailed(tmpDir, "allowed/../../..")
 	if okSubEscape {
 		t.Fatal("expected relative escape to be rejected")
+	}
+
+	// Symlink pointing outside jail (H-2)
+	outsideDir, err := os.MkdirTemp("", "outside-jail-*")
+	if err != nil {
+		t.Fatalf("failed to create outside dir: %v", err)
+	}
+	defer os.RemoveAll(outsideDir)
+	_ = os.WriteFile(filepath.Join(outsideDir, "secret.txt"), []byte("secret"), 0644)
+
+	outsideSymlink := filepath.Join(tmpDir, "symlink_outside")
+	if err := os.Symlink(outsideDir, outsideSymlink); err == nil {
+		_, _, okOutside := IsLocalPathJailed(tmpDir, "symlink_outside")
+		if okOutside {
+			t.Fatal("expected symlink pointing outside jail to be rejected")
+		}
+
+		_, _, okFileOutside := IsLocalPathJailed(tmpDir, "symlink_outside/secret.txt")
+		if okFileOutside {
+			t.Fatal("expected file inside outside symlink to be rejected")
+		}
+	}
+
+	// Symlink pointing inside jail should be permitted
+	insideSymlink := filepath.Join(tmpDir, "symlink_inside")
+	if err := os.Symlink(subDir, insideSymlink); err == nil {
+		_, _, okInside := IsLocalPathJailed(tmpDir, "symlink_inside")
+		if !okInside {
+			t.Fatal("expected symlink pointing inside jail to be permitted")
+		}
 	}
 }
 
@@ -146,38 +178,38 @@ func TestExplorerService_CopyItem(t *testing.T) {
 
 	// 1. Source traversal forbidden
 	resTrav, _ := expSvc.CopyItem(context.Background(), "local", "../../../etc/passwd", "local", "out.txt", false)
-	if resTrav["status"] != "error" || resTrav["error"] != "Source path traversal forbidden" {
+	if resTrav.Status != "error" || resTrav.Error != "Source path traversal forbidden" {
 		t.Fatalf("expected source traversal forbidden, got: %v", resTrav)
 	}
 
 	// 2. Destination traversal forbidden
 	resDstTrav, _ := expSvc.CopyItem(context.Background(), "local", "file1.txt", "local", "../out.txt", false)
-	if resDstTrav["status"] != "error" || resDstTrav["error"] != "Destination path traversal forbidden" {
+	if resDstTrav.Status != "error" || resDstTrav.Error != "Destination path traversal forbidden" {
 		t.Fatalf("expected destination traversal forbidden, got: %v", resDstTrav)
 	}
 
 	// 3. Source missing
 	resMissing, _ := expSvc.CopyItem(context.Background(), "local", "non_existent.txt", "local", "out.txt", false)
-	if resMissing["status"] != "error" {
+	if resMissing.Status != "error" {
 		t.Fatalf("expected error for missing source, got: %v", resMissing)
 	}
 
 	// 4. Local-to-local file copy
 	resOk, err := expSvc.CopyItem(context.Background(), "local", "file1.txt", "local", "file1_copy.txt", false)
-	if err != nil || resOk["status"] != "success" {
+	if err != nil || resOk.Status != "success" {
 		t.Fatalf("expected copy success, got: %v, err: %v", resOk, err)
 	}
 
 	// 5. Local-to-remote directory copy
 	resDir, err := expSvc.CopyItem(context.Background(), "local", "folder", "gdrive", "sub/folder", true)
-	if err != nil || resDir["status"] != "success" {
+	if err != nil || resDir.Status != "success" {
 		t.Fatalf("expected copydir success: %v, err: %v", resDir, err)
 	}
 
 	// 6. Nil client error check
 	expNil := NewExplorerService(cfg, nil, nil)
 	resNil, _ := expNil.CopyItem(context.Background(), "gdrive", "file.txt", "local", "file.txt", false)
-	if resNil["status"] != "error" || resNil["error"] != "client not configured" {
+	if resNil.Status != "error" || resNil.Error != "client not configured" {
 		t.Fatalf("expected client not configured, got: %v", resNil)
 	}
 }
@@ -199,6 +231,14 @@ func TestExplorerService_DeleteItem(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/operations/purge":
 			w.WriteHeader(http.StatusOK)
+		case "/operations/list":
+			w.Header().Set("Content-Type", "application/json")
+			reqBody, _ := io.ReadAll(r.Body)
+			if strings.Contains(string(reqBody), "canary_remote_dir") {
+				_, _ = w.Write([]byte(`{"list":[{"Name":"RCLONE_TEST","IsDir":false}]}`))
+			} else {
+				_, _ = w.Write([]byte(`{"list":[]}`))
+			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -207,7 +247,8 @@ func TestExplorerService_DeleteItem(t *testing.T) {
 
 	rcClient := client.NewRcloneClient(srv.URL, "user", "pass")
 	cfg := &config.Config{LocalPath: tmpDir}
-	expSvc := NewExplorerService(cfg, rcClient, nil)
+	canarySvc := NewCanaryService(cfg, rcClient)
+	expSvc := NewExplorerService(cfg, rcClient, canarySvc)
 
 	// 1. Root or empty path deletion forbidden
 	resRoot, _ := expSvc.DeleteItem(context.Background(), "local", "", false)
@@ -219,6 +260,24 @@ func TestExplorerService_DeleteItem(t *testing.T) {
 	resCanary, _ := expSvc.DeleteItem(context.Background(), "local", "RCLONE_TEST", false)
 	if resCanary["status"] != "error" || resCanary["error"] != "Canary test file (RCLONE_TEST) cannot be deleted" {
 		t.Fatalf("expected canary deletion error, got: %v", resCanary)
+	}
+
+	// 2b. Directory containing canary file protected (H-3 local)
+	canaryDir := filepath.Join(tmpDir, "canary_dir")
+	_ = os.MkdirAll(canaryDir, 0755)
+	_ = os.WriteFile(filepath.Join(canaryDir, "RCLONE_TEST"), []byte("canary"), 0644)
+	resCanaryDir, _ := expSvc.DeleteItem(context.Background(), "local", "canary_dir", true)
+	if resCanaryDir["status"] != "error" || resCanaryDir["error"] != "Directory contains canary test file (RCLONE_TEST) and cannot be deleted" {
+		t.Fatalf("expected canary directory deletion error, got: %v", resCanaryDir)
+	}
+	if _, err := os.Stat(canaryDir); err != nil {
+		t.Fatalf("canary directory should not have been removed: %v", err)
+	}
+
+	// 2c. Remote directory containing canary file protected (H-3 remote)
+	resRemoteCanaryDir, _ := expSvc.DeleteItem(context.Background(), "gdrive", "canary_remote_dir", true)
+	if resRemoteCanaryDir["status"] != "error" || resRemoteCanaryDir["error"] != "Directory contains canary test file (RCLONE_TEST) and cannot be deleted" {
+		t.Fatalf("expected remote canary directory deletion error, got: %v", resRemoteCanaryDir)
 	}
 
 	// 3. Traversal or root deletion forbidden

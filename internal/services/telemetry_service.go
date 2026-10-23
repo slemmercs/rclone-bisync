@@ -15,6 +15,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/core/security"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
@@ -79,13 +80,13 @@ func (t *TelemetryService) GetDaemonHealth(ctx context.Context) map[string]inter
 }
 
 // GetRemotesSummary queries remotes and storage metrics.
-func (t *TelemetryService) GetRemotesSummary(ctx context.Context) (map[string]interface{}, error) {
+func (t *TelemetryService) GetRemotesSummary(ctx context.Context) (models.RemotesResponse, error) {
 	if t.Client == nil {
-		return nil, fmt.Errorf("client not configured")
+		return models.RemotesResponse{}, fmt.Errorf("client not configured")
 	}
 	remotes, err := t.Client.ListRemotes(ctx)
 	if err != nil {
-		return nil, err
+		return models.RemotesResponse{}, err
 	}
 
 	remoteData := make([]map[string]interface{}, 0, len(remotes))
@@ -153,11 +154,11 @@ func (t *TelemetryService) GetRemotesSummary(ctx context.Context) (map[string]in
 		activeRemoteFormatted = fmt.Sprintf("%s:", activeRemote)
 	}
 
-	return map[string]interface{}{
-		"remotes":       remoteData,
-		"summary":       summary,
-		"active_remote": activeRemoteFormatted,
-		"count":         len(remoteData),
+	return models.RemotesResponse{
+		Remotes:      remoteData,
+		Summary:      summary,
+		ActiveRemote: activeRemoteFormatted,
+		Count:        len(remoteData),
 	}, nil
 }
 
@@ -365,12 +366,5 @@ func toUpperSnakeCase(s string) string {
 }
 
 func isKeySensitive(key string) bool {
-	u := strings.ToUpper(key)
-	sensitivePatterns := []string{"PASS", "SECRET", "TOKEN", "KEY", "CREDENTIAL", "AUTH", "WEBHOOK", "PRIVATE"}
-	for _, pat := range sensitivePatterns {
-		if strings.Contains(u, pat) {
-			return true
-		}
-	}
-	return false
+	return security.IsSensitiveKeyName(key)
 }

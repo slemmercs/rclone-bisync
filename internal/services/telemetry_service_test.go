@@ -256,8 +256,8 @@ func TestTelemetryService_Direct(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error from GetRemotesSummary: %v", err)
 	}
-	if summary["count"] != 1 {
-		t.Fatalf("expected 1 remote, got: %v", summary["count"])
+	if summary.Count != 1 {
+		t.Fatalf("expected 1 remote, got: %v", summary.Count)
 	}
 
 	// 3. GetTransferStats

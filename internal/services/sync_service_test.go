@@ -218,8 +218,8 @@ func TestGetRemotesSummary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRemotesSummary failed: %v", err)
 	}
-	remotesList, ok := res["remotes"].([]map[string]interface{})
-	if !ok || len(remotesList) != 1 {
+	remotesList := res.Remotes
+	if len(remotesList) != 1 {
 		t.Fatalf("expected 1 remote, got %v in %v", len(remotesList), res)
 	}
 	if remotesList[0]["name"] != "gdrive" || remotesList[0]["type"] != "drive" {
@@ -256,19 +256,19 @@ func TestCopyItem(t *testing.T) {
 
 	// 1. Path traversal copy attempt forbidden
 	res, err := svc.CopyItem(context.Background(), "local", "../../../etc/passwd", "local", "out.txt", false)
-	if err != nil || res["status"] != "error" {
+	if err != nil || res.Status != "error" {
 		t.Fatalf("expected path traversal rejection, got: %v", res)
 	}
 
 	// 2. Missing source file
 	resMissing, _ := svc.CopyItem(context.Background(), "local", "non_existent.txt", "local", "out.txt", false)
-	if resMissing["status"] != "error" {
+	if resMissing.Status != "error" {
 		t.Fatalf("expected error for missing source file, got: %v", resMissing)
 	}
 
 	// 3. Successful local file copy
 	resOk, err := svc.CopyItem(context.Background(), "local", "file1.txt", "local", "file1_copy.txt", false)
-	if err != nil || resOk["status"] != "success" {
+	if err != nil || resOk.Status != "success" {
 		t.Fatalf("expected successful copy, got: %v, err: %v", resOk, err)
 	}
 }
@@ -355,20 +355,20 @@ func TestHandleActionAndSyncing(t *testing.T) {
 
 	// HandleAction unknown action
 	resUnknown, _ := svc.HandleAction(context.Background(), "invalid_action")
-	if resUnknown["status"] != "error" {
+	if resUnknown.Status != "error" {
 		t.Fatalf("expected error for unknown action, got: %v", resUnknown)
 	}
 
 	// HandleAction clear_rate_limit
 	resClear, _ := svc.HandleAction(context.Background(), "clear_rate_limit")
-	if resClear["status"] != "success" {
+	if resClear.Status != "success" {
 		t.Fatalf("expected success clearing rate limit, got: %v", resClear)
 	}
 
 	// HandleAction dismiss_deletions (handled by pending deletions clearing or remove_lock)
 	resLock, _ := svc.HandleAction(context.Background(), "remove_lock")
 	// Since isSyncing is true (lockFile exists), removing lock should report error or conflict
-	if resLock["status"] != "error" {
+	if resLock.Status != "error" {
 		t.Fatalf("expected error removing active lock, got: %v", resLock)
 	}
 }
@@ -430,11 +430,11 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 	// 2. Remote CopyDir and remote CopyFile
 	_ = os.MkdirAll(filepath.Join(tmpDir, "folder"), 0755)
 	resDir, err := svc.CopyItem(ctx, "local", "folder", "gdrive", "sub/folder", true)
-	if err != nil || resDir["status"] != "success" {
+	if err != nil || resDir.Status != "success" {
 		t.Fatalf("expected CopyDir success: %v", resDir)
 	}
 	resRemoteFile, err := svc.CopyItem(ctx, "gdrive", "file.pdf", "local", "file.pdf", false)
-	if err != nil || resRemoteFile["status"] != "success" {
+	if err != nil || resRemoteFile.Status != "success" {
 		t.Fatalf("expected remote-to-local CopyFile success: %v", resRemoteFile)
 	}
 
@@ -453,19 +453,19 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 	_, _ = lm.Acquire()
 
 	resStart, _ := svc.HandleAction(ctx, "start_sync")
-	if resStart["status"] != "error" {
+	if resStart.Status != "error" {
 		t.Fatalf("expected error starting sync while locked: %v", resStart)
 	}
 	resForceResync, _ := svc.HandleAction(ctx, "force_resync")
-	if resForceResync["status"] != "error" {
+	if resForceResync.Status != "error" {
 		t.Fatalf("expected error force_resync while locked: %v", resForceResync)
 	}
 	resForceSync, _ := svc.HandleAction(ctx, "force_sync")
-	if resForceSync["status"] != "error" {
+	if resForceSync.Status != "error" {
 		t.Fatalf("expected error force_sync while locked: %v", resForceSync)
 	}
 	resDryRun, _ := svc.HandleAction(ctx, "dry_run")
-	if resDryRun["status"] != "error" {
+	if resDryRun.Status != "error" {
 		t.Fatalf("expected error dry_run while locked: %v", resDryRun)
 	}
 
@@ -474,19 +474,19 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 	// 5. HandleAction remove_lock when stale lock file exists
 	_ = os.WriteFile(cfg.LockFile, []byte("stale"), 0644)
 	resRemLockSuccess, _ := svc.HandleAction(ctx, "remove_lock")
-	if resRemLockSuccess["status"] != "success" {
+	if resRemLockSuccess.Status != "success" {
 		t.Fatalf("expected success removing stale lock file: %v", resRemLockSuccess)
 	}
 
 	// 6. HandleAction remove_lock when lock file missing
 	resRemLockMissing, _ := svc.HandleAction(ctx, "remove_lock")
-	if resRemLockMissing["status"] != "info" {
+	if resRemLockMissing.Status != "info" {
 		t.Fatalf("expected info on missing lock: %v", resRemLockMissing)
 	}
 
 	// 7. HandleAction stop_sync
 	resStop, _ := svc.HandleAction(ctx, "stop_sync")
-	if resStop["status"] != "success" {
+	if resStop.Status != "success" {
 		t.Fatalf("expected success on stop_sync: %v", resStop)
 	}
 
@@ -517,7 +517,7 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 
 	// 12. Copy local directory to local
 	resLocalDirCopy, err := svc.CopyItem(ctx, "local", "folder", "local", "folder2", true)
-	if err != nil || resLocalDirCopy["status"] != "success" {
+	if err != nil || resLocalDirCopy.Status != "success" {
 		t.Fatalf("expected local dir copy success, got: %v", resLocalDirCopy)
 	}
 

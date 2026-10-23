@@ -5,13 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
@@ -83,27 +80,27 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// CSRF & Security middleware
 	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch) && strings.HasPrefix(r.URL.Path, "/api/") {
 		if r.Header.Get("X-Dashboard-Request") != "1" {
-			writeJSON(w, http.StatusForbidden, map[string]interface{}{
-				"status": "error",
-				"msg":    "Security policy violation: Missing required X-Dashboard-Request header.",
+			writeJSON(w, http.StatusForbidden, models.ErrorResponse{
+				Status: "error",
+				Msg:    "Security policy violation: Missing required X-Dashboard-Request header.",
 			})
 			return
 		}
 
 		origin := r.Header.Get("Origin")
 		if origin != "" && !isAllowedOrigin(origin) {
-			writeJSON(w, http.StatusForbidden, map[string]interface{}{
-				"status": "error",
-				"msg":    fmt.Sprintf("Security policy violation: Untrusted request origin '%s'.", origin),
+			writeJSON(w, http.StatusForbidden, models.ErrorResponse{
+				Status: "error",
+				Msg:    fmt.Sprintf("Security policy violation: Untrusted request origin '%s'.", origin),
 			})
 			return
 		}
 
 		referer := r.Header.Get("Referer")
 		if referer != "" && !isAllowedOrigin(referer) {
-			writeJSON(w, http.StatusForbidden, map[string]interface{}{
-				"status": "error",
-				"msg":    "Security policy violation: Untrusted request referer.",
+			writeJSON(w, http.StatusForbidden, models.ErrorResponse{
+				Status: "error",
+				Msg:    "Security policy violation: Untrusted request referer.",
 			})
 			return
 		}
@@ -121,7 +118,27 @@ func isAllowedOrigin(rawURL string) bool {
 		return false
 	}
 	hostname := u.Hostname()
-	return hostname == "localhost" || hostname == "127.0.0.1"
+	if hostname == "" {
+		return false
+	}
+	if hostname == "localhost" || strings.HasSuffix(hostname, ".local") || strings.HasSuffix(hostname, ".lan") {
+		return true
+	}
+
+	ip := net.ParseIP(hostname)
+	if ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
+			return true
+		}
+		// Carrier-grade NAT (100.64.0.0/10) for Tailscale homelab mesh networks
+		if ip4 := ip.To4(); ip4 != nil {
+			if ip4[0] == 100 && (ip4[1]&0xc0) == 64 {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
@@ -132,6 +149,7 @@ func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 }
 
 func (s *Server) routes() {
+	s.Mux.HandleFunc("GET /api/health", s.handleDaemonHealth)
 	s.Mux.HandleFunc("GET /api/logs/bisync/raw", s.handleRawBisyncLog)
 	s.Mux.HandleFunc("GET /api/logs/daemon/raw", s.handleRawDaemonLog)
 	s.Mux.HandleFunc("GET /api/logs/daemon", s.handleDaemonLogs)
@@ -178,346 +196,4 @@ func (s *Server) routes() {
 			_, _ = w.Write(indexHTML)
 		})
 	}
-}
-
-func (s *Server) handleRawBisyncLog(w http.ResponseWriter, r *http.Request) {
-	if _, err := os.Stat(s.Config.LogFile); os.IsNotExist(err) {
-		writeJSON(w, http.StatusOK, map[string]string{"error": "Log file not found"})
-		return
-	}
-	w.Header().Set("Content-Type", "text/plain")
-	w.Header().Set("Content-Disposition", "attachment; filename=bisync.log")
-	http.ServeFile(w, r, s.Config.LogFile)
-}
-
-func (s *Server) handleRawDaemonLog(w http.ResponseWriter, r *http.Request) {
-	daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
-	if _, err := os.Stat(daemonLog); os.IsNotExist(err) {
-		writeJSON(w, http.StatusOK, map[string]string{"error": "Daemon log file not found"})
-		return
-	}
-	w.Header().Set("Content-Type", "text/plain")
-	w.Header().Set("Content-Disposition", "attachment; filename=rclone-daemon.log")
-	http.ServeFile(w, r, daemonLog)
-}
-
-func (s *Server) handleDaemonLogs(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	runID := q.Get("run_id")
-	jobIDStr := q.Get("job_id")
-	jobID := 0
-	if jobIDStr != "" {
-		if parsed, err := strconv.Atoi(jobIDStr); err == nil {
-			jobID = parsed
-		}
-	}
-
-	startStr := q.Get("start_time")
-	if startStr == "" {
-		startStr = q.Get("start")
-	}
-	endStr := q.Get("end_time")
-	if endStr == "" {
-		endStr = q.Get("end")
-	}
-
-	var startTime, endTime time.Time
-	if startStr != "" {
-		if t, err := time.Parse(time.RFC3339Nano, startStr); err == nil {
-			startTime = t
-		} else if t, err := time.Parse(time.RFC3339, startStr); err == nil {
-			startTime = t
-		}
-	}
-	if endStr != "" {
-		if t, err := time.Parse(time.RFC3339Nano, endStr); err == nil {
-			endTime = t
-		} else if t, err := time.Parse(time.RFC3339, endStr); err == nil {
-			endTime = t
-		}
-	}
-
-	limit := 200
-	if qLimit := q.Get("limit"); qLimit != "" {
-		if parsed, err := strconv.Atoi(qLimit); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-
-	daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
-	logs, err := s.LogService.FilterDaemonLogs(daemonLog, startTime, endTime, limit)
-	if err != nil {
-		writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
-			RunID: runID,
-			JobID: jobID,
-			Error: err.Error(),
-		})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
-		RunID:      runID,
-		JobID:      jobID,
-		Count:      len(logs),
-		Logs:       logs,
-		Correlated: !startTime.IsZero(),
-	})
-}
-
-func (s *Server) handleTelemetry(w http.ResponseWriter, r *http.Request) {
-	limit := 40
-	if qLimit := r.URL.Query().Get("limit"); qLimit != "" {
-		if parsed, err := strconv.Atoi(qLimit); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-	isSyncing := false
-	if s.SyncService != nil {
-		isSyncing = s.SyncService.IsSyncing()
-	}
-	payload := s.TelemetryService.GetTelemetryPayload(r.Context(), isSyncing, limit)
-	writeJSON(w, http.StatusOK, payload)
-}
-
-func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
-	var req models.ActionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid request body"})
-		return
-	}
-	if s.SyncService == nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": "SyncService not initialized"})
-		return
-	}
-	res, err := s.SyncService.HandleAction(r.Context(), req.Action)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, res)
-}
-
-func (s *Server) handlePendingDeletions(w http.ResponseWriter, r *http.Request) {
-	data := s.DeletionService.GetPendingDeletions()
-	writeJSON(w, http.StatusOK, data)
-}
-
-func (s *Server) handleRemotes(w http.ResponseWriter, r *http.Request) {
-	summary, err := s.TelemetryService.GetRemotesSummary(r.Context())
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"remotes": []interface{}{},
-			"count":   0,
-			"summary": map[string]interface{}{},
-			"error":   err.Error(),
-		})
-		return
-	}
-	writeJSON(w, http.StatusOK, summary)
-}
-
-func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
-	var req models.BrowseRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	remote := req.Remote
-	if remote == "" {
-		remote = "local"
-	}
-	res := s.ExplorerService.BrowsePath(r.Context(), remote, req.Path)
-	writeJSON(w, http.StatusOK, res)
-}
-
-func (s *Server) handleProvisionCanary(w http.ResponseWriter, r *http.Request) {
-	var req models.BrowseRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	remote := req.Remote
-	if remote == "" {
-		remote = "local"
-	}
-	res, err := s.CanaryService.CreateCanary(r.Context(), remote, req.Path)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, res)
-}
-
-func (s *Server) handleCopyItem(w http.ResponseWriter, r *http.Request) {
-	var req models.CopyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid request body"})
-		return
-	}
-	res, err := s.ExplorerService.CopyItem(r.Context(), req.SrcRemote, req.SrcPath, req.DstRemote, req.DstPath, req.IsDir)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, res)
-}
-
-func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
-	var req models.DeleteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid request body"})
-		return
-	}
-	res, err := s.ExplorerService.DeleteItem(r.Context(), req.Remote, req.Path, req.IsDir)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, res)
-}
-
-func (s *Server) handleRemotesAuth(w http.ResponseWriter, r *http.Request) {
-	if s.AuthService == nil {
-		writeJSON(w, http.StatusOK, models.AuthStatusResponse{})
-		return
-	}
-	resp, err := s.AuthService.GetAuthStatus(r.Context())
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"error":   err.Error(),
-			"summary": models.AuthHealthSummary{},
-			"remotes": []interface{}{},
-		})
-		return
-	}
-	writeJSON(w, http.StatusOK, resp)
-}
-
-func (s *Server) handleRemoteReconnect(w http.ResponseWriter, r *http.Request) {
-	if s.AuthService == nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
-		return
-	}
-	name := r.PathValue("name")
-	if strings.TrimSpace(name) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Remote name parameter required"})
-		return
-	}
-
-	resp, err := s.AuthService.ReconnectRemote(r.Context(), name)
-	if err != nil {
-		writeJSON(w, http.StatusOK, resp)
-		return
-	}
-	writeJSON(w, http.StatusOK, resp)
-}
-func (s *Server) handleRemoteReconnectCancel(w http.ResponseWriter, r *http.Request) {
-	if s.AuthService == nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
-		return
-	}
-	name := r.PathValue("name")
-	if strings.TrimSpace(name) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Remote name parameter required"})
-		return
-	}
-
-	cancelled := s.AuthService.CancelReconnect(name)
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"status":    "success",
-		"remote":    name,
-		"cancelled": cancelled,
-		"msg":       "Reconnect process cancelled.",
-	})
-}
-
-func (s *Server) handleRemoteCredentials(w http.ResponseWriter, r *http.Request) {
-	if s.AuthService == nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
-		return
-	}
-	name := r.PathValue("name")
-	if strings.TrimSpace(name) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Remote name parameter required"})
-		return
-	}
-
-	var req models.UpdateCredentialsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Invalid request payload"})
-		return
-	}
-
-	err := s.AuthService.UpdateCredentials(r.Context(), name, req.ClientID, req.ClientSecret)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "error", "error": err.Error()})
-		return
-	}
-
-	// Immediate validation check post-update
-	val, _ := s.AuthService.ValidateRemote(r.Context(), name)
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"status":     "success",
-		"remote":     name,
-		"msg":        "Credentials successfully saved.",
-		"validation": val,
-	})
-}
-
-func (s *Server) handleRemotesAuthCheck(w http.ResponseWriter, r *http.Request) {
-	if s.AuthService == nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
-		return
-	}
-
-	res, err := s.AuthService.CheckAllRemotesAuth(r.Context())
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]interface{}{"status": "error", "error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, res)
-}
-
-func (s *Server) handleRemoteValidate(w http.ResponseWriter, r *http.Request) {
-	if s.AuthService == nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
-		return
-	}
-	name := r.PathValue("name")
-	if strings.TrimSpace(name) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Remote name parameter required"})
-		return
-	}
-
-	res, err := s.AuthService.ValidateRemote(r.Context(), name)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]interface{}{"status": "error", "error": err.Error(), "valid": false})
-		return
-	}
-	writeJSON(w, http.StatusOK, res)
-}
-
-func (s *Server) handleRemotesAuthAudit(w http.ResponseWriter, r *http.Request) {
-	if s.AuthService == nil {
-		writeJSON(w, http.StatusOK, models.AuditEventsResponse{})
-		return
-	}
-	limit := 50
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-	events := s.AuthService.GetAuditEvents(limit)
-	writeJSON(w, http.StatusOK, models.AuditEventsResponse{
-		Events: events,
-		Count:  len(events),
-	})
-}
-
-func (s *Server) handleOAuthStop(w http.ResponseWriter, r *http.Request) {
-	if s.AuthService == nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "AuthService not initialized"})
-		return
-	}
-	_ = s.AuthService.StopOAuth(r.Context())
-	writeJSON(w, http.StatusOK, map[string]string{
-		"status": "success",
-		"msg":    "OAuth processes stopped",
-	})
 }

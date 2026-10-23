@@ -216,6 +216,21 @@ func TestServerAPIEndpoints(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for delete request, got: %d", rec.Code)
 	}
+
+	// 10. GET /api/health -> 200 with DaemonHealthResponse
+	req, _ = http.NewRequest("GET", "/api/health", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /api/health, got: %d", rec.Code)
+	}
+	var healthResp models.DaemonHealthResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &healthResp); err != nil {
+		t.Fatalf("failed to decode health response: %v", err)
+	}
+	if healthResp.Status != "offline" { // nil client reports offline
+		t.Fatalf("expected offline status, got: %s", healthResp.Status)
+	}
 }
 
 func TestLogDownloadEndpoints(t *testing.T) {
@@ -384,8 +399,36 @@ func TestServerAdditionalBranches(t *testing.T) {
 		t.Fatalf("expected 200 response for canary error: %d", rec.Code)
 	}
 
-	if isAllowedOrigin("http://[invalid-url]:999999") {
-		t.Fatal("expected isAllowedOrigin to return false on invalid url")
+	// Origin validation checks (Finding M-2)
+	allowedOrigins := []string{
+		"",
+		"http://localhost:8080",
+		"http://127.0.0.1:8080",
+		"http://[::1]:8080",
+		"http://192.168.1.100:8080",
+		"http://10.0.0.5:8080",
+		"http://172.16.0.2:8080",
+		"http://100.80.5.10:8080",
+		"http://homelab.local:8080",
+		"http://nas.lan:8080",
+	}
+	for _, origin := range allowedOrigins {
+		if !isAllowedOrigin(origin) {
+			t.Fatalf("expected origin '%s' to be allowed", origin)
+		}
+	}
+
+	disallowedOrigins := []string{
+		"http://[invalid-url]:999999",
+		"http://evil.com",
+		"http://8.8.8.8:8080",
+		"http://localhost.evil.com",
+		"http://192.168.1.100.attacker.com",
+	}
+	for _, origin := range disallowedOrigins {
+		if isAllowedOrigin(origin) {
+			t.Fatalf("expected origin '%s' to be disallowed", origin)
+		}
 	}
 }
 
