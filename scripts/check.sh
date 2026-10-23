@@ -6,9 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 BUILD_DIR="${REPO_ROOT}/.build"
-COVERAGE_FILE="$(mktemp)"
-
-trap 'rm -rf "${BUILD_DIR}" "${COVERAGE_FILE}"' EXIT
 
 # ----------------------------------------------------------------------
 # Colors
@@ -34,12 +31,23 @@ fi
 
 MIN_COVERAGE="${MIN_COVERAGE:-80.0}"
 BUILD_TARGET="${BUILD_TARGET:-.}"
+COVERAGE_FILE="${COVERAGE_FILE:-coverage.out}"
+
+# ----------------------------------------------------------------------
+# Cleanup
+# ----------------------------------------------------------------------
+
+cleanup() {
+    rm -rf "${BUILD_DIR}"
+}
+
+trap cleanup EXIT
 
 # ----------------------------------------------------------------------
 # Logging
 # ----------------------------------------------------------------------
 
-CURRENT_STEP="Unknown"
+CURRENT_STEP="unknown"
 
 info() {
     echo -e "${BLUE}$1${NC}"
@@ -54,7 +62,7 @@ warning() {
 }
 
 fail() {
-    echo -e "${RED}$1${NC}" >&2
+    echo -e "${RED}[FAIL] $1${NC}" >&2
     echo "::error::$1"
     exit 1
 }
@@ -98,7 +106,7 @@ success "Required tooling available."
 echo
 
 # ----------------------------------------------------------------------
-# Platform Detection
+# Platform Information
 # ----------------------------------------------------------------------
 
 PLATFORM="$(go env GOOS)/$(go env GOARCH)"
@@ -114,10 +122,7 @@ CURRENT_STEP="Module Verification"
 
 info "[2/8] Verifying Go modules..."
 
-export GOFLAGS="-mod=readonly"
-
 go mod verify
-
 go mod tidy
 
 git diff --exit-code go.mod go.sum \
@@ -137,9 +142,7 @@ info "[3/8] Validating shell scripts..."
 while IFS= read -r script; do
     bash -n "${script}"
     echo "  ✓ ${script}"
-done < <(
-    git ls-files '*.sh'
-)
+done < <(git ls-files '*.sh')
 
 success "Shell validation passed."
 echo
@@ -152,13 +155,18 @@ CURRENT_STEP="Go Formatting"
 
 info "[4/8] Checking Go formatting..."
 
-UNFORMATTED="$(
-    gofmt -l -s $(git ls-files '*.go')
-)"
+GO_FILES="$(git ls-files '*.go')"
 
-if [[ -n "${UNFORMATTED}" ]]; then
-    echo "${UNFORMATTED}"
-    fail "Go formatting issues detected. Run: gofmt -w ."
+if [[ -n "${GO_FILES}" ]]; then
+    UNFORMATTED="$(
+        git ls-files -z '*.go' |
+        xargs -0 gofmt -l -s
+    )"
+
+    if [[ -n "${UNFORMATTED}" ]]; then
+        echo "${UNFORMATTED}"
+        fail "Go formatting issues detected. Run: gofmt -w ."
+    fi
 fi
 
 success "Go formatting check passed."
@@ -181,9 +189,9 @@ echo
 # 6. Tests & Coverage
 # ----------------------------------------------------------------------
 
-CURRENT_STEP="Unit Tests"
+CURRENT_STEP="Unit Tests & Coverage"
 
-info "[6/8] Running unit tests..."
+info "[6/8] Running unit tests with coverage..."
 
 go test \
     -count=1 \
@@ -209,10 +217,10 @@ COVERAGE="$(
 )"
 
 echo
-echo "Coverage: ${COVERAGE}%"
+echo "Coverage : ${COVERAGE}%"
 echo "Required : ${MIN_COVERAGE}%"
 
-awk -v cov="$COVERAGE" -v min="$MIN_COVERAGE" '
+awk -v cov="${COVERAGE}" -v min="${MIN_COVERAGE}" '
 BEGIN {
     exit (cov >= min ? 0 : 1)
 }' || fail "Coverage ${COVERAGE}% is below required ${MIN_COVERAGE}%"
@@ -242,13 +250,15 @@ echo
 # 8. Cross Platform Builds
 # ----------------------------------------------------------------------
 
-CURRENT_STEP="Cross Build"
+CURRENT_STEP="Cross Builds"
 
 info "[8/8] Verifying cross-platform builds..."
 
 info "Building linux/amd64..."
 
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+CGO_ENABLED=0 \
+GOOS=linux \
+GOARCH=amd64 \
 go build \
     -trimpath \
     -o "${BUILD_DIR}/app-linux-amd64" \
@@ -258,7 +268,9 @@ success "linux/amd64 build passed."
 
 info "Building linux/arm64..."
 
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+CGO_ENABLED=0 \
+GOOS=linux \
+GOARCH=arm64 \
 go build \
     -trimpath \
     -o "${BUILD_DIR}/app-linux-arm64" \
@@ -266,6 +278,10 @@ go build \
 
 success "linux/arm64 build passed."
 echo
+
+# ----------------------------------------------------------------------
+# CLI Validation
+# ----------------------------------------------------------------------
 
 CURRENT_STEP="CLI Validation"
 
@@ -276,7 +292,12 @@ info "Validating executable..."
 success "CLI validation passed."
 echo
 
+# ----------------------------------------------------------------------
+# Summary
+# ----------------------------------------------------------------------
+
 echo "===================================================="
 echo "Quality Gate Passed"
 echo "Coverage: ${COVERAGE}%"
+echo "Coverage Report: ${COVERAGE_FILE}"
 echo "===================================================="
