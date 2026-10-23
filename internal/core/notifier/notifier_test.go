@@ -1,11 +1,11 @@
 package notifier
 
 import (
-"encoding/json"
-"net/http"
-"net/http/httptest"
-"testing"
-"time"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
 )
 
 func TestShouldNotifyError(t *testing.T) {
@@ -32,15 +32,15 @@ func TestShouldNotifyError(t *testing.T) {
 func TestSendWebhook(t *testing.T) {
 	var receivedPayload map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-_ = json.NewDecoder(r.Body).Decode(&receivedPayload)
+		_ = json.NewDecoder(r.Body).Decode(&receivedPayload)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	d := NewDispatcher("TestApp", server.URL, 5, true, 6.0, "")
 	err := d.SendWebhook("sync_complete", map[string]interface{}{
-"files": 42,
-})
+		"files": 42,
+	})
 	if err != nil {
 		t.Fatalf("unexpected webhook dispatch error: %v", err)
 	}
@@ -80,4 +80,3 @@ func TestNotifierEdgeCases(t *testing.T) {
 		t.Fatal("expected non-empty icon string")
 	}
 }
-

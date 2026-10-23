@@ -10,10 +10,10 @@ import (
 
 // MonitorJobResult encapsulates the result of monitoring a bisync job.
 type MonitorJobResult struct {
-	Success     bool
-	ErrorType   string
+	Success      bool
+	ErrorType    string
 	ErrorMessage string
-	FilesSynced int
+	FilesSynced  int
 }
 
 // MonitorJob polls /job/status with exponential backoff and transient failure tolerance.

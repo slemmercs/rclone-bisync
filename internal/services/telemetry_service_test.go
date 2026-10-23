@@ -111,7 +111,6 @@ func TestGetTransferStats(t *testing.T) {
 	}
 }
 
-
 func TestGetCachedMetrics(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "metrics-cache-*")
 	if err != nil {
@@ -285,4 +284,3 @@ func TestTelemetryService_Direct(t *testing.T) {
 		t.Fatalf("expected nil transfer_stats when idle, got: %v", payloadIdle["transfer_stats"])
 	}
 }
-

@@ -1,18 +1,18 @@
 package config
 
 import (
-"bufio"
-"fmt"
-"os"
-"path/filepath"
-"strconv"
-"strings"
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 // Config represents runtime settings for rclone-bisync.
 type Config struct {
-	BaseDir   string
-	LocalPath string
+	BaseDir    string
+	LocalPath  string
 	RemotePath string
 
 	LogFile               string
@@ -41,7 +41,7 @@ type Config struct {
 
 	DaemonStartupTimeoutSec  int
 	DaemonHealthCheckRetries int
-	RetryDelaySec           float64
+	RetryDelaySec            float64
 
 	JobPollInitialSleepSec   float64
 	JobPollMaxSleepSec       float64
@@ -230,8 +230,8 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		BaseDir:   baseDir,
-		LocalPath: localPathRaw,
+		BaseDir:    baseDir,
+		LocalPath:  localPathRaw,
 		RemotePath: getEnv("REMOTE_PATH", "gdrive:"),
 
 		LogFile:               filepath.Join(baseDir, "bisync.log"),
@@ -260,7 +260,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 
 		DaemonStartupTimeoutSec:  getEnvInt("DAEMON_STARTUP_TIMEOUT_SEC", 30),
 		DaemonHealthCheckRetries: getEnvInt("DAEMON_HEALTH_CHECK_RETRIES", 2),
-		RetryDelaySec:           getEnvFloat("RETRY_DELAY", 1),
+		RetryDelaySec:            getEnvFloat("RETRY_DELAY", 1),
 
 		JobPollInitialSleepSec:   getEnvFloat("JOB_POLL_INITIAL_SLEEP", 2),
 		JobPollMaxSleepSec:       getEnvFloat("JOB_POLL_MAX_SLEEP", 10),

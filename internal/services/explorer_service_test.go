@@ -264,4 +264,3 @@ func TestExplorerService_DeleteItem(t *testing.T) {
 		t.Fatalf("expected client not configured, got: %v", resNil)
 	}
 }
-
