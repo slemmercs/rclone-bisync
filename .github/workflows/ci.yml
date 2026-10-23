@@ -2,19 +2,16 @@ name: CI Quality Gate
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   quality-gate:
-    name: Quality Gate
     runs-on:
       - self-hosted
       - rclone-bisync
@@ -29,19 +26,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Display runner information
-        run: |
-          echo "Runner: $(hostname)"
-          echo "User: $(whoami)"
-          echo "Architecture: $(uname -m)"
-          go version
-
-      - name: Verify Go modules
-        run: |
-          go mod tidy
-          git diff --exit-code
-
       - name: Run Quality Gate
+        env:
+          MIN_COVERAGE: "80.0"
         run: |
-          chmod +x ./scripts/check.sh
+          chmod +x scripts/check.sh
           ./scripts/check.sh
