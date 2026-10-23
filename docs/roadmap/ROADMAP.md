@@ -37,7 +37,7 @@ Roadmap items are not commitments and may change based on project needs.
 | Remote OAuth Reconnect & Lifecycle Management | **Delivered** | PR #16 |
 | SyncService Modularization & Domain Separation | **Delivered** | PR #18 |
 | Bisync Hub Rebranding & Lucide SVG Design System | **Delivered** | PR #20 |
-| **Interactive Sync Review & Deletion Diff Visualizer** | **In Progress** (`feat/interactive-sync-review`) | Phase 4 |
+| **Interactive Sync Review & Deletion Diff Visualizer** | **Delivered** | Phase 4 (`feat/interactive-sync-review`) |
 | Multi-Profile Synchronization Hub | Planned | Phase 5 |
 | Configuration Management & 3-Layer Safety Pipeline | Planned | Phase 5 |
 | Local MVP Deployment Hardening (Unix Sockets & Crypto Credentials) | Planned | Phase 6 |
