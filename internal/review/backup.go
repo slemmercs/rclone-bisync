@@ -124,12 +124,17 @@ func LocalBackup(srcPath, backupDir, sessionID, relPath string) (string, error) 
 }
 
 // FormatRemoteFs formats a remote identifier or local path into a valid rclone fs string.
+// Local absolute or relative paths are preserved without a trailing colon.
+// Remote identifiers are given a trailing colon (e.g., "gdrive:").
 func FormatRemoteFs(remote string) string {
 	clean := strings.TrimSpace(remote)
-	if strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, ".") || filepath.IsAbs(clean) {
-		return filepath.Clean(clean)
+	if strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, ".") {
+		return strings.TrimSuffix(clean, ":")
 	}
-	return strings.TrimSuffix(clean, ":") + ":"
+	if !strings.HasSuffix(clean, ":") {
+		return clean + ":"
+	}
+	return clean
 }
 
 // RemoteBackup initiates a cloud server-side copy for backup with zero local bandwidth.
