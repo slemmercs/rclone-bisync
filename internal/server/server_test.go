@@ -638,5 +638,239 @@ func TestAuthEndpoints(t *testing.T) {
 	if rec.Code != http.StatusOK || !bytes.Contains(rec.Body.Bytes(), []byte("cannot be empty")) {
 		t.Fatalf("expected error on empty client_id: %s", rec.Body.String())
 	}
+}
+
+func TestReviewEndpoints(t *testing.T) {
+	tmpDir := t.TempDir()
+	localDir := filepath.Join(tmpDir, "local")
+	backupsDir := filepath.Join(tmpDir, "backups")
+	_ = os.MkdirAll(localDir, 0755)
+	_ = os.MkdirAll(backupsDir, 0755)
+
+	mockRCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer mockRCServer.Close()
+
+	rcClient := client.NewRcloneClient(mockRCServer.URL, "user", "pass")
+	cfg := &config.Config{
+		LocalPath:            localDir,
+		RemotePath:           "gdrive:data",
+		BaseDir:              tmpDir,
+		PendingDeletionsFile: filepath.Join(tmpDir, "pending.json"),
+		LogFile:              filepath.Join(tmpDir, "bisync.log"),
+		ActiveReviewFile:     filepath.Join(tmpDir, "active_review_session.json"),
+		ReviewDir:            tmpDir,
+		ReviewBackupsDir:     backupsDir,
+		ReviewBackupTTLHours: 24.0,
+	}
+
+	syncSvc := services.NewSyncService(cfg, rcClient)
+	srv := NewServer(cfg, syncSvc, embed.FS{})
+
+	// 1. GET /api/review/session when no session exists
+	req, _ := http.NewRequest("GET", "/api/review/session", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for review session, got: %d", rec.Code)
+	}
+	var sessResp models.ReviewSessionResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &sessResp); err != nil {
+		t.Fatalf("failed to decode review session response: %v", err)
+	}
+	if sessResp.Active {
+		t.Fatal("expected active to be false initially")
+	}
+
+	// 2. CSRF policy enforcement on review endpoints
+	reviewEndpoints := []string{
+		"/api/review/action",
+		"/api/review/execute",
+		"/api/review/rollback",
+		"/api/review/dismiss",
+	}
+	for _, ep := range reviewEndpoints {
+		req, _ = http.NewRequest("POST", ep, bytes.NewBuffer([]byte(`{}`)))
+		rec = httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 on %s without CSRF header, got: %d", ep, rec.Code)
+		}
+	}
+
+	// 3. Create pending deletions and verify auto-discovery via GET /api/review/session
+	localFile := filepath.Join(localDir, "test_file.txt")
+	_ = os.WriteFile(localFile, []byte("hello world"), 0644)
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"files":["test_file.txt"],"error":"Too many deletes"}`), 0644)
+
+	req, _ = http.NewRequest("GET", "/api/review/session", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for review session, got: %d", rec.Code)
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &sessResp); err != nil {
+		t.Fatalf("failed to decode review session: %v", err)
+	}
+	if !sessResp.Active || sessResp.Session == nil {
+		t.Fatalf("expected active review session, got: %+v", sessResp)
+	}
+	if len(sessResp.Session.Deletions) == 0 {
+		t.Fatalf("expected deletion candidates discovered, got %d", len(sessResp.Session.Deletions))
+	}
+	candID := sessResp.Session.Deletions[0].ID
+	sessionID := sessResp.Session.ID
+
+	// 4. POST /api/review/action validation errors
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer([]byte(`invalid-json`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for bad action body, got: %d", rec.Code)
+	}
+
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer([]byte(`{"candidate_id":"c1"}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing decision, got: %d", rec.Code)
+	}
+
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer([]byte(`{"decision":"accept-delete"}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for missing candidate ID, got: %d", rec.Code)
+	}
+
+	// 5. POST /api/review/action valid single candidate decision staging
+	actionPayload, _ := json.Marshal(models.StageDecisionRequest{
+		SessionID:   sessionID,
+		CandidateID: candID,
+		Decision:    models.DecisionAcceptDelete,
+	})
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer(actionPayload))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for action staging, got: %d", rec.Code)
+	}
+	var actResp models.StageDecisionResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &actResp); err != nil {
+		t.Fatalf("failed to decode action response: %v", err)
+	}
+	if actResp.Status != "success" || actResp.Session == nil {
+		t.Fatalf("expected successful staging, got: %+v", actResp)
+	}
+	// 6. POST /api/review/action batch candidate decision staging
+	batchPayload, _ := json.Marshal(models.StageDecisionRequest{
+		SessionID:    sessionID,
+		CandidateIDs: []string{candID},
+		Decision:     models.DecisionAcceptDelete,
+	})
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer(batchPayload))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for batch staging, got: %d", rec.Code)
+	}
+
+	// 7. POST /api/review/execute
+	execPayload, _ := json.Marshal(models.ExecuteReviewRequest{
+		SessionID: sessionID,
+	})
+	req, _ = http.NewRequest("POST", "/api/review/execute", bytes.NewBuffer(execPayload))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for execute, got: %d", rec.Code)
+	}
+	var execResp models.ExecuteReviewResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &execResp); err != nil {
+		t.Fatalf("failed to decode execute response: %v", err)
+	}
+	if execResp.Status != "success" || execResp.Applied != 1 {
+		t.Fatalf("expected successful execution with 1 applied action, got: %+v", execResp)
+	}
+
+	// 8. POST /api/review/rollback with invalid session ID -> error payload
+	req, _ = http.NewRequest("POST", "/api/review/rollback", bytes.NewBuffer([]byte(`{"session_id":"invalid"}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with error payload for invalid rollback, got: %d", rec.Code)
+	}
+	var rollResp models.RollbackReviewResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &rollResp)
+	if rollResp.Status != "error" {
+		t.Fatalf("expected error status for invalid rollback session, got: %+v", rollResp)
+	}
+
+	// 9. POST /api/review/dismiss
+	_, _ = syncSvc.Review.DiscoverSession(context.Background(), "CONFLICT", "Conflict testing")
+	dismissPayload, _ := json.Marshal(models.DismissReviewRequest{})
+	req, _ = http.NewRequest("POST", "/api/review/dismiss", bytes.NewBuffer(dismissPayload))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for dismiss, got: %d", rec.Code)
+	}
+	var dismResp models.ActionResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &dismResp); err != nil || dismResp.Status != "success" {
+		t.Fatalf("expected successful dismiss response, got: %+v", dismResp)
+	}
+
+	// 10. Nil ReviewService paths
+	nilReviewSrv := NewServer(cfg, syncSvc, embed.FS{})
+	nilReviewSrv.ReviewService = nil
+
+	req, _ = http.NewRequest("GET", "/api/review/session", nil)
+	rec = httptest.NewRecorder()
+	nilReviewSrv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for nil review session, got: %d", rec.Code)
+	}
+
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer([]byte(`{"candidate_id":"c1","decision":"accept-delete"}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilReviewSrv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for nil review action, got: %d", rec.Code)
+	}
+
+	req, _ = http.NewRequest("POST", "/api/review/execute", bytes.NewBuffer([]byte(`{}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilReviewSrv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for nil review execute, got: %d", rec.Code)
+	}
+
+	req, _ = http.NewRequest("POST", "/api/review/rollback", bytes.NewBuffer([]byte(`{}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilReviewSrv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for nil review rollback, got: %d", rec.Code)
+	}
+
+	req, _ = http.NewRequest("POST", "/api/review/dismiss", bytes.NewBuffer([]byte(`{}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	nilReviewSrv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for nil review dismiss, got: %d", rec.Code)
+	}
 
 }
