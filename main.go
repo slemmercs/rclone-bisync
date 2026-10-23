@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/engine/runner"
@@ -99,6 +100,12 @@ func runDashboard(host string, port int, envFile string) {
 
 	<-stopSig
 	log.Println("Shutting down dashboard server gracefully...")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+	log.Println("Dashboard server stopped.")
 }
 
 func runSync(resync, force, dryRun, noNotify bool, origin, envFile string) {

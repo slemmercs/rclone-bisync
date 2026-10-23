@@ -11,7 +11,7 @@ Execute a comprehensive repository maintenance and quality hardening milestone t
 - [x] Task 2: Path Confinement Symlink Resolution & Recursive Canary Safeguard (Findings H-2, H-3)
   - **Scope**: Update `IsLocalPathJailed()` in `internal/services/explorer_service.go` to evaluate real filesystem targets using `filepath.EvalSymlinks()`; update `DeleteItem()` to check if directories contain `RCLONE_TEST` before deletion. Add unit tests in `internal/services/explorer_service_test.go`.
   - **Verification**: `go test -count=1 ./internal/services -run TestExplorer`
-- [ ] Task 3: Homelab LAN Access & Graceful Server Drain (Findings M-2, M-3)
+- [x] Task 3: Homelab LAN Access & Graceful Server Drain (Findings M-2, M-3)
   - **Scope**: Update `isAllowedOrigin()` in `internal/server/server.go` to permit private RFC 1918 subnets (`192.168.x.x`, `10.x.x.x`, `172.16.x.x`), `.local` domains, and the configured host. Add graceful `httpServer.Shutdown(ctx)` on `SIGINT`/`SIGTERM` in `main.go`.
   - **Verification**: `go test -count=1 ./internal/server` && `go test -count=1 .`
 - [ ] Task 4: Duplicate Secret Sanitization Cleanup & Safe Env Parser (Findings M-4, L-1)
@@ -35,6 +35,7 @@ Execute a comprehensive repository maintenance and quality hardening milestone t
 - 2026-10-23: Initialized Maintenance Milestone to address all architectural audit findings and complete core modularization prior to Phase 4.
 - 2026-10-23: Completed Task 1 (Finding H-1): Protected locks held by active PIDs from eviction or unlinking regardless of elapsed age; verified via `go test -count=1 ./internal/core/lock`.
 - 2026-10-23: Completed Task 2 (Findings H-2, H-3): Implemented symlink realpath confinement via `filepath.EvalSymlinks` and recursive directory deletion canary protection in `internal/services/`; verified via `go test -count=1 ./internal/services -run TestExplorer` and `./scripts/check.sh`.
+- 2026-10-23: Completed Task 3 (Findings M-2, M-3): Permitted private RFC 1918 subnets, Tailscale CGNAT, and .local/.lan domains in `isAllowedOrigin()`; implemented 5-second graceful HTTP drain via `httpServer.Shutdown(ctx)` in `main.go`. Verified via tests and `./scripts/check.sh`.
 
 
 

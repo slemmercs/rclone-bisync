@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -121,7 +122,27 @@ func isAllowedOrigin(rawURL string) bool {
 		return false
 	}
 	hostname := u.Hostname()
-	return hostname == "localhost" || hostname == "127.0.0.1"
+	if hostname == "" {
+		return false
+	}
+	if hostname == "localhost" || strings.HasSuffix(hostname, ".local") || strings.HasSuffix(hostname, ".lan") {
+		return true
+	}
+
+	ip := net.ParseIP(hostname)
+	if ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
+			return true
+		}
+		// Carrier-grade NAT (100.64.0.0/10) for Tailscale homelab mesh networks
+		if ip4 := ip.To4(); ip4 != nil {
+			if ip4[0] == 100 && (ip4[1]&0xc0) == 64 {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
