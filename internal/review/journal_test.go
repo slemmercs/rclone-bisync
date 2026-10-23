@@ -178,7 +178,6 @@ func TestJournal_ReconcileSessionWithWAL(t *testing.T) {
 	}
 }
 
-
 func TestJournal_EdgeCases(t *testing.T) {
 	// Empty path handling
 	if err := SaveActiveSession("", &models.ReviewSession{}); err == nil {

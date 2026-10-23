@@ -150,7 +150,6 @@ func buildDeletionCandidate(path string, source models.CandidateSide, targetActi
 	return cand
 }
 
-
 // discoverConflicts extracts conflict candidates from logs and filesystem patterns.
 func discoverConflicts(logLines []string, localRoot string) []models.ConflictCandidate {
 	var candidates []models.ConflictCandidate

@@ -211,4 +211,3 @@ func TestSession_DecisionAndTransitionHelpers(t *testing.T) {
 		t.Fatal("expected AllResolved true for empty candidates")
 	}
 }
-
