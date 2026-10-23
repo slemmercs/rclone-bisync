@@ -1,137 +1,488 @@
 # Bisync Hub
 
-> The safety-first dashboard for Rclone Bisync.
+> Review. Decide. Sync.
 
-**Review conflicts, inspect deletions, and make informed synchronization decisions before data changes occur.**
+**Bisync Hub is a safety-first operational platform for Rclone Bisync.**
 
-Bisync Hub provides automated, bidirectional synchronization between your local machine and cloud storage using the **Rclone Remote Control (RC) API**, paired with a single-binary native Go operational dashboard and sync orchestrator.
+Most synchronization tools focus on executing sync jobs.
 
-The project focuses on making Rclone Bisync easier to understand, operate, and recover when synchronization becomes complex. Instead of relying solely on logs, listing files, and force flags, Bisync Hub aims to provide visibility, safety controls, and guided recovery workflows for synchronization operations.
+Bisync Hub focuses on helping users understand synchronization outcomes before data changes occur.
 
-### Future Vision
+Instead of relying on logs, terminal output, and recovery procedures after something goes wrong, Bisync Hub aims to provide visibility, review workflows, and guided decision-making before synchronization is executed.
 
-**Review. Decide. Sync.**
+Bisync Hub provides automated, bidirectional synchronization between your local machine and cloud storage using the **Rclone Remote Control (RC) API**, paired with a single-binary native Go operational dashboard and synchronization orchestrator.
 
-The long-term goal of Bisync Hub is to become the safest and most understandable way to operate Rclone Bisync by providing:
+The project focuses on making Rclone Bisync easier to understand, operate, and recover when synchronization becomes complex.
 
-- Interactive conflict resolution
-- Deletion review workflows
-- Synchronization previews
-- Transactional rollback capabilities
-- Guided recovery from synchronization failures
-- Visual insight into synchronization decisions
+---
 
-The project is evolving beyond a traditional dashboard toward a review-driven synchronization platform where users can understand and control synchronization outcomes before data changes occur.
+# Why Bisync Hub?
 
-## Core Components
+Rclone is one of the most powerful file synchronization tools available.
 
-1. **Rclone Daemon (`rclone-daemon.service`)**: Background controller exposing internal statistics and control APIs.
-2. **Telemetry UI Backend (`rclone-dashboard.service`)**: High-performance native Go web server (`rclone-bisync dashboard`) running continuously with embedded Alpine.js + Tailwind frontend, aggregating log streams, operational state vectors, and real-time charts.
-3. **Synchronization Engine (`bisync-gdrive.service`)**: Native Go execution engine (`rclone-bisync sync`) triggered by systemd timer or manual command to execute bidirectional sync cycles safely with kernel-level flock locking and canary validation.
-4. **OAuth Connection Manager**: Centralized remote authentication health monitor, Google Drive shared client ID deprecation detector and migration wizard, desktop-integrated OAuth re-authentication runner, and in-memory audit trail.
-5. **Systemd Timer (`bisync-gdrive.timer`)**: Automatically runs the sync iteration every 15 minutes.
+However, when synchronization becomes complex, users are often left answering difficult questions:
 
-## Prerequisites & Installation
+- Why is this file in conflict?
+- Why is Bisync trying to delete these files?
+- What changed since the previous sync?
+- Is it safe to continue?
+- How do I recover from a failed synchronization?
 
-The application compiles into a self-contained, single-binary executable with no external Python runtime dependencies required for production operation.
+Bisync Hub exists to answer those questions.
 
-### Installation
+Instead of exposing users to raw logs and force flags, Bisync Hub aims to provide operational visibility, safety controls, and synchronization intelligence.
 
-1. Move to the source workspace directory.
-2. Run the automated deployment script with administrative elevations:
+---
 
-    ```bash
-    sudo bash deploy/install.sh
-    ```
+# How Bisync Hub Differs
 
-## CLI Commands
+Bisync Hub is inspired by the Rclone ecosystem and benefits from lessons learned across existing synchronization tools and automation projects.
 
-The unified single binary supports modular subcommands:
+While many projects help users run, schedule, or automate synchronizations, Bisync Hub focuses on helping users understand synchronization outcomes before changes occur.
 
-```bash
-# Launch telemetry dashboard (embedded UI)
-./bin/rclone-bisync dashboard --host 127.0.0.1 --port 8080
+## Comparison at a Glance
 
-# Execute bidirectional sync cycle
-./bin/rclone-bisync sync [--resync] [--force] [--dry-run] [--no-notify] [--origin=cli|timer|dashboard]
+| Capability | Sync Scripts | Bisync Managers | File Managers | Bisync Hub |
+|------------|-------------|----------------|---------------|------------|
+| Run Rclone Bisync | ✅ | ✅ | ✅ | ✅ |
+| Scheduled Synchronization | ✅ | ✅ | ⚠️ | ✅ |
+| Systemd Integration | ✅ | ✅ | ❌ | ✅ |
+| Operational Dashboard | ❌ | ⚠️ | ✅ | ✅ |
+| Real-Time Telemetry | ❌ | ⚠️ | ⚠️ | ✅ |
+| Authentication Health Monitoring | ❌ | ❌ | ❌ | ✅ |
+| Synchronization Visibility | ⚠️ | ⚠️ | ❌ | ✅ |
+| Conflict Review Experience | ❌ | ❌ | ⚠️ | ✅ Planned |
+| Deletion Review Workflow | ❌ | ❌ | ❌ | ✅ Planned |
+| Guided Recovery Workflows | ❌ | ❌ | ❌ | ✅ Planned |
+| Per-File Sync Decisions | ❌ | ❌ | ❌ | ✅ Planned |
+| Rollback-Oriented Design | ❌ | ❌ | ❌ | ✅ Planned |
 
-# Provision RCLONE_TEST canary file
-./bin/rclone-bisync canary [--remote local|gdrive] [--path subfolder]
+## Existing Approaches
+
+### Synchronization Automation
+
+Many synchronization projects focus on:
+
+- Running scheduled synchronizations
+- Managing system timers
+- Applying recommended safety flags
+- Capturing logs and errors
+
+These tools make synchronization easier to automate.
+
+### Synchronization Management
+
+Some projects expand automation with:
+
+- Multiple synchronization profiles
+- Scheduling
+- Background daemons
+- Configuration management
+- Tray integration
+
+These tools make synchronization easier to operate.
+
+### File Management
+
+Many graphical Rclone frontends focus on:
+
+- Browsing files
+- Managing cloud storage
+- Copying and moving data
+- Exploring remotes
+
+These tools make storage easier to navigate.
+
+## The Bisync Hub Approach
+
+Bisync Hub focuses on a different question:
+
+> How can users understand the impact of a synchronization before data changes occur?
+
+The project is being built around the concept of **synchronization intelligence**, not simply synchronization execution.
+
+Future workflows are intended to help answer questions such as:
+
+- Why is this file in conflict?
+- Why is a deletion being proposed?
+- What changed since the previous sync?
+- What will happen if synchronization proceeds?
+- Which files require user attention?
+- How can a failed synchronization be recovered safely?
+
+Most synchronization tools help execute a sync.
+
+**Bisync Hub aims to help users understand a sync.**
+
+---
+
+# Not Another File Manager
+
+Many Rclone-based tools focus on:
+
+- File browsing
+- File transfers
+- Cloud storage management
+- Remote administration
+
+Bisync Hub focuses on a different problem:
+
+**Synchronization Intelligence**
+
+The goal is not simply to execute a synchronization.
+
+The goal is to help users understand, review, and control synchronization outcomes.
+
+The integrated file explorer exists to provide synchronization context, not to become a full-featured cloud file manager.
+
+---
+
+# Core Principles
+
+## Visibility Before Action
+
+Users should understand what will happen before synchronization runs.
+
+## Safety Before Automation
+
+Automation should not come at the cost of accidental data loss.
+
+## Recovery Before Rebuild
+
+When synchronization fails, recovery should be guided and understandable.
+
+## Operational Clarity
+
+Synchronization state, remote health, conflicts, and risks should be visible without reading log files.
+
+---
+
+# Current Capabilities
+
+- Real-time synchronization telemetry
+- Browser-based operational dashboard
+- Embedded single-page application UI
+- Native Go single-binary deployment
+- Integrated dual-pane file explorer
+- OAuth connection health monitoring
+- Authentication recovery workflows
+- Canary validation and access checks
+- Synchronization orchestration and scheduling
+- Systemd integration
+- Safety-focused execution controls
+- Remote health monitoring
+- Structured logging and diagnostics
+
+---
+
+# Future Vision
+
+## Review. Decide. Sync.
+
+The long-term vision is to transform synchronization from a command into a reviewable workflow.
+
+```text
+Scan
+ ↓
+Analyze
+ ↓
+Review Changes
+ ↓
+Review Conflicts
+ ↓
+Review Deletions
+ ↓
+Make Decisions
+ ↓
+Execute Synchronization
+ ↓
+Recover if Required
 ```
 
-## Access & Monitoring Commands
+Rather than investigating problems after synchronization has completed, users should be able to understand and influence synchronization outcomes beforehand.
 
-- **Telemetry UI Instance**: Open your Application Launcher and select **Rclone Custom Dashboard**, or directly navigate to `http://localhost:8080` in your browser.
-- **Manual Sync Execution**: Run synchronization manually via the CLI or trigger the systemd service:
-    ```bash
-    ./bin/rclone-bisync sync
-    # Or via systemd:
-    systemctl --user start bisync-gdrive.service
-    ```
-- **Real-Time Service Journal Streams**:
+---
 
-    ```bash
-    # View dashboard web service engine logs
-    journalctl --user -u rclone-dashboard.service -f
-    
-    # View synchronization runner history
-    journalctl --user -u bisync-gdrive.service -f
-    ```
+# Planned Capabilities
 
-## Development & Testing
+## Interactive Sync Review
 
-Run the automated pre-flight quality and safety gate before committing or opening a PR:
+Review synchronization actions before execution.
+
+Planned capabilities:
+
+- Dry-run analysis
+- Pending action review
+- Synchronization previews
+- Risk visibility
+
+## Conflict Visualization
+
+Provide clear explanations of synchronization conflicts.
+
+Planned capabilities:
+
+- Side-by-side comparison
+- Conflict timelines
+- Recommended actions
+- Per-file decisions
+
+## Deletion Review
+
+Help users understand deletions before they occur.
+
+Planned capabilities:
+
+- Deletion analysis
+- Directory impact summaries
+- Approval workflows
+- Delete-risk visibility
+
+## Guided Recovery
+
+Transform synchronization recovery into a guided experience.
+
+Planned capabilities:
+
+- Recovery recommendations
+- Recovery automation
+- Failure diagnostics
+- Assisted resynchronization
+
+## Rollback Support
+
+Provide rollback-oriented synchronization workflows.
+
+Planned capabilities:
+
+- Configuration snapshots
+- Recovery checkpoints
+- Synchronization rollback foundations
+
+## Multi-Profile Synchronization
+
+Manage multiple synchronization environments from a single operational hub.
+
+Examples:
+
+- Personal Google Drive
+- Business OneDrive
+- NAS synchronization
+- Archive storage
+
+---
+
+# Core Components
+
+## 1. Rclone Daemon
+
+`rclone-daemon.service`
+
+Background controller exposing internal statistics and control APIs.
+
+## 2. Telemetry UI Backend
+
+`rclone-dashboard.service`
+
+Native Go web server running the embedded Alpine.js and Tailwind UI.
+
+Responsibilities:
+
+- Real-time telemetry
+- State aggregation
+- Log streaming
+- Dashboard APIs
+
+## 3. Synchronization Engine
+
+`bisync-gdrive.service`
+
+Native Go synchronization runner.
+
+Responsibilities:
+
+- Safe execution
+- Canary validation
+- Lock management
+- Synchronization orchestration
+
+## 4. OAuth Connection Manager
+
+Provides:
+
+- Authentication health monitoring
+- OAuth reconnect workflows
+- Credential validation
+- Audit history
+
+## 5. Systemd Timer
+
+`bisync-gdrive.timer`
+
+Automatically executes periodic synchronization cycles.
+
+---
+
+# Installation
+
+The application compiles into a self-contained single-binary executable with no Python runtime dependencies.
+
+## Install
+
+```bash
+sudo bash deploy/install.sh
+```
+
+---
+
+# CLI Commands
+
+```bash
+# Launch dashboard
+./bin/rclone-bisync dashboard
+
+# Execute synchronization
+./bin/rclone-bisync sync
+
+# Force resync
+./bin/rclone-bisync sync --resync
+
+# Dry-run synchronization
+./bin/rclone-bisync sync --dry-run
+
+# Provision canary
+./bin/rclone-bisync canary
+```
+
+---
+
+# Accessing Bisync Hub
+
+Preferred user experience:
+
+```text
+bisync-hub dashboard
+        ↓
+Browser Opens
+        ↓
+Bisync Hub Dashboard
+```
+
+Future releases may provide:
+
+```text
+http://bisync.localhost
+```
+
+as a stable local endpoint while maintaining automatic port management internally.
+
+---
+
+# Development
+
+Run the pre-flight quality gate before opening a pull request.
 
 ```bash
 ./scripts/check.sh
 ```
 
 This verifies:
-1. Shell script syntax linting (`bash -n`).
-2. Secret isolation (preventing `rc-secrets.env` or plaintext credentials from entering git).
-3. Go static analysis (`go vet ./...`).
-4. Complete Go automated test suite (`go test -count=1 ./...`).
 
-## Support Development
-
-Rclone Bisync Automation Engine & Telemetry Hub is developed and maintained in personal time.
-
-This project makes extensive use of modern AI-assisted engineering workflows for implementation, testing, documentation, architecture reviews, and ongoing maintenance. While the software is free and open source, the tools used to build and evolve it incur recurring costs.
-
-If this project helps you manage your synchronization workflows, improve reliability, or save time, please consider supporting continued development.
-
-Your support helps fund:
-
-- AI-assisted development and code review tooling
-- Automated testing and quality improvements
-- Documentation and user guides
-- New features and long-term maintenance
-- Infrastructure required for project releases and distribution
-
-Support is completely optional. The project will remain free and open source regardless of sponsorship levels.
-
-### Sponsorship Options
-
-- ❤️ GitHub Sponsors (recommended for recurring support)
-- ☕ Buy Me a Coffee (one-time contributions)
-
-### Transparency on AI-Assisted Development
-
-The project follows a maintainer-reviewed, AI-assisted development model. All code included in releases is reviewed, validated, and approved by the project maintainer before being merged.
-
-This project is developed using a human-reviewed, AI-assisted engineering workflow.
-
-AI tools are used to accelerate implementation, testing, documentation, and architectural exploration, while all project decisions, reviews, and releases remain under maintainer control.
-
-For details, see [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
-
-## Acknowledgements
-
-This project integrates with and depends on [Rclone](https://rclone.org), the open-source cloud storage synchronization and file transfer tool created by Nick Craig-Wood and maintained by the Rclone community.
-Rclone is distributed under the MIT License. 【1-26a01c】【2-46d30b】
-
-This project is independent and is not affiliated with or endorsed by the Rclone project.
+1. Shell script syntax
+2. Secret leak protection
+3. Go static analysis
+4. Automated Go tests
 
 ---
 
-Special thanks to everyone who reports bugs, submits pull requests, improves documentation, shares feedback, or supports the project financially. All forms of contribution are equally appreciated.
+# Roadmap Priorities
+
+## Near-Term
+
+- Test coverage >80%
+- OAuth reconnect improvements
+- Interactive Sync Review
+- Multi-profile synchronization
+- Configuration management
+- Security hardening
+
+## Medium-Term
+
+- Conflict visualization
+- Deletion review workflows
+- Guided recovery
+- Rollback capabilities
+
+## Long-Term
+
+Bisync Hub aims to become the safest and most understandable way to operate Rclone Bisync.
+
+The project is intentionally focused on synchronization safety, operational visibility, and decision support rather than generic file management.
+
+---
+
+# What Bisync Hub Is Not
+
+Bisync Hub is not:
+
+- A replacement for Rclone
+- A cloud storage provider
+- A hosted SaaS platform
+- A generic cloud file manager
+- A competitor to storage providers
+
+Bisync Hub exists to improve the operational experience surrounding Rclone Bisync.
+
+---
+
+# Support Development
+
+Bisync Hub is developed and maintained in personal time.
+
+Support helps fund:
+
+- Ongoing development
+- AI-assisted engineering tooling
+- Testing infrastructure
+- Documentation
+- Release management
+- Long-term maintenance
+
+Support is completely optional.
+
+The project will remain free and open source regardless of sponsorship levels.
+
+## Sponsorship Options
+
+- ❤️ GitHub Sponsors
+- ☕ Buy Me a Coffee
+
+---
+
+# Transparency on AI-Assisted Development
+
+AI tools are used to accelerate:
+
+- Implementation
+- Testing
+- Documentation
+- Architecture reviews
+- Maintenance tasks
+
+All project decisions, reviews, and releases remain under maintainer control.
+
+For details, see: [AI DISCLOSURE](./AI_DISCLOSURE.md)
+
+---
+
+# Acknowledgements
+
+Bisync Hub integrates with and depends on **Rclone**, the open-source cloud storage synchronization and file transfer tool created by Nick Craig-Wood and maintained by the Rclone community.
+
+Rclone is distributed under the MIT License.
+
+Bisync Hub is an independent project and is not affiliated with or endorsed by the Rclone project.
+
+---
+
+**Review. Decide. Sync.**
