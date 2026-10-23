@@ -183,4 +183,3 @@ func TestLockEdgeCasesAndHelpers(t *testing.T) {
 		t.Fatal("expected acquire to fail on corrupt lock PID")
 	}
 }
-

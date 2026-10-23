@@ -427,7 +427,6 @@ func TestReconnectRemote(t *testing.T) {
 	}
 	wg2.Wait()
 
-
 	// Act 4: Runner error handling
 	failRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
 		return "", errors.New("browser execution failed")
@@ -487,4 +486,3 @@ func TestCollectSessionEnvironment(t *testing.T) {
 		t.Fatal("expected non-empty environment")
 	}
 }
-

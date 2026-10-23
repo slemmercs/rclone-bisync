@@ -1,14 +1,14 @@
 package notifier
 
 import (
-"bytes"
-"context"
-"encoding/json"
-"net/http"
-"os"
-"os/exec"
-"path/filepath"
-"time"
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"time"
 )
 
 // Dispatcher handles desktop notifications and optional webhooks.
