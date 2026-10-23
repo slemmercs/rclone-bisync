@@ -1,0 +1,45 @@
+name: Nightly Deep Quality Gate
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    runs-on:
+      - self-hosted
+      - rclone-bisync
+
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Staticcheck
+        run: |
+          staticcheck ./...
+
+      - name: Race Detector
+        run: |
+          CGO_ENABLED=1 go test \
+            -race \
+            -count=1 \
+            ./...
+
+      - name: Extended Coverage
+        env:
+          MIN_COVERAGE: "85.0"
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh
