@@ -54,16 +54,17 @@ jobs:
         run: |
           echo "=== Environment ==="
 
-          which go
+          command -v go
           go version
 
-          which gcc || true
+          command -v gcc || true
 
           go env GOOS
           go env GOARCH
           go env GOFLAGS
           go env GOTOOLCHAIN
           go env GOPATH
+          go env GOBIN
 
       - name: Run Quality Gate
         run: |
@@ -76,7 +77,7 @@ jobs:
 
       - name: Run Staticcheck
         run: |
-          "$(go env GOPATH)/bin/staticcheck" ./...
+          staticcheck ./...
 
       - name: Install govulncheck
         run: |
@@ -84,7 +85,7 @@ jobs:
 
       - name: Run govulncheck
         run: |
-          "$(go env GOPATH)/bin/govulncheck" ./...
+          govulncheck ./...
 
       - name: Run Race Detector
         env:

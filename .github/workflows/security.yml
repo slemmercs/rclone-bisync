@@ -2,10 +2,31 @@ name: Security Scan
 
 on:
   pull_request:
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/security.yml"
+      - ".github/workflows/nightly-quality.yml"
+
+      - "scripts/check.sh"
 
   push:
     branches:
       - main
+
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/security.yml"
+      - ".github/workflows/nightly-quality.yml"
+
+      - "scripts/check.sh"
 
   schedule:
     - cron: "0 2 * * 0"
@@ -14,6 +35,14 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: security-scan
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   govulncheck:
@@ -25,26 +54,37 @@ jobs:
 
     timeout-minutes: 15
 
+    env:
+      GOTOOLCHAIN: local
+      GOVULNCHECK_VERSION: "v1.9.0"
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: "1.26.10"
+          cache: false
 
       - name: Show environment
         run: |
-          which go
+          command -v go
           go version
+
           go env GOVERSION
           go env GOOS
           go env GOARCH
+          go env GOTOOLCHAIN
+          go env GOPATH
+          go env GOBIN
 
       - name: Install govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}
 
       - name: Run govulncheck
         run: |
