@@ -1,8 +1,8 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Rclone Custom Dashboard
-Comment=View custom sync loop profiling and streaming telemetry
+Name=Bisync Hub
+Comment=The safety-first dashboard for Rclone Bisync — Review. Decide. Sync.
 Exec=xdg-open http://127.0.0.1:8080
 Icon=network-server
 Terminal=false

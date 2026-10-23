@@ -91,7 +91,7 @@ func runDashboard(host string, port int, envFile string) {
 	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("rclone-bisync dashboard running at http://%s", addr)
+		log.Printf("Bisync Hub dashboard running at http://%s", addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server failure: %v", err)
 		}
