@@ -17,7 +17,7 @@ Transition all dashboard UI templates, documentation, deployment scripts, and se
 - [x] Task 4: Standardize Storage Remotes & File Explorer Tab Icons (Lucide SVGs)
   - **Scope**: `dashboard/frontend/index.html` remote cards, OAuth health summary badges, breadcrumbs, folder/file glyphs, copy/delete buttons, and canary provisioning button.
   - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
-- [ ] Task 5: Standardize Modals & Log Viewer Icons (Lucide SVGs)
+- [x] Task 5: Standardize Modals & Log Viewer Icons (Lucide SVGs)
   - **Scope**: `dashboard/frontend/index.html` daemon log modal, raw log downloads, client ID migration wizard, reconnect progress spinner (`Loader2`), and audit trail modal.
   - **Verification**: `go test -count=1 ./internal/server -run TestStaticAndIndexEmbedding`
 - [ ] Task 6: Systemd, Desktop Shortcut & Deployment Alignment
@@ -34,6 +34,7 @@ Transition all dashboard UI templates, documentation, deployment scripts, and se
 - 2026-10-23: Completed Task 2 (Standardized header navigation pills and quick action toolbar controls with Lucide SVGs).
 - 2026-10-23: Completed Task 3 (Standardized Engine & Telemetry tab icons including status tiles, config accordion, performance chart, and bisync.log terminal controls with Lucide SVGs).
 - 2026-10-23: Completed Task 4 (Standardized Storage Remotes and File Explorer tab icons with Lucide SVGs across health bar, remote cards, dual-pane explorer controls, breadcrumbs, folders, and item actions).
+- 2026-10-23: Completed Task 5 (Standardized Modals and Log Viewer icons with Lucide SVGs across Delete Confirmation, Deletions Review, Correlated Daemon Logs, Migration Wizard, Reconnect Status, Audit Trail, and Notification Toast).
 
 
 
