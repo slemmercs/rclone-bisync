@@ -38,6 +38,45 @@ func (c *CanaryService) SafeguardCanary(cleanPath string) error {
 	return nil
 }
 
+// CanaryInDir checks whether a directory (or any of its subdirectories) contains RCLONE_TEST.
+func (c *CanaryService) CanaryInDir(ctx context.Context, remote, path string) bool {
+	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
+	remoteClean := strings.TrimSpace(remote)
+
+	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
+		rawBase := ""
+		if c.Config != nil {
+			rawBase = c.Config.LocalPath
+		}
+		if rawBase == "" {
+			rawBase = "~/gdrive"
+		}
+		_, targetDir, ok := IsLocalPathJailed(rawBase, cleanPath)
+		if !ok {
+			return false
+		}
+		found := false
+		_ = filepath.Walk(targetDir, func(p string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if !info.IsDir() && info.Name() == CanaryFilename {
+				found = true
+				return filepath.SkipAll
+			}
+			return nil
+		})
+		return found
+	}
+
+	if c.Client == nil {
+		return false
+	}
+
+	listing := c.Client.ListDirectory(ctx, remoteClean, cleanPath)
+	return listing.HasCanary
+}
+
 // CanaryExists checks if the canary file exists locally or remotely at the target path.
 func (c *CanaryService) CanaryExists(ctx context.Context, remote, path string) bool {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")

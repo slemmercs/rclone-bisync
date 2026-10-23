@@ -8,7 +8,7 @@ Execute a comprehensive repository maintenance and quality hardening milestone t
 - [x] Task 1: Stale Lock Race Condition Remediation (Finding H-1)
   - **Scope**: Update `handleStaleLock()` in `internal/core/lock/lock.go` so locks held by an active PID past `LockStaleTimeoutSeconds` (3600s) are never unlinked or stolen; add unit tests in `internal/core/lock/lock_test.go`.
   - **Verification**: `go test -count=1 ./internal/core/lock`
-- [ ] Task 2: Path Confinement Symlink Resolution & Recursive Canary Safeguard (Findings H-2, H-3)
+- [x] Task 2: Path Confinement Symlink Resolution & Recursive Canary Safeguard (Findings H-2, H-3)
   - **Scope**: Update `IsLocalPathJailed()` in `internal/services/explorer_service.go` to evaluate real filesystem targets using `filepath.EvalSymlinks()`; update `DeleteItem()` to check if directories contain `RCLONE_TEST` before deletion. Add unit tests in `internal/services/explorer_service_test.go`.
   - **Verification**: `go test -count=1 ./internal/services -run TestExplorer`
 - [ ] Task 3: Homelab LAN Access & Graceful Server Drain (Findings M-2, M-3)
@@ -34,6 +34,7 @@ Execute a comprehensive repository maintenance and quality hardening milestone t
 - 2026-10-23: Phase 3 (OAuth Reconnect, SyncService modularization PR #18, Rebrand to Bisync Hub PR #20) completed and merged into `main`.
 - 2026-10-23: Initialized Maintenance Milestone to address all architectural audit findings and complete core modularization prior to Phase 4.
 - 2026-10-23: Completed Task 1 (Finding H-1): Protected locks held by active PIDs from eviction or unlinking regardless of elapsed age; verified via `go test -count=1 ./internal/core/lock`.
+- 2026-10-23: Completed Task 2 (Findings H-2, H-3): Implemented symlink realpath confinement via `filepath.EvalSymlinks` and recursive directory deletion canary protection in `internal/services/`; verified via `go test -count=1 ./internal/services -run TestExplorer` and `./scripts/check.sh`.
 
 
 
