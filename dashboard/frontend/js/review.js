@@ -123,7 +123,7 @@ window.ReviewModule = {
 
     closeReviewModal() {
         this.reviewState.showModal = false;
-,
+    },
 
     async stageReviewDecision(candidateId, decision) {
         if (!this.reviewState.session) return;
