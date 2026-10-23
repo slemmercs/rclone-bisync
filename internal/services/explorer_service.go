@@ -33,6 +33,7 @@ func NewExplorerService(cfg *config.Config, rcClient *client.RcloneClient, canar
 }
 
 // IsLocalPathJailed verifies that relPath resolved against rawBaseDir is strictly contained inside rawBaseDir.
+// It resolves real paths on disk using filepath.EvalSymlinks to prevent symlink jail escapes.
 // It returns baseAbs, targetAbs, and true if safe, or false if path traversal is detected.
 func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
 	if strings.HasPrefix(rawBaseDir, "~") {
@@ -47,10 +48,60 @@ func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
 	if err != nil {
 		return baseDir, "", false
 	}
+	// First: lexical check
 	rel, err := filepath.Rel(baseDir, targetDir)
 	if err != nil || strings.HasPrefix(rel, "..") {
 		return baseDir, targetDir, false
 	}
+
+	// Second: symlink realpath confinement check
+	realBase, err := filepath.EvalSymlinks(baseDir)
+	if err == nil {
+		fi, lstatErr := os.Lstat(targetDir)
+		if lstatErr == nil && fi.Mode()&os.ModeSymlink != 0 {
+			linkDest, err := os.Readlink(targetDir)
+			if err == nil {
+				if !filepath.IsAbs(linkDest) {
+					linkDest = filepath.Join(filepath.Dir(targetDir), linkDest)
+				}
+				realDest, err := filepath.EvalSymlinks(linkDest)
+				if err != nil {
+					realDest, _ = filepath.Abs(linkDest)
+				}
+				realRel, err := filepath.Rel(realBase, realDest)
+				if err != nil || strings.HasPrefix(realRel, "..") {
+					return baseDir, targetDir, false
+				}
+			}
+		}
+
+		realTarget, err := filepath.EvalSymlinks(targetDir)
+		if err == nil {
+			realRel, err := filepath.Rel(realBase, realTarget)
+			if err != nil || strings.HasPrefix(realRel, "..") {
+				return baseDir, targetDir, false
+			}
+		} else if os.IsNotExist(err) {
+			// Target does not exist yet (e.g. file to be created or copied)
+			// Verify closest existing parent directory
+			parentDir := filepath.Dir(targetDir)
+			for {
+				if realParent, pErr := filepath.EvalSymlinks(parentDir); pErr == nil {
+					realRel, rErr := filepath.Rel(realBase, realParent)
+					if rErr != nil || strings.HasPrefix(realRel, "..") {
+						return baseDir, targetDir, false
+					}
+					break
+				}
+				nextParent := filepath.Dir(parentDir)
+				if nextParent == parentDir {
+					break
+				}
+				parentDir = nextParent
+			}
+		}
+	}
+
 	return baseDir, targetDir, true
 }
 
@@ -320,6 +371,26 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 		}
 
 		if isDir {
+			// Recursive canary protection: refuse to delete directory containing RCLONE_TEST
+			canaryBlocked := false
+			if e.Canary != nil {
+				canaryBlocked = e.Canary.CanaryInDir(ctx, remote, cleanPath)
+			} else {
+				_ = filepath.Walk(target, func(p string, info os.FileInfo, err error) error {
+					if err != nil {
+						return nil
+					}
+					if !info.IsDir() && info.Name() == CanaryFilename {
+						canaryBlocked = true
+						return filepath.SkipAll
+					}
+					return nil
+				})
+			}
+			if canaryBlocked {
+				return map[string]interface{}{"status": "error", "error": "Directory contains canary test file (RCLONE_TEST) and cannot be deleted"}, nil
+			}
+
 			if err := os.RemoveAll(target); err != nil {
 				return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to delete local directory: %v", err)}, nil
 			}
@@ -343,6 +414,9 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 
 	remoteName := strings.TrimRight(remoteClean, ":") + ":"
 	if isDir {
+		if e.Canary != nil && e.Canary.CanaryInDir(ctx, remoteClean, cleanPath) {
+			return map[string]interface{}{"status": "error", "error": "Directory contains canary test file (RCLONE_TEST) and cannot be deleted"}, nil
+		}
 		ok, err := e.Client.PurgeDir(ctx, remoteName, cleanPath)
 		if err != nil || !ok {
 			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Purge failed: %v", err)}, nil
