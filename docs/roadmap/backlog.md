@@ -103,7 +103,31 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
 
 ---
 
-### Active Implementation Sprint: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer
+### Active Implementation Sprint: Repository Quality Hardening, Security Jails & Architectural Modularization
+
+Foundational maintenance milestone resolving all findings from `docs/architecture/code-review.md` and preparing the codebase for the core differentiator: Interactive Sync Review.
+
+* **Micro-Task 1: Stale Lock PID Verification Guard [Finding H-1]**
+  - Prevent lockfile unlinking while the owning PID is alive, preventing dual-sync collisions during long-running syncs.
+* **Micro-Task 2: Path Confinement Symlink Resolution & Canary Protection [Findings H-2, H-3]**
+  - Integrate `filepath.EvalSymlinks()` into path jail validation to eliminate symlink escapes.
+  - Guard recursive directory deletions against purging directories containing `RCLONE_TEST`.
+* **Micro-Task 3: Homelab LAN Access & Graceful HTTP Drain [Findings M-2, M-3]**
+  - Expand origin validation to allow RFC 1918 private subnets and `.local` mDNS domains.
+  - Implement 5-second graceful HTTP shutdown drain in `main.go`.
+* **Micro-Task 4: Secret Sanitization Unification & Non-Mutating Env Parser [Findings M-4, L-1]**
+  - Unify config masking with `security.RedactSecrets()` and introduce `ParseEnvFile()`.
+* **Micro-Task 5: Client Package Decomposition (`internal/core/client/`)**
+  - Split `client.go` into `jobs.go`, `remotes.go`, `fs_ops.go`, and base `client.go`.
+* **Micro-Task 6: Server Route Modularization & Schema Contract Hardening [Finding M-1]**
+  - Split `server.go` into `handlers_telemetry.go`, `handlers_explorer.go`, `handlers_auth.go`, `handlers_sync.go`.
+  - Replace loose `map[string]interface{}` with concrete Go models from `internal/models/api.go`.
+* **Micro-Task 7: Quality Gate & Test Coverage Uplift (>= 85%)**
+  - Run `./scripts/check.sh` and verify native/cross-compilation.
+
+---
+
+### Immediate Next Strategic Epic: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer
 
 Primary strategic feature transforming Bisync Hub from an observer dashboard into an interactive safety controller. When synchronization aborts due to safety circuit breakers (`TOO_MANY_DELETES` or unresolved file conflicts), the hub launches an interactive review session instead of requiring manual CLI `--force` intervention. Refer to [interactive-sync-review.md](../design/interactive-sync-review.md).
 
