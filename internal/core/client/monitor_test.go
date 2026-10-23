@@ -79,4 +79,3 @@ func TestMonitorJobConsecutiveErrors(t *testing.T) {
 		t.Fatalf("expected MONITOR_ERROR, got: %s", res.ErrorType)
 	}
 }
-

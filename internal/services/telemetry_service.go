@@ -160,6 +160,7 @@ func (t *TelemetryService) GetRemotesSummary(ctx context.Context) (map[string]in
 		"count":         len(remoteData),
 	}, nil
 }
+
 // GetTransferStats queries core/stats from Rclone RC.
 func (t *TelemetryService) GetTransferStats(ctx context.Context) *models.TransferStats {
 	if t.Client == nil {
@@ -338,7 +339,7 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 	return map[string]interface{}{
 		"daemon_health":      daemonData,
 		"notification_state": notifState,
-		"metrics":           metricsData,
+		"metrics":            metricsData,
 		"bisync_logs":        bisyncLogs,
 		"daemon_logs":        daemonLogs,
 		"config":             t.GetRuntimeConfig(),
@@ -373,4 +374,3 @@ func isKeySensitive(key string) bool {
 	}
 	return false
 }
-

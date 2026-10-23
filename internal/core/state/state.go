@@ -1,10 +1,10 @@
 package state
 
 import (
-"encoding/json"
-"fmt"
-"os"
-"path/filepath"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 )
 
 // WriteJSONAtomic writes data serialized as JSON atomically using a .tmp file and rename.

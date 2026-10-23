@@ -1,36 +1,36 @@
 package services
 
 import (
-"bytes"
-"context"
-"encoding/json"
-"fmt"
-"io"
-"os"
-"os/exec"
-"path/filepath"
-"strings"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
-"github.com/slemmercs/rclone-bisync/internal/config"
-"github.com/slemmercs/rclone-bisync/internal/core/client"
-"github.com/slemmercs/rclone-bisync/internal/core/lock"
-"github.com/slemmercs/rclone-bisync/internal/core/state"
-"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/core/lock"
+	"github.com/slemmercs/rclone-bisync/internal/core/state"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 var ProviderLabels = map[string]string{
-	"drive":               "Google Drive",
-	"onedrive":            "Microsoft OneDrive",
-	"dropbox":             "Dropbox",
-	"s3":                  "Amazon S3",
-	"b2":                  "Backblaze B2",
-	"box":                 "Box",
-	"pcloud":              "pCloud",
-	"mega":                "Mega",
-	"sftp":                "SFTP",
-	"smb":                 "SMB / CIFS",
-	"webdav":              "WebDAV",
-	"azureblob":           "Azure Blob Storage",
+	"drive":                "Google Drive",
+	"onedrive":             "Microsoft OneDrive",
+	"dropbox":              "Dropbox",
+	"s3":                   "Amazon S3",
+	"b2":                   "Backblaze B2",
+	"box":                  "Box",
+	"pcloud":               "pCloud",
+	"mega":                 "Mega",
+	"sftp":                 "SFTP",
+	"smb":                  "SMB / CIFS",
+	"webdav":               "WebDAV",
+	"azureblob":            "Azure Blob Storage",
 	"google cloud storage": "Google Cloud Storage",
 }
 
@@ -107,12 +107,12 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (map[stri
 			}
 		}
 		_ = exec.Command("systemctl", "--user", "stop",
-"bisync-gdrive.service",
-"bisync-gdrive-manual.service",
-"bisync-gdrive-resync.service",
-"bisync-gdrive-force.service",
-"bisync-gdrive-dryrun.service",
-).Run()
+			"bisync-gdrive.service",
+			"bisync-gdrive-manual.service",
+			"bisync-gdrive-resync.service",
+			"bisync-gdrive-force.service",
+			"bisync-gdrive-dryrun.service",
+		).Run()
 		return map[string]interface{}{
 			"status": "success",
 			"msg":    fmt.Sprintf("Sync stopped (%d daemon jobs halted)", stopped),

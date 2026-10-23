@@ -128,4 +128,3 @@ func TestConfigHelpersAndEnvExpansion(t *testing.T) {
 		t.Fatalf("unexpected FilesToCleanup: %v", cfg.FilesToCleanup)
 	}
 }
-

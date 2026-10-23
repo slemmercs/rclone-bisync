@@ -39,9 +39,9 @@ func TestRedactSecretsNested(t *testing.T) {
 	input := map[string]interface{}{
 		"services": []interface{}{
 			map[string]interface{}{
-				"name":      "google",
-				"api_key":   "AIzaSyD-secret",
-				"user_id":   123,
+				"name":    "google",
+				"api_key": "AIzaSyD-secret",
+				"user_id": 123,
 			},
 		},
 		"nested": map[string]interface{}{
