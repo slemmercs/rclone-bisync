@@ -140,4 +140,3 @@ func TestDiscoverCandidates_LogVariants(t *testing.T) {
 		t.Fatalf("expected 2 deletions from nested log, got %d", len(deletions))
 	}
 }
-
