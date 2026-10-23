@@ -127,7 +127,7 @@ Foundational maintenance milestone resolving all findings from `docs/architectur
 
 ---
 
-### Immediate Next Strategic Epic: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer
+### Immediate Next Strategic Epic: Phase 4 — Interactive Sync Review & Deletion Diff Visualizer [IN PROGRESS - feat/interactive-sync-review]
 
 Primary strategic feature transforming Bisync Hub from an observer dashboard into an interactive safety controller. When synchronization aborts due to safety circuit breakers (`TOO_MANY_DELETES` or unresolved file conflicts), the hub launches an interactive review session instead of requiring manual CLI `--force` intervention. Refer to [interactive-sync-review.md](../design/interactive-sync-review.md).
 
