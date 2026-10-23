@@ -17,7 +17,7 @@ Execute a comprehensive repository maintenance and quality hardening milestone t
 - [x] Task 4: Duplicate Secret Sanitization Cleanup & Safe Env Parser (Findings M-4, L-1)
   - **Scope**: Streamline `GetRuntimeConfig()` in `internal/services/telemetry_service.go` to delegate directly to `security.RedactSecrets()`; add non-mutating `ParseEnvFile()` in `internal/config/config.go`.
   - **Verification**: `go test -count=1 ./internal/services ./internal/config`
-- [ ] Task 5: Core Client Modularization
+- [x] Task 5: Core Client Modularization
   - **Scope**: Decompose `internal/core/client/client.go` (551 LOC) into cohesive domain components: `jobs.go` (job tracking), `remotes.go` (remote configurations & OAuth), and `fs_ops.go` (directory listings & file operations).
   - **Verification**: `go test -count=1 ./internal/core/client`
 - [ ] Task 6: Server Route Modularization & Schema Contract Hardening (Finding M-1)
@@ -37,6 +37,7 @@ Execute a comprehensive repository maintenance and quality hardening milestone t
 - 2026-10-23: Completed Task 2 (Findings H-2, H-3): Implemented symlink realpath confinement via `filepath.EvalSymlinks` and recursive directory deletion canary protection in `internal/services/`; verified via `go test -count=1 ./internal/services -run TestExplorer` and `./scripts/check.sh`.
 - 2026-10-23: Completed Task 3 (Findings M-2, M-3): Permitted private RFC 1918 subnets, Tailscale CGNAT, and .local/.lan domains in `isAllowedOrigin()`; implemented 5-second graceful HTTP drain via `httpServer.Shutdown(ctx)` in `main.go`. Verified via tests and `./scripts/check.sh`.
 - 2026-10-23: Completed Task 4 (Findings M-4, L-1): Deduplicated secret key sanitization in `TelemetryService` via `security.IsSensitiveKeyName()`; implemented non-mutating `ParseEnvFile()` with balanced quote stripping in `internal/config/config.go`. Verified via unit tests and `./scripts/check.sh`.
+- 2026-10-23: Completed Task 5: Modularized `internal/core/client/` by decomposing monolithic `client.go` (551 LOC) into `client.go` (127 LOC), `jobs.go` (75 LOC), `remotes.go` (165 LOC), and `fs_ops.go` (150 LOC). Verified via unit tests and `./scripts/check.sh`.
 
 
 
