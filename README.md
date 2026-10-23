@@ -94,7 +94,7 @@ This verifies:
 
 ## Support Development
 
-Rclone Bisync Automation Engine & Telemetry Hub is developed and maintained in personal time.
+Bisync Hub is developed and maintained in personal time.
 
 This project makes extensive use of modern AI-assisted engineering workflows for implementation, testing, documentation, architecture reviews, and ongoing maintenance. While the software is free and open source, the tools used to build and evolve it incur recurring costs.
 
@@ -116,10 +116,6 @@ Support is completely optional. The project will remain free and open source reg
 - ☕ Buy Me a Coffee (one-time contributions)
 
 ### Transparency on AI-Assisted Development
-
-The project follows a maintainer-reviewed, AI-assisted development model. All code included in releases is reviewed, validated, and approved by the project maintainer before being merged.
-
-This project is developed using a human-reviewed, AI-assisted engineering workflow.
 
 AI tools are used to accelerate implementation, testing, documentation, and architectural exploration, while all project decisions, reviews, and releases remain under maintainer control.
 
