@@ -26,6 +26,46 @@ func TestLoadEnvFile(t *testing.T) {
 	}
 }
 
+func TestParseEnvFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	envPath := filepath.Join(tmpDir, "parse_test.env")
+	content := `# Sample comment
+DOUBLE_QUOTES="secret#token#value"
+SINGLE_QUOTES='single#token#value'
+UNBALANCED="unbalanced
+EMPTY_VAL=
+NO_EQUALS_LINE
+PLAIN=regular_value
+`
+	if err := os.WriteFile(envPath, []byte(content), 0600); err != nil {
+		t.Fatalf("failed to write test env: %v", err)
+	}
+
+	envMap, err := ParseEnvFile(envPath)
+	if err != nil {
+		t.Fatalf("ParseEnvFile failed: %v", err)
+	}
+
+	if envMap["DOUBLE_QUOTES"] != "secret#token#value" {
+		t.Errorf("expected double quotes stripped, got: %s", envMap["DOUBLE_QUOTES"])
+	}
+	if envMap["SINGLE_QUOTES"] != "single#token#value" {
+		t.Errorf("expected single quotes stripped, got: %s", envMap["SINGLE_QUOTES"])
+	}
+	if envMap["UNBALANCED"] != `"unbalanced` {
+		t.Errorf("expected unbalanced quote preserved, got: %s", envMap["UNBALANCED"])
+	}
+	if envMap["PLAIN"] != "regular_value" {
+		t.Errorf("expected plain value, got: %s", envMap["PLAIN"])
+	}
+
+	// Missing file should return empty map and nil error
+	missingMap, err := ParseEnvFile(filepath.Join(tmpDir, "missing.env"))
+	if err != nil || len(missingMap) != 0 {
+		t.Errorf("expected empty map for missing file, got map: %v, err: %v", missingMap, err)
+	}
+}
+
 func TestLoadConfigMissingRCPass(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Clear RC_PASS from environment

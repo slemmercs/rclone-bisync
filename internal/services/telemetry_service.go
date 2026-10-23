@@ -15,6 +15,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/core/security"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
@@ -365,12 +366,5 @@ func toUpperSnakeCase(s string) string {
 }
 
 func isKeySensitive(key string) bool {
-	u := strings.ToUpper(key)
-	sensitivePatterns := []string{"PASS", "SECRET", "TOKEN", "KEY", "CREDENTIAL", "AUTH", "WEBHOOK", "PRIVATE"}
-	for _, pat := range sensitivePatterns {
-		if strings.Contains(u, pat) {
-			return true
-		}
-	}
-	return false
+	return security.IsSensitiveKeyName(key)
 }
