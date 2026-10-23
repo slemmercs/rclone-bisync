@@ -51,11 +51,11 @@ While many projects help users run, schedule, or automate synchronizations, Bisy
 | Real-Time Telemetry | ❌ | ⚠️ | ⚠️ | ✅ |
 | Authentication Health Monitoring | ❌ | ❌ | ❌ | ✅ |
 | Synchronization Visibility | ⚠️ | ⚠️ | ❌ | ✅ |
-| Conflict Review Experience | ❌ | ❌ | ⚠️ | ✅ Planned |
-| Deletion Review Workflow | ❌ | ❌ | ❌ | ✅ Planned |
-| Guided Recovery Workflows | ❌ | ❌ | ❌ | ✅ Planned |
-| Per-File Sync Decisions | ❌ | ❌ | ❌ | ✅ Planned |
-| Rollback-Oriented Design | ❌ | ❌ | ❌ | ✅ Planned |
+| Conflict Review Experience | ❌ | ❌ | ⚠️ | ✅ |
+| Deletion Review Workflow | ❌ | ❌ | ❌ | ✅ |
+| Guided Recovery Workflows | ❌ | ❌ | ❌ | ✅ |
+| Per-File Sync Decisions | ❌ | ❌ | ❌ | ✅ |
+| Rollback-Oriented Design | ❌ | ❌ | ❌ | ✅ |
 
 ## Existing Approaches
 

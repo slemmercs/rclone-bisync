@@ -22,6 +22,10 @@ type Config struct {
 	RateLimitBackoffFile  string
 	DaemonHealthFile      string
 	PendingDeletionsFile  string
+	ReviewDir             string
+	ActiveReviewFile      string
+	ReviewBackupsDir      string
+	ReviewBackupTTLHours  float64
 
 	RCHost        string
 	RCPort        int
@@ -205,11 +209,17 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		if err == nil && !fi.IsDir() {
 			_ = LoadEnvFile(d)
 			_ = LoadEnvFile(filepath.Join(filepath.Dir(d), "rc-secrets.env"))
+			baseDir = filepath.Dir(d)
 			continue
 		}
 		_ = LoadEnvFile(filepath.Join(d, "rc-secrets.env"))
 		_ = LoadEnvFile(filepath.Join(d, "bisync.env"))
+		if err == nil && fi.IsDir() && d != "." {
+			baseDir = d
+		}
 	}
+
+	baseDir = getEnv("BASE_DIR", baseDir)
 
 	rcPass := os.Getenv("RC_PASS")
 	rcAuthEnabled := true
@@ -264,6 +274,10 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		RateLimitBackoffFile:  filepath.Join(baseDir, "rate_limit.flag"),
 		DaemonHealthFile:      filepath.Join(baseDir, "daemon_health.json"),
 		PendingDeletionsFile:  filepath.Join(baseDir, "pending_deletions.json"),
+		ReviewDir:             filepath.Join(baseDir, "review_sessions"),
+		ActiveReviewFile:      filepath.Join(baseDir, "active_review_session.json"),
+		ReviewBackupsDir:      filepath.Join(baseDir, "review_backups"),
+		ReviewBackupTTLHours:  getEnvFloat("REVIEW_BACKUP_TTL_HOURS", 48.0),
 
 		RCHost:        rcHost,
 		RCPort:        rcPort,

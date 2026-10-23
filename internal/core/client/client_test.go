@@ -162,8 +162,33 @@ func TestCopyFileAndDir(t *testing.T) {
 	}
 }
 
+func TestNormalizeFs(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"gdrive", "gdrive:"},
+		{"gdrive:", "gdrive:"},
+		{"/tmp/test/remote", "/tmp/test/remote"},
+		{"/tmp/test/remote:", "/tmp/test/remote"},
+		{"./local/path", "./local/path"},
+		{"  myremote  ", "myremote:"},
+	}
+	for _, tt := range tests {
+		got := NormalizeFs(tt.input)
+		if got != tt.expected {
+			t.Errorf("NormalizeFs(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
 func TestDeleteFileAndPurgeDir(t *testing.T) {
+	var lastFs, lastRemote string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]string
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		lastFs = req["fs"]
+		lastRemote = req["remote"]
 		switch r.URL.Path {
 		case "/operations/deletefile":
 			w.WriteHeader(http.StatusOK)
@@ -178,11 +203,28 @@ func TestDeleteFileAndPurgeDir(t *testing.T) {
 	defer server.Close()
 
 	c := NewRcloneClient(server.URL, "user", "pass")
+
+	// 1. Cloud remote should normalize to "remote:"
 	if ok, err := c.DeleteFile(context.Background(), "remote", "a.txt"); err != nil || !ok {
 		t.Fatalf("expected DeleteFile to succeed: %v", err)
 	}
-	if ok, err := c.PurgeDir(context.Background(), "remote", "folder"); err != nil || !ok {
+	if lastFs != "remote:" || lastRemote != "a.txt" {
+		t.Fatalf("expected fs='remote:', remote='a.txt', got fs='%s', remote='%s'", lastFs, lastRemote)
+	}
+
+	// 2. Local directory path MUST NOT have trailing colon
+	if ok, err := c.DeleteFile(context.Background(), "/tmp/sandbox/remote", "a.txt"); err != nil || !ok {
+		t.Fatalf("expected DeleteFile with local path to succeed: %v", err)
+	}
+	if lastFs != "/tmp/sandbox/remote" {
+		t.Fatalf("expected fs='/tmp/sandbox/remote' (no trailing colon), got fs='%s'", lastFs)
+	}
+
+	if ok, err := c.PurgeDir(context.Background(), "/tmp/sandbox/remote", "folder"); err != nil || !ok {
 		t.Fatalf("expected PurgeDir to succeed: %v", err)
+	}
+	if lastFs != "/tmp/sandbox/remote" {
+		t.Fatalf("expected fs='/tmp/sandbox/remote' (no trailing colon), got fs='%s'", lastFs)
 	}
 }
 

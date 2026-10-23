@@ -25,6 +25,7 @@ type Server struct {
 	CanaryService    *services.CanaryService
 	DeletionService  *services.DeletionService
 	ExplorerService  *services.ExplorerService
+	ReviewService    *services.ReviewService
 	LogService       *services.LogService
 	AuthService      *remoteauth.RemoteAuthService
 	FrontendFS       embed.FS
@@ -40,12 +41,14 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 	var canarySvc *services.CanaryService
 	var deletionSvc *services.DeletionService
 	var explorerSvc *services.ExplorerService
+	var reviewSvc *services.ReviewService
 
 	if syncService != nil {
 		telemetrySvc = syncService.Telemetry
 		canarySvc = syncService.Canary
 		deletionSvc = syncService.Deletion
 		explorerSvc = syncService.Explorer
+		reviewSvc = syncService.Review
 	}
 	if telemetrySvc == nil {
 		telemetrySvc = services.NewTelemetryService(cfg, rcClient)
@@ -59,6 +62,9 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 	if explorerSvc == nil {
 		explorerSvc = services.NewExplorerService(cfg, rcClient, canarySvc)
 	}
+	if reviewSvc == nil {
+		reviewSvc = services.NewReviewService(cfg, rcClient)
+	}
 
 	s := &Server{
 		Config:           cfg,
@@ -67,6 +73,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 		CanaryService:    canarySvc,
 		DeletionService:  deletionSvc,
 		ExplorerService:  explorerSvc,
+		ReviewService:    reviewSvc,
 		LogService:       services.NewLogService(),
 		AuthService:      remoteauth.NewRemoteAuthService(cfg, rcClient, nil),
 		FrontendFS:       frontendFS,
@@ -169,6 +176,13 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("POST /api/browse/canary", s.handleProvisionCanary)
 	s.Mux.HandleFunc("POST /api/browse/copy", s.handleCopyItem)
 	s.Mux.HandleFunc("POST /api/browse/delete", s.handleDeleteItem)
+
+	// Review & Conflict Resolution Endpoints
+	s.Mux.HandleFunc("GET /api/review/session", s.handleReviewSession)
+	s.Mux.HandleFunc("POST /api/review/action", s.handleReviewAction)
+	s.Mux.HandleFunc("POST /api/review/execute", s.handleReviewExecute)
+	s.Mux.HandleFunc("POST /api/review/rollback", s.handleReviewRollback)
+	s.Mux.HandleFunc("POST /api/review/dismiss", s.handleReviewDismiss)
 
 	// Static assets & SPA
 	staticSubFS, err := fs.Sub(s.FrontendFS, "dashboard/frontend")

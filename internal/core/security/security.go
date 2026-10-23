@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // SensitiveKeywords identifies identifiers hinting at sensitive configuration values.
@@ -101,7 +102,7 @@ func RedactSecrets(data interface{}) interface{} {
 					vVal = vVal.Elem()
 					kind = vVal.Kind()
 				}
-				if kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array || kind == reflect.Struct {
+				if (kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array || kind == reflect.Struct) && vVal.Type() != reflect.TypeOf(time.Time{}) {
 					isNested = true
 				}
 			}
@@ -128,6 +129,10 @@ func RedactSecrets(data interface{}) interface{} {
 		return out
 
 	case reflect.Struct:
+		if val.Type() == reflect.TypeOf(time.Time{}) {
+			return val.Interface()
+		}
+
 		// Convert struct to map based on json tags or field names
 		out := make(map[string]interface{})
 		t := val.Type()
@@ -157,7 +162,7 @@ func RedactSecrets(data interface{}) interface{} {
 					fVal = fVal.Elem()
 					kind = fVal.Kind()
 				}
-				if kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array || kind == reflect.Struct {
+				if (kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array || kind == reflect.Struct) && fVal.Type() != reflect.TypeOf(time.Time{}) {
 					isNested = true
 				}
 			}
