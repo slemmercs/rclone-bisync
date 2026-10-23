@@ -8,7 +8,7 @@ Implement an interactive synchronization review and resolution engine ("Review. 
 - [x] Task 1: Review Domain Models & Configuration Paths
   - **Scope**: Create `internal/models/review.go` defining all DTOs and enums; update `internal/config/config.go` with `ReviewDir` and `ActiveReviewFile`.
   - **Verification**: `go test -count=1 ./internal/models ./internal/config`
-- [ ] Task 2: Review Core Domain Package (FSM, Discovery & WAL Journal)
+- [x] Task 2: Review Core Domain Package (FSM, Discovery & WAL Journal)
   - **Scope**: Implement `session.go` (state machine), `discovery.go` (candidate discovery), and `journal.go` (atomic persistence & append-only WAL) in `internal/review/`.
   - **Verification**: `go test -count=1 ./internal/review`
 - [ ] Task 3: Dual Backup Strategy Provider & Saga Resolution Executor
@@ -28,12 +28,13 @@ Implement an interactive synchronization review and resolution engine ("Review. 
   - **Verification**: `./scripts/check.sh`
 
 ## Next Up
-- **Task 2: Review Core Domain Package (FSM, Discovery & WAL Journal)**
+- **Task 3: Dual Backup Strategy Provider & Saga Resolution Executor**
 
 ## Status Updates
 - 2026-10-23: Phase 3 and Maintenance Milestone (Quality hardening, security jails, modularization) merged to `main`.
 - 2026-10-23: Switched to feature branch `feat/interactive-sync-review`. Verified clean baseline via `./scripts/check.sh` (84.8% coverage). Initialized Phase 4 plan.
 - 2026-10-23: Completed Task 1: Defined `ReviewSession`, `DeletionCandidate`, `ConflictCandidate`, `ResolutionAction`, `WALEntry`, and API DTOs in `internal/models/review.go`. Added review paths and backup TTL configuration to `internal/config/config.go`. Verified via `go test -count=1 ./internal/models ./internal/config` and `./scripts/check.sh`.
+- 2026-10-23: Completed Task 2: Implemented `session.go` (formal FSM lifecycle, candidate decision staging), `discovery.go` (structured state and log-based deletion/conflict discovery), and `journal.go` (atomic persistence, WAL append/read, crash recovery reconciliation) in `internal/review/`. Verified via `go test -count=1 ./internal/review` (86.3% statement coverage) and `./scripts/check.sh` (85.0% total statement coverage).
 
 
 
