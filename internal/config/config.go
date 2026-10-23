@@ -209,11 +209,17 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		if err == nil && !fi.IsDir() {
 			_ = LoadEnvFile(d)
 			_ = LoadEnvFile(filepath.Join(filepath.Dir(d), "rc-secrets.env"))
+			baseDir = filepath.Dir(d)
 			continue
 		}
 		_ = LoadEnvFile(filepath.Join(d, "rc-secrets.env"))
 		_ = LoadEnvFile(filepath.Join(d, "bisync.env"))
+		if err == nil && fi.IsDir() && d != "." {
+			baseDir = d
+		}
 	}
+
+	baseDir = getEnv("BASE_DIR", baseDir)
 
 	rcPass := os.Getenv("RC_PASS")
 	rcAuthEnabled := true
