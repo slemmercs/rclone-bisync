@@ -109,6 +109,12 @@ func TestLoadConfigSuccess(t *testing.T) {
 	if len(cfg.RcloneCommonArgs) == 0 {
 		t.Errorf("expected non-empty RcloneCommonArgs")
 	}
+	if cfg.ReviewDir == "" || cfg.ActiveReviewFile == "" || cfg.ReviewBackupsDir == "" {
+		t.Errorf("expected review paths initialized, got dir: %s, file: %s, backups: %s", cfg.ReviewDir, cfg.ActiveReviewFile, cfg.ReviewBackupsDir)
+	}
+	if cfg.ReviewBackupTTLHours != 48.0 {
+		t.Errorf("expected default 48.0 review backup TTL hours, got %f", cfg.ReviewBackupTTLHours)
+	}
 }
 
 func TestConfigHelpersAndEnvExpansion(t *testing.T) {

@@ -22,6 +22,10 @@ type Config struct {
 	RateLimitBackoffFile  string
 	DaemonHealthFile      string
 	PendingDeletionsFile  string
+	ReviewDir             string
+	ActiveReviewFile      string
+	ReviewBackupsDir      string
+	ReviewBackupTTLHours  float64
 
 	RCHost        string
 	RCPort        int
@@ -264,6 +268,10 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		RateLimitBackoffFile:  filepath.Join(baseDir, "rate_limit.flag"),
 		DaemonHealthFile:      filepath.Join(baseDir, "daemon_health.json"),
 		PendingDeletionsFile:  filepath.Join(baseDir, "pending_deletions.json"),
+		ReviewDir:             filepath.Join(baseDir, "review_sessions"),
+		ActiveReviewFile:      filepath.Join(baseDir, "active_review_session.json"),
+		ReviewBackupsDir:      filepath.Join(baseDir, "review_backups"),
+		ReviewBackupTTLHours:  getEnvFloat("REVIEW_BACKUP_TTL_HOURS", 48.0),
 
 		RCHost:        rcHost,
 		RCPort:        rcPort,
