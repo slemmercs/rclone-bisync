@@ -38,6 +38,7 @@ Roadmap items are not commitments and may change based on project needs.
 | SyncService Modularization & Domain Separation | **Delivered** | PR #18 |
 | Bisync Hub Rebranding & Lucide SVG Design System | **Delivered** | PR #20 |
 | **Interactive Sync Review & Deletion Diff Visualizer** | **Delivered** | Phase 4 (`feat/interactive-sync-review`) |
+| **Heuristic Conflict Recommendation Engine** | **In Progress** | Phase 4 Extension (`feat/heuristic-conflict-engine`) |
 | Multi-Profile Synchronization Hub | Planned | Phase 5 |
 | Configuration Management & 3-Layer Safety Pipeline | Planned | Phase 5 |
 | Local MVP Deployment Hardening (Unix Sockets & Crypto Credentials) | Planned | Phase 6 |
@@ -47,20 +48,19 @@ Roadmap items are not commitments and may change based on project needs.
 
 ## Active Strategic Priority
 
-### Interactive Sync Review & Deletion Diff Visualizer (Phase 4)
+### Heuristic Conflict Recommendation Engine (Phase 4 Extension)
 
-Primary strategic feature transforming Bisync Hub from an observer dashboard into an interactive safety controller. When synchronization aborts due to safety circuit breakers (`TOO_MANY_DELETES` or unresolved file conflicts), the hub launches an interactive review session instead of requiring manual CLI `--force` intervention.
+Augments Phase 4 Interactive Sync Review with an intelligent decision pipeline ("Review. Decide. Sync."). When synchronization aborts due to conflicting modifications, candidate conflict pairs are evaluated offline using pure-Go deterministic heuristics.
 
 Capabilities:
-- **Persistent Review Sessions**: Atomic JSON journal persistence (`internal/services/review_service.go`), surviving systemd restarts.
-- **Selective Deletion Review**: Review deletion candidates per item (`Accept Deletion` vs. `Restore Item`).
-- **Granular Conflict Resolution**: Per-file conflict decisions (`Keep Local`, `Keep Remote`, `Keep Both`).
-- **Dual-Pane Explorer Visual Indicators**: Red badges for deletions, Amber for conflicts, Green for new items.
-- **Safety Previews & Snapshots**: Automated backup snapshots prior to any mutations, with pre-sync rollback capabilities.
-- **Crash Recovery & Auditability**: Idempotent resolution journal tracking every mutation state.
-- **Pre-Sync Validation Barrier**: Bisync cannot restart until all safety conditions are resolved and verified.
+- **Offline Concurrent Analysis**: Bounded worker pool ($G=4$) evaluates candidates against a pipeline of deterministic analyzers.
+- **Critical Risk Protection**: Automatically isolates potential 0-byte truncations, binary size divergences, and mass shrinkage with `RiskCritical` to prevent silent data loss.
+- **Intelligent Pattern Matching**: Accurately recognizes application temporary locks (`~$*`, `*.tmp`, `*.swp`), DST hour jumps ($\pm 3600\text{s}$), and identical file hashes.
+- **Confidence Scoring & Reasoning**: Computes normalized score ($-1.0$ to $+1.0$) and confidence ($0.00$ to $1.00$) with human-readable rationale.
+- **Batch Resolution**: Enables one-click auto-staging of high-confidence, low-risk recommendations (`POST /api/review/action-batch`) while holding critical items for manual review.
 
-Refer to [`docs/design/interactive-sync-review.md`](../design/interactive-sync-review.md) for detailed UX flows and architectural state machines.
+Refer to [`docs/design/heuristic_conflict_recommendation_engine_design_specification.md`](../design/heuristic_conflict_recommendation_engine_design_specification.md) for detailed ruleset matrices and scoring formulas.
+
 
 ---
 
