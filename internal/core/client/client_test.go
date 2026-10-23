@@ -1,23 +1,23 @@
 package client
 
 import (
-"context"
-"encoding/json"
-"net/http"
-"net/http/httptest"
-"testing"
-"time"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
 )
 
 func TestCheckHealth(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path == "/core/stats" {
-w.WriteHeader(http.StatusOK)
-_, _ = w.Write([]byte(`{"bytes": 1024}`))
-return
-}
-w.WriteHeader(http.StatusNotFound)
-}))
+		if r.URL.Path == "/core/stats" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"bytes": 1024}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
 	defer server.Close()
 
 	c := NewRcloneClient(server.URL, "user", "pass")
@@ -35,13 +35,13 @@ w.WriteHeader(http.StatusNotFound)
 
 func TestTriggerBisync(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path == "/sync/bisync" {
-w.WriteHeader(http.StatusOK)
-_, _ = w.Write([]byte(`{"jobid": 42}`))
-return
-}
-w.WriteHeader(http.StatusNotFound)
-}))
+		if r.URL.Path == "/sync/bisync" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"jobid": 42}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
 	defer server.Close()
 
 	c := NewRcloneClient(server.URL, "user", "pass")
@@ -56,19 +56,19 @@ w.WriteHeader(http.StatusNotFound)
 
 func TestListDirectoryWithCanary(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path == "/operations/list" {
-w.WriteHeader(http.StatusOK)
-res := map[string]interface{}{
-"list": []map[string]interface{}{
-{"Name": "file1.txt", "IsDir": false, "Size": 100},
-{"Name": "RCLONE_TEST", "IsDir": false, "Size": 0},
-},
-}
-_ = json.NewEncoder(w).Encode(res)
-return
-}
-w.WriteHeader(http.StatusNotFound)
-}))
+		if r.URL.Path == "/operations/list" {
+			w.WriteHeader(http.StatusOK)
+			res := map[string]interface{}{
+				"list": []map[string]interface{}{
+					{"Name": "file1.txt", "IsDir": false, "Size": 100},
+					{"Name": "RCLONE_TEST", "IsDir": false, "Size": 0},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(res)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
 	defer server.Close()
 
 	c := NewRcloneClient(server.URL, "user", "pass")
@@ -86,19 +86,19 @@ w.WriteHeader(http.StatusNotFound)
 
 func TestRemoteConfigSanitization(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path == "/config/get" {
-w.WriteHeader(http.StatusOK)
-res := map[string]interface{}{
-"type":          "drive",
-"scope":         "drive",
-"client_secret": "LEAKED_SECRET",
-"token":         "LEAKED_TOKEN",
-}
-_ = json.NewEncoder(w).Encode(res)
-return
-}
-w.WriteHeader(http.StatusNotFound)
-}))
+		if r.URL.Path == "/config/get" {
+			w.WriteHeader(http.StatusOK)
+			res := map[string]interface{}{
+				"type":          "drive",
+				"scope":         "drive",
+				"client_secret": "LEAKED_SECRET",
+				"token":         "LEAKED_TOKEN",
+			}
+			_ = json.NewEncoder(w).Encode(res)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
 	defer server.Close()
 
 	c := NewRcloneClient(server.URL, "user", "pass")
@@ -221,7 +221,6 @@ func TestListRemotesAndAbout(t *testing.T) {
 		t.Fatalf("unexpected stats: %v, %v", stats, err)
 	}
 }
-
 
 func TestJobManagement(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -477,5 +476,3 @@ func TestOAuthClient(t *testing.T) {
 		t.Fatalf("expected OAuthStop to succeed: %v", err)
 	}
 }
-
-

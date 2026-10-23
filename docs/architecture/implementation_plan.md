@@ -1,7 +1,9 @@
 # Implementation Plan: Sync Service Modularization
 
 ## Overview
+
 Decompose the monolithic `SyncService` God Object (~1,089 LOC across `internal/services/sync_service.go` and `internal/services/telemetry.go`) into focused, single-responsibility domain services:
+
 1. `TelemetryService`: Daemon health polling, Core stats caching, metrics JSONL reading, and secret-redacted runtime config generation.
 2. `CanaryService`: Provisioning (`CreateCanary`), presence checking (`CanaryExists`), and deletion safeguarding (`SafeguardCanary`) for `RCLONE_TEST`.
 3. `DeletionService`: Reverse log scanning for `TOO_MANY_DELETES` aborts and fallback reading of structured pending deletions JSON.
@@ -34,16 +36,19 @@ internal/services/
 ## Service Specifications
 
 ### 1. CanaryService (`internal/services/canary_service.go`)
+
 - `CanaryExists(ctx context.Context, remote, path string) bool`
 - `CreateCanary(ctx context.Context, remote, path string) (map[string]interface{}, error)`
 - `SafeguardCanary(cleanPath string) error` (blocks deletion of `RCLONE_TEST`)
 
 ### 2. DeletionService (`internal/services/deletion_service.go`)
+
 - `ParsePendingDeletionsFromLog() state.PendingDeletionsData`
 - `GetPendingDeletions() state.PendingDeletionsData`
 
 
 ### 3. TelemetryService (`internal/services/telemetry_service.go`)
+
 - `GetDaemonHealth(ctx context.Context) map[string]interface{}`
 - `GetRemotesSummary(ctx context.Context) (map[string]interface{}, error)`
 - `GetTransferStats(ctx context.Context) *models.TransferStats`
@@ -52,11 +57,13 @@ internal/services/
 - `GetTelemetryPayload(ctx context.Context, isSyncing bool, limit int) map[string]interface{}`
 
 ### 4. ExplorerService (`internal/services/explorer_service.go`)
+
 - `BrowsePath(ctx context.Context, remote, path string) client.DirectoryListing`
 - `CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (map[string]interface{}, error)`
 - `DeleteItem(ctx context.Context, remote, path string, isDir bool) (map[string]interface{}, error)`
 
 ### 5. SyncService (`internal/services/sync_service.go`)
+
 - `IsSyncing() bool`
 - `HandleAction(ctx context.Context, action string) (map[string]interface{}, error)`
 - Composes and delegates to `Canary`, `Deletion`, `Explorer`, `Telemetry` for full backward compatibility.
@@ -64,8 +71,7 @@ internal/services/
 ---
 
 ## Testing Strategy
+
 - Standard Go `testing` package with Arrange-Act-Assert structure.
 - All RC API calls mocked using `httptest.NewServer`.
 - Quality gate: `./scripts/check.sh` ensuring statement coverage >80% across all packages.
-
-

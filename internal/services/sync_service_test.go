@@ -115,13 +115,13 @@ func TestTailFileChronological(t *testing.T) {
 
 func TestGetDaemonHealthLive(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path == "/core/stats" {
-w.WriteHeader(http.StatusOK)
-_, _ = w.Write([]byte(`{"bytes": 100}`))
-return
-}
-w.WriteHeader(http.StatusNotFound)
-}))
+		if r.URL.Path == "/core/stats" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"bytes": 100}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
 	defer server.Close()
 
 	rcClient := client.NewRcloneClient(server.URL, "user", "pass")
@@ -531,6 +531,3 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 	// 14. runBisyncSystemd execution path
 	_ = svc.runBisyncSystemd([]string{"--dry-run"}, "test-unit", "test")
 }
-
-
-

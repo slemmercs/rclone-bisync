@@ -6,7 +6,7 @@ Any significant change should align with these principles.
 
 ---
 
-# Single Binary First
+## Single Binary First
 
 Bisync Hub should remain deployable as a single executable.
 
@@ -14,7 +14,7 @@ Avoid runtime dependency chains that increase deployment complexity.
 
 ---
 
-# Embedded Frontend
+## Embedded Frontend
 
 Frontend assets should be bundled directly into the application where practical.
 
@@ -22,7 +22,7 @@ Users should not need separate frontend deployments.
 
 ---
 
-# Local-First Design
+## Local-First Design
 
 The primary deployment target is:
 
@@ -35,7 +35,7 @@ Distributed deployments are secondary concerns.
 
 ---
 
-# Safety Before Automation
+## Safety Before Automation
 
 Data safety takes priority over convenience.
 
@@ -50,7 +50,7 @@ especially for destructive actions.
 
 ---
 
-# Review Before Destruction
+## Review Before Destruction
 
 Users should understand:
 
@@ -62,7 +62,7 @@ before synchronization proceeds.
 
 ---
 
-# Security By Default
+## Security By Default
 
 Credentials and secrets must never be exposed through:
 
@@ -73,7 +73,7 @@ Credentials and secrets must never be exposed through:
 
 ---
 
-# Explainability
+## Explainability
 
 Whenever practical:
 
@@ -85,7 +85,7 @@ before execution.
 
 ---
 
-# Maintainability Over Cleverness
+## Maintainability Over Cleverness
 
 Readable code is preferred.
 
@@ -95,7 +95,7 @@ Avoid unnecessary complexity when simpler approaches exist.
 
 ---
 
-# Minimal Runtime Dependencies
+## Minimal Runtime Dependencies
 
 Avoid introducing:
 

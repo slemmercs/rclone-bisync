@@ -1,7 +1,7 @@
 package server
 
 import (
-		"embed"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -424,7 +424,6 @@ func (s *Server) handleRemoteReconnectCancel(w http.ResponseWriter, r *http.Requ
 		"msg":       "Reconnect process cancelled.",
 	})
 }
-
 
 func (s *Server) handleRemoteCredentials(w http.ResponseWriter, r *http.Request) {
 	if s.AuthService == nil {

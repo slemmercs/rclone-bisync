@@ -102,4 +102,3 @@ func TestCompileAdvancedParameters(t *testing.T) {
 		t.Fatalf("expected TPSLimit 15.5 and TPSLimitBurst 20, got: %v", cfg)
 	}
 }
-

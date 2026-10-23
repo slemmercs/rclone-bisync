@@ -21,7 +21,7 @@ func TestSyncRunnerExecution(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"finished": true,
 				"success":  true,
-				"output": map[string]interface{}{"transfers": 2},
+				"output":   map[string]interface{}{"transfers": 2},
 			})
 		}
 	}))
@@ -31,19 +31,19 @@ func TestSyncRunnerExecution(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	cfg := &config.Config{
-		RCAPIURL:          srv.URL,
-		LocalPath:         tmpDir,
-		RemotePath:        "gdrive:",
-		LogFile:           tmpDir + "/bisync.log",
-		LockFile:          tmpDir + "/bisync.lock",
-		NotificationStateFile: tmpDir + "/notify.json",
-		PendingDeletionsFile:  tmpDir + "/deletions.json",
-		RateLimitBackoffFile:  tmpDir + "/rate.json",
-		MetricsFile:           tmpDir + "/metrics.jsonl",
-		JobPollInitialSleepSec: 0.01,
-		JobPollMaxSleepSec:     0.05,
+		RCAPIURL:                 srv.URL,
+		LocalPath:                tmpDir,
+		RemotePath:               "gdrive:",
+		LogFile:                  tmpDir + "/bisync.log",
+		LockFile:                 tmpDir + "/bisync.lock",
+		NotificationStateFile:    tmpDir + "/notify.json",
+		PendingDeletionsFile:     tmpDir + "/deletions.json",
+		RateLimitBackoffFile:     tmpDir + "/rate.json",
+		MetricsFile:              tmpDir + "/metrics.jsonl",
+		JobPollInitialSleepSec:   0.01,
+		JobPollMaxSleepSec:       0.05,
 		JobPollBackoffMultiplier: 1.5,
-		JobTimeoutSeconds:      60,
+		JobTimeoutSeconds:        60,
 	}
 
 	r := NewSyncRunner(cfg)
@@ -104,7 +104,7 @@ func TestSyncRunnerRateLimitBackoffActive(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"finished": true,
 				"success":  true,
-				"output": map[string]interface{}{"transfers": 1},
+				"output":   map[string]interface{}{"transfers": 1},
 			})
 		}
 	}))
@@ -243,4 +243,3 @@ func TestSyncRunnerCompilerErrorAndTriggerError(t *testing.T) {
 	}
 
 }
-
