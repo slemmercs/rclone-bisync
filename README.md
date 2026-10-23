@@ -23,6 +23,69 @@ The long-term goal of Bisync Hub is to become the safest and most understandable
 
 The project is evolving beyond a traditional dashboard toward a review-driven synchronization platform where users can understand and control synchronization outcomes before data changes occur.
 
+## Why Bisync Hub?
+
+There are already excellent tools built on top of Rclone that provide file browsers, cloud explorers, transfer managers, and synchronization capabilities.
+
+Bisync Hub focuses on a different problem.
+
+Traditional Rclone frontends typically help users browse files and execute synchronization operations. Bisync Hub focuses on helping users understand synchronization outcomes before changes are applied.
+
+### What Makes Bisync Hub Different?
+
+| Capability | Traditional Rclone GUIs | Bisync Hub |
+|------------|-------------------------|------------|
+| Browse files | ✅ | ✅ |
+| Transfer files | ✅ | ✅ |
+| Execute synchronization | ✅ | ✅ |
+| View logs | ✅ | ✅ |
+| Review pending deletions before sync | ⚠️ Limited | ✅ |
+| Review synchronization conflicts | ⚠️ Limited | ✅ |
+| Explain synchronization outcomes | ❌ | ✅ |
+| Per-file synchronization decisions | ❌ | ✅ Planned |
+| Guided recovery from sync failures | ❌ | ✅ Planned |
+| Rollback-oriented workflows | ❌ | ✅ Planned |
+| Synchronization-focused operational dashboard | ⚠️ Partial | ✅ |
+
+### Review. Decide. Sync.
+
+Bisync Hub is designed around a simple principle:
+
+**Synchronization should be understandable before it is executed.**
+
+Instead of treating conflicts, mass deletions, and synchronization failures as events that are investigated after the fact, Bisync Hub aims to make them visible before data changes occur.
+
+### What Bisync Hub Is Not
+
+Bisync Hub is not intended to become:
+
+- A general-purpose cloud file manager
+- A replacement for Rclone
+- A hosted SaaS platform
+- A file storage provider
+
+The goal is to improve the operational experience of Rclone Bisync by providing visibility, safety controls, review workflows, and guided recovery capabilities.
+
+### Long-Term Vision
+
+The long-term direction of the project is to evolve synchronization into a review-driven process:
+
+```text
+Scan
+ ↓
+Review Changes
+ ↓
+Review Conflicts
+ ↓
+Review Deletions
+ ↓
+Make Decisions
+ ↓
+Execute Synchronization
+ ↓
+Recover if Required
+
+
 ## Core Components
 
 1. **Rclone Daemon (`rclone-daemon.service`)**: Background controller exposing internal statistics and control APIs.
