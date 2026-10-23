@@ -58,7 +58,7 @@ func CanTransition(current, target models.ReviewSessionStatus) bool {
 		return target == models.ReviewStatusComplete || target == models.ReviewStatusFailed
 
 	case models.ReviewStatusFailed:
-		return target == models.ReviewStatusRollback || target == models.ReviewStatusReviewing || target == models.ReviewStatusDismissed
+		return target == models.ReviewStatusApplying || target == models.ReviewStatusRollback || target == models.ReviewStatusReviewing || target == models.ReviewStatusDismissed
 
 	case models.ReviewStatusRollback:
 		return target == models.ReviewStatusReviewing || target == models.ReviewStatusDismissed
@@ -86,11 +86,24 @@ func Transition(session *models.ReviewSession, target models.ReviewSessionStatus
 	return nil
 }
 
+// NormalizeDecision maps UI aliases to standard canonical decisions.
+func NormalizeDecision(d models.ActionDecision) models.ActionDecision {
+	switch strings.ToLower(string(d)) {
+	case "restore-local", "restore-remote", "preserve", "restore":
+		return models.DecisionRestoreItem
+	case "skip", "ignore":
+		return models.DecisionSkip
+	default:
+		return d
+	}
+}
+
 // IsValidDecision checks if decision is a supported ActionDecision.
 func IsValidDecision(d models.ActionDecision) bool {
-	switch d {
+	norm := NormalizeDecision(d)
+	switch norm {
 	case models.DecisionKeepLocal, models.DecisionKeepRemote, models.DecisionKeepBoth,
-		models.DecisionAcceptDelete, models.DecisionRestoreItem:
+		models.DecisionAcceptDelete, models.DecisionRestoreItem, models.DecisionSkip:
 		return true
 	default:
 		return false
@@ -103,24 +116,25 @@ func StageDecision(session *models.ReviewSession, candidateID string, decision m
 		return fmt.Errorf("session is nil")
 	}
 
-	if session.Status != models.ReviewStatusCreated && session.Status != models.ReviewStatusReviewing && session.Status != models.ReviewStatusReady {
+	if session.Status != models.ReviewStatusCreated && session.Status != models.ReviewStatusReviewing && session.Status != models.ReviewStatusReady && session.Status != models.ReviewStatusFailed {
 		return fmt.Errorf("cannot stage decisions while session is in %s state", session.Status)
 	}
 
-	if !IsValidDecision(decision) {
+	normDecision := NormalizeDecision(decision)
+	if !IsValidDecision(normDecision) {
 		return fmt.Errorf("unsupported resolution decision: %s", decision)
 	}
 
 	// Try matching deletion candidate
 	for i := range session.Deletions {
 		if session.Deletions[i].ID == candidateID {
-			if decision != models.DecisionAcceptDelete && decision != models.DecisionRestoreItem {
-				return fmt.Errorf("invalid decision %s for deletion candidate; expected accept-delete or restore-item", decision)
+			if normDecision != models.DecisionAcceptDelete && normDecision != models.DecisionRestoreItem && normDecision != models.DecisionSkip {
+				return fmt.Errorf("invalid decision %s for deletion candidate; expected accept-delete, restore-item, or skip", decision)
 			}
-			session.Deletions[i].Decision = decision
+			session.Deletions[i].Decision = normDecision
 			session.Deletions[i].Resolved = true
 			session.UpdatedAt = time.Now().UTC()
-			if session.Status == models.ReviewStatusCreated {
+			if session.Status == models.ReviewStatusCreated || session.Status == models.ReviewStatusFailed {
 				session.Status = models.ReviewStatusReviewing
 			}
 			return nil
@@ -130,13 +144,13 @@ func StageDecision(session *models.ReviewSession, candidateID string, decision m
 	// Try matching conflict candidate
 	for i := range session.Conflicts {
 		if session.Conflicts[i].ID == candidateID {
-			if decision != models.DecisionKeepLocal && decision != models.DecisionKeepRemote && decision != models.DecisionKeepBoth {
-				return fmt.Errorf("invalid decision %s for conflict candidate; expected keep-local, keep-remote, or keep-both", decision)
+			if normDecision != models.DecisionKeepLocal && normDecision != models.DecisionKeepRemote && normDecision != models.DecisionKeepBoth && normDecision != models.DecisionSkip {
+				return fmt.Errorf("invalid decision %s for conflict candidate; expected keep-local, keep-remote, keep-both, or skip", decision)
 			}
-			session.Conflicts[i].Decision = decision
+			session.Conflicts[i].Decision = normDecision
 			session.Conflicts[i].Resolved = true
 			session.UpdatedAt = time.Now().UTC()
-			if session.Status == models.ReviewStatusCreated {
+			if session.Status == models.ReviewStatusCreated || session.Status == models.ReviewStatusFailed {
 				session.Status = models.ReviewStatusReviewing
 			}
 			return nil

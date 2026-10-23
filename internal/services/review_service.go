@@ -222,6 +222,20 @@ func (s *ReviewService) ApplyReviewSession(ctx context.Context, sessionID string
 		return nil, fmt.Errorf("review session %s not found or inactive", sessionID)
 	}
 
+	// Auto-mark any remaining un-decided candidates as 'skip' when applying resolutions
+	for i := range s.session.Deletions {
+		if !s.session.Deletions[i].Resolved || s.session.Deletions[i].Decision == "" {
+			s.session.Deletions[i].Decision = models.DecisionSkip
+			s.session.Deletions[i].Resolved = true
+		}
+	}
+	for i := range s.session.Conflicts {
+		if !s.session.Conflicts[i].Resolved || s.session.Conflicts[i].Decision == "" {
+			s.session.Conflicts[i].Decision = models.DecisionSkip
+			s.session.Conflicts[i].Resolved = true
+		}
+	}
+
 	if !review.AllResolved(s.session) {
 		return nil, fmt.Errorf("cannot apply review session: unresolved candidates remain")
 	}

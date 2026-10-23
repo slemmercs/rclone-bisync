@@ -42,6 +42,7 @@ const (
 	DecisionKeepBoth     ActionDecision = "keep-both"
 	DecisionAcceptDelete ActionDecision = "accept-delete"
 	DecisionRestoreItem  ActionDecision = "restore-item"
+	DecisionSkip         ActionDecision = "skip"
 )
 
 // DeletionCandidate represents an item scheduled for deletion during an aborted run.
