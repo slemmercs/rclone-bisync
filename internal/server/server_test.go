@@ -768,6 +768,44 @@ func TestReviewEndpoints(t *testing.T) {
 	if actResp.Status != "success" || actResp.Session == nil {
 		t.Fatalf("expected successful staging, got: %+v", actResp)
 	}
+
+	// 5b. POST /api/review/action staging with 'restore-local' alias
+	aliasPayload, _ := json.Marshal(models.StageDecisionRequest{
+		SessionID:   sessionID,
+		CandidateID: candID,
+		Decision:    "restore-local",
+	})
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer(aliasPayload))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for restore-local alias staging, got: %d", rec.Code)
+	}
+	var aliasResp models.StageDecisionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &aliasResp)
+	if aliasResp.Session.Deletions[0].Decision != models.DecisionRestoreItem {
+		t.Fatalf("expected restore-local alias to normalize to restore-item, got %s", aliasResp.Session.Deletions[0].Decision)
+	}
+
+	// 5c. POST /api/review/action staging with 'skip'
+	skipPayload, _ := json.Marshal(models.StageDecisionRequest{
+		SessionID:   sessionID,
+		CandidateID: candID,
+		Decision:    "skip",
+	})
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer(skipPayload))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for skip staging, got: %d", rec.Code)
+	}
+	var skipResp models.StageDecisionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &skipResp)
+	if skipResp.Session.Deletions[0].Decision != models.DecisionSkip {
+		t.Fatalf("expected skip decision staged, got %s", skipResp.Session.Deletions[0].Decision)
+	}
 	// 6. POST /api/review/action batch candidate decision staging
 	batchPayload, _ := json.Marshal(models.StageDecisionRequest{
 		SessionID:    sessionID,
