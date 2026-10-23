@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rclone Bisync Monitor</title>
+    <title>Bisync Hub</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <script src="/static/vendor/tailwind.js"></script>
     <script src="/static/vendor/chart.umd.min.js"></script>
@@ -15,13 +15,13 @@
         <!-- Header -->
         <header class="flex flex-col md:flex-row md:items-center justify-between pb-4 mb-6 border-b border-slate-800 gap-4">
             <div class="flex items-center gap-3">
-                <img src="/static/favicon.svg" alt="Rclone Logo" class="w-8 h-8 rounded-lg shadow-sm">
+                <img src="/static/favicon.svg" alt="Bisync Hub Logo" class="w-8 h-8 rounded-lg shadow-sm">
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                        <span>Rclone Sync Hub</span>
+                        <span>Bisync Hub</span>
                         <span class="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-slate-800 text-slate-400 border border-slate-700/60 uppercase tracking-widest">v2.4 Enterprise</span>
                     </h1>
-                    <p class="text-xs text-slate-400 mt-0.5">Automated bidirectional cloud synchronizer & health monitor</p>
+                    <p class="text-xs text-slate-400 mt-0.5">The safety-first dashboard for Rclone Bisync &mdash; <span class="text-slate-300 font-medium">Review. Decide. Sync.</span></p>
                 </div>
             </div>
 
@@ -30,16 +30,16 @@
                 <!-- Nav Pills -->
                 <div class="flex items-center bg-slate-900 border border-slate-800/80 p-1 rounded-xl text-xs font-medium">
                     <button @click="switchTab('telemetry')" :class="currentTab === 'telemetry' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                         <span>Engine & Telemetry</span>
                     </button>
                     <button @click="switchTab('remotes')" :class="currentTab === 'remotes' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                         <span>Storage Remotes</span>
                         <span x-show="remotesData.count > 0" x-text="remotesData.count" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono"></span>
                     </button>
                     <button @click="switchTab('explorer')" :class="currentTab === 'explorer' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
                         <span>File Explorer</span>
                     </button>
                 </div>
@@ -68,23 +68,35 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-1.5">
-                    <button @click="triggerAction('start_sync')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1">
-                        <span x-text="actionLoading === 'start_sync' ? 'WAIT...' : '▶ Start Sync'"></span>
+                    <button @click="triggerAction('start_sync')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5">
+                        <svg x-show="actionLoading === 'start_sync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'start_sync'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                        <span x-text="actionLoading === 'start_sync' ? 'WAIT...' : 'Start Sync'"></span>
                     </button>
-                    <button @click="triggerAction('dry_run')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1" title="Simulate bidirectional sync without modifying files">
-                        <span x-text="actionLoading === 'dry_run' ? 'WAIT...' : '🔍 Dry Run'"></span>
+                    <button @click="triggerAction('dry_run')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5" title="Simulate bidirectional sync without modifying files">
+                        <svg x-show="actionLoading === 'dry_run'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'dry_run'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span x-text="actionLoading === 'dry_run' ? 'WAIT...' : 'Dry Run'"></span>
                     </button>
-                    <button @click="openDeletionsModal()" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1" title="Inspect and authorize mass deletions with --force">
-                        <span x-text="actionLoading === 'force_sync' ? 'WAIT...' : '⚡ Force Deletions'"></span>
+                    <button @click="openDeletionsModal()" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5" title="Inspect and authorize mass deletions with --force">
+                        <svg x-show="actionLoading === 'force_sync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'force_sync'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                        <span x-text="actionLoading === 'force_sync' ? 'WAIT...' : 'Force Deletions'"></span>
                     </button>
-                    <button @click="triggerAction('stop_sync')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg hover:bg-rose-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1">
-                        <span x-text="actionLoading === 'stop_sync' ? 'WAIT...' : '■ Stop'"></span>
+                    <button @click="triggerAction('stop_sync')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg hover:bg-rose-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5">
+                        <svg x-show="actionLoading === 'stop_sync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'stop_sync'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                        <span x-text="actionLoading === 'stop_sync' ? 'WAIT...' : 'Stop'"></span>
                     </button>
-                    <button @click="confirmResync()" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1">
-                        <span x-text="actionLoading === 'force_resync' ? 'WAIT...' : '⚠ Resync'"></span>
+                    <button @click="confirmResync()" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5">
+                        <svg x-show="actionLoading === 'force_resync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'force_resync'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                        <span x-text="actionLoading === 'force_resync' ? 'WAIT...' : 'Resync'"></span>
                     </button>
-                    <button @click="triggerAction('remove_lock')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-lg hover:bg-slate-700 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1" title="Clear stale bisync lock">
-                        <span x-text="actionLoading === 'remove_lock' ? 'WAIT...' : '⏏ Clear Lock'"></span>
+                    <button @click="triggerAction('remove_lock')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-lg hover:bg-slate-700 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5" title="Clear stale bisync lock">
+                        <svg x-show="actionLoading === 'remove_lock'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'remove_lock'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                        <span x-text="actionLoading === 'remove_lock' ? 'WAIT...' : 'Clear Lock'"></span>
                     </button>
                 </div>
             </div>
@@ -98,9 +110,7 @@
                 </div>
                 <button @click="configExpanded = !configExpanded" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 bg-slate-950 px-2.5 py-1 rounded border border-slate-800 transition-colors flex items-center gap-1.5">
                     <span x-text="configExpanded ? 'Hide Parameters' : 'Show Full Parameters'"></span>
-                    <svg class="w-3 h-3 transform transition-transform duration-200" :class="{ 'rotate-180': configExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
+                    <svg class="w-3.5 h-3.5 shrink-0 transform transition-transform duration-200" :class="{ 'rotate-180': configExpanded }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                 </button>
             </div>
 
@@ -145,7 +155,8 @@
                 </div>
                 <div class="flex gap-2 w-full sm:w-auto">
                     <button @click="openDeletionsModal()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition-colors flex-1 sm:flex-none flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/40">
-                        <span>Inspect Deleted Files ↗</span>
+                        <span>Inspect Deleted Files</span>
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
                     </button>
                 </div>
             </div>
@@ -155,7 +166,10 @@
                 <!-- Daemon Status -->
                 <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
                     <div>
-                        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Daemon Status</h3>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Daemon Status</h3>
+                            <svg class="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+                        </div>
                         <div class="text-xl font-bold mt-2" :class="daemonStatusClass" x-text="daemonStatusText"></div>
                     </div>
                     <div class="text-xs font-mono text-slate-500 mt-4 pt-2 border-t border-slate-800/60">
@@ -166,7 +180,10 @@
                 <!-- Execution Status -->
                 <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
                     <div>
-                        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Execution Status</h3>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Execution Status</h3>
+                            <svg class="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+                        </div>
                         <div class="text-xl font-bold mt-2" :class="executionStatusClass" x-text="executionStatusText"></div>
                     </div>
                     <div class="text-xs font-mono text-slate-500 mt-4 pt-2 border-t border-slate-800/60">
@@ -177,7 +194,10 @@
                 <!-- Historical Scope -->
                 <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
                     <div>
-                        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Historical Scope</h3>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Historical Scope</h3>
+                            <svg class="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+                        </div>
                         <div class="text-3xl font-extrabold mt-1 text-white" x-text="telemetry.metrics ? telemetry.metrics.length : '--'"></div>
                     </div>
                     <div class="text-xs font-mono text-slate-500 mt-4 pt-2 border-t border-slate-800/60">
@@ -211,7 +231,10 @@
             <!-- Chart.js Performance Graph -->
             <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-sm font-semibold text-slate-200 uppercase tracking-wider">Sync Latency & Run Profiles</h2>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                        <h2 class="text-sm font-semibold text-slate-200 uppercase tracking-wider">Sync Latency & Run Profiles</h2>
+                    </div>
                     <span class="text-xs text-slate-500 font-mono">X-Axis: Local Wall Time</span>
                 </div>
                 <div class="h-64 w-full">
@@ -225,15 +248,19 @@
                 <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-lg">
                     <div class="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
                         <div class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
                             <span class="text-xs font-mono font-semibold text-slate-300 tracking-wider">bisync.log (Execution Ledger)</span>
                             <span class="text-[10px] font-mono text-emerald-400/90 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900/40">1 Entry / Run</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <button @click="openDaemonModal(null)" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            <button @click="openDaemonModal(null)" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/></svg>
                                 <span>Daemon Stream</span>
                             </button>
-                            <a href="/api/logs/bisync/raw" target="_blank" class="text-[11px] font-sans text-slate-400 hover:text-slate-200 transition-colors">Raw Bisync ↗</a>
+                            <a href="/api/logs/bisync/raw" target="_blank" class="text-[11px] font-sans text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1">
+                                <span>Raw Bisync</span>
+                                <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                            </a>
                             <span class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800/60" x-text="'Tail: ' + currentLogLimit + ' lines'"></span>
                         </div>
                     </div>
@@ -276,8 +303,8 @@
 
                                     <!-- Detail Action Button: opens Correlated Daemon Logs -->
                                     <button @click="openDaemonModal(entry)"
-                                            class="px-2 py-0.5 text-[10px] font-mono font-medium rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60 transition-colors flex items-center gap-1 shadow-sm">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            class="px-2 py-0.5 text-[10px] font-mono font-medium rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60 transition-colors flex items-center gap-1.5 shadow-sm">
+                                        <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/></svg>
                                         <span>Daemon Logs</span>
                                     </button>
                                 </div>
@@ -320,8 +347,8 @@
             <!-- Authentication Health & OAuth Lifecycle Bar -->
             <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
-                    <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
                     </div>
                     <div>
                         <div class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -351,11 +378,11 @@
 
                 <div class="flex items-center gap-2">
                     <button type="button" @click.stop="viewAuthAudit()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors border border-slate-700/60 flex items-center gap-1.5 cursor-pointer">
-                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         <span>Audit Log</span>
                     </button>
                     <button type="button" @click.stop="checkAuthAndQuotas()" :disabled="remotesData.loading === true" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors border border-indigo-500/30 flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
-                        <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': remotesData.loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': remotesData.loading }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
                         <span>Check Auth & Quotas</span>
                     </button>
                 </div>
@@ -364,11 +391,11 @@
             <!-- Header Action Toolbar -->
             <div class="flex items-center justify-between bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/60 text-xs">
                 <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>
                     <span class="font-semibold text-slate-200">Configured Cloud Storage Remotes</span>
                 </div>
                 <button @click="fetchRemotes(true)" :disabled="remotesData.loading" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
-                    <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': remotesData.loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': remotesData.loading }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
                     <span>Refresh Quotas</span>
                 </button>
             </div>
@@ -381,7 +408,7 @@
                             <div class="flex items-start justify-between gap-3 mb-3">
                                 <div class="flex items-center gap-3">
                                     <div class="p-2.5 rounded-xl border flex items-center justify-center font-bold font-mono text-sm shrink-0" :class="`${getProviderColor(remote.type).bg} ${getProviderColor(remote.type).border} ${getProviderColor(remote.type).text}`">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                                     </div>
                                     <div>
                                         <div class="flex items-center gap-2">
@@ -395,11 +422,12 @@
                                                 <div class="flex items-center gap-2">
                                                     <span class="text-slate-600">•</span>
                                                     <span x-show="remote.auth.has_client_secret" class="inline-flex items-center gap-1 text-indigo-300 font-medium">
-                                                        <span>🔑</span>
+                                                        <svg class="w-3 h-3 shrink-0 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
                                                         <span>Personal App</span>
                                                     </span>
                                                     <span x-show="!remote.auth.has_client_secret" class="inline-flex items-center gap-1 font-medium" :class="remote.auth.status === 'migration_required' ? 'text-amber-400' : 'text-slate-400'">
-                                                        <span x-text="remote.auth.status === 'migration_required' ? '⚠️ Shared App ID' : 'Shared App ID'"></span>
+                                                        <svg x-show="remote.auth.status === 'migration_required'" class="w-3.5 h-3.5 shrink-0 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12.01" x2="12.01" y1="17" y2="17"/></svg>
+                                                        <span>Shared App ID</span>
                                                     </span>
                                                 </div>
                                             </template>
@@ -428,12 +456,12 @@
                             <!-- Migration Recommended Alert Banner -->
                             <div x-show="remote.auth && remote.auth.status === 'migration_required'" class="mb-3 p-3 rounded-xl bg-amber-950/40 border border-amber-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-amber-200">
                                 <div class="flex items-center gap-2">
-                                    <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                    <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12.01" x2="12.01" y1="17" y2="17"/></svg>
                                     <span class="text-[11px] font-medium">Using shared Rclone Client ID. Migrate to personal OAuth credentials.</span>
                                 </div>
                                 <button @click="openMigrationWizard(remote)" class="px-2.5 py-1 text-[11px] font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded transition-colors shrink-0 flex items-center gap-1 shadow-sm">
                                     <span>Migration Wizard</span>
-                                    <span>↗</span>
+                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
                                 </button>
                             </div>
 
@@ -481,20 +509,24 @@
                                         </button>
                                     </div>
                                 </template>
-                                <button type="button" @click.stop="validateRemote(remote.name)" :disabled="remotesData.validating?.[remote.name] === true" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50">
-                                    <svg x-show="remotesData.validating && remotesData.validating[remote.name]" class="w-3 h-3 animate-spin text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                                    <svg x-show="remotesData.validated && remotesData.validated[remote.name]" class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                <button type="button" @click.stop="validateRemote(remote.name)" :disabled="remotesData.validating?.[remote.name] === true" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
+                                    <svg x-show="remotesData.validating && remotesData.validating[remote.name]" class="w-3 h-3 animate-spin text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                    <svg x-show="remotesData.validated && remotesData.validated[remote.name]" class="w-3 h-3 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                     <span :class="(remotesData.validated && remotesData.validated[remote.name]) ? 'text-emerald-400 font-medium' : ''" x-text="(remotesData.validating && remotesData.validating[remote.name]) ? 'Validating...' : ((remotesData.validated && remotesData.validated[remote.name]) ? 'Connected ✓' : 'Validate')"></span>
                                 </button>
                                 <template x-if="remote.auth && remote.auth.is_oauth">
                                     <button type="button" @click.stop="openMigrationWizard(remote)" class="px-2.5 py-1 text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1 cursor-pointer" title="Configure personal OAuth client ID and secret">
-                                        <span>🔑</span>
+                                        <svg class="w-3 h-3 shrink-0 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
                                         <span>App Credentials</span>
                                     </button>
                                 </template>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button @click="openRemoteInExplorer(remote.name)" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1 font-medium">📁 Browse Files ↗</button>
+                                <button @click="openRemoteInExplorer(remote.name)" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1.5 font-medium">
+                                    <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                                    <span>Browse Files</span>
+                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+                                </button>
                                 <button @click="switchTab('telemetry')" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-400 rounded border border-slate-800 transition-colors">View Sync</button>
                             </div>
                         </div>
@@ -503,7 +535,7 @@
 
                 <!-- Empty State -->
                 <div x-show="remotesData.remotes.length === 0 && !remotesData.loading" class="col-span-full bg-slate-900/40 border border-slate-800/60 rounded-2xl p-8 text-center text-slate-500">
-                    <svg class="w-10 h-10 mx-auto text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                    <svg class="w-10 h-10 mx-auto text-slate-600 mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 4 14.9h15.22"/><path d="M21.6 15.6A4.5 4.5 0 0 0 17.5 8h-1.8a7 7 0 0 0-8.8-3.7"/></svg>
                     <p class="text-sm text-slate-400 font-medium">No Rclone remotes discovered.</p>
                     <p class="text-xs text-slate-500 mt-1">Ensure the rclone daemon is active and has access to rclone.conf.</p>
                 </div>
@@ -515,7 +547,7 @@
             <!-- Explorer Cockpit Subheader Toolbar -->
             <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
                 <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                    <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>
                     <span class="text-xs font-semibold uppercase tracking-wider text-slate-200">Dual-Pane Directory Explorer</span>
                     <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block">Local ↔ Remote</span>
                 </div>
@@ -529,14 +561,16 @@
                             <option value="none">Direct (No Confirmation)</option>
                         </select>
                     </div>
-                    <button @click="syncCurrentDirectory('left')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-indigo-500/30" title="Sync current local directory contents to remote">
-                        <span>➔ Sync Local to Remote</span>
+                    <button @click="syncCurrentDirectory('left')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-indigo-500/30" title="Sync current local directory contents to remote">
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        <span>Sync Local to Remote</span>
                     </button>
-                    <button @click="syncCurrentDirectory('right')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-emerald-500/30" title="Sync current remote directory contents to local">
-                        <span>⬅ Sync Remote to Local</span>
+                    <button @click="syncCurrentDirectory('right')" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-500/30" title="Sync current remote directory contents to local">
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                        <span>Sync Remote to Local</span>
                     </button>
                     <button @click="refreshExplorer()" :disabled="explorer.left.loading || explorer.right.loading" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
-                        <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': explorer.left.loading || explorer.right.loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': explorer.left.loading || explorer.right.loading }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
                         <span>Refresh</span>
                     </button>
                 </div>
@@ -548,7 +582,7 @@
                 <div @dragover="onDragOver('left', $event)" @dragleave="onDragLeave('left', $event)" @drop="onDrop('left', $event)" class="bg-slate-900/60 border rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem] transition-colors relative" :class="explorer.isDragOverLeft ? 'border-2 border-dashed border-indigo-400 bg-indigo-950/30' : 'border-slate-800'">
                     <!-- Drag-and-Drop Active Overlay -->
                     <div x-show="explorer.isDragOverLeft" class="absolute inset-0 bg-indigo-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-indigo-400 rounded-2xl">
-                        <svg class="w-10 h-10 text-indigo-400 animate-bounce mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                        <svg class="w-10 h-10 text-indigo-400 animate-bounce mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                         <div class="text-sm font-bold text-white uppercase tracking-wider">Drop to Copy to Local</div>
                         <div class="text-xs text-indigo-300 mt-1 font-mono" x-text="explorer.draggedItem ? explorer.draggedItem.Name : ''"></div>
                     </div>
@@ -564,8 +598,9 @@
                                 <span class="w-1.5 h-1.5 rounded-full" :class="explorer.left.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
                                 <span x-text="explorer.left.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
                             </div>
-                            <button x-show="!explorer.left.hasCanary && !explorer.left.loading" @click="provisionCanary('left')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-sans font-medium transition-colors border border-amber-500/40" title="Create RCLONE_TEST in this directory">
-                                + Touch Canary
+                            <button x-show="!explorer.left.hasCanary && !explorer.left.loading" @click="provisionCanary('left')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-sans font-medium transition-colors border border-amber-500/40 flex items-center gap-1" title="Create RCLONE_TEST in this directory">
+                                <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                <span>Touch Canary</span>
                             </button>
                         </div>
                     </div>
@@ -583,7 +618,14 @@
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             <button @click="copyPanePath('left')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-sans transition-all flex items-center gap-1 border border-slate-700/60" :class="explorer.left.copied ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : ''">
-                                <span x-text="explorer.left.copied ? '✓ Copied' : '📋 Copy'"></span>
+                                <span x-show="explorer.left.copied" class="flex items-center gap-1">
+                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                    <span>Copied</span>
+                                </span>
+                                <span x-show="!explorer.left.copied" class="flex items-center gap-1">
+                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                    <span>Copy</span>
+                                </span>
                             </button>
                             <span class="text-[10px] text-slate-500 hidden sm:inline-block" x-text="`${explorer.left.items.length} items`"></span>
                         </div>
@@ -593,10 +635,12 @@
                     <div class="px-3.5 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-2 h-11 shrink-0">
                         <div class="relative flex-1">
                             <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                             </span>
                             <input x-model="explorer.left.search" type="text" placeholder="Filter files in view..." class="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-7 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors font-sans">
-                            <button x-show="explorer.left.search" @click="explorer.left.search = ''" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-white text-xs">✕</button>
+                            <button x-show="explorer.left.search" @click="explorer.left.search = ''" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-white text-xs">
+                                <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
                         </div>
                     </div>
 
@@ -629,7 +673,7 @@
                     <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
                         <!-- Loading State -->
                         <div x-show="explorer.left.loading" class="p-8 text-center text-slate-500">
-                            <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                             <span>Reading local directory...</span>
                         </div>
 
@@ -640,7 +684,7 @@
 
                         <!-- Parent Directory Link -->
                         <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.path !== ''" @click="navigateFolder('left', '..')" class="p-2.5 hover:bg-slate-800/50 cursor-pointer flex items-center gap-2 text-indigo-400 transition-colors">
-                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path></svg>
+                            <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
                             <span class="font-sans font-medium text-[11px]">.. (Parent Directory)</span>
                         </div>
 
@@ -650,17 +694,17 @@
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
                                         <button draggable="false" @mousedown.stop @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
-                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
                                             <span class="font-medium truncate" x-text="item.Name"></span>
                                         </button>
                                     </template>
                                     <template x-if="!item.IsDir">
                                         <div class="flex items-center gap-2 truncate">
                                             <template x-if="item.Name === 'RCLONE_TEST'">
-                                                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                                <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
                                             </template>
                                             <template x-if="item.Name !== 'RCLONE_TEST'">
-                                                <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                <svg class="w-4 h-4 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                                             </template>
                                             <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
                                         </div>
@@ -670,10 +714,12 @@
                                     <span class="text-slate-500 text-[10px] hidden sm:inline-block" x-text="formatModTime(item.ModTime)"></span>
                                     <span class="w-16 text-right" x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
                                     <button draggable="false" @mousedown.stop @click.stop="transferItem('left', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-indigo-500/40 cursor-pointer" title="Copy to opposing remote pane">
-                                        <span x-text="item._copying ? 'Copying...' : '➔ Copy'"></span>
+                                        <svg x-show="!item._copying" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                                        <svg x-show="item._copying" class="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                        <span x-text="item._copying ? 'Copying...' : 'Copy'"></span>
                                     </button>
                                     <button draggable="false" @mousedown.stop @click.stop="promptDeleteItem('left', item)" :disabled="item.Name === 'RCLONE_TEST'" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 rounded text-[10px] transition-all flex items-center cursor-pointer disabled:opacity-0" title="Delete from local storage">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                                     </button>
                                 </div>
                             </div>
@@ -701,7 +747,7 @@
                 <div @dragover="onDragOver('right', $event)" @dragleave="onDragLeave('right', $event)" @drop="onDrop('right', $event)" class="bg-slate-900/60 border rounded-2xl flex flex-col overflow-hidden shadow-xl h-[36rem] transition-colors relative" :class="explorer.isDragOverRight ? 'border-2 border-dashed border-emerald-400 bg-emerald-950/30' : 'border-slate-800'">
                     <!-- Drag-and-Drop Active Overlay -->
                     <div x-show="explorer.isDragOverRight" class="absolute inset-0 bg-emerald-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-emerald-400 rounded-2xl">
-                        <svg class="w-10 h-10 text-emerald-400 animate-bounce mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                        <svg class="w-10 h-10 text-emerald-400 animate-bounce mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                         <div class="text-sm font-bold text-white uppercase tracking-wider">Drop to Copy to Remote</div>
                         <div class="text-xs text-emerald-300 mt-1 font-mono" x-text="explorer.draggedItem ? explorer.draggedItem.Name : ''"></div>
                     </div>
@@ -721,8 +767,9 @@
                                 <span class="w-1.5 h-1.5 rounded-full" :class="explorer.right.hasCanary ? 'bg-emerald-400' : 'bg-amber-400'"></span>
                                 <span x-text="explorer.right.hasCanary ? 'Canary Active' : 'Canary Missing'"></span>
                             </div>
-                            <button x-show="!explorer.right.hasCanary && !explorer.right.loading" @click="provisionCanary('right')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-sans font-medium transition-colors border border-amber-500/40" title="Create RCLONE_TEST in this directory">
-                                + Touch Canary
+                            <button x-show="!explorer.right.hasCanary && !explorer.right.loading" @click="provisionCanary('right')" class="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-sans font-medium transition-colors border border-amber-500/40 flex items-center gap-1" title="Create RCLONE_TEST in this directory">
+                                <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                <span>Touch Canary</span>
                             </button>
                         </div>
                     </div>
@@ -740,7 +787,14 @@
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             <button @click="copyPanePath('right')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-sans transition-all flex items-center gap-1 border border-slate-700/60" :class="explorer.right.copied ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : ''">
-                                <span x-text="explorer.right.copied ? '✓ Copied' : '📋 Copy'"></span>
+                                <span x-show="explorer.right.copied" class="flex items-center gap-1">
+                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                    <span>Copied</span>
+                                </span>
+                                <span x-show="!explorer.right.copied" class="flex items-center gap-1">
+                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                    <span>Copy</span>
+                                </span>
                             </button>
                             <span class="text-[10px] text-slate-500 hidden sm:inline-block" x-text="`${explorer.right.items.length} items`"></span>
                         </div>
@@ -750,10 +804,12 @@
                     <div class="px-3.5 py-1.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between gap-2 h-11 shrink-0">
                         <div class="relative flex-1">
                             <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                             </span>
                             <input x-model="explorer.right.search" type="text" placeholder="Filter files in view..." class="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-7 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors font-sans">
-                            <button x-show="explorer.right.search" @click="explorer.right.search = ''" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-white text-xs">✕</button>
+                            <button x-show="explorer.right.search" @click="explorer.right.search = ''" class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-white text-xs">
+                                <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
                         </div>
                     </div>
 
@@ -786,7 +842,7 @@
                     <div class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800/40 font-mono text-xs text-slate-300">
                         <!-- Loading State -->
                         <div x-show="explorer.right.loading" class="p-8 text-center text-slate-500">
-                            <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <svg class="w-6 h-6 mx-auto animate-spin text-indigo-400 mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                             <span>Querying remote directory via RC...</span>
                         </div>
 
@@ -797,7 +853,7 @@
 
                         <!-- Parent Directory Link -->
                         <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.path !== ''" @click="navigateFolder('right', '..')" class="p-2.5 hover:bg-slate-800/50 cursor-pointer flex items-center gap-2 text-indigo-400 transition-colors">
-                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path></svg>
+                            <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
                             <span class="font-sans font-medium text-[11px]">.. (Parent Directory)</span>
                         </div>
 
@@ -807,17 +863,17 @@
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
                                         <button draggable="false" @mousedown.stop @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
-                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
                                             <span class="font-medium truncate" x-text="item.Name"></span>
                                         </button>
                                     </template>
                                     <template x-if="!item.IsDir">
                                         <div class="flex items-center gap-2 truncate">
                                             <template x-if="item.Name === 'RCLONE_TEST'">
-                                                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                                <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
                                             </template>
                                             <template x-if="item.Name !== 'RCLONE_TEST'">
-                                                <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                <svg class="w-4 h-4 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                                             </template>
                                             <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
                                         </div>
@@ -827,10 +883,12 @@
                                     <span class="text-slate-500 text-[10px] hidden sm:inline-block" x-text="formatModTime(item.ModTime)"></span>
                                     <span class="w-16 text-right" x-text="item.IsDir ? 'folder' : formatBytes(item.Size)"></span>
                                     <button draggable="false" @mousedown.stop @click.stop="transferItem('right', item)" :disabled="item._copying" class="opacity-0 group-hover:opacity-100 px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/60 text-emerald-200 rounded text-[10px] font-sans font-medium transition-all flex items-center gap-1 border border-emerald-500/40 cursor-pointer" title="Copy to opposing local pane">
-                                        <span x-text="item._copying ? 'Copying...' : '⬅ Copy'"></span>
+                                        <svg x-show="!item._copying" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                                        <svg x-show="item._copying" class="w-3 h-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                        <span x-text="item._copying ? 'Copying...' : 'Copy'"></span>
                                     </button>
                                     <button draggable="false" @mousedown.stop @click.stop="promptDeleteItem('right', item)" :disabled="item.Name === 'RCLONE_TEST'" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 rounded text-[10px] transition-all flex items-center cursor-pointer disabled:opacity-0" title="Delete from remote storage">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                                     </button>
                                 </div>
                             </div>
@@ -863,15 +921,17 @@
                 <!-- Header -->
                 <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                     <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <div class="w-8 h-8 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                            <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                         </div>
                         <div>
                             <h3 class="text-sm font-bold text-white uppercase tracking-wider">Confirm Deletion</h3>
                             <div class="text-[11px] text-slate-400" x-text="deleteModal.step === 1 ? 'Step 1 of 2: Review Item' : 'Step 2 of 2: Final Confirmation'"></div>
                         </div>
                     </div>
-                    <button @click="cancelDelete()" class="text-slate-500 hover:text-white text-lg">✕</button>
+                    <button @click="cancelDelete()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors">
+                        <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
                 </div>
 
                 <!-- Target Item Info Box -->
@@ -902,7 +962,7 @@
                 <template x-if="deleteModal.step === 2">
                     <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 space-y-1">
                         <p class="font-semibold text-rose-200 flex items-center gap-1.5">
-                            <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <svg class="w-4 h-4 text-rose-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12.01" x2="12.01" y1="17" y2="17"/></svg>
                             <span>Permanent Deletion Warning</span>
                         </p>
                         <p class="text-[11px] text-rose-300/80">Please confirm once more. This cannot be undone.</p>
@@ -915,7 +975,9 @@
                         Cancel
                     </button>
                     <button @click="advanceDeleteStep()" :disabled="deleteModal.deleting" class="px-4 py-1.5 rounded-lg text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5" :class="deleteModal.step === 1 ? 'bg-amber-600 hover:bg-amber-500' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-950/50'">
-                        <span x-text="deleteModal.deleting ? 'Deleting...' : (deleteModal.step === 1 ? 'Next ➔' : 'Confirm & Delete')"></span>
+                        <svg x-show="deleteModal.deleting" class="w-3.5 h-3.5 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <span x-text="deleteModal.deleting ? 'Deleting...' : (deleteModal.step === 1 ? 'Next' : 'Confirm & Delete')"></span>
+                        <svg x-show="!deleteModal.deleting && deleteModal.step === 1" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                     </button>
                 </div>
             </div>
@@ -931,8 +993,8 @@
             <!-- Modal Header -->
             <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
                 <div class="flex items-center gap-3">
-                    <div class="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <div class="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20 shrink-0">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
                     </div>
                     <div>
                         <h3 class="text-sm font-bold text-white uppercase tracking-wider">Pending Deletions Review</h3>
@@ -940,7 +1002,7 @@
                     </div>
                 </div>
                 <button @click="showDeletionsModal = false" class="text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>
 
@@ -995,8 +1057,8 @@
             <!-- Modal Header -->
             <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
                 <div class="flex items-center gap-3">
-                    <div class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <div class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20 shrink-0">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
@@ -1013,14 +1075,16 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <button @click="copyDaemonLogs()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 border border-slate-700/60">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <svg x-show="!daemonModalCopied" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg x-show="daemonModalCopied" class="w-3.5 h-3.5 shrink-0 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                         <span x-text="daemonModalCopied ? 'Copied!' : 'Copy'"></span>
                     </button>
-                    <a href="/api/logs/daemon/raw" target="_blank" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 border border-slate-700/60">
-                        <span>Raw ↗</span>
+                    <a href="/api/logs/daemon/raw" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 border border-slate-700/60">
+                        <span>Raw</span>
+                        <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
                     </a>
                     <button @click="closeDaemonModal()" class="text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                     </button>
                 </div>
             </div>
@@ -1084,8 +1148,8 @@
             <!-- Modal Header -->
             <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
                 <div class="flex items-center gap-3">
-                    <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                    <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
@@ -1096,7 +1160,7 @@
                     </div>
                 </div>
                 <button @click="closeMigrationWizard()" class="text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>
 
@@ -1105,7 +1169,7 @@
                 <!-- Guidance Alert -->
                 <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                     <div class="font-semibold text-slate-200 flex items-center gap-1.5">
-                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                         <span>Why personal credentials?</span>
                     </div>
                     <p class="text-slate-400 leading-relaxed text-[11px]">
@@ -1165,11 +1229,11 @@
 
                     <!-- Error & Success Messages -->
                     <div x-show="migrationModal.error" class="p-3 rounded-xl bg-rose-950/60 border border-rose-800/60 text-rose-300 text-xs flex items-center gap-2">
-                        <svg class="w-4 h-4 shrink-0 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <svg class="w-4 h-4 shrink-0 text-rose-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12.01" x2="12.01" y1="16" y2="16"/></svg>
                         <span x-text="migrationModal.error"></span>
                     </div>
                     <div x-show="migrationModal.success" class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 text-xs flex items-center gap-2">
-                        <svg class="w-4 h-4 shrink-0 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <svg class="w-4 h-4 shrink-0 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
                         <span x-text="migrationModal.success"></span>
                     </div>
                 </div>
@@ -1181,7 +1245,7 @@
                 <div class="flex items-center gap-2">
                     <button type="button" @click="closeMigrationWizard()" :disabled="migrationModal.loading" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50">Cancel</button>
                     <button type="button" @click="saveMigrationCredentials()" :disabled="migrationModal.loading || !migrationModal.clientId.trim()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm shadow-indigo-950">
-                        <svg x-show="migrationModal.loading" class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <svg x-show="migrationModal.loading" class="w-3.5 h-3.5 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                         <span x-text="migrationModal.loading ? 'Saving...' : 'Save Credentials'"></span>
                     </button>
                 </div>
@@ -1192,9 +1256,9 @@
     <div x-show="reconnectModal.show" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-4 text-center">
             <div class="mx-auto w-12 h-12 rounded-2xl flex items-center justify-center" :class="reconnectModal.error ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : (reconnectModal.loading ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')">
-                <svg x-show="reconnectModal.loading" class="w-6 h-6 animate-spin text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                <svg x-show="!reconnectModal.loading && !reconnectModal.error" class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                <svg x-show="reconnectModal.error" class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <svg x-show="reconnectModal.loading" class="w-6 h-6 animate-spin text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <svg x-show="!reconnectModal.loading && !reconnectModal.error" class="w-6 h-6 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                <svg x-show="reconnectModal.error" class="w-6 h-6 text-rose-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12.01" x2="12.01" y1="16" y2="16"/></svg>
             </div>
 
             <div>
@@ -1206,7 +1270,10 @@
                 <p x-text="reconnectModal.msg || reconnectModal.error || 'Please grant access in the browser window that opened.'"></p>
                 <div x-show="reconnectModal.authUrl" class="pt-2 border-t border-slate-800/80">
                     <span class="text-[11px] text-slate-400 block mb-1">If the browser did not open automatically:</span>
-                    <a :href="reconnectModal.authUrl" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 font-mono text-[11px] underline break-all">Open OAuth Authorization Page ↗</a>
+                    <a :href="reconnectModal.authUrl" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 font-mono text-[11px] underline break-all inline-flex items-center gap-1">
+                        <span>Open OAuth Authorization Page</span>
+                        <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </a>
                 </div>
             </div>
 
@@ -1221,8 +1288,8 @@
         <div @click.away="auditModal.show = false" class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
                 <div class="flex items-center gap-3">
-                    <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </div>
                     <div>
                         <h3 class="text-base font-bold text-white">OAuth Authentication Audit Log</h3>
@@ -1230,7 +1297,7 @@
                     </div>
                 </div>
                 <button @click="auditModal.show = false" class="text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>
 
@@ -1261,7 +1328,9 @@
     <div x-show="toast.show" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2" class="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl p-3.5 shadow-2xl border text-xs font-medium flex items-center gap-3 backdrop-blur-md" :class="toast.type === 'success' ? 'bg-emerald-950/90 text-emerald-200 border-emerald-700/60' : (toast.type === 'error' ? 'bg-rose-950/90 text-rose-200 border-rose-700/60' : 'bg-slate-900/90 text-slate-200 border-slate-700/60')">
         <span class="w-2 h-2 rounded-full shrink-0" :class="toast.type === 'success' ? 'bg-emerald-400' : (toast.type === 'error' ? 'bg-rose-400' : 'bg-indigo-400')"></span>
         <span class="flex-1" x-text="toast.message"></span>
-        <button @click="toast.show = false" class="text-slate-400 hover:text-white text-sm">✕</button>
+        <button @click="toast.show = false" class="text-slate-400 hover:text-white p-0.5 rounded transition-colors">
+            <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
     </div>
 
     <!-- Modular Frontend Scripts -->
