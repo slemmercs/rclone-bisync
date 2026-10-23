@@ -2,7 +2,21 @@
 
 ## Status
 
-Planned
+Partially Implemented (Core RC Client & Operations Delivered; Dynamic Provider Engine Planned)
+
+## Delivered Components
+
+- Package `internal/core/client/`: HTTP connection pooling, basic auth, retry logic, timeout handling (`client.go`).
+- RC Job Management: Async job triggers, status polling, stop jobs (`jobs.go`).
+- Remote Operations: `ListRemotes`, `GetRemoteConfig`, `GetRemoteAbout`, `UpdateRemoteConfig`, `OAuthStatus`, `OAuthStop` (`remotes.go`).
+- Filesystem Primitives: `ListDirectory`, `CopyFile`, `CopyDir`, `DeleteFile`, `PurgeDir`, `TouchFile`, `NormalizeFs` (`fs_ops.go`).
+- RC Stream Monitoring: Daemon real-time log stream subscription (`monitor.go`).
+
+## Remaining Planned Scope
+
+- Provider Metadata Discovery (`/config/providers`) & Dynamic Form Generation (`internal/providers/`).
+- Full Remote CRUD (`/config/create`, `/config/delete`) abstraction.
+
 
 ## Priority
 

@@ -1064,6 +1064,10 @@
                 <span class="text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Quick Batch:</span>
                 <button x-show="reviewStats.deletions > 0" @click="batchStageReviewDecisions('accept-delete', 'deletion')" class="px-2.5 py-1 rounded bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 font-medium text-[11px] transition-colors" title="Authorize deleting all queued deletion candidates">Accept All Deletions</button>
                 <button x-show="reviewStats.deletions > 0" @click="batchStageReviewDecisions('restore-item', 'deletion')" class="px-2.5 py-1 rounded bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/60 font-medium text-[11px] transition-colors" title="Preserve all files from being deleted">Preserve All Files</button>
+                <button x-show="reviewStats.conflicts > 0" @click="applyBatchRecommendations(0.70, 'MEDIUM')" class="px-2.5 py-1 rounded bg-amber-950/70 hover:bg-amber-900 text-amber-200 border border-amber-700/80 font-bold text-[11px] transition-colors flex items-center gap-1.5 shadow-sm" title="Automatically apply high-confidence heuristic recommendations for safe conflicts">
+                    <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <span>Auto-Apply Recommendations</span>
+                </button>
                 <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-local', 'conflict')" class="px-2.5 py-1 rounded bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 font-medium text-[11px] transition-colors">Keep All Local</button>
                 <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-remote', 'conflict')" class="px-2.5 py-1 rounded bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/60 font-medium text-[11px] transition-colors">Keep All Remote</button>
                 <button x-show="reviewStats.conflicts > 0" @click="batchStageReviewDecisions('keep-both', 'conflict')" class="px-2.5 py-1 rounded bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/60 font-medium text-[11px] transition-colors">Keep Both (Rename)</button>
@@ -1097,6 +1101,21 @@
                                 <span x-show="candidate.local_size !== undefined" x-text="`Local: ${formatBytes(candidate.local_size)} | Remote: ${formatBytes(candidate.remote_size)}`"></span>
                                 <span class="text-slate-500" x-text="candidate.reason || 'Pending review'"></span>
                             </div>
+                            <!-- Heuristic Recommendation Badge & Reason -->
+                            <div x-show="candidate.recommendation" class="flex items-center gap-2 flex-wrap pt-0.5">
+                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono border cursor-pointer hover:brightness-125 transition-all shadow-sm"
+                                      :class="candidate.recommendation?.risk === 'CRITICAL' ? 'bg-rose-950/90 text-rose-300 border-rose-700' : (candidate.recommendation?.risk === 'HIGH' ? 'bg-amber-950/90 text-amber-300 border-amber-700' : 'bg-indigo-950/90 text-indigo-300 border-indigo-700')"
+                                      @click="candidate.recommendation?.suggested_action !== 'manual-review' && stageReviewDecision(candidate.id, candidate.recommendation?.suggested_action)"
+                                      :title="'Click to stage: ' + candidate.recommendation?.suggested_action">
+                                    <span x-text="'Suggested: ' + candidate.recommendation?.suggested_action"></span>
+                                    <span class="text-slate-400" x-text="`(${Math.round((candidate.recommendation?.confidence || 0) * 100)}% conf)`"></span>
+                                </span>
+                                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono uppercase tracking-wider"
+                                      :class="candidate.recommendation?.risk === 'CRITICAL' ? 'bg-rose-900/90 text-rose-100 border border-rose-700' : (candidate.recommendation?.risk === 'HIGH' ? 'bg-amber-900/90 text-amber-100 border border-amber-700' : 'bg-slate-800 text-slate-300 border border-slate-700')"
+                                      x-text="candidate.recommendation?.risk + ' RISK'"></span>
+                                <span class="text-[11px] text-slate-400 italic truncate max-w-md" x-text="candidate.recommendation?.primary_reason" :title="candidate.recommendation?.primary_reason"></span>
+                            </div>
+
                         </div>
 
                         <!-- Right Decision Controls -->

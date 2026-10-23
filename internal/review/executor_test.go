@@ -83,6 +83,40 @@ func TestExecutor_AcceptDelete(t *testing.T) {
 		t.Fatalf("expected remote file cloud.txt to be deleted, got %s", remoteDeleted)
 	}
 }
+func TestExecutor_AcceptDelete_AlreadyAbsentRemote(t *testing.T) {
+	tmpDir := t.TempDir()
+	localRoot := filepath.Join(tmpDir, "local")
+	backupDir := filepath.Join(tmpDir, "backups")
+	walPath := filepath.Join(tmpDir, "review.wal")
+	_ = os.MkdirAll(localRoot, 0755)
+
+	mockClient := &mockRemoteClient{
+		deleteFileFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+			// Simulate 404 object not found from Rclone RC
+			return false, fmt.Errorf("deletefile failed (HTTP 404): {\"error\": \"object not found\"}")
+		},
+	}
+
+	exec := NewResolutionExecutor(localRoot, "gdrive", backupDir, walPath, mockClient)
+
+	sess := NewSession("TOO_MANY_DELETES", "Review needed", []models.DeletionCandidate{
+		{
+			ID:       "del-absent",
+			Path:     "already_gone.tar.gz",
+			Source:   models.SideLocal,
+			Decision: models.DecisionAcceptDelete,
+			Resolved: true,
+		},
+	}, nil)
+
+	if err := exec.ExecuteSession(context.Background(), sess); err != nil {
+		t.Fatalf("expected idempotent success when remote file is already absent, got: %v", err)
+	}
+
+	if sess.Status != models.ReviewStatusReady {
+		t.Fatalf("expected status READY after successful execution, got %s", sess.Status)
+	}
+}
 
 func TestExecutor_RestoreItem(t *testing.T) {
 	tmpDir := t.TempDir()

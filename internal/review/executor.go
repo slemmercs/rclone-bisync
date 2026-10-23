@@ -139,9 +139,13 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 				}
 				e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
 				if ok, err := e.Client.DeleteFile(ctx, e.RemoteFs(), cand.Path); err != nil || !ok {
-					errMsg := fmt.Sprintf("remote delete failed: %v", err)
-					e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
-					return errors.New(errMsg)
+					if err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(strings.ToLower(err.Error()), "not found")) {
+						e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "already absent on remote")
+					} else {
+						errMsg := fmt.Sprintf("remote delete failed: %v", err)
+						e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
+						return errors.New(errMsg)
+					}
 				}
 				e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
 			}
