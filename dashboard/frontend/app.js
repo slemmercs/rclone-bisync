@@ -398,7 +398,7 @@ document.addEventListener("alpine:init", () => {
                 });
                 const data = await res.json();
                 if (!res.ok || data.status === "error") {
-                    alert("Action Error: " + (data.msg || "Request failed"));
+                    alert("Action Error: " + (data.msg || data.error || "Request failed"));
                 }
                 await this.poll();
             } catch (err) {

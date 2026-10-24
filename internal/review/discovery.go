@@ -109,9 +109,8 @@ func discoverDeletions(logLines []string, pendingFile, localRoot string) []model
 					fp := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(part), "-:"))
 					// If line had quotes, strip them
 					fp = strings.Trim(fp, `",'\`)
-					fields := strings.Fields(fp)
-					if len(fields) > 0 {
-						cleanPath := filepath.Clean(fields[0])
+					if fp != "" {
+						cleanPath := filepath.Clean(fp)
 						if cleanPath != "" && cleanPath != "." && !seen[cleanPath] {
 							seen[cleanPath] = true
 							candidates = append(candidates, buildDeletionCandidate(cleanPath, source, targetAction, localRoot))

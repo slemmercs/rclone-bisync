@@ -151,7 +151,19 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 	// If pending deletions file exists and indicates pending changes, auto-discover
 	if s.Config != nil && s.Config.PendingDeletionsFile != "" {
 		if _, err := os.Stat(s.Config.PendingDeletionsFile); err == nil {
-			return s.discoverCandidatesLocked(ctx, "TOO_MANY_DELETES", "Safety abort: pending deletions require review")
+			sess, err := s.discoverCandidatesLocked(ctx, "TOO_MANY_DELETES", "Safety abort: pending deletions require review")
+			if err == nil && sess != nil {
+				if len(sess.Deletions) == 0 && len(sess.Conflicts) == 0 {
+					// Clean up empty pending deletions file and empty session so user is not stuck
+					_ = os.Remove(s.Config.PendingDeletionsFile)
+					if sessionFile != "" {
+						_ = os.Remove(sessionFile)
+					}
+					s.session = nil
+					return nil, nil
+				}
+				return sess, nil
+			}
 		}
 	}
 
@@ -171,9 +183,15 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 	}
 
 	var logLines []string
+	if s.Config.BaseDir != "" {
+		daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
+		if data, err := os.ReadFile(daemonLog); err == nil {
+			logLines = append(logLines, strings.Split(string(data), "\n")...)
+		}
+	}
 	if s.Config.LogFile != "" {
 		if data, err := os.ReadFile(s.Config.LogFile); err == nil {
-			logLines = strings.Split(string(data), "\n")
+			logLines = append(logLines, strings.Split(string(data), "\n")...)
 		}
 	}
 

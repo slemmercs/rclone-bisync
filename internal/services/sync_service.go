@@ -15,6 +15,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/lock"
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -85,7 +86,11 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 	if cfg != nil {
 		dbPath := cfg.AuditDBPath
 		if db, err := audit.OpenDB(dbPath); err == nil && db != nil {
-			auditSvc = NewAuditService(db, nil)
+			var runLogger *logger.Logger
+			if cfg.LogFile != "" {
+				runLogger, _ = logger.New(cfg.LogFile, true)
+			}
+			auditSvc = NewAuditService(db, runLogger)
 		}
 	}
 	if reviewSvc != nil {
