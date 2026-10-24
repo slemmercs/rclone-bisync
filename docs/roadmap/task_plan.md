@@ -8,7 +8,7 @@ Consolidate the master public launch plan, runner zero-exposure security protoco
 - [x] Task 1: Consolidate Master Public Launch & GitHub Pages Plan
   - **Scope**: Update `docs/roadmap/bisync_hub_public_launch_pages_plan.md` to reflect current codebase status (83.2% coverage, Phase 4 delivered, template modularization delivered), 100% cloud-hosted runner migration (`ubuntu-latest`), 20-minute OneDrive smoke test protocol, GitHub Pages landing site architecture (`site/`), and launch sequence.
   - **Verification**: Review markdown rendering and verify all links and sections are complete and accurate.
-- [ ] Task 2: Implement Self-Hosted Runner Removal & Hardened Workflows
+- [x] Task 2: Implement Self-Hosted Runner Removal & Hardened Workflows
   - **Scope**: Update `.github/workflows/ci.yml`, `.github/workflows/security.yml`, `.github/workflows/nightly-quality.yml` to `runs-on: ubuntu-latest` and integrate Gitleaks.
   - **Verification**: YAML schema validation and workflow dry-run.
 - [ ] Task 3: Setup Code Ownership & Repository Governance
@@ -24,6 +24,8 @@ Consolidate the master public launch plan, runner zero-exposure security protoco
 ## Status Updates
 - 2026-10-24: Initialized Public Launch Consolidation task plan on branch `docs/consolidate-public-launch-plan`. Baseline verification clean with 83.2% statement coverage.
 - 2026-10-24: Completed Task 1: Consolidated `docs/roadmap/bisync_hub_public_launch_pages_plan.md` with 100% cloud-hosted runner zero-exposure policy, OneDrive 20-minute validation protocol, GitHub Pages dark-mode specifications, comparison matrix, and sequential roadmap hand-off to Near-Term Priorities. Verified cleanly with `./scripts/check.sh`.
+- 2026-10-24: Completed Task 2: Decommissioned self-hosted runners from workflows. Migrated `ci.yml`, created `security.yml`, and updated `nightly-quality.yml` to 100% GitHub-hosted `ubuntu-latest` with Gitleaks and Govulncheck security scanning. Validated YAML schema and verified zero regressions via `./scripts/check.sh`.
+
 
 
 
