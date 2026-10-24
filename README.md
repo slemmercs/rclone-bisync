@@ -460,7 +460,6 @@ The project will remain free and open source regardless of sponsorship levels.
 
 ## Sponsorship Options
 
-- ❤️ GitHub Sponsors
 - ☕ Buy Me a Coffee
 
 ---
