@@ -55,6 +55,7 @@ document.addEventListener("alpine:init", () => {
         },
         currentLogLimit: 40,
         maxLogLimit: 300,
+        telemetryLogFilter: "all", // 'all' | 'sync' | 'audit'
         actionLoading: null,
         configExpanded: false,
 
@@ -144,6 +145,17 @@ document.addEventListener("alpine:init", () => {
 
         get parsedBisyncLogs() {
             return (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
+        },
+
+        get filteredBisyncLogs() {
+            const logs = this.parsedBisyncLogs;
+            if (this.telemetryLogFilter === "sync") {
+                return logs.filter(l => l.type !== "audit");
+            }
+            if (this.telemetryLogFilter === "audit") {
+                return logs.filter(l => l.type === "audit");
+            }
+            return logs;
         },
 
         get parsedDaemonLogs() {
@@ -344,10 +356,11 @@ document.addEventListener("alpine:init", () => {
             return formatConfigValue(key, val);
         },
 
-        // Module Compositions (Remotes, Dual-Pane File Explorer & Interactive Review)
+        // Module Compositions (Remotes, Dual-Pane File Explorer, Interactive Review & Audit Ledger)
         ...(window.RemotesModule || {}),
         ...(window.ExplorerModule || {}),
         ...(window.ReviewModule || {}),
+        ...(window.AuditModule || {}),
 
         // Lifecycle & Navigation
         async initDashboard() {
@@ -484,6 +497,10 @@ document.addEventListener("alpine:init", () => {
             } else if (tab === "explorer") {
                 if (typeof this.initExplorer === "function") {
                     this.initExplorer();
+                }
+            } else if (tab === "audit") {
+                if (typeof this.initAudit === "function") {
+                    this.initAudit();
                 }
             }
         },

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/engine/heuristics"
@@ -21,6 +22,7 @@ type ReviewService struct {
 	Config           *config.Config
 	Client           *client.RcloneClient
 	HeuristicsEngine *heuristics.Engine
+	Audit            *AuditService
 	mu               sync.Mutex
 	session          *models.ReviewSession
 }
@@ -405,6 +407,29 @@ func (s *ReviewService) ApplyReviewSession(ctx context.Context, sessionID string
 		_ = os.Remove(walFile)
 	}
 
+	if s.Audit != nil && s.session != nil {
+		profileID := "default"
+		if s.Config != nil && s.Config.RemotePath != "" {
+			profileID = s.Config.RemotePath
+		}
+		for _, a := range s.session.Actions {
+			if a.Status == "completed" {
+				act := audit.ActionConflictResolved
+				if a.Type == models.DecisionAcceptDelete {
+					act = audit.ActionDeletionAccepted
+				} else if a.Type == models.DecisionRestoreItem {
+					act = audit.ActionDeletionRestored
+				}
+				_, _ = s.Audit.RecordEvent(profileID, act, "USER", map[string]any{
+					"item_path":  a.ItemPath,
+					"decision":   string(a.Type),
+					"session_id": s.session.ID,
+					"is_dir":     a.IsDir,
+				})
+			}
+		}
+	}
+
 	appliedSession := s.session
 	s.session = nil
 	return appliedSession, nil
@@ -435,6 +460,16 @@ func (s *ReviewService) RollbackReviewSession(ctx context.Context, sessionID str
 		_ = review.SaveActiveSession(sessionFile, s.session)
 	}
 
+	if err == nil && s.Audit != nil && s.session != nil {
+		profileID := "default"
+		if s.Config != nil && s.Config.RemotePath != "" {
+			profileID = s.Config.RemotePath
+		}
+		_, _ = s.Audit.RecordEvent(profileID, audit.ActionRollbackExecuted, "USER", map[string]any{
+			"session_id": s.session.ID,
+		})
+	}
+
 	return s.session, err
 }
 
@@ -461,6 +496,16 @@ func (s *ReviewService) DismissReviewSession(sessionID string) error {
 	walFile := s.walFilePath()
 	if walFile != "" {
 		_ = os.Remove(walFile)
+	}
+
+	if s.Audit != nil && s.session != nil {
+		profileID := "default"
+		if s.Config != nil && s.Config.RemotePath != "" {
+			profileID = s.Config.RemotePath
+		}
+		_, _ = s.Audit.RecordEvent(profileID, audit.ActionReviewDismissed, "USER", map[string]any{
+			"session_id": s.session.ID,
+		})
 	}
 
 	s.session = nil

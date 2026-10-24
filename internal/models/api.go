@@ -1,5 +1,7 @@
 package models
 
+import "encoding/json"
+
 type ActionRequest struct {
 	Action string `json:"action"`
 }
@@ -148,6 +150,7 @@ type TelemetryPayload struct {
 type BisyncLogEntry struct {
 	Time        string  `json:"time"`
 	Level       string  `json:"level"`
+	Type        string  `json:"type,omitempty"` // "sync" (or omitted)
 	Msg         string  `json:"msg"`
 	RunID       string  `json:"run_id"`
 	JobID       int     `json:"job_id,omitempty"`
@@ -158,6 +161,21 @@ type BisyncLogEntry struct {
 	FilesSynced int     `json:"files_synced"`
 	StartTime   string  `json:"start_time"` // RFC3339
 	EndTime     string  `json:"end_time"`   // RFC3339
+}
+
+// AuditLogRecord represents a cryptographically verified milestone logged in the unified bisync.log stream.
+type AuditLogRecord struct {
+	Time      string          `json:"time"`
+	Level     string          `json:"level"`
+	Type      string          `json:"type"` // "audit"
+	Msg       string          `json:"msg"`
+	SeqID     int64           `json:"seq_id"`
+	ProfileID string          `json:"profile_id"`
+	Action    string          `json:"action"`
+	Actor     string          `json:"actor"`
+	Hash      string          `json:"hash"`
+	PrevHash  string          `json:"prev_hash"`
+	Details   json.RawMessage `json:"details,omitempty"`
 }
 
 type DaemonLogsQuery struct {
