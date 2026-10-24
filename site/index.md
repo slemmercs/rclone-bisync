@@ -54,7 +54,7 @@ Raw `rclone bisync` provides raw power across 40+ storage providers, but in prod
     <p>Declarative pre-execution and pre-mutation rules with strict delete percentage bounds and canary file protection.</p>
   </div>
   <div class="feature-card">
-    <span class="badge-planned">◆ Planned Roadmap</span>
+    <span class="badge-online">● Available Now</span>
     <h3>Cryptographic Audit Ledger</h3>
     <p>Tamper-evident audit trail with SHA-256 hash chains, trigger-enforced append-only tables, and POSIX advisory locking.</p>
   </div>
@@ -69,7 +69,7 @@ Explore the deep technical architecture powering Bisync Hub:
 1. **[Interactive Sync Review & Deletion Diff Visualizer]({% link usps/01-interactive-sync-review.md %})** <span class="badge-online">Available</span>: Full visibility into pending cloud mutations before any files are altered or removed.
 2. **[Multi-Analyzer Heuristic Conflict Engine]({% link usps/02-heuristic-conflict-engine.md %})** <span class="badge-online">Available</span>: Multi-signal confidence calculation eliminating blind last-modified-wins data loss.
 3. **[Customizable Safety Policies & Circuit Breakers]({% link usps/03-safety-policies.md %})** <span class="badge-planned">Planned</span>: Pre-execution canaries, max-delete ratios, and rate-limit backoff handling.
-4. **[Cryptographic Immutable Audit Ledger]({% link usps/04-audit-ledger.md %})** <span class="badge-planned">Planned</span>: SQLite triggers and SHA-256 hash chains providing tamper-proof sync accountability.
+4. **[Cryptographic Immutable Audit Ledger]({% link usps/04-audit-ledger.md %})** <span class="badge-online">Available</span>: SQLite triggers and SHA-256 hash chains providing tamper-proof sync accountability.
 5. **[Zero-Dependency Single Binary Distribution]({% link usps/05-single-binary.md %})** <span class="badge-online">Available</span>: Native Go executable with embedded Web UI, zero Python/pip/npm runtime requirements.
 
 ---
