@@ -42,7 +42,7 @@ Score < 60%   ──► [ LOW CONFIDENCE ]   ──► QUARANTINE: Halt file mut
 ### Safety Features
 - **Deterministic Quarantine**: Unresolvable collisions are safely preserved in a `.bisync_quarantine/` isolation jail.
 - **Conflict Backup Preserves**: Even on high-confidence resolutions, the displaced version is moved to the backup store before overwriting.
-- **Provider Tolerance**: Verified compatibility with Google Drive v3 APIs and Microsoft OneDrive Graph API timestamp quirks.
+- **Clock Skew Tolerance**: Built-in compensation algorithms for cloud timestamp drift and DST shifts.
 
 {: .note }
 > All heuristic scoring weights and confidence thresholds are fully configurable in `bisync.env` to match your organization's risk tolerance.

@@ -7,6 +7,11 @@ nav_order: 3
 
 # Customizable Safety Policies & Circuit Breakers
 
+<span class="badge-planned">◆ Planned Milestone (Near-Term Priority #2)</span>
+
+{: .note }
+> **Roadmap Specification**: The customizable two-stage safety policy engine and declarative circuit breakers described below are fully specified in [Safety Policies Design Specification](https://github.com/slemmercs/rclone-bisync/blob/main/docs/design/customizable_safety_policies_design_specification.md) and scheduled for implementation following the Immutable Audit Ledger.
+
 Automated tools must know when to stop. Running bidirectional synchronization when a network share is unmounted, when a cloud provider returns HTTP 429 rate limits, or when a disk is failing will corrupt sync state and trigger cascading deletions.
 
 **Bisync Hub implements a two-stage defensive policy barrier: Pre-Execution and Pre-Mutation.**
@@ -39,7 +44,7 @@ SAFETY_RATE_LIMIT_BACKOFF=true   # Exponential backoff on provider HTTP 429
 
 ### 3. Automatic Backoff & Quarantine
 - **Provider Throttling**: When Google Drive or Microsoft OneDrive signals rate limits (`429 Too Many Requests`), Bisync Hub immediately halts further calls and enforces exponential backoff with jitter.
-- **Fail-Safe Abort**: Any violation of a safety policy halts execution cleanly, logs the event to the audit ledger, and alerts on configured webhook channels.
+- **Fail-Safe Abort**: Any violation of a safety policy halts execution cleanly and logs the event to the audit ledger.
 
 {: .warning }
 > **Zero Canary Bypass Policy**: Canary check routines are hardcoded to fail-closed. If canary status is ambiguous, sync execution is blocked.

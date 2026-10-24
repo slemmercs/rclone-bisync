@@ -34,6 +34,34 @@ The complete interactive management dashboard—including Alpine.js components, 
 - No `node_modules` directory in production.
 - No external npm CDN requests; runs 100% offline in air-gapped data centers.
 - Instant startup (< 15ms) with sub-30MB memory footprint.
+<div class="screenshot-frame">
+  <img src="{{ '/assets/images/screenshots/bisync-hub_file-explorer.png' | relative_url }}" alt="Bisync Hub Dual-Pane File Explorer" />
+  <div class="caption">
+    <span class="title">Dual-Pane Explorer</span>
+    <span>Zero-dependency browser for local files and remote cloud storage</span>
+  </div>
+</div>
+
+<div class="screenshot-grid">
+  <div class="screenshot-frame">
+    <img src="{{ '/assets/images/screenshots/bisync-hub_bisync-log-panel.png' | relative_url }}" alt="Bisync Execution Log Panel" />
+    <div class="caption">
+      <span class="title">Execution Log Panel</span>
+      <span>Color-coded live sync output</span>
+    </div>
+  </div>
+  <div class="screenshot-frame">
+    <img src="{{ '/assets/images/screenshots/bisync-hub_correlated-daemon-log.png' | relative_url }}" alt="Correlated Daemon Log Modal" />
+    <div class="caption">
+      <span class="title">Correlated Daemon Log</span>
+      <span>Systemd & service diagnostics</span>
+    </div>
+  </div>
+</div>
+{: .note }
+> For a full visual tour of all dashboard modules and modals, visit the [UI Gallery]({% link gallery.md %}).
+
+
 
 ### 2. POSIX Flocking & Atomic File Writes
 Process concurrency and state isolation rely entirely on OS-native POSIX advisory locks (`syscall.Flock`).

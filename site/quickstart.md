@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Quickstart Guide
-nav_order: 4
+nav_order: 6
 description: "Install, configure, and automate Bisync Hub on Linux and macOS in under 5 minutes."
 ---
 
@@ -56,11 +56,11 @@ CANARY_FILENAME=RCLONE_TEST
 CONFLICT_AUTO_RESOLVE_MIN_CONFIDENCE=0.85
 CONFLICT_BACKUP_LOSERS=true
 
-# Notification Webhooks (Optional)
-DISCORD_WEBHOOK_URL=
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-HEALTHCHECKS_URL=
+# Notification Webhooks (Planned Roadmap Feature)
+# DISCORD_WEBHOOK_URL=
+# TELEGRAM_BOT_TOKEN=
+# TELEGRAM_CHAT_ID=
+# HEALTHCHECKS_URL=
 ```
 
 ---
@@ -74,6 +74,23 @@ bisync-hub --config bisync.env
 ```
 
 Open your browser to `http://localhost:8080` to access the real-time operational dashboard, inspect remote mounts, check canary health, and review pending sync events.
+
+<div class="screenshot-grid">
+  <div class="screenshot-frame">
+    <img src="{{ '/assets/images/screenshots/bisync-hub_storage-remotes.png' | relative_url }}" alt="Bisync Hub Storage Remotes" />
+    <div class="caption">
+      <span class="title">Storage Remotes</span>
+      <span>Remote health checks & OAuth indicators</span>
+    </div>
+  </div>
+  <div class="screenshot-frame">
+    <img src="{{ '/assets/images/screenshots/bisync-hub_file-explorer.png' | relative_url }}" alt="Bisync Hub Dual-Pane File Explorer" />
+    <div class="caption">
+      <span class="title">Dual-Pane Explorer</span>
+      <span>Browse local and remote directories</span>
+    </div>
+  </div>
+</div>
 
 ---
 

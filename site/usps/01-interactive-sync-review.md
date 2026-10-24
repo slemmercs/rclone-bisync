@@ -43,7 +43,7 @@ If proposed deletions exceed either:
 - The absolute file limit (e.g. `MAX_DELETE_COUNT=50`), or
 - The directory percentage ratio (e.g. `MAX_DELETE_PERCENT=10%`),
 
-the sync engine immediately trips the circuit breaker, writes an atomic `.review_pending` state, and emits real-time WebSocket notifications to the dashboard and external webhooks (Discord, Telegram, Healthchecks.io).
+the sync engine immediately trips the circuit breaker, writes an atomic `.review_pending` state, and emits real-time WebSocket notifications to the management dashboard.
 
 ### 3. Granular Operator Triage
 Operators can open the Web Dashboard review modal to:
