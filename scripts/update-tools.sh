@@ -403,14 +403,16 @@ if [[ "${DRY_RUN}" == "false" ]]; then
 
     log "Verifying checksum..."
 
-    EXPECTED_HASH="$(
-        curl -fsSL "${GO_URL}.sha256"
-    )"
+    EXPECTED_HASH="$(curl -fsSL "${GO_URL}.sha256" | tr -d '[:space:]')"
+    ACTUAL_HASH="$(sha256sum "${GO_ARCHIVE}" | awk '{print $1}')"
 
-    echo "${EXPECTED_HASH}  ${GO_ARCHIVE}" |
-        sha256sum -c -
+    [[ -n "${EXPECTED_HASH}" ]] || fatal "Failed to download SHA256 checksum from ${GO_URL}.sha256"
 
-    success "Checksum verified"
+    if [[ "${EXPECTED_HASH}" != "${ACTUAL_HASH}" ]]; then
+        fatal "Checksum mismatch!\n  Expected: ${EXPECTED_HASH}\n  Got:      ${ACTUAL_HASH}"
+    fi
+
+    success "Checksum verified (${ACTUAL_HASH})"
 
 fi
 

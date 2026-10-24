@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+# Ignore all test directories and test files
+[[allowlists]]
+description = "Ignore unit test mock fixtures and security test vectors"
+paths = [
+  '''(^|/)tests/''',
+  '''_test\.go$''',
+  '''test_.*\.py$'''
+]
