@@ -67,7 +67,8 @@ function parseJsonLogLine(rawLine) {
         const parsed = JSON.parse(rawLine);
         const level = (parsed.level || "info").toLowerCase();
         let levelClass = "text-slate-400";
-        if (level === "error") levelClass = "text-rose-400 font-bold";
+        if (parsed.type === "audit") levelClass = "text-purple-400 font-bold";
+        else if (level === "error") levelClass = "text-rose-400 font-bold";
         else if (level === "warning" || level === "warn") levelClass = "text-amber-400 font-medium";
         else if (level === "notice") levelClass = "text-sky-400";
         else if (level === "info") levelClass = "text-emerald-400";
@@ -106,6 +107,13 @@ function parseJsonLogLine(rawLine) {
             level: level.toUpperCase().padEnd(7),
             levelClass: levelClass,
             msg: cleanMsg,
+            type: parsed.type || "sync",
+            seq_id: parsed.seq_id || null,
+            profile_id: parsed.profile_id || null,
+            action: parsed.action || null,
+            actor: parsed.actor || null,
+            hash: parsed.hash || null,
+            prev_hash: parsed.prev_hash || null,
             object: parsed.object || null,
             objectType: parsed.objectType || null,
             source: parsed.source || null,

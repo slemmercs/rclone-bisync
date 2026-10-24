@@ -1,0 +1,235 @@
+{{ define "view_audit" }}
+        <!-- View 4: Immutable Audit Ledger & Compliance Cockpit -->
+        <div x-show="currentTab === 'audit'" x-transition.opacity.duration.200ms class="space-y-6">
+            <!-- Cryptographic Ledger Continuity Banner -->
+            <div class="rounded-2xl p-5 border transition-all"
+                 :class="auditData.verification.valid ? 'bg-slate-900/80 border-emerald-500/30 shadow-lg shadow-emerald-950/20' : 'bg-rose-950/40 border-rose-500/50 shadow-lg shadow-rose-950/30'">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div class="flex items-start sm:items-center gap-3.5">
+                        <div class="p-2.5 rounded-xl shrink-0"
+                             :class="auditData.verification.valid ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'">
+                            <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                <path x-show="auditData.verification.valid" d="m9 12 2 2 4-4"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h2 class="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                                    <span x-text="auditData.verification.valid ? 'Cryptographically Verified' : 'Cryptographic Integrity Fault'"></span>
+                                    <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full"
+                                          :class="auditData.verification.valid ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'"
+                                          x-text="`${auditData.verification.total_records} blocks • SHA-256 chained`">
+                                    </span>
+                                </h2>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span x-show="auditData.verification.valid">Immutable append-only ledger continuity confirmed from Genesis block.</span>
+                                <span x-show="!auditData.verification.valid" class="text-rose-300 font-semibold" x-text="auditData.verification.error || 'Chain continuity failure.'"></span>
+                                <span class="text-slate-500">•</span>
+                                <span class="text-slate-500 font-mono text-[11px]" x-text="'Verified: ' + (auditData.verification.checked_at || '--')"></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Actions & Export Buttons -->
+                    <div class="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+                        <div x-show="auditData.verification.head_hash" class="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl font-mono text-[11px] text-slate-300 flex items-center gap-2">
+                            <span class="text-slate-500">HEAD:</span>
+                            <span class="text-indigo-300" x-text="auditData.verification.head_hash.substring(0, 10) + '...'"></span>
+                            <button @click="copyHeadHash(auditData.verification.head_hash)" class="text-slate-400 hover:text-white transition-colors" title="Copy head hash">
+                                <span x-show="!auditData.copiedHash">📋</span>
+                                <span x-show="auditData.copiedHash" class="text-emerald-400 text-xs">✓</span>
+                            </button>
+                        </div>
+
+                        <button @click="verifyAuditLedger()"
+                                :disabled="auditData.verification.checking"
+                                class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-indigo-950 flex items-center gap-1.5 cursor-pointer">
+                            <span x-text="auditData.verification.checking ? 'Verifying...' : 'Verify Now'"></span>
+                        </button>
+
+                        <a href="/api/audit/export?format=jsonl" download class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium border border-slate-700/80 transition-colors">JSONL</a>
+                        <a href="/api/audit/export?format=csv" download class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium border border-slate-700/80 transition-colors">CSV</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters Strip -->
+            <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+                    <div class="relative flex-1 min-w-[140px]">
+                        <input type="text"
+                               x-model="auditData.filterProfile"
+                               @keydown.enter="applyAuditFilters()"
+                               placeholder="Filter Profile..."
+                               class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none">
+                    </div>
+
+                    <select x-model="auditData.filterAction" @change="applyAuditFilters()" class="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none">
+                        <option value="">All Actions</option>
+                        <option value="SYNC_EXECUTED">SYNC_EXECUTED</option>
+                        <option value="CONFLICT_RESOLVED">CONFLICT_RESOLVED</option>
+                        <option value="DELETION_ACCEPTED">DELETION_ACCEPTED</option>
+                        <option value="DELETION_RESTORED">DELETION_RESTORED</option>
+                        <option value="REVIEW_SESSION_DISMISSED">REVIEW_SESSION_DISMISSED</option>
+                        <option value="ROLLBACK_EXECUTED">ROLLBACK_EXECUTED</option>
+                        <option value="SECRET_ROTATED">SECRET_ROTATED</option>
+                        <option value="CONFIG_MUTATED">CONFIG_MUTATED</option>
+                    </select>
+
+                    <select x-model="auditData.filterActor" @change="applyAuditFilters()" class="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none">
+                        <option value="">All Actors</option>
+                        <option value="SYSTEM">SYSTEM</option>
+                        <option value="USER">USER</option>
+                        <option value="ADMIN">ADMIN</option>
+                    </select>
+
+                    <button @click="applyAuditFilters()" class="px-3 py-1.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-lg text-xs font-medium transition-colors">
+                        Filter
+                    </button>
+                    <button @click="resetAuditFilters()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition-colors">
+                        Reset
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                    <span x-text="`${auditData.total} total recorded events`"></span>
+                </div>
+            </div>
+
+            <!-- Ledger Record Table -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-950 text-slate-400 uppercase tracking-wider text-[10px] font-semibold border-b border-slate-800 select-none">
+                            <tr>
+                                <th class="py-3 px-4"># Seq</th>
+                                <th class="py-3 px-4">Timestamp</th>
+                                <th class="py-3 px-4">Profile</th>
+                                <th class="py-3 px-4">Action</th>
+                                <th class="py-3 px-4">Actor</th>
+                                <th class="py-3 px-4">Hash Chaining</th>
+                                <th class="py-3 px-4 text-right">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+                            <template x-for="rec in auditData.records" :key="rec.seq_id">
+                                <tr class="hover:bg-slate-800/40 transition-colors">
+                                    <td class="py-3 px-4 text-indigo-400 font-bold" x-text="`#${rec.seq_id}`"></td>
+                                    <td class="py-3 px-4 text-slate-400 whitespace-nowrap" x-text="formatAuditTimestamp(rec.timestamp)"></td>
+                                    <td class="py-3 px-4 font-sans font-medium text-slate-200" x-text="rec.profile_id"></td>
+                                    <td class="py-3 px-4 whitespace-nowrap">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border"
+                                              :class="getAuditActionBadgeClass(rec.action)"
+                                              x-text="rec.action">
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 whitespace-nowrap">
+                                        <span class="px-1.5 py-0.2 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700/60" x-text="rec.actor"></span>
+                                    </td>
+                                    <td class="py-3 px-4 font-mono text-[11px] text-slate-400 whitespace-nowrap">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-indigo-400/90" x-text="rec.hash.substring(0, 10) + '...'" :title="`Current Hash: ${rec.hash}\nPrevious Hash: ${rec.prev_hash}`"></span>
+                                            <span class="text-slate-600">←</span>
+                                            <span class="text-slate-500" x-text="rec.prev_hash.substring(0, 6) + '...'"></span>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-right whitespace-nowrap font-sans">
+                                        <button @click="inspectAuditRecord(rec)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-[11px] font-medium transition-colors border border-slate-700/60 shadow-sm cursor-pointer">
+                                            Inspect
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="auditData.loading">
+                                <td colspan="7" class="py-12 text-center text-slate-500 animate-pulse font-sans">Loading audit records...</td>
+                            </tr>
+                            <tr x-show="!auditData.loading && auditData.records.length === 0">
+                                <td colspan="7" class="py-12 text-center text-slate-500 font-sans">No audit events match the current filter criteria.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Footer -->
+                <div class="bg-slate-950 px-4 py-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="text-slate-400 font-mono">
+                        <span x-text="`Page ${auditData.page} of ${auditData.totalPages}`"></span>
+                        <span class="text-slate-600 mx-1.5">•</span>
+                        <span x-text="`Showing ${auditData.records.length} records`"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="changeAuditPage(auditData.page - 1)"
+                                :disabled="auditData.page <= 1"
+                                class="px-3 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded border border-slate-700 transition-colors">
+                            Previous
+                        </button>
+                        <button @click="changeAuditPage(auditData.page + 1)"
+                                :disabled="auditData.page >= auditData.totalPages"
+                                class="px-3 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 rounded border border-slate-700 transition-colors">
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Inspect Record Details Modal -->
+            <div x-show="auditData.selectedRecord"
+                 x-transition.opacity.duration.150ms
+                 class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+                 style="display: none;">
+                <div @click.away="closeAuditDetailsModal()" class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col max-h-[85vh]">
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                                <span x-text="`Audit Block #${auditData.selectedRecord?.seq_id}`"></span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border"
+                                      :class="getAuditActionBadgeClass(auditData.selectedRecord?.action)"
+                                      x-text="auditData.selectedRecord?.action">
+                                </span>
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-1 font-mono" x-text="auditData.selectedRecord?.timestamp"></p>
+                        </div>
+                        <button @click="closeAuditDetailsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">✕</button>
+                    </div>
+
+                    <div class="space-y-4 py-4 overflow-y-auto flex-1 font-mono text-xs">
+                        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 space-y-2">
+                            <div>
+                                <span class="text-slate-500 block text-[10px] uppercase tracking-wider font-sans font-semibold">Block SHA-256 Hash</span>
+                                <span class="text-emerald-400 break-all select-all" x-text="auditData.selectedRecord?.hash"></span>
+                            </div>
+                            <div class="pt-2 border-t border-slate-900">
+                                <span class="text-slate-500 block text-[10px] uppercase tracking-wider font-sans font-semibold">Previous Hash (Chain Anchor)</span>
+                                <span class="text-slate-400 break-all select-all" x-text="auditData.selectedRecord?.prev_hash"></span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 font-sans">
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                <span class="text-slate-500 block text-[10px] uppercase tracking-wider font-semibold">Profile ID</span>
+                                <span class="text-slate-200 text-sm font-semibold mt-0.5 block" x-text="auditData.selectedRecord?.profile_id"></span>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                <span class="text-slate-500 block text-[10px] uppercase tracking-wider font-semibold">Actor</span>
+                                <span class="text-slate-200 text-sm font-semibold mt-0.5 block" x-text="auditData.selectedRecord?.actor"></span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-slate-400 font-sans font-semibold block mb-1 text-[11px]">Sanitized Event Details Payload:</span>
+                            <pre class="bg-slate-950 p-4 rounded-xl border border-slate-800/80 text-indigo-300 overflow-x-auto text-[11px] leading-relaxed max-h-60"
+                                 x-text="JSON.stringify(auditData.selectedRecord?.details, null, 2)">
+                            </pre>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-800 flex justify-end">
+                        <button @click="closeAuditDetailsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition-colors">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+{{ end }}

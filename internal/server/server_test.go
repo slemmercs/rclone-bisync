@@ -1019,6 +1019,8 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 		"Engine: ",
 		"Total Cloud Space",
 		"Dual-Pane Directory Explorer",
+		"Audit Ledger",
+		"Cryptographically Verified",
 	}
 	for _, marker := range expectedViewMarkers {
 		if !strings.Contains(body, marker) {
