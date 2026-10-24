@@ -55,6 +55,7 @@ document.addEventListener("alpine:init", () => {
         },
         currentLogLimit: 40,
         maxLogLimit: 300,
+        telemetryLogFilter: "all", // 'all' | 'sync' | 'audit'
         actionLoading: null,
         configExpanded: false,
 
@@ -141,9 +142,31 @@ document.addEventListener("alpine:init", () => {
             lastResult: null
         },
 
+        showToast(message, type = "info") {
+            if (!this.toast) return;
+            if (this.toast.timeout) clearTimeout(this.toast.timeout);
+            this.toast.message = message;
+            this.toast.type = type;
+            this.toast.show = true;
+            this.toast.timeout = setTimeout(() => {
+                if (this.toast) this.toast.show = false;
+            }, 4500);
+        },
+
 
         get parsedBisyncLogs() {
             return (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
+        },
+
+        get filteredBisyncLogs() {
+            const logs = this.parsedBisyncLogs;
+            if (this.telemetryLogFilter === "sync") {
+                return logs.filter(l => l.type !== "audit");
+            }
+            if (this.telemetryLogFilter === "audit") {
+                return logs.filter(l => l.type === "audit");
+            }
+            return logs;
         },
 
         get parsedDaemonLogs() {
@@ -344,10 +367,11 @@ document.addEventListener("alpine:init", () => {
             return formatConfigValue(key, val);
         },
 
-        // Module Compositions (Remotes, Dual-Pane File Explorer & Interactive Review)
+        // Module Compositions (Remotes, Dual-Pane File Explorer, Interactive Review & Audit Ledger)
         ...(window.RemotesModule || {}),
         ...(window.ExplorerModule || {}),
         ...(window.ReviewModule || {}),
+        ...(window.AuditModule || {}),
 
         // Lifecycle & Navigation
         async initDashboard() {
@@ -385,11 +409,14 @@ document.addEventListener("alpine:init", () => {
                 });
                 const data = await res.json();
                 if (!res.ok || data.status === "error") {
-                    alert("Action Error: " + (data.msg || "Request failed"));
+                    const errDetail = data.msg || data.error || "Request failed";
+                    this.showToast("Action Error: " + errDetail, "error");
+                } else {
+                    this.showToast(data.msg || `Action "${actionStr}" completed successfully.`, "success");
                 }
                 await this.poll();
             } catch (err) {
-                alert("Network error: " + err.message);
+                this.showToast("Network error: " + err.message, "error");
             } finally {
                 setTimeout(() => { this.actionLoading = null; }, 1200);
             }
@@ -484,6 +511,10 @@ document.addEventListener("alpine:init", () => {
             } else if (tab === "explorer") {
                 if (typeof this.initExplorer === "function") {
                     this.initExplorer();
+                }
+            } else if (tab === "audit") {
+                if (typeof this.initAudit === "function") {
+                    this.initAudit();
                 }
             }
         },

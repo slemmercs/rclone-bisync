@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -26,10 +27,28 @@ type Server struct {
 	DeletionService  *services.DeletionService
 	ExplorerService  *services.ExplorerService
 	ReviewService    *services.ReviewService
+	AuditService     *services.AuditService
 	LogService       *services.LogService
 	AuthService      *remoteauth.RemoteAuthService
 	FrontendFS       fs.FS
 	Mux              *http.ServeMux
+	Version          string
+}
+
+var versionRegex = regexp.MustCompile(`^v?(\d+)\.(\d+)`)
+
+// FormatMajorMinor normalizes a version string into vMajor.Minor format (e.g. "v1.0.0-beta.1" -> "v1.0", "dev" -> "v1.0").
+func FormatMajorMinor(raw string) string {
+	matches := versionRegex.FindStringSubmatch(strings.TrimSpace(raw))
+	if len(matches) >= 3 {
+		return "v" + matches[1] + "." + matches[2]
+	}
+	return "v1.0"
+}
+
+// FormatMajorMinorVersion returns the configured version in vMajor.Minor format.
+func (s *Server) FormatMajorMinorVersion() string {
+	return FormatMajorMinor(s.Version)
 }
 
 func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS fs.FS) *Server {
@@ -42,6 +61,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 	var deletionSvc *services.DeletionService
 	var explorerSvc *services.ExplorerService
 	var reviewSvc *services.ReviewService
+	var auditSvc *services.AuditService
 
 	if syncService != nil {
 		telemetrySvc = syncService.Telemetry
@@ -49,6 +69,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 		deletionSvc = syncService.Deletion
 		explorerSvc = syncService.Explorer
 		reviewSvc = syncService.Review
+		auditSvc = syncService.Audit
 	}
 	if telemetrySvc == nil {
 		telemetrySvc = services.NewTelemetryService(cfg, rcClient)
@@ -74,6 +95,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 		DeletionService:  deletionSvc,
 		ExplorerService:  explorerSvc,
 		ReviewService:    reviewSvc,
+		AuditService:     auditSvc,
 		LogService:       services.NewLogService(),
 		AuthService:      remoteauth.NewRemoteAuthService(cfg, rcClient, nil),
 		FrontendFS:       frontendFS,
@@ -185,44 +207,55 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("POST /api/review/rollback", s.handleReviewRollback)
 	s.Mux.HandleFunc("POST /api/review/dismiss", s.handleReviewDismiss)
 
+	// Immutable Audit Ledger Endpoints
+	s.Mux.HandleFunc("GET /api/audit/records", s.handleAuditRecords)
+	s.Mux.HandleFunc("GET /api/audit/verify", s.handleAuditVerify)
+	s.Mux.HandleFunc("GET /api/audit/export", s.handleAuditExport)
+
 	// Static assets & SPA
-	staticSubFS, err := fs.Sub(s.FrontendFS, "dashboard/frontend")
-	if err == nil {
-		fileServer := http.FileServer(http.FS(staticSubFS))
-		s.Mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
+	if s.FrontendFS != nil {
+		staticSubFS, err := fs.Sub(s.FrontendFS, "dashboard/frontend")
+		if err == nil {
+			fileServer := http.FileServer(http.FS(staticSubFS))
+			s.Mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
 
-		s.Mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-			favicon, err := fs.ReadFile(staticSubFS, "favicon.svg")
-			if err != nil {
-				http.NotFound(w, r)
-				return
-			}
-			w.Header().Set("Content-Type", "image/svg+xml")
-			_, _ = w.Write(favicon)
-		})
-
-		indexTmpl, tmplErr := template.ParseFS(staticSubFS,
-			"index.html",
-			"partials/*.html",
-			"partials/modals/*.html",
-		)
-
-		s.Mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-			if tmplErr != nil {
-				// Fallback if templates couldn't be parsed (e.g. empty test FS)
-				indexHTML, err := fs.ReadFile(staticSubFS, "index.html")
+			s.Mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+				favicon, err := fs.ReadFile(staticSubFS, "favicon.svg")
 				if err != nil {
-					http.Error(w, "index.html not found", http.StatusNotFound)
+					http.NotFound(w, r)
+					return
+				}
+				w.Header().Set("Content-Type", "image/svg+xml")
+				_, _ = w.Write(favicon)
+			})
+
+			indexTmpl, tmplErr := template.ParseFS(staticSubFS,
+				"index.html",
+				"partials/*.html",
+				"partials/modals/*.html",
+			)
+
+			s.Mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+				if tmplErr != nil {
+					// Fallback if templates couldn't be parsed (e.g. empty test FS)
+					indexHTML, err := fs.ReadFile(staticSubFS, "index.html")
+					if err != nil {
+						http.Error(w, "index.html not found", http.StatusNotFound)
+						return
+					}
+					rendered := strings.ReplaceAll(string(indexHTML), "{{ .Version }}", s.FormatMajorMinorVersion())
+					w.Header().Set("Content-Type", "text/html; charset=utf-8")
+					_, _ = w.Write([]byte(rendered))
 					return
 				}
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				_, _ = w.Write(indexHTML)
-				return
-			}
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			if err := indexTmpl.Execute(w, nil); err != nil {
-				http.Error(w, fmt.Sprintf("failed to render template: %v", err), http.StatusInternalServerError)
-			}
-		})
+				tmplData := map[string]any{
+					"Version": s.FormatMajorMinorVersion(),
+				}
+				if err := indexTmpl.Execute(w, tmplData); err != nil {
+					http.Error(w, fmt.Sprintf("failed to render template: %v", err), http.StatusInternalServerError)
+				}
+			})
+		}
 	}
 }

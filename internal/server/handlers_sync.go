@@ -10,16 +10,16 @@ import (
 func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 	var req models.ActionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, models.ActionResponse{Status: "error", Error: "Invalid request body"})
+		writeJSON(w, http.StatusBadRequest, models.ActionResponse{Status: "error", Msg: "Invalid request body", Error: "Invalid request body"})
 		return
 	}
 	if s.SyncService == nil {
-		writeJSON(w, http.StatusOK, models.ActionResponse{Status: "error", Error: "SyncService not initialized"})
+		writeJSON(w, http.StatusOK, models.ActionResponse{Status: "error", Msg: "SyncService not initialized", Error: "SyncService not initialized"})
 		return
 	}
 	res, err := s.SyncService.HandleAction(r.Context(), req.Action)
 	if err != nil {
-		writeJSON(w, http.StatusOK, models.ActionResponse{Status: "error", Error: err.Error()})
+		writeJSON(w, http.StatusOK, models.ActionResponse{Status: "error", Msg: err.Error(), Error: err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, res)

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/engine/heuristics"
@@ -21,6 +22,7 @@ type ReviewService struct {
 	Config           *config.Config
 	Client           *client.RcloneClient
 	HeuristicsEngine *heuristics.Engine
+	Audit            *AuditService
 	mu               sync.Mutex
 	session          *models.ReviewSession
 }
@@ -134,6 +136,7 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 
 	if s.session != nil {
 		s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
+		s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
 		return s.session, nil
 	}
 
@@ -142,6 +145,7 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 		if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
 			s.session = sess
 			s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
+			s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
 			return s.session, nil
 		}
 	}
@@ -149,7 +153,19 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 	// If pending deletions file exists and indicates pending changes, auto-discover
 	if s.Config != nil && s.Config.PendingDeletionsFile != "" {
 		if _, err := os.Stat(s.Config.PendingDeletionsFile); err == nil {
-			return s.discoverCandidatesLocked(ctx, "TOO_MANY_DELETES", "Safety abort: pending deletions require review")
+			sess, err := s.discoverCandidatesLocked(ctx, "TOO_MANY_DELETES", "Safety abort: pending deletions require review")
+			if err == nil && sess != nil {
+				if len(sess.Deletions) == 0 && len(sess.Conflicts) == 0 {
+					// Clean up empty pending deletions file and empty session so user is not stuck
+					_ = os.Remove(s.Config.PendingDeletionsFile)
+					if sessionFile != "" {
+						_ = os.Remove(sessionFile)
+					}
+					s.session = nil
+					return nil, nil
+				}
+				return sess, nil
+			}
 		}
 	}
 
@@ -169,9 +185,15 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 	}
 
 	var logLines []string
+	if s.Config.BaseDir != "" {
+		daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
+		if data, err := os.ReadFile(daemonLog); err == nil {
+			logLines = append(logLines, strings.Split(string(data), "\n")...)
+		}
+	}
 	if s.Config.LogFile != "" {
 		if data, err := os.ReadFile(s.Config.LogFile); err == nil {
-			logLines = strings.Split(string(data), "\n")
+			logLines = append(logLines, strings.Split(string(data), "\n")...)
 		}
 	}
 
@@ -182,6 +204,7 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 	)
 
 	conflicts = s.enrichConflictRecommendationsLocked(ctx, conflicts)
+	deletions = s.enrichDeletionRecommendationsLocked(ctx, deletions)
 
 	sess := review.NewSession(errType, errMessage, deletions, conflicts)
 	_ = review.Transition(sess, models.ReviewStatusReviewing)
@@ -227,6 +250,150 @@ func (s *ReviewService) enrichConflictRecommendationsLocked(ctx context.Context,
 
 	return conflicts
 }
+func (s *ReviewService) enrichDeletionRecommendationsLocked(ctx context.Context, deletions []models.DeletionCandidate) []models.DeletionCandidate {
+	for i := range deletions {
+		// Clean up any legacy dirty paths from past sessions
+		p := deletions[i].Path
+		if idx := strings.Index(p, `","`); idx != -1 {
+			p = p[:idx]
+		}
+		if idx := strings.Index(p, `", "`); idx != -1 {
+			p = p[:idx]
+		}
+		if idx := strings.Index(p, `","source"`); idx != -1 {
+			p = p[:idx]
+		}
+		if idx := strings.Index(p, `", "source"`); idx != -1 {
+			p = p[:idx]
+		}
+		p = strings.Trim(p, `"',{}\`)
+		deletions[i].Path = filepath.Clean(strings.TrimSpace(p))
+		deletions[i].Name = filepath.Base(deletions[i].Path)
+
+		if s.Config != nil && s.Config.LocalPath != "" && deletions[i].Size == 0 {
+			fullPath := filepath.Join(s.Config.LocalPath, deletions[i].Path)
+			if fi, err := os.Stat(fullPath); err == nil {
+				deletions[i].Size = fi.Size()
+				deletions[i].ModTime = fi.ModTime().UTC().Format(time.RFC3339)
+				deletions[i].IsDir = fi.IsDir()
+			}
+		}
+
+		if deletions[i].Recommendation != nil {
+			continue
+		}
+		rec := s.evaluateDeletionRecommendation(deletions[i])
+		deletions[i].Recommendation = &rec
+	}
+	return deletions
+}
+
+func (s *ReviewService) evaluateDeletionRecommendation(d models.DeletionCandidate) models.ConflictRecommendation {
+	// Rule 1: Canary Protection
+	if d.Name == "RCLONE_TEST" {
+		return models.ConflictRecommendation{
+			SuggestedAction: string(models.DecisionRestoreItem),
+			Confidence:      1.0,
+			Risk:            string(heuristics.RiskCritical),
+			PrimaryReason:   "Canary integrity file; deletion strictly prohibited.",
+			EvaluatedRules: []models.RuleResult{
+				{
+					RuleName: "CanaryProtection",
+					Action:   string(models.DecisionRestoreItem),
+					Risk:     string(heuristics.RiskCritical),
+					Score:    1.0,
+					Weight:   10.0,
+					Reason:   "Canary file missing; circuit breaker protection.",
+					Matched:  true,
+				},
+			},
+		}
+	}
+
+	lowerName := strings.ToLower(d.Name)
+	// Rule 2: Office temp / lock / transient files
+	if strings.HasPrefix(d.Name, "~$") || strings.HasPrefix(d.Name, ".~") ||
+		strings.HasSuffix(lowerName, ".tmp") || strings.HasSuffix(lowerName, ".swp") ||
+		lowerName == "thumbs.db" || lowerName == ".ds_store" {
+		return models.ConflictRecommendation{
+			SuggestedAction: string(models.DecisionAcceptDelete),
+			Confidence:      0.95,
+			Risk:            string(heuristics.RiskLow),
+			PrimaryReason:   "Transient system/lock file; safe to accept deletion.",
+			EvaluatedRules: []models.RuleResult{
+				{
+					RuleName: "TempLockDeletion",
+					Action:   string(models.DecisionAcceptDelete),
+					Risk:     string(heuristics.RiskLow),
+					Score:    0.95,
+					Weight:   2.0,
+					Reason:   "Transient system or lock artifact.",
+					Matched:  true,
+				},
+			},
+		}
+	}
+
+	// Rule 3: Deletion initiated on Local by user (propagating to remote)
+	if d.Source == models.SideLocal {
+		return models.ConflictRecommendation{
+			SuggestedAction: string(models.DecisionAcceptDelete),
+			Confidence:      0.85,
+			Risk:            string(heuristics.RiskLow),
+			PrimaryReason:   "Deleted locally by user; safe to propagate to remote.",
+			EvaluatedRules: []models.RuleResult{
+				{
+					RuleName: "UserLocalDeletion",
+					Action:   string(models.DecisionAcceptDelete),
+					Risk:     string(heuristics.RiskLow),
+					Score:    0.85,
+					Weight:   1.5,
+					Reason:   "Local origin deletion intended by user.",
+					Matched:  true,
+				},
+			},
+		}
+	}
+
+	// Rule 4: Deletion originated on Remote (targeting local)
+	if d.Size == 0 {
+		return models.ConflictRecommendation{
+			SuggestedAction: string(models.DecisionAcceptDelete),
+			Confidence:      0.80,
+			Risk:            string(heuristics.RiskLow),
+			PrimaryReason:   "Empty (0-byte) file deleted on remote; safe to remove.",
+			EvaluatedRules: []models.RuleResult{
+				{
+					RuleName: "EmptyRemoteDeletion",
+					Action:   string(models.DecisionAcceptDelete),
+					Risk:     string(heuristics.RiskLow),
+					Score:    0.80,
+					Weight:   1.2,
+					Reason:   "Zero-byte file removed on remote.",
+					Matched:  true,
+				},
+			},
+		}
+	}
+
+	return models.ConflictRecommendation{
+		SuggestedAction: string(models.DecisionRestoreItem),
+		Confidence:      0.75,
+		Risk:            string(heuristics.RiskMedium),
+		PrimaryReason:   "Remote deletion of local file; preserve local copy unless deletion intended.",
+		EvaluatedRules: []models.RuleResult{
+			{
+				RuleName: "RemoteDeletionGuard",
+				Action:   string(models.DecisionRestoreItem),
+				Risk:     string(heuristics.RiskMedium),
+				Score:    0.75,
+				Weight:   1.5,
+				Reason:   "Unexpected remote deletion; preserving local file is safest default.",
+				Matched:  true,
+			},
+		},
+	}
+}
 
 func parseCandidateTime(ts string) time.Time {
 	if ts == "" {
@@ -266,10 +433,39 @@ func (s *ReviewService) ApplyBatchRecommendations(ctx context.Context, sessionID
 	maxRiskUpper := strings.ToUpper(maxRisk)
 
 	s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
+	s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
 
 	stagedCount := 0
 	for i := range s.session.Conflicts {
 		cand := &s.session.Conflicts[i]
+		if cand.Resolved || cand.Recommendation == nil {
+			continue
+		}
+
+		rec := cand.Recommendation
+		if rec.Risk == string(heuristics.RiskCritical) || rec.SuggestedAction == string(heuristics.ActionManual) {
+			continue
+		}
+
+		if maxRiskUpper == string(heuristics.RiskLow) && rec.Risk != string(heuristics.RiskLow) {
+			continue
+		}
+		if maxRiskUpper == string(heuristics.RiskMedium) && rec.Risk != string(heuristics.RiskLow) && rec.Risk != string(heuristics.RiskMedium) {
+			continue
+		}
+
+		if rec.Confidence < minConfidence {
+			continue
+		}
+
+		decision := models.ActionDecision(rec.SuggestedAction)
+		if err := review.StageDecision(s.session, cand.ID, decision); err == nil {
+			stagedCount++
+		}
+	}
+
+	for i := range s.session.Deletions {
+		cand := &s.session.Deletions[i]
 		if cand.Resolved || cand.Recommendation == nil {
 			continue
 		}
@@ -405,6 +601,29 @@ func (s *ReviewService) ApplyReviewSession(ctx context.Context, sessionID string
 		_ = os.Remove(walFile)
 	}
 
+	if s.Audit != nil && s.session != nil {
+		profileID := "default"
+		if s.Config != nil && s.Config.RemotePath != "" {
+			profileID = s.Config.RemotePath
+		}
+		for _, a := range s.session.Actions {
+			if a.Status == "completed" {
+				act := audit.ActionConflictResolved
+				if a.Type == models.DecisionAcceptDelete {
+					act = audit.ActionDeletionAccepted
+				} else if a.Type == models.DecisionRestoreItem {
+					act = audit.ActionDeletionRestored
+				}
+				_, _ = s.Audit.RecordEvent(profileID, act, "USER", map[string]any{
+					"item_path":  a.ItemPath,
+					"decision":   string(a.Type),
+					"session_id": s.session.ID,
+					"is_dir":     a.IsDir,
+				})
+			}
+		}
+	}
+
 	appliedSession := s.session
 	s.session = nil
 	return appliedSession, nil
@@ -435,6 +654,16 @@ func (s *ReviewService) RollbackReviewSession(ctx context.Context, sessionID str
 		_ = review.SaveActiveSession(sessionFile, s.session)
 	}
 
+	if err == nil && s.Audit != nil && s.session != nil {
+		profileID := "default"
+		if s.Config != nil && s.Config.RemotePath != "" {
+			profileID = s.Config.RemotePath
+		}
+		_, _ = s.Audit.RecordEvent(profileID, audit.ActionRollbackExecuted, "USER", map[string]any{
+			"session_id": s.session.ID,
+		})
+	}
+
 	return s.session, err
 }
 
@@ -461,6 +690,16 @@ func (s *ReviewService) DismissReviewSession(sessionID string) error {
 	walFile := s.walFilePath()
 	if walFile != "" {
 		_ = os.Remove(walFile)
+	}
+
+	if s.Audit != nil && s.session != nil {
+		profileID := "default"
+		if s.Config != nil && s.Config.RemotePath != "" {
+			profileID = s.Config.RemotePath
+		}
+		_, _ = s.Audit.RecordEvent(profileID, audit.ActionReviewDismissed, "USER", map[string]any{
+			"session_id": s.session.ID,
+		})
 	}
 
 	s.session = nil

@@ -1,6 +1,7 @@
 package security
 
 import (
+	"encoding/json"
 	"reflect"
 	"regexp"
 	"strings"
@@ -122,6 +123,20 @@ func RedactSecrets(data interface{}) interface{} {
 		return out
 
 	case reflect.Slice, reflect.Array:
+		if val.Type() == reflect.TypeOf(json.RawMessage{}) {
+			var unmarshaled interface{}
+			if err := json.Unmarshal(val.Bytes(), &unmarshaled); err == nil {
+				redacted := RedactSecrets(unmarshaled)
+				if redBytes, err := json.Marshal(redacted); err == nil {
+					return json.RawMessage(redBytes)
+				}
+			}
+			return val.Interface()
+		}
+		if val.Type() == reflect.TypeOf([]byte{}) {
+			return val.Interface()
+		}
+
 		out := make([]interface{}, val.Len())
 		for i := 0; i < val.Len(); i++ {
 			out[i] = RedactSecrets(val.Index(i).Interface())

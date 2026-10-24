@@ -47,17 +47,18 @@ const (
 
 // DeletionCandidate represents an item scheduled for deletion during an aborted run.
 type DeletionCandidate struct {
-	ID           string             `json:"id"`
-	Path         string             `json:"path"`
-	Name         string             `json:"name"`
-	IsDir        bool               `json:"is_dir"`
-	Source       CandidateSide      `json:"source"`
-	TargetAction string             `json:"target_action"`
-	Size         int64              `json:"size,omitempty"`
-	ModTime      string             `json:"mod_time,omitempty"`
-	Condition    CandidateCondition `json:"condition"`
-	Decision     ActionDecision     `json:"decision,omitempty"`
-	Resolved     bool               `json:"resolved"`
+	ID             string                  `json:"id"`
+	Path           string                  `json:"path"`
+	Name           string                  `json:"name"`
+	IsDir          bool                    `json:"is_dir"`
+	Source         CandidateSide           `json:"source"`
+	TargetAction   string                  `json:"target_action"`
+	Size           int64                   `json:"size,omitempty"`
+	ModTime        string                  `json:"mod_time,omitempty"`
+	Condition      CandidateCondition      `json:"condition"`
+	Decision       ActionDecision          `json:"decision,omitempty"`
+	Resolved       bool                    `json:"resolved"`
+	Recommendation *ConflictRecommendation `json:"recommendation,omitempty"`
 }
 
 // ConflictCandidate represents a conflicting file altered concurrently on both sides.

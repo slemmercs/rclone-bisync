@@ -130,7 +130,7 @@ window.ReviewModule = {
                 if (data.session) {
                     this.reviewState.session = data.session;
                 }
-                this.showToast(`Auto-staged recommendations for ${data.staged_count || 0} conflict(s).`, "success");
+                this.showToast(`Auto-staged recommendations for ${data.staged_count || 0} candidate(s).`, "success");
             }
         } catch (err) {
             this.showToast("Network error applying batch recommendations: " + err.message, "error");
@@ -165,12 +165,21 @@ window.ReviewModule = {
             this.reviewState.lastResult = data;
             if (!res.ok || data.status === "error") {
                 this.showToast("Resolution execution failed: " + (data.error || "Unknown error"), "error");
+                await this.fetchReviewSession(false);
             } else {
-                this.showToast(`Applied ${data.applied} resolution(s) with pre-mutation backups.`, "success");
+                const appliedCount = data.applied || 0;
+                this.showToast(`Applied ${appliedCount} resolution(s) with pre-mutation backups. Starting sync to finalize...`, "success");
+                this.closeReviewModal();
+                this.reviewState.active = false;
+                this.reviewState.session = null;
+
+                if (this.refreshExplorer) this.refreshExplorer();
+                if (this.triggerAction) {
+                    await this.triggerAction("force_sync");
+                } else if (this.poll) {
+                    await this.poll();
+                }
             }
-            await this.fetchReviewSession(false);
-            if (this.refreshExplorer) this.refreshExplorer();
-            if (this.poll) await this.poll();
         } catch (err) {
             this.showToast("Network error executing review: " + err.message, "error");
         } finally {

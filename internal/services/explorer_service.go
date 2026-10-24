@@ -124,7 +124,7 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string) c
 			rawBase = "~/gdrive"
 		}
 
-		_, targetDir, ok := isLocalPathJailed(rawBase, cleanPath)
+		baseDir, targetDir, ok := isLocalPathJailed(rawBase, cleanPath)
 		if !ok {
 			return client.DirectoryListing{
 				Remote: "local",
@@ -207,10 +207,15 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string) c
 			return strings.ToLower(items[i]["Name"].(string)) < strings.ToLower(items[j]["Name"].(string))
 		})
 
+		rootCanary := false
+		if fi, err := os.Stat(filepath.Join(baseDir, "RCLONE_TEST")); err == nil && !fi.IsDir() {
+			rootCanary = true
+		}
+
 		return client.DirectoryListing{
 			Remote:    "local",
 			Path:      cleanPath,
-			HasCanary: hasCanary,
+			HasCanary: rootCanary || hasCanary,
 			Items:     items,
 		}
 	}

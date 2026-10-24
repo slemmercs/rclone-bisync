@@ -43,8 +43,22 @@ func discoverDeletions(logLines []string, pendingFile, localRoot string) []model
 			}
 
 			for _, f := range structured.Files {
-				cleanPath := filepath.Clean(strings.TrimSpace(f))
-				if cleanPath == "" || cleanPath == "." || seen[cleanPath] {
+				cleanPath := strings.TrimSpace(f)
+				if idx := strings.Index(cleanPath, `","`); idx != -1 {
+					cleanPath = cleanPath[:idx]
+				}
+				if idx := strings.Index(cleanPath, `", "`); idx != -1 {
+					cleanPath = cleanPath[:idx]
+				}
+				if idx := strings.Index(cleanPath, `","source"`); idx != -1 {
+					cleanPath = cleanPath[:idx]
+				}
+				if idx := strings.Index(cleanPath, `", "source"`); idx != -1 {
+					cleanPath = cleanPath[:idx]
+				}
+				cleanPath = strings.Trim(cleanPath, `"',{}\`)
+				cleanPath = filepath.Clean(strings.TrimSpace(cleanPath))
+				if cleanPath == "" || cleanPath == "." || strings.Contains(cleanPath, ".review_backups") || seen[cleanPath] {
 					continue
 				}
 				seen[cleanPath] = true
@@ -103,20 +117,63 @@ func discoverDeletions(logLines []string, pendingFile, localRoot string) []model
 		sublines := strings.Split(normalized, "\n")
 		for _, sub := range sublines {
 			imsg := strings.TrimSpace(sub)
+			if imsg == "" {
+				continue
+			}
+
+			// If subline is an embedded JSON object, extract the inner "msg"
+			var subData map[string]interface{}
+			if err := json.Unmarshal([]byte(imsg), &subData); err == nil {
+				if m, ok := subData["msg"].(string); ok {
+					imsg = strings.TrimSpace(m)
+				}
+			}
+
 			if strings.Contains(imsg, "File was deleted") {
+				lineSource := source
+				lineAction := targetAction
+				if strings.Contains(imsg, "Path1") {
+					lineSource = models.SideRemote
+					lineAction = "Will be deleted from local disk"
+				} else if strings.Contains(imsg, "Path2") {
+					lineSource = models.SideLocal
+					lineAction = "Will be deleted from remote"
+				}
+
 				parts := strings.Split(imsg, "File was deleted")
 				for _, part := range parts[1:] {
 					fp := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(part), "-:"))
-					// If line had quotes, strip them
-					fp = strings.Trim(fp, `",'\`)
-					fields := strings.Fields(fp)
-					if len(fields) > 0 {
-						cleanPath := filepath.Clean(fields[0])
-						if cleanPath != "" && cleanPath != "." && !seen[cleanPath] {
+					// Strip any trailing JSON delimiters if nested unmarshaling missed them
+					if idx := strings.Index(fp, `","`); idx != -1 {
+						fp = fp[:idx]
+					}
+					if idx := strings.Index(fp, `", "`); idx != -1 {
+						fp = fp[:idx]
+					}
+					if idx := strings.Index(fp, `","source"`); idx != -1 {
+						fp = fp[:idx]
+					}
+					if idx := strings.Index(fp, `", "source"`); idx != -1 {
+						fp = fp[:idx]
+					}
+					fp = strings.Trim(fp, `"',{}\`)
+					fp = strings.TrimSpace(fp)
+					if fp != "" {
+						cleanPath := filepath.Clean(fp)
+						if cleanPath != "" && cleanPath != "." && !strings.Contains(cleanPath, ".review_backups") && !seen[cleanPath] {
 							seen[cleanPath] = true
-							candidates = append(candidates, buildDeletionCandidate(cleanPath, source, targetAction, localRoot))
+							candidates = append(candidates, buildDeletionCandidate(cleanPath, lineSource, lineAction, localRoot))
 						}
 					}
+				}
+			}
+
+			// Boundary check: If we have extracted candidates from the current run and reach the run start banner, stop scanning further backwards
+			if strings.Contains(imsg, "Synching Path1") ||
+				strings.Contains(imsg, "Building Path1 and Path2 listings") ||
+				strings.Contains(imsg, "Bisyncing with Comparison Settings") {
+				if len(candidates) > 0 {
+					return candidates
 				}
 			}
 		}

@@ -6,41 +6,47 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
-// Logger provides thread-safe structured logging with file and console sinks.
+// Logger provides thread-safe structured logging with file and console sinks and automatic rotation.
 type Logger struct {
 	mu            sync.Mutex
-	logFile       *os.File
+	logWriter     io.WriteCloser
 	filePath      string
 	enableConsole bool
 	slogLogger    *slog.Logger
 }
 
-// New initializes a Logger instance writing to filePath and optionally to console.
+// New initializes a Logger instance with default rotation thresholds (10 MB, 5 backups).
 func New(filePath string, enableConsole bool) (*Logger, error) {
-	var file *os.File
-	var err error
+	return NewWithRotation(filePath, enableConsole, 10, 5)
+}
+
+// NewWithRotation initializes a Logger instance with custom rotation parameters.
+// maxSizeMB is the file size limit in megabytes.
+// maxBackups is the maximum number of retained rotated archive files.
+func NewWithRotation(filePath string, enableConsole bool, maxSizeMB int, maxBackups int) (*Logger, error) {
+	var writer io.WriteCloser
 
 	if filePath != "" {
-		dir := filepath.Dir(filePath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create log directory: %w", err)
+		maxBytes := int64(maxSizeMB) * 1024 * 1024
+		if maxBytes <= 0 {
+			maxBytes = 10 * 1024 * 1024
 		}
-		file, err = os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		rotator, err := NewRotator(filePath, maxBytes, maxBackups)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open log file %q: %w", filePath, err)
+			return nil, fmt.Errorf("failed to initialize rotator for %q: %w", filePath, err)
 		}
+		writer = rotator
 	}
 
 	var writers []io.Writer
-	if file != nil {
-		writers = append(writers, file)
+	if writer != nil {
+		writers = append(writers, writer)
 	}
 	if enableConsole {
 		writers = append(writers, os.Stderr)
@@ -61,20 +67,20 @@ func New(filePath string, enableConsole bool) (*Logger, error) {
 	slogL := slog.New(handler)
 
 	return &Logger{
-		logFile:       file,
+		logWriter:     writer,
 		filePath:      filePath,
 		enableConsole: enableConsole,
 		slogLogger:    slogL,
 	}, nil
 }
 
-// Close closes the underlying file handle if open.
+// Close closes the underlying writer handle if open.
 func (l *Logger) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.logFile != nil {
-		err := l.logFile.Close()
-		l.logFile = nil
+	if l.logWriter != nil {
+		err := l.logWriter.Close()
+		l.logWriter = nil
 		return err
 	}
 	return nil
@@ -88,6 +94,9 @@ func (l *Logger) RecordSyncRun(entry models.BisyncLogEntry) error {
 	if entry.Level == "" {
 		entry.Level = "info"
 	}
+	if entry.Type == "" {
+		entry.Type = "sync"
+	}
 
 	data, err := json.Marshal(entry)
 	if err != nil {
@@ -98,9 +107,41 @@ func (l *Logger) RecordSyncRun(entry models.BisyncLogEntry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if l.logFile != nil {
-		if _, err := l.logFile.Write(line); err != nil {
+	if l.logWriter != nil {
+		if _, err := l.logWriter.Write(line); err != nil {
 			return fmt.Errorf("failed to write to log file: %w", err)
+		}
+	}
+	if l.enableConsole {
+		_, _ = os.Stderr.Write(line)
+	}
+	return nil
+}
+
+// RecordAuditEvent appends a cryptographically verified audit record to the log stream.
+func (l *Logger) RecordAuditEvent(entry models.AuditLogRecord) error {
+	if entry.Time == "" {
+		entry.Time = time.Now().Format(time.RFC3339)
+	}
+	if entry.Level == "" {
+		entry.Level = "info"
+	}
+	if entry.Type == "" {
+		entry.Type = "audit"
+	}
+
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("failed to marshal AuditLogRecord: %w", err)
+	}
+	line := append(data, '\n')
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.logWriter != nil {
+		if _, err := l.logWriter.Write(line); err != nil {
+			return fmt.Errorf("failed to write audit record to log: %w", err)
 		}
 	}
 	if l.enableConsole {

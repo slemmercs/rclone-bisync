@@ -312,3 +312,136 @@ func TestReviewService_ApplyBatchRecommendations(t *testing.T) {
 		t.Errorf("expected conf-truncation (CRITICAL risk) to remain unresolved, got %s", active.Conflicts[2].Decision)
 	}
 }
+
+func TestReviewService_DeletionRecommendations(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	svc := NewReviewService(cfg, nil)
+
+	sess := &models.ReviewSession{
+		ID:        "del-rec-test",
+		CreatedAt: time.Now().UTC(),
+		Status:    models.ReviewStatusReviewing,
+		Deletions: []models.DeletionCandidate{
+			{
+				ID:     "del-canary",
+				Path:   "RCLONE_TEST",
+				Name:   "RCLONE_TEST",
+				Source: models.SideRemote,
+			},
+			{
+				ID:     "del-templock",
+				Path:   "sub/~$doc.docx",
+				Name:   "~$doc.docx",
+				Source: models.SideLocal,
+			},
+			{
+				ID:     "del-userlocal",
+				Path:   "data/file.txt",
+				Name:   "file.txt",
+				Source: models.SideLocal,
+			},
+		},
+	}
+
+	svc.mu.Lock()
+	svc.session = sess
+	svc.mu.Unlock()
+
+	active, err := svc.GetActiveSession(context.Background())
+	if err != nil || active == nil {
+		t.Fatalf("expected active session: %v", err)
+	}
+
+	// 1. Canary has CRITICAL risk and restore-item suggestion
+	canaryRec := active.Deletions[0].Recommendation
+	if canaryRec == nil || canaryRec.Risk != "CRITICAL" || canaryRec.SuggestedAction != string(models.DecisionRestoreItem) {
+		t.Fatalf("expected CRITICAL restore-item for canary, got: %+v", canaryRec)
+	}
+
+	// 2. Temp lock has LOW risk and accept-delete suggestion
+	tempRec := active.Deletions[1].Recommendation
+	if tempRec == nil || tempRec.Risk != "LOW" || tempRec.SuggestedAction != string(models.DecisionAcceptDelete) {
+		t.Fatalf("expected LOW accept-delete for temp lock, got: %+v", tempRec)
+	}
+
+	// 3. User local deletion has LOW risk and accept-delete suggestion
+	userRec := active.Deletions[2].Recommendation
+	if userRec == nil || userRec.Risk != "LOW" || userRec.SuggestedAction != string(models.DecisionAcceptDelete) {
+		t.Fatalf("expected LOW accept-delete for user local deletion, got: %+v", userRec)
+	}
+
+	// Batch auto-stage with LOW risk should stage the 2 safe deletions, leaving canary unresolved
+	staged, err := svc.ApplyBatchRecommendations(context.Background(), sess.ID, 0.70, "LOW")
+	if err != nil {
+		t.Fatalf("ApplyBatchRecommendations failed: %v", err)
+	}
+	if staged != 2 {
+		t.Fatalf("expected 2 deletions staged, got %d", staged)
+	}
+	if active.Deletions[0].Decision != "" {
+		t.Fatalf("expected canary to remain unresolved, got: %s", active.Deletions[0].Decision)
+	}
+	if active.Deletions[1].Decision != models.DecisionAcceptDelete {
+		t.Fatalf("expected temp lock to be accept-delete, got: %s", active.Deletions[1].Decision)
+	}
+	if active.Deletions[2].Decision != models.DecisionAcceptDelete {
+		t.Fatalf("expected user local to be accept-delete, got: %s", active.Deletions[2].Decision)
+	}
+}
+
+func TestReviewService_DiscoverFromDaemonLog(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	svc := NewReviewService(cfg, nil)
+
+	// Daemon log with files containing spaces
+	daemonLog := filepath.Join(cfg.BaseDir, "rclone-daemon.log")
+	logContent := `{"time":"2026-10-24T22:16:00Z","level":"info","msg":"- Path2             File was deleted                            - Csaba/etc/Daimler Corporate Color Palette.xlsx"}` + "\n" +
+		`{"time":"2026-10-24T22:16:00Z","level":"error","msg":"too many deletes (>0%, 4 of 7061) on Path2 \"/home/csaba/gdrive/\". Run with --force if desired."}` + "\n"
+	_ = os.WriteFile(daemonLog, []byte(logContent), 0644)
+
+	// bisync.log has only summary error
+	_ = os.WriteFile(cfg.LogFile, []byte(`{"time":"2026-10-24T22:16:00+02:00","level":"error","msg":"Sync failed [TOO_MANY_DELETES]: too many deletes"}`+"\n"), 0644)
+
+	// Pending deletions marker exists
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"error":"too many deletes"}`), 0644)
+
+	sess, err := svc.GetActiveSession(context.Background())
+	if err != nil || sess == nil {
+		t.Fatalf("expected active session auto-discovered from daemon log: %v, err: %v", sess, err)
+	}
+
+	if len(sess.Deletions) != 1 {
+		t.Fatalf("expected 1 deletion candidate, got %d", len(sess.Deletions))
+	}
+	expectedPath := "Csaba/etc/Daimler Corporate Color Palette.xlsx"
+	if sess.Deletions[0].Path != expectedPath {
+		t.Fatalf("expected candidate path %q, got %q", expectedPath, sess.Deletions[0].Path)
+	}
+}
+
+func TestReviewService_AutoDismissEmptySession(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	svc := NewReviewService(cfg, nil)
+
+	// Empty logs
+	_ = os.WriteFile(cfg.LogFile, []byte(""), 0644)
+
+	// Pending deletions marker exists but no logs have files
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"error":"too many deletes"}`), 0644)
+
+	sess, err := svc.GetActiveSession(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sess != nil {
+		t.Fatalf("expected empty session to be cleaned up and return nil, got: %+v", sess)
+	}
+
+	// Pending deletions file should be removed
+	if _, err := os.Stat(cfg.PendingDeletionsFile); !os.IsNotExist(err) {
+		t.Fatal("expected pending deletions file to be removed when empty")
+	}
+	if svc.HasBlockingReview() {
+		t.Fatal("expected no blocking review for empty session")
+	}
+}

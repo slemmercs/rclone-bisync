@@ -53,6 +53,9 @@ var CLIToRCMap = map[string]OptionMapping{
 	"--conflict-resolve": {TypeParam, "conflictResolve"},
 	"--conflict-loser":   {TypeParam, "conflictLoser"},
 
+	// Filters
+	"--filters-file": {TypeParam, "filtersFile"},
+
 	// Global Engine Config (under _config)
 	"--fast-list":         {TypeConfigBool, "UseListR"},
 	"--buffer-size":       {TypeConfigStr, "BufferSize"},
@@ -159,6 +162,13 @@ func CompileBisyncPayload(
 		testFile := filepath.Join(localPath, "RCLONE_TEST")
 		if _, err := os.Stat(testFile); os.IsNotExist(err) {
 			return nil, fmt.Errorf("safety guard triggered: --check-access is enabled, but \x27%s\x27 was not found - aborting sync to prevent unintended deletions or sync of an unmounted filesystem", testFile)
+		}
+	}
+
+	// Ensure filtersFile is an absolute path if explicitly provided
+	if ff, ok := bisyncParams["filtersFile"].(string); ok && ff != "" {
+		if abs, err := filepath.Abs(ff); err == nil {
+			bisyncParams["filtersFile"] = abs
 		}
 	}
 

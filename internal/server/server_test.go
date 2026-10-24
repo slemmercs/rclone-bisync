@@ -1019,6 +1019,8 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 		"Engine: ",
 		"Total Cloud Space",
 		"Dual-Pane Directory Explorer",
+		"Audit Ledger",
+		"Cryptographically Verified",
 	}
 	for _, marker := range expectedViewMarkers {
 		if !strings.Contains(body, marker) {
@@ -1054,5 +1056,35 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 	}
 	if !strings.Contains(body, `x-for="[key, val] in Object.entries(entry.details`) {
 		t.Error("expected Object.entries iteration for entry.details in modal_daemon")
+	}
+
+	// Verify Enterprise branding removed and dynamic version injected
+	if strings.Contains(body, "Enterprise") {
+		t.Error("expected 'Enterprise' branding to be removed from header")
+	}
+	if !strings.Contains(body, "v1.0") {
+		t.Errorf("expected dynamic version 'v1.0' in header, got body: %s", body[:500])
+	}
+}
+
+func TestFormatMajorMinor(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"v1.0.0", "v1.0"},
+		{"v1.0.0-beta.1", "v1.0"},
+		{"1.2.3", "v1.2"},
+		{"v2.4", "v2.4"},
+		{"v2.4.0", "v2.4"},
+		{"dev", "v1.0"},
+		{"", "v1.0"},
+	}
+
+	for _, tt := range tests {
+		got := FormatMajorMinor(tt.input)
+		if got != tt.expected {
+			t.Errorf("FormatMajorMinor(%q) = %q; expected %q", tt.input, got, tt.expected)
+		}
 	}
 }

@@ -11,9 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/lock"
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -56,6 +58,7 @@ type SyncService struct {
 	Telemetry *TelemetryService
 	Explorer  *ExplorerService
 	Review    *ReviewService
+	Audit     *AuditService
 }
 
 // NewSyncService initializes a new SyncService.
@@ -63,17 +66,37 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 	if rcClient == nil {
 		user := ""
 		pass := ""
-		if cfg.RCAuthEnabled {
+		if cfg != nil && cfg.RCAuthEnabled {
 			user = cfg.RCUser
 			pass = cfg.RCPass
 		}
-		rcClient = client.NewRcloneClient(cfg.RCAPIURL, user, pass)
+		rcURL := "http://localhost:5572"
+		if cfg != nil && cfg.RCAPIURL != "" {
+			rcURL = cfg.RCAPIURL
+		}
+		rcClient = client.NewRcloneClient(rcURL, user, pass)
 	}
 	canarySvc := NewCanaryService(cfg, rcClient)
 	deletionSvc := NewDeletionService(cfg)
 	telemetrySvc := NewTelemetryService(cfg, rcClient)
 	explorerSvc := NewExplorerService(cfg, rcClient, canarySvc)
 	reviewSvc := NewReviewService(cfg, rcClient)
+
+	var auditSvc *AuditService
+	if cfg != nil {
+		dbPath := cfg.AuditDBPath
+		if db, err := audit.OpenDB(dbPath); err == nil && db != nil {
+			var runLogger *logger.Logger
+			if cfg.LogFile != "" {
+				runLogger, _ = logger.New(cfg.LogFile, true)
+			}
+			auditSvc = NewAuditService(db, runLogger)
+		}
+	}
+	if reviewSvc != nil {
+		reviewSvc.Audit = auditSvc
+	}
+
 	return &SyncService{
 		Config:    cfg,
 		Client:    rcClient,
@@ -82,6 +105,7 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 		Telemetry: telemetrySvc,
 		Explorer:  explorerSvc,
 		Review:    reviewSvc,
+		Audit:     auditSvc,
 	}
 }
 
@@ -219,7 +243,15 @@ func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin stri
 	cmdArgs = append(cmdArgs, execArgs...)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		outStr := strings.TrimSpace(string(out))
+		if outStr != "" {
+			return fmt.Errorf("%s: %s", err, outStr)
+		}
+		return err
+	}
+	return nil
 }
 
 // GetDaemonHealth retrieves daemon health with caching.

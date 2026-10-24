@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/lock"
 )
@@ -242,4 +244,148 @@ func TestSyncRunnerCompilerErrorAndTriggerError(t *testing.T) {
 		t.Fatal("expected failure on missing canary check-access error")
 	}
 
+}
+
+func TestSyncRunner_AuditExecuted_And_Aborted(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "runner_audit_test_*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	auditDBPath := tmpDir + "/audit.db"
+	db, err := audit.OpenDB(auditDBPath)
+	if err != nil {
+		t.Fatalf("failed to open audit db: %v", err)
+	}
+	defer db.Close()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sync/bisync":
+			_ = json.NewEncoder(w).Encode(map[string]any{"jobid": 42})
+		case "/job/status":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"finished": true,
+				"success":  true,
+				"output":   map[string]any{"transfers": 5},
+			})
+		}
+	}))
+	defer srv.Close()
+
+	logFile := tmpDir + "/bisync.log"
+	cfg := &config.Config{
+		RCAPIURL:                 srv.URL,
+		LocalPath:                tmpDir,
+		RemotePath:               "gdrive:",
+		AuditDBPath:              auditDBPath,
+		LogFile:                  logFile,
+		LockFile:                 tmpDir + "/bisync.lock",
+		NotificationStateFile:    tmpDir + "/notify.json",
+		PendingDeletionsFile:     tmpDir + "/deletions.json",
+		JobPollInitialSleepSec:   0.005,
+		JobPollMaxSleepSec:       0.01,
+		JobPollBackoffMultiplier: 1.0,
+		JobTimeoutSeconds:        5,
+	}
+
+	r := NewSyncRunner(cfg)
+	if r.Audit == nil {
+		t.Fatal("expected runner.Audit to be initialized from AuditDBPath")
+	}
+
+	// Act 1: Successful sync with files transferred and origin: "dashboard"
+	success := r.Run(context.Background(), false, false, false, "dashboard", "run_audit_01", false)
+	if !success {
+		t.Fatal("expected sync run to succeed")
+	}
+
+	// Assert 1: Audit DB has SYNC_EXECUTED
+	records, total, err := audit.QueryRecords(db, audit.Filter{})
+	if err != nil {
+		t.Fatalf("failed to query audit records: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected 1 audit record, got: %d", total)
+	}
+	if records[0].Action != audit.ActionSyncExecuted {
+		t.Errorf("expected Action %s, got: %s", audit.ActionSyncExecuted, records[0].Action)
+	}
+	if records[0].Actor != "USER" {
+		t.Errorf("expected Actor USER for origin dashboard, got: %s", records[0].Actor)
+	}
+
+	// Assert 2: Dual-logging written to bisync.log with "type":"audit"
+	logBytes, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("failed to read bisync.log: %v", err)
+	}
+	logContent := string(logBytes)
+	if !strings.Contains(logContent, `"type":"audit"`) {
+		t.Errorf("expected bisync.log to contain dual-logged audit entry: %s", logContent)
+	}
+	if !strings.Contains(logContent, "SYNC_EXECUTED") {
+		t.Errorf("expected bisync.log to contain SYNC_EXECUTED: %s", logContent)
+	}
+
+	// Act 1b: Option 2 verification: 0-transfer run (even with origin: "dashboard") must NOT append to audit ledger
+	srv0 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sync/bisync":
+			_ = json.NewEncoder(w).Encode(map[string]any{"jobid": 43})
+		case "/job/status":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"finished": true,
+				"success":  true,
+				"output":   map[string]any{"transfers": 0},
+			})
+		}
+	}))
+	defer srv0.Close()
+	cfg0 := *cfg
+	cfg0.RCAPIURL = srv0.URL
+	r0 := NewSyncRunner(&cfg0)
+	success0 := r0.Run(context.Background(), false, false, false, "dashboard", "run_audit_02_empty", false)
+	if !success0 {
+		t.Fatal("expected 0-transfer run to succeed")
+	}
+	recordsAfter0, totalAfter0, err := audit.QueryRecords(db, audit.Filter{})
+	if err != nil {
+		t.Fatalf("failed to query records: %v", err)
+	}
+	if totalAfter0 != 1 || len(recordsAfter0) != 1 {
+		t.Fatalf("expected audit records count to remain 1 after 0-transfer run (Option 2), got: %d", totalAfter0)
+	}
+
+	// Act 2: Circuit break / abort scenario (Lock contention)
+	lm := lock.NewLockManager(cfg.LockFile, 300, false)
+	acq, err := lm.Acquire()
+	if err != nil || !acq {
+		t.Fatalf("failed to acquire outer lock: %v", err)
+	}
+
+	aborted := r.Run(context.Background(), false, false, false, "cli", "run_abort_01", true)
+	if aborted {
+		t.Fatal("expected sync run to abort due to lock contention")
+	}
+	_ = lm.Release()
+
+	// Assert 3: Audit DB now has 2 records, 2nd is SYNC_ABORTED
+	records2, total2, err := audit.QueryRecords(db, audit.Filter{})
+	if err != nil {
+		t.Fatalf("failed to query audit records: %v", err)
+	}
+	if total2 != 2 {
+		t.Fatalf("expected 2 audit records, got: %d", total2)
+	}
+	if records2[0].Action != audit.ActionSyncAborted {
+		t.Errorf("expected Action %s, got: %s", audit.ActionSyncAborted, records2[0].Action)
+	}
+
+	// Assert 4: Ledger SHA-256 chain integrity verified
+	valid, count, err := audit.VerifyLedger(db)
+	if err != nil || !valid || count != 2 {
+		t.Fatalf("expected valid ledger chain with 2 blocks, got valid=%v, count=%d, err=%v", valid, count, err)
+	}
 }
