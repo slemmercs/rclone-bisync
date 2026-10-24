@@ -252,6 +252,33 @@ func (s *ReviewService) enrichConflictRecommendationsLocked(ctx context.Context,
 }
 func (s *ReviewService) enrichDeletionRecommendationsLocked(ctx context.Context, deletions []models.DeletionCandidate) []models.DeletionCandidate {
 	for i := range deletions {
+		// Clean up any legacy dirty paths from past sessions
+		p := deletions[i].Path
+		if idx := strings.Index(p, `","`); idx != -1 {
+			p = p[:idx]
+		}
+		if idx := strings.Index(p, `", "`); idx != -1 {
+			p = p[:idx]
+		}
+		if idx := strings.Index(p, `","source"`); idx != -1 {
+			p = p[:idx]
+		}
+		if idx := strings.Index(p, `", "source"`); idx != -1 {
+			p = p[:idx]
+		}
+		p = strings.Trim(p, `"',{}\`)
+		deletions[i].Path = filepath.Clean(strings.TrimSpace(p))
+		deletions[i].Name = filepath.Base(deletions[i].Path)
+
+		if s.Config != nil && s.Config.LocalPath != "" && deletions[i].Size == 0 {
+			fullPath := filepath.Join(s.Config.LocalPath, deletions[i].Path)
+			if fi, err := os.Stat(fullPath); err == nil {
+				deletions[i].Size = fi.Size()
+				deletions[i].ModTime = fi.ModTime().UTC().Format(time.RFC3339)
+				deletions[i].IsDir = fi.IsDir()
+			}
+		}
+
 		if deletions[i].Recommendation != nil {
 			continue
 		}

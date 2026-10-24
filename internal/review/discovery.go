@@ -43,7 +43,21 @@ func discoverDeletions(logLines []string, pendingFile, localRoot string) []model
 			}
 
 			for _, f := range structured.Files {
-				cleanPath := filepath.Clean(strings.TrimSpace(f))
+				cleanPath := strings.TrimSpace(f)
+				if idx := strings.Index(cleanPath, `","`); idx != -1 {
+					cleanPath = cleanPath[:idx]
+				}
+				if idx := strings.Index(cleanPath, `", "`); idx != -1 {
+					cleanPath = cleanPath[:idx]
+				}
+				if idx := strings.Index(cleanPath, `","source"`); idx != -1 {
+					cleanPath = cleanPath[:idx]
+				}
+				if idx := strings.Index(cleanPath, `", "source"`); idx != -1 {
+					cleanPath = cleanPath[:idx]
+				}
+				cleanPath = strings.Trim(cleanPath, `"',{}\`)
+				cleanPath = filepath.Clean(strings.TrimSpace(cleanPath))
 				if cleanPath == "" || cleanPath == "." || seen[cleanPath] {
 					continue
 				}
