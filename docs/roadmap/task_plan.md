@@ -11,7 +11,7 @@ Consolidate the master public launch plan, runner zero-exposure security protoco
 - [x] Task 2: Implement Self-Hosted Runner Removal & Hardened Workflows
   - **Scope**: Update `.github/workflows/ci.yml`, `.github/workflows/security.yml`, `.github/workflows/nightly-quality.yml` to `runs-on: ubuntu-latest` and integrate Gitleaks.
   - **Verification**: YAML schema validation and workflow dry-run.
-- [ ] Task 3: Setup Code Ownership & Repository Governance
+- [x] Task 3: Setup Code Ownership & Repository Governance
   - **Scope**: Create `.github/CODEOWNERS`, verify `.gitignore` secret exclusion, and document branch protection settings.
   - **Verification**: File existence and correct path syntax.
 - [ ] Task 4: Develop GitHub Pages Landing Platform (`site/`)
@@ -25,6 +25,8 @@ Consolidate the master public launch plan, runner zero-exposure security protoco
 - 2026-10-24: Initialized Public Launch Consolidation task plan on branch `docs/consolidate-public-launch-plan`. Baseline verification clean with 83.2% statement coverage.
 - 2026-10-24: Completed Task 1: Consolidated `docs/roadmap/bisync_hub_public_launch_pages_plan.md` with 100% cloud-hosted runner zero-exposure policy, OneDrive 20-minute validation protocol, GitHub Pages dark-mode specifications, comparison matrix, and sequential roadmap hand-off to Near-Term Priorities. Verified cleanly with `./scripts/check.sh`.
 - 2026-10-24: Completed Task 2: Decommissioned self-hosted runners from workflows. Migrated `ci.yml`, created `security.yml`, and updated `nightly-quality.yml` to 100% GitHub-hosted `ubuntu-latest` with Gitleaks and Govulncheck security scanning. Validated YAML schema and verified zero regressions via `./scripts/check.sh`.
+- 2026-10-24: Completed Task 3: Structured `.github/CODEOWNERS` with comprehensive subdirectory ownership under `@slemmercs`. Hardened `.gitignore` to reject environment secrets, private keys, certificates, PID/lock files, and runtime ledgers while safeguarding example configs. Documented branch protection and review policies in `GOVERNANCE.md`. Verified via `git check-ignore` and `./scripts/check.sh`.
+
 
 
 

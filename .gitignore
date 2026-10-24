@@ -1,42 +1,73 @@
 # ----------------------------------------------------------------------
-# Sensitive files
+# Sensitive & Secret Files
 # ----------------------------------------------------------------------
-
 rclone.conf
 rc-secrets.env
+*.env
+*.env.*
+*.secret
+*.key
+*.pem
+*.crt
+*.cert
+id_rsa
+id_rsa.pub
+
+# Whitelisted configuration templates & examples
+!bisync.env
+!*.env.example
+!config/*.example
 
 # ----------------------------------------------------------------------
-# Build artifacts
+# Build & Binary Artifacts
 # ----------------------------------------------------------------------
-
 bin/
 .build/
-
+dist/
 bisync-hub
+bisync-hub-*
 
 # ----------------------------------------------------------------------
-# Test & Coverage
+# Test, Coverage & Security Reports
 # ----------------------------------------------------------------------
-
 coverage.out
+coverage.html
+*-report.json
+gitleaks-report.*
+betterleaks-report.*
 
 # ----------------------------------------------------------------------
-# Go Workspace (optional)
+# Runtime, State, Logs & Advisory Locks
 # ----------------------------------------------------------------------
+*.log
+*.pid
+*.lock
+*.tmp
+*.tmp.*
+telemetry.json
+audit_ledger.json
+ledger.json
+*.db
+*.sqlite
+.rclone/
 
+# ----------------------------------------------------------------------
+# Go Workspace & Caches
+# ----------------------------------------------------------------------
 go.work
 go.work.sum
 
 # ----------------------------------------------------------------------
-# IDE / Editor
+# IDE & Editor Configurations
 # ----------------------------------------------------------------------
-
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # ----------------------------------------------------------------------
 # Operating System Files
 # ----------------------------------------------------------------------
-
 .DS_Store
 Thumbs.db
