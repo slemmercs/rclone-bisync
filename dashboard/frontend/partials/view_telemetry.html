@@ -1,0 +1,268 @@
+{{ define "view_telemetry" }}
+        <!-- View 1: Telemetry & Engine -->
+        <div x-show="currentTab === 'telemetry'" class="space-y-5">
+
+            <!-- Cockpit Telemetry Workspace Subheader Toolbar -->
+            <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
+                <div class="flex items-center gap-2 px-1">
+                    <span class="w-2 h-2 rounded-full" :class="telemetry.execution_status === 'SYNCING' ? 'bg-amber-400 animate-pulse' : (telemetry.execution_status === 'IDLE' ? 'bg-emerald-400' : 'bg-slate-500')"></span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono" x-text="'Engine: ' + (telemetry.execution_status || 'IDLE')"></span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button @click="triggerAction('start_sync')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5">
+                        <svg x-show="actionLoading === 'start_sync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'start_sync'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                        <span x-text="actionLoading === 'start_sync' ? 'WAIT...' : 'Start Sync'"></span>
+                    </button>
+                    <button @click="triggerAction('dry_run')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg hover:bg-sky-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5" title="Simulate bidirectional sync without modifying files">
+                        <svg x-show="actionLoading === 'dry_run'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'dry_run'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span x-text="actionLoading === 'dry_run' ? 'WAIT...' : 'Dry Run'"></span>
+                    </button>
+                    <button @click="openDeletionsModal()" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5" title="Inspect and authorize mass deletions with --force">
+                        <svg x-show="actionLoading === 'force_sync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'force_sync'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                        <span x-text="actionLoading === 'force_sync' ? 'WAIT...' : 'Force Deletions'"></span>
+                    </button>
+                    <button @click="triggerAction('stop_sync')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg hover:bg-rose-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5">
+                        <svg x-show="actionLoading === 'stop_sync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'stop_sync'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                        <span x-text="actionLoading === 'stop_sync' ? 'WAIT...' : 'Stop'"></span>
+                    </button>
+                    <button @click="confirmResync()" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5">
+                        <svg x-show="actionLoading === 'force_resync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'force_resync'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                        <span x-text="actionLoading === 'force_resync' ? 'WAIT...' : 'Resync'"></span>
+                    </button>
+                    <button @click="triggerAction('remove_lock')" :disabled="actionLoading !== null" class="px-2.5 py-1 bg-slate-800 text-slate-300 border border-slate-700 rounded-lg hover:bg-slate-700 text-[11px] font-semibold tracking-wide transition-colors flex items-center gap-1.5" title="Clear stale bisync lock">
+                        <svg x-show="actionLoading === 'remove_lock'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <svg x-show="actionLoading !== 'remove_lock'" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                        <span x-text="actionLoading === 'remove_lock' ? 'WAIT...' : 'Clear Lock'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration Topology Banner -->
+        <div x-show="telemetry.config && Object.keys(telemetry.config).length > 0" x-transition.duration.300ms class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 mb-6 text-xs text-slate-400 font-mono">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                    <span class="text-xs font-semibold uppercase text-slate-200 tracking-wider">Active Profile Topology</span>
+                </div>
+                <button @click="configExpanded = !configExpanded" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 bg-slate-950 px-2.5 py-1 rounded border border-slate-800 transition-colors flex items-center gap-1.5">
+                    <span x-text="configExpanded ? 'Hide Parameters' : 'Show Full Parameters'"></span>
+                    <svg class="w-3.5 h-3.5 shrink-0 transform transition-transform duration-200" :class="{ 'rotate-180': configExpanded }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+                <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
+                    <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Local Source (LOCAL_PATH)</span>
+                    <span class="text-indigo-300 break-all font-medium" x-text="telemetry.config.LOCAL_PATH || telemetry.config.LOCALPATH || '--'"></span>
+                </div>
+                <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
+                    <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Remote Target (REMOTE_PATH)</span>
+                    <span class="text-indigo-300 break-all font-medium" x-text="telemetry.config.REMOTE_PATH || telemetry.config.REMOTEPATH || '--'"></span>
+                </div>
+                <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
+                    <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Base Directory (BASE_DIR)</span>
+                    <span class="text-slate-300 break-all" x-text="telemetry.config.BASE_DIR || telemetry.config.BASEDIR || '--'"></span>
+                </div>
+            </div>
+
+            <!-- Extended Config Grid (Restored rich key/value pair design) -->
+            <div x-show="configExpanded" x-transition.duration.200ms class="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <template x-for="[key, val] in filteredConfigEntries" :key="key">
+                    <div class="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/40 flex flex-col justify-between overflow-hidden hover:border-slate-700/60 transition-colors">
+                        <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold truncate" x-text="key.replace(/_/g, ' ')" :title="key"></div>
+                        <div class="w-full" x-html="formatConfig(key, val)"></div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <main class="space-y-6">
+            <!-- Interactive Sync Review Barrier Alert Banner -->
+            <div x-show="reviewState.active || isTooManyDeletesActive" x-transition.duration.300ms class="bg-gradient-to-r from-amber-950/40 via-indigo-950/30 to-slate-900 border border-amber-500/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-3 w-3 relative shrink-0">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                    </span>
+                    <div>
+                        <div class="text-amber-200 font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                            <span>Sync Review Barrier Active</span>
+                            <span class="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono" x-text="reviewStats.total > 0 ? `${reviewStats.total} Pending Review` : 'Mass Deletions Detected'"></span>
+                        </div>
+                        <div class="text-slate-300 text-xs mt-0.5" x-text="reviewState.session?.reason || 'Sync paused by safety barrier. Inspect candidates and stage decisions before proceeding.'"></div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <button @click="openReviewModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex-1 sm:flex-none flex items-center justify-center gap-1.5 shadow-md shadow-indigo-950/40 cursor-pointer">
+                        <span>Review & Resolve</span>
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </button>
+                    <button x-show="isTooManyDeletesActive" @click="openDeletionsModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors cursor-pointer" title="View raw deletion log list">
+                        <span>Raw Deletions</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3 Main Status Tiles -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Daemon Status -->
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Daemon Status</h3>
+                            <svg class="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+                        </div>
+                        <div class="text-xl font-bold mt-2" :class="daemonStatusClass" x-text="daemonStatusText"></div>
+                    </div>
+                    <div class="text-xs font-mono text-slate-500 mt-4 pt-2 border-t border-slate-800/60">
+                        Latency: <span class="text-slate-300 font-medium" x-text="daemonLatencyText"></span> ms
+                    </div>
+                </div>
+
+                <!-- Execution Status -->
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Execution Status</h3>
+                            <svg class="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+                        </div>
+                        <div class="text-xl font-bold mt-2" :class="executionStatusClass" x-text="executionStatusText"></div>
+                    </div>
+                    <div class="text-xs font-mono text-slate-500 mt-4 pt-2 border-t border-slate-800/60">
+                        Updated: <span class="text-slate-300 font-medium" x-text="lastUpdatedText"></span>
+                    </div>
+                </div>
+
+                <!-- Historical Scope -->
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Historical Scope</h3>
+                            <svg class="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+                        </div>
+                        <div class="text-3xl font-extrabold mt-1 text-white" x-text="telemetry.metrics ? telemetry.metrics.length : '--'"></div>
+                    </div>
+                    <div class="text-xs font-mono text-slate-500 mt-4 pt-2 border-t border-slate-800/60">
+                        Sample Depth: Last 30 cycles
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Transfer Progress Card -->
+            <div x-show="telemetry.is_syncing" x-transition.duration.300ms class="bg-slate-900 border border-indigo-500/30 p-5 rounded-xl shadow-lg">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></span>
+                        <span class="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Active Synchronization in Progress</span>
+                    </div>
+                    <div class="text-xs font-mono text-slate-400">
+                        Speed: <span class="text-white font-medium" x-text="transferStats.speed_str"></span> | ETA: <span class="text-white font-medium" x-text="transferStats.eta_str"></span>
+                    </div>
+                </div>
+                
+                <div class="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800 p-0.5">
+                    <div class="bg-indigo-500 h-full rounded-full transition-all duration-300" :style="'width: ' + transferStats.percentage + '%'"></div>
+                </div>
+                
+                <div class="flex justify-between items-center mt-2 text-[11px] font-mono">
+                    <span class="text-slate-400 truncate max-w-[70%]" x-text="transferStats.current_file"></span>
+                    <span class="text-indigo-400 font-semibold" x-text="transferStats.percentage + '%'"></span>
+                </div>
+            </div>
+
+            <!-- Chart.js Performance Graph -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl">
+                <div class="flex justify-between items-center mb-6">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                        <h2 class="text-sm font-semibold text-slate-200 uppercase tracking-wider">Sync Latency & Run Profiles</h2>
+                    </div>
+                    <span class="text-xs text-slate-500 font-mono">X-Axis: Local Wall Time</span>
+                </div>
+                <div class="h-64 w-full">
+                    <canvas id="livePerformanceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Streamlined Orchestrator Terminal & Correlated Log Feed -->
+            <div class="space-y-4">
+                <!-- bisync.log Terminal (Full Width, Height: 384px) -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-lg">
+                    <div class="bg-slate-900/50 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+                            <span class="text-xs font-mono font-semibold text-slate-300 tracking-wider">bisync.log (Execution Ledger)</span>
+                            <span class="text-[10px] font-mono text-emerald-400/90 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900/40">1 Entry / Run</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button @click="openDaemonModal(null)" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/></svg>
+                                <span>Daemon Stream</span>
+                            </button>
+                            <a href="/api/logs/bisync/raw" target="_blank" class="text-[11px] font-sans text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1">
+                                <span>Raw Bisync</span>
+                                <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                            </a>
+                            <span class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800/60" x-text="'Tail: ' + currentLogLimit + ' lines'"></span>
+                        </div>
+                    </div>
+                    <div id="log-bisync" class="p-4 font-mono text-xs text-slate-400 overflow-y-auto h-96 space-y-1.5 bg-slate-950 text-left">
+                        <template x-for="(entry, idx) in parsedBisyncLogs" :key="idx">
+                            <div class="py-1.5 px-2 rounded border border-transparent hover:border-slate-800 hover:bg-slate-900/40 transition-all flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-[11px] font-mono leading-relaxed text-left">
+                                <div class="flex items-center gap-x-2.5 min-w-0 flex-1 truncate">
+                                    <span class="text-slate-500 select-none shrink-0" x-text="'[' + entry.time + ']'"></span>
+                                    <span :class="entry.levelClass" class="select-none shrink-0 w-14 font-bold" x-text="entry.level"></span>
+
+                                    <!-- Status Badge -->
+                                    <template x-if="entry.status">
+                                        <span class="shrink-0 px-1.5 py-0.2 text-[9px] rounded font-bold uppercase tracking-wider"
+                                              :class="{
+                                                  'bg-emerald-950/90 text-emerald-300 border border-emerald-800/60': entry.status === 'SUCCESS',
+                                                  'bg-rose-950/90 text-rose-300 border border-rose-800/60': entry.status === 'FAULT',
+                                                  'bg-amber-950/90 text-amber-300 border border-amber-800/60': entry.status === 'ABORTED'
+                                              }"
+                                              x-text="entry.status">
+                                        </span>
+                                    </template>
+
+                                    <!-- Duration & Transfer Summary -->
+                                    <template x-if="entry.duration_sec != null">
+                                        <span class="text-slate-400 text-[10px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 shrink-0 font-mono"
+                                              x-text="`${entry.duration_sec.toFixed(1)}s • ${entry.files_synced != null ? entry.files_synced + ' transferred' : ''}`">
+                                        </span>
+                                    </template>
+
+                                    <!-- Message -->
+                                    <span class="text-slate-200 truncate" x-text="entry.msg" :title="entry.msg"></span>
+                                </div>
+
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <!-- Origin Badge -->
+                                    <span x-show="entry.origin" class="px-1.5 py-0.2 text-[9px] rounded font-bold uppercase tracking-wider shrink-0"
+                                          :class="entry.origin === 'timer' ? 'bg-blue-950/80 text-blue-300 border border-blue-800/40' : 'bg-purple-950/80 text-purple-300 border border-purple-800/40'"
+                                          x-text="'[' + entry.origin + ']'">
+                                    </span>
+
+                                    <!-- Detail Action Button: opens Correlated Daemon Logs -->
+                                    <button @click="openDaemonModal(entry)"
+                                            class="px-2 py-0.5 text-[10px] font-mono font-medium rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800/60 transition-colors flex items-center gap-1.5 shadow-sm">
+                                        <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/></svg>
+                                        <span>Daemon Logs</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="parsedBisyncLogs.length === 0" class="text-slate-600 animate-pulse text-center py-6">Awaiting sync execution records...</div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+        </div> <!-- End View 1: Telemetry & Engine -->
+{{ end }}

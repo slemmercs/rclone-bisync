@@ -1,9 +1,9 @@
 package server
 
 import (
-	"embed"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/fs"
 	"net"
 	"net/http"
@@ -28,11 +28,11 @@ type Server struct {
 	ReviewService    *services.ReviewService
 	LogService       *services.LogService
 	AuthService      *remoteauth.RemoteAuthService
-	FrontendFS       embed.FS
+	FrontendFS       fs.FS
 	Mux              *http.ServeMux
 }
 
-func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS embed.FS) *Server {
+func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS fs.FS) *Server {
 	var rcClient *client.RcloneClient
 	if syncService != nil {
 		rcClient = syncService.Client
@@ -201,14 +201,28 @@ func (s *Server) routes() {
 			_, _ = w.Write(favicon)
 		})
 
+		indexTmpl, tmplErr := template.ParseFS(staticSubFS,
+			"index.html",
+			"partials/*.html",
+			"partials/modals/*.html",
+		)
+
 		s.Mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-			indexHTML, err := fs.ReadFile(staticSubFS, "index.html")
-			if err != nil {
-				http.Error(w, "index.html not found", http.StatusNotFound)
+			if tmplErr != nil {
+				// Fallback if templates couldn't be parsed (e.g. empty test FS)
+				indexHTML, err := fs.ReadFile(staticSubFS, "index.html")
+				if err != nil {
+					http.Error(w, "index.html not found", http.StatusNotFound)
+					return
+				}
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				_, _ = w.Write(indexHTML)
 				return
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write(indexHTML)
+			if err := indexTmpl.Execute(w, nil); err != nil {
+				http.Error(w, fmt.Sprintf("failed to render template: %v", err), http.StatusInternalServerError)
+			}
 		})
 	}
 }

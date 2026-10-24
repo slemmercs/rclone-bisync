@@ -1,9 +1,9 @@
-# Design Specification: Immutable Audit Ledger
+# Design Specification: Immutable Audit Ledger & Unified Log Architecture
 
-**Feature Name**: Immutable Audit Ledger  
-**Status**: Draft / Proposed  
-**Target Milestone**: Phase 4 / Phase 5  
-**Package Path**: `internal/audit`  
+**Feature Name**: Immutable Audit Ledger & Unified Log Architecture  
+**Status**: Approved / Design Baseline  
+**Target Milestone**: Phase 4 Extension / Phase 5  
+**Package Path**: `internal/audit`, `internal/core/logger`  
 **Storage Driver**: Pure-Go SQLite (`modernc.org/sqlite`) + Embedded Migration Orchestrator (`pressly/goose/v3`)  
 
 ---
@@ -14,56 +14,70 @@ Bisync Hub prioritizes **operational intelligence, data safety, and user account
 
 The **Immutable Audit Ledger** provides a cryptographically verifiable, append-only historical log of every critical decision made within Bisync Hub. By combining pure-Go SQLite with SHA-256 hash chaining (`prev_hash` $\rightarrow$ `hash`) and database-level triggers, the ledger guarantees tamper-evidence and fast indexed UI querying while adhering to Bisync Hub's **Single Binary First**, **Zero CGO**, and **Minimal Runtime Dependencies** principles.
 
+To ensure operational cohesion and ease of troubleshooting, this specification establishes two unified logging paradigms:
+1. **Centralized Operational Ledger (`bisync.log`)**: Every audit milestone is dual-logged into `bisync.log` alongside sync execution runs and correlated daemon logs, providing operators a single, human- and machine-readable file to inspect per run.
+2. **Built-in POSIX Log Rotation**: Automatic size-based rotation (`LogMaxSizeMB: 10`, `LogMaxBackups: 5`) prevents unbounded disk consumption for `bisync.log` and `rclone-daemon.log` without external tools like logrotate.
+
 ---
 
 ## 2. Core Architecture & Design Principles
 
 ```
-  +-----------------------------------------------------------------------+
-  |                             Bisync Hub                                |
-  |                                                                       |
-  |  +------------------+     +------------------+     +---------------+  |
-  |  |  Sync Engine /   |     |  Dashboard UI /  |     |  CLI Engine   |  |
-  |  |  Review Service  |     |  REST Handlers   |     |  ('bisync')   |  |
-  |  +--------+---------+     +--------+---------+     +-------+-------+  |
-  |           |                        |                       |          |
-  |           +-------------------+    |    +------------------+          |
-  |                               |    |    |                             |
-  |                               v    v    v                             |
-  |                     +--------------------------+                      |
-  |                     |  internal/audit Service  |                      |
-  |                     +------------+-------------+                      |
-  |                                  |                                    |
-  |                +-----------------+-----------------+                  |
-  |                |                                   |                  |
-  |                v                                   v                  |
-  |   +--------------------------+        +--------------------------+    |
-  |   | Security Redaction Gate  |        | Hash Chain Engine        |    |
-  |   | (security.RedactSecrets) |        | (SHA-256 HMAC / Digest)  |    |
-  |   +------------+-------------+        +------------+-------------+    |
-  |                |                                   |                  |
-  |                +-----------------+-----------------+                  |
-  |                                  |                                    |
-  |                                  v                                    |
-  |                     +--------------------------+                      |
-  |                     |   pressly/goose Driver   |                      |
-  |                     +------------+-------------+                      |
-  |                                  |                                    |
-  +----------------------------------|------------------------------------+
-                                     v
-                       +---------------------------+
-                       |    SQLite DB (audit.db)   |
-                       | - WAL Mode Enabled        |
-                       | - BEFORE UPDATE Triggers  |
-                       | - BEFORE DELETE Triggers  |
-                       +---------------------------+
+  +---------------------------------------------------------------------------------------+
+  |                                     Bisync Hub                                        |
+  |                                                                                       |
+  |  +------------------+             +--------------------+            +---------------+ |
+  |  |  Sync Engine /   |             |    Dashboard UI /  |            |  CLI Engine   | |
+  |  |  Review Service  |             |    REST Handlers   |            |  ('bisync')   | |
+  |  +--------+---------+             +---------+----------+            +-------+-------+ |
+  |           |                                 |                               |         |
+  |           +-----------------------+         |         +---------------------+         |
+  |                                   |         |         |                               |
+  |                                   v         v         v                               |
+  |                         +-----------------------------------+                         |
+  |                         |       internal/audit Service      |                         |
+  |                         +-----------------+-----------------+                         |
+  |                                           |                                           |
+  |                     +---------------------+---------------------+                     |
+  |                     |                                           |                     |
+  |                     v                                           v                     |
+  |     +-------------------------------+           +-------------------------------+     |
+  |     |   Security Redaction Gate     |           |     Hash Chain Engine         |     |
+  |     |   (security.RedactSecrets)    |           |     (SHA-256 Digest)          |     |
+  |     +---------------+---------------+           +---------------+---------------+     |
+  |                     |                                           |                     |
+  |                     +---------------------+---------------------+                     |
+  |                                           |                                           |
+  |                     +---------------------+---------------------+                     |
+  |                     |                                           |                     |
+  |                     v                                           v                     |
+  |     +-------------------------------+           +-------------------------------+     |
+  |     |  SQLite Driver & goose        |           |  Dual-Logging & Rotator       |     |
+  |     |  (modernc.org/sqlite)         |           |  (internal/core/logger)       |     |
+  |     +---------------+---------------+           +---------------+---------------+     |
+  |                     |                                           |                     |
+  +---------------------|-------------------------------------------|---------------------+
+                        v                                           v
+         +-----------------------------+             +-----------------------------+
+         |    SQLite DB (audit.db)     |             |         bisync.log          |
+         | - WAL Mode Enabled          |             | - Single-line JSONL         |
+         | - BEFORE UPDATE Triggers    |             | - Correlated Run/Job IDs    |
+         | - BEFORE DELETE Triggers    |             | - Size-Bounded Log Rotation |
+         +-----------------------------+             +-----------------------------+
 ```
 
 1. **Single Binary & Zero CGO**: Uses `modernc.org/sqlite` to compile down into a pure Go binary without requiring C toolchains or system library dependencies.
 2. **Embedded Migrations**: Embeds schema migration SQL scripts via `//go:embed` and automatically runs upgrades on application boot using `pressly/goose/v3`.
 3. **Cryptographic Tamper-Evidence**: Each row includes a SHA-256 hash of its payload and the preceding entry's hash. Any disk-level file tampering or row deletion invalidates the chain.
 4. **Engine-Level Defense**: SQLite `BEFORE UPDATE` and `BEFORE DELETE` triggers reject direct updates or row removals at the database layer.
-5. **Secret Redaction at Boundary**: All event detail payloads are passed through `security.RedactSecrets()` before hashing and persistence to ensure secrets never permanently enter the cryptographic ledger.
+5. **Secret Redaction at Boundary**: All event detail payloads are passed through `security.RedactSecrets()` before hashing, SQLite persistence, and `bisync.log` emission.
+6. **Strict Separation of Transient State vs. Permanent Ledger**:
+   * Transient state (`ReviewSession` candidate lists, staged user choices, POSIX hardlink backup paths) resides in atomic temporary JSON files under `state/review-sessions/`. Transient sessions can be edited, reset, rolled back, or dismissed.
+   * Permanent audit records are generated **only after** an action is successfully executed. Once written, rows are cryptographically sealed.
+7. **Dual-Logging Pipeline**:
+   * Critical operational actions are committed to SQLite AND appended to `bisync.log` with `"type": "audit"` for instant chronological correlation.
+8. **Built-in POSIX Log Rotation**:
+   * Both `bisync.log` and `rclone-daemon.log` are guarded by an in-process thread-safe rotator enforcing file size ceilings (`LogMaxSizeMB: 10`) and backup retention (`LogMaxBackups: 5`).
 
 ---
 
@@ -395,6 +409,23 @@ The API and CLI provide JSON Lines (`.jsonl`) and CSV export capabilities:
 * `bisync-hub audit export --format=jsonl --out=audit.jsonl`
 * `GET /api/audit/export?format=csv`
 
+### 7.5 In-Process POSIX Log Rotation Engine (`internal/core/logger/rotator.go`)
+Uncontrolled log growth risks filling operator storage on unattended sync nodes. Rather than mandating external system dependencies (`logrotate`), Bisync Hub implements a pure-Go thread-safe log rotator:
+* **Threshold Triggers**: Bounded by `LogMaxSizeMB` (default: 10 MB).
+* **Backup Retention**: Maintains up to `LogMaxBackups` (default: 5 archives, e.g., `bisync.log.1`, `bisync.log.2`).
+* **POSIX Atomicity**: Employs atomic rename cascades and locks to ensure zero log line truncation during active concurrent sync execution.
+
+### 7.6 UI Architecture: Dual-Stream Cockpit & Dedicated Ledger Workspace (Option 1)
+The user interface implements a two-tier presentation strategy:
+1. **Cockpit Multi-Stream Log Terminal (`partials/view_telemetry.html`)**:
+   * Upgraded with segment filter buttons: `[All Events]`, `[Sync Runs]`, `[Audit Milestones]`.
+   * Displays audit records chronologically interspersed with sync execution runs, styled with purple/cyan security badges and SHA-256 chip indicators.
+2. **Dedicated 4th Top-Level Navigation Tab (`partials/view_audit.html`)**:
+   * An **"Audit Ledger"** top navigation tab providing a compliance and governance cockpit.
+   * Real-time cryptographic ledger continuity status banner (`Cryptographically Verified (142 blocks, SHA-256 chained)`).
+   * Paginated record explorer with action/profile filters and quick-download buttons for JSONL and CSV formats.
+   * Plugs directly into the Go server template foundation as a modular partial.
+
 ---
 
 ## 8. REST API Endpoints
@@ -420,7 +451,14 @@ The API and CLI provide JSON Lines (`.jsonl`) and CSV export capabilities:
 
 ## 9. Next Steps & Implementation Roadmap
 
-1. **Sprint 1 (`internal/audit`)**: Implement `path.go`, `migrations/`, `ledger.go`, and `taxonomy.go` with unit tests achieving >85% statement coverage.
-2. **Sprint 2 (`internal/server`)**: Add HTTP REST handlers (`handlers_audit.go`) and integrate secret redaction.
-3. **Sprint 3 (`dashboard/frontend`)**: Build the **Audit Trail Viewer** component in the Alpine.js SPA with real-time verification indicators.
-4. **Sprint 4 (`cli`)**: Register CLI commands (`bisync-hub audit verify`, `bisync-hub audit export`).
+1. **Sprint 0 (`refactor/modularize-frontend-templates`)**: Modularize `dashboard/frontend/index.html` into Go `html/template` partials (`partials/view_*.html`, `partials/modals/*.html`) so `view_audit.html` can be cleanly plugged in.
+2. **Sprint 1 (`internal/audit` & `internal/core/logger`)**:
+   - Implement pure-Go SQLite storage, migrations (`modernc.org/sqlite`, `pressly/goose/v3`), hash chaining, and verification engine.
+   - Implement POSIX log rotator (`rotator.go`) and wire dual-logging into `bisync.log`.
+3. **Sprint 2 (`internal/services` & `internal/server`)**:
+   - Integrate `AuditService` into `ReviewService` and `SyncRunner` ensuring strict separation of transient sessions vs permanent ledger.
+   - Add HTTP REST endpoints (`handlers_audit.go`).
+4. **Sprint 3 (`dashboard/frontend`)**:
+   - Build `partials/view_audit.html` and wire cockpit stream filters into `partials/view_telemetry.html`.
+   - Add frontend state management in `dashboard/frontend/js/audit.js`.
+5. **Sprint 4 (`cli`)**: Register CLI verification commands (`bisync-hub audit verify`, `bisync-hub audit export`).

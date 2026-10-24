@@ -1,43 +1,32 @@
 
-# Task Plan: Heuristic Conflict Recommendation Engine
+# Task Plan: Frontend Template Modularization (`html/template`)
 
 ## Goal
-Implement a deterministic, pure-Go heuristic conflict recommendation engine that evaluates file conflict pairs, assigns confidence scores and risk levels, and presents actionable recommendations (`keep-local`, `keep-remote`, `keep-both`, `manual-review`) in the Interactive Review Modal, with one-click batch resolution for safe recommendations.
+Decompose the monolithic 1,500+ LOC `dashboard/frontend/index.html` into clean, maintainable Go standard library `html/template` partials (`partials/view_*.html`, `partials/modals/*.html`) assembled server-side with zero npm dependencies and zero DOM pop-in, establishing a clean foundation for upcoming feature workspaces such as the Immutable Audit Ledger.
 
 ## Tasks
-- [x] Task 1: Heuristic Domain Contracts & Recommendation Models
-  - **Scope**: Define `RuleResult`, `ConflictRecommendation`, `BatchReviewActionRequest` in `internal/models/review.go`, enrich `ConflictCandidate`.
-  - **Verification**: `go test -count=1 ./internal/models`
-- [x] Task 2: Pure-Go Analyzers & Scoring Engine Core
-  - **Scope**: Implement `internal/engine/heuristics/` (`types.go`, `analyzers.go`, `engine.go`) with worker pool ($G=4$) and scoring aggregation.
-  - **Verification**: `go test -count=1 ./internal/engine/heuristics/...`
-- [x] Task 3: Comprehensive Unit Test Suite
-  - **Scope**: Add unit tests in `internal/engine/heuristics/engine_test.go` covering all analyzers, truncation overrides, and concurrency (>85% coverage).
-  - **Verification**: `go test -race -count=1 ./internal/engine/heuristics/...`
-- [x] Task 4: Service Facade Integration & Batch Application
-  - **Scope**: Wire `heuristics.Engine` into `internal/services/review_service.go`, auto-enrich conflicts on discovery, implement `ApplyBatchRecommendations`.
-  - **Verification**: `go test -count=1 ./internal/services`
-- [x] Task 5: Server REST Batch Endpoint
-  - **Scope**: Implement `POST /api/review/action-batch` in `internal/server/handlers_review.go` and `server.go`.
-  - **Verification**: `go test -count=1 ./internal/server`
-- [x] Task 6: Frontend Recommendation Badges & Batch Trigger
-  - **Scope**: Update `dashboard/frontend/js/review.js` and `index.html` to display recommendation badges, reasoning tooltips, and "Apply High-Confidence Recommendations" batch button.
-  - **Verification**: `./scripts/check.sh`
-- [x] Task 7: Full Quality Gate & End-to-End Verification
-  - **Scope**: Run full `./scripts/check.sh` (>80% coverage across all packages, clean static analysis, native and cross-platform builds).
+- [x] Task 1: Directory Setup & Sub-View Partials Extraction
+  - **Scope**: Create `dashboard/frontend/partials/` and extract `view_telemetry.html`, `view_remotes.html`, `view_explorer.html`.
+  - **Verification**: Files exist and contain valid HTML structures matching the respective views.
+- [x] Task 2: Modals Partials Extraction
+  - **Scope**: Create `dashboard/frontend/partials/modals/` and extract `modal_review.html`, `modal_daemon.html`, `modal_delete.html`, `modal_deletions.html`, `modal_oauth_migration.html`, `modal_reconnect.html`, `modal_auth_audit.html`.
+  - **Verification**: Files exist and contain valid modal HTML structures.
+- [x] Task 3: Master Shell Streamlining & Server Template Assembly
+  - **Scope**: Streamline `dashboard/frontend/index.html` into a ~95 LOC master shell utilizing `{{ template "name" . }}`. Update `internal/server/server.go` to parse all templates at server boot with `template.ParseFS` and render dynamically on `GET /{$}`.
+  - **Verification**: `go test -v -count=1 ./internal/server -run "TestServer_RootHandler_"`
+- [x] Task 4: Full Quality Gate & Pre-Flight Validation
+  - **Scope**: Run `./scripts/check.sh` ensuring all tests pass, formatting is clean, static analysis is clean, and binaries compile successfully.
   - **Verification**: `./scripts/check.sh`
 
 ## Next Up
-- **Milestone Complete: Heuristic Conflict Recommendation Engine Ready for Review / Merge**
+- **Milestone Complete**: Frontend Template Modularization verified and clean.
+- **Upcoming Milestone**: Immutable Audit Ledger & Unified Log Architecture (`internal/audit`, `internal/core/logger`, and `partials/view_audit.html`).
 
 ## Status Updates
-- 2026-10-23: Initialized Heuristic Conflict Recommendation Engine plan on branch `feat/heuristic-conflict-engine`. Updated `docs/design/`, `ROADMAP.md`, and `backlog.md` with delivered milestones.
-- 2026-10-23: Completed Task 1: Defined `RuleResult`, `ConflictRecommendation`, `BatchReviewActionRequest`, `BatchReviewActionResponse` in `internal/models/review.go` and enriched `ConflictCandidate`. Verified via `go test -count=1 ./internal/models`.
-- 2026-10-23: Completed Task 2 & Task 3: Implemented `types.go`, `analyzers.go`, `analyzers_ext.go`, `engine.go`, and comprehensive unit tests in `engine_test.go` with 94.0% statement coverage and zero race conditions under `go test -race`.
-- 2026-10-23: Completed Task 4: Wired `heuristics.Engine` into `ReviewService`, automated conflict enrichment on discovery and retrieval, and implemented `ApplyBatchRecommendations`. Verified via `go test -count=1 ./internal/services/...`.
-- 2026-10-23: Completed Task 5: Implemented `POST /api/review/action-batch` endpoint in `internal/server/handlers_review.go`, registered route in `server.go`, and added tests in `server_test.go`. Verified via `go test -count=1 ./internal/server/...`.
-- 2026-10-23: Completed Task 6 & Task 7: Integrated recommendation badges, confidence meters, and one-click batch trigger in `dashboard/frontend/` (`review.js` and `index.html`). Full quality gate passed with 83.2% statement coverage, clean formatting, zero vet warnings, and successful native + ARM64 compilation.
-- 2026-10-23: Completed Phase 4 (Interactive Sync Review & Deletion Diff Visualizer) and maintenance milestone merged to `main`.
+- 2026-10-24: Created branch `refactor/modularize-frontend-templates`. Updated `docs/design/immutable_audit_ledger_design_specification.md`, `ROADMAP.md`, and `backlog.md`.
+- 2026-10-24: Completed Tasks 1 & 2: Carved out all sub-views and modals into `dashboard/frontend/partials/` and `dashboard/frontend/partials/modals/` wrapped in named `{{ define "..." }}` blocks.
+- 2026-10-24: Completed Task 3: Streamlined `dashboard/frontend/index.html` to a 95 LOC master shell, updated `internal/server/server.go` to parse templates at startup with fallback, and added comprehensive unit tests in `internal/server/server_test.go` verifying template assembly with both mock and real filesystems.
+- 2026-10-24: Completed Task 4: Ran `./scripts/check.sh` with 8/8 quality checks passing, zero vet warnings, and 83.2% statement coverage.
 
 
 
