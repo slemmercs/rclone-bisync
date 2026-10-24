@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"flag"
+	"html/template"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +43,59 @@ func TestEmbeddedFrontendFS(t *testing.T) {
 	}
 	if len(dataReview) == 0 {
 		t.Fatal("embedded review.js is empty")
+	}
+
+	subFS, err := fs.Sub(frontendFS, "dashboard/frontend")
+	if err != nil {
+		t.Fatalf("failed sub fs: %v", err)
+	}
+	tmpl, tmplErr := template.ParseFS(subFS, "index.html", "partials/*.html", "partials/modals/*.html")
+	if tmplErr != nil {
+		t.Fatalf("ParseFS failed on embedded frontendFS: %v", tmplErr)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, nil); err != nil {
+		t.Fatalf("Execute failed on assembled embedded template: %v", err)
+	}
+	rendered := buf.String()
+	if strings.Contains(rendered, "1 1 0 .696") {
+		t.Fatal("corrupted SVG arc found in rendered embedded template")
+	}
+	if !strings.Contains(rendered, "1 1 0 0 1 0 .696") {
+		t.Fatal("expected valid SVG arc in rendered embedded template")
+	}
+}
+
+func TestTemplateHTMLBalancedTags(t *testing.T) {
+	err := fs.WalkDir(frontendFS, "dashboard/frontend", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".html") {
+			return nil
+		}
+		contentBytes, err := fs.ReadFile(frontendFS, path)
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", path, err)
+		}
+		content := string(contentBytes)
+
+		openDivs := strings.Count(content, "<div")
+		closeDivs := strings.Count(content, "</div>")
+		if openDivs != closeDivs {
+			t.Errorf("unbalanced <div> tags in %s: %d open vs %d close", path, openDivs, closeDivs)
+		}
+
+		openMains := strings.Count(content, "<main")
+		closeMains := strings.Count(content, "</main>")
+		if openMains != closeMains {
+			t.Errorf("unbalanced <main> tags in %s: %d open vs %d close", path, openMains, closeMains)
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("WalkDir failed: %v", err)
 	}
 }
 
