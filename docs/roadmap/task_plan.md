@@ -38,7 +38,7 @@ Implement the Cryptographic Immutable Audit Ledger (`internal/audit`) with pure-
 - [x] Task 11: Option 2 Audit Policy, UI Toast Notifications, Deletion Heuristics & Explorer Column Alignment
   - **Scope**: `internal/engine/runner/runner.go`, `internal/review/discovery.go`, `internal/models/review.go`, `internal/services/review_service.go`, `internal/services/sync_service.go`, `dashboard/frontend/app.js`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/view_explorer.html`.
   - **Verification**: `./scripts/check.sh`
-- [ ] Task 12: Google Drive Live Simulation Walkthrough
+- [x] Task 12: Google Drive Live Simulation Walkthrough
   - **Scope**: Live manual sync, file mutation, and conflict/resolution testing with Google Drive.
   - **Verification**: Verify new entries in `audit.db` and `bisync.log`.
 
@@ -55,6 +55,7 @@ Implement the Cryptographic Immutable Audit Ledger (`internal/audit`) with pure-
 - 2026-10-24: Completed Task 9: Successfully executed full pre-flight quality gate (`./scripts/check.sh`), all stages passed with 83.3% test coverage and clean static analysis.
 - 2026-10-24: Completed Task 10: Resolved all 3 Google Drive live issues: (1) Preserved root canary status when navigating into subfolders in explorer, (2) Fixed candidate parsing in `review/discovery.go` to support filenames with spaces without truncation (`fields[0]` bug), (3) Directed `ReviewService` and `SyncRunner` candidate discovery to read `rclone-daemon.log` where rclone outputs `File was deleted` lines and populate `pending_deletions.json`, and (4) Added detailed error reporting to `/api/action` and frontend `triggerAction` to eliminate generic `Request failed` alerts. Verified with 83.4% coverage and full `./scripts/check.sh` green pass.
 - 2026-10-24: Completed Task 11: (1) Strictly enforced Option 2 audit policy in `runner.go` so 0-transfer runs are never written to the cryptographic audit ledger, (2) Replaced all browser `alert()` popups with Alpine toast notifications (`showToast`) and enriched systemd error reporting with captured stdout/stderr, (3) Fixed nested JSON path parsing in `discovery.go` to cleanly strip `", "source":...` delimiters, populated `Recommendation` onto `DeletionCandidate`, added deletion heuristic analysis rules (temp locks, canary protection, user local deletion, remote guard), and enabled "Auto-Apply Recommendations" on deletion reviews, (4) Fixed File Explorer column misalignment by establishing synchronized fixed-width column grids across headers and file rows (`w-32` Modified, `w-16` Size, `w-16` Actions spacer). Verified with 83.4% coverage and clean `./scripts/check.sh`.
+- 2026-10-24: Completed Task 12: Executed live simulation walkthrough on Google Drive: verified auto-applied recommendations, atomic pre-mutation backups, automated post-resolution force sync trigger, elimination of phantom `bisync.filters` auto-injection, clean status recovery to `ONLINE / HEALTHY`, review session closure, and cryptographic audit ledger validation (valid: true, 728 records). All 12 tasks complete!
 
 
 
