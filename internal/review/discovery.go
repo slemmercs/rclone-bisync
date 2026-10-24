@@ -58,7 +58,7 @@ func discoverDeletions(logLines []string, pendingFile, localRoot string) []model
 				}
 				cleanPath = strings.Trim(cleanPath, `"',{}\`)
 				cleanPath = filepath.Clean(strings.TrimSpace(cleanPath))
-				if cleanPath == "" || cleanPath == "." || seen[cleanPath] {
+				if cleanPath == "" || cleanPath == "." || strings.Contains(cleanPath, ".review_backups") || seen[cleanPath] {
 					continue
 				}
 				seen[cleanPath] = true
@@ -160,11 +160,20 @@ func discoverDeletions(logLines []string, pendingFile, localRoot string) []model
 					fp = strings.TrimSpace(fp)
 					if fp != "" {
 						cleanPath := filepath.Clean(fp)
-						if cleanPath != "" && cleanPath != "." && !seen[cleanPath] {
+						if cleanPath != "" && cleanPath != "." && !strings.Contains(cleanPath, ".review_backups") && !seen[cleanPath] {
 							seen[cleanPath] = true
 							candidates = append(candidates, buildDeletionCandidate(cleanPath, lineSource, lineAction, localRoot))
 						}
 					}
+				}
+			}
+
+			// Boundary check: If we have extracted candidates from the current run and reach the run start banner, stop scanning further backwards
+			if strings.Contains(imsg, "Synching Path1") ||
+				strings.Contains(imsg, "Building Path1 and Path2 listings") ||
+				strings.Contains(imsg, "Bisyncing with Comparison Settings") {
+				if len(candidates) > 0 {
+					return candidates
 				}
 			}
 		}

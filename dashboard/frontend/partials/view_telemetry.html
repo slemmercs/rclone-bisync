@@ -84,7 +84,7 @@
 
         <main class="space-y-6">
             <!-- Interactive Sync Review Barrier Alert Banner -->
-            <div x-show="reviewState.active || isTooManyDeletesActive" x-transition.duration.300ms class="bg-gradient-to-r from-amber-950/40 via-indigo-950/30 to-slate-900 border border-amber-500/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
+            <div x-show="(reviewState.active && reviewStats.total > 0) || isTooManyDeletesActive" x-transition.duration.300ms class="bg-gradient-to-r from-amber-950/40 via-indigo-950/30 to-slate-900 border border-amber-500/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
                 <div class="flex items-center gap-3">
                     <span class="flex h-3 w-3 relative shrink-0">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -92,16 +92,20 @@
                     </span>
                     <div>
                         <div class="text-amber-200 font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-                            <span>Sync Review Barrier Active</span>
-                            <span class="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono" x-text="reviewStats.total > 0 ? `${reviewStats.total} Pending Review` : 'Mass Deletions Detected'"></span>
+                            <span x-text="reviewStats.total > 0 ? 'Sync Review Barrier Active' : 'Mass Deletions Detected'"></span>
+                            <span class="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono" x-text="reviewStats.total > 0 ? `${reviewStats.total} Pending Review` : 'Awaiting Force Sync'"></span>
                         </div>
-                        <div class="text-slate-300 text-xs mt-0.5" x-text="reviewState.session?.reason || 'Sync paused by safety barrier. Inspect candidates and stage decisions before proceeding.'"></div>
+                        <div class="text-slate-300 text-xs mt-0.5" x-text="reviewStats.total > 0 ? (reviewState.session?.reason || 'Sync paused by safety barrier. Inspect candidates and stage decisions before proceeding.') : 'Resolutions staged or deletions detected. Authorize sync to propagate changes.'"></div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto">
-                    <button @click="openReviewModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex-1 sm:flex-none flex items-center justify-center gap-1.5 shadow-md shadow-indigo-950/40 cursor-pointer">
+                    <button x-show="reviewStats.total > 0" @click="openReviewModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex-1 sm:flex-none flex items-center justify-center gap-1.5 shadow-md shadow-indigo-950/40 cursor-pointer">
                         <span>Review & Resolve</span>
                         <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </button>
+                    <button x-show="reviewStats.total === 0" @click="triggerAction('force_sync')" :disabled="actionLoading !== null" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition-colors flex-1 sm:flex-none flex items-center justify-center gap-1.5 shadow-md shadow-purple-950/40 cursor-pointer">
+                        <svg x-show="actionLoading === 'force_sync'" class="w-3.5 h-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        <span x-text="actionLoading === 'force_sync' ? 'Starting...' : 'Authorize & Sync (--force)'"></span>
                     </button>
                     <button x-show="isTooManyDeletesActive" @click="openDeletionsModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors cursor-pointer" title="View raw deletion log list">
                         <span>Raw Deletions</span>
