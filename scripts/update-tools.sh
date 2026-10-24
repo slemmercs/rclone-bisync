@@ -33,6 +33,7 @@ set -euo pipefail
 GO_VERSION_DEFAULT="1.26.10"
 STATICCHECK_VERSION="2025.1.1"
 GOVULNCHECK_VERSION="v1.9.0"
+BETTERLEAKS_VERSION="latest"
 
 DRY_RUN=false
 ROLLBACK=false
@@ -228,6 +229,16 @@ show_status() {
 
     if command -v staticcheck >/dev/null 2>&1; then
         echo "  Path : $(command -v staticcheck)"
+    else
+        echo "  Installed : NO"
+    fi
+
+    echo
+
+    echo "betterleaks"
+
+    if command -v betterleaks >/dev/null 2>&1; then
+        echo "  Path : $(command -v betterleaks)"
     else
         echo "  Installed : NO"
     fi
@@ -534,6 +545,11 @@ if [[ "${DRY_RUN}" == "false" ]]; then
     go install \
         "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}"
 
+    log "Installing betterleaks..."
+
+    go install \
+        "github.com/betterleaks/betterleaks@${BETTERLEAKS_VERSION}"
+
 fi
 
 # ----------------------------------------------------------------------
@@ -547,6 +563,9 @@ if [[ "${DRY_RUN}" == "false" ]]; then
 
     command -v staticcheck >/dev/null 2>&1 \
         || fatal "staticcheck installation failed"
+
+    command -v betterleaks >/dev/null 2>&1 \
+        || fatal "betterleaks installation failed"
 fi
 
 # ----------------------------------------------------------------------
@@ -600,6 +619,11 @@ echo
 
 echo "staticcheck:"
 echo "  ${STATICCHECK_VERSION}"
+
+echo
+
+echo "betterleaks:"
+echo "  ${BETTERLEAKS_VERSION}"
 
 echo
 
