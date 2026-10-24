@@ -1,6 +1,9 @@
 # Bisync Hub Documentation & Showcase Configuration
 title: Bisync Hub
 description: Production-grade bidirectional synchronization, audit ledger, and safety orchestrator for Rclone.
+logo: "/assets/images/logo.svg"
+favicon_ico: "/assets/images/favicon.svg"
+
 theme: just-the-docs
 
 # Deployment URL configuration

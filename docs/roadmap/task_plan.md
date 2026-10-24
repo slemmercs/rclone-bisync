@@ -29,6 +29,8 @@ Consolidate the master public launch plan, runner zero-exposure security protoco
 
 - 2026-10-24: Completed Task 4: Constructed full Jekyll documentation & showcase platform using `just-the-docs` theme under `site/` with Slate-900 / Indigo-600 dark theme SCSS overrides in `_sass/custom/`. Authored comprehensive guides covering the 5 USPs, capability comparison matrix, quickstart, and architecture. Configured `.github/workflows/pages.yml` on `ubuntu-latest` to compile and deploy production static assets directly to the `gh-pages` branch. Verified cleanly with `./scripts/check.sh`.
 
+- 2026-10-24: Refined Jekyll site: styled branded heading colors (Electric Indigo/Lavender), added dedicated `/roadmap.html` page separating shipped engine capabilities from near-term priorities, embedded brand logo, designated USP 3 (Policies) and USP 4 (Audit Ledger) as Planned Roadmap milestones, and integrated all 7 UI screenshots across the showcase platform. Verified cleanly via live Docker preview and `./scripts/check.sh`.
+
 
 
 

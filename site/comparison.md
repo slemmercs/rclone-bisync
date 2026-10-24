@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Comparison Matrix
-nav_order: 3
+nav_order: 5
 description: "How Bisync Hub compares against custom cron scripts, desktop sync GUIs, and raw Rclone CLI commands."
 ---
 
@@ -14,10 +14,10 @@ Understanding where Bisync Hub fits in your storage infrastructure:
 | **Interactive Deletion Review** | ❌ None | ❌ Rare | ❌ None | ✅ **Full Diff Modal** |
 | **Multi-Signal Conflict Heuristics** | ❌ Timestamps only | ⚠️ Basic rename | ⚠️ Timestamp or manual | ✅ **4-Analyzer Engine** |
 | **Canary Mount Protection** | ⚠️ Custom script only | ❌ None | ❌ None | ✅ **Built-in `RCLONE_TEST`** |
-| **Cryptographic Audit Ledger** | ❌ Plain text logs | ❌ Local state | ❌ Stdout logs | ✅ **Immutable SHA-256** |
+| **Cryptographic Audit Ledger** | ❌ Plain text logs | ❌ Local state | ❌ Stdout logs | ⏳ **Planned (Priority #1)** |
 | **Zero External Runtime Deps** | ⚠️ Bash / Shell | ❌ Electron / Qt | ✅ Go binary | ✅ **Single Go Binary** |
 | **Embedded Web Dashboard** | ❌ None | ⚠️ Desktop only | ❌ RC webgui only | ✅ **Lightweight Embedded** |
-| **Webhook Alerts (Discord/Telegram)** | ⚠️ Manual curl | ❌ OS toasts only | ❌ None | ✅ **Native Multi-Channel** |
+| **Webhook Alerts (Discord/Telegram)** | ⚠️ Manual curl | ❌ OS toasts only | ❌ None | ⏳ **Planned (Priority #4)** |
 | **Cloud Clock Skew Compensation** | ❌ None | ⚠️ Basic fuzzing | ⚠️ `--modify-window` | ✅ **Automatic Skew Matrix** |
 | **POSIX Advisory Flock Locks** | ⚠️ Fragile PID files | ❌ OS locks | ❌ None | ✅ **Race-Free POSIX Flock** |
 | **Path Traversal Jail Confinement** | ❌ None | ❌ None | ❌ None | ✅ **Enforced Local Jails** |

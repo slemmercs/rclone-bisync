@@ -7,6 +7,11 @@ nav_order: 4
 
 # Cryptographic Immutable Audit Ledger
 
+<span class="badge-planned">◆ Planned Milestone (Near-Term Priority #1)</span>
+
+{: .note }
+> **Roadmap Specification**: The Cryptographic Immutable Audit Ledger detailed below represents **Near-Term Strategic Priority #1** on our development roadmap. The schema architecture, SQLite trigger design, and verification tooling are ready for immediate implementation post-public launch.
+
 Compliance, security audits, and forensic debugging require an undeniable, tamper-evident record of all storage mutations: **Who deleted file X? When was conflict Y resolved? What was the decision confidence score?**
 
 **Bisync Hub embeds an immutable, SQLite-backed cryptographic ledger with trigger-enforced append-only constraints.**

@@ -15,6 +15,35 @@
 .site-header, .nav-list-link, h2, h3 {
   letter-spacing: 0.03em;
 }
+h1 {
+  color: #ffffff !important;
+  font-weight: 800;
+}
+
+h2 {
+  color: #818cf8 !important;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 0.35rem;
+  margin-top: 2rem;
+}
+
+h3 {
+  color: #a5b4fc !important;
+  margin-top: 1.5rem;
+}
+
+h4 {
+  color: #38bdf8 !important;
+}
+
+.hero-logo {
+  width: 88px;
+  height: 88px;
+  margin-bottom: 1.25rem;
+  display: inline-block;
+  filter: drop-shadow(0 6px 20px rgba(99, 102, 241, 0.45));
+}
+
 
 /* Hero Container */
 .hero-box {
@@ -95,6 +124,20 @@
   padding: 3px 10px;
   font-size: 0.75rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.badge-planned {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 9999px;
+}
+
   font-weight: 600;
   color: #818cf8;
   background: rgba(99, 102, 241, 0.15);
@@ -149,6 +192,55 @@ table {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
+/* Screenshot Showcase Frames */
+.screenshot-frame {
+  margin: 1.75rem 0;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  background: #0e1322;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.screenshot-frame:hover {
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.screenshot-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 1px solid #1e293b;
+}
+
+.screenshot-frame .caption {
+  padding: 0.65rem 1rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  background: #13192b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.screenshot-frame .caption span.title {
+  color: #c7d2fe;
+  font-weight: 600;
+}
+
+.screenshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin: 1.75rem 0;
+}
+
+.screenshot-grid .screenshot-frame {
+  margin: 0;
+}
+
   margin: 1.5rem 0;
   border-radius: 8px;
   overflow: hidden;
