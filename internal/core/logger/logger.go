@@ -22,11 +22,6 @@ type Logger struct {
 	slogLogger    *slog.Logger
 }
 
-var (
-	defaultLogger *Logger
-	defaultOnce   sync.Once
-)
-
 // New initializes a Logger instance writing to filePath and optionally to console.
 func New(filePath string, enableConsole bool) (*Logger, error) {
 	var file *os.File
