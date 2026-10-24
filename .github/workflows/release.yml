@@ -1,0 +1,57 @@
+name: Release Single-Binary Distribution
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Cross-Compile Binaries
+        run: |
+          mkdir -p dist
+          VERSION="${{ github.ref_name }}"
+          LDFLAGS="-s -w -X main.Version=${VERSION}"
+          
+          # Linux
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-linux-amd64 main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-linux-arm64 main.go
+          
+          # macOS
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-darwin-amd64 main.go
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-darwin-arm64 main.go
+          
+          # Windows
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-windows-amd64.exe main.go
+
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/bisync-hub-linux-amd64
+            dist/bisync-hub-linux-arm64
+            dist/bisync-hub-darwin-amd64
+            dist/bisync-hub-darwin-arm64
+            dist/bisync-hub-windows-amd64.exe
+            dist/checksums.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -21,6 +21,9 @@ import (
 //go:embed dashboard/frontend/*
 var frontendFS embed.FS
 
+// Version is injected at link/build time via -ldflags="-X main.Version=vX.Y.Z"
+var Version = "dev"
+
 func main() {
 	envFile := flag.String("env-file", "", "Path to custom bisync.env configuration file")
 
@@ -31,6 +34,10 @@ func main() {
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "version", "--version", "-v":
+			fmt.Printf("Bisync Hub version %s\n", Version)
+			return
+
 		case "dashboard":
 			dashCmd := flag.NewFlagSet("dashboard", flag.ExitOnError)
 			host := dashCmd.String("host", "127.0.0.1", "Dashboard host address")
