@@ -2,35 +2,13 @@ name: Security Scan
 
 on:
   pull_request:
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-
-      - ".github/workflows/ci.yml"
-      - ".github/workflows/security.yml"
-      - ".github/workflows/nightly-quality.yml"
-
-      - "scripts/check.sh"
-
+    branches:
+      - main
   push:
     branches:
       - main
-
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-
-      - ".github/workflows/ci.yml"
-      - ".github/workflows/security.yml"
-      - ".github/workflows/nightly-quality.yml"
-
-      - "scripts/check.sh"
-
   schedule:
     - cron: "0 2 * * 0"
-
   workflow_dispatch:
 
 permissions:
@@ -45,13 +23,48 @@ defaults:
     shell: bash
 
 jobs:
-  govulncheck:
-    name: Go Vulnerability Scan
-
+  betterleaks:
+    name: Betterleaks Secret Scan
     runs-on:
       - self-hosted
       - rclone-bisync
+    timeout-minutes: 10
 
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.10"
+          cache: false
+
+      - name: Ensure Betterleaks Installed
+        run: |
+          export PATH="$HOME/go/bin:$GOPATH/bin:$PATH"
+          if ! command -v betterleaks &> /dev/null; then
+            go install github.com/betterleaks/betterleaks@latest
+          fi
+
+      - name: Run Betterleaks Scan
+        run: |
+          export PATH="$HOME/go/bin:$GOPATH/bin:$PATH"
+          
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            betterleaks git -v --config .betterleaks.toml --log-opts="origin/${{ github.base_ref || 'main' }}..HEAD"
+          else
+            betterleaks dir -v --config .betterleaks.toml .
+          fi
+
+  govulncheck:
+    name: Go Vulnerability Scan
+    runs-on:
+      - self-hosted
+      - rclone-bisync
     timeout-minutes: 15
 
     env:
@@ -69,18 +82,6 @@ jobs:
         with:
           go-version: "1.26.10"
           cache: false
-
-      - name: Show environment
-        run: |
-          command -v go
-          go version
-
-          go env GOVERSION
-          go env GOOS
-          go env GOARCH
-          go env GOTOOLCHAIN
-          go env GOPATH
-          go env GOBIN
 
       - name: Install govulncheck
         run: |
