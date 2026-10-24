@@ -28,16 +28,11 @@ jobs:
           VERSION="${{ github.ref_name }}"
           LDFLAGS="-s -w -X main.Version=${VERSION}"
           
-          # Linux
+          # Linux Builds
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-linux-amd64 main.go
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-linux-arm64 main.go
-          
-          # macOS
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-darwin-amd64 main.go
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-darwin-arm64 main.go
-          
-          # Windows
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-windows-amd64.exe main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-linux-armv7 main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/bisync-hub-linux-riscv64 main.go
 
           cd dist
           sha256sum * > checksums.txt
@@ -48,9 +43,8 @@ jobs:
           files: |
             dist/bisync-hub-linux-amd64
             dist/bisync-hub-linux-arm64
-            dist/bisync-hub-darwin-amd64
-            dist/bisync-hub-darwin-arm64
-            dist/bisync-hub-windows-amd64.exe
+            dist/bisync-hub-linux-armv7
+            dist/bisync-hub-linux-riscv64
             dist/checksums.txt
           generate_release_notes: true
           draft: false
