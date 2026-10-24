@@ -342,7 +342,8 @@ done
 # ----------------------------------------------------------------------
 
 GO_TARBALL="go${GO_VERSION}.${OS}-${ARCH}.tar.gz"
-GO_URL="https://go.dev/dl/${GO_TARBALL}"
+GO_URL="https://dl.google.com/go/${GO_TARBALL}"
+GO_SHA256_URL="${GO_URL}.sha256"
 
 # ----------------------------------------------------------------------
 # Temporary Workspace
@@ -403,10 +404,10 @@ if [[ "${DRY_RUN}" == "false" ]]; then
 
     log "Verifying checksum..."
 
-    EXPECTED_HASH="$(curl -fsSL "${GO_URL}.sha256" | tr -d '[:space:]')"
+    EXPECTED_HASH="$(curl -fsSL "${GO_SHA256_URL}" | tr -d '[:space:]')"
     ACTUAL_HASH="$(sha256sum "${GO_ARCHIVE}" | awk '{print $1}')"
 
-    [[ -n "${EXPECTED_HASH}" ]] || fatal "Failed to download SHA256 checksum from ${GO_URL}.sha256"
+    [[ -n "${EXPECTED_HASH}" ]] || fatal "Failed to download SHA256 checksum from ${GO_SHA256_URL}"
 
     if [[ "${EXPECTED_HASH}" != "${ACTUAL_HASH}" ]]; then
         fatal "Checksum mismatch!\n  Expected: ${EXPECTED_HASH}\n  Got:      ${ACTUAL_HASH}"
