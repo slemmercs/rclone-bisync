@@ -1,0 +1,66 @@
+name: Nightly Deep Quality & Security
+
+on:
+  schedule:
+    # Daily at 01:17 UTC
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-quality
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  nightly-deep-check:
+    name: Nightly Deep Validation
+    runs-on:
+      - self-hosted
+      - rclone-bisync
+    timeout-minutes: 30
+
+    env:
+      GOFLAGS: "-mod=readonly"
+      GOTOOLCHAIN: local
+      MIN_COVERAGE: "85.0"
+      RUN_RACE: "true"
+
+    steps:
+      - name: Checkout full repository history
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.10"
+          cache: false
+
+      - name: Full Git History Secret Scan
+        run: |
+          export PATH="/usr/local/bin:$HOME/go/bin:$PATH"
+          if command -v betterleaks &> /dev/null; then
+            betterleaks git -v --config .betterleaks.toml
+          fi
+
+      - name: Execute Deep Quality Gate
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh
+
+      - name: Upload Coverage Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-coverage
+          path: coverage.out
+          if-no-files-found: error
+          retention-days: 14
