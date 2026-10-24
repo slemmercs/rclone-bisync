@@ -152,6 +152,46 @@ Augments Phase 4 Interactive Sync Review with an intelligent decision pipeline. 
   - Display recommendation badges and reasoning in Review Modal.
   - Add "Apply High-Confidence Recommendations" batch button.
 
+*Status: Delivered & Integrated [2026-10-23]*
+
+---
+
+### Active Refactor: Frontend Template Modularization (`html/template`) [`refactor/modularize-frontend-templates`]
+
+Decomposes the monolithic 1,500+ LOC `dashboard/frontend/index.html` into clean Go `html/template` partials to establish a scalable foundation for subsequent feature tabs and modals without introducing Node.js or npm dependencies.
+
+* **Micro-Task 1: Template Structure & Partials Extraction**
+  - Create `dashboard/frontend/partials/` and `dashboard/frontend/partials/modals/`.
+  - Extract `view_telemetry.html`, `view_remotes.html`, `view_explorer.html`.
+  - Extract `modal_review.html`, `modal_daemon.html`, `modal_delete.html`, `modal_remote_reconnect.html`, `modal_remote_credentials.html`.
+  - Streamline `index.html` to a ~120 LOC master shell.
+
+* **Micro-Task 2: Server-Side Template Caching (`internal/server/server.go`)**
+  - Parse master template and all partials once at server startup with `template.ParseFS`.
+  - Render pre-parsed template on `GET /{$}` with zero per-request parsing latency.
+
+* **Micro-Task 3: Automated Quality Gate Verification**
+  - Validate HTTP endpoint response contracts and run `./scripts/check.sh`.
+
+---
+
+### Phase 4/5 Governance Priority: Immutable Audit Ledger & Unified Log Architecture
+
+Cryptographically chained append-only SQLite ledger (`internal/audit`) paired with unified dual-logging in `bisync.log` and in-process POSIX log rotation.
+
+* **Component 1: Pure-Go SQLite Ledger (`modernc.org/sqlite` + `pressly/goose/v3`)**
+  - Zero-CGO SQLite driver with WAL mode, `BEFORE UPDATE`/`BEFORE DELETE` abort triggers, and embedded schema migrations.
+  - Deterministic SHA-256 hash chaining (`prev_hash` $\rightarrow$ `hash`) with full chain integrity verification.
+  - Strict separation of transient review sessions (`state/review-sessions/`) from permanent audit records.
+
+* **Component 2: Unified Dual-Logging & In-Process Log Rotation (`internal/core/logger`)**
+  - Dual-emit audit milestones into `bisync.log` (`"type": "audit"`) alongside sync runs.
+  - POSIX log rotator with bounded file size (10 MB) and backup retention (5 archives).
+
+* **Component 3: Dual-Stream Cockpit & Dedicated Audit Workspace (Option 1 UI)**
+  - Cockpit multi-stream terminal switcher (`[All Events]`, `[Sync Runs]`, `[Audit Milestones]`).
+  - 4th top-level navigation tab `[Audit Ledger]` implemented as a modular partial (`partials/view_audit.html`).
+  - Cryptographic verification badge and JSONL/CSV streaming exports.
 
 ---
 

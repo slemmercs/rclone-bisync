@@ -1,0 +1,225 @@
+{{ define "view_remotes" }}
+        <!-- View 2: Remote Storage Manager -->
+        <div x-show="currentTab === 'remotes'" x-transition.opacity.duration.200ms class="space-y-6">
+            <!-- Global Capacity Overview Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Total Cloud Space</div>
+                    <div class="text-xl sm:text-2xl font-bold text-white mt-2 font-mono" x-text="formatBytes(remotesData.summary?.total_capacity_bytes)"></div>
+                    <div class="text-[10px] text-slate-500 mt-1">Aggregated across all remotes</div>
+                </div>
+                <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Utilized Storage</div>
+                    <div class="text-xl sm:text-2xl font-bold text-indigo-400 mt-2 font-mono" x-text="formatBytes(remotesData.summary?.total_used_bytes)"></div>
+                    <div class="text-[10px] text-indigo-300/80 mt-1" x-text="`${getQuotaPct(remotesData.summary?.total_used_bytes, remotesData.summary?.total_capacity_bytes).toFixed(1)}% total quota used`"></div>
+                </div>
+                <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Available Space</div>
+                    <div class="text-xl sm:text-2xl font-bold text-emerald-400 mt-2 font-mono" x-text="formatBytes(remotesData.summary?.total_free_bytes)"></div>
+                    <div class="text-[10px] text-emerald-500/80 mt-1">Free remaining capacity</div>
+                </div>
+                <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
+                    <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Configured Remotes</div>
+                    <div class="text-xl sm:text-2xl font-bold text-white mt-2 font-mono" x-text="remotesData.count || 0"></div>
+                    <div class="text-[10px] text-slate-500 mt-1" x-text="remotesData.last_checked ? `Checked ${remotesData.last_checked}` : 'Auto-discovered'"></div>
+                </div>
+            </div>
+
+            <!-- Authentication Health & OAuth Lifecycle Bar -->
+            <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <span>Authentication Health Overview</span>
+                            <span class="text-[10px] font-mono font-normal px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60" x-text="`${remotesData.authSummary?.oauth_remotes || 0} OAuth of ${remotesData.authSummary?.total_remotes || remotesData.count || 0} Remotes`"></span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[11px]">
+                            <span class="px-2 py-0.5 rounded-full border flex items-center gap-1.5 font-medium bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                <span x-text="`${remotesData.authSummary?.connected || 0} Connected`"></span>
+                            </span>
+                            <span x-show="remotesData.authSummary?.migration_required > 0" class="px-2 py-0.5 rounded-full border flex items-center gap-1.5 font-medium bg-amber-500/10 text-amber-300 border-amber-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                <span x-text="`${remotesData.authSummary?.migration_required} Migration Required`"></span>
+                            </span>
+                            <span x-show="remotesData.authSummary?.authorization_required > 0" class="px-2 py-0.5 rounded-full border flex items-center gap-1.5 font-medium bg-rose-500/10 text-rose-300 border-rose-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                                <span x-text="`${remotesData.authSummary?.authorization_required} Auth Required`"></span>
+                            </span>
+                            <span x-show="remotesData.authSummary?.errors > 0" class="px-2 py-0.5 rounded-full border flex items-center gap-1.5 font-medium bg-red-500/10 text-red-300 border-red-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                <span x-text="`${remotesData.authSummary?.errors} Error`"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" @click.stop="viewAuthAudit()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors border border-slate-700/60 flex items-center gap-1.5 cursor-pointer">
+                        <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span>Audit Log</span>
+                    </button>
+                    <button type="button" @click.stop="checkAuthAndQuotas()" :disabled="remotesData.loading === true" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors border border-indigo-500/30 flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
+                        <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': remotesData.loading }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                        <span>Check Auth & Quotas</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Header Action Toolbar -->
+            <div class="flex items-center justify-between bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/60 text-xs">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>
+                    <span class="font-semibold text-slate-200">Configured Cloud Storage Remotes</span>
+                </div>
+                <button @click="fetchRemotes(true)" :disabled="remotesData.loading" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
+                    <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': remotesData.loading }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                    <span>Refresh Quotas</span>
+                </button>
+            </div>
+            <!-- Provider Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <template x-for="remote in remotesData.remotes" :key="remote.name">
+                    <div class="bg-slate-900/60 border rounded-2xl p-5 flex flex-col justify-between transition-all hover:border-slate-700/80" :class="getProviderColor(remote.type).border">
+                        <div>
+                            <!-- Card Header (Option 2: Streamlined Header & Compact Metadata Strip) -->
+                            <div class="flex items-start justify-between gap-3 mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2.5 rounded-xl border flex items-center justify-center font-bold font-mono text-sm shrink-0" :class="`${getProviderColor(remote.type).bg} ${getProviderColor(remote.type).border} ${getProviderColor(remote.type).text}`">
+                                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="text-base font-bold text-white font-mono" x-text="remote.fs"></h3>
+                                            <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded border" :class="getProviderColor(remote.type).badge" x-text="remote.type_label"></span>
+                                        </div>
+                                        <!-- Unified Compact Metadata Strip -->
+                                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[11px] text-slate-400">
+                                            <span>Backend: <span class="font-mono text-slate-300" x-text="remote.type"></span></span>
+                                            <template x-if="remote.auth && remote.auth.is_oauth">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-slate-600">•</span>
+                                                    <span x-show="remote.auth.has_client_secret" class="inline-flex items-center gap-1 text-indigo-300 font-medium">
+                                                        <svg class="w-3 h-3 shrink-0 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+                                                        <span>Personal App</span>
+                                                    </span>
+                                                    <span x-show="!remote.auth.has_client_secret" class="inline-flex items-center gap-1 font-medium" :class="remote.auth.status === 'migration_required' ? 'text-amber-400' : 'text-slate-400'">
+                                                        <svg x-show="remote.auth.status === 'migration_required'" class="w-3.5 h-3.5 shrink-0 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12.01" x2="12.01" y1="17" y2="17"/></svg>
+                                                        <span>Shared App ID</span>
+                                                    </span>
+                                                </div>
+                                            </template>
+                                            <template x-if="remote.auth">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-slate-600">•</span>
+                                                    <span class="inline-flex items-center gap-1.5 font-medium" :class="getAuthBadge(remote.auth.status).textClass">
+                                                        <span class="w-1.5 h-1.5 rounded-full" :class="getAuthBadge(remote.auth.status).dot"></span>
+                                                        <span x-text="getAuthBadge(remote.auth.status).text"></span>
+                                                    </span>
+                                                </div>
+                                            </template>
+                                            <span class="text-slate-600">•</span>
+                                            <span class="font-medium" :class="remote.about?.total ? 'text-slate-300' : 'text-slate-500'" x-text="remote.about?.total ? 'Quota Active' : 'No Quota API'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="shrink-0 flex items-center">
+                                    <span x-show="remote.is_active_target" class="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1 shadow-sm">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        <span>Active Target</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Migration Recommended Alert Banner -->
+                            <div x-show="remote.auth && remote.auth.status === 'migration_required'" class="mb-3 p-3 rounded-xl bg-amber-950/40 border border-amber-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-amber-200">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12.01" x2="12.01" y1="17" y2="17"/></svg>
+                                    <span class="text-[11px] font-medium">Using shared Rclone Client ID. Migrate to personal OAuth credentials.</span>
+                                </div>
+                                <button @click="openMigrationWizard(remote)" class="px-2.5 py-1 text-[11px] font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded transition-colors shrink-0 flex items-center gap-1 shadow-sm">
+                                    <span>Migration Wizard</span>
+                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+                                </button>
+                            </div>
+
+                            <!-- Storage Quota Section -->
+                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800/60 space-y-3">
+                                <div class="flex justify-between items-baseline text-xs">
+                                    <span class="text-slate-400 font-medium">Storage Allocation</span>
+                                    <span class="font-mono text-white font-semibold" x-text="`${formatBytes(remote.about?.used)} / ${formatBytes(remote.about?.total)}`"></span>
+                                </div>
+
+                                <!-- Multi-segment Quota Bar -->
+                                <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden flex border border-slate-800/80">
+                                    <div class="transition-all duration-500" :class="getQuotaPct(remote.about?.used, remote.about?.total) > 90 ? 'bg-rose-500' : getProviderColor(remote.type).bar" :style="`width: ${getQuotaPct(remote.about?.used, remote.about?.total)}%`"></div>
+                                    <div x-show="remote.about?.other" class="bg-purple-500/70 transition-all duration-500" :style="`width: ${getQuotaPct(remote.about?.other, remote.about?.total)}%`" title="Other Google Services / Shared"></div>
+                                </div>
+
+                                <!-- Quota Breakdown Metrics -->
+                                <div class="grid grid-cols-3 gap-2 pt-1 text-[11px] font-mono border-t border-slate-900">
+                                    <div>
+                                        <span class="text-slate-500 block text-[9px] uppercase">Used Space</span>
+                                        <span class="text-slate-200 font-medium" x-text="`${formatBytes(remote.about?.used)} (${getQuotaPct(remote.about?.used, remote.about?.total).toFixed(1)}%)`"></span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-500 block text-[9px] uppercase">Free Remaining</span>
+                                        <span class="text-emerald-400 font-medium" x-text="formatBytes(remote.about?.free)"></span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-500 block text-[9px] uppercase">Trash Bin</span>
+                                        <span class="text-amber-400 font-medium" x-text="formatBytes(remote.about?.trashed)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card Action Footer -->
+                        <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div class="flex items-center gap-1.5">
+                                <template x-if="remote.auth && remote.auth.is_oauth">
+                                    <div>
+                                        <button x-show="!remotesData.reconnecting || !remotesData.reconnecting[remote.name]" @click="reconnectRemote(remote.name)" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700/60 transition-colors flex items-center gap-1 font-medium">
+                                            <span>Reconnect</span>
+                                        </button>
+                                        <button x-show="remotesData.reconnecting && remotesData.reconnecting[remote.name]" @click="cancelReconnect(remote.name)" class="px-2.5 py-1 text-[11px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded border border-amber-500/30 transition-colors flex items-center gap-1.5 font-medium" title="Authorization flow in progress. Click to cancel.">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                            <span>Authorizing... (Cancel)</span>
+                                        </button>
+                                    </div>
+                                </template>
+                                <button type="button" @click.stop="validateRemote(remote.name)" :disabled="remotesData.validating?.[remote.name] === true" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
+                                    <svg x-show="remotesData.validating && remotesData.validating[remote.name]" class="w-3 h-3 animate-spin text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                    <svg x-show="remotesData.validated && remotesData.validated[remote.name]" class="w-3 h-3 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                    <span :class="(remotesData.validated && remotesData.validated[remote.name]) ? 'text-emerald-400 font-medium' : ''" x-text="(remotesData.validating && remotesData.validating[remote.name]) ? 'Validating...' : ((remotesData.validated && remotesData.validated[remote.name]) ? 'Connected ✓' : 'Validate')"></span>
+                                </button>
+                                <template x-if="remote.auth && remote.auth.is_oauth">
+                                    <button type="button" @click.stop="openMigrationWizard(remote)" class="px-2.5 py-1 text-[11px] bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1 cursor-pointer" title="Configure personal OAuth client ID and secret">
+                                        <svg class="w-3 h-3 shrink-0 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+                                        <span>App Credentials</span>
+                                    </button>
+                                </template>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button @click="openRemoteInExplorer(remote.name)" class="px-2.5 py-1 text-[11px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded border border-indigo-500/30 transition-colors flex items-center gap-1.5 font-medium">
+                                    <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                                    <span>Browse Files</span>
+                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+                                </button>
+                                <button @click="switchTab('telemetry')" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-400 rounded border border-slate-800 transition-colors">View Sync</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Empty State -->
+                <div x-show="remotesData.remotes.length === 0 && !remotesData.loading" class="col-span-full bg-slate-900/40 border border-slate-800/60 rounded-2xl p-8 text-center text-slate-500">
+                    <svg class="w-10 h-10 mx-auto text-slate-600 mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 4 14.9h15.22"/><path d="M21.6 15.6A4.5 4.5 0 0 0 17.5 8h-1.8a7 7 0 0 0-8.8-3.7"/></svg>
+                    <p class="text-sm text-slate-400 font-medium">No Rclone remotes discovered.</p>
+                    <p class="text-xs text-slate-500 mt-1">Ensure the rclone daemon is active and has access to rclone.conf.</p>
+                </div>
+            </div>
+        </div> <!-- End View 2: Remote Storage Manager -->
+{{ end }}

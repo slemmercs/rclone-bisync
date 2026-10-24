@@ -38,7 +38,9 @@ Roadmap items are not commitments and may change based on project needs.
 | SyncService Modularization & Domain Separation | **Delivered** | PR #18 |
 | Bisync Hub Rebranding & Lucide SVG Design System | **Delivered** | PR #20 |
 | **Interactive Sync Review & Deletion Diff Visualizer** | **Delivered** | Phase 4 (`feat/interactive-sync-review`) |
-| **Heuristic Conflict Recommendation Engine** | **In Progress** | Phase 4 Extension (`feat/heuristic-conflict-engine`) |
+| **Heuristic Conflict Recommendation Engine** | **Delivered** | Phase 4 Extension (`feat/heuristic-conflict-engine`) |
+| **Frontend Template Modularization (`html/template`)** | **In Progress** | Refactor (`refactor/modularize-frontend-templates`) |
+| **Immutable Audit Ledger & Unified Log Architecture** | **Next Milestone** | Phase 4/5 Governance & Compliance |
 | Multi-Profile Synchronization Hub | Planned | Phase 5 |
 | Configuration Management & 3-Layer Safety Pipeline | Planned | Phase 5 |
 | Local MVP Deployment Hardening (Unix Sockets & Crypto Credentials) | Planned | Phase 6 |
@@ -48,18 +50,24 @@ Roadmap items are not commitments and may change based on project needs.
 
 ## Active Strategic Priority
 
-### Heuristic Conflict Recommendation Engine (Phase 4 Extension)
+### Frontend Template Modularization (`html/template`)
 
-Augments Phase 4 Interactive Sync Review with an intelligent decision pipeline ("Review. Decide. Sync."). When synchronization aborts due to conflicting modifications, candidate conflict pairs are evaluated offline using pure-Go deterministic heuristics.
+Decomposes the monolithic 1,500+ LOC `dashboard/frontend/index.html` into clean, maintainable Go standard library `html/template` partials (`partials/view_*.html`, `partials/modals/*.html`).
 
-Capabilities:
-- **Offline Concurrent Analysis**: Bounded worker pool ($G=4$) evaluates candidates against a pipeline of deterministic analyzers.
-- **Critical Risk Protection**: Automatically isolates potential 0-byte truncations, binary size divergences, and mass shrinkage with `RiskCritical` to prevent silent data loss.
-- **Intelligent Pattern Matching**: Accurately recognizes application temporary locks (`~$*`, `*.tmp`, `*.swp`), DST hour jumps ($\pm 3600\text{s}$), and identical file hashes.
-- **Confidence Scoring & Reasoning**: Computes normalized score ($-1.0$ to $+1.0$) and confidence ($0.00$ to $1.00$) with human-readable rationale.
-- **Batch Resolution**: Enables one-click auto-staging of high-confidence, low-risk recommendations (`POST /api/review/action-batch`) while holding critical items for manual review.
+Capabilities & Architecture:
+- **Zero Node.js/npm Dependencies**: Pure Go server-side assembly using `embed.FS` and `html/template`.
+- **Zero DOM Shift / Pop-in**: Server assembles and caches templates at boot, serving full HTML in a single HTTP request.
+- **Maintainable Architecture**: Separates Cockpit Telemetry, Storage Remotes, File Explorer, and interactive Modals into modular files under 300 LOC.
+- **Clean Foundation for Audit Ledger**: Enables upcoming `partials/view_audit.html` to be plugged into the 4th top-level navigation tab with zero clutter.
 
-Refer to [`docs/design/heuristic_conflict_recommendation_engine_design_specification.md`](../design/heuristic_conflict_recommendation_engine_design_specification.md) for detailed ruleset matrices and scoring formulas.
+---
+
+### Upcoming Strategic Priority: Immutable Audit Ledger & Unified Log Architecture
+
+Implements cryptographically chained SQLite audit logging (`internal/audit`) with pure-Go driver (`modernc.org/sqlite`) and goose migrations (`pressly/goose/v3`).
+- **Dual-Logging**: Critical milestones dual-logged to `bisync.log` alongside sync execution runs.
+- **POSIX Log Rotator**: In-process size-bounded rotation (10 MB, 5 archives) for `bisync.log` and `rclone-daemon.log`.
+- **Option 1 UI**: Multi-stream cockpit terminal switcher (`All`, `Sync`, `Audit`) plus a dedicated 4th top-level tab `[Audit Ledger]` with live cryptographic integrity verification.
 
 
 ---
