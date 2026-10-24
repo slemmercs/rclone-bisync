@@ -7,23 +7,12 @@ set -euo pipefail
 #
 # Local use only.
 #
-# Features:
-#   - Architecture detection
-#   - Dry run
-#   - Status reporting
-#   - Automatic rollback on failure
-#   - Manual rollback
-#   - SHA256 verification
-#   - Backup retention
-#
 # Usage:
-#
 #   ./update-tools.sh
 #   ./update-tools.sh --status
 #   ./update-tools.sh --dry-run
 #   ./update-tools.sh --rollback
 #   ./update-tools.sh --go-version 1.26.11
-#
 # =============================================================================
 
 # ----------------------------------------------------------------------
@@ -34,6 +23,7 @@ GO_VERSION_DEFAULT="1.26.10"
 STATICCHECK_VERSION="2025.1.1"
 GOVULNCHECK_VERSION="v1.9.0"
 BETTERLEAKS_VERSION="v1.9.0"
+ESBUILD_VERSION="v0.25.0"
 
 DRY_RUN=false
 ROLLBACK=false
@@ -58,7 +48,7 @@ warn() {
 }
 
 fatal() {
-    echo "[ERROR] $*" >&2
+    echo "[ERROR] ${1:-Unspecified failure occurred}" >&2
     exit 1
 }
 
@@ -103,13 +93,9 @@ Options:
 Examples:
 
   $(basename "$0")
-
   $(basename "$0") --status
-
   $(basename "$0") --dry-run
-
   $(basename "$0") --go-version 1.26.11
-
   $(basename "$0") --rollback
 
 EOF
@@ -124,10 +110,11 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
 
         --go-version)
-            [[ $# -ge 2 ]] || fatal "--go-version requires a value"
+            if [[ $# -lt 2 ]]; then
+                fatal "--go-version requires a version argument"
+            fi
 
             GO_VERSION="$2"
-
             shift 2
             ;;
 
@@ -171,7 +158,6 @@ done
 # ----------------------------------------------------------------------
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-
 ARCH_RAW="$(uname -m)"
 
 case "${ARCH_RAW}" in
@@ -199,54 +185,60 @@ show_status() {
     echo
 
     echo "Platform"
-
     echo "  OS   : ${OS}"
     echo "  Arch : ${ARCH}"
     echo
 
     echo "Go"
-
     if command -v go >/dev/null 2>&1; then
         echo "  Installed : $(go version)"
         echo "  Path      : $(command -v go)"
     else
         echo "  Installed : NO"
     fi
-
     echo
 
     echo "govulncheck"
-
     if command -v govulncheck >/dev/null 2>&1; then
         echo "  Path : $(command -v govulncheck)"
     else
         echo "  Installed : NO"
     fi
-
     echo
 
     echo "staticcheck"
-
     if command -v staticcheck >/dev/null 2>&1; then
         echo "  Path : $(command -v staticcheck)"
     else
         echo "  Installed : NO"
     fi
-
     echo
 
     echo "betterleaks"
-
     if command -v betterleaks >/dev/null 2>&1; then
         echo "  Path : $(command -v betterleaks)"
     else
         echo "  Installed : NO"
     fi
+    echo
 
+    echo "esbuild"
+    if command -v esbuild >/dev/null 2>&1; then
+        echo "  Path : $(command -v esbuild)"
+    else
+        echo "  Installed : NO"
+    fi
+    echo
+
+    echo "tidy (HTML Validation)"
+    if command -v tidy >/dev/null 2>&1; then
+        echo "  Path : $(command -v tidy)"
+    else
+        echo "  Installed : NO (install via: sudo apt install tidy)"
+    fi
     echo
 
     echo "PATH Checks"
-
     if [[ ":$PATH:" == *":/usr/local/go/bin:"* ]]; then
         echo "  ✓ /usr/local/go/bin"
     else
@@ -254,23 +246,19 @@ show_status() {
     fi
 
     if [[ -d "${HOME}/go/bin" ]]; then
-
         if [[ ":$PATH:" == *":${HOME}/go/bin:"* ]]; then
             echo "  ✓ ${HOME}/go/bin"
         else
             echo "  ✗ ${HOME}/go/bin"
         fi
     fi
-
     echo
 
     echo "Backups"
-
     shopt -s nullglob
-
     backups=(/usr/local/go.backup.*)
 
-    if (( ${#backups[@]} == 0 )); then
+    if [[ ${#backups[@]} -eq 0 ]]; then
         echo "  None"
     else
         printf '%s\n' "${backups[@]}" | sort
@@ -291,10 +279,11 @@ fi
 rollback() {
 
     shopt -s nullglob
-
     backups=(/usr/local/go.backup.*)
 
-    (( ${#backups[@]} > 0 )) || fatal "No Go backup found."
+    if [[ ${#backups[@]} -eq 0 ]]; then
+        fatal "No Go backup found."
+    fi
 
     latest_backup="$(
         printf '%s\n' "${backups[@]}" |
@@ -308,25 +297,16 @@ rollback() {
     echo
 
     if [[ "${DRY_RUN}" == "true" ]]; then
-
         echo "[DRY-RUN] sudo mv /usr/local/go /usr/local/go.rollback-bad"
         echo "[DRY-RUN] sudo mv ${latest_backup} /usr/local/go"
-
         return
     fi
 
     if [[ -d /usr/local/go ]]; then
-
-        sudo mv \
-            /usr/local/go \
-            /usr/local/go.rollback-bad
-
+        sudo mv /usr/local/go /usr/local/go.rollback-bad
     fi
 
-    sudo mv \
-        "${latest_backup}" \
-        /usr/local/go
-
+    sudo mv "${latest_backup}" /usr/local/go
     success "Rollback completed"
 
     /usr/local/go/bin/go version
@@ -342,10 +322,8 @@ fi
 # ----------------------------------------------------------------------
 
 for tool in curl tar sha256sum sudo; do
-
     command -v "${tool}" >/dev/null 2>&1 \
         || fatal "Required tool not found: ${tool}"
-
 done
 
 # ----------------------------------------------------------------------
@@ -363,14 +341,11 @@ GO_SHA256_URL="${GO_URL}.sha256"
 TMP_DIR=""
 
 cleanup() {
-
     local rc=$?
-
     if [[ -n "${TMP_DIR}" && -d "${TMP_DIR}" ]]; then
         rm -rf "${TMP_DIR}"
     fi
-
-    if (( rc != 0 )); then
+    if [[ ${rc} -ne 0 ]]; then
         warn "Script exited with errors"
     fi
 }
@@ -386,25 +361,14 @@ log "Target Version : ${GO_VERSION}"
 log "Platform       : ${OS}/${ARCH}"
 
 TMP_DIR="$(mktemp -d)"
-
 GO_ARCHIVE="${TMP_DIR}/${GO_TARBALL}"
 
 if [[ "${DRY_RUN}" == "true" ]]; then
-
     echo "[DRY-RUN] Download ${GO_URL}"
-
 else
-
     log "Downloading Go..."
-
-    curl \
-        -fSL \
-        --retry 3 \
-        -o "${GO_ARCHIVE}" \
-        "${GO_URL}"
-
+    curl -fSL --retry 3 -o "${GO_ARCHIVE}" "${GO_URL}"
     success "Download complete"
-
 fi
 
 # ----------------------------------------------------------------------
@@ -412,7 +376,6 @@ fi
 # ----------------------------------------------------------------------
 
 if [[ "${DRY_RUN}" == "false" ]]; then
-
     log "Verifying checksum..."
 
     EXPECTED_HASH="$(curl -fsSL "${GO_SHA256_URL}" | tr -d '[:space:]')"
@@ -425,7 +388,6 @@ if [[ "${DRY_RUN}" == "false" ]]; then
     fi
 
     success "Checksum verified (${ACTUAL_HASH})"
-
 fi
 
 # ----------------------------------------------------------------------
@@ -433,7 +395,6 @@ fi
 # ----------------------------------------------------------------------
 
 if command -v go >/dev/null 2>&1; then
-
     CURRENT_GO_VERSION="$(
         go version |
         awk '{print $3}' |
@@ -441,13 +402,8 @@ if command -v go >/dev/null 2>&1; then
     )"
 
     if [[ "${CURRENT_GO_VERSION}" == "${GO_VERSION}" ]]; then
-
         success "Go ${GO_VERSION} is already installed."
-
-        echo
-
         echo "Updating tooling only..."
-
     fi
 fi
 
@@ -456,17 +412,11 @@ fi
 # ----------------------------------------------------------------------
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-
 BACKUP_DIR="/usr/local/go.backup.${TIMESTAMP}"
 
 if [[ -d /usr/local/go ]]; then
-
     log "Creating backup..."
-
-    run sudo mv \
-        /usr/local/go \
-        "${BACKUP_DIR}"
-
+    run sudo mv /usr/local/go "${BACKUP_DIR}"
     success "Backup: ${BACKUP_DIR}"
 fi
 
@@ -475,19 +425,14 @@ fi
 # ----------------------------------------------------------------------
 
 log "Installing Go..."
-
-run sudo tar \
-    -C /usr/local \
-    -xzf "${GO_ARCHIVE}"
+run sudo tar -C /usr/local -xzf "${GO_ARCHIVE}"
 
 # ----------------------------------------------------------------------
 # Verify Go
 # ----------------------------------------------------------------------
 
 if [[ "${DRY_RUN}" == "false" ]]; then
-
-    [[ -x /usr/local/go/bin/go ]] \
-        || fatal "Go installation verification failed"
+    [[ -x /usr/local/go/bin/go ]] || fatal "Go installation verification failed"
 
     INSTALLED_VERSION="$(
         /usr/local/go/bin/go version |
@@ -514,7 +459,6 @@ else
     echo "  ✗ /usr/local/go/bin"
     echo
     echo "Add this to your shell profile:"
-    echo
     echo 'export PATH=/usr/local/go/bin:$PATH'
 fi
 
@@ -526,30 +470,23 @@ export PATH="/usr/local/go/bin:${PATH}"
 export GOTOOLCHAIN=local
 
 if [[ "${DRY_RUN}" == "false" ]]; then
-
     GOBIN="$(go env GOBIN)"
-
     if [[ -z "${GOBIN}" ]]; then
         GOBIN="$(go env GOPATH)/bin"
     fi
-
     mkdir -p "${GOBIN}"
 
     log "Installing govulncheck..."
-
-    go install \
-        "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
+    go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
 
     log "Installing staticcheck..."
-
-    go install \
-        "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}"
+    go install "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}"
 
     log "Installing betterleaks..."
+    go install "github.com/betterleaks/betterleaks@${BETTERLEAKS_VERSION}"
 
-    go install \
-        "github.com/betterleaks/betterleaks@${BETTERLEAKS_VERSION}"
-
+    log "Installing esbuild..."
+    go install "github.com/evanw/esbuild/cmd/esbuild@${ESBUILD_VERSION}"
 fi
 
 # ----------------------------------------------------------------------
@@ -557,15 +494,10 @@ fi
 # ----------------------------------------------------------------------
 
 if [[ "${DRY_RUN}" == "false" ]]; then
-
-    command -v govulncheck >/dev/null 2>&1 \
-        || fatal "govulncheck installation failed"
-
-    command -v staticcheck >/dev/null 2>&1 \
-        || fatal "staticcheck installation failed"
-
-    command -v betterleaks >/dev/null 2>&1 \
-        || fatal "betterleaks installation failed"
+    command -v govulncheck >/dev/null 2>&1 || fatal "govulncheck installation failed"
+    command -v staticcheck >/dev/null 2>&1 || fatal "staticcheck installation failed"
+    command -v betterleaks >/dev/null 2>&1 || fatal "betterleaks installation failed"
+    command -v esbuild >/dev/null 2>&1 || fatal "esbuild installation failed"
 fi
 
 # ----------------------------------------------------------------------
@@ -573,13 +505,10 @@ fi
 # ----------------------------------------------------------------------
 
 if [[ "${DRY_RUN}" == "false" ]]; then
-
     shopt -s nullglob
-
     backups=(/usr/local/go.backup.*)
 
-    if (( ${#backups[@]} > 3 )); then
-
+    if [[ ${#backups[@]} -gt 3 ]]; then
         mapfile -t old_backups < <(
             printf '%s\n' "${backups[@]}" |
             sort |
@@ -587,13 +516,9 @@ if [[ "${DRY_RUN}" == "false" ]]; then
         )
 
         for backup in "${old_backups[@]}"; do
-
             log "Removing old backup: ${backup}"
-
             sudo rm -rf "${backup}"
-
         done
-
     fi
 fi
 
@@ -609,22 +534,18 @@ echo
 
 echo "Go Version:"
 echo "  ${GO_VERSION}"
-
 echo
-
 echo "govulncheck:"
 echo "  ${GOVULNCHECK_VERSION}"
-
 echo
-
 echo "staticcheck:"
 echo "  ${STATICCHECK_VERSION}"
-
 echo
-
 echo "betterleaks:"
 echo "  ${BETTERLEAKS_VERSION}"
-
+echo
+echo "esbuild:"
+echo "  ${ESBUILD_VERSION}"
 echo
 
 show_status
