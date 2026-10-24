@@ -93,3 +93,18 @@ Comprehensive diagnostics allowing operators to inspect live Rclone engine outpu
     <span>Unified service events, systemd journal entries, and trace diagnostics</span>
   </div>
 </div>
+
+---
+
+## 5. Cryptographic Immutable Audit Ledger
+
+Mathematically verifiable SHA-256 hash-chained compliance ledger tracking sync events, conflict resolutions, and deletion decisions with real-time verification and zero-leak secret redaction.
+
+<div class="screenshot-frame">
+  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-ledger.png' | relative_url }}" alt="Cryptographic Immutable Audit Ledger" />
+  <div class="caption">
+    <span class="title">Cryptographic Audit Ledger</span>
+    <span>Real-time SHA-256 hash chain verification, actor and action filtering, CSV/JSONL exports, and forensic payload inspection</span>
+  </div>
+</div>
+

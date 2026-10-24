@@ -26,6 +26,8 @@ bin/
 dist/
 bisync-hub
 bisync-hub-*
+rclone-bisync
+rclone-bisync-*
 
 # ----------------------------------------------------------------------
 # Test, Coverage & Security Reports
