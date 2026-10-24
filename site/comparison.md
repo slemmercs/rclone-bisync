@@ -14,7 +14,7 @@ Understanding where Bisync Hub fits in your storage infrastructure:
 | **Interactive Deletion Review** | ❌ None | ❌ Rare | ❌ None | ✅ **Full Diff Modal** |
 | **Multi-Signal Conflict Heuristics** | ❌ Timestamps only | ⚠️ Basic rename | ⚠️ Timestamp or manual | ✅ **4-Analyzer Engine** |
 | **Canary Mount Protection** | ⚠️ Custom script only | ❌ None | ❌ None | ✅ **Built-in `RCLONE_TEST`** |
-| **Cryptographic Audit Ledger** | ❌ Plain text logs | ❌ Local state | ❌ Stdout logs | ⏳ **Planned (Priority #1)** |
+| **Cryptographic Audit Ledger** | ❌ Plain text logs | ❌ Local state | ❌ Stdout logs | ✅ **Immutable SHA-256 Ledger** |
 | **Zero External Runtime Deps** | ⚠️ Bash / Shell | ❌ Electron / Qt | ✅ Go binary | ✅ **Single Go Binary** |
 | **Embedded Web Dashboard** | ❌ None | ⚠️ Desktop only | ❌ RC webgui only | ✅ **Lightweight Embedded** |
 | **Webhook Alerts (Discord/Telegram)** | ⚠️ Manual curl | ❌ OS toasts only | ❌ None | ⏳ **Planned (Priority #4)** |

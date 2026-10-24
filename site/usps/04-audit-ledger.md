@@ -7,10 +7,10 @@ nav_order: 4
 
 # Cryptographic Immutable Audit Ledger
 
-<span class="badge-planned">◆ Planned Milestone (Near-Term Priority #1)</span>
+<span class="badge-online">● Shipped & Available</span>
 
 {: .note }
-> **Roadmap Specification**: The Cryptographic Immutable Audit Ledger detailed below represents **Near-Term Strategic Priority #1** on our development roadmap. The schema architecture, SQLite trigger design, and verification tooling are ready for immediate implementation post-public launch.
+> **Production Ledger**: The Cryptographic Immutable Audit Ledger is fully implemented and included in the native binary. Every synchronization action, conflict resolution, and file mutation is cryptographically sealed into an append-only SQLite database backed by SHA-256 hash chains.
 
 Compliance, security audits, and forensic debugging require an undeniable, tamper-evident record of all storage mutations: **Who deleted file X? When was conflict Y resolved? What was the decision confidence score?**
 
@@ -64,3 +64,29 @@ All sensitive credentials—including `RC_PASS`, OAuth refresh tokens, webhook U
 
 {: .safety }
 > The audit ledger ensures full compliance with operational standards while protecting organizational data sovereignty.
+
+---
+
+## Visual Ledger & Forensic Inspection
+
+### 1. Unified Cryptographic Audit Ledger
+The dedicated Audit Ledger interface displays continuous sequence IDs, timestamps, profile targets, actions, and actors. Operators can run live cryptographic verification directly in the browser and export compliance records to CSV or JSONL:
+
+<div class="screenshot-frame">
+  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-ledger-v2.png' | relative_url }}" alt="Unified Cryptographic Audit Ledger" />
+  <div class="caption">
+    <span class="title">1. Unified Audit Ledger Interface</span>
+    <span>Live SHA-256 chain verification, action/actor filters, and compliance export</span>
+  </div>
+</div>
+
+### 2. Tamper-Evident Block Inspection
+Selecting any record opens the forensic block inspector, exposing the previous hash, block SHA-256 digest, execution duration, and fully redacted payload details:
+
+<div class="screenshot-frame">
+  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-block.png' | relative_url }}" alt="Cryptographic Audit Block Inspection" />
+  <div class="caption">
+    <span class="title">2. Cryptographic Block Detail</span>
+    <span>Immutable block parameters, chained SHA-256 hashes, and sanitized JSON payload</span>
+  </div>
+</div>

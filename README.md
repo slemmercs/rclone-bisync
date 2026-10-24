@@ -56,6 +56,7 @@ While many projects help users run, schedule, or automate synchronizations, Bisy
 | Guided Recovery Workflows | ❌ | ❌ | ❌ | ✅ |
 | Per-File Sync Decisions | ❌ | ❌ | ❌ | ✅ |
 | Rollback-Oriented Design | ❌ | ❌ | ❌ | ✅ |
+| Cryptographic Audit Ledger | ❌ | ❌ | ❌ | ✅ |
 
 ## Existing Approaches
 
@@ -159,19 +160,24 @@ Synchronization state, remote health, conflicts, and risks should be visible wit
 
 # Current Capabilities
 
-- Real-time synchronization telemetry
-- Browser-based operational dashboard
-- Embedded single-page application UI
-- Native Go single-binary deployment
-- Integrated dual-pane file explorer
-- OAuth connection health monitoring
-- Authentication recovery workflows
-- Canary validation and access checks
+- Real-time synchronization telemetry and speed velocity charts
+- Browser-based operational dashboard with 4 core views
+- Embedded single-page application UI (zero-dependency, compiled-in)
+- Native Go single-binary deployment with sub-30MB footprint
+- Integrated dual-pane local and remote file explorer
+- OAuth connection health monitoring and guided renewal modals
+- Authentication recovery workflows for Google Drive and OneDrive
+- Canary validation (`RCLONE_TEST`) and filesystem jail confinement
+- Interactive sync review modal with per-file triage and heuristic recommendations
+- Atomic pre-mutation backups (`.review_backups/`) and automated post-review sync execution
+- Cryptographic Immutable Audit Ledger with trigger-enforced SQLite append-only storage
+- Verifiable SHA-256 hash chaining and in-browser cryptographic integrity verification
+- Compliance export to CSV and JSONL formats
+- In-process POSIX size-bounded log rotator with dual-stream audit logging (`bisync.log`)
 - Synchronization orchestration and scheduling
-- Systemd integration
-- Safety-focused execution controls
-- Remote health monitoring
-- Structured logging and diagnostics
+- Systemd integration with real-time journal log streaming
+- Safety-focused execution controls and circuit breakers
+- Remote health monitoring and structured diagnostics
 
 ---
 
