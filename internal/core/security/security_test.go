@@ -1,6 +1,7 @@
 package security
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -115,5 +116,45 @@ func TestRedactStruct(t *testing.T) {
 	}
 	if meta["desc"] != "testing" {
 		t.Errorf("expected desc preserved, got %v", meta["desc"])
+	}
+}
+
+func TestRedactSecretsRawMessageAndBytes(t *testing.T) {
+	raw := json.RawMessage(`{"safe":"value","secret_key":"hidden123"}`)
+	redacted := RedactSecrets(raw).(json.RawMessage)
+
+	var res map[string]interface{}
+	if err := json.Unmarshal(redacted, &res); err != nil {
+		t.Fatalf("failed to unmarshal redacted raw message: %v", err)
+	}
+	if res["safe"] != "value" {
+		t.Errorf("expected safe=value, got %v", res["safe"])
+	}
+	if res["secret_key"] != RedactedString {
+		t.Errorf("expected secret_key redacted, got %v", res["secret_key"])
+	}
+
+	byteSlice := []byte("plain binary or text")
+	redactedBytes := RedactSecrets(byteSlice).([]byte)
+	if string(redactedBytes) != "plain binary or text" {
+		t.Errorf("expected byte slice preserved, got %s", string(redactedBytes))
+	}
+}
+
+func TestRedactStructWithRawMessage(t *testing.T) {
+	type TestStructWithRaw struct {
+		Details json.RawMessage `json:"details"`
+	}
+	s := TestStructWithRaw{
+		Details: json.RawMessage(`{"file":"doc.pdf"}`),
+	}
+	res := RedactSecrets(s).(map[string]interface{})
+	b, err := json.Marshal(res)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	t.Logf("Marshaled: %s", string(b))
+	if string(b) != `{"details":{"file":"doc.pdf"}}` {
+		t.Errorf("expected JSON object, got: %s", string(b))
 	}
 }
