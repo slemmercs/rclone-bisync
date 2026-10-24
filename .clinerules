@@ -33,12 +33,14 @@ Before modifying code for non-trivial features, bug fixes, or refactors:
 
 ### 1.3 Step-by-Step Task Loop
 For **EVERY** individual task in `task_plan.md`:
-1. **Baseline Verification**: Run existing automated tests (`go test -count=1 ./...` or `./scripts/check.sh`) prior to editing code to confirm a clean starting baseline.
+1. **Baseline Assessment (Token-Optimized)**:
+   - **Fresh Branches & Clean Workspaces**: On a fresh branch branching from a verified `main` (or when the tree is already clean), **skip** running `./scripts/check.sh` or full test suites prior to starting. Assume a clean baseline since every deliverable concludes with pre-flight verification.
+   - **Targeted Baseline (Bug Investigation Only)**: Only run a targeted test (e.g., `go test -count=1 ./internal/services -run TestSpecificCase`) when reproducing a bug or investigating existing behavior prior to refactoring.
 2. **Targeted Execution**: Make minimal, precise changes strictly scoped to the active micro-task. Never format or refactor untouched code.
-3. **Verify**: Run the specified test/verification command using the local Go toolchain.
+3. **Verify**: Run the specified micro-task verification command (e.g., targeted `go test -count=1 ...` or scoped stage `./scripts/check.sh test`) using the local Go toolchain.
 4. **Update Plan**: Mark the task as `[x]` in `task_plan.md` with a timestamped status update.
-5. **Checkpoint Commit**: Propose a conventional git checkpoint commit.
-6. **Halt & Hand-off**: Print the hand-off prompt and halt further edits.
+5. **Checkpoint Commit**: Propose a conventional git checkpoint commit (running pre-flight `./scripts/check.sh` before commit/push).
+6. **Halt & Hand-off**: Print the hand-off prompt and offer context compaction.
 
 ### 1.4 Mandatory Hand-off Prompt
 When completing a verified task, halt and output:
@@ -47,7 +49,7 @@ When completing a verified task, halt and output:
 > - **Completed**: [Task Name]
 > - **Verification**: Passed (`[Verification Command]`)
 > - **Next Up**: [Next Task in task_plan.md]
-> 💡 *Please run `/newtask` to clear the context window and resume with clean token usage.*
+> 💡 *Please compact context to preserve conversation state while optimizing token usage for the next task.*
 
 ---
 
@@ -91,6 +93,12 @@ When completing a verified task, halt and output:
   - Test functions: `Test<Functionality>_<Scenario>`.
 - **Pattern**: Structure every test using Arrange-Act-Assert (AAA).
 - **Coverage Target**: Maintain statement coverage >80% across all packages (`go test -cover ./...`).
+- **Inner-Loop Efficiency**: Use fast, targeted test commands (`go test -count=1 ./internal/... -run <TestName>` or scoped stage `./scripts/check.sh test`) during micro-task iterations. Reserve full `./scripts/check.sh` (all 8 quality stages) for pre-commit verification.
+
+### 2.6 Documentation & Showcase Platform (`site/`)
+- **Theme & SCSS Tokens**: Just the Docs platform under `site/`. Centralize styling in `site/_sass/custom/` adhering to the Slate-900 / Indigo-600 dark design system.
+- **Integrity**: Validate front matter, relative permalinks, and asset references before publishing.
+- **Zero Exposure**: Never embed live tokens, credentials, or internal environment secrets in markdown documentation.
 
 ---
 
@@ -125,7 +133,7 @@ When performing a periodic full-repo review:
    - Module 3: Server & Endpoints (`internal/server/`, `main.go`).
    - Module 4: Dashboard Frontend (`dashboard/frontend/` — Alpine.js state, event handlers).
    - Module 5: Report Synthesis (`docs/architecture/code-review.md`).
-2. **One Pass Per Session**: Execute each review pass, verify against test suite, and check off in `docs/roadmap/task_plan.md` before prompting `/newtask`.
+2. **One Pass Per Session**: Execute each review pass, verify against test suite, and check off in `docs/roadmap/task_plan.md` before compacting context.
 3. **Report Output**: Document findings, grades, and recommendations in `docs/architecture/code-review.md`.
 
 ### 3.3 Review Report Format
