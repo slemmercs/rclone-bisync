@@ -142,6 +142,17 @@ document.addEventListener("alpine:init", () => {
             lastResult: null
         },
 
+        showToast(message, type = "info") {
+            if (!this.toast) return;
+            if (this.toast.timeout) clearTimeout(this.toast.timeout);
+            this.toast.message = message;
+            this.toast.type = type;
+            this.toast.show = true;
+            this.toast.timeout = setTimeout(() => {
+                if (this.toast) this.toast.show = false;
+            }, 4500);
+        },
+
 
         get parsedBisyncLogs() {
             return (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
@@ -398,11 +409,14 @@ document.addEventListener("alpine:init", () => {
                 });
                 const data = await res.json();
                 if (!res.ok || data.status === "error") {
-                    alert("Action Error: " + (data.msg || data.error || "Request failed"));
+                    const errDetail = data.msg || data.error || "Request failed";
+                    this.showToast("Action Error: " + errDetail, "error");
+                } else {
+                    this.showToast(data.msg || `Action "${actionStr}" completed successfully.`, "success");
                 }
                 await this.poll();
             } catch (err) {
-                alert("Network error: " + err.message);
+                this.showToast("Network error: " + err.message, "error");
             } finally {
                 setTimeout(() => { this.actionLoading = null; }, 1200);
             }

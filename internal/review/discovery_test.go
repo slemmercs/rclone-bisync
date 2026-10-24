@@ -3,6 +3,7 @@ package review
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
@@ -115,6 +116,43 @@ func TestDiscoverCandidates_FilenamesWithSpaces(t *testing.T) {
 	}
 	if deletions[0].Path != expected1 && deletions[1].Path != expected1 {
 		t.Fatalf("expected deletion with spaces %q, got: %v", expected1, deletions)
+	}
+}
+func TestDiscoverCandidates_NestedDaemonJSON(t *testing.T) {
+	daemonLogLine := `{"time":"2026-10-24T22:50:23.841+02:00","level":"notice","msg":"{\"time\":\"2026-10-24T22:50:23.509+02:00\",\"level\":\"info\",\"msg\":\"- Path1             File was deleted                            - Csaba/etc/Ausgleichberechnung.xlsx\",\"source\":\"bisync/deltas.go:188\"}\n{\"time\":\"2026-10-24T22:50:23.530+02:00\",\"level\":\"info\",\"msg\":\"- Path2             File was deleted                            - Csaba/etc/Ossobuco mit Gremolata  Le Creuset DE.pdf\",\"source\":\"bisync/deltas.go:188\"}\n{\"time\":\"2026-10-24T22:50:23.531+02:00\",\"level\":\"error\",\"msg\":\"too many deletes (>0%, 1 of 7058) on Path1 \\\"gdrive{tCwNP}:/\\\". Run with --force if desired.\",\"source\":\"bisync/deltas.go:557\"}"}`
+
+	deletions, _, err := DiscoverCandidates([]string{daemonLogLine}, "", "")
+	if err != nil {
+		t.Fatalf("DiscoverCandidates failed: %v", err)
+	}
+
+	if len(deletions) != 2 {
+		t.Fatalf("expected 2 deletions parsed from nested JSON, got %d: %v", len(deletions), deletions)
+	}
+
+	var foundPath1, foundPath2 bool
+	for _, d := range deletions {
+		if strings.Contains(d.Path, "source") || strings.Contains(d.Path, `"`) || strings.Contains(d.Path, `}`) {
+			t.Fatalf("corrupted deletion path detected: %q", d.Path)
+		}
+		if d.Path == "Csaba/etc/Ausgleichberechnung.xlsx" {
+			foundPath1 = true
+			if d.Source != models.SideRemote {
+				t.Errorf("expected SideRemote for Path1 deletion, got: %s", d.Source)
+			}
+		}
+		if d.Path == "Csaba/etc/Ossobuco mit Gremolata  Le Creuset DE.pdf" {
+			foundPath2 = true
+			if d.Source != models.SideLocal {
+				t.Errorf("expected SideLocal for Path2 deletion, got: %s", d.Source)
+			}
+		}
+	}
+	if !foundPath1 {
+		t.Errorf("failed to discover Ausgleichberechnung.xlsx")
+	}
+	if !foundPath2 {
+		t.Errorf("failed to discover Ossobuco mit Gremolata  Le Creuset DE.pdf")
 	}
 }
 

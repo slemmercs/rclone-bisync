@@ -253,8 +253,9 @@ func (r *SyncRunner) Run(
 			_ = r.Notifier.SendDesktop("Rclone Bisync Successful", fmt.Sprintf("Synced %d files in %.1fs", monitorRes.FilesSynced, duration), "normal")
 		}
 
-		// Emit SYNC_EXECUTED if files were synced OR triggered manually (dashboard / cli)
-		if monitorRes.FilesSynced > 0 || origin != "timer" {
+		// Option 2: Emit SYNC_EXECUTED only when actual state mutations occurred (FilesSynced > 0).
+		// Zero-transfer runs remain purely in bisync.log telemetry.
+		if monitorRes.FilesSynced > 0 {
 			r.recordAuditExecuted(runID, jobID, origin, duration, monitorRes.FilesSynced, resync, force, dryRun)
 		}
 

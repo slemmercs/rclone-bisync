@@ -329,6 +329,35 @@ func TestSyncRunner_AuditExecuted_And_Aborted(t *testing.T) {
 		t.Errorf("expected bisync.log to contain SYNC_EXECUTED: %s", logContent)
 	}
 
+	// Act 1b: Option 2 verification: 0-transfer run (even with origin: "dashboard") must NOT append to audit ledger
+	srv0 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sync/bisync":
+			_ = json.NewEncoder(w).Encode(map[string]any{"jobid": 43})
+		case "/job/status":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"finished": true,
+				"success":  true,
+				"output":   map[string]any{"transfers": 0},
+			})
+		}
+	}))
+	defer srv0.Close()
+	cfg0 := *cfg
+	cfg0.RCAPIURL = srv0.URL
+	r0 := NewSyncRunner(&cfg0)
+	success0 := r0.Run(context.Background(), false, false, false, "dashboard", "run_audit_02_empty", false)
+	if !success0 {
+		t.Fatal("expected 0-transfer run to succeed")
+	}
+	recordsAfter0, totalAfter0, err := audit.QueryRecords(db, audit.Filter{})
+	if err != nil {
+		t.Fatalf("failed to query records: %v", err)
+	}
+	if totalAfter0 != 1 || len(recordsAfter0) != 1 {
+		t.Fatalf("expected audit records count to remain 1 after 0-transfer run (Option 2), got: %d", totalAfter0)
+	}
+
 	// Act 2: Circuit break / abort scenario (Lock contention)
 	lm := lock.NewLockManager(cfg.LockFile, 300, false)
 	acq, err := lm.Acquire()
