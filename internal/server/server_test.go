@@ -1041,4 +1041,18 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 			t.Errorf("missing expected modal marker in assembled template: %q", marker)
 		}
 	}
+
+	// Verify valid SVG path and object iteration in assembled templates
+	if strings.Contains(body, "1 1 0 .696 10.75") {
+		t.Error("found corrupted SVG arc flag syntax '1 1 0 .696' in assembled template")
+	}
+	if !strings.Contains(body, "1 1 0 0 1 0 .696 10.75") {
+		t.Error("expected valid Lucide eye SVG arc path in assembled template")
+	}
+	if strings.Contains(body, `x-for="(val, key) in entry.details"`) {
+		t.Error("found invalid x-for loop over non-iterable Object in modal_daemon")
+	}
+	if !strings.Contains(body, `x-for="[key, val] in Object.entries(entry.details`) {
+		t.Error("expected Object.entries iteration for entry.details in modal_daemon")
+	}
 }
