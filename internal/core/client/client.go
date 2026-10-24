@@ -3,10 +3,13 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,9 +20,11 @@ type RcloneClient struct {
 	Username   string
 	Password   string
 	HTTPClient *http.Client
+	MaxRetries int
+	BaseDelay  time.Duration
 }
 
-// NewRcloneClient constructs a new client with sensible connection pooling defaults.
+// NewRcloneClient constructs a new client with sensible connection pooling and retry defaults.
 func NewRcloneClient(apiURL, username, password string) *RcloneClient {
 	cleanURL := strings.TrimRight(apiURL, "/")
 	tr := &http.Transport{
@@ -28,9 +33,11 @@ func NewRcloneClient(apiURL, username, password string) *RcloneClient {
 		IdleConnTimeout:     90 * time.Second,
 	}
 	return &RcloneClient{
-		APIURL:   cleanURL,
-		Username: username,
-		Password: password,
+		APIURL:     cleanURL,
+		Username:   username,
+		Password:   password,
+		MaxRetries: 3,
+		BaseDelay:  150 * time.Millisecond,
 		HTTPClient: &http.Client{
 			Transport: tr,
 			Timeout:   60 * time.Second,
@@ -38,50 +45,135 @@ func NewRcloneClient(apiURL, username, password string) *RcloneClient {
 	}
 }
 
+func (c *RcloneClient) backoffWithJitter(attempt int, baseDelay time.Duration) time.Duration {
+	multiplier := 1 << attempt
+	if multiplier > 32 {
+		multiplier = 32
+	}
+	backoff := baseDelay * time.Duration(multiplier)
+	jitterMax := int64(backoff / 4)
+	if jitterMax > 0 {
+		var b [8]byte
+		_, _ = rand.Read(b[:])
+		n := int64(binary.LittleEndian.Uint64(b[:]))
+		if n < 0 {
+			n = -n
+		}
+		jitter := time.Duration(n % jitterMax)
+		backoff += jitter
+	}
+	return backoff
+}
+
 func (c *RcloneClient) post(ctx context.Context, endpoint string, payload interface{}, timeout time.Duration) (*http.Response, []byte, error) {
 	fullURL := fmt.Sprintf("%s/%s", c.APIURL, strings.TrimLeft(endpoint, "/"))
 
-	var bodyReader io.Reader
+	var payloadBytes []byte
 	if payload != nil {
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to marshal request: %w", err)
 		}
-		bodyReader = bytes.NewReader(data)
+		payloadBytes = data
 	} else {
 		// Rclone RC endpoints strictly require a valid JSON body (at least `{}`)
-		bodyReader = bytes.NewReader([]byte("{}"))
+		payloadBytes = []byte("{}")
 	}
 
-	reqCtx := ctx
-	var cancel context.CancelFunc
-	if timeout > 0 {
-		reqCtx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
+	maxAttempts := c.MaxRetries
+	if maxAttempts <= 0 {
+		maxAttempts = 1
+	} else {
+		maxAttempts = maxAttempts + 1
 	}
 
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, fullURL, bodyReader)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+	baseDelay := c.BaseDelay
+	if baseDelay <= 0 {
+		baseDelay = 100 * time.Millisecond
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	if c.Username != "" && c.Password != "" {
-		req.SetBasicAuth(c.Username, c.Password)
+	var lastResp *http.Response
+	var lastBytes []byte
+	var lastErr error
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if ctx.Err() != nil {
+			return nil, nil, ctx.Err()
+		}
+
+		reqCtx := ctx
+		var cancel context.CancelFunc
+		if timeout > 0 {
+			reqCtx, cancel = context.WithTimeout(ctx, timeout)
+		}
+
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, fullURL, bytes.NewReader(payloadBytes))
+		if err != nil {
+			if cancel != nil {
+				cancel()
+			}
+			return nil, nil, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		if c.Username != "" && c.Password != "" {
+			req.SetBasicAuth(c.Username, c.Password)
+		}
+
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			if cancel != nil {
+				cancel()
+			}
+			lastErr = err
+			if ctx.Err() != nil {
+				return nil, nil, ctx.Err()
+			}
+			if attempt < maxAttempts-1 {
+				time.Sleep(c.backoffWithJitter(attempt, baseDelay))
+				continue
+			}
+			return nil, nil, err
+		}
+
+		respBytes, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if cancel != nil {
+			cancel()
+		}
+
+		if readErr != nil {
+			lastErr = fmt.Errorf("failed to read response: %w", readErr)
+			if attempt < maxAttempts-1 {
+				time.Sleep(c.backoffWithJitter(attempt, baseDelay))
+				continue
+			}
+			return resp, nil, lastErr
+		}
+
+		// Check for retryable HTTP status codes: 429 Too Many Requests or 503 Service Unavailable
+		if (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable) && attempt < maxAttempts-1 {
+			lastResp = resp
+			lastBytes = respBytes
+			sleepDur := c.backoffWithJitter(attempt, baseDelay)
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+				if seconds, parseErr := strconv.Atoi(retryAfter); parseErr == nil && seconds > 0 {
+					sleepDur = time.Duration(seconds) * time.Second
+				}
+			}
+
+			select {
+			case <-ctx.Done():
+				return lastResp, lastBytes, ctx.Err()
+			case <-time.After(sleepDur):
+			}
+			continue
+		}
+
+		return resp, respBytes, nil
 	}
 
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return resp, nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	return resp, respBytes, nil
+	return lastResp, lastBytes, lastErr
 }
 
 // CheckHealth queries /core/stats. Returns: (isHealthy, responseTimeMs, errorMessage).
