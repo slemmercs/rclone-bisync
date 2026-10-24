@@ -518,3 +518,217 @@ func TestOAuthClient(t *testing.T) {
 		t.Fatalf("expected OAuthStop to succeed: %v", err)
 	}
 }
+
+func TestGetProviders(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/config/providers" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"providers": [
+					{
+						"Name": "drive",
+						"Description": "Google Drive",
+						"Prefix": "drive",
+						"Hide": false,
+						"Options": [
+							{
+								"Name": "client_id",
+								"Help": "OAuth Client Id",
+								"Type": "string",
+								"Required": false
+							}
+						]
+					},
+					{
+						"Name": "onedrive",
+						"Description": "Microsoft OneDrive",
+						"Prefix": "onedrive",
+						"Hide": false,
+						"Options": []
+					}
+				]
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	providers, err := c.GetProviders(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error fetching providers: %v", err)
+	}
+
+	if len(providers) != 2 {
+		t.Fatalf("expected 2 providers, got %d", len(providers))
+	}
+	if providers[0].Name != "drive" || providers[0].Description != "Google Drive" {
+		t.Fatalf("unexpected provider[0]: %+v", providers[0])
+	}
+	if len(providers[0].Options) != 1 || providers[0].Options[0].Name != "client_id" {
+		t.Fatalf("unexpected options in provider[0]: %+v", providers[0].Options)
+	}
+
+	// Test error status code
+	errServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error": "providers failed"}`))
+	}))
+	defer errServer.Close()
+
+	cErr := NewRcloneClient(errServer.URL, "user", "pass")
+	if _, err := cErr.GetProviders(context.Background()); err == nil {
+		t.Fatal("expected error on HTTP 500, got nil")
+	}
+
+	// Test malformed JSON
+	badServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`invalid-json`))
+	}))
+	defer badServer.Close()
+
+	cBad := NewRcloneClient(badServer.URL, "user", "pass")
+	if _, err := cBad.GetProviders(context.Background()); err == nil {
+		t.Fatal("expected error on invalid JSON, got nil")
+	}
+}
+
+func TestRemoteCRUD(t *testing.T) {
+	var createdPayload map[string]interface{}
+	var deletedPayload map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/config/create":
+			_ = json.NewDecoder(r.Body).Decode(&createdPayload)
+			if name, ok := createdPayload["name"].(string); ok && name == "fail_create" {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error": "failed to create"}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		case "/config/delete":
+			_ = json.NewDecoder(r.Body).Decode(&deletedPayload)
+			if name, ok := deletedPayload["name"].(string); ok && name == "fail_delete" {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error": "failed to delete"}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	ctx := context.Background()
+
+	// 1. Validation tests
+	if err := c.CreateRemote(ctx, "", "drive", nil, nil); err == nil {
+		t.Fatal("expected error creating remote with empty name")
+	}
+	if err := c.CreateRemote(ctx, "test:", "", nil, nil); err == nil {
+		t.Fatal("expected error creating remote with empty type")
+	}
+	if err := c.DeleteRemote(ctx, ""); err == nil {
+		t.Fatal("expected error deleting remote with empty name")
+	}
+
+	// 2. Successful CreateRemote
+	params := map[string]interface{}{"scope": "drive", "client_id": "cid123"}
+	opt := map[string]interface{}{"nonInteractive": true}
+	if err := c.CreateRemote(ctx, "my-gdrive:", "drive", params, opt); err != nil {
+		t.Fatalf("unexpected error creating remote: %v", err)
+	}
+	if createdPayload["name"] != "my-gdrive" || createdPayload["type"] != "drive" {
+		t.Fatalf("unexpected create payload: %+v", createdPayload)
+	}
+
+	// 3. Failed CreateRemote
+	if err := c.CreateRemote(ctx, "fail_create", "drive", nil, nil); err == nil {
+		t.Fatal("expected error on failed CreateRemote")
+	}
+
+	// 4. Successful DeleteRemote
+	if err := c.DeleteRemote(ctx, "my-gdrive:"); err != nil {
+		t.Fatalf("unexpected error deleting remote: %v", err)
+	}
+	if deletedPayload["name"] != "my-gdrive" {
+		t.Fatalf("unexpected delete payload: %+v", deletedPayload)
+	}
+
+	// 5. Failed DeleteRemote
+	if err := c.DeleteRemote(ctx, "fail_delete"); err == nil {
+		t.Fatal("expected error on failed DeleteRemote")
+	}
+}
+
+func TestPostWithRetry429And503(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts <= 2 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error": "rate limit exceeded"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"success": true}`))
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	c.BaseDelay = 5 * time.Millisecond
+	c.MaxRetries = 3
+
+	resp, body, err := c.post(context.Background(), "/test-retry", nil, 5*time.Second)
+	if err != nil {
+		t.Fatalf("unexpected error after retries: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK after retries, got %d", resp.StatusCode)
+	}
+	if string(body) != `{"success": true}` {
+		t.Fatalf("unexpected body: %s", string(body))
+	}
+	if attempts != 3 {
+		t.Fatalf("expected exactly 3 attempts, got %d", attempts)
+	}
+
+	// Test retry exhaustion returns status code
+	exhaustServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"error": "rate limit permanent"}`))
+	}))
+	defer exhaustServer.Close()
+
+	cExhaust := NewRcloneClient(exhaustServer.URL, "user", "pass")
+	cExhaust.BaseDelay = 2 * time.Millisecond
+	cExhaust.MaxRetries = 2
+
+	respExhaust, bodyExhaust, err := cExhaust.post(context.Background(), "/test-exhaust", nil, 5*time.Second)
+	if err != nil {
+		t.Fatalf("unexpected transport error: %v", err)
+	}
+	if respExhaust.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 Too Many Requests, got %d", respExhaust.StatusCode)
+	}
+	if string(bodyExhaust) != `{"error": "rate limit permanent"}` {
+		t.Fatalf("unexpected body: %s", string(bodyExhaust))
+	}
+
+	// Test context cancellation during backoff
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	_, _, err = c.post(cancelCtx, "/test-cancelled", nil, 5*time.Second)
+	if err == nil {
+		t.Fatal("expected error on cancelled context, got nil")
+	}
+}
