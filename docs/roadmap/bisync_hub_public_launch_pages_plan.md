@@ -325,47 +325,61 @@ The GitHub Pages site (`https://slemmercs.github.io/rclone-bisync`) serves as th
 | Dual-Pane Remote File Explorer | ❌ | ✅ | ❌ | ✅ |
 
 ### 5.5 Automated GitHub Pages Deployment (`.github/workflows/pages.yml`)
+The site is authored in `site/` using Jekyll and the Just the Docs theme with dark Slate-900 / Indigo-600 SCSS overrides. GitHub Actions compiles the site on `ubuntu-latest` and pushes the static assets directly to the `gh-pages` branch with `.nojekyll` enabled:
+
 ```yaml
-name: Deploy GitHub Pages
+name: Deploy Documentation to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
-      - 'site/**'
-      - '.github/workflows/pages.yml'
+      - "site/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: pages-deployment-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build-and-deploy:
+    name: Build & Deploy to gh-pages Branch
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
         with:
-          path: 'site'
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: site
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Build Jekyll Site
+        run: |
+          cd site
+          bundle exec jekyll build --destination ./_site
+          touch ./_site/.nojekyll
+
+      - name: Deploy to gh-pages Branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site/_site
+          publish_branch: gh-pages
+          commit_message: "deploy(docs): update GitHub Pages [skip ci]"
 ```
 
 ---
