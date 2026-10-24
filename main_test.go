@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"flag"
+	"html/template"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +43,26 @@ func TestEmbeddedFrontendFS(t *testing.T) {
 	}
 	if len(dataReview) == 0 {
 		t.Fatal("embedded review.js is empty")
+	}
+
+	subFS, err := fs.Sub(frontendFS, "dashboard/frontend")
+	if err != nil {
+		t.Fatalf("failed sub fs: %v", err)
+	}
+	tmpl, tmplErr := template.ParseFS(subFS, "index.html", "partials/*.html", "partials/modals/*.html")
+	if tmplErr != nil {
+		t.Fatalf("ParseFS failed on embedded frontendFS: %v", tmplErr)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, nil); err != nil {
+		t.Fatalf("Execute failed on assembled embedded template: %v", err)
+	}
+	rendered := buf.String()
+	if strings.Contains(rendered, "1 1 0 .696") {
+		t.Fatal("corrupted SVG arc found in rendered embedded template")
+	}
+	if !strings.Contains(rendered, "1 1 0 0 1 0 .696") {
+		t.Fatal("expected valid SVG arc in rendered embedded template")
 	}
 }
 
