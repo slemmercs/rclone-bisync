@@ -313,6 +313,82 @@ func TestReviewService_ApplyBatchRecommendations(t *testing.T) {
 	}
 }
 
+func TestReviewService_DeletionRecommendations(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	svc := NewReviewService(cfg, nil)
+
+	sess := &models.ReviewSession{
+		ID:        "del-rec-test",
+		CreatedAt: time.Now().UTC(),
+		Status:    models.ReviewStatusReviewing,
+		Deletions: []models.DeletionCandidate{
+			{
+				ID:     "del-canary",
+				Path:   "RCLONE_TEST",
+				Name:   "RCLONE_TEST",
+				Source: models.SideRemote,
+			},
+			{
+				ID:     "del-templock",
+				Path:   "sub/~$doc.docx",
+				Name:   "~$doc.docx",
+				Source: models.SideLocal,
+			},
+			{
+				ID:     "del-userlocal",
+				Path:   "data/file.txt",
+				Name:   "file.txt",
+				Source: models.SideLocal,
+			},
+		},
+	}
+
+	svc.mu.Lock()
+	svc.session = sess
+	svc.mu.Unlock()
+
+	active, err := svc.GetActiveSession(context.Background())
+	if err != nil || active == nil {
+		t.Fatalf("expected active session: %v", err)
+	}
+
+	// 1. Canary has CRITICAL risk and restore-item suggestion
+	canaryRec := active.Deletions[0].Recommendation
+	if canaryRec == nil || canaryRec.Risk != "CRITICAL" || canaryRec.SuggestedAction != string(models.DecisionRestoreItem) {
+		t.Fatalf("expected CRITICAL restore-item for canary, got: %+v", canaryRec)
+	}
+
+	// 2. Temp lock has LOW risk and accept-delete suggestion
+	tempRec := active.Deletions[1].Recommendation
+	if tempRec == nil || tempRec.Risk != "LOW" || tempRec.SuggestedAction != string(models.DecisionAcceptDelete) {
+		t.Fatalf("expected LOW accept-delete for temp lock, got: %+v", tempRec)
+	}
+
+	// 3. User local deletion has LOW risk and accept-delete suggestion
+	userRec := active.Deletions[2].Recommendation
+	if userRec == nil || userRec.Risk != "LOW" || userRec.SuggestedAction != string(models.DecisionAcceptDelete) {
+		t.Fatalf("expected LOW accept-delete for user local deletion, got: %+v", userRec)
+	}
+
+	// Batch auto-stage with LOW risk should stage the 2 safe deletions, leaving canary unresolved
+	staged, err := svc.ApplyBatchRecommendations(context.Background(), sess.ID, 0.70, "LOW")
+	if err != nil {
+		t.Fatalf("ApplyBatchRecommendations failed: %v", err)
+	}
+	if staged != 2 {
+		t.Fatalf("expected 2 deletions staged, got %d", staged)
+	}
+	if active.Deletions[0].Decision != "" {
+		t.Fatalf("expected canary to remain unresolved, got: %s", active.Deletions[0].Decision)
+	}
+	if active.Deletions[1].Decision != models.DecisionAcceptDelete {
+		t.Fatalf("expected temp lock to be accept-delete, got: %s", active.Deletions[1].Decision)
+	}
+	if active.Deletions[2].Decision != models.DecisionAcceptDelete {
+		t.Fatalf("expected user local to be accept-delete, got: %s", active.Deletions[2].Decision)
+	}
+}
+
 func TestReviewService_DiscoverFromDaemonLog(t *testing.T) {
 	cfg, _ := createTestConfig(t)
 	svc := NewReviewService(cfg, nil)

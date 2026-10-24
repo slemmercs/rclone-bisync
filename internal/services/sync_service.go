@@ -243,7 +243,15 @@ func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin stri
 	cmdArgs = append(cmdArgs, execArgs...)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		outStr := strings.TrimSpace(string(out))
+		if outStr != "" {
+			return fmt.Errorf("%s: %s", err, outStr)
+		}
+		return err
+	}
+	return nil
 }
 
 // GetDaemonHealth retrieves daemon health with caching.

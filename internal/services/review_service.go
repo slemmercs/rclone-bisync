@@ -136,6 +136,7 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 
 	if s.session != nil {
 		s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
+		s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
 		return s.session, nil
 	}
 
@@ -144,6 +145,7 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 		if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
 			s.session = sess
 			s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
+			s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
 			return s.session, nil
 		}
 	}
@@ -202,6 +204,7 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 	)
 
 	conflicts = s.enrichConflictRecommendationsLocked(ctx, conflicts)
+	deletions = s.enrichDeletionRecommendationsLocked(ctx, deletions)
 
 	sess := review.NewSession(errType, errMessage, deletions, conflicts)
 	_ = review.Transition(sess, models.ReviewStatusReviewing)
@@ -247,6 +250,123 @@ func (s *ReviewService) enrichConflictRecommendationsLocked(ctx context.Context,
 
 	return conflicts
 }
+func (s *ReviewService) enrichDeletionRecommendationsLocked(ctx context.Context, deletions []models.DeletionCandidate) []models.DeletionCandidate {
+	for i := range deletions {
+		if deletions[i].Recommendation != nil {
+			continue
+		}
+		rec := s.evaluateDeletionRecommendation(deletions[i])
+		deletions[i].Recommendation = &rec
+	}
+	return deletions
+}
+
+func (s *ReviewService) evaluateDeletionRecommendation(d models.DeletionCandidate) models.ConflictRecommendation {
+	// Rule 1: Canary Protection
+	if d.Name == "RCLONE_TEST" {
+		return models.ConflictRecommendation{
+			SuggestedAction: string(models.DecisionRestoreItem),
+			Confidence:      1.0,
+			Risk:            string(heuristics.RiskCritical),
+			PrimaryReason:   "Canary integrity file; deletion strictly prohibited.",
+			EvaluatedRules: []models.RuleResult{
+				{
+					RuleName: "CanaryProtection",
+					Action:   string(models.DecisionRestoreItem),
+					Risk:     string(heuristics.RiskCritical),
+					Score:    1.0,
+					Weight:   10.0,
+					Reason:   "Canary file missing; circuit breaker protection.",
+					Matched:  true,
+				},
+			},
+		}
+	}
+
+	lowerName := strings.ToLower(d.Name)
+	// Rule 2: Office temp / lock / transient files
+	if strings.HasPrefix(d.Name, "~$") || strings.HasPrefix(d.Name, ".~") ||
+		strings.HasSuffix(lowerName, ".tmp") || strings.HasSuffix(lowerName, ".swp") ||
+		lowerName == "thumbs.db" || lowerName == ".ds_store" {
+		return models.ConflictRecommendation{
+			SuggestedAction: string(models.DecisionAcceptDelete),
+			Confidence:      0.95,
+			Risk:            string(heuristics.RiskLow),
+			PrimaryReason:   "Transient system/lock file; safe to accept deletion.",
+			EvaluatedRules: []models.RuleResult{
+				{
+					RuleName: "TempLockDeletion",
+					Action:   string(models.DecisionAcceptDelete),
+					Risk:     string(heuristics.RiskLow),
+					Score:    0.95,
+					Weight:   2.0,
+					Reason:   "Transient system or lock artifact.",
+					Matched:  true,
+				},
+			},
+		}
+	}
+
+	// Rule 3: Deletion initiated on Local by user (propagating to remote)
+	if d.Source == models.SideLocal {
+		return models.ConflictRecommendation{
+			SuggestedAction: string(models.DecisionAcceptDelete),
+			Confidence:      0.85,
+			Risk:            string(heuristics.RiskLow),
+			PrimaryReason:   "Deleted locally by user; safe to propagate to remote.",
+			EvaluatedRules: []models.RuleResult{
+				{
+					RuleName: "UserLocalDeletion",
+					Action:   string(models.DecisionAcceptDelete),
+					Risk:     string(heuristics.RiskLow),
+					Score:    0.85,
+					Weight:   1.5,
+					Reason:   "Local origin deletion intended by user.",
+					Matched:  true,
+				},
+			},
+		}
+	}
+
+	// Rule 4: Deletion originated on Remote (targeting local)
+	if d.Size == 0 {
+		return models.ConflictRecommendation{
+			SuggestedAction: string(models.DecisionAcceptDelete),
+			Confidence:      0.80,
+			Risk:            string(heuristics.RiskLow),
+			PrimaryReason:   "Empty (0-byte) file deleted on remote; safe to remove.",
+			EvaluatedRules: []models.RuleResult{
+				{
+					RuleName: "EmptyRemoteDeletion",
+					Action:   string(models.DecisionAcceptDelete),
+					Risk:     string(heuristics.RiskLow),
+					Score:    0.80,
+					Weight:   1.2,
+					Reason:   "Zero-byte file removed on remote.",
+					Matched:  true,
+				},
+			},
+		}
+	}
+
+	return models.ConflictRecommendation{
+		SuggestedAction: string(models.DecisionRestoreItem),
+		Confidence:      0.75,
+		Risk:            string(heuristics.RiskMedium),
+		PrimaryReason:   "Remote deletion of local file; preserve local copy unless deletion intended.",
+		EvaluatedRules: []models.RuleResult{
+			{
+				RuleName: "RemoteDeletionGuard",
+				Action:   string(models.DecisionRestoreItem),
+				Risk:     string(heuristics.RiskMedium),
+				Score:    0.75,
+				Weight:   1.5,
+				Reason:   "Unexpected remote deletion; preserving local file is safest default.",
+				Matched:  true,
+			},
+		},
+	}
+}
 
 func parseCandidateTime(ts string) time.Time {
 	if ts == "" {
@@ -286,10 +406,39 @@ func (s *ReviewService) ApplyBatchRecommendations(ctx context.Context, sessionID
 	maxRiskUpper := strings.ToUpper(maxRisk)
 
 	s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
+	s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
 
 	stagedCount := 0
 	for i := range s.session.Conflicts {
 		cand := &s.session.Conflicts[i]
+		if cand.Resolved || cand.Recommendation == nil {
+			continue
+		}
+
+		rec := cand.Recommendation
+		if rec.Risk == string(heuristics.RiskCritical) || rec.SuggestedAction == string(heuristics.ActionManual) {
+			continue
+		}
+
+		if maxRiskUpper == string(heuristics.RiskLow) && rec.Risk != string(heuristics.RiskLow) {
+			continue
+		}
+		if maxRiskUpper == string(heuristics.RiskMedium) && rec.Risk != string(heuristics.RiskLow) && rec.Risk != string(heuristics.RiskMedium) {
+			continue
+		}
+
+		if rec.Confidence < minConfidence {
+			continue
+		}
+
+		decision := models.ActionDecision(rec.SuggestedAction)
+		if err := review.StageDecision(s.session, cand.ID, decision); err == nil {
+			stagedCount++
+		}
+	}
+
+	for i := range s.session.Deletions {
+		cand := &s.session.Deletions[i]
 		if cand.Resolved || cand.Recommendation == nil {
 			continue
 		}

@@ -103,17 +103,52 @@ func discoverDeletions(logLines []string, pendingFile, localRoot string) []model
 		sublines := strings.Split(normalized, "\n")
 		for _, sub := range sublines {
 			imsg := strings.TrimSpace(sub)
+			if imsg == "" {
+				continue
+			}
+
+			// If subline is an embedded JSON object, extract the inner "msg"
+			var subData map[string]interface{}
+			if err := json.Unmarshal([]byte(imsg), &subData); err == nil {
+				if m, ok := subData["msg"].(string); ok {
+					imsg = strings.TrimSpace(m)
+				}
+			}
+
 			if strings.Contains(imsg, "File was deleted") {
+				lineSource := source
+				lineAction := targetAction
+				if strings.Contains(imsg, "Path1") {
+					lineSource = models.SideRemote
+					lineAction = "Will be deleted from local disk"
+				} else if strings.Contains(imsg, "Path2") {
+					lineSource = models.SideLocal
+					lineAction = "Will be deleted from remote"
+				}
+
 				parts := strings.Split(imsg, "File was deleted")
 				for _, part := range parts[1:] {
 					fp := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(part), "-:"))
-					// If line had quotes, strip them
-					fp = strings.Trim(fp, `",'\`)
+					// Strip any trailing JSON delimiters if nested unmarshaling missed them
+					if idx := strings.Index(fp, `","`); idx != -1 {
+						fp = fp[:idx]
+					}
+					if idx := strings.Index(fp, `", "`); idx != -1 {
+						fp = fp[:idx]
+					}
+					if idx := strings.Index(fp, `","source"`); idx != -1 {
+						fp = fp[:idx]
+					}
+					if idx := strings.Index(fp, `", "source"`); idx != -1 {
+						fp = fp[:idx]
+					}
+					fp = strings.Trim(fp, `"',{}\`)
+					fp = strings.TrimSpace(fp)
 					if fp != "" {
 						cleanPath := filepath.Clean(fp)
 						if cleanPath != "" && cleanPath != "." && !seen[cleanPath] {
 							seen[cleanPath] = true
-							candidates = append(candidates, buildDeletionCandidate(cleanPath, source, targetAction, localRoot))
+							candidates = append(candidates, buildDeletionCandidate(cleanPath, lineSource, lineAction, localRoot))
 						}
 					}
 				}

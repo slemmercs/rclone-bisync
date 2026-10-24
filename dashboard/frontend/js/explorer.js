@@ -211,12 +211,13 @@ window.ExplorerModule = {
                 const data = await res.json();
                 if (data.status === "success") {
                     pane.hasCanary = true;
+                    this.showToast("Canary file RCLONE_TEST provisioned successfully", "success");
                     this.fetchExplorerDirectory(paneKey, pane.target, pane.path);
                 } else {
-                    alert(data.error || "Failed to provision canary");
+                    this.showToast(data.error || "Failed to provision canary", "error");
                 }
             } catch (err) {
-                alert("Network error: " + err.message);
+                this.showToast("Network error: " + err.message, "error");
             }
         },
 

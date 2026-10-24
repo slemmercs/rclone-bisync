@@ -130,7 +130,7 @@ window.ReviewModule = {
                 if (data.session) {
                     this.reviewState.session = data.session;
                 }
-                this.showToast(`Auto-staged recommendations for ${data.staged_count || 0} conflict(s).`, "success");
+                this.showToast(`Auto-staged recommendations for ${data.staged_count || 0} candidate(s).`, "success");
             }
         } catch (err) {
             this.showToast("Network error applying batch recommendations: " + err.message, "error");
