@@ -29,515 +29,627 @@
   },"4": {
     "doc": "1. Interactive Sync Review",
     "title": "3. Granular Operator Triage",
-    "content": "Operators can open the Web Dashboard review modal to: . | Inspect file diffs, file sizes, and last modified timestamps side-by-side. | Selectively whitelist legitimate bulk deletions while rejecting questionable removals. | Commit the approved batch or abort the run cleanly without leaving locks in place. | . Safety Guarantee: No file is ever removed when a review threshold is tripped until an authorized operator explicitly signs off or an automated timeout policy executes an abort. ",
+    "content": "Operators can open the Web Dashboard review modal to: . | Inspect file diffs, file sizes, and last modified timestamps side-by-side. | View intelligent heuristic evaluations (e.g. temporary lock file detection, canary protection, user local deletion identification). | Selectively confirm specific deletions, restore/reject items, or auto-apply heuristic recommendations in batch. | Stage atomic pre-mutation backups and trigger an authorized force sync directly from the modal. | . Safety Guarantee: No file is ever removed when a review threshold is tripped until an authorized operator explicitly signs off or an automated timeout policy executes an abort. ",
     "url": "/rclone-bisync/usps/01-interactive-sync-review.html#3-granular-operator-triage",
     
     "relUrl": "/usps/01-interactive-sync-review.html#3-granular-operator-triage"
   },"5": {
+    "doc": "1. Interactive Sync Review",
+    "title": "Visual Review Workflow",
+    "content": " ",
+    "url": "/rclone-bisync/usps/01-interactive-sync-review.html#visual-review-workflow",
+    
+    "relUrl": "/usps/01-interactive-sync-review.html#visual-review-workflow"
+  },"6": {
+    "doc": "1. Interactive Sync Review",
+    "title": "1. Barrier Activation on Threshold Exceeded",
+    "content": "When deletion or conflict limits are breached during pre-flight analysis, the engine disengages automated replication and displays the persistent review barrier banner in the dashboard cockpit: . 1. Sync Review Barrier Engaged Automated sync halted; operator intervention required ",
+    "url": "/rclone-bisync/usps/01-interactive-sync-review.html#1-barrier-activation-on-threshold-exceeded",
+    
+    "relUrl": "/usps/01-interactive-sync-review.html#1-barrier-activation-on-threshold-exceeded"
+  },"7": {
+    "doc": "1. Interactive Sync Review",
+    "title": "2. Resolution Modal &amp; Heuristic Recommendations",
+    "content": "Operators click “Review &amp; Resolve Changes” to open the interactive triage modal. Every candidate file presents source paths, sizes, modification timestamps, deletion rationale, and heuristic recommendations: . 2. Granular Triage &amp; Heuristic Recommendations Inspect candidates, choose per-file decisions, or batch-apply recommendations ",
+    "url": "/rclone-bisync/usps/01-interactive-sync-review.html#2-resolution-modal--heuristic-recommendations",
+    
+    "relUrl": "/usps/01-interactive-sync-review.html#2-resolution-modal--heuristic-recommendations"
+  },"8": {
+    "doc": "1. Interactive Sync Review",
+    "title": "3. Pre-Mutation Backups &amp; Automated Execution",
+    "content": "Applying resolutions automatically closes the modal, clears the pending review session, backs up mutated files into .review_backups/&lt;session_id&gt;/, and triggers an authorized background force sync: . 3. Staged Backups &amp; Force Sync Execution Modal closes with progress notification; force sync executes in background ",
+    "url": "/rclone-bisync/usps/01-interactive-sync-review.html#3-pre-mutation-backups--automated-execution",
+    
+    "relUrl": "/usps/01-interactive-sync-review.html#3-pre-mutation-backups--automated-execution"
+  },"9": {
+    "doc": "1. Interactive Sync Review",
+    "title": "4. Multi-Stream Correlated Daemon Diagnostics",
+    "content": "Operators can track the resulting execution in real time through the correlated daemon log modal, confirming clean convergence and barrier dismissal: . 4. Correlated Multi-Stream Diagnostics Live journal output verifying clean synchronization and state resolution ",
+    "url": "/rclone-bisync/usps/01-interactive-sync-review.html#4-multi-stream-correlated-daemon-diagnostics",
+    
+    "relUrl": "/usps/01-interactive-sync-review.html#4-multi-stream-correlated-daemon-diagnostics"
+  },"10": {
     "doc": "1. Interactive Sync Review",
     "title": "1. Interactive Sync Review",
     "content": " ",
     "url": "/rclone-bisync/usps/01-interactive-sync-review.html",
     
     "relUrl": "/usps/01-interactive-sync-review.html"
-  },"6": {
+  },"11": {
     "doc": "2. Heuristic Conflict Engine",
     "title": "Multi-Analyzer Heuristic Conflict Engine",
     "content": "Most bidirectional sync tools rely on a naive, binary rule: “newer timestamp wins”. In distributed cloud environments, this rule causes silent data loss because: . | Cloud storage APIs (e.g. Google Drive, Microsoft OneDrive, SharePoint) round timestamps to 1-second or 2-second windows or update them asynchronously. | Device clocks can drift or suffer skew during daylight savings transitions. | Rapid concurrent edits on mobile and desktop produce collisions where the “newer” file is actually an incomplete draft. | . Bisync Hub replaces timestamp gambling with a multi-analyzer heuristic confidence engine. ",
     "url": "/rclone-bisync/usps/02-heuristic-conflict-engine.html#multi-analyzer-heuristic-conflict-engine",
     
     "relUrl": "/usps/02-heuristic-conflict-engine.html#multi-analyzer-heuristic-conflict-engine"
-  },"7": {
+  },"12": {
     "doc": "2. Heuristic Conflict Engine",
     "title": "The Evaluation Pipeline",
     "content": "When both Path1 and Path2 report modifications to the same file path, the engine executes four independent heuristic analyzers: . | Heuristic Analyzer | Signal Analyzed | Weight | Description | . | SizeDivergenceAnalyzer | Content volume delta | 30% | Detects dramatic file shrinks or expansions indicating truncation or major additions. | . | BinarySignatureAnalyzer | MIME &amp; header magic bytes | 25% | Verifies format validity (e.g. SQLite database header, JPEG signatures) to penalize corrupt partial writes. | . | ClockSkewAnalyzer | Cross-remote timestamp drift | 25% | Evaluates cloud API timestamp granularity and compensates for known provider skews (e.g., OneDrive 2s window). | . | VelocityAnalyzer | Modification frequency | 20% | Scores edit frequency to distinguish steady active editing from stale background touches. | . ",
     "url": "/rclone-bisync/usps/02-heuristic-conflict-engine.html#the-evaluation-pipeline",
     
     "relUrl": "/usps/02-heuristic-conflict-engine.html#the-evaluation-pipeline"
-  },"8": {
+  },"13": {
     "doc": "2. Heuristic Conflict Engine",
     "title": "Confidence Calculation &amp; Safety Bands",
     "content": "The engine aggregates individual analyzer scores into a unified Confidence Index (0% - 100%): . Score &gt;= 85% ──► [ HIGH CONFIDENCE ] ──► Auto-resolve in favor of dominant replica 60% - 84% ──► [ MEDIUM CONFIDENCE ]──► Backup losing candidate to .conflict-bak, then sync Score &lt; 60% ──► [ LOW CONFIDENCE ] ──► QUARANTINE: Halt file mutation &amp; prompt Operator . ",
     "url": "/rclone-bisync/usps/02-heuristic-conflict-engine.html#confidence-calculation--safety-bands",
     
     "relUrl": "/usps/02-heuristic-conflict-engine.html#confidence-calculation--safety-bands"
-  },"9": {
+  },"14": {
     "doc": "2. Heuristic Conflict Engine",
     "title": "Safety Features",
     "content": ". | Deterministic Quarantine: Unresolvable collisions are safely preserved in a .bisync_quarantine/ isolation jail. | Conflict Backup Preserves: Even on high-confidence resolutions, the displaced version is moved to the backup store before overwriting. | Clock Skew Tolerance: Built-in compensation algorithms for cloud timestamp drift and DST shifts. | . All heuristic scoring weights and confidence thresholds are fully configurable in bisync.env to match your organization’s risk tolerance. ",
     "url": "/rclone-bisync/usps/02-heuristic-conflict-engine.html#safety-features",
     
     "relUrl": "/usps/02-heuristic-conflict-engine.html#safety-features"
-  },"10": {
+  },"15": {
     "doc": "2. Heuristic Conflict Engine",
     "title": "2. Heuristic Conflict Engine",
     "content": " ",
     "url": "/rclone-bisync/usps/02-heuristic-conflict-engine.html",
     
     "relUrl": "/usps/02-heuristic-conflict-engine.html"
-  },"11": {
+  },"16": {
     "doc": "3. Customizable Safety Policies",
     "title": "Customizable Safety Policies &amp; Circuit Breakers",
     "content": "◆ Planned Milestone (Near-Term Priority #2) . Roadmap Specification: The customizable two-stage safety policy engine and declarative circuit breakers described below are fully specified in Safety Policies Design Specification and scheduled for implementation following the Immutable Audit Ledger. Automated tools must know when to stop. Running bidirectional synchronization when a network share is unmounted, when a cloud provider returns HTTP 429 rate limits, or when a disk is failing will corrupt sync state and trigger cascading deletions. Bisync Hub implements a two-stage defensive policy barrier: Pre-Execution and Pre-Mutation. ",
     "url": "/rclone-bisync/usps/03-safety-policies.html#customizable-safety-policies--circuit-breakers",
     
     "relUrl": "/usps/03-safety-policies.html#customizable-safety-policies--circuit-breakers"
-  },"12": {
+  },"17": {
     "doc": "3. Customizable Safety Policies",
     "title": "Defensive Gates",
     "content": " ",
     "url": "/rclone-bisync/usps/03-safety-policies.html#defensive-gates",
     
     "relUrl": "/usps/03-safety-policies.html#defensive-gates"
-  },"13": {
+  },"18": {
     "doc": "3. Customizable Safety Policies",
     "title": "1. Pre-Execution Validation Gates",
     "content": "Before invoking any sync or check command, Bisync Hub checks environmental invariants: . | Canary File Verification (RCLONE_TEST): . | Requires a known marker file to exist on both local and remote mount roots. | If a network volume unmounts or cloud sync token expires, the canary file disappears. The engine detects this and aborts instantly, preventing the empty directory from being treated as a mass deletion. | . | Path Confinement (Filesystem Jail): . | All local file manipulations are strictly validated with filepath.Rel and prefix checks to ensure zero path traversal escapes outside designated sync roots. | . | Advisory POSIX Locking (flock): . | Prevents overlapping sync jobs from corrupting local metadata or triggering race conditions across systemd timers or manual CLI runs. | . | . ",
     "url": "/rclone-bisync/usps/03-safety-policies.html#1-pre-execution-validation-gates",
     
     "relUrl": "/usps/03-safety-policies.html#1-pre-execution-validation-gates"
-  },"14": {
+  },"19": {
     "doc": "3. Customizable Safety Policies",
     "title": "2. Pre-Mutation Circuit Breakers",
     "content": "During sync execution, incoming mutation requests pass through configurable circuit breakers: . # bisync.env safety settings SAFETY_MAX_DELETE_COUNT=25 # Hard limit on total file removals per run SAFETY_MAX_DELETE_RATIO=0.10 # Maximum 10% of total files may be deleted SAFETY_ENABLE_CANARY=true # Canary file mandatory on both remotes SAFETY_RATE_LIMIT_BACKOFF=true # Exponential backoff on provider HTTP 429 . ",
     "url": "/rclone-bisync/usps/03-safety-policies.html#2-pre-mutation-circuit-breakers",
     
     "relUrl": "/usps/03-safety-policies.html#2-pre-mutation-circuit-breakers"
-  },"15": {
+  },"20": {
     "doc": "3. Customizable Safety Policies",
     "title": "3. Automatic Backoff &amp; Quarantine",
     "content": ". | Provider Throttling: When Google Drive or Microsoft OneDrive signals rate limits (429 Too Many Requests), Bisync Hub immediately halts further calls and enforces exponential backoff with jitter. | Fail-Safe Abort: Any violation of a safety policy halts execution cleanly and logs the event to the audit ledger. | . Zero Canary Bypass Policy: Canary check routines are hardcoded to fail-closed. If canary status is ambiguous, sync execution is blocked. ",
     "url": "/rclone-bisync/usps/03-safety-policies.html#3-automatic-backoff--quarantine",
     
     "relUrl": "/usps/03-safety-policies.html#3-automatic-backoff--quarantine"
-  },"16": {
+  },"21": {
     "doc": "3. Customizable Safety Policies",
     "title": "3. Customizable Safety Policies",
     "content": " ",
     "url": "/rclone-bisync/usps/03-safety-policies.html",
     
     "relUrl": "/usps/03-safety-policies.html"
-  },"17": {
+  },"22": {
     "doc": "4. Cryptographic Audit Ledger",
     "title": "Cryptographic Immutable Audit Ledger",
-    "content": "◆ Planned Milestone (Near-Term Priority #1) . Roadmap Specification: The Cryptographic Immutable Audit Ledger detailed below represents Near-Term Strategic Priority #1 on our development roadmap. The schema architecture, SQLite trigger design, and verification tooling are ready for immediate implementation post-public launch. Compliance, security audits, and forensic debugging require an undeniable, tamper-evident record of all storage mutations: Who deleted file X? When was conflict Y resolved? What was the decision confidence score? . Bisync Hub embeds an immutable, SQLite-backed cryptographic ledger with trigger-enforced append-only constraints. ",
+    "content": "● Shipped &amp; Available . Production Ledger: The Cryptographic Immutable Audit Ledger is fully implemented and included in the native binary. Every synchronization action, conflict resolution, and file mutation is cryptographically sealed into an append-only SQLite database backed by SHA-256 hash chains. Compliance, security audits, and forensic debugging require an undeniable, tamper-evident record of all storage mutations: Who deleted file X? When was conflict Y resolved? What was the decision confidence score? . Bisync Hub embeds an immutable, SQLite-backed cryptographic ledger with trigger-enforced append-only constraints. ",
     "url": "/rclone-bisync/usps/04-audit-ledger.html#cryptographic-immutable-audit-ledger",
     
     "relUrl": "/usps/04-audit-ledger.html#cryptographic-immutable-audit-ledger"
-  },"18": {
+  },"23": {
     "doc": "4. Cryptographic Audit Ledger",
     "title": "Architectural Guarantees",
     "content": "┌────────────────────────────────────────────────────────┐ │ Ledger Block (N) │ │ - Event: FILE_DELETION_CONFIRMED │ │ - Path: /documents/tax_2025.pdf │ │ - Actor: operator@admin │ │ - Previous Hash: 7f83b165... │ │ - Block Hash: sha256(PrevHash + Payload + Timestamp) │ └───────────────────────────┬────────────────────────────┘ │ ▼ ┌────────────────────────────────────────────────────────┐ │ Ledger Block (N+1) │ │ - Event: SYNC_CYCLE_COMPLETED │ │ - Payload: { files_transferred: 14, bytes: 492102 } │ │ - Previous Hash: sha256(Block N) │ │ - Block Hash: sha256(...) │ └────────────────────────────────────────────────────────┘ . ",
     "url": "/rclone-bisync/usps/04-audit-ledger.html#architectural-guarantees",
     
     "relUrl": "/usps/04-audit-ledger.html#architectural-guarantees"
-  },"19": {
+  },"24": {
     "doc": "4. Cryptographic Audit Ledger",
     "title": "1. SQLite Trigger-Enforced Immutability",
     "content": "The internal SQLite database employs schema-level BEFORE UPDATE and BEFORE DELETE triggers on audit tables: . CREATE TRIGGER prevent_ledger_tampering BEFORE UPDATE ON audit_events BEGIN SELECT RAISE(FAIL, 'FATAL: audit_events table is strictly append-only.'); END; . Even if an attacker or misconfigured script gains write access to the database file, existing audit entries cannot be modified or purged without breaking database integrity. ",
     "url": "/rclone-bisync/usps/04-audit-ledger.html#1-sqlite-trigger-enforced-immutability",
     
     "relUrl": "/usps/04-audit-ledger.html#1-sqlite-trigger-enforced-immutability"
-  },"20": {
+  },"25": {
     "doc": "4. Cryptographic Audit Ledger",
     "title": "2. SHA-256 Hash Chaining",
     "content": "Each audit entry computes a SHA-256 digest over the concatenation of: . | Previous_Record_Hash | Event_Type and Timestamp (UTC millisecond precision) | Payload_JSON (redacted secrets, sanitized paths, decision scores) | . The application provides a built-in cryptographic verification command (bisync-hub verify-ledger) to audit chain integrity and identify any external byte tampering. ",
     "url": "/rclone-bisync/usps/04-audit-ledger.html#2-sha-256-hash-chaining",
     
     "relUrl": "/usps/04-audit-ledger.html#2-sha-256-hash-chaining"
-  },"21": {
+  },"26": {
     "doc": "4. Cryptographic Audit Ledger",
     "title": "3. Redaction by Default",
     "content": "All sensitive credentials—including RC_PASS, OAuth refresh tokens, webhook URLs, and private auth headers—are recursively redacted via security.RedactSecrets before entering the audit stream. The audit ledger ensures full compliance with operational standards while protecting organizational data sovereignty. ",
     "url": "/rclone-bisync/usps/04-audit-ledger.html#3-redaction-by-default",
     
     "relUrl": "/usps/04-audit-ledger.html#3-redaction-by-default"
-  },"22": {
+  },"27": {
+    "doc": "4. Cryptographic Audit Ledger",
+    "title": "Visual Ledger &amp; Forensic Inspection",
+    "content": " ",
+    "url": "/rclone-bisync/usps/04-audit-ledger.html#visual-ledger--forensic-inspection",
+    
+    "relUrl": "/usps/04-audit-ledger.html#visual-ledger--forensic-inspection"
+  },"28": {
+    "doc": "4. Cryptographic Audit Ledger",
+    "title": "1. Unified Cryptographic Audit Ledger",
+    "content": "The dedicated Audit Ledger interface displays continuous sequence IDs, timestamps, profile targets, actions, and actors. Operators can run live cryptographic verification directly in the browser and export compliance records to CSV or JSONL: . 1. Unified Audit Ledger Interface Live SHA-256 chain verification, action/actor filters, and compliance export ",
+    "url": "/rclone-bisync/usps/04-audit-ledger.html#1-unified-cryptographic-audit-ledger",
+    
+    "relUrl": "/usps/04-audit-ledger.html#1-unified-cryptographic-audit-ledger"
+  },"29": {
+    "doc": "4. Cryptographic Audit Ledger",
+    "title": "2. Tamper-Evident Block Inspection",
+    "content": "Selecting any record opens the forensic block inspector, exposing the previous hash, block SHA-256 digest, execution duration, and fully redacted payload details: . 2. Cryptographic Block Detail Immutable block parameters, chained SHA-256 hashes, and sanitized JSON payload ",
+    "url": "/rclone-bisync/usps/04-audit-ledger.html#2-tamper-evident-block-inspection",
+    
+    "relUrl": "/usps/04-audit-ledger.html#2-tamper-evident-block-inspection"
+  },"30": {
     "doc": "4. Cryptographic Audit Ledger",
     "title": "4. Cryptographic Audit Ledger",
     "content": " ",
     "url": "/rclone-bisync/usps/04-audit-ledger.html",
     
     "relUrl": "/usps/04-audit-ledger.html"
-  },"23": {
+  },"31": {
     "doc": "5. Zero-Dependency Single Binary",
     "title": "Zero-Dependency Single Binary Architecture",
     "content": "Many modern orchestrators require Node.js runtimes, Python virtual environments, Redis message brokers, or heavy Docker containers just to expose a dashboard or coordinate periodic sync tasks. Bisync Hub is distributed as a single statically compiled Go binary with zero external runtime dependencies. ",
     "url": "/rclone-bisync/usps/05-single-binary.html#zero-dependency-single-binary-architecture",
     
     "relUrl": "/usps/05-single-binary.html#zero-dependency-single-binary-architecture"
-  },"24": {
+  },"32": {
     "doc": "5. Zero-Dependency Single Binary",
     "title": "Architectural Principles",
     "content": "┌──────────────────────────────────────────────────────────────┐ │ bisync-hub executable │ │ │ │ [ Go 1.24 Runtime ] │ │ ├── Sync Orchestrator &amp; Rclone RC Client │ │ ├── Multi-Analyzer Heuristic Engine │ │ ├── SQLite Engine &amp; POSIX Flock Locks │ │ └── Embedded Web Assets (go:embed) │ │ ├── Tailwind CSS &amp; Alpine.js Dashboard │ │ └── Static HTML &amp; WebSocket Handlers │ └──────────────────────────────────────────────────────────────┘ . ",
     "url": "/rclone-bisync/usps/05-single-binary.html#architectural-principles",
     
     "relUrl": "/usps/05-single-binary.html#architectural-principles"
-  },"25": {
+  },"33": {
     "doc": "5. Zero-Dependency Single Binary",
     "title": "1. go:embed Frontend Architecture",
     "content": "The complete interactive management dashboard—including Alpine.js components, Tailwind CSS styling, Chart.js telemetry graphs, and WebSocket listeners—is embedded directly into the binary at compile time. | No node_modules directory in production. | No external npm CDN requests; runs 100% offline in air-gapped data centers. | Instant startup (&lt; 15ms) with sub-30MB memory footprint. | . Dual-Pane Explorer Zero-dependency browser for local files and remote cloud storage Execution Log Panel Color-coded live sync output Correlated Daemon Log Systemd &amp; service diagnostics For a full visual tour of all dashboard modules and modals, visit the UI Gallery. ",
     "url": "/rclone-bisync/usps/05-single-binary.html#1-goembed-frontend-architecture",
     
     "relUrl": "/usps/05-single-binary.html#1-goembed-frontend-architecture"
-  },"26": {
+  },"34": {
     "doc": "5. Zero-Dependency Single Binary",
     "title": "2. POSIX Flocking &amp; Atomic File Writes",
     "content": "Process concurrency and state isolation rely entirely on OS-native POSIX advisory locks (syscall.Flock). | Zero reliance on external lock daemons (Redis / Zookeeper). | State persistence and telemetry use atomic rename semantics (.tmp.&lt;pid&gt; + os.Rename) to prevent half-written files during sudden power loss or server restarts. | . ",
     "url": "/rclone-bisync/usps/05-single-binary.html#2-posix-flocking--atomic-file-writes",
     
     "relUrl": "/usps/05-single-binary.html#2-posix-flocking--atomic-file-writes"
-  },"27": {
+  },"35": {
     "doc": "5. Zero-Dependency Single Binary",
     "title": "3. Multi-Platform Cross-Compilation",
     "content": "Compiles cleanly across modern platforms with standard Go tooling: . | linux/amd64 (Standard servers &amp; workstations) | linux/arm64 (Raspberry Pi, AWS Graviton, Apple Silicon Linux VMs) | darwin/amd64 &amp; darwin/arm64 (macOS workstations) | . You can deploy Bisync Hub to an edge Raspberry Pi, a corporate Linux server, or a NAS box with a single scp command. ",
     "url": "/rclone-bisync/usps/05-single-binary.html#3-multi-platform-cross-compilation",
     
     "relUrl": "/usps/05-single-binary.html#3-multi-platform-cross-compilation"
-  },"28": {
+  },"36": {
     "doc": "5. Zero-Dependency Single Binary",
     "title": "5. Zero-Dependency Single Binary",
     "content": " ",
     "url": "/rclone-bisync/usps/05-single-binary.html",
     
     "relUrl": "/usps/05-single-binary.html"
-  },"29": {
+  },"37": {
     "doc": "Architecture & Safety",
     "title": "Architecture &amp; Safety Principles",
     "content": "Bisync Hub is designed under the assumption that networks drop, cloud APIs produce unexpected HTTP responses, and distributed clocks drift. Every design decision adheres to three foundational tenets: . | Visibility Before Action: Never mutate remote storage silently without an immutable record and pre-flight inspection. | Safety Before Automation: If an environmental invariant is violated (e.g. missing canary, unresolvable conflict), halt immediately rather than guess. | Defense in Depth: Protect the host filesystem with path confinement jails, POSIX process flocking, and secret scrubbing. | . ",
     "url": "/rclone-bisync/architecture.html#architecture--safety-principles",
     
     "relUrl": "/architecture.html#architecture--safety-principles"
-  },"30": {
+  },"38": {
     "doc": "Architecture & Safety",
     "title": "Safety Mechanisms",
     "content": " ",
     "url": "/rclone-bisync/architecture.html#safety-mechanisms",
     
     "relUrl": "/architecture.html#safety-mechanisms"
-  },"31": {
+  },"39": {
     "doc": "Architecture & Safety",
     "title": "1. Filesystem Path Confinement Jails",
     "content": "When browsing files or preparing sync operations on local storage endpoints, Bisync Hub prevents arbitrary filesystem access by enforcing strict jail boundaries: . // Enforcing local path isolation relPath, err := filepath.Rel(jailRoot, targetPath) if err != nil || strings.HasPrefix(relPath, \"..\") || strings.HasPrefix(relPath, \"/\") { return ErrPathTraversalViolation } . Any request attempting directory traversal (../) outside the configured root returns an immediate authorization violation and is recorded in the audit log. ",
     "url": "/rclone-bisync/architecture.html#1-filesystem-path-confinement-jails",
     
     "relUrl": "/architecture.html#1-filesystem-path-confinement-jails"
-  },"32": {
+  },"40": {
     "doc": "Architecture & Safety",
     "title": "2. POSIX Flock Process Isolation",
     "content": "To avoid lock races between scheduled background timers, cron jobs, and interactive operator CLI requests, Bisync Hub acquires advisory file locks using native POSIX flock(fd, LOCK_EX|LOCK_NB). | Concurrent executions fail fast with a clear error rather than piling up or corrupting state. | Stale lock detection cleans up safely if a previous process terminated abnormally. | . ",
     "url": "/rclone-bisync/architecture.html#2-posix-flock-process-isolation",
     
     "relUrl": "/architecture.html#2-posix-flock-process-isolation"
-  },"33": {
+  },"41": {
     "doc": "Architecture & Safety",
     "title": "3. Secret Redaction at Every Boundary",
     "content": "All external inputs, configuration files, and API logs pass through recursive sanitization via security.RedactSecrets. | Keywords matching PASS, TOKEN, KEY, SECRET, and CREDENTIAL are dynamically masked ([REDACTED]). | Raw tokens are never persisted in SQLite ledger records, JSON error messages, or telemetry streams. | . ",
     "url": "/rclone-bisync/architecture.html#3-secret-redaction-at-every-boundary",
     
     "relUrl": "/architecture.html#3-secret-redaction-at-every-boundary"
-  },"34": {
+  },"42": {
     "doc": "Architecture & Safety",
     "title": "4. Zero-Exposure CI/CD Security",
     "content": "Bisync Hub’s GitHub Actions pipelines are deployed 100% on cloud-hosted ephemeral runners (ubuntu-latest) with zero self-hosted runner exposure. Every commit is validated with: . | Static analysis via go vet | Automated leak scanning via gitleaks | Vulnerability auditing via govulncheck | Strict branch protection with sole review governance (@slemmercs) | . ",
     "url": "/rclone-bisync/architecture.html#4-zero-exposure-cicd-security",
     
     "relUrl": "/architecture.html#4-zero-exposure-cicd-security"
-  },"35": {
+  },"43": {
     "doc": "Architecture & Safety",
     "title": "Architecture & Safety",
     "content": " ",
     "url": "/rclone-bisync/architecture.html",
     
     "relUrl": "/architecture.html"
-  },"36": {
+  },"44": {
     "doc": "Comparison Matrix",
     "title": "Capability Comparison Matrix",
-    "content": "Understanding where Bisync Hub fits in your storage infrastructure: . | Capability / Feature | Generic Cron Script | Sync Desktop GUI | Raw Rclone CLI | Bisync Hub | . | Interactive Deletion Review | ❌ None | ❌ Rare | ❌ None | ✅ Full Diff Modal | . | Multi-Signal Conflict Heuristics | ❌ Timestamps only | ⚠️ Basic rename | ⚠️ Timestamp or manual | ✅ 4-Analyzer Engine | . | Canary Mount Protection | ⚠️ Custom script only | ❌ None | ❌ None | ✅ Built-in RCLONE_TEST | . | Cryptographic Audit Ledger | ❌ Plain text logs | ❌ Local state | ❌ Stdout logs | ⏳ Planned (Priority #1) | . | Zero External Runtime Deps | ⚠️ Bash / Shell | ❌ Electron / Qt | ✅ Go binary | ✅ Single Go Binary | . | Embedded Web Dashboard | ❌ None | ⚠️ Desktop only | ❌ RC webgui only | ✅ Lightweight Embedded | . | Webhook Alerts (Discord/Telegram) | ⚠️ Manual curl | ❌ OS toasts only | ❌ None | ⏳ Planned (Priority #4) | . | Cloud Clock Skew Compensation | ❌ None | ⚠️ Basic fuzzing | ⚠️ --modify-window | ✅ Automatic Skew Matrix | . | POSIX Advisory Flock Locks | ⚠️ Fragile PID files | ❌ OS locks | ❌ None | ✅ Race-Free POSIX Flock | . | Path Traversal Jail Confinement | ❌ None | ❌ None | ❌ None | ✅ Enforced Local Jails | . ",
+    "content": "Understanding where Bisync Hub fits in your storage infrastructure: . | Capability / Feature | Generic Cron Script | Sync Desktop GUI | Raw Rclone CLI | Bisync Hub | . | Interactive Deletion Review | ❌ None | ❌ Rare | ❌ None | ✅ Full Diff Modal | . | Multi-Signal Conflict Heuristics | ❌ Timestamps only | ⚠️ Basic rename | ⚠️ Timestamp or manual | ✅ 4-Analyzer Engine | . | Canary Mount Protection | ⚠️ Custom script only | ❌ None | ❌ None | ✅ Built-in RCLONE_TEST | . | Cryptographic Audit Ledger | ❌ Plain text logs | ❌ Local state | ❌ Stdout logs | ✅ Immutable SHA-256 Ledger | . | Zero External Runtime Deps | ⚠️ Bash / Shell | ❌ Electron / Qt | ✅ Go binary | ✅ Single Go Binary | . | Embedded Web Dashboard | ❌ None | ⚠️ Desktop only | ❌ RC webgui only | ✅ Lightweight Embedded | . | Webhook Alerts (Discord/Telegram) | ⚠️ Manual curl | ❌ OS toasts only | ❌ None | ⏳ Planned (Priority #4) | . | Cloud Clock Skew Compensation | ❌ None | ⚠️ Basic fuzzing | ⚠️ --modify-window | ✅ Automatic Skew Matrix | . | POSIX Advisory Flock Locks | ⚠️ Fragile PID files | ❌ OS locks | ❌ None | ✅ Race-Free POSIX Flock | . | Path Traversal Jail Confinement | ❌ None | ❌ None | ❌ None | ✅ Enforced Local Jails | . ",
     "url": "/rclone-bisync/comparison.html#capability-comparison-matrix",
     
     "relUrl": "/comparison.html#capability-comparison-matrix"
-  },"37": {
+  },"45": {
     "doc": "Comparison Matrix",
     "title": "Why Not Just Run a Cron Script?",
     "content": "Cron scripts are ubiquitous, but they fail silently when edge cases occur: . | The Unmounted Mount Disaster: If an NFS/SMB share or rclone mount disconnects, an automated cron script sees an empty folder and issues deletions for thousands of files across the remote replica. | The Cloud Timestamp Shift: Google Drive and Microsoft OneDrive report timestamps differently than local ext4/APFS filesystems. A simple script relying on test fileA -nt fileB frequently overwrites valid changes. | Overlapping Job Corruption: If a sync run takes longer than the cron interval (e.g., due to large video uploads), concurrent sync instances access the cache simultaneously, corrupting .bisync lock state. | . Bisync Hub eliminates every one of these failure modes out of the box. ",
     "url": "/rclone-bisync/comparison.html#why-not-just-run-a-cron-script",
     
     "relUrl": "/comparison.html#why-not-just-run-a-cron-script"
-  },"38": {
+  },"46": {
     "doc": "Comparison Matrix",
     "title": "Comparison Matrix",
     "content": " ",
     "url": "/rclone-bisync/comparison.html",
     
     "relUrl": "/comparison.html"
-  },"39": {
+  },"47": {
     "doc": "UI Gallery",
     "title": "Dashboard &amp; UI Gallery",
     "content": "Bisync Hub features a zero-dependency, compiled-in Web Cockpit built with Alpine.js and Tailwind CSS. The interface operates completely self-contained from the single Go binary with zero external npm or Node.js runtime requirements. ",
     "url": "/rclone-bisync/gallery.html#dashboard--ui-gallery",
     
     "relUrl": "/gallery.html#dashboard--ui-gallery"
-  },"40": {
+  },"48": {
     "doc": "UI Gallery",
     "title": "1. Operations &amp; Telemetry Cockpit",
     "content": "The primary operations cockpit provides real-time visibility into the health of synchronization pairs, active transfer speeds, cumulative data transferred, and engine status indicators. Production Cockpit Real-time transfer velocity, synchronization metrics, and engine status indicators . ",
     "url": "/rclone-bisync/gallery.html#1-operations--telemetry-cockpit",
     
     "relUrl": "/gallery.html#1-operations--telemetry-cockpit"
-  },"41": {
+  },"49": {
     "doc": "UI Gallery",
-    "title": "2. Storage Remotes &amp; OAuth Management",
-    "content": "Manage cloud endpoints and local storage directories from a centralized interface. The panel displays reachability status, authentication health, and latency diagnostics. Storage Remotes Endpoint connectivity overview, active remotes, and OAuth authentication health ",
-    "url": "/rclone-bisync/gallery.html#2-storage-remotes--oauth-management",
+    "title": "2. Interactive Sync Review &amp; Safety Barrier",
+    "content": "When unexpected deletion spikes or non-trivial conflicts exceed configured thresholds, Bisync Hub halts execution and requires human-in-the-loop sign-off before destructive changes touch replicas. ",
+    "url": "/rclone-bisync/gallery.html#2-interactive-sync-review--safety-barrier",
     
-    "relUrl": "/gallery.html#2-storage-remotes--oauth-management"
-  },"42": {
+    "relUrl": "/gallery.html#2-interactive-sync-review--safety-barrier"
+  },"50": {
+    "doc": "UI Gallery",
+    "title": "Step 1: Sync Review Barrier Active",
+    "content": "The engine detects threshold breaches during dry-run analysis, trips the circuit breaker, and engages the review barrier: . 1. Sync Review Barrier Engaged Circuit breaker trips when deletion or conflict thresholds are exceeded, halting automated execution ",
+    "url": "/rclone-bisync/gallery.html#step-1-sync-review-barrier-active",
+    
+    "relUrl": "/gallery.html#step-1-sync-review-barrier-active"
+  },"51": {
+    "doc": "UI Gallery",
+    "title": "Step 2: Granular Resolution &amp; Heuristics",
+    "content": "Operators inspect proposed changes, view heuristic recommendations (e.g., Office lock files, local user deletions, canary protection), and choose per-file decisions or batch-apply recommendations: . 2. Granular Triage &amp; Heuristic Recommendations Side-by-side metadata inspection, heuristic scoring, per-file resolutions, and batch actions ",
+    "url": "/rclone-bisync/gallery.html#step-2-granular-resolution--heuristics",
+    
+    "relUrl": "/gallery.html#step-2-granular-resolution--heuristics"
+  },"52": {
+    "doc": "UI Gallery",
+    "title": "Step 3: Pre-Mutation Backups &amp; Automated Sync",
+    "content": "Upon clicking “Apply Resolutions &amp; Sync”, the system stages atomic backups of all mutated files, marks the review session complete, and triggers an authorized force sync: . 3. Staged Backups &amp; Force Sync Execution Modal auto-closes with toast notification; pre-mutation backups are saved and force sync is triggered ",
+    "url": "/rclone-bisync/gallery.html#step-3-pre-mutation-backups--automated-sync",
+    
+    "relUrl": "/gallery.html#step-3-pre-mutation-backups--automated-sync"
+  },"53": {
+    "doc": "UI Gallery",
+    "title": "Step 4: Multi-Stream Correlated Daemon Logs",
+    "content": "The correlated daemon log modal allows operators to follow live execution across journal logs and engine streams, confirming safe convergence: . 4. Correlated Multi-Stream Diagnostics Correlated execution output confirming clean sync convergence and barrier dismissal . ",
+    "url": "/rclone-bisync/gallery.html#step-4-multi-stream-correlated-daemon-logs",
+    
+    "relUrl": "/gallery.html#step-4-multi-stream-correlated-daemon-logs"
+  },"54": {
+    "doc": "UI Gallery",
+    "title": "3. Cryptographic Immutable Audit Ledger",
+    "content": "A mathematically verifiable, SHA-256 hash-chained compliance ledger tracking sync events, operator resolutions, and file mutations. Backed by pure-Go SQLite with schema triggers enforcing append-only immutability. ",
+    "url": "/rclone-bisync/gallery.html#3-cryptographic-immutable-audit-ledger",
+    
+    "relUrl": "/gallery.html#3-cryptographic-immutable-audit-ledger"
+  },"55": {
+    "doc": "UI Gallery",
+    "title": "Unified Audit Ledger &amp; Verification",
+    "content": "Operators can inspect the full chronological ledger, run live cryptographic verification, filter by action or actor, and export to CSV or JSONL: . Unified Cryptographic Audit Ledger Live SHA-256 hash-chain verification, action/actor filtering, pagination, and CSV/JSONL compliance export ",
+    "url": "/rclone-bisync/gallery.html#unified-audit-ledger--verification",
+    
+    "relUrl": "/gallery.html#unified-audit-ledger--verification"
+  },"56": {
+    "doc": "UI Gallery",
+    "title": "Tamper-Evident Block Inspection",
+    "content": "Every ledger block links cryptographically to its predecessor (H_n = SHA256(H_{n-1} || payload || timestamp)). Clicking any record displays the full forensic block breakdown with redacted secrets: . Forensic Block Inspection Sequence ID, previous hash, current block hash, and recursive secret-sanitized payload . ",
+    "url": "/rclone-bisync/gallery.html#tamper-evident-block-inspection",
+    
+    "relUrl": "/gallery.html#tamper-evident-block-inspection"
+  },"57": {
+    "doc": "UI Gallery",
+    "title": "4. Storage Remotes &amp; OAuth Management",
+    "content": "Manage cloud endpoints and local storage directories from a centralized interface. The panel displays reachability status, authentication health, and latency diagnostics. Storage Remotes Endpoint connectivity overview, active remotes, and OAuth authentication health ",
+    "url": "/rclone-bisync/gallery.html#4-storage-remotes--oauth-management",
+    
+    "relUrl": "/gallery.html#4-storage-remotes--oauth-management"
+  },"58": {
     "doc": "UI Gallery",
     "title": "Guided OAuth Configuration Modals",
     "content": "Configure and renew OAuth2 credentials for major cloud storage backends with clear, guided credential forms: . Google Drive Setup Client ID, Secret &amp; scope authorization OneDrive Setup Personal &amp; Business Graph API credential setup . ",
     "url": "/rclone-bisync/gallery.html#guided-oauth-configuration-modals",
     
     "relUrl": "/gallery.html#guided-oauth-configuration-modals"
-  },"43": {
+  },"59": {
     "doc": "UI Gallery",
-    "title": "3. Dual-Pane File Explorer",
+    "title": "5. Dual-Pane File Explorer",
     "content": "Inspect directory trees, file sizes, and modification timestamps across both synchronization roots side-by-side without leaving the browser or invoking CLI commands. Dual-Pane Explorer Side-by-side browsing of local directories and remote cloud storage hierarchies . ",
-    "url": "/rclone-bisync/gallery.html#3-dual-pane-file-explorer",
+    "url": "/rclone-bisync/gallery.html#5-dual-pane-file-explorer",
     
-    "relUrl": "/gallery.html#3-dual-pane-file-explorer"
-  },"44": {
+    "relUrl": "/gallery.html#5-dual-pane-file-explorer"
+  },"60": {
     "doc": "UI Gallery",
-    "title": "4. Live Execution &amp; Correlated Daemon Diagnostics",
+    "title": "6. Live Execution &amp; Correlated Daemon Diagnostics",
     "content": "Comprehensive diagnostics allowing operators to inspect live Rclone engine outputs and systemd daemon execution logs without SSH session requirements. Engine Execution Log Live log stream with syntax-highlighted sync actions and dry-run outputs Correlated Daemon Log Unified service events, systemd journal entries, and trace diagnostics ",
-    "url": "/rclone-bisync/gallery.html#4-live-execution--correlated-daemon-diagnostics",
+    "url": "/rclone-bisync/gallery.html#6-live-execution--correlated-daemon-diagnostics",
     
-    "relUrl": "/gallery.html#4-live-execution--correlated-daemon-diagnostics"
-  },"45": {
+    "relUrl": "/gallery.html#6-live-execution--correlated-daemon-diagnostics"
+  },"61": {
     "doc": "UI Gallery",
     "title": "UI Gallery",
     "content": " ",
     "url": "/rclone-bisync/gallery.html",
     
     "relUrl": "/gallery.html"
-  },"46": {
+  },"62": {
     "doc": "Core Pillars",
     "title": "Core Architectural Pillars",
     "content": "Bisync Hub was engineered from first principles to turn unpredictable bidirectional cloud sync into a deterministic, observable, and fully auditable operation. ┌─────────────────────────────────────────────────────────────────────────┐ │ Bisync Hub Engine │ │ │ │ [ Pre-Flight Canaries ] ──► [ Dry-Run Detection ] │ │ │ │ │ ▼ │ │ [ Heuristic Conflict Engine ] │ │ │ │ │ ▼ │ │ [ Interactive Review Modal ] │ │ │ │ │ ▼ │ │ [ Lock / Jail Guard ] ──► [ Controlled Mutation ] ──► [ Ledger ] │ └─────────────────────────────────────────────────────────────────────────┘ . ",
     "url": "/rclone-bisync/usps#core-architectural-pillars",
     
     "relUrl": "/usps#core-architectural-pillars"
-  },"47": {
+  },"63": {
     "doc": "Core Pillars",
     "title": "The Pillars",
-    "content": ". | Interactive Sync Review &amp; Deletion Diff Visualizer Available Inspect proposed additions, modifications, and deletions before disk mutations occur. | Multi-Analyzer Heuristic Conflict Engine Available Resolve non-trivial file conflicts with multi-signal confidence scoring and skew tolerance. | Customizable Safety Policies &amp; Circuit Breakers Planned Roadmap Enforce strict deletion quotas, canary file invariants, and automatic backoff throttles. | Cryptographic Immutable Audit Ledger Planned Roadmap Maintain verifiable SQLite-backed records of every sync action, decision, and error. | Zero-Dependency Single Binary Distribution Available Deploy anywhere with a single Go binary and an embedded Alpine.js/Tailwind web dashboard. | . ",
+    "content": ". | Interactive Sync Review &amp; Deletion Diff Visualizer Available Inspect proposed additions, modifications, and deletions before disk mutations occur. | Multi-Analyzer Heuristic Conflict Engine Available Resolve non-trivial file conflicts with multi-signal confidence scoring and skew tolerance. | Customizable Safety Policies &amp; Circuit Breakers Planned Roadmap Enforce strict deletion quotas, canary file invariants, and automatic backoff throttles. | Cryptographic Immutable Audit Ledger Available Maintain verifiable SQLite-backed records of every sync action, decision, and error. | Zero-Dependency Single Binary Distribution Available Deploy anywhere with a single Go binary and an embedded Alpine.js/Tailwind web dashboard. | . ",
     "url": "/rclone-bisync/usps#the-pillars",
     
     "relUrl": "/usps#the-pillars"
-  },"48": {
+  },"64": {
     "doc": "Core Pillars",
     "title": "Core Pillars",
     "content": " ",
     "url": "/rclone-bisync/usps",
     
     "relUrl": "/usps"
-  },"49": {
+  },"65": {
     "doc": "Home",
     "title": "Bisync Hub",
     "content": "Review. Decide. Sync. The safety layer missing from automated cloud synchronization. ```bash curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | bash ``` Production Cockpit Real-time transfer telemetry, sync metrics &amp; status indicators ",
     "url": "/rclone-bisync/",
     
     "relUrl": "/"
-  },"50": {
+  },"66": {
     "doc": "Home",
     "title": "The Bidirectional Dilemma",
     "content": "Standard bidirectional synchronization tools face a fundamental challenge: How do you reconcile silent file deletions and conflicting concurrent edits without risking catastrophic data loss? . Raw rclone bisync provides raw power across 40+ storage providers, but in production, silent automated runs can propagate accidental directory purges, overwrite newer files due to cloud timestamp skews, or deadlock when token expirations occur. Bisync Hub surrounds rclone bisync with an unyielding safety envelope: . ● Available Now ",
     "url": "/rclone-bisync/#the-bidirectional-dilemma",
     
     "relUrl": "/#the-bidirectional-dilemma"
-  },"51": {
+  },"67": {
     "doc": "Home",
     "title": "Interactive Sync Review",
     "content": "Diff previews and dry-run deletion guards block bulk modifications until explicitly approved by an operator or policy. ● Available Now ",
     "url": "/rclone-bisync/",
     
     "relUrl": "/"
-  },"52": {
+  },"68": {
     "doc": "Home",
     "title": "Confidence-Scored Conflicts",
     "content": "Multi-analyzer resolution evaluating size divergence, binary signatures, cloud clock skew, and edit velocity. ◆ Planned Roadmap ",
     "url": "/rclone-bisync/",
     
     "relUrl": "/"
-  },"53": {
+  },"69": {
     "doc": "Home",
     "title": "Configurable Safety Policies",
-    "content": "Declarative pre-execution and pre-mutation rules with strict delete percentage bounds and canary file protection. ◆ Planned Roadmap ",
+    "content": "Declarative pre-execution and pre-mutation rules with strict delete percentage bounds and canary file protection. ● Available Now ",
     "url": "/rclone-bisync/",
     
     "relUrl": "/"
-  },"54": {
+  },"70": {
     "doc": "Home",
     "title": "Cryptographic Audit Ledger",
     "content": "Tamper-evident audit trail with SHA-256 hash chains, trigger-enforced append-only tables, and POSIX advisory locking. ",
     "url": "/rclone-bisync/",
     
     "relUrl": "/"
-  },"55": {
+  },"71": {
     "doc": "Home",
     "title": "Architectural Pillars &amp; Delivery Status",
-    "content": "Explore the deep technical architecture powering Bisync Hub: . | Interactive Sync Review &amp; Deletion Diff Visualizer Available: Full visibility into pending cloud mutations before any files are altered or removed. | Multi-Analyzer Heuristic Conflict Engine Available: Multi-signal confidence calculation eliminating blind last-modified-wins data loss. | Customizable Safety Policies &amp; Circuit Breakers Planned: Pre-execution canaries, max-delete ratios, and rate-limit backoff handling. | Cryptographic Immutable Audit Ledger Planned: SQLite triggers and SHA-256 hash chains providing tamper-proof sync accountability. | Zero-Dependency Single Binary Distribution Available: Native Go executable with embedded Web UI, zero Python/pip/npm runtime requirements. | . ",
+    "content": "Explore the deep technical architecture powering Bisync Hub: . | Interactive Sync Review &amp; Deletion Diff Visualizer Available: Full visibility into pending cloud mutations before any files are altered or removed. | Multi-Analyzer Heuristic Conflict Engine Available: Multi-signal confidence calculation eliminating blind last-modified-wins data loss. | Customizable Safety Policies &amp; Circuit Breakers Planned: Pre-execution canaries, max-delete ratios, and rate-limit backoff handling. | Cryptographic Immutable Audit Ledger Available: SQLite triggers and SHA-256 hash chains providing tamper-proof sync accountability. | Zero-Dependency Single Binary Distribution Available: Native Go executable with embedded Web UI, zero Python/pip/npm runtime requirements. | . ",
     "url": "/rclone-bisync/#architectural-pillars--delivery-status",
     
     "relUrl": "/#architectural-pillars--delivery-status"
-  },"56": {
+  },"72": {
     "doc": "Home",
     "title": "Embedded Dashboard Tour",
     "content": "Bisync Hub includes a rich, compiled-in Web Cockpit requiring zero external dependencies: . Storage Remotes Remote connectivity &amp; health overview Dual-Pane Explorer Side-by-side replica inspection Browse Full UI Screenshot Gallery → . ",
     "url": "/rclone-bisync/#embedded-dashboard-tour",
     
     "relUrl": "/#embedded-dashboard-tour"
-  },"57": {
+  },"73": {
     "doc": "Home",
     "title": "Quick Navigation",
     "content": ". | UI Gallery: Complete screenshot walkthrough of the telemetry cockpit, file explorer, and OAuth managers. | Project Roadmap: Detailed breakdown of shipped features, near-term priorities, and planned capabilities. | Feature Comparison Matrix: How Bisync Hub stacks up against cron scripts, GUI clients, and raw CLI. | Quickstart Guide: 5-minute setup, systemd automation, and environment configuration. | System Architecture &amp; Safety Tenets: Path jail confinement, advisory locking, and state atomicity. | . ",
     "url": "/rclone-bisync/#quick-navigation",
     
     "relUrl": "/#quick-navigation"
-  },"58": {
+  },"74": {
     "doc": "Home",
     "title": "Home",
     "content": "● Test Gate Passed (83.2% Coverage) Go 1.24+ Single Binary ",
     "url": "/rclone-bisync/",
     
     "relUrl": "/"
-  },"59": {
+  },"75": {
     "doc": "Quickstart Guide",
     "title": "Quickstart Guide",
     "content": "Get up and running with Bisync Hub in less than 5 minutes. ",
     "url": "/rclone-bisync/quickstart.html",
     
     "relUrl": "/quickstart.html"
-  },"60": {
+  },"76": {
     "doc": "Quickstart Guide",
     "title": "1. Quick Installation",
     "content": "Execute the automated installer to download the latest signed binary and setup basic system integration: . curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | bash . ",
     "url": "/rclone-bisync/quickstart.html#1-quick-installation",
     
     "relUrl": "/quickstart.html#1-quick-installation"
-  },"61": {
+  },"77": {
     "doc": "Quickstart Guide",
     "title": "Manual Binary Download",
     "content": "Alternatively, download the target binary directly from GitHub Releases: . # Example for Linux x86_64 curl -LO https://github.com/slemmercs/rclone-bisync/releases/latest/download/bisync-hub-linux-amd64 chmod +x bisync-hub-linux-amd64 sudo mv bisync-hub-linux-amd64 /usr/local/bin/bisync-hub . ",
     "url": "/rclone-bisync/quickstart.html#manual-binary-download",
     
     "relUrl": "/quickstart.html#manual-binary-download"
-  },"62": {
+  },"78": {
     "doc": "Quickstart Guide",
     "title": "2. Configuration (bisync.env)",
     "content": "Generate a starting configuration or customize bisync.env in your working directory: . # ------------------------------------------------------------------------------ # Bisync Hub Core Configuration # ------------------------------------------------------------------------------ PORT=8080 BIND_ADDR=127.0.0.1 # Sync Paths PATH1=/home/operator/data PATH2=onedrive:data_backup # Safety &amp; Circuit Breakers SAFETY_MAX_DELETE_COUNT=25 SAFETY_MAX_DELETE_RATIO=0.10 SAFETY_ENABLE_CANARY=true CANARY_FILENAME=RCLONE_TEST # Conflict Engine Settings CONFLICT_AUTO_RESOLVE_MIN_CONFIDENCE=0.85 CONFLICT_BACKUP_LOSERS=true # Notification Webhooks (Planned Roadmap Feature) # DISCORD_WEBHOOK_URL= # TELEGRAM_BOT_TOKEN= # TELEGRAM_CHAT_ID= # HEALTHCHECKS_URL= . ",
     "url": "/rclone-bisync/quickstart.html#2-configuration-bisyncenv",
     
     "relUrl": "/quickstart.html#2-configuration-bisyncenv"
-  },"63": {
+  },"79": {
     "doc": "Quickstart Guide",
     "title": "3. Starting the Server",
     "content": "Run the orchestrator interactively: . bisync-hub --config bisync.env . Open your browser to http://localhost:8080 to access the real-time operational dashboard, inspect remote mounts, check canary health, and review pending sync events. Storage Remotes Remote health checks &amp; OAuth indicators Dual-Pane Explorer Browse local and remote directories . ",
     "url": "/rclone-bisync/quickstart.html#3-starting-the-server",
     
     "relUrl": "/quickstart.html#3-starting-the-server"
-  },"64": {
+  },"80": {
     "doc": "Quickstart Guide",
     "title": "4. Running as a Systemd Service",
     "content": "For continuous 24/7 background operation on Linux: . # /etc/systemd/system/bisync-hub.service [Unit] Description=Bisync Hub Cloud Orchestrator After=network-online.target Wants=network-online.target [Service] Type=simple User=csaba WorkingDirectory=/home/csaba/sync ExecStart=/usr/local/bin/bisync-hub --config /home/csaba/sync/bisync.env Restart=always RestartSec=10 [Install] WantedBy=multi-user.target . Enable and start the service: . sudo systemctl daemon-reload sudo systemctl enable --now bisync-hub . ",
     "url": "/rclone-bisync/quickstart.html#4-running-as-a-systemd-service",
     
     "relUrl": "/quickstart.html#4-running-as-a-systemd-service"
-  },"65": {
+  },"81": {
     "doc": "Roadmap",
     "title": "Project Roadmap &amp; Capabilities",
-    "content": "Bisync Hub is developed using disciplined, test-driven micro-iterations with strict zero-regression quality gates (&gt;80% test coverage target). ┌──────────────────────────────────────────────────────────────┐ │ SHIPPED &amp; AVAILABLE │ │ • Interactive Review &amp; Deletion Diff Modal │ │ • 4-Analyzer Heuristic Conflict Confidence Engine │ │ • Zero-Dependency Single Go Binary Distribution │ │ • Embedded Alpine.js / Tailwind CSS Management Cockpit │ │ • POSIX Advisory Locking &amp; Local Path Confinement Jails │ │ • Real-Time Telemetry &amp; Sync Status Reporting │ └──────────────────────────────┬───────────────────────────────┘ │ ▼ ┌──────────────────────────────────────────────────────────────┐ │ NEAR-TERM STRATEGIC PRIORITIES │ │ 1. Cryptographic Immutable Audit Ledger (SQLite + SHA-256) │ │ 2. Dual-Stage Customizable Safety Policies &amp; Canaries │ │ 3. Automated Remote Mount Lifecycle Manager (FUSE / WinFsp) │ │ 4. Multi-Channel Webhook Notifications (Discord, Telegram) │ │ 5. Cloud Multi-Provider Optimization (Google Drive, OneDrive│ └──────────────────────────────────────────────────────────────┘ . ",
+    "content": "Bisync Hub is developed using disciplined, test-driven micro-iterations with strict zero-regression quality gates (&gt;80% test coverage target). ┌──────────────────────────────────────────────────────────────┐ │ SHIPPED &amp; AVAILABLE │ │ • Interactive Review &amp; Deletion Diff Modal │ │ • 4-Analyzer Heuristic Conflict Confidence Engine │ │ • Cryptographic Immutable Audit Ledger (SQLite + SHA-256) │ │ • Zero-Dependency Single Go Binary Distribution │ │ • Embedded Alpine.js / Tailwind CSS Management Cockpit │ │ • POSIX Advisory Locking &amp; Local Path Confinement Jails │ │ • Real-Time Telemetry &amp; Sync Status Reporting │ └──────────────────────────────┬───────────────────────────────┘ │ ▼ ┌──────────────────────────────────────────────────────────────┐ │ NEAR-TERM STRATEGIC PRIORITIES │ │ 1. Dual-Stage Customizable Safety Policies &amp; Canaries │ │ 2. Automated Remote Mount Lifecycle Manager (FUSE / WinFsp) │ │ 3. Multi-Channel Webhook Notifications (Discord, Telegram) │ │ 4. Cloud Multi-Provider Optimization (Google Drive, OneDrive│ └──────────────────────────────────────────────────────────────┘ . ",
     "url": "/rclone-bisync/roadmap.html#project-roadmap--capabilities",
     
     "relUrl": "/roadmap.html#project-roadmap--capabilities"
-  },"66": {
+  },"82": {
     "doc": "Roadmap",
     "title": "🟢 Shipped Capabilities (Available Now)",
     "content": "The following core modules are implemented, tested, and included in current binary releases: . ",
     "url": "/rclone-bisync/roadmap.html#-shipped-capabilities-available-now",
     
     "relUrl": "/roadmap.html#-shipped-capabilities-available-now"
-  },"67": {
+  },"83": {
     "doc": "Roadmap",
     "title": "1. Interactive Sync Review &amp; Mutation Inspection",
     "content": ". | Dry-Run Inspection Stream: Captures dry-run stdout/stderr, categorizing every action into + CREATE, ~ MODIFY, or - DELETE. | Operator Review Modal: Halts destructive execution when deletion thresholds are tripped, allowing granular per-file approval or full-run abort. | Rollback Resilience: Zero-byte hard link backups and recovery staging prevent accidental local wipes. | . ",
     "url": "/rclone-bisync/roadmap.html#1-interactive-sync-review--mutation-inspection",
     
     "relUrl": "/roadmap.html#1-interactive-sync-review--mutation-inspection"
-  },"68": {
+  },"84": {
     "doc": "Roadmap",
     "title": "2. Multi-Analyzer Heuristic Conflict Engine",
     "content": ". | 4 Parallel Heuristic Analyzers: . | SizeDivergenceAnalyzer (30% weight): Detects unexpected file truncations and major additions. | BinarySignatureAnalyzer (25% weight): Inspects MIME and magic bytes to reject corrupted partial writes. | ClockSkewAnalyzer (25% weight): Compensates for provider-specific API clock rounding (e.g. OneDrive 2-second timestamp windows and DST shifts). | VelocityAnalyzer (20% weight): Evaluates modification frequency to differentiate active work from background touches. | . | Graduated Confidence Bands: Automatically commits resolutions scoring $\\ge 85\\%$, stages backups for $60\\% - 84\\%$, and safely quarantines $&lt; 60\\%$ collisions for manual operator review. | . ",
     "url": "/rclone-bisync/roadmap.html#2-multi-analyzer-heuristic-conflict-engine",
     
     "relUrl": "/roadmap.html#2-multi-analyzer-heuristic-conflict-engine"
-  },"69": {
+  },"85": {
     "doc": "Roadmap",
-    "title": "3. Production Go Architecture &amp; Embedded UI",
-    "content": ". | Single Binary Artifact: Pure Go binary with embedded dashboard assets (go:embed). No Node.js, Python, or external runtime required. | Advisory POSIX Locking: Race-free process exclusion via syscall.Flock ensures zero metadata collisions between background daemons and interactive CLI invocations. | Path Confinement Jails: Directory traversal (../) prevention protects local storage roots. | Rclone Integration: Seamless inter-process communication with Rclone RC API and local filesystem synchronization. | . ",
-    "url": "/rclone-bisync/roadmap.html#3-production-go-architecture--embedded-ui",
+    "title": "3. Cryptographic Immutable Audit Ledger",
+    "content": ". | Append-Only SQLite Storage: Schema-level BEFORE UPDATE and BEFORE DELETE triggers prevent modifying or purging existing ledger entries. | SHA-256 Cryptographic Hash Chaining: Links each block to its predecessor (H_n = SHA256(H_{n-1} || payload || timestamp)), ensuring forensic tamper evidence. | In-Process POSIX Log Rotator: Thread-safe size-bounded rotation (bisync.log) with lazy initialization and dual-stream audit logging (\"type\": \"audit\"). | Interactive Audit Explorer: Dedicated Web UI tab with live cryptographic chain verification, actor/action filtering, and CSV/JSONL compliance export. | Recursive Secret Sanitization: Deep masking (security.RedactSecrets) strips all tokens, secrets, and auth headers before persistence. | . ",
+    "url": "/rclone-bisync/roadmap.html#3-cryptographic-immutable-audit-ledger",
     
-    "relUrl": "/roadmap.html#3-production-go-architecture--embedded-ui"
-  },"70": {
+    "relUrl": "/roadmap.html#3-cryptographic-immutable-audit-ledger"
+  },"86": {
+    "doc": "Roadmap",
+    "title": "4. Production Go Architecture &amp; Embedded UI",
+    "content": ". | Single Binary Artifact: Pure Go binary with embedded dashboard assets (go:embed). No Node.js, Python, or external runtime required. | Advisory POSIX Locking: Race-free process exclusion via syscall.Flock ensures zero metadata collisions between background daemons and interactive CLI invocations. | Path Confinement Jails: Directory traversal (../) prevention protects local storage roots. | Rclone Integration: Seamless inter-process communication with Rclone RC API and local filesystem synchronization. | . ",
+    "url": "/rclone-bisync/roadmap.html#4-production-go-architecture--embedded-ui",
+    
+    "relUrl": "/roadmap.html#4-production-go-architecture--embedded-ui"
+  },"87": {
     "doc": "Roadmap",
     "title": "🟡 Near-Term Strategic Priorities (In Development)",
     "content": "The following capabilities represent our immediate development milestones following public launch: . ",
     "url": "/rclone-bisync/roadmap.html#-near-term-strategic-priorities-in-development",
     
     "relUrl": "/roadmap.html#-near-term-strategic-priorities-in-development"
-  },"71": {
+  },"88": {
     "doc": "Roadmap",
-    "title": "Priority 1: Cryptographic Immutable Audit Ledger",
-    "content": ". | Objective: Full compliance and forensic traceability for all storage operations. | Architecture: . | SQLite backend with schema-level BEFORE UPDATE and BEFORE DELETE triggers enforcing an append-only invariant. | SHA-256 hash chains linking each event block to the previous entry hash: H_n = SHA256(H_{n-1} || payload || timestamp). | Built-in verification CLI command (bisync-hub verify-ledger) to audit chain integrity and alert on external database tampering. | Automatic recursive credential redaction (security.RedactSecrets). | . | . ",
-    "url": "/rclone-bisync/roadmap.html#priority-1-cryptographic-immutable-audit-ledger",
-    
-    "relUrl": "/roadmap.html#priority-1-cryptographic-immutable-audit-ledger"
-  },"72": {
-    "doc": "Roadmap",
-    "title": "Priority 2: Dual-Stage Customizable Safety Policies",
+    "title": "Priority 1: Dual-Stage Customizable Safety Policies",
     "content": ". | Objective: Declarative circuit breakers stopping runaway syncs before damage occurs. | Architecture: . | Stage 1 (Pre-Execution Gate): Single-call RC operations/stat lookup verifying required mount canaries (RCLONE_TEST) in $&lt; 200\\text{ms}$ before scanning. | Stage 2 (Pre-Mutation Gate): Strict configurable deletion quota bounds (SAFETY_MAX_DELETE_COUNT, SAFETY_MAX_DELETE_RATIO). | Adaptive Rate Throttling: Exponential backoff with jitter responding immediately to provider HTTP 429 rate limits. | . | . ",
-    "url": "/rclone-bisync/roadmap.html#priority-2-dual-stage-customizable-safety-policies",
+    "url": "/rclone-bisync/roadmap.html#priority-1-dual-stage-customizable-safety-policies",
     
-    "relUrl": "/roadmap.html#priority-2-dual-stage-customizable-safety-policies"
-  },"73": {
+    "relUrl": "/roadmap.html#priority-1-dual-stage-customizable-safety-policies"
+  },"89": {
     "doc": "Roadmap",
-    "title": "Priority 3: Remote Mount Lifecycle Manager",
+    "title": "Priority 2: Remote Mount Lifecycle Manager",
     "content": ". | Objective: Turn fragile OS FUSE mounts into resilient, self-healing storage endpoints. | Architecture: . | Pure-Go daemon managing rclone mount subprocess lifecycles on Linux (FUSE) and Windows (WinFsp). | Background keepalive probes with automatic reconnect on transient network drops. | Clean unmount handlers (fusermount -u) preventing stuck mountpoints during unexpected crashes. | . | . ",
-    "url": "/rclone-bisync/roadmap.html#priority-3-remote-mount-lifecycle-manager",
+    "url": "/rclone-bisync/roadmap.html#priority-2-remote-mount-lifecycle-manager",
     
-    "relUrl": "/roadmap.html#priority-3-remote-mount-lifecycle-manager"
-  },"74": {
+    "relUrl": "/roadmap.html#priority-2-remote-mount-lifecycle-manager"
+  },"90": {
     "doc": "Roadmap",
-    "title": "Priority 4: Multi-Channel Webhook Notifications",
+    "title": "Priority 3: Multi-Channel Webhook Notifications",
     "content": ". | Objective: Real-time alerting when interactive reviews are required or sync runs fail. | Architecture: . | Outbound dispatchers for Discord Webhooks and Telegram Bot APIs. | Dead-man snitch ping integration with Healthchecks.io on successful sync completions. | Configurable alert severity filtering (warnings, errors, review halts). | . | . ",
-    "url": "/rclone-bisync/roadmap.html#priority-4-multi-channel-webhook-notifications",
+    "url": "/rclone-bisync/roadmap.html#priority-3-multi-channel-webhook-notifications",
     
-    "relUrl": "/roadmap.html#priority-4-multi-channel-webhook-notifications"
-  },"75": {
+    "relUrl": "/roadmap.html#priority-3-multi-channel-webhook-notifications"
+  },"91": {
     "doc": "Roadmap",
-    "title": "Priority 5: Cloud Multi-Provider Optimizations",
+    "title": "Priority 4: Cloud Multi-Provider Optimizations",
     "content": ". | Objective: Provider-specific resilience and skew compensation across leading cloud backends. | Architecture: . | Dedicated Microsoft OneDrive Graph API rate limit smoothing and 2-second timestamp window alignment. | Google Drive v3 API token refresh coordination and change-polling optimizations. | . | . Google Drive OAuth Client ID, Secret &amp; scope setup OneDrive OAuth Personal &amp; Business Graph API setup . ",
-    "url": "/rclone-bisync/roadmap.html#priority-5-cloud-multi-provider-optimizations",
+    "url": "/rclone-bisync/roadmap.html#priority-4-cloud-multi-provider-optimizations",
     
-    "relUrl": "/roadmap.html#priority-5-cloud-multi-provider-optimizations"
-  },"76": {
+    "relUrl": "/roadmap.html#priority-4-cloud-multi-provider-optimizations"
+  },"92": {
     "doc": "Roadmap",
     "title": "🔮 Future Vision &amp; Research",
     "content": ". | Peer-to-Peer State Coordination: Multi-node cluster coordination for organizations synchronizing across distributed branch offices. | Encrypted Remote Telemetry: Zero-knowledge telemetry syncing enabling multi-device sync status monitoring without exposing file metadata. | . ",
     "url": "/rclone-bisync/roadmap.html#-future-vision--research",
     
     "relUrl": "/roadmap.html#-future-vision--research"
-  },"77": {
+  },"93": {
     "doc": "Roadmap",
     "title": "Roadmap",
     "content": " ",
