@@ -86,3 +86,16 @@ The maintainer is responsible for:
 - Maintaining documentation
 
 The long-term health of the project takes precedence over short-term feature growth.
+
+---
+
+## Branch Protection & Review Enforcement
+
+To guarantee software reliability, zero regression, and code integrity, the `main` branch is protected by strict policies:
+
+- **Sole Maintainer Approval**: All changes require a Pull Request approved by the Code Owner (`@slemmercs`).
+- **Automated Cloud Quality Gate**: All GitHub Actions CI checks (formatting, staticcheck, govulncheck, betterleaks, test coverage $\ge 80\%$, cross-platform build) must pass before merging.
+- **Dismiss Stale Approvals**: Approvals are automatically dismissed when new commits are pushed to an open pull request.
+- **No Direct or Force Pushes**: Direct pushes and force pushes (`git push --force`) to `main` are strictly forbidden.
+- **Linear & Atomic Git History**: Squash merging or clean rebase merges are enforced to maintain an auditable release trail.
+

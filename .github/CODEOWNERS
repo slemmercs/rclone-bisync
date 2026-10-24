@@ -1,4 +1,28 @@
-# Global Code Owners for Bisync Hub
-# Any file changes will request review from the maintainer.
+# ==============================================================================
+# Bisync Hub - Global Code Owners
+# ==============================================================================
+# All repository changes require mandatory review and approval from the maintainer.
+# Defined per GitHub Code Owners specification:
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
+# Global fallback: Maintainer reviews all files
 * @slemmercs
+
+# Core Go backend services, concurrency, and engine
+/internal/ @slemmercs
+/main.go @slemmercs
+/go.mod @slemmercs
+/go.sum @slemmercs
+
+# Dashboard frontend, Alpine.js modules, and templates
+/dashboard/ @slemmercs
+
+# Quality gates, release scripts, and deployment automation
+/scripts/ @slemmercs
+/deploy/ @slemmercs
+/.github/ @slemmercs
+
+# Public landing platform and documentation
+/site/ @slemmercs
+/docs/ @slemmercs
+
