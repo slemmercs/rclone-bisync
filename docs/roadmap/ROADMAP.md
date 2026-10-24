@@ -20,9 +20,9 @@ Roadmap priorities are primarily driven by:
 
 1. User safety & data loss prevention
 2. Reliability & crash-resilient atomicity
-3. Maintainer capacity
-4. Community feedback
-5. Long-term architectural direction
+3. Usability & operational transparency
+4. Maintainer capacity
+5. Community feedback
 
 Roadmap items are not commitments and may change based on project needs.
 
@@ -37,63 +37,81 @@ Roadmap items are not commitments and may change based on project needs.
 | Remote OAuth Reconnect & Lifecycle Management | **Delivered** | PR #16 |
 | SyncService Modularization & Domain Separation | **Delivered** | PR #18 |
 | Bisync Hub Rebranding & Lucide SVG Design System | **Delivered** | PR #20 |
-| **Interactive Sync Review & Deletion Diff Visualizer** | **Delivered** | Phase 4 (`feat/interactive-sync-review`) |
-| **Heuristic Conflict Recommendation Engine** | **Delivered** | Phase 4 Extension (`feat/heuristic-conflict-engine`) |
-| **Frontend Template Modularization (`html/template`)** | **In Progress** | Refactor (`refactor/modularize-frontend-templates`) |
-| **Immutable Audit Ledger & Unified Log Architecture** | **Next Milestone** | Phase 4/5 Governance & Compliance |
-| Multi-Profile Synchronization Hub | Planned | Phase 5 |
-| Configuration Management & 3-Layer Safety Pipeline | Planned | Phase 5 |
-| Local MVP Deployment Hardening (Unix Sockets & Crypto Credentials) | Planned | Phase 6 |
-| Desktop Application Packaging (Wails) | Future | Phase 7 |
+| **Interactive Sync Review & Deletion Diff Visualizer** | **Delivered** | Milestone 4 (`feat/interactive-sync-review`) |
+| **Heuristic Conflict Recommendation Engine** | **Delivered** | Milestone 4 Extension (`feat/heuristic-conflict-engine`) |
+| **Frontend Template Modularization (`html/template`)** | **Delivered** | Refactor (`refactor/modularize-frontend-templates`) |
+| **Immutable Audit Ledger & Unified Log Architecture** | **Next Priority (#1)** | Governance & Compliance |
+| **Multi-Profile Workspace Manager** | **Next Priority (#2)** | Multi-Workload Pairing |
+| **Configuration & Setup Manager** | **Next Priority (#3)** | Setup, Safety Pipeline & Flags |
+| **In-App User Guidance, Info & Help Documents** | **Next Priority (#4)** | Contextual Assistance & Manual |
+| Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
+| Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
+| Local Inter-Process Communication (IPC) via Unix Sockets | Planned | Infrastructure Hardening |
+| Auto-Generated Cryptographic Credentials Engine | Planned | Infrastructure Hardening |
+| Desktop Application Packaging (Wails) | Future | Native Packaging |
 
 ---
 
-## Active Strategic Priority
+## Active Strategic Priorities
 
-### Frontend Template Modularization (`html/template`)
+### Near-Term Priority 1: Immutable Audit Ledger & Unified Log Architecture
 
-Decomposes the monolithic 1,500+ LOC `dashboard/frontend/index.html` into clean, maintainable Go standard library `html/template` partials (`partials/view_*.html`, `partials/modals/*.html`).
-
-Capabilities & Architecture:
-- **Zero Node.js/npm Dependencies**: Pure Go server-side assembly using `embed.FS` and `html/template`.
-- **Zero DOM Shift / Pop-in**: Server assembles and caches templates at boot, serving full HTML in a single HTTP request.
-- **Maintainable Architecture**: Separates Cockpit Telemetry, Storage Remotes, File Explorer, and interactive Modals into modular files under 300 LOC.
-- **Clean Foundation for Audit Ledger**: Enables upcoming `partials/view_audit.html` to be plugged into the 4th top-level navigation tab with zero clutter.
-
----
-
-### Upcoming Strategic Priority: Immutable Audit Ledger & Unified Log Architecture
-
-Implements cryptographically chained SQLite audit logging (`internal/audit`) with pure-Go driver (`modernc.org/sqlite`) and goose migrations (`pressly/goose/v3`).
+Implements cryptographically chained SQLite audit logging (`internal/audit`) using a pure-Go driver (`modernc.org/sqlite`) and goose migrations (`pressly/goose/v3`):
 - **Dual-Logging**: Critical milestones dual-logged to `bisync.log` alongside sync execution runs.
 - **POSIX Log Rotator**: In-process size-bounded rotation (10 MB, 5 archives) for `bisync.log` and `rclone-daemon.log`.
-- **Option 1 UI**: Multi-stream cockpit terminal switcher (`All`, `Sync`, `Audit`) plus a dedicated 4th top-level tab `[Audit Ledger]` with live cryptographic integrity verification.
-
+- **Dedicated Audit Workspace**: Multi-stream terminal switcher plus a dedicated 4th top-level tab `[Audit Ledger]` with live cryptographic SHA-256 chain verification.
 
 ---
 
-## Medium-Term Priorities
+### Near-Term Priority 2: Multi-Profile Workspace Manager
 
-### Multi-Profile Synchronization Hub
-
-Support multiple isolated synchronization profiles from a single daemon and dashboard:
-- Spawns independent goroutine runners per profile (e.g., Personal GDrive, Work OneDrive, NAS backup).
+Supports independent synchronization profiles from a single daemon and dashboard:
+- Spawns isolated goroutine runners per profile (e.g., Personal GDrive, Work OneDrive, NAS backup).
+- Pairs independent local folders to different remotes (e.g., `/home/user/Documents` -> `gdrive:`, `/home/user/Photos` -> `onedrive:`).
 - Strict flock isolation (`/tmp/rclone-bisync-<profile>.lock`) and dedicated state directories.
-- Profile-aware telemetry streams, charts, and explorer remote routing.
+- Profile-aware telemetry streams, speed charts, and file explorer remote routing.
 - Refer to [`docs/design/profile-manager.md`](../design/profile-manager.md).
 
 ---
 
-### Configuration Management & 3-Layer Safety Pipeline
+### Near-Term Priority 3: Configuration & Setup Manager
 
-Safe, in-dashboard editing of synchronization flags, rate limits, and timing intervals:
-- Visual adjustment for `--buffer-size`, `--tpslimit`, conflict strategies, and webhook endpoints.
-- **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying.
-- One-click rollback API to restore historical configurations immediately.
+Provides safe, in-dashboard editing of synchronization flags, rate limits, timing intervals, and remote setup:
+- **Visual Flag Editor**: Adjust `--buffer-size`, `--tpslimit`, conflict resolution strategies, and webhook endpoints safely from the UI.
+- **Setup & Onboarding Wizard**: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration.
+- **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying new settings.
+- **One-Click Rollback API**: Restore historical configurations immediately if a change fails verification.
 
 ---
 
-## Infrastructure Hardening Priorities
+### Near-Term Priority 4: In-App User Guidance, Info & Help Documents
+
+Enhances dashboard accessibility for non-technical operators and new users:
+- **Contextual Tooltips & Policy Explanations**: Embeds inline tooltips and modal banners across `partials/view_*.html` explaining safety mechanisms (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
+- **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags (`--buffer-size`, `--tpslimit`), and step-by-step conflict recovery workflows.
+- **Interactive Diagnostics & Troubleshooting**: Embedded help documents for resolving OAuth token drops, path permissions issues, and systemd service status.
+
+---
+
+## Secondary & Infrastructure Priorities
+
+### Rclone Remote Control (RC) Framework Hardening
+
+Improves connectivity resiliency between Bisync Hub and the background Rclone `rcd` daemon:
+- Automated HTTP connection pooling and exponential backoff retry logic with jitter for HTTP 429 throttling.
+- Dynamic RC API version compatibility checks and health probes.
+- Proactive connection health monitoring across local Unix sockets and TCP loopbacks.
+
+---
+
+### Remote Mount Manager & Pooled Virtual Storage Engine (`internal/mount`)
+
+Programmatic management of VFS virtual drive mounts and multi-cloud storage pooling:
+- **Stage A (Remote Mount Manager)**: Mount, inspect, configure, and unmount individual remotes to local paths via Rclone RC `/mount/*` endpoints.
+- **Stage B (Pooled Storage Engine)**: Provision stacked multi-cloud topologies (`union` + `chunker` + `crypt`) over RC `/config/create`. Combines disparate storage tiers into a single encrypted virtual drive guarded by Bisync Hub's safety probes.
+- Refer to [`docs/design/remote_mount_manager_design_specification.md`](../design/remote_mount_manager_design_specification.md).
+
+---
 
 ### Local Inter-Process Communication (IPC) via Unix Sockets
 
@@ -121,4 +139,3 @@ Bisync Hub is explicitly not intended to become:
 - A complex binary diff merge engine (diff merges are left to specialized editors).
 
 Its mission is to be the premier, safety-first desktop and server hub for Rclone Bisync operations.
-
