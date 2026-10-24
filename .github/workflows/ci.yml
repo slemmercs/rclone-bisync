@@ -4,14 +4,11 @@ on:
   pull_request:
     branches:
       - main
-
     paths:
       - "**/*.go"
       - "go.mod"
       - "go.sum"
-
       - "scripts/check.sh"
-
       - ".github/workflows/ci.yml"
       - ".github/workflows/security.yml"
       - ".github/workflows/nightly-quality.yml"
@@ -19,14 +16,11 @@ on:
   push:
     branches:
       - main
-
     paths:
       - "**/*.go"
       - "go.mod"
       - "go.sum"
-
       - "scripts/check.sh"
-
       - ".github/workflows/ci.yml"
       - ".github/workflows/security.yml"
       - ".github/workflows/nightly-quality.yml"
@@ -45,19 +39,16 @@ defaults:
     shell: bash
 
 jobs:
-  quality-gate:
-    name: CI Quality Gate
-
+  quality-script:
+    name: Check Script (check.sh)
     runs-on:
       - self-hosted
       - rclone-bisync
-
     timeout-minutes: 15
 
     env:
       MIN_COVERAGE: "80.0"
       COVERAGE_FILE: coverage.out
-
       GOFLAGS: "-mod=readonly"
       GOTOOLCHAIN: local
 
@@ -73,18 +64,73 @@ jobs:
           go-version: "1.26.10"
           cache: false
 
-      - name: Show environment
-        run: |
-          command -v go
-          go version
-
-          go env GOVERSION
-          go env GOOS
-          go env GOARCH
-          go env GOFLAGS
-          go env GOTOOLCHAIN
-
-      - name: Run Quality Gate
+      - name: Run Quality Check Script
         run: |
           chmod +x scripts/check.sh
           ./scripts/check.sh
+
+  staticcheck:
+    name: Staticcheck Analysis
+    runs-on:
+      - self-hosted
+      - rclone-bisync
+    timeout-minutes: 10
+
+    env:
+      GOFLAGS: "-mod=readonly"
+      GOTOOLCHAIN: local
+      STATICCHECK_VERSION: "2025.1.1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.10"
+          cache: false
+
+      - name: Run Staticcheck
+        run: |
+          export PATH="/usr/local/bin:$HOME/go/bin:$PATH"
+          if ! command -v staticcheck &> /dev/null; then
+            go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}
+          fi
+          staticcheck ./...
+
+  fmt-and-vet:
+    name: Go Fmt & Vet
+    runs-on:
+      - self-hosted
+      - rclone-bisync
+    timeout-minutes: 10
+
+    env:
+      GOFLAGS: "-mod=readonly"
+      GOTOOLCHAIN: local
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.10"
+          cache: false
+
+      - name: Check Code Formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files require gofmt formatting:"
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: Run Go Vet
+        run: go vet ./...
