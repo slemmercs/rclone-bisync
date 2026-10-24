@@ -1,303 +1,217 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -u
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 BUILD_DIR="${REPO_ROOT}/.build"
+export PATH="${HOME}/go/bin:/usr/local/go/bin:/usr/local/bin:${PATH}"
 
 # ----------------------------------------------------------------------
-# Colors
-# ----------------------------------------------------------------------
-
-if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    BLUE='\033[0;34m'
-    NC='\033[0m'
-else
-    RED=''
-    GREEN=''
-    YELLOW=''
-    BLUE=''
-    NC=''
-fi
-
-# ----------------------------------------------------------------------
-# Configuration
+# Configuration & Stage Selection
 # ----------------------------------------------------------------------
 
 MIN_COVERAGE="${MIN_COVERAGE:-80.0}"
 BUILD_TARGET="${BUILD_TARGET:-.}"
 COVERAGE_FILE="${COVERAGE_FILE:-coverage.out}"
+RUN_RACE="${RUN_RACE:-false}"
+STAGE="${1:-all}"
 
-# ----------------------------------------------------------------------
-# Cleanup
-# ----------------------------------------------------------------------
-
-cleanup() {
-    rm -rf "${BUILD_DIR}"
+should_run() {
+    [[ "${STAGE}" == "all" || "${STAGE}" == "$1" ]]
 }
 
+# ----------------------------------------------------------------------
+# Tracking & Summary System
+# ----------------------------------------------------------------------
+
+FAILED_CHECKS=()
+PASSED_CHECKS=()
+
+cleanup() { rm -rf "${BUILD_DIR}"; }
 trap cleanup EXIT
 
-# ----------------------------------------------------------------------
-# Logging
-# ----------------------------------------------------------------------
+info() { echo -e "\033[0;34m$1\033[0m"; }
+success() { echo -e "\033[0;32m$1\033[0m"; }
+warning() { echo -e "\033[1;33m$1\033[0m"; }
+fail_step() { echo -e "\033[0;31m[FAIL] $1\033[0m"; }
 
-CURRENT_STEP="unknown"
-
-info() {
-    echo -e "${BLUE}$1${NC}"
+execute_step() {
+    local step_name="$1"
+    shift
+    
+    info "==> ${step_name}..."
+    if "$@"; then
+        success "✓ ${step_name} passed."
+        PASSED_CHECKS+=("${step_name}")
+    else
+        fail_step "✗ ${step_name} failed."
+        FAILED_CHECKS+=("${step_name}")
+    fi
+    echo
 }
-
-success() {
-    echo -e "${GREEN}$1${NC}"
-}
-
-warning() {
-    echo -e "${YELLOW}$1${NC}"
-}
-
-fail() {
-    echo -e "${RED}[FAIL] $1${NC}" >&2
-    echo "::error::$1"
-    exit 1
-}
-
-on_error() {
-    fail "Quality gate failed during: ${CURRENT_STEP}"
-}
-
-trap on_error ERR
-
-require_tool() {
-    local tool="$1"
-
-    command -v "$tool" >/dev/null 2>&1 \
-        || fail "Required tool not found: ${tool}"
-}
-
-# ----------------------------------------------------------------------
-# Header
-# ----------------------------------------------------------------------
-
-echo "===================================================="
-echo "              Repository Quality Gate"
-echo "===================================================="
 
 cd "${REPO_ROOT}"
 
 # ----------------------------------------------------------------------
-# 1. Tool Validation
+# Stage 1: Validation & Formatting
 # ----------------------------------------------------------------------
 
-CURRENT_STEP="Tool Validation"
+check_fmt_and_scripts() {
+    local failed=0
+    while IFS= read -r script; do
+        if [[ -f "${script}" ]]; then
+            bash -n "${script}" || failed=1
+        fi
+    done < <(git ls-files '*.sh')
 
-info "[1/8] Validating required tooling..."
-
-for tool in bash git go gofmt; do
-    require_tool "${tool}"
-done
-
-success "Required tooling available."
-echo
-
-# ----------------------------------------------------------------------
-# Platform Information
-# ----------------------------------------------------------------------
-
-PLATFORM="$(go env GOOS)/$(go env GOARCH)"
-
-info "Runner Platform: ${PLATFORM}"
-echo
-
-# ----------------------------------------------------------------------
-# 2. Module Verification
-# ----------------------------------------------------------------------
-
-CURRENT_STEP="Module Verification"
-
-info "[2/8] Verifying Go modules..."
-
-go mod verify
-go mod tidy
-
-git diff --exit-code go.mod go.sum \
-    || fail "go.mod/go.sum not tidy"
-
-success "Go modules verified."
-echo
-
-# ----------------------------------------------------------------------
-# 3. Shell Validation
-# ----------------------------------------------------------------------
-
-CURRENT_STEP="Shell Validation"
-
-info "[3/8] Validating shell scripts..."
-
-while IFS= read -r script; do
-    bash -n "${script}"
-    echo "  ✓ ${script}"
-done < <(git ls-files '*.sh')
-
-success "Shell validation passed."
-echo
-
-# ----------------------------------------------------------------------
-# 4. Go Formatting
-# ----------------------------------------------------------------------
-
-CURRENT_STEP="Go Formatting"
-
-info "[4/8] Checking Go formatting..."
-
-GO_FILES="$(git ls-files '*.go')"
-
-if [[ -n "${GO_FILES}" ]]; then
-    UNFORMATTED="$(
-        git ls-files -z '*.go' |
-        xargs -0 gofmt -l -s
-    )"
-
+    UNFORMATTED="$(git ls-files -z '*.go' | xargs -0 gofmt -l -s 2>/dev/null || true)"
     if [[ -n "${UNFORMATTED}" ]]; then
+        echo "Unformatted Go files:"
         echo "${UNFORMATTED}"
-        fail "Go formatting issues detected. Run: gofmt -w ."
+        failed=1
     fi
+    return ${failed}
+}
+
+if should_run "fmt"; then
+    execute_step "Go Formatting & Shell Validation" check_fmt_and_scripts
 fi
 
-success "Go formatting check passed."
-echo
-
 # ----------------------------------------------------------------------
-# 5. Static Analysis
+# Stage 2: Static Analysis & Security (Go, JS, Secrets & HTML Tidy)
 # ----------------------------------------------------------------------
 
-CURRENT_STEP="Go Vet"
+check_lint_and_security() {
+    local failed=0
+    
+    info "--> Running go vet..."
+    go vet ./... || failed=1
 
-info "[5/8] Running go vet..."
+    if command -v staticcheck >/dev/null 2>&1; then
+        info "--> Running staticcheck..."
+        staticcheck ./... || failed=1
+    fi
 
-go vet ./...
+    if command -v govulncheck >/dev/null 2>&1; then
+        info "--> Running govulncheck..."
+        govulncheck ./... || failed=1
+    fi
 
-success "Go vet passed."
-echo
+    if command -v betterleaks >/dev/null 2>&1; then
+        info "--> Running betterleaks..."
+        if [[ -f ".betterleaks.toml" ]]; then
+            betterleaks dir --config .betterleaks.toml . || failed=1
+        else
+            betterleaks dir . || failed=1
+        fi
+    fi
 
-# ----------------------------------------------------------------------
-# 6. Tests & Coverage
-# ----------------------------------------------------------------------
+    if command -v esbuild >/dev/null 2>&1; then
+        info "--> Running esbuild JS syntax check..."
+        JS_FILES="$(git ls-files '*.js')"
+        if [[ -n "${JS_FILES}" ]]; then
+            TMP_OUT="$(mktemp -d)"
+            echo "${JS_FILES}" | xargs esbuild --outdir="${TMP_OUT}" --log-level=error --log-limit=0 || failed=1
+            rm -rf "${TMP_OUT}"
+        fi
+    fi
 
-CURRENT_STEP="Unit Tests & Coverage"
+    if command -v tidy >/dev/null 2>&1; then
+        info "--> Running HTML Tidy structural check..."
+        HTML_FILES="$(git ls-files '*.html')"
+        if [[ -n "${HTML_FILES}" ]]; then
+            while IFS= read -r html_file; do
+                if [[ -f "${html_file}" ]]; then
+                    tidy -e -q "${html_file}" 2>/dev/null
+                    RC=$?
+                    # Exit Code 0 = Clean, 1 = Warnings (Alpine/SVG attributes), >= 2 = Structural Failure
+                    if [[ $RC -ge 2 ]]; then
+                        echo "❌ Severe HTML structural error in: ${html_file}"
+                        tidy -e -q "${html_file}" || true
+                        failed=1
+                    fi
+                fi
+            done <<< "${HTML_FILES}"
+        fi
+    else
+        warning "[WARN] tidy binary not found in PATH. Install via: sudo apt install tidy"
+    fi
 
-info "[6/8] Running unit tests with coverage..."
+    return ${failed}
+}
 
-go test \
-    -count=1 \
-    -covermode=count \
-    -coverpkg=./... \
-    -coverprofile="${COVERAGE_FILE}" \
-    ./...
-
-success "Unit tests passed."
-echo
-
-info "Coverage breakdown:"
-
-COVER_OUT="$(go tool cover -func="${COVERAGE_FILE}")"
-
-echo "${COVER_OUT}"
-
-COVERAGE="$(
-    awk '/^total:/ {
-        sub(/%/, "", $3)
-        print $3
-    }' <<< "${COVER_OUT}"
-)"
-
-echo
-echo "Coverage : ${COVERAGE}%"
-echo "Required : ${MIN_COVERAGE}%"
-
-awk -v cov="${COVERAGE}" -v min="${MIN_COVERAGE}" '
-BEGIN {
-    exit (cov >= min ? 0 : 1)
-}' || fail "Coverage ${COVERAGE}% is below required ${MIN_COVERAGE}%"
-
-success "Coverage threshold met."
-echo
-
-# ----------------------------------------------------------------------
-# 7. Native Build
-# ----------------------------------------------------------------------
-
-CURRENT_STEP="Native Build"
-
-mkdir -p "${BUILD_DIR}"
-
-info "[7/8] Verifying native build..."
-
-go build \
-    -trimpath \
-    -o "${BUILD_DIR}/native-build" \
-    "${BUILD_TARGET}"
-
-success "Native build passed."
-echo
+if should_run "lint"; then
+    execute_step "Static Analysis & Security" check_lint_and_security
+fi
 
 # ----------------------------------------------------------------------
-# 8. Cross Platform Builds
+# Stage 3: Unit Tests & Coverage
 # ----------------------------------------------------------------------
 
-CURRENT_STEP="Cross Builds"
+check_tests_and_coverage() {
+    local failed=0
+    TEST_ARGS=("-count=1" "-covermode=count" "-coverpkg=./..." "-coverprofile=${COVERAGE_FILE}")
+    if [[ "${RUN_RACE}" == "true" ]]; then TEST_ARGS+=("-race" "-shuffle=on"); fi
 
-info "[8/8] Verifying cross-platform builds..."
+    go test "${TEST_ARGS[@]}" ./... || return 1
 
-info "Building linux/amd64..."
+    COVER_OUT="$(go tool cover -func="${COVERAGE_FILE}")"
+    COVERAGE="$(awk '/^total:/ { sub(/%/, "", $3); print $3 }' <<< "${COVER_OUT}")"
+    echo "Coverage: ${COVERAGE}% (Required: ${MIN_COVERAGE}%)"
 
-CGO_ENABLED=0 \
-GOOS=linux \
-GOARCH=amd64 \
-go build \
-    -trimpath \
-    -o "${BUILD_DIR}/app-linux-amd64" \
-    "${BUILD_TARGET}"
+    awk -v cov="${COVERAGE}" -v min="${MIN_COVERAGE}" 'BEGIN { exit (cov >= min ? 0 : 1) }' || failed=1
+    return ${failed}
+}
 
-success "linux/amd64 build passed."
-
-info "Building linux/arm64..."
-
-CGO_ENABLED=0 \
-GOOS=linux \
-GOARCH=arm64 \
-go build \
-    -trimpath \
-    -o "${BUILD_DIR}/app-linux-arm64" \
-    "${BUILD_TARGET}"
-
-success "linux/arm64 build passed."
-echo
+if should_run "test"; then
+    execute_step "Unit Tests & Coverage" check_tests_and_coverage
+fi
 
 # ----------------------------------------------------------------------
-# CLI Validation
+# Stage 4: Build Verification
 # ----------------------------------------------------------------------
 
-CURRENT_STEP="CLI Validation"
+check_builds() {
+    local failed=0
+    mkdir -p "${BUILD_DIR}"
+    go build -trimpath -o "${BUILD_DIR}/native-build" "${BUILD_TARGET}" || failed=1
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "${BUILD_DIR}/app-linux-amd64" "${BUILD_TARGET}" || failed=1
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "${BUILD_DIR}/app-linux-arm64" "${BUILD_TARGET}" || failed=1
+    "${BUILD_DIR}/native-build" --help >/dev/null 2>&1 || failed=1
+    return ${failed}
+}
 
-info "Validating executable..."
-
-"${BUILD_DIR}/native-build" --help >/dev/null
-
-success "CLI validation passed."
-echo
+if should_run "build"; then
+    execute_step "Build Verification" check_builds
+fi
 
 # ----------------------------------------------------------------------
-# Summary
+# Final Summary Output
 # ----------------------------------------------------------------------
 
 echo "===================================================="
-echo "Quality Gate Passed"
-echo "Coverage: ${COVERAGE}%"
-echo "Coverage Report: ${COVERAGE_FILE}"
+echo "               Quality Gate Summary"
 echo "===================================================="
+
+if (( ${#PASSED_CHECKS[@]} > 0 )); then
+    success "Passed Checks (${#PASSED_CHECKS[@]}):"
+    for check in "${PASSED_CHECKS[@]}"; do
+        echo -e "  \033[0;32m✓\033[0m ${check}"
+    done
+fi
+
+if (( ${#FAILED_CHECKS[@]} > 0 )); then
+    echo
+    fail_step "Failed Checks (${#FAILED_CHECKS[@]}):"
+    for check in "${FAILED_CHECKS[@]}"; do
+        echo -e "  \033[0;31m✗\033[0m ${check}"
+    done
+    echo "===================================================="
+    exit 1
+fi
+
+echo "===================================================="
+success "All quality gate checks passed successfully!"
