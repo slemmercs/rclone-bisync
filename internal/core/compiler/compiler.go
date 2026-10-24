@@ -158,7 +158,7 @@ func CompileBisyncPayload(
 	if checkAccess, ok := bisyncParams["checkAccess"].(bool); ok && checkAccess {
 		testFile := filepath.Join(localPath, "RCLONE_TEST")
 		if _, err := os.Stat(testFile); os.IsNotExist(err) {
-			return nil, fmt.Errorf("Safety guard triggered: --check-access is enabled, but \x27%s\x27 was not found. Aborting sync to prevent unintended deletions or sync of an unmounted filesystem.", testFile)
+			return nil, fmt.Errorf("safety guard triggered: --check-access is enabled, but \x27%s\x27 was not found - aborting sync to prevent unintended deletions or sync of an unmounted filesystem", testFile)
 		}
 	}
 

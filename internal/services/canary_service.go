@@ -33,7 +33,7 @@ func NewCanaryService(cfg *config.Config, rcClient *client.RcloneClient) *Canary
 // SafeguardCanary checks if the target path is a protected canary file.
 func (c *CanaryService) SafeguardCanary(cleanPath string) error {
 	if filepath.Base(cleanPath) == CanaryFilename {
-		return errors.New("Canary test file (RCLONE_TEST) cannot be deleted")
+		return errors.New("canary test file (RCLONE_TEST) cannot be deleted")
 	}
 	return nil
 }
