@@ -37,9 +37,14 @@
                         <div x-show="auditData.verification.head_hash" class="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl font-mono text-[11px] text-slate-300 flex items-center gap-2">
                             <span class="text-slate-500">HEAD:</span>
                             <span class="text-indigo-300" x-text="auditData.verification.head_hash.substring(0, 10) + '...'"></span>
-                            <button @click="copyHeadHash(auditData.verification.head_hash)" class="text-slate-400 hover:text-white transition-colors" title="Copy head hash">
-                                <span x-show="!auditData.copiedHash">📋</span>
-                                <span x-show="auditData.copiedHash" class="text-emerald-400 text-xs">✓</span>
+                            <button @click="copyHeadHash(auditData.verification.head_hash)" class="text-slate-400 hover:text-white transition-colors flex items-center justify-center p-0.5 rounded hover:bg-slate-900 cursor-pointer" title="Copy head hash">
+                                <svg x-show="!auditData.copiedHash" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                                </svg>
+                                <svg x-show="auditData.copiedHash" class="w-3.5 h-3.5 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
                             </button>
                         </div>
 
@@ -190,7 +195,12 @@
                             </h3>
                             <p class="text-xs text-slate-400 mt-1 font-mono" x-text="auditData.selectedRecord?.timestamp"></p>
                         </div>
-                        <button @click="closeAuditDetailsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">✕</button>
+                        <button @click="closeAuditDetailsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer" title="Close modal">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
                     </div>
 
                     <div class="space-y-4 py-4 overflow-y-auto flex-1 font-mono text-xs">
