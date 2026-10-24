@@ -1,0 +1,33 @@
+{{ define "modal_reconnect" }}
+    <!-- Remote Reconnect Status Modal -->
+    <div x-show="reconnectModal.show" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-4 text-center">
+            <div class="mx-auto w-12 h-12 rounded-2xl flex items-center justify-center" :class="reconnectModal.error ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : (reconnectModal.loading ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')">
+                <svg x-show="reconnectModal.loading" class="w-6 h-6 animate-spin text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <svg x-show="!reconnectModal.loading && !reconnectModal.error" class="w-6 h-6 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                <svg x-show="reconnectModal.error" class="w-6 h-6 text-rose-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12.01" x2="12.01" y1="16" y2="16"/></svg>
+            </div>
+
+            <div>
+                <h3 class="text-base font-bold text-white" x-text="reconnectModal.loading ? 'Authorizing in Browser...' : (reconnectModal.error ? 'Reconnect Failed' : 'Re-Authentication Successful')"></h3>
+                <p class="text-xs text-slate-400 mt-1" x-text="`Remote: ${reconnectModal.remote}`"></p>
+            </div>
+
+            <div class="text-xs text-slate-300 bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                <p x-text="reconnectModal.msg || reconnectModal.error || 'Please grant access in the browser window that opened.'"></p>
+                <div x-show="reconnectModal.authUrl" class="pt-2 border-t border-slate-800/80">
+                    <span class="text-[11px] text-slate-400 block mb-1">If the browser did not open automatically:</span>
+                    <a :href="reconnectModal.authUrl" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 font-mono text-[11px] underline break-all inline-flex items-center gap-1">
+                        <span>Open OAuth Authorization Page</span>
+                        <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </a>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 pt-1">
+                <button x-show="reconnectModal.loading" @click="stopOAuth()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors">Cancel Authorization</button>
+                <button x-show="!reconnectModal.loading" @click="reconnectModal.show = false" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-colors">Done</button>
+            </div>
+        </div>
+    </div>
+{{ end }}

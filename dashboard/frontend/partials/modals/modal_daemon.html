@@ -1,0 +1,91 @@
+{{ define "modal_daemon" }}
+    <!-- Focused Correlated Daemon Log Modal (Branch 6) -->
+    <div x-show="showDaemonModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20 shrink-0">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Correlated Daemon Logs</h3>
+                            <span x-show="daemonModalRun?.run_id" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60" x-text="daemonModalRun?.run_id"></span>
+                            <span x-show="daemonModalRun?.job_id" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60" x-text="'Job: #' + daemonModalRun?.job_id"></span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-0.5 flex items-center gap-3 font-mono">
+                            <span x-text="daemonModalRun ? `${daemonModalRun.duration_sec != null ? daemonModalRun.duration_sec.toFixed(1) + 's' : ''} • ${daemonModalRun.files_synced != null ? daemonModalRun.files_synced + ' transferred' : ''}` : 'Continuous stream'"></span>
+                            <span class="text-slate-600">|</span>
+                            <span x-text="`${filteredDaemonModalLogs.length} line(s) loaded`"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button @click="copyDaemonLogs()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 border border-slate-700/60">
+                        <svg x-show="!daemonModalCopied" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg x-show="daemonModalCopied" class="w-3.5 h-3.5 shrink-0 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span x-text="daemonModalCopied ? 'Copied!' : 'Copy'"></span>
+                    </button>
+                    <a href="/api/logs/daemon/raw" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 border border-slate-700/60">
+                        <span>Raw</span>
+                        <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </a>
+                    <button @click="closeDaemonModal()" class="text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800">
+                        <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Filter Bar -->
+            <div class="px-4 py-2.5 bg-slate-950/80 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-500 font-mono text-[11px]">Filter:</span>
+                    <button @click="daemonModalLevelFilter = 'all'" :class="daemonModalLevelFilter === 'all' ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors">All</button>
+                    <button @click="daemonModalLevelFilter = 'error'" :class="daemonModalLevelFilter === 'error' ? 'bg-rose-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-rose-400'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors">Errors</button>
+                    <button @click="daemonModalLevelFilter = 'warning'" :class="daemonModalLevelFilter === 'warning' ? 'bg-amber-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-amber-400'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors">Warnings</button>
+                    <button @click="daemonModalLevelFilter = 'info'" :class="daemonModalLevelFilter === 'info' ? 'bg-emerald-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-emerald-400'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors">Info</button>
+                </div>
+                <div class="flex-1 max-w-xs">
+                    <input type="text" x-model="daemonModalSearch" placeholder="Search daemon output..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono transition-colors">
+                </div>
+            </div>
+            <!-- Modal Body (Terminal Box) -->
+            <div class="p-4 font-mono text-xs overflow-y-auto flex-1 h-[28rem] bg-slate-950 text-left space-y-1">
+                <div x-show="daemonModalLoading" class="text-indigo-400 animate-pulse text-center py-10 font-mono">Loading correlated daemon logs...</div>
+                <template x-for="(entry, idx) in filteredDaemonModalLogs" :key="idx">
+                    <div class="py-1.5 border-b border-slate-900/40 hover:bg-slate-900/20 transition-colors flex items-start gap-x-2 text-[11px] font-mono leading-relaxed text-left">
+                        <span class="text-slate-500 select-none shrink-0" x-text="'[' + entry.time + ']'"></span>
+                        <span :class="entry.levelClass" class="select-none shrink-0 w-14 font-bold" x-text="entry.level"></span>
+                        <div class="text-slate-200 min-w-0 flex-1 break-words text-left">
+                            <span class="whitespace-pre-wrap" x-text="entry.msg"></span>
+                            <span x-show="entry.object" class="text-indigo-400/90 text-[10px] bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-900/40 ml-1.5 font-sans inline-block" x-text="'→ ' + entry.object"></span>
+                            <span x-show="entry.objectType" class="text-slate-400 text-[9px] bg-slate-900 px-1 py-0.2 rounded border border-slate-800 ml-1 font-mono inline-block" x-text="entry.objectType"></span>
+
+                            <!-- Structured Details Grid (e.g. Comparison Settings) -->
+                            <template x-if="entry.details">
+                                <div class="mt-1.5 p-2 rounded-lg bg-slate-900/80 border border-slate-800/70 grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px] font-mono">
+                                    <template x-for="(val, key) in entry.details" :key="key">
+                                        <div class="flex items-center justify-between px-2 py-0.5 rounded bg-slate-950 border border-slate-800/50">
+                                            <span class="text-slate-400 truncate mr-2" x-text="key + ':'"></span>
+                                            <span :class="typeof val === 'boolean' ? (val ? 'text-emerald-400 font-semibold' : 'text-slate-500') : 'text-amber-400 font-medium'" x-text="String(val)"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <span x-show="entry.source" class="text-slate-600 text-[10px] font-mono shrink-0 select-none hidden sm:inline-block" x-text="entry.source"></span>
+                    </div>
+                </template>
+                <div x-show="!daemonModalLoading && filteredDaemonModalLogs.length === 0" class="text-slate-500 text-center py-10 font-mono text-xs">No daemon logs found matching the filter or run window.</div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3 border-t border-slate-800 bg-slate-950/60 flex justify-between items-center text-xs text-slate-500">
+                <span x-show="daemonModalRun" class="font-mono text-[11px]" x-text="'Window: ' + (daemonModalRun?.start_time || '--') + ' → ' + (daemonModalRun?.end_time || '--')"></span>
+                <span x-show="!daemonModalRun" class="font-mono text-[11px]">Unfiltered recent tail</span>
+                <button @click="closeDaemonModal()" class="px-4 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-700 transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+{{ end }}

@@ -11,7 +11,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -938,4 +940,105 @@ func TestReviewEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 for nil review action-batch, got: %d", rec.Code)
 	}
 
+}
+func TestServer_RootHandler_TemplateAssembly(t *testing.T) {
+	cfg := &config.Config{BaseDir: t.TempDir()}
+	syncSvc := services.NewSyncService(cfg, nil)
+
+	// 1. Valid template structure with partials
+	mockFS := fstest.MapFS{
+		"dashboard/frontend/index.html": &fstest.MapFile{
+			Data: []byte(`<!DOCTYPE html><html><body>{{ template "view_telemetry" . }}{{ template "modal_review" . }}</body></html>`),
+		},
+		"dashboard/frontend/partials/view_telemetry.html": &fstest.MapFile{
+			Data: []byte(`{{ define "view_telemetry" }}<div id="telemetry-view">Telemetry Content</div>{{ end }}`),
+		},
+		"dashboard/frontend/partials/modals/modal_review.html": &fstest.MapFile{
+			Data: []byte(`{{ define "modal_review" }}<div id="review-modal">Review Modal Content</div>{{ end }}`),
+		},
+	}
+
+	srv := NewServer(cfg, syncSvc, mockFS)
+
+	req, _ := http.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for root index, got: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `<div id="telemetry-view">Telemetry Content</div>`) {
+		t.Fatalf("expected assembled view_telemetry, got: %s", body)
+	}
+	if !strings.Contains(body, `<div id="review-modal">Review Modal Content</div>`) {
+		t.Fatalf("expected assembled modal_review, got: %s", body)
+	}
+
+	// 2. Fallback when templates fail to parse (e.g. invalid syntax in partial)
+	brokenFS := fstest.MapFS{
+		"dashboard/frontend/index.html": &fstest.MapFile{
+			Data: []byte(`<!DOCTYPE html><html><body>Raw Fallback Content</body></html>`),
+		},
+		"dashboard/frontend/partials/broken.html": &fstest.MapFile{
+			Data: []byte(`{{ define "broken" }} {{ end `), // Syntax error
+		},
+	}
+	brokenSrv := NewServer(cfg, syncSvc, brokenFS)
+	req, _ = http.NewRequest("GET", "/", nil)
+	rec = httptest.NewRecorder()
+	brokenSrv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for fallback index.html, got: %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Raw Fallback Content") {
+		t.Fatalf("expected raw fallback content, got: %s", rec.Body.String())
+	}
+}
+
+func TestServer_RootHandler_RealFileSystem(t *testing.T) {
+	cfg := &config.Config{BaseDir: t.TempDir()}
+	syncSvc := services.NewSyncService(cfg, nil)
+
+	// Use real filesystem from repository root
+	realFS := os.DirFS("../..")
+	srv := NewServer(cfg, syncSvc, realFS)
+
+	req, _ := http.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for real root index, got: %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+
+	// Verify all views are assembled
+	expectedViewMarkers := []string{
+		"Engine: ",
+		"Total Cloud Space",
+		"Dual-Pane Directory Explorer",
+	}
+	for _, marker := range expectedViewMarkers {
+		if !strings.Contains(body, marker) {
+			t.Errorf("missing expected view marker in assembled template: %q", marker)
+		}
+	}
+
+	// Verify modals are assembled
+	expectedModalMarkers := []string{
+		"Confirm Deletion",
+		"Sync Review & Resolution",
+		"Pending Deletions Review",
+		"Loading correlated daemon logs...",
+		"OAuth App Configuration",
+		"Authorizing in Browser...",
+		"OAuth Authentication Audit Log",
+	}
+	for _, marker := range expectedModalMarkers {
+		if !strings.Contains(body, marker) {
+			t.Errorf("missing expected modal marker in assembled template: %q", marker)
+		}
+	}
 }
