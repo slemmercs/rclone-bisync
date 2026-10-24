@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -31,6 +32,23 @@ type Server struct {
 	AuthService      *remoteauth.RemoteAuthService
 	FrontendFS       fs.FS
 	Mux              *http.ServeMux
+	Version          string
+}
+
+var versionRegex = regexp.MustCompile(`^v?(\d+)\.(\d+)`)
+
+// FormatMajorMinor normalizes a version string into vMajor.Minor format (e.g. "v1.0.0-beta.1" -> "v1.0", "dev" -> "v1.0").
+func FormatMajorMinor(raw string) string {
+	matches := versionRegex.FindStringSubmatch(strings.TrimSpace(raw))
+	if len(matches) >= 3 {
+		return "v" + matches[1] + "." + matches[2]
+	}
+	return "v1.0"
+}
+
+// FormatMajorMinorVersion returns the configured version in vMajor.Minor format.
+func (s *Server) FormatMajorMinorVersion() string {
+	return FormatMajorMinor(s.Version)
 }
 
 func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS fs.FS) *Server {
@@ -225,12 +243,16 @@ func (s *Server) routes() {
 						http.Error(w, "index.html not found", http.StatusNotFound)
 						return
 					}
+					rendered := strings.ReplaceAll(string(indexHTML), "{{ .Version }}", s.FormatMajorMinorVersion())
 					w.Header().Set("Content-Type", "text/html; charset=utf-8")
-					_, _ = w.Write(indexHTML)
+					_, _ = w.Write([]byte(rendered))
 					return
 				}
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				if err := indexTmpl.Execute(w, nil); err != nil {
+				tmplData := map[string]any{
+					"Version": s.FormatMajorMinorVersion(),
+				}
+				if err := indexTmpl.Execute(w, tmplData); err != nil {
 					http.Error(w, fmt.Sprintf("failed to render template: %v", err), http.StatusInternalServerError)
 				}
 			})

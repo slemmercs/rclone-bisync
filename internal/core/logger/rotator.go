@@ -36,17 +36,11 @@ func NewRotator(filePath string, maxSize int64, maxBackups int) (*Rotator, error
 		maxBackups = 5
 	}
 
-	r := &Rotator{
+	return &Rotator{
 		filePath:   filePath,
 		maxSize:    maxSize,
 		maxBackups: maxBackups,
-	}
-
-	if err := r.openFile(); err != nil {
-		return nil, err
-	}
-
-	return r, nil
+	}, nil
 }
 
 func (r *Rotator) openFile() error {

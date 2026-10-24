@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented (v2.4 Enterprise)
+Implemented (OAuth Connection Manager)
 
 ## Priority
 

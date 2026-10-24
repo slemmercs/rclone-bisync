@@ -88,6 +88,7 @@ func runDashboard(host string, port int, envFile string) {
 
 	syncSvc := services.NewSyncService(cfg, nil)
 	srv := server.NewServer(cfg, syncSvc, frontendFS)
+	srv.Version = Version
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	httpServer := &http.Server{
