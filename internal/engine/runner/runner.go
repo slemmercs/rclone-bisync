@@ -6,9 +6,11 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/classifier"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
@@ -19,7 +21,13 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/review"
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
+
+// AuditRecorder provides audit event recording capability for sync runs.
+type AuditRecorder interface {
+	RecordEvent(profileID string, action audit.Action, actor string, details map[string]any) (*audit.AuditRecord, error)
+}
 
 // SyncRunner coordinates bidirectional synchronization runs.
 type SyncRunner struct {
@@ -28,10 +36,14 @@ type SyncRunner struct {
 	Client   *client.RcloneClient
 	Notifier *notifier.Dispatcher
 	Logger   *logger.Logger
+	Audit    AuditRecorder
 }
 
 // NewSyncRunner creates a configured SyncRunner instance.
 func NewSyncRunner(cfg *config.Config) *SyncRunner {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
 	user := ""
 	pass := ""
 	if cfg.RCAuthEnabled {
@@ -50,12 +62,20 @@ func NewSyncRunner(cfg *config.Config) *SyncRunner {
 	)
 	runLogger, _ := logger.New(cfg.LogFile, true)
 
+	var auditRec AuditRecorder
+	if cfg.AuditDBPath != "" {
+		if db, err := audit.OpenDB(cfg.AuditDBPath); err == nil && db != nil {
+			auditRec = services.NewAuditService(db, runLogger)
+		}
+	}
+
 	return &SyncRunner{
 		Config:   cfg,
 		LockMgr:  lockMgr,
 		Client:   rcClient,
 		Notifier: dispatcher,
 		Logger:   runLogger,
+		Audit:    auditRec,
 	}
 }
 
@@ -93,6 +113,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
+		r.recordAuditAborted(runID, origin, "LOCK_CONTENTION", "Another sync process is already running or lock acquisition failed", resync, force, dryRun)
 		return false
 	}
 	defer r.LockMgr.Release()
@@ -114,6 +135,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
+		r.recordAuditAborted(runID, origin, "RATE_LIMIT_BACKOFF", "Rate limit backoff is active (use --force to override)", resync, force, dryRun)
 		return false
 	}
 
@@ -144,6 +166,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
+		r.recordAuditAborted(runID, origin, "CANARY_GUARD", err.Error(), resync, force, dryRun)
 		if !noNotify {
 			_ = r.Notifier.SendDesktop("Sync Aborted - Canary Safety Guard", err.Error(), "critical")
 		}
@@ -169,6 +192,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
+		r.recordAuditAborted(runID, origin, errType, errStr, resync, force, dryRun)
 		if !noNotify && r.Notifier.ShouldNotifyError(errType, notificationState.LastErrorType, notificationState.LastErrorTimestamp) {
 			_ = r.Notifier.SendDesktop(fmt.Sprintf("Sync Dispatch Error - %s", errType), errStr, "critical")
 		}
@@ -228,6 +252,12 @@ func (r *SyncRunner) Run(
 		if !noNotify {
 			_ = r.Notifier.SendDesktop("Rclone Bisync Successful", fmt.Sprintf("Synced %d files in %.1fs", monitorRes.FilesSynced, duration), "normal")
 		}
+
+		// Emit SYNC_EXECUTED if files were synced OR triggered manually (dashboard / cli)
+		if monitorRes.FilesSynced > 0 || origin != "timer" {
+			r.recordAuditExecuted(runID, jobID, origin, duration, monitorRes.FilesSynced, resync, force, dryRun)
+		}
+
 		return true
 	}
 
@@ -235,6 +265,8 @@ func (r *SyncRunner) Run(
 	if errType == "" && monitorRes.ErrorMessage != "" {
 		errType = classifier.ClassifyError(monitorRes.ErrorMessage)
 	}
+
+	r.recordAuditAborted(runID, origin, errType, monitorRes.ErrorMessage, resync, force, dryRun)
 
 	log.Printf("Sync failed [%s]: %s", errType, monitorRes.ErrorMessage)
 	if r.Logger != nil {
@@ -273,34 +305,47 @@ func (r *SyncRunner) Run(
 	}
 
 	if errType == "TOO_MANY_DELETES" || errType == "CONFLICT" {
+		var logLines []string
+		if r.Config.BaseDir != "" {
+			daemonLog := filepath.Join(r.Config.BaseDir, "rclone-daemon.log")
+			if data, err := os.ReadFile(daemonLog); err == nil {
+				logLines = append(logLines, strings.Split(string(data), "\n")...)
+			}
+		}
+		if r.Config.LogFile != "" {
+			if data, err := os.ReadFile(r.Config.LogFile); err == nil {
+				logLines = append(logLines, strings.Split(string(data), "\n")...)
+			}
+		}
+		if len(logLines) == 0 && monitorRes.ErrorMessage != "" {
+			logLines = []string{monitorRes.ErrorMessage}
+		}
+
+		deletions, conflicts, _ := review.DiscoverCandidates(
+			logLines,
+			r.Config.PendingDeletionsFile,
+			r.Config.LocalPath,
+		)
+
+		var fileList []string
+		for _, d := range deletions {
+			fileList = append(fileList, d.Path)
+		}
+
 		_ = state.WriteJSONAtomic(r.Config.PendingDeletionsFile, map[string]interface{}{
 			"aborted_at":    float64(time.Now().Unix()),
 			"has_deletions": errType == "TOO_MANY_DELETES",
 			"error":         monitorRes.ErrorMessage,
 			"message":       monitorRes.ErrorMessage,
 			"error_type":    errType,
+			"files":         fileList,
+			"total_count":   len(fileList),
 		})
 
-		if r.Config.ActiveReviewFile != "" {
-			var logLines []string
-			if r.Config.LogFile != "" {
-				if data, err := os.ReadFile(r.Config.LogFile); err == nil {
-					logLines = strings.Split(string(data), "\n")
-				}
-			}
-			if len(logLines) == 0 && monitorRes.ErrorMessage != "" {
-				logLines = []string{monitorRes.ErrorMessage}
-			}
-			deletions, conflicts, _ := review.DiscoverCandidates(
-				logLines,
-				r.Config.PendingDeletionsFile,
-				r.Config.LocalPath,
-			)
-			if len(deletions) > 0 || len(conflicts) > 0 {
-				sess := review.NewSession(errType, monitorRes.ErrorMessage, deletions, conflicts)
-				_ = review.Transition(sess, models.ReviewStatusReviewing)
-				_ = review.SaveActiveSession(r.Config.ActiveReviewFile, sess)
-			}
+		if r.Config.ActiveReviewFile != "" && (len(deletions) > 0 || len(conflicts) > 0) {
+			sess := review.NewSession(errType, monitorRes.ErrorMessage, deletions, conflicts)
+			_ = review.Transition(sess, models.ReviewStatusReviewing)
+			_ = review.SaveActiveSession(r.Config.ActiveReviewFile, sess)
 		}
 	}
 
@@ -316,4 +361,51 @@ func (r *SyncRunner) Run(
 	}
 
 	return false
+}
+
+func (r *SyncRunner) recordAuditExecuted(runID string, jobID int, origin string, durationSec float64, filesSynced int, resync, force, dryRun bool) {
+	if r.Audit == nil {
+		return
+	}
+	profileID := "default"
+	if r.Config != nil && r.Config.RemotePath != "" {
+		profileID = r.Config.RemotePath
+	}
+	actor := "SYSTEM"
+	if origin == "dashboard" || origin == "cli" {
+		actor = "USER"
+	}
+	_, _ = r.Audit.RecordEvent(profileID, audit.ActionSyncExecuted, actor, map[string]any{
+		"run_id":       runID,
+		"job_id":       jobID,
+		"origin":       origin,
+		"duration_sec": durationSec,
+		"files_synced": filesSynced,
+		"resync":       resync,
+		"force":        force,
+		"dry_run":      dryRun,
+	})
+}
+
+func (r *SyncRunner) recordAuditAborted(runID string, origin string, errType string, errMsg string, resync, force, dryRun bool) {
+	if r.Audit == nil {
+		return
+	}
+	profileID := "default"
+	if r.Config != nil && r.Config.RemotePath != "" {
+		profileID = r.Config.RemotePath
+	}
+	actor := "SYSTEM"
+	if origin == "dashboard" || origin == "cli" {
+		actor = "USER"
+	}
+	_, _ = r.Audit.RecordEvent(profileID, audit.ActionSyncAborted, actor, map[string]any{
+		"run_id":     runID,
+		"origin":     origin,
+		"error_type": errType,
+		"error":      errMsg,
+		"resync":     resync,
+		"force":      force,
+		"dry_run":    dryRun,
+	})
 }

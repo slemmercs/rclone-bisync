@@ -107,6 +107,15 @@ func TestExplorerService_BrowsePath(t *testing.T) {
 		t.Fatalf("expected 2 items, got: %d", len(res.Items))
 	}
 
+	// 1b. Root canary inherited by subfolder without canary
+	rootCanaryDir := filepath.Join(tmpDir, "subwithoutcanary")
+	_ = os.MkdirAll(rootCanaryDir, 0755)
+	_ = os.WriteFile(filepath.Join(tmpDir, "RCLONE_TEST"), []byte("root-canary"), 0644)
+	resSubWithout := expSvc.BrowsePath(context.Background(), "local", "subwithoutcanary")
+	if !resSubWithout.HasCanary {
+		t.Fatal("expected subfolder to inherit root canary status")
+	}
+
 	// 2. Traversal attempt forbidden
 	resTraversal := expSvc.BrowsePath(context.Background(), "local", "../../etc")
 	if resTraversal.Error != "Directory traversal forbidden" {

@@ -93,6 +93,30 @@ func TestDiscoverCandidates_LogLines(t *testing.T) {
 		t.Fatalf("expected config.yaml, got %s", conflicts[0].Path)
 	}
 }
+func TestDiscoverCandidates_FilenamesWithSpaces(t *testing.T) {
+	logLines := []string{
+		`{"time":"2026-10-24T22:16:00Z","level":"info","msg":"- Path2             File was deleted                            - Csaba/etc/Daimler Corporate Color Palette.xlsx"}`,
+		`{"time":"2026-10-24T22:16:00Z","level":"info","msg":"- Path2             File was deleted                            - Csaba/etc/Lime Aioli.docx"}`,
+		`{"time":"2026-10-24T22:16:00Z","level":"error","msg":"too many deletes (>0%, 4 of 7061) on Path2 \"/home/csaba/gdrive/\". Run with --force if desired."}`,
+	}
+
+	deletions, _, err := DiscoverCandidates(logLines, "", "")
+	if err != nil {
+		t.Fatalf("DiscoverCandidates failed: %v", err)
+	}
+
+	if len(deletions) != 2 {
+		t.Fatalf("expected 2 deletions, got %d", len(deletions))
+	}
+	expected0 := "Csaba/etc/Daimler Corporate Color Palette.xlsx"
+	expected1 := "Csaba/etc/Lime Aioli.docx"
+	if deletions[0].Path != expected0 && deletions[1].Path != expected0 {
+		t.Fatalf("expected deletion with spaces %q, got: %v", expected0, deletions)
+	}
+	if deletions[0].Path != expected1 && deletions[1].Path != expected1 {
+		t.Fatalf("expected deletion with spaces %q, got: %v", expected1, deletions)
+	}
+}
 
 func TestDiscoverCandidates_FilesystemConflicts(t *testing.T) {
 	tmpDir := t.TempDir()

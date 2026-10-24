@@ -312,3 +312,60 @@ func TestReviewService_ApplyBatchRecommendations(t *testing.T) {
 		t.Errorf("expected conf-truncation (CRITICAL risk) to remain unresolved, got %s", active.Conflicts[2].Decision)
 	}
 }
+
+func TestReviewService_DiscoverFromDaemonLog(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	svc := NewReviewService(cfg, nil)
+
+	// Daemon log with files containing spaces
+	daemonLog := filepath.Join(cfg.BaseDir, "rclone-daemon.log")
+	logContent := `{"time":"2026-10-24T22:16:00Z","level":"info","msg":"- Path2             File was deleted                            - Csaba/etc/Daimler Corporate Color Palette.xlsx"}` + "\n" +
+		`{"time":"2026-10-24T22:16:00Z","level":"error","msg":"too many deletes (>0%, 4 of 7061) on Path2 \"/home/csaba/gdrive/\". Run with --force if desired."}` + "\n"
+	_ = os.WriteFile(daemonLog, []byte(logContent), 0644)
+
+	// bisync.log has only summary error
+	_ = os.WriteFile(cfg.LogFile, []byte(`{"time":"2026-10-24T22:16:00+02:00","level":"error","msg":"Sync failed [TOO_MANY_DELETES]: too many deletes"}`+"\n"), 0644)
+
+	// Pending deletions marker exists
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"error":"too many deletes"}`), 0644)
+
+	sess, err := svc.GetActiveSession(context.Background())
+	if err != nil || sess == nil {
+		t.Fatalf("expected active session auto-discovered from daemon log: %v, err: %v", sess, err)
+	}
+
+	if len(sess.Deletions) != 1 {
+		t.Fatalf("expected 1 deletion candidate, got %d", len(sess.Deletions))
+	}
+	expectedPath := "Csaba/etc/Daimler Corporate Color Palette.xlsx"
+	if sess.Deletions[0].Path != expectedPath {
+		t.Fatalf("expected candidate path %q, got %q", expectedPath, sess.Deletions[0].Path)
+	}
+}
+
+func TestReviewService_AutoDismissEmptySession(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	svc := NewReviewService(cfg, nil)
+
+	// Empty logs
+	_ = os.WriteFile(cfg.LogFile, []byte(""), 0644)
+
+	// Pending deletions marker exists but no logs have files
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"error":"too many deletes"}`), 0644)
+
+	sess, err := svc.GetActiveSession(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sess != nil {
+		t.Fatalf("expected empty session to be cleaned up and return nil, got: %+v", sess)
+	}
+
+	// Pending deletions file should be removed
+	if _, err := os.Stat(cfg.PendingDeletionsFile); !os.IsNotExist(err) {
+		t.Fatal("expected pending deletions file to be removed when empty")
+	}
+	if svc.HasBlockingReview() {
+		t.Fatal("expected no blocking review for empty session")
+	}
+}

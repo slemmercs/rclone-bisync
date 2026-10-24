@@ -59,7 +59,9 @@ window.ExplorerModule = {
                     pane.hasCanary = false;
                 } else {
                     pane.path = data.path || "";
-                    pane.hasCanary = Boolean(data.has_canary);
+                    if (!path) {
+                        pane.hasCanary = Boolean(data.has_canary);
+                    }
                     pane.items = data.items || [];
                     pane.itemCount = pane.items.length;
                     pane.totalSize = pane.items.reduce((acc, item) => (item.Size > 0 ? acc + item.Size : acc), 0);
@@ -204,10 +206,11 @@ window.ExplorerModule = {
                         "Content-Type": "application/json",
                         "X-Dashboard-Request": "1"
                     },
-                    body: JSON.stringify({ remote: pane.target, path: pane.path })
+                    body: JSON.stringify({ remote: pane.target, path: "" })
                 });
                 const data = await res.json();
                 if (data.status === "success") {
+                    pane.hasCanary = true;
                     this.fetchExplorerDirectory(paneKey, pane.target, pane.path);
                 } else {
                     alert(data.error || "Failed to provision canary");
