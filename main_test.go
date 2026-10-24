@@ -167,3 +167,9 @@ func TestRunCanaryLocalExecution(t *testing.T) {
 		t.Fatalf("expected canary file to be created at %s", canaryFile)
 	}
 }
+
+func TestVersionDefault(t *testing.T) {
+	if Version == "" {
+		t.Fatal("expected Version to have a default value")
+	}
+}
