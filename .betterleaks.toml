@@ -2,8 +2,7 @@
 useDefault = true
 
 # Ignore all test directories and test files
-[[allowlists]]
-description = "Ignore unit test mock fixtures and security test vectors"
+[allowlist]
 paths = [
   '''(^|/)tests/''',
   '''_test\.go$''',
