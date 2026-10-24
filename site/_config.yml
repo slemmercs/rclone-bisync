@@ -1,0 +1,37 @@
+# Bisync Hub Documentation & Showcase Configuration
+title: Bisync Hub
+description: Production-grade bidirectional synchronization, audit ledger, and safety orchestrator for Rclone.
+theme: just-the-docs
+
+# Deployment URL configuration
+url: "https://slemmercs.github.io"
+baseurl: "/rclone-bisync"
+
+# Visual Theme & Dark Mode
+color_scheme: dark
+
+# Search Engine (Lunr.js)
+search_enabled: true
+search:
+  heading_level: 3
+  previews: 3
+heading_anchors: true
+
+# Auxiliary Links (Top Right)
+aux_links:
+  "GitHub Repository":
+    - "https://github.com/slemmercs/rclone-bisync"
+  "Releases":
+    - "https://github.com/slemmercs/rclone-bisync/releases"
+
+# Custom Callouts
+callouts:
+  safety:
+    title: Safety Protocol
+    color: green
+  warning:
+    title: Critical Notice
+    color: red
+  note:
+    title: Operational Note
+    color: blue
