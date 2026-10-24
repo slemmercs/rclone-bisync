@@ -66,6 +66,39 @@ func TestEmbeddedFrontendFS(t *testing.T) {
 	}
 }
 
+func TestTemplateHTMLBalancedTags(t *testing.T) {
+	err := fs.WalkDir(frontendFS, "dashboard/frontend", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".html") {
+			return nil
+		}
+		contentBytes, err := fs.ReadFile(frontendFS, path)
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", path, err)
+		}
+		content := string(contentBytes)
+
+		openDivs := strings.Count(content, "<div")
+		closeDivs := strings.Count(content, "</div>")
+		if openDivs != closeDivs {
+			t.Errorf("unbalanced <div> tags in %s: %d open vs %d close", path, openDivs, closeDivs)
+		}
+
+		openMains := strings.Count(content, "<main")
+		closeMains := strings.Count(content, "</main>")
+		if openMains != closeMains {
+			t.Errorf("unbalanced <main> tags in %s: %d open vs %d close", path, openMains, closeMains)
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("WalkDir failed: %v", err)
+	}
+}
+
 func TestSubcommandFlagParsing(t *testing.T) {
 	// 1. Dashboard subcommand flagset
 	dashCmd := flag.NewFlagSet("dashboard", flag.ContinueOnError)
