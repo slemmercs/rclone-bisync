@@ -27,6 +27,7 @@ Decompose the monolithic 1,500+ LOC `dashboard/frontend/index.html` into clean, 
 - 2026-10-24: Completed Tasks 1 & 2: Carved out all sub-views and modals into `dashboard/frontend/partials/` and `dashboard/frontend/partials/modals/` wrapped in named `{{ define "..." }}` blocks.
 - 2026-10-24: Completed Task 3: Streamlined `dashboard/frontend/index.html` to a 95 LOC master shell, updated `internal/server/server.go` to parse templates at startup with fallback, and added comprehensive unit tests in `internal/server/server_test.go` verifying template assembly with both mock and real filesystems.
 - 2026-10-24: Completed Task 4: Ran `./scripts/check.sh` with 8/8 quality checks passing, zero vet warnings, and 83.2% statement coverage.
+- 2026-10-24: Fixed UI daemon modal crash (object iteration in Alpine `modal_daemon.html`), corrected SVG arc flag syntax in `view_telemetry.html`, silenced offline vendor Tailwind console notice, wired click handlers to daemon status tiles, and updated active binary in `/home/csaba/rclone-bisync/bin/rclone-bisync`.
 
 
 

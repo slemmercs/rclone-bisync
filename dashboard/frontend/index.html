@@ -45,7 +45,7 @@
                 </div>
 
                 <!-- Global Daemon Health & Latency Pill -->
-                <div class="flex items-center gap-2.5 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl self-start md:self-auto font-mono text-xs">
+                <div @click="openDaemonModal(null)" class="flex items-center gap-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-3 py-1.5 rounded-xl self-start md:self-auto font-mono text-xs cursor-pointer transition-colors" title="Click to view live daemon stream and correlated logs">
                     <span class="relative flex h-2 w-2">
                         <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-rose-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
                         <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-500' : 'bg-rose-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
