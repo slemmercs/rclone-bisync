@@ -165,17 +165,10 @@ func CompileBisyncPayload(
 		}
 	}
 
-	// Auto-detect bisync.filters if not explicitly provided
-	if bisyncParams["filtersFile"] == nil {
-		filterCandidates := []string{
-			"bisync.filters",
-			filepath.Join(os.Getenv("HOME"), "rclone-bisync", "bisync.filters"),
-		}
-		for _, fc := range filterCandidates {
-			if fi, err := os.Stat(fc); err == nil && !fi.IsDir() {
-				bisyncParams["filtersFile"] = fc
-				break
-			}
+	// Ensure filtersFile is an absolute path if explicitly provided
+	if ff, ok := bisyncParams["filtersFile"].(string); ok && ff != "" {
+		if abs, err := filepath.Abs(ff); err == nil {
+			bisyncParams["filtersFile"] = abs
 		}
 	}
 
