@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // ListRemotes queries /config/listremotes to list configured cloud providers.
@@ -193,6 +195,73 @@ func (c *RcloneClient) OAuthStop(ctx context.Context) error {
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("config/oauthstop returned HTTP %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// GetProviders queries /config/providers and returns available storage backends and their schemas.
+func (c *RcloneClient) GetProviders(ctx context.Context) ([]models.Provider, error) {
+	resp, body, err := c.post(ctx, "config/providers", nil, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("config/providers returned HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var res models.ProvidersResponse
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal providers response: %w", err)
+	}
+	return res.Providers, nil
+}
+
+// CreateRemote creates a new remote configuration via /config/create.
+func (c *RcloneClient) CreateRemote(ctx context.Context, name, remoteType string, parameters map[string]interface{}, opt map[string]interface{}) error {
+	cleanName := strings.TrimRight(name, ":")
+	if cleanName == "" {
+		return fmt.Errorf("remote name cannot be empty")
+	}
+	if remoteType == "" {
+		return fmt.Errorf("remote type cannot be empty")
+	}
+
+	payload := map[string]interface{}{
+		"name":       cleanName,
+		"type":       remoteType,
+		"parameters": parameters,
+	}
+	if len(opt) > 0 {
+		payload["opt"] = opt
+	}
+
+	resp, body, err := c.post(ctx, "config/create", payload, 15*time.Second)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("config/create failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// DeleteRemote deletes a remote configuration via /config/delete.
+func (c *RcloneClient) DeleteRemote(ctx context.Context, name string) error {
+	cleanName := strings.TrimRight(name, ":")
+	if cleanName == "" {
+		return fmt.Errorf("remote name cannot be empty")
+	}
+
+	payload := map[string]interface{}{
+		"name": cleanName,
+	}
+
+	resp, body, err := c.post(ctx, "config/delete", payload, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("config/delete failed (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 	return nil
 }
