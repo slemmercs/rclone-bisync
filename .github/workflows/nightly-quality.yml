@@ -20,9 +20,7 @@ defaults:
 jobs:
   nightly-deep-check:
     name: Nightly Deep Validation
-    runs-on:
-      - self-hosted
-      - rclone-bisync
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     env:
@@ -41,15 +39,19 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.26.10"
-          cache: false
+          go-version-file: "go.mod"
+          cache: true
 
-      - name: Full Git History Secret Scan
+      - name: Install Analysis Tools
         run: |
-          export PATH="/usr/local/bin:$HOME/go/bin:$PATH"
-          if command -v betterleaks &> /dev/null; then
-            betterleaks git -v --config .betterleaks.toml
-          fi
+          sudo apt-get update && sudo apt-get install -y tidy
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Execute Deep Quality Gate
         run: |
