@@ -1,21 +1,21 @@
 package e2e
 
 import (
-"context"
-"fmt"
-"net/http/httptest"
-"os"
-"os/exec"
-"path/filepath"
-"strings"
-"sync"
-"testing"
-"time"
+	"context"
+	"fmt"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
 
-"github.com/chromedp/chromedp"
-"github.com/slemmercs/rclone-bisync/internal/config"
-"github.com/slemmercs/rclone-bisync/internal/server"
-"github.com/slemmercs/rclone-bisync/internal/services"
+	"github.com/chromedp/chromedp"
+	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/server"
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 // findChromeBinary searches for an available Chrome/Chromium executable.
@@ -83,12 +83,12 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 
 	// Configure Chrome execution
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-chromedp.ExecPath(chromePath),
-chromedp.DisableGPU,
-chromedp.NoSandbox,
-chromedp.Headless,
-chromedp.WindowSize(1440, 900),
-)
+		chromedp.ExecPath(chromePath),
+		chromedp.DisableGPU,
+		chromedp.NoSandbox,
+		chromedp.Headless,
+		chromedp.WindowSize(1440, 900),
+	)
 
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer cancelAlloc()
@@ -119,10 +119,10 @@ chromedp.WindowSize(1440, 900),
 
 	// 1. Initial page load & verify Alpine initialization
 	err := chromedp.Do(ctx,
-chromedp.Navigate(ts.URL),
-chromedp.WaitVisible("body[x-data]"),
-chromedp.WaitVisible("header"),
-)
+		chromedp.Navigate(ts.URL),
+		chromedp.WaitVisible("body[x-data]"),
+		chromedp.WaitVisible("header"),
+	)
 	if err != nil {
 		t.Fatalf("failed to load dashboard: %v", err)
 	}
@@ -163,7 +163,7 @@ chromedp.WaitVisible("header"),
 
 	for _, tc := range tabs {
 		t.Run("Tab_"+tc.name, func(t *testing.T) {
-clickScript := fmt.Sprintf(`(() => {
+			clickScript := fmt.Sprintf(`(() => {
 				const navButtons = Array.from(document.querySelectorAll('header button'));
 				if (navButtons[%d]) {
 					navButtons[%d].click();
@@ -172,20 +172,20 @@ clickScript := fmt.Sprintf(`(() => {
 				return false;
 			})()`, tc.tabPillIdx, tc.tabPillIdx)
 
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickScript))
-if err != nil || !clicked {
-t.Fatalf("failed clicking tab %q: %v", tc.name, err)
-}
+			clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickScript))
+			if err != nil || !clicked {
+				t.Fatalf("failed clicking tab %q: %v", tc.name, err)
+			}
 
-time.Sleep(300 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 
-type TabButtonAudit struct {
-TotalButtons    int      `json:"totalButtons"`
-DisabledButtons int      `json:"disabledButtons"`
-DisabledDetails []string `json:"disabledDetails"`
-}
+			type TabButtonAudit struct {
+				TotalButtons    int      `json:"totalButtons"`
+				DisabledButtons int      `json:"disabledButtons"`
+				DisabledDetails []string `json:"disabledDetails"`
+			}
 
-auditScript := `(() => {
+			auditScript := `(() => {
 				const buttons = Array.from(document.querySelectorAll('button')).filter(b => {
 					return b.offsetParent !== null;
 				});
@@ -197,22 +197,22 @@ auditScript := `(() => {
 				};
 			})()`
 
-audit, err := chromedp.Run(ctx, chromedp.Evaluate[TabButtonAudit](auditScript))
-if err != nil {
-t.Fatalf("failed auditing buttons in tab %q: %v", tc.name, err)
-}
+			audit, err := chromedp.Run(ctx, chromedp.Evaluate[TabButtonAudit](auditScript))
+			if err != nil {
+				t.Fatalf("failed auditing buttons in tab %q: %v", tc.name, err)
+			}
 
-t.Logf("Tab [%s]: %d visible buttons, %d disabled (%v)",
-tc.name, audit.TotalButtons, audit.DisabledButtons, audit.DisabledDetails)
+			t.Logf("Tab [%s]: %d visible buttons, %d disabled (%v)",
+				tc.name, audit.TotalButtons, audit.DisabledButtons, audit.DisabledDetails)
 
-if tc.name == "remotes" {
-for _, detail := range audit.DisabledDetails {
-if strings.Contains(strings.ToLower(detail), "refresh") || strings.Contains(strings.ToLower(detail), "add") {
-t.Errorf("remote action button unexpectedly disabled: %s", detail)
-}
-}
-}
-})
+			if tc.name == "remotes" {
+				for _, detail := range audit.DisabledDetails {
+					if strings.Contains(strings.ToLower(detail), "refresh") || strings.Contains(strings.ToLower(detail), "add") {
+						t.Errorf("remote action button unexpectedly disabled: %s", detail)
+					}
+				}
+			}
+		})
 	}
 
 	// 3. Check for any runtime JavaScript console errors or exceptions
@@ -229,6 +229,6 @@ t.Errorf("remote action button unexpectedly disabled: %s", detail)
 
 	if len(significantErrors) > 0 {
 		t.Errorf("encountered %d JavaScript console errors/exceptions during smoke test:\n%s",
-len(significantErrors), strings.Join(significantErrors, "\n"))
+			len(significantErrors), strings.Join(significantErrors, "\n"))
 	}
 }
