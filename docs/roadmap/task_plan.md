@@ -17,7 +17,7 @@ Implement static template linting, standardized helper methods for all boolean a
   - **Scope**: `scripts/lint-templates.sh`, `scripts/check.sh`
   - **Verification**: `./scripts/lint-templates.sh` && `./scripts/check.sh lint`
 
-- [ ] Task 4: Add `chromedp` dependency and implement Headless Chrome E2E Smoke Test
+- [x] Task 4: Add `chromedp` dependency and implement Headless Chrome E2E Smoke Test
   - **Scope**: `go.mod`, `go.sum`, `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `go test -v -count=1 ./tests/e2e`
 
@@ -31,6 +31,7 @@ Implement static template linting, standardized helper methods for all boolean a
 - 2026-10-25: Completed Task 1: Added standardized helper methods (`isExplorerLoading`, `isItemCopying`, `isCanaryItem`, `isDeleteModalDeleting`, `isRemotesLoading`, `isRemoteValidating`, `isMigrationLoading`, `cannotSaveMigration`, `isReviewDismissing`, `isReviewRollingBack`, `cannotApplyReview`, `isAuditVerifying`, `isFirstAuditPage`, `isLastAuditPage`) across frontend JS modules. Verified all under 400 LOC.
 - 2026-10-25: Completed Task 2: Refactored all partials to eliminate dotted boolean attribute expressions and bumped asset version to `?v=19` in `index.html`.
 - 2026-10-25: Completed Task 3: Created `scripts/lint-templates.sh` forbidding dotted boolean attributes and integrated into `scripts/check.sh` Stage 2. Verified 0 template violations.
+- 2026-10-25: Completed Task 4: Implemented Headless Chrome E2E Smoke Test in `tests/e2e/dashboard_smoke_test.go` verifying dashboard rendering, tab switching, and button interactive states with zero runtime JavaScript errors. Verified with `go test -v -count=1 ./tests/e2e/...`.
 
 
 
