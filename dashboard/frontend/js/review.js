@@ -330,5 +330,17 @@ window.ReviewModule = {
             return "bg-amber-500/10 border-l-2 border-amber-500";
         }
         return "bg-emerald-500/10 border-l-2 border-emerald-500";
+    },
+
+    isReviewDismissing() {
+        return Boolean(this.reviewState?.dismissing);
+    },
+
+    isReviewRollingBack() {
+        return Boolean(this.reviewState?.rollingBack);
+    },
+
+    cannotApplyReview() {
+        return Boolean(!this.canApplyReview || this.reviewState?.executing);
     }
 };

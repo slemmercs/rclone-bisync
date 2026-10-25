@@ -1,35 +1,38 @@
-# Task Plan: Fix Explorer Copy Button Disabled State & Reactivity
+# Task Plan: Alpine Boolean Attribute Defense-in-Depth
 
 ## Goal
-Fix disabled copy button state in dual-pane explorer templates, initialize reactivity for file transfer states, update asset versioning, and verify transfer functionality end-to-end.
+Implement static template linting, standardized helper methods for all boolean attribute bindings, and automated headless Chrome E2E smoke tests.
 
 ## Tasks
 
-- [x] Task 1: Fix `:disabled` binding in explorer partial
-  - **Scope**: `dashboard/frontend/partials/view_explorer.html`
+- [x] Task 1: Add helper methods to frontend JS modules
+  - **Scope**: `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/remotes.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/js/audit.js`
   - **Verification**: `./scripts/check-loc.sh 400`
 
-- [x] Task 2: Initialize `_copying` in explorer directory loader
-  - **Scope**: `dashboard/frontend/js/explorer.js`
+- [x] Task 2: Refactor HTML partials to use dot-free helper methods
+  - **Scope**: `dashboard/frontend/partials/` (`view_explorer.html`, `view_remotes.html`, `view_audit.html`, `modals/*.html`), bump `index.html` asset version to `?v=19`
   - **Verification**: `./scripts/check-loc.sh 400`
 
-- [x] Task 3: Update script asset cache-busting version in HTML
-  - **Scope**: `dashboard/frontend/index.html`
-  - **Verification**: `./scripts/check-loc.sh 400`
+- [x] Task 3: Implement static template linting script and integrate into `check.sh`
+  - **Scope**: `scripts/lint-templates.sh`, `scripts/check.sh`
+  - **Verification**: `./scripts/lint-templates.sh` && `./scripts/check.sh lint`
 
-- [x] Task 4: Recompile binary, restart service, and verify via headless Chrome CDP
-  - **Scope**: Build `bisync-hub`, sync to `/home/csaba/rclone-bisync/bin/rclone-bisync`, restart `rclone-dashboard.service`, verify with automated CDP mouse click test
-  - **Verification**: Python CDP automated test + `./scripts/check.sh`
+- [ ] Task 4: Add `chromedp` dependency and implement Headless Chrome E2E Smoke Test
+  - **Scope**: `go.mod`, `go.sum`, `tests/e2e/dashboard_smoke_test.go`
+  - **Verification**: `go test -v -count=1 ./tests/e2e`
+
+- [ ] Task 5: Full verification & pre-flight commit
+  - **Scope**: `./scripts/check.sh`
+  - **Verification**: All stages pass cleanly
 
 ## Status Updates
 
-- 2026-10-25: Initialized plan from implementation_plan.md on branch `fix/explorer-copy-button-disabled`.
-- 2026-10-25: Discovered root cause: Alpine.js evaluates `:disabled="item._copying"` where expression contains `.` and evaluates to undefined by converting undefined to `""`, setting `disabled="disabled"` on the DOM element and suppressing browser click events.
-- 2026-10-25: Updated `:disabled` to `:disabled="Boolean(item && item._copying)"` in `view_explorer.html` (lines 185 and 363).
-- 2026-10-25: Initialized `_copying: false` on items in `explorer.js` directory fetch for explicit reactivity.
-- 2026-10-25: Bumped asset version to `?v=18` in `index.html`.
-- 2026-10-25: Rebuilt binary, redeployed to systemd service location, restarted `rclone-dashboard.service`.
-- 2026-10-25: Verified with headless Chrome CDP real mouse click simulation: `Hatlapos.docx` successfully copied from local to `onedrive:`, toast displayed, right pane refreshed and verified.
+- 2026-10-25: Initialized plan from implementation_plan.md on branch `feat/alpine-boolean-lint-and-e2e`.
+- 2026-10-25: Completed Task 1: Added standardized helper methods (`isExplorerLoading`, `isItemCopying`, `isCanaryItem`, `isDeleteModalDeleting`, `isRemotesLoading`, `isRemoteValidating`, `isMigrationLoading`, `cannotSaveMigration`, `isReviewDismissing`, `isReviewRollingBack`, `cannotApplyReview`, `isAuditVerifying`, `isFirstAuditPage`, `isLastAuditPage`) across frontend JS modules. Verified all under 400 LOC.
+- 2026-10-25: Completed Task 2: Refactored all partials to eliminate dotted boolean attribute expressions and bumped asset version to `?v=19` in `index.html`.
+- 2026-10-25: Completed Task 3: Created `scripts/lint-templates.sh` forbidding dotted boolean attributes and integrated into `scripts/check.sh` Stage 2. Verified 0 template violations.
+
+
 
 
 

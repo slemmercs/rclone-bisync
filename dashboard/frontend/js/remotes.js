@@ -307,4 +307,21 @@ window.RemotesModule = {
             this.showToast("Error stopping OAuth: " + err.message, "error");
         }
     },
+
+    isRemotesLoading() {
+        return Boolean(this.remotesData?.loading);
+    },
+
+    isRemoteValidating(remote) {
+        const key = typeof remote === "string" ? remote : remote?.name;
+        return Boolean(key && this.remotesData?.validating?.[key]);
+    },
+
+    isMigrationLoading() {
+        return Boolean(this.migrationModal?.loading);
+    },
+
+    cannotSaveMigration() {
+        return Boolean(this.migrationModal?.loading || !this.migrationModal?.clientId?.trim());
+    }
 };

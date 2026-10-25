@@ -275,5 +275,21 @@ window.ExplorerModule = {
             } catch (err) {
                 this.showToast(`Directory sync failed: ${err.message}`, "error");
             }
+        },
+
+        isExplorerLoading() {
+            return Boolean(this.explorer?.left?.loading || this.explorer?.right?.loading);
+        },
+
+        isItemCopying(item) {
+            return Boolean(item && item._copying);
+        },
+
+        isCanaryItem(item) {
+            return Boolean(item && item.Name === 'RCLONE_TEST');
+        },
+
+        isDeleteModalDeleting() {
+            return Boolean(this.deleteModal?.deleting);
         }
 };

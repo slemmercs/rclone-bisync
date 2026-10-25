@@ -176,6 +176,11 @@ check_lint_and_security() {
         log_verbose "[WARN] tidy binary not found in PATH."
     fi
 
+    if [[ -x "${REPO_ROOT}/scripts/lint-templates.sh" ]]; then
+        log_verbose "--> Running Alpine template boolean attribute safety check..."
+        "${REPO_ROOT}/scripts/lint-templates.sh" || failed=1
+    fi
+
     return ${failed}
 }
 
