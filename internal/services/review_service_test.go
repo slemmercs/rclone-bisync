@@ -9,9 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/review"
 )
 
 func createTestConfig(t *testing.T) (*config.Config, string) {
@@ -443,5 +445,209 @@ func TestReviewService_AutoDismissEmptySession(t *testing.T) {
 	}
 	if svc.HasBlockingReview() {
 		t.Fatal("expected no blocking review for empty session")
+	}
+}
+
+func TestReviewService_ParseCandidateTime(t *testing.T) {
+	// 1. Empty string
+	if parsed := parseCandidateTime(""); !parsed.IsZero() {
+		t.Fatalf("expected zero time for empty string, got %v", parsed)
+	}
+
+	// 2. RFC3339Nano
+	nanoStr := "2026-10-25T13:45:00.123456789Z"
+	if parsed := parseCandidateTime(nanoStr); parsed.IsZero() || parsed.Year() != 2026 || parsed.Nanosecond() != 123456789 {
+		t.Fatalf("unexpected parse for RFC3339Nano: %v", parsed)
+	}
+
+	// 3. RFC3339
+	rfcStr := "2026-10-25T13:45:00Z"
+	if parsed := parseCandidateTime(rfcStr); parsed.IsZero() || parsed.Year() != 2026 || parsed.Minute() != 45 {
+		t.Fatalf("unexpected parse for RFC3339: %v", parsed)
+	}
+
+	// 4. "2006-01-02 15:04:05"
+	stdStr := "2026-10-25 13:45:00"
+	if parsed := parseCandidateTime(stdStr); parsed.IsZero() || parsed.Year() != 2026 || parsed.Hour() != 13 {
+		t.Fatalf("unexpected parse for standard format: %v", parsed)
+	}
+
+	// 5. Invalid string
+	if parsed := parseCandidateTime("not-a-timestamp"); !parsed.IsZero() {
+		t.Fatalf("expected zero time for invalid string, got %v", parsed)
+	}
+}
+
+func TestReviewService_RollbackAndAudit(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	rcClient := client.NewRcloneClient(server.URL, "", "")
+	svc := NewReviewService(cfg, rcClient)
+
+	auditSvc, _, _ := setupTestAuditService(t)
+	svc.Audit = auditSvc
+
+	ctx := context.Background()
+
+	// 1. Rollback on non-existent session
+	if _, err := svc.RollbackReviewSession(ctx, "nonexistent-session"); err == nil {
+		t.Fatal("expected error on nonexistent session rollback")
+	}
+
+	// 2. Set up local file and pending deletion to create a discovered session
+	localFile := filepath.Join(cfg.LocalPath, "item_to_delete.txt")
+	_ = os.WriteFile(localFile, []byte("content"), 0644)
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"files":["item_to_delete.txt"],"error":"Too many deletes"}`), 0644)
+	_ = os.WriteFile(cfg.LogFile, []byte("ERROR : File was deleted - item_to_delete.txt: Safety abort: too many deletes"), 0644)
+
+	sess, err := svc.GetActiveSession(ctx)
+	if err != nil || sess == nil {
+		t.Fatalf("failed to discover session: %v", err)
+	}
+
+	// Stage decision and apply
+	candID := sess.Deletions[0].ID
+	_, err = svc.StageCandidateDecision(sess.ID, candID, models.DecisionAcceptDelete)
+	if err != nil {
+		t.Fatalf("failed to stage decision: %v", err)
+	}
+
+	applied, err := svc.ApplyReviewSession(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("failed to apply session: %v", err)
+	}
+
+	// Re-assign session to simulate rollback on that session
+	svc.session = applied
+	rolledBack, err := svc.RollbackReviewSession(ctx, applied.ID)
+	if err != nil {
+		t.Fatalf("failed to rollback session: %v", err)
+	}
+	if rolledBack == nil {
+		t.Fatal("expected rolled back session, got nil")
+	}
+
+	// Verify audit record exists for rollback
+	records, _, err := auditSvc.Query(audit.Filter{
+		Action: audit.ActionRollbackExecuted,
+	})
+	if err != nil || len(records) == 0 {
+		t.Fatalf("expected audit event for rollback, got %d records, err: %v", len(records), err)
+	}
+}
+
+func TestReviewService_PathHelpersAndNilConfig(t *testing.T) {
+	// 1. Nil config
+	svcNil := &ReviewService{}
+	if path := svcNil.sessionFilePath(); path != "" {
+		t.Fatalf("expected empty sessionFilePath, got %q", path)
+	}
+	if path := svcNil.walFilePath(); path != "" {
+		t.Fatalf("expected empty walFilePath, got %q", path)
+	}
+	if path := svcNil.backupsDirPath(); path != "" {
+		t.Fatalf("expected empty backupsDirPath, got %q", path)
+	}
+	if path := svcNil.reviewDirPath(); path != "" {
+		t.Fatalf("expected empty reviewDirPath, got %q", path)
+	}
+	if _, err := svcNil.DiscoverSession(context.Background(), "ERR", "msg"); err == nil {
+		t.Fatal("expected error on nil config DiscoverSession")
+	}
+	if pruned, err := svcNil.PruneBackups(); pruned != 0 || err != nil {
+		t.Fatalf("expected (0, nil) from PruneBackups on nil config, got (%d, %v)", pruned, err)
+	}
+
+	// 2. BaseDir fallback paths
+	tmpDir := t.TempDir()
+	cfgBase := &config.Config{
+		BaseDir: tmpDir,
+	}
+	svcBase := NewReviewService(cfgBase, nil)
+	if expected := filepath.Join(tmpDir, "active_review_session.json"); svcBase.sessionFilePath() != expected {
+		t.Fatalf("expected %q, got %q", expected, svcBase.sessionFilePath())
+	}
+	if expected := filepath.Join(tmpDir, "review.wal"); svcBase.walFilePath() != expected {
+		t.Fatalf("expected %q, got %q", expected, svcBase.walFilePath())
+	}
+	if expected := filepath.Join(tmpDir, "review_backups"); svcBase.backupsDirPath() != expected {
+		t.Fatalf("expected %q, got %q", expected, svcBase.backupsDirPath())
+	}
+	if expected := filepath.Join(tmpDir, "review_sessions"); svcBase.reviewDirPath() != expected {
+		t.Fatalf("expected %q, got %q", expected, svcBase.reviewDirPath())
+	}
+}
+
+func TestReviewService_BatchAndStagingEdgeCases(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	svc := NewReviewService(cfg, nil)
+	ctx := context.Background()
+
+	// 1. ApplyBatchRecommendations with no active session
+	if _, err := svc.ApplyBatchRecommendations(ctx, "", 0.8, "LOW"); err == nil {
+		t.Fatal("expected error when no active session")
+	}
+
+	// 2. Setup active session
+	localFile := filepath.Join(cfg.LocalPath, "test_file.txt")
+	_ = os.WriteFile(localFile, []byte("content"), 0644)
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"files":["test_file.txt"],"error":"Too many deletes"}`), 0644)
+	_ = os.WriteFile(cfg.LogFile, []byte("ERROR : File was deleted - test_file.txt: Safety abort: too many deletes"), 0644)
+
+	sess, err := svc.GetActiveSession(ctx)
+	if err != nil || sess == nil {
+		t.Fatalf("failed to get active session: %v", err)
+	}
+
+	// 3. Batch apply with mismatched session ID
+	if _, err := svc.ApplyBatchRecommendations(ctx, "wrong-id", 0.8, "LOW"); err == nil {
+		t.Fatal("expected error with mismatched session ID")
+	}
+
+	// 4. Stage decision with unknown candidate ID
+	if _, err := svc.StageCandidateDecision(sess.ID, "unknown-candidate", models.DecisionAcceptDelete); err == nil {
+		t.Fatal("expected error for unknown candidate ID")
+	}
+
+	// 5. Dismiss with invalid session ID
+	if err := svc.DismissReviewSession("wrong-session-id"); err == nil {
+		t.Fatal("expected error dismissing wrong session ID")
+	}
+
+	// 6. Dismiss on active session with AuditService
+	auditSvc, _, _ := setupTestAuditService(t)
+	svc.Audit = auditSvc
+	if err := svc.DismissReviewSession(sess.ID); err != nil {
+		t.Fatalf("failed to dismiss session: %v", err)
+	}
+	records, _, err := auditSvc.Query(audit.Filter{
+		Action: audit.ActionReviewDismissed,
+	})
+	if err != nil || len(records) == 0 {
+		t.Fatalf("expected audit event for dismiss, got %d records, err: %v", len(records), err)
+	}
+}
+
+func TestReviewService_NewWithWALReconciliation(t *testing.T) {
+	cfg, tmpDir := createTestConfig(t)
+	sess := review.NewSession("CONFLICT", "err", nil, nil)
+	sessFile := filepath.Join(tmpDir, "active_review_session.json")
+	walFile := filepath.Join(tmpDir, "review.wal")
+	_ = review.SaveActiveSession(sessFile, sess)
+	_ = review.AppendWAL(walFile, models.WALEntry{
+		SessionID: sess.ID,
+		Step:      "MUTATION_COMPLETED",
+		ItemPath:  "test.txt",
+		Type:      models.DecisionAcceptDelete,
+	})
+
+	svc := NewReviewService(cfg, nil)
+	if svc.session == nil || svc.session.ID != sess.ID {
+		t.Fatalf("expected reconciled session loaded, got %v", svc.session)
 	}
 }

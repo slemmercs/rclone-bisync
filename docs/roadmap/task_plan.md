@@ -1,75 +1,40 @@
-
-# Task Plan: Cryptographic Immutable Audit Ledger & Unified Log Architecture
+# Task Plan: Comprehensive Service Hardening & Review Modularization
 
 ## Goal
-Implement the Cryptographic Immutable Audit Ledger (`internal/audit`) with pure-Go SQLite (`modernc.org/sqlite`) and migration management (`pressly/goose/v3`), SHA-256 hash chaining, database append-only triggers, secret sanitization, thread-safe in-process POSIX log rotator (`internal/core/logger/rotator.go`), REST endpoints (`/api/audit/records`, `/api/audit/verify`, `/api/audit/export`), frontend integration (`partials/view_audit.html`, navigation tab, and telemetry filter), UI polish (Lucide SVGs, dynamic version header, removal of Enterprise branding), and dual-logging with engine execution hooks (`SYNC_EXECUTED`, `SYNC_ABORTED`).
+Modularize `internal/services/review_service.go` (722 LOC) into cohesive sub-components and systematically expand test coverage across core services (`ReviewService`, `CanaryService`, `LogService`, `ExplorerService`, `SyncService`, and HTTP handlers) to achieve >=88–95% coverage per service and >=86% overall statement coverage.
 
 ## Tasks
-- [x] Task 1: Audit Package Core (DB Path, Schema Migration & Pure-Go SQLite Driver)
-  - **Scope**: `internal/audit/path.go`, `internal/audit/taxonomy.go`, `internal/audit/migrations/00001_initial_audit_schema.sql`, `internal/audit/migrations.go`, `internal/audit/db.go`.
-  - **Verification**: `go test -count=1 ./internal/audit -run TestMigrationsAndDBOpen`
-- [x] Task 2: Cryptographic Hash Chaining, Ledger Append & Verification Engine
-  - **Scope**: `internal/audit/ledger.go`, `internal/audit/ledger_test.go` (implementing `ComputeHash`, `Append`, `VerifyLedger`, triggers test proving UPDATE and DELETE are blocked by SQLite).
-  - **Verification**: `go test -count=1 -v ./internal/audit -run TestAppendAndVerify`
-- [x] Task 3: POSIX Log Rotator & Dual-Logging in Logger
-  - **Scope**: `internal/core/logger/rotator.go`, update `internal/core/logger/logger.go`, `internal/core/logger/rotator_test.go`.
-  - **Verification**: `go test -count=1 -v ./internal/core/logger -run TestRotator`
-- [x] Task 4: Audit REST API Endpoints & Service Integration
-  - **Scope**: `internal/services/audit_service.go`, `internal/server/handlers_audit.go`, register routes in `internal/server/server.go` (`GET /api/audit/records`, `GET /api/audit/verify`, `GET /api/audit/export`), with tests.
-  - **Verification**: `go test -count=1 -v ./internal/server -run TestAuditEndpoints`
-- [x] Task 5: Frontend UI (Audit Tab, Record Explorer, Verification Badge & Dual-Stream Telemetry)
-  - **Scope**: `dashboard/frontend/partials/view_audit.html`, `dashboard/frontend/index.html` (adding the 4th top tab "Audit Ledger"), `dashboard/frontend/js/audit.js`, `dashboard/frontend/app.js`.
-  - **Verification**: `go test -count=1 -v ./internal/server -run TestServer_RootHandler_RealFileSystem`
-- [x] Task 6: Full Pre-Flight Quality Gate & Validation
+
+- [x] Task 1: Modularize `internal/services/review_service.go`
+  - **Scope**: Split into `review_service.go` (219 LOC), `review_recommendations.go` (204 LOC), and `review_execution.go` (324 LOC).
+  - **Verification**: `go test -count=1 ./internal/services/...`
+
+- [x] Task 2: Service Hardening - `ReviewService` Tests
+  - **Scope**: `internal/services/review_service_test.go` (tested `parseCandidateTime`, `RollbackReviewSession` execution & audit recording, WAL reconciliation, missing session handling, path fallbacks).
+  - **Verification**: `go test -count=1 -cover ./internal/services -run TestReviewService`
+
+- [ ] Task 3: Service Hardening - `CanaryService` Tests
+  - **Scope**: `internal/services/canary_service_test.go` (jail traversal escapes, directory trap, nil client / touch failures).
+  - **Verification**: `go test -count=1 -cover ./internal/services -run TestCanary`
+
+- [ ] Task 4: Service Hardening - `LogService` Tests
+  - **Scope**: `internal/services/log_service_test.go` (`extractNestedJSONLogs` line fallback, scanner errors, non-JSON logs).
+  - **Verification**: `go test -count=1 -cover ./internal/services -run TestLogService`
+
+- [ ] Task 5: Service Hardening - `ExplorerService` Tests
+  - **Scope**: `internal/services/explorer_service_test.go` (canary deletion protection, jail confinement, remote failure).
+  - **Verification**: `go test -count=1 -cover ./internal/services -run TestExplorer`
+
+- [ ] Task 6: Service Hardening - `SyncService` & Handlers
+  - **Scope**: `internal/services/sync_service_test.go` (review delegation facade, unknown actions) and `internal/server/server_test.go` (`handleReviewExecute`, `handleReviewRollback`).
+  - **Verification**: `go test -count=1 -cover ./internal/services ./internal/server`
+
+- [ ] Task 7: Full Quality Gate Verification (`./scripts/check.sh`)
   - **Scope**: Complete repository quality checks across all 8 stages.
   - **Verification**: `./scripts/check.sh`
-- [x] Task 7: UI Polish (Lucide SVG Icons, Dynamic Version Header & Branding Cleanup)
-  - **Scope**: `dashboard/frontend/partials/view_audit.html` (replace emojis with Lucide SVGs), `dashboard/frontend/index.html` (remove "Enterprise", bind `{{ .Version }}`), `internal/server/server.go` (dynamic `vMajor.Minor` injection).
-  - **Verification**: `go test -count=1 -v ./internal/server -run TestServer_RootHandler_RealFileSystem`
-- [x] Task 8: Dual-Stream Logger Wiring & Engine Audit Event Integration (`SYNC_EXECUTED`, `SYNC_ABORTED`)
-  - **Scope**: `internal/services/sync_service.go` (pass `runLogger` to `NewAuditService`), `internal/engine/runner/runner.go` (record `SYNC_EXECUTED` on transfers > 0 or manual triggers, `SYNC_ABORTED` on failures).
-  - **Verification**: `go test -count=1 -v ./internal/engine/runner -run TestSyncRunner`
-- [x] Task 9: End-to-End Verification & Quality Gate
-  - **Scope**: Complete repository quality checks across all 8 stages.
-  - **Verification**: `./scripts/check.sh`
-- [x] Task 10: Fix Deletion Candidate Parsing, Daemon Log Discovery, and Root Canary Scope
-  - **Scope**: `internal/review/discovery.go`, `internal/services/review_service.go`, `internal/engine/runner/runner.go`, `internal/services/explorer_service.go`, `internal/server/handlers_sync.go`, `dashboard/frontend/app.js`, `dashboard/frontend/js/explorer.js`.
-  - **Verification**: `./scripts/check.sh`
-- [x] Task 11: Option 2 Audit Policy, UI Toast Notifications, Deletion Heuristics & Explorer Column Alignment
-  - **Scope**: `internal/engine/runner/runner.go`, `internal/review/discovery.go`, `internal/models/review.go`, `internal/services/review_service.go`, `internal/services/sync_service.go`, `dashboard/frontend/app.js`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/view_explorer.html`.
-  - **Verification**: `./scripts/check.sh`
-- [x] Task 12: Google Drive Live Simulation Walkthrough
-  - **Scope**: Live manual sync, file mutation, and conflict/resolution testing with Google Drive.
-  - **Verification**: Verify new entries in `audit.db` and `bisync.log`.
 
 ## Status Updates
-- 2026-10-24: Initialized task plan for Immutable Audit Ledger on branch `feat/immutable-audit-ledger`.
-- 2026-10-24: Completed Task 1: Implemented DB path resolver, event taxonomy, goose schema migration with triggers and WAL mode, pure-Go SQLite initialization, and unit tests in `internal/audit`.
-- 2026-10-24: Completed Task 2: Implemented SHA-256 hash chaining, secret-sanitizing `Append`, `QueryRecords` with filtering/pagination, `VerifyLedger` cryptographic validator, and tests with 82.0% coverage.
-- 2026-10-24: Completed Task 3: Implemented in-process POSIX log rotator (`rotator.go`), dual-logging `RecordAuditEvent` with `"type": "audit"` in `logger.go`, and concurrency tests with 84.7% coverage.
-- 2026-10-24: Completed Task 4: Implemented `AuditService` with secret-sanitizing event recorder, JSONL/CSV export, and verification methods; wired into `ReviewService` and `SyncService`; added REST endpoints `GET /api/audit/records`, `GET /api/audit/verify`, and `GET /api/audit/export`; verified with 80.8% services coverage and 81.4% server coverage.
-- 2026-10-24: Completed Task 5: Implemented dedicated Audit Ledger view (`view_audit.html`), added 4th navigation tab, created Alpine module (`audit.js`) with verification and filter state, and upgraded multi-stream log terminal with segment filter pills and purple/cyan audit badges.
-- 2026-10-24: Completed Task 6: Successfully ran full pre-flight quality checks (`./scripts/check.sh`), validating format, vet, staticcheck, govulncheck, betterleaks, esbuild, tidy, 83.0% test coverage, and binary compilation.
-- 2026-10-24: Completed Task 7: Replaced raw copy emojis and text buttons with Lucide SVGs in `view_audit.html`, removed "Enterprise" branding, and implemented dynamic `vMajor.Minor` injection in `index.html` and `server.go`.
-- 2026-10-24: Completed Task 8: Enabled dual-stream logging into `bisync.log` via `AuditService`, wired `SYNC_EXECUTED` (transfers > 0 and manual triggers) and `SYNC_ABORTED` in `SyncRunner`, and made rotator file opening lazy.
-- 2026-10-24: Completed Task 9: Successfully executed full pre-flight quality gate (`./scripts/check.sh`), all stages passed with 83.3% test coverage and clean static analysis.
-- 2026-10-24: Completed Task 10: Resolved all 3 Google Drive live issues: (1) Preserved root canary status when navigating into subfolders in explorer, (2) Fixed candidate parsing in `review/discovery.go` to support filenames with spaces without truncation (`fields[0]` bug), (3) Directed `ReviewService` and `SyncRunner` candidate discovery to read `rclone-daemon.log` where rclone outputs `File was deleted` lines and populate `pending_deletions.json`, and (4) Added detailed error reporting to `/api/action` and frontend `triggerAction` to eliminate generic `Request failed` alerts. Verified with 83.4% coverage and full `./scripts/check.sh` green pass.
-- 2026-10-24: Completed Task 11: (1) Strictly enforced Option 2 audit policy in `runner.go` so 0-transfer runs are never written to the cryptographic audit ledger, (2) Replaced all browser `alert()` popups with Alpine toast notifications (`showToast`) and enriched systemd error reporting with captured stdout/stderr, (3) Fixed nested JSON path parsing in `discovery.go` to cleanly strip `", "source":...` delimiters, populated `Recommendation` onto `DeletionCandidate`, added deletion heuristic analysis rules (temp locks, canary protection, user local deletion, remote guard), and enabled "Auto-Apply Recommendations" on deletion reviews, (4) Fixed File Explorer column misalignment by establishing synchronized fixed-width column grids across headers and file rows (`w-32` Modified, `w-16` Size, `w-16` Actions spacer). Verified with 83.4% coverage and clean `./scripts/check.sh`.
-- 2026-10-24: Completed Task 12: Executed live simulation walkthrough on Google Drive: verified auto-applied recommendations, atomic pre-mutation backups, automated post-resolution force sync trigger, elimination of phantom `bisync.filters` auto-injection, clean status recovery to `ONLINE / HEALTHY`, review session closure, and cryptographic audit ledger validation (valid: true, 728 records). All 12 tasks complete!
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- 2026-10-25: Initialized branch `test/service-hardening-and-modularization` and created plans.
+- 2026-10-25: Completed Task 1 (Modularization of `review_service.go` into three cohesive files <330 LOC) and Task 2 (Hardened `ReviewService` test suite, raising coverage from 75.2% to 86.8%, and overall repository coverage to 85.3%).
 
