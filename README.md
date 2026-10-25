@@ -441,29 +441,6 @@ Bisync Hub exists to improve the operational experience surrounding Rclone Bisyn
 
 ---
 
-# Support Development
-
-Bisync Hub is developed and maintained in personal time.
-
-Support helps fund:
-
-- Ongoing development
-- AI-assisted engineering tooling
-- Testing infrastructure
-- Documentation
-- Release management
-- Long-term maintenance
-
-Support is completely optional.
-
-The project will remain free and open source regardless of sponsorship levels.
-
-## Sponsorship Options
-
-- ☕ Buy Me a Coffee
-
----
-
 # Transparency on AI-Assisted Development
 
 AI tools are used to accelerate:
