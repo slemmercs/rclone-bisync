@@ -378,9 +378,9 @@ func TestHandleActionAndSyncing(t *testing.T) {
 func TestSyncServiceAdditionalBranches(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/operations/touch":
+		case "/core/command":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{"error": false, "result": ""}`))
 		case "/sync/copy":
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{}`))

@@ -189,7 +189,7 @@ window.ExplorerModule = {
             const pane = this.explorer[paneKey];
             if (!pane) return;
             try {
-                const data = await window.API.post("/api/browse/canary", { remote: pane.target, path: "" });
+                const data = await window.API.post("/api/browse/canary", { remote: pane.target, path: pane.path || "" });
                 if (data.status === "success") {
                     pane.hasCanary = true;
                     this.showToast("Canary file RCLONE_TEST provisioned successfully", "success");

@@ -88,8 +88,8 @@ func TestCanaryService_RemoteCanaryLifecycle(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/operations/touch":
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{})
+		case "/core/command":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": false, "result": ""})
 		case "/operations/list":
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"list": []map[string]interface{}{
@@ -240,8 +240,8 @@ func TestCanaryService_DirectoryTrapAndRemoteErrors(t *testing.T) {
 	// 4. Remote root canary creation (cleanPath == "")
 	srvSuccess := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/operations/touch" {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{})
+		if r.URL.Path == "/core/command" {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": false, "result": ""})
 			return
 		}
 		http.NotFound(w, r)
