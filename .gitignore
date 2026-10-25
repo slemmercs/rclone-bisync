@@ -28,12 +28,15 @@ bisync-hub
 bisync-hub-*
 rclone-bisync
 rclone-bisync-*
+*.test
 
 # ----------------------------------------------------------------------
 # Test, Coverage & Security Reports
 # ----------------------------------------------------------------------
 coverage.out
 coverage.html
+.covdata/
+covdata/
 *-report.json
 gitleaks-report.*
 betterleaks-report.*
@@ -50,8 +53,14 @@ telemetry.json
 audit_ledger.json
 ledger.json
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
 .rclone/
+state/
 
 # ----------------------------------------------------------------------
 # Go Workspace & Caches
@@ -82,4 +91,3 @@ site/.jekyll-cache/
 site/.jekyll-metadata
 .sass-cache/
 vendor/bundle/
-

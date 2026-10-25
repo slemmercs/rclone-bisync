@@ -4,9 +4,38 @@
 *.env
 !*.env.example
 rclone.conf
+rc-secrets.env
+*.secret
+*.key
+*.pem
 
 # ==========================================
-# Python Bytecode & Cache Directories
+# Build Outputs & Binary Artifacts
+# ==========================================
+bin/
+.build/
+dist/
+bisync-hub
+bisync-hub-*
+rclone-bisync
+rclone-bisync-*
+
+# ==========================================
+# Test Coverage, Data & SQLite Artifacts
+# ==========================================
+coverage.out
+coverage.html
+.covdata/
+*.db
+*.sqlite
+*.tmp
+*.tmp.*
+telemetry.json
+audit_ledger.json
+ledger.json
+
+# ==========================================
+# Python Bytecode & Cache Directories (Legacy)
 # ==========================================
 __pycache__/
 *.py[cod]
@@ -19,6 +48,14 @@ htmlcov/
 # External Vendor & Minified Dependencies
 # ==========================================
 dashboard/frontend/vendor/
+
+# ==========================================
+# Site & Jekyll Build Artifacts
+# ==========================================
+site/_site/
+site/.jekyll-cache/
+site/.jekyll-metadata
+.sass-cache/
 
 # ==========================================
 # Metadata & Temporary Files
