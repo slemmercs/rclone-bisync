@@ -250,9 +250,7 @@ document.addEventListener("alpine:init", () => {
 
         async poll() {
             try {
-                const res = await fetch("/api/telemetry?limit=" + this.currentLogLimit);
-                if (!res.ok) throw new Error("HTTP error: " + res.status);
-                const data = await res.json();
+                const data = await window.API.get("/api/telemetry?limit=" + this.currentLogLimit);
                 this.telemetry = data;
                 updatePerformanceChart(data.metrics || []);
                 this.fetchReviewSession(false);
@@ -264,16 +262,8 @@ document.addEventListener("alpine:init", () => {
         async triggerAction(actionStr) {
             this.actionLoading = actionStr;
             try {
-                const res = await fetch("/api/action", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({ action: actionStr })
-                });
-                const data = await res.json();
-                if (!res.ok || data.status === "error") {
+                const data = await window.API.post("/api/action", { action: actionStr });
+                if (data.status === "error") {
                     const errDetail = data.msg || data.error || "Request failed";
                     this.showToast("Action Error: " + errDetail, "error");
                 } else {
@@ -281,7 +271,7 @@ document.addEventListener("alpine:init", () => {
                 }
                 await this.poll();
             } catch (err) {
-                this.showToast("Network error: " + err.message, "error");
+                this.showToast("Action failed: " + err.message, "error");
             } finally {
                 setTimeout(() => { this.actionLoading = null; }, 1200);
             }

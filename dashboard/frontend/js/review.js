@@ -8,9 +8,7 @@ window.ReviewModule = {
     async fetchReviewSession(showLoading = false) {
         if (showLoading) this.reviewState.loading = true;
         try {
-            const res = await fetch("/api/review/session");
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            const data = await res.json();
+            const data = await window.API.get("/api/review/session");
             this.reviewState.active = Boolean(data.active && data.session);
             this.reviewState.session = data.session || null;
             this.reviewState.error = data.error || null;
@@ -118,27 +116,19 @@ window.ReviewModule = {
         }
 
         try {
-            const res = await fetch("/api/review/action", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Dashboard-Request": "1"
-                },
-                body: JSON.stringify({
-                    session_id: this.reviewState.session.id,
-                    candidate_id: candidateId,
-                    decision: decision
-                })
+            const data = await window.API.post("/api/review/action", {
+                session_id: this.reviewState.session.id,
+                candidate_id: candidateId,
+                decision: decision
             });
-            const data = await res.json();
-            if (!res.ok || data.status === "error") {
+            if (data.status === "error") {
                 this.showToast("Failed to stage decision: " + (data.error || "Unknown error"), "error");
                 await this.fetchReviewSession(false);
             } else if (data.session) {
                 this.reviewState.session = data.session;
             }
         } catch (err) {
-            this.showToast("Network error staging decision: " + err.message, "error");
+            this.showToast("Failed to stage decision: " + err.message, "error");
             await this.fetchReviewSession(false);
         }
     },
@@ -156,20 +146,12 @@ window.ReviewModule = {
         candidates.forEach(c => { c.decision = decision; });
 
         try {
-            const res = await fetch("/api/review/action", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Dashboard-Request": "1"
-                },
-                body: JSON.stringify({
-                    session_id: this.reviewState.session.id,
-                    candidate_ids: candidateIds,
-                    decision: decision
-                })
+            const data = await window.API.post("/api/review/action", {
+                session_id: this.reviewState.session.id,
+                candidate_ids: candidateIds,
+                decision: decision
             });
-            const data = await res.json();
-            if (!res.ok || data.status === "error") {
+            if (data.status === "error") {
                 this.showToast("Batch action failed: " + (data.error || "Unknown error"), "error");
                 await this.fetchReviewSession(false);
             } else if (data.session) {
@@ -177,7 +159,7 @@ window.ReviewModule = {
                 this.showToast(`Batch staged "${decision}" on ${candidateIds.length} candidate(s).`, "success");
             }
         } catch (err) {
-            this.showToast("Network error in batch action: " + err.message, "error");
+            this.showToast("Batch action failed: " + err.message, "error");
             await this.fetchReviewSession(false);
         }
     },
@@ -186,20 +168,12 @@ window.ReviewModule = {
         if (!this.reviewState.session) return;
         this.reviewState.loading = true;
         try {
-            const res = await fetch("/api/review/action-batch", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Dashboard-Request": "1"
-                },
-                body: JSON.stringify({
-                    session_id: this.reviewState.session.id,
-                    min_confidence: minConfidence,
-                    max_allowed_risk: maxRisk
-                })
+            const data = await window.API.post("/api/review/action-batch", {
+                session_id: this.reviewState.session.id,
+                min_confidence: minConfidence,
+                max_allowed_risk: maxRisk
             });
-            const data = await res.json();
-            if (!res.ok || data.status === "error") {
+            if (data.status === "error") {
                 this.showToast("Batch recommendation failed: " + (data.error || "Unknown error"), "error");
             } else {
                 if (data.session) {
@@ -208,7 +182,7 @@ window.ReviewModule = {
                 this.showToast(`Auto-staged recommendations for ${data.staged_count || 0} candidate(s).`, "success");
             }
         } catch (err) {
-            this.showToast("Network error applying batch recommendations: " + err.message, "error");
+            this.showToast("Failed to apply recommendations: " + err.message, "error");
         } finally {
             this.reviewState.loading = false;
         }
@@ -226,19 +200,11 @@ window.ReviewModule = {
         this.reviewState.lastResult = null;
 
         try {
-            const res = await fetch("/api/review/execute", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Dashboard-Request": "1"
-                },
-                body: JSON.stringify({
-                    session_id: this.reviewState.session.id
-                })
+            const data = await window.API.post("/api/review/execute", {
+                session_id: this.reviewState.session.id
             });
-            const data = await res.json();
             this.reviewState.lastResult = data;
-            if (!res.ok || data.status === "error") {
+            if (data.status === "error") {
                 this.showToast("Resolution execution failed: " + (data.error || "Unknown error"), "error");
                 await this.fetchReviewSession(false);
             } else {
@@ -256,7 +222,7 @@ window.ReviewModule = {
                 }
             }
         } catch (err) {
-            this.showToast("Network error executing review: " + err.message, "error");
+            this.showToast("Execution failed: " + err.message, "error");
         } finally {
             this.reviewState.executing = false;
         }
@@ -269,18 +235,10 @@ window.ReviewModule = {
 
         this.reviewState.rollingBack = true;
         try {
-            const res = await fetch("/api/review/rollback", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Dashboard-Request": "1"
-                },
-                body: JSON.stringify({
-                    session_id: this.reviewState.session.id
-                })
+            const data = await window.API.post("/api/review/rollback", {
+                session_id: this.reviewState.session.id
             });
-            const data = await res.json();
-            if (!res.ok || data.status === "error") {
+            if (data.status === "error") {
                 this.showToast("Rollback failed: " + (data.error || "Unknown error"), "error");
             } else {
                 this.showToast(`Successfully restored ${data.restored} item(s) from backups.`, "success");
@@ -289,7 +247,7 @@ window.ReviewModule = {
             if (this.refreshExplorer) this.refreshExplorer();
             if (this.poll) await this.poll();
         } catch (err) {
-            this.showToast("Network error during rollback: " + err.message, "error");
+            this.showToast("Rollback failed: " + err.message, "error");
         } finally {
             this.reviewState.rollingBack = false;
         }
@@ -302,18 +260,10 @@ window.ReviewModule = {
 
         this.reviewState.dismissing = true;
         try {
-            const res = await fetch("/api/review/dismiss", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Dashboard-Request": "1"
-                },
-                body: JSON.stringify({
-                    session_id: this.reviewState.session.id
-                })
+            const data = await window.API.post("/api/review/dismiss", {
+                session_id: this.reviewState.session.id
             });
-            const data = await res.json();
-            if (!res.ok || data.status === "error") {
+            if (data.status === "error") {
                 this.showToast("Failed to dismiss session: " + (data.error || "Unknown error"), "error");
             } else {
                 this.showToast("Review session dismissed.", "info");
@@ -323,7 +273,7 @@ window.ReviewModule = {
             }
             if (this.poll) await this.poll();
         } catch (err) {
-            this.showToast("Network error dismissing review: " + err.message, "error");
+            this.showToast("Failed to dismiss: " + err.message, "error");
         } finally {
             this.reviewState.dismissing = false;
         }

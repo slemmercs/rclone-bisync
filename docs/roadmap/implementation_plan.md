@@ -1,44 +1,37 @@
-# Implementation Plan: Full-Codebase Modularization (<400 LOC Target)
+# Implementation Plan: Centralized Frontend API Client & Service Decoupling
 
 ## Proposed Changes
 
-Decompose all 5 files identified in the repository LOC audit (`internal/services/sync_service.go`, `internal/services/explorer_service.go`, `internal/engine/runner/runner.go`, `dashboard/frontend/app.js`, and `dashboard/frontend/js/explorer.js`) into cohesive, single-responsibility sub-components so that **zero files in the repository exceed 400 LOC**, while preserving 100% API compatibility, error handling, safety jails, and >88% test coverage.
+Extract a centralized HTTP client (`dashboard/frontend/js/api.js`) to unify all REST API communication across the dashboard, standardize required security headers (`X-Dashboard-Request: 1`, `Content-Type: application/json`), normalize error handling, and eliminate duplicated fetch/JSON boilerplate across `review.js`, `explorer.js`, `explorer_actions.js`, `remotes.js`, `audit.js`, `logs.js`, and `app.js`.
 
 ### Affected Components & Packages
 
-#### 1. Backend Service Layer (`internal/services/`)
-- `sync_service.go` (460 LOC -> ~170 LOC): Core struct, constructor, `IsSyncing()`, and delegation facade.
-- `filetail.go` (New, ~110 LOC): `TailFile` and `TailJSONLog` backwards-seeking I/O utilities.
-- `sync_actions.go` (New, ~150 LOC): `HandleAction` and `runBisyncSystemd`.
-- `telemetry_service.go`: Absorb `FileCacheItem` and `LiveHealthCache` struct definitions.
-- `explorer_service.go` (438 LOC -> ~130 LOC): Core struct, constructor, and `BrowsePath`.
-- `explorer_jail.go` (New, ~85 LOC): `IsLocalPathJailed` and path confinement validation.
-- `explorer_ops.go` (New, ~225 LOC): `CopyItem` and `DeleteItem` with canary checks.
-
-#### 2. Core Engine Pipeline (`internal/engine/runner/`)
-- `runner.go` (412 LOC -> ~160 LOC): Core struct, constructor, and concise `Run()` pipeline.
-- `runner_handlers.go` (New, ~175 LOC): `handleSyncSuccess` and `handleSyncFailure`.
-- `runner_audit.go` (New, ~65 LOC): `recordAuditExecuted` and `recordAuditAborted`.
-
-#### 3. Frontend Architecture (`dashboard/frontend/`)
-- `app.js` (522 LOC -> ~220 LOC): Central Alpine.js state orchestrator and lifecycle polling.
-- `dashboard/frontend/js/review.js` (309 LOC -> ~385 LOC): Absorb review computed getters (`reviewCandidates`, `filteredReviewCandidates`, etc.).
-- `dashboard/frontend/js/logs.js` (New, ~160 LOC): Bisync/daemon log getters and daemon modal state/actions.
-- `dashboard/frontend/js/explorer.js` (446 LOC -> ~340 LOC): Browsing, sorting, canary provisioning, item transfer.
-- `dashboard/frontend/js/explorer_actions.js` (New, ~110 LOC): 2-step deletion modal and drag-and-drop handlers.
-- `dashboard/frontend/index.html`: Include new script tags for `logs.js` and `explorer_actions.js`.
+- `dashboard/frontend/js/api.js` (New, ~75 LOC): Unified `window.API` client with `.get()`, `.post()`, and custom request wrapping with JSON response parsing and HTTP error raising.
+- `dashboard/frontend/index.html`: Load `api.js` prior to any modules that make network requests.
+- `dashboard/frontend/js/review.js`: Refactor 7 REST API calls to use `window.API`, reducing LOC from 384 down to ~320 LOC.
+- `dashboard/frontend/js/explorer.js` & `explorer_actions.js`: Use `window.API.post()` for browse, copy, delete, and canary provisioning.
+- `dashboard/frontend/js/remotes.js`: Use `window.API` for remote auth, validation, credentials, and OAuth control.
+- `dashboard/frontend/js/audit.js`: Use `window.API.get()` for ledger records and verification checks.
+- `dashboard/frontend/js/logs.js`: Use `window.API.get()` for daemon log retrieval.
+- `dashboard/frontend/app.js`: Use `window.API` for telemetry polling and engine actions.
 
 ### Technical Strategy & Data Flow
 
-- Retain identical public Go method receiver signatures (`*SyncService`, `*ExplorerService`, `*SyncRunner`) in the same packages to prevent call-site breakage.
-- Maintain Alpine.js module composition via `window.LogsModule` and `window.ExplorerActionsModule`.
-- Keep symlink resolution and path jail confinement strictly intact in `explorer_jail.go`.
+- The `window.API` object exposes:
+  - `request(endpoint, options)`: Core wrapper attaching `X-Dashboard-Request: 1`, parsing JSON safely, and throwing descriptive Error objects on non-2xx responses.
+  - `get(endpoint, options)`: Shortcut for GET requests.
+  - `post(endpoint, body, options)`: Shortcut for POST requests with auto-JSON body serialization.
+- Retain existing UI behavior, toast feedback, and error handling contracts.
+
+### Safety & Error Handling
+
+- Ensures every API request includes `X-Dashboard-Request: 1` header, preventing CSRF / unauthorized browser cross-origin submissions.
+- Ensures non-OK HTTP status codes throw actionable Errors with response details attached.
 
 ## Verification Plan
 
-- `go test -count=1 ./internal/services/...`
-- `go test -count=1 ./internal/engine/runner/...`
-- `go test -count=1 ./internal/server/...`
-- `./scripts/check-loc.sh 400` (must report zero files exceeding 400 LOC).
-- `./scripts/check.sh` (complete 8-stage pre-flight quality gate).
+- `esbuild` JS syntax validation via `./scripts/check.sh`.
+- HTML Tidy structural validation via `./scripts/check.sh`.
+- `./scripts/check-loc.sh 400` ensuring all JS files remain strictly < 400 LOC.
+- Full 8-stage quality gate `./scripts/check.sh`.
 

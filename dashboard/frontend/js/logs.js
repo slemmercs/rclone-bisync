@@ -71,8 +71,7 @@ window.LogsModule = {
         this.showDeletionsModal = true;
         this.deletionsData = { total_count: 0, source: "Scanning...", target_action: "Reading daemon logs...", files: [] };
         try {
-            const res = await fetch("/api/deletions/pending");
-            const data = await res.json();
+            const data = await window.API.get("/api/deletions/pending");
             this.deletionsData = data;
         } catch (err) {
             this.deletionsData = { total_count: 0, source: "Error", target_action: err.message, files: [] };
@@ -97,8 +96,7 @@ window.LogsModule = {
         }
 
         try {
-            const res = await fetch(url);
-            const data = await res.json();
+            const data = await window.API.get(url);
             if (data && Array.isArray(data.logs)) {
                 this.daemonModalLogs = unwrapAndParseLogLines(data.logs);
             } else {

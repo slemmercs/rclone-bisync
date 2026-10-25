@@ -41,18 +41,7 @@ window.ExplorerModule = {
             pane.loading = true;
             pane.error = null;
             try {
-                const res = await fetch("/api/browse", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({ remote: target, path: path })
-                });
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                }
-                const data = await res.json();
+                const data = await window.API.post("/api/browse", { remote: target, path: path });
                 if (data.error) {
                     pane.error = data.error;
                     pane.items = [];
@@ -200,15 +189,7 @@ window.ExplorerModule = {
             const pane = this.explorer[paneKey];
             if (!pane) return;
             try {
-                const res = await fetch("/api/browse/canary", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({ remote: pane.target, path: "" })
-                });
-                const data = await res.json();
+                const data = await window.API.post("/api/browse/canary", { remote: pane.target, path: "" });
                 if (data.status === "success") {
                     pane.hasCanary = true;
                     this.showToast("Canary file RCLONE_TEST provisioned successfully", "success");
@@ -217,7 +198,7 @@ window.ExplorerModule = {
                     this.showToast(data.error || "Failed to provision canary", "error");
                 }
             } catch (err) {
-                this.showToast("Network error: " + err.message, "error");
+                this.showToast("Failed to provision canary: " + err.message, "error");
             }
         },
 
@@ -244,21 +225,13 @@ window.ExplorerModule = {
             const dst_path = this.explorer[targetPaneKey].path;
 
             try {
-                const res = await fetch("/api/browse/copy", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({
-                        src_remote,
-                        src_path,
-                        dst_remote,
-                        dst_path,
-                        is_dir: item.IsDir
-                    })
+                const data = await window.API.post("/api/browse/copy", {
+                    src_remote,
+                    src_path,
+                    dst_remote,
+                    dst_path,
+                    is_dir: item.IsDir
                 });
-                const data = await res.json();
                 if (data.status === "success") {
                     this.showToast(`Transferred "${item.Name}" successfully!`, "success");
                     this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
@@ -266,7 +239,7 @@ window.ExplorerModule = {
                     this.showToast(`Transfer failed: ${data.error || 'Unknown error'}`, "error");
                 }
             } catch (err) {
-                this.showToast(`Network error: ${err.message}`, "error");
+                this.showToast(`Transfer failed: ${err.message}`, "error");
             } finally {
                 item._copying = false;
             }
@@ -286,21 +259,13 @@ window.ExplorerModule = {
 
             this.showToast("Initiating directory synchronization...", "info");
             try {
-                const res = await fetch("/api/browse/copy", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({
-                        src_remote,
-                        src_path,
-                        dst_remote,
-                        dst_path,
-                        is_dir: true
-                    })
+                const data = await window.API.post("/api/browse/copy", {
+                    src_remote,
+                    src_path,
+                    dst_remote,
+                    dst_path,
+                    is_dir: true
                 });
-                const data = await res.json();
                 if (data.status === "success") {
                     this.showToast("Directory synchronization complete!", "success");
                     this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
@@ -308,7 +273,7 @@ window.ExplorerModule = {
                     this.showToast(`Sync failed: ${data.error || 'Unknown error'}`, "error");
                 }
             } catch (err) {
-                this.showToast(`Network error: ${err.message}`, "error");
+                this.showToast(`Directory sync failed: ${err.message}`, "error");
             }
         }
 };

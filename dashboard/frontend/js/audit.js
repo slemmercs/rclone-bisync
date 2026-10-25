@@ -47,9 +47,7 @@ window.AuditModule = {
                 actor: this.auditData.filterActor
             });
 
-            const res = await fetch(`/api/audit/records?${params.toString()}`);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const data = await window.API.get(`/api/audit/records?${params.toString()}`);
             if (data.status === "error") throw new Error(data.error || "Query failed");
 
             this.auditData.records = data.records || [];
@@ -68,9 +66,7 @@ window.AuditModule = {
     async verifyAuditLedger() {
         this.auditData.verification.checking = true;
         try {
-            const res = await fetch("/api/audit/verify");
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const data = await window.API.get("/api/audit/verify");
             this.auditData.verification.valid = !!data.valid;
             this.auditData.verification.total_records = data.total_records || 0;
             this.auditData.verification.checked_at = data.checked_at ? new Date(data.checked_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : new Date().toLocaleTimeString();

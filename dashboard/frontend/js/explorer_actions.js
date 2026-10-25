@@ -66,19 +66,11 @@ window.ExplorerActionsModule = {
         const is_dir = !!item.IsDir;
 
         try {
-            const res = await fetch("/api/browse/delete", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Dashboard-Request": "1"
-                },
-                body: JSON.stringify({
-                    remote,
-                    path,
-                    is_dir
-                })
+            const data = await window.API.post("/api/browse/delete", {
+                remote,
+                path,
+                is_dir
             });
-            const data = await res.json();
             if (data.status === "success") {
                 this.showToast(`Deleted "${item.Name}" successfully`, "success");
                 this.cancelDelete();
@@ -87,7 +79,7 @@ window.ExplorerActionsModule = {
                 this.showToast(`Delete failed: ${data.error || 'Unknown error'}`, "error");
             }
         } catch (err) {
-            this.showToast(`Network error: ${err.message}`, "error");
+            this.showToast(`Delete failed: ${err.message}`, "error");
         } finally {
             this.deleteModal.deleting = false;
         }
