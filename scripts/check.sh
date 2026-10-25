@@ -18,23 +18,103 @@ MIN_COVERAGE="${MIN_COVERAGE:-80.0}"
 BUILD_TARGET="${BUILD_TARGET:-.}"
 COVERAGE_FILE="${COVERAGE_FILE:-coverage.out}"
 RUN_RACE="${RUN_RACE:-false}"
+LOC_THRESHOLD="${LOC_THRESHOLD:-400}"
 
 VERBOSE=0
 STAGE="all"
+STAGE_SET=0
+EXTRA_ARGS=()
+
+show_help() {
+    cat <<'EOF'
+Usage: ./scripts/check.sh [STAGE] [OPTIONS]
+
+Stages:
+  all         Run all quality gate stages (default)
+  fmt         Check Go formatting and validate shell scripts
+  lint        Run Go static analysis, secret scanning, JS & HTML linting
+  templates   Lint HTML templates for Alpine.js boolean attribute safety
+  loc [LIMIT] Audit codebase for files exceeding LOC threshold (default: 400)
+  test        Execute unit tests and verify code coverage
+  build       Verify native and cross-platform compilation
+
+Options:
+  -v, --verbose   Stream live check output instead of capturing logs
+  -h, --help      Display this help message
+
+Environment Variables:
+  LOC_THRESHOLD   Maximum lines of code per file (default: 400)
+  MIN_COVERAGE    Minimum required test coverage percentage (default: 80.0)
+  RUN_RACE        Enable race detection during tests (default: false)
+  BUILD_TARGET    Target package for builds (default: .)
+EOF
+}
 
 for arg in "$@"; do
     case "${arg}" in
         -v|--verbose)
             VERBOSE=1
             ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        [0-9]*)
+            LOC_THRESHOLD="${arg}"
+            ;;
         *)
-            STAGE="${arg}"
+            if [[ ${STAGE_SET} -eq 0 ]]; then
+                STAGE="${arg}"
+                STAGE_SET=1
+            else
+                EXTRA_ARGS+=("${arg}")
+            fi
             ;;
     esac
 done
 
+validate_stage() {
+    case "${STAGE}" in
+        all|fmt|format|lint|static|security|templates|template|lint-templates|template-lint|loc|check-loc|lines|test|tests|unit|build|builds)
+            return 0
+            ;;
+        *)
+            echo "Unknown stage: '${STAGE}'"
+            echo "Run './scripts/check.sh --help' for available stages."
+            exit 1
+            ;;
+    esac
+}
+validate_stage
+
 should_run() {
-    [[ "${STAGE}" == "all" || "${STAGE}" == "$1" ]]
+    local target="$1"
+    if [[ "${STAGE}" == "all" ]]; then
+        return 0
+    fi
+    case "${target}" in
+        fmt)
+            [[ "${STAGE}" == "fmt" || "${STAGE}" == "format" ]]
+            ;;
+        lint)
+            [[ "${STAGE}" == "lint" || "${STAGE}" == "static" || "${STAGE}" == "security" ]]
+            ;;
+        templates)
+            [[ "${STAGE}" == "templates" || "${STAGE}" == "template" || "${STAGE}" == "lint-templates" || "${STAGE}" == "template-lint" ]]
+            ;;
+        loc)
+            [[ "${STAGE}" == "loc" || "${STAGE}" == "check-loc" || "${STAGE}" == "lines" ]]
+            ;;
+        test)
+            [[ "${STAGE}" == "test" || "${STAGE}" == "tests" || "${STAGE}" == "unit" ]]
+            ;;
+        build)
+            [[ "${STAGE}" == "build" || "${STAGE}" == "builds" ]]
+            ;;
+        *)
+            [[ "${STAGE}" == "${target}" ]]
+            ;;
+    esac
 }
 
 cleanup() {
@@ -176,11 +256,6 @@ check_lint_and_security() {
         log_verbose "[WARN] tidy binary not found in PATH."
     fi
 
-    if [[ -x "${REPO_ROOT}/scripts/lint-templates.sh" ]]; then
-        log_verbose "--> Running Alpine template boolean attribute safety check..."
-        "${REPO_ROOT}/scripts/lint-templates.sh" || failed=1
-    fi
-
     return ${failed}
 }
 
@@ -189,7 +264,115 @@ if should_run "lint"; then
 fi
 
 # ----------------------------------------------------------------------
-# Stage 3: Unit Tests & Coverage
+# Stage 3: Alpine Template Boolean Attribute Safety
+# ----------------------------------------------------------------------
+
+check_alpine_templates() {
+    local target_dir="${1:-${REPO_ROOT}/dashboard/frontend}"
+    local violations=0
+    local pattern=':(disabled|checked|readonly|hidden|required|selected)="[^"]*\.[^"]*"'
+    local pattern_sq=":(disabled|checked|readonly|hidden|required|selected)='[^']*\.[^']*'"
+
+    log_verbose "--> Linting HTML templates for Alpine.js boolean attribute binding safety..."
+
+    while IFS= read -r html_file; do
+        if [[ ! -f "${html_file}" ]]; then
+            continue
+        fi
+
+        local matches_dq matches_sq
+        matches_dq=$(grep -n -E "${pattern}" "${html_file}" || true)
+        matches_sq=$(grep -n -E "${pattern_sq}" "${html_file}" || true)
+
+        if [[ -n "${matches_dq}" || -n "${matches_sq}" ]]; then
+            local rel_path="${html_file#"${REPO_ROOT}/"}"
+            echo ""
+            echo "❌ Template Linter Violation in: ${rel_path}"
+            if [[ -n "${matches_dq}" ]]; then
+                echo "${matches_dq}" | while IFS= read -r line; do
+                    echo "   line ${line}"
+                done
+            fi
+            if [[ -n "${matches_sq}" ]]; then
+                echo "${matches_sq}" | while IFS= read -r line; do
+                    echo "   line ${line}"
+                done
+            fi
+            echo "   👉 Alpine v3 quirk: Dotted expression in boolean attribute coerces undefined to '' (truthy)."
+            echo "   👉 Remediation: Replace dotted path with a component helper method (e.g., :disabled=\"isItemCopying(item)\")."
+            violations=$((violations + 1))
+        fi
+    done < <(find "${target_dir}" -type f -name "*.html")
+
+    if [[ ${violations} -gt 0 ]]; then
+        echo ""
+        echo "FAILED: Found ${violations} template file(s) with unsafe dotted boolean attribute bindings."
+        return 1
+    fi
+
+    echo "✓ All HTML templates passed Alpine boolean attribute safety checks (0 violations)."
+    return 0
+}
+
+if should_run "templates"; then
+    execute_step "Alpine Template Safety" check_alpine_templates
+fi
+
+# ----------------------------------------------------------------------
+# Stage 4: Lines of Code (LOC) Audit
+# ----------------------------------------------------------------------
+
+check_loc() {
+    local threshold="${LOC_THRESHOLD}"
+    local total_oversized=0
+
+    audit_loc_type() {
+        local label="$1"
+        local name_pattern="$2"
+        local exclude_pattern="${3:-}"
+
+        echo "=== ${label}: Files Exceeding ${threshold} LOC ==="
+
+        local find_opts=("-type" "f" "-name" "${name_pattern}")
+        if [[ -n "${exclude_pattern}" ]]; then
+            find_opts+=("-not" "-name" "${exclude_pattern}")
+        fi
+
+        local results
+        results="$(find . -not -path "*/.*" -not -path "*/node_modules/*" -not -path "*/site/*" -not -path "*/_site/*" "${find_opts[@]}" -exec wc -l {} + 2>/dev/null | \
+          awk -v max="${threshold}" '$1 >= max && $2 != "total" { printf "%5d lines  %s\n", $1, $2 }' | \
+          sort -nr)"
+
+        if [[ -n "${results}" ]]; then
+            echo "${results}"
+            local count
+            count="$(echo "${results}" | wc -l)"
+            total_oversized=$((total_oversized + count))
+        else
+            echo "  (No files exceeding threshold)"
+        fi
+        echo
+    }
+
+    audit_loc_type "GO" "*.go" "*_test.go"
+    audit_loc_type "JAVASCRIPT" "*.js" "*.min.js"
+    audit_loc_type "HTML" "*.html"
+
+    if [[ ${total_oversized} -gt 0 ]]; then
+        echo "FAILED: Found ${total_oversized} file(s) exceeding ${threshold} lines of code."
+        return 1
+    fi
+
+    echo "✓ All audited source files are within ${threshold} lines of code."
+    return 0
+}
+
+if should_run "loc"; then
+    execute_step "Lines of Code Audit" check_loc
+fi
+
+# ----------------------------------------------------------------------
+# Stage 5: Unit Tests & Coverage
 # ----------------------------------------------------------------------
 
 check_tests_and_coverage() {
@@ -212,7 +395,7 @@ if should_run "test"; then
 fi
 
 # ----------------------------------------------------------------------
-# Stage 4: Build Verification
+# Stage 6: Build Verification
 # ----------------------------------------------------------------------
 
 check_builds() {

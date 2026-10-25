@@ -1,38 +1,34 @@
-# Task Plan: Alpine Boolean Attribute Defense-in-Depth
+# Task Plan: Consolidate Quality Scripts into Unified check.sh with Standalone CI Targets
 
 ## Goal
-Implement static template linting, standardized helper methods for all boolean attribute bindings, and automated headless Chrome E2E smoke tests.
+Integrate `lint-templates.sh`, `check-loc.sh`, and `check.sh` into a single, unified `check.sh` script where each check can be executed independently for standalone CI jobs.
 
 ## Tasks
 
-- [x] Task 1: Add helper methods to frontend JS modules
-  - **Scope**: `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/remotes.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/js/audit.js`
-  - **Verification**: `./scripts/check-loc.sh 400`
+- [x] Task 1: Consolidate template linting and LOC auditing into `scripts/check.sh`
+  - **Scope**: `scripts/check.sh`
+  - **Verification**: `./scripts/check.sh templates` && `./scripts/check.sh loc 400`
 
-- [x] Task 2: Refactor HTML partials to use dot-free helper methods
-  - **Scope**: `dashboard/frontend/partials/` (`view_explorer.html`, `view_remotes.html`, `view_audit.html`, `modals/*.html`), bump `index.html` asset version to `?v=19`
-  - **Verification**: `./scripts/check-loc.sh 400`
+- [x] Task 2: Remove redundant standalone scripts and update rule references
+  - **Scope**: `scripts/lint-templates.sh`, `scripts/check-loc.sh`, `.clinerules`
+  - **Verification**: `git status -s` && `./scripts/check.sh fmt`
 
-- [x] Task 3: Implement static template linting script and integrate into `check.sh`
-  - **Scope**: `scripts/lint-templates.sh`, `scripts/check.sh`
-  - **Verification**: `./scripts/lint-templates.sh` && `./scripts/check.sh lint`
+- [x] Task 3: Update CI workflows for standalone quality check jobs
+  - **Scope**: `.github/workflows/ci.yml`, `.github/workflows/nightly-quality.yml`
+  - **Verification**: `git diff .github/workflows/`
 
-- [x] Task 4: Add `chromedp` dependency and implement Headless Chrome E2E Smoke Test
-  - **Scope**: `go.mod`, `go.sum`, `tests/e2e/dashboard_smoke_test.go`
-  - **Verification**: `go test -v -count=1 ./tests/e2e`
-
-- [x] Task 5: Full verification & pre-flight commit
-  - **Scope**: `./scripts/check.sh`
-  - **Verification**: All stages pass cleanly
+- [x] Task 4: Full verification of all stages and pre-flight commit
+  - **Scope**: `./scripts/check.sh [fmt|lint|templates|loc|test|build|all]`
+  - **Verification**: All individual check invocations and full `./scripts/check.sh` pass cleanly
 
 ## Status Updates
 
 - 2026-10-25: Initialized plan from implementation_plan.md on branch `feat/alpine-boolean-lint-and-e2e`.
-- 2026-10-25: Completed Task 1: Added standardized helper methods (`isExplorerLoading`, `isItemCopying`, `isCanaryItem`, `isDeleteModalDeleting`, `isRemotesLoading`, `isRemoteValidating`, `isMigrationLoading`, `cannotSaveMigration`, `isReviewDismissing`, `isReviewRollingBack`, `cannotApplyReview`, `isAuditVerifying`, `isFirstAuditPage`, `isLastAuditPage`) across frontend JS modules. Verified all under 400 LOC.
-- 2026-10-25: Completed Task 2: Refactored all partials to eliminate dotted boolean attribute expressions and bumped asset version to `?v=19` in `index.html`.
-- 2026-10-25: Completed Task 3: Created `scripts/lint-templates.sh` forbidding dotted boolean attributes and integrated into `scripts/check.sh` Stage 2. Verified 0 template violations.
-- 2026-10-25: Completed Task 4: Implemented Headless Chrome E2E Smoke Test in `tests/e2e/dashboard_smoke_test.go` verifying dashboard rendering, tab switching, and button interactive states with zero runtime JavaScript errors. Verified with `go test -v -count=1 ./tests/e2e/...`.
-- 2026-10-25: Completed Task 5: Pre-flight `./scripts/check.sh` passed all 4 quality gates cleanly (formatting, linting & security, unit/E2E test suite with coverage, build verification).
+- 2026-10-25: Completed Task 1: Consolidated `check_alpine_templates` and `check_loc` into `scripts/check.sh`.
+- 2026-10-25: Completed Task 2: Removed `scripts/lint-templates.sh` and `scripts/check-loc.sh` and updated `.clinerules`.
+- 2026-10-25: Completed Task 3: Added dedicated standalone CI jobs for `templates` and `loc` in `.github/workflows/ci.yml` and `.github/workflows/nightly-quality.yml`.
+- 2026-10-25: Completed Task 4: Verified each individual stage (`fmt`, `lint`, `templates`, `loc`, `test`, `build`) and the unified 6-stage `./scripts/check.sh all` run cleanly.
+
 
 
 

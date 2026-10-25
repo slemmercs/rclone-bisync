@@ -1,53 +1,57 @@
-# Implementation Plan: Alpine Boolean Attribute Defense-in-Depth (Linting, Helper Standardization & Headless Chrome E2E)
+# Implementation Plan: Consolidate Quality Scripts into Unified check.sh with Standalone CI Targets
 
 ## Proposed Changes
 
-Implement comprehensive defense-in-depth prevention against Alpine.js v3 boolean attribute binding bugs through:
-1. Static template linting (`scripts/lint-templates.sh`) integrated into `./scripts/check.sh`.
-2. Standardization of Alpine component helper methods across all partials, eliminating dotted expressions from all boolean attribute bindings (`:disabled`, `:checked`, `:readonly`, etc.).
-3. Automated Headless Chrome E2E smoke testing (`tests/e2e/dashboard_smoke_test.go`) auditing rendered button interactive states and asserting zero runtime console errors.
+Consolidate `scripts/lint-templates.sh`, `scripts/check-loc.sh`, and `scripts/check.sh` into a single, self-contained `scripts/check.sh` script. Every check stage will be decoupled so it can be executed standalone in GitHub Actions CI jobs as well as locally via unified flags.
 
 ### Affected Components & Packages
 
-- `scripts/lint-templates.sh`:
-  - Standalone POSIX script scanning all HTML files in `dashboard/frontend/`.
-  - Forbids any `.` inside boolean attribute bindings (`:(disabled|checked|readonly|hidden|required|selected)="[^"]*\.[^"]*"`).
 - `scripts/check.sh`:
-  - Integrated into Stage 2 (Static Analysis & Security).
-- `dashboard/frontend/js/explorer.js`:
-  - Add `isExplorerLoading()`, `isItemCopying(item)`, `isCanaryItem(item)`, `isDeleteModalDeleting()`.
-- `dashboard/frontend/js/remotes.js`:
-  - Add `isRemotesLoading()`, `isRemoteValidating(remote)`, `isMigrationLoading()`, `cannotSaveMigration()`.
-- `dashboard/frontend/js/review.js`:
-  - Add `isReviewDismissing()`, `isReviewRollingBack()`, `cannotApplyReview()`.
-- `dashboard/frontend/js/audit.js`:
-  - Add `isAuditVerifying()`, `isFirstAuditPage()`, `isLastAuditPage()`.
-- `dashboard/frontend/partials/`:
-  - Update `view_explorer.html`, `view_remotes.html`, `view_audit.html`, `modals/modal_delete.html`, `modals/modal_oauth_migration.html`, `modals/modal_review.html` to call helper methods with no dots.
-- `dashboard/frontend/index.html`:
-  - Increment script cache-busting query parameter to `?v=19`.
-- `tests/e2e/dashboard_smoke_test.go`:
-  - Automated headless Chrome smoke tests with `chromedp`.
-  - Audits default button interactive states across tabs and verifies zero console errors/warnings.
+  - Integrate `check_alpine_templates()`: scans HTML templates for dotted boolean attribute bindings (`:disabled="x.y"`), preventing Alpine v3 boolean coercion bugs.
+  - Integrate `check_loc()`: audits Go, JavaScript, and HTML files against LOC limits (default 400 LOC, configurable via CLI arg or `LOC_THRESHOLD`). Fails if files exceed the threshold.
+  - Expand stage routing:
+    - `all`: runs all 6 stages sequentially (`fmt`, `lint`, `templates`, `loc`, `test`, `build`).
+    - `fmt`: runs `check_fmt_and_scripts`.
+    - `lint`: runs `check_lint_and_security`.
+    - `templates`: runs `check_alpine_templates`.
+    - `loc [limit]`: runs `check_loc` with optional threshold.
+    - `test`: runs `check_tests_and_coverage`.
+    - `build`: runs `check_builds`.
+  - Add help documentation (`--help`), argument validation, and support for `-v` / `--verbose` streaming.
+- `scripts/lint-templates.sh`:
+  - Removed (logic absorbed into `scripts/check.sh`).
+- `scripts/check-loc.sh`:
+  - Removed (logic absorbed into `scripts/check.sh`).
+- `.clinerules`:
+  - Update LOC inspection command from `./scripts/check-loc.sh 400` to `./scripts/check.sh loc 400`.
+- `.github/workflows/ci.yml` & `.github/workflows/nightly-quality.yml`:
+  - Add standalone CI jobs for `templates` (`./scripts/check.sh templates`) and `loc` (`./scripts/check.sh loc`).
 
 ### Technical Strategy & Data Flow
 
-- Eliminating dotted property access from boolean bindings ensures Alpine's internal quirk (`c === void 0 && n.match(/\./) && (c = "")`) can never trigger.
-- Dedicated component helper methods encapsulate business logic in clean, testable JavaScript functions returning strict booleans.
-- The static linter enforces this contract at pre-flight, failing any PR or build that introduces a dotted boolean attribute binding.
-- The `chromedp` E2E test runs against a mock backend, testing the actual rendered DOM in real Chrome without live cloud network dependencies.
+- **Decoupled Stages**: Each quality stage functions independently without relying on intermediate state or order of execution.
+- **Fail-Fast Error Propagation**: `check_alpine_templates` and `check_loc` return non-zero exit codes on violations, properly failing standalone CI jobs or pre-flight checks.
+- **Zero External Dependencies**: Both template linting and LOC auditing use standard POSIX utilities (`grep`, `find`, `awk`, `wc`) already present in all environments.
 
 ### Safety & Error Handling
 
-- Test gracefully skips when Chrome/Chromium is unavailable in minimal CI environments.
-- Console error trapping catches any unhandled exceptions or syntax errors in frontend JavaScript during tests.
-- Path confinement, canary safety, and advisory locks remain intact.
+- Unknown stage names exit immediately with code 1 and display available options.
+- Clean cleanup trap ensures temporary logs and builds are purged on exit.
+- Preserves all existing stage configurations (`MIN_COVERAGE`, `RUN_RACE`, `BUILD_TARGET`).
 
 ## Verification Plan
 
-- `scripts/lint-templates.sh`: verify 0 template violations.
-- `go test -v -count=1 ./tests/e2e/...`: verify headless Chrome smoke test passes cleanly and reports 0 disabled interactive buttons.
-- `./scripts/check.sh`: verify all stages (fmt, lint, test, build) pass cleanly.
+- Test each stage independently:
+  - `./scripts/check.sh fmt`
+  - `./scripts/check.sh lint`
+  - `./scripts/check.sh templates`
+  - `./scripts/check.sh loc` & `./scripts/check.sh loc 400` & `./scripts/check.sh loc 300` (verifying failure on intentional low threshold)
+  - `./scripts/check.sh test`
+  - `./scripts/check.sh build`
+  - `./scripts/check.sh all` (all 6 stages pass)
+  - `./scripts/check.sh --help`
+- Run `./scripts/check.sh` pre-flight commit validation.
+
 
 
 
