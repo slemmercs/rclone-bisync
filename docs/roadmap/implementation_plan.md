@@ -1,37 +1,41 @@
-# Implementation Plan: Centralized Frontend API Client & Service Decoupling
+# Implementation Plan: Alpine.js Runtime Syntax Fixes, Cloak FOUC Prevention & Modal Keyboard Accessibility
 
 ## Proposed Changes
 
-Extract a centralized HTTP client (`dashboard/frontend/js/api.js`) to unify all REST API communication across the dashboard, standardize required security headers (`X-Dashboard-Request: 1`, `Content-Type: application/json`), normalize error handling, and eliminate duplicated fetch/JSON boilerplate across `review.js`, `explorer.js`, `explorer_actions.js`, `remotes.js`, `audit.js`, `logs.js`, and `app.js`.
+Address Alpine.js runtime syntax limitations, eliminate initial page load FOUC, and complete WCAG-compliant keyboard escape navigation across all modal templates.
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/js/api.js` (New, ~75 LOC): Unified `window.API` client with `.get()`, `.post()`, and custom request wrapping with JSON response parsing and HTTP error raising.
-- `dashboard/frontend/index.html`: Load `api.js` prior to any modules that make network requests.
-- `dashboard/frontend/js/review.js`: Refactor 7 REST API calls to use `window.API`, reducing LOC from 384 down to ~320 LOC.
-- `dashboard/frontend/js/explorer.js` & `explorer_actions.js`: Use `window.API.post()` for browse, copy, delete, and canary provisioning.
-- `dashboard/frontend/js/remotes.js`: Use `window.API` for remote auth, validation, credentials, and OAuth control.
-- `dashboard/frontend/js/audit.js`: Use `window.API.get()` for ledger records and verification checks.
-- `dashboard/frontend/js/logs.js`: Use `window.API.get()` for daemon log retrieval.
-- `dashboard/frontend/app.js`: Use `window.API` for telemetry polling and engine actions.
+- `dashboard/frontend/index.html`: Inject `<style>[x-cloak] { display: none !important; }</style>` in `<head>`.
+- `dashboard/frontend/partials/modals/modal_daemon.html`: Fix array destructuring in `x-for`, add `x-cloak`, add `@keydown.escape.window="closeDaemonModal()"`.
+- `dashboard/frontend/partials/view_telemetry.html`: Fix array destructuring in `filteredConfigEntries` `x-for`, add `x-cloak` to root view container.
+- `dashboard/frontend/partials/modals/modal_review.html`: Add `x-cloak` and `@keydown.escape.window="closeReviewModal()"`.
+- `dashboard/frontend/partials/modals/modal_deletions.html`: Add `x-cloak` and `@keydown.escape.window="showDeletionsModal = false"`.
+- `dashboard/frontend/partials/modals/modal_reconnect.html`: Add `x-cloak` and `@keydown.escape.window="reconnectModal.show = false"`.
+- `dashboard/frontend/partials/modals/modal_oauth_migration.html`: Add `x-cloak` and `@keydown.escape.window="closeMigrationWizard()"`.
+- `dashboard/frontend/partials/modals/modal_auth_audit.html`: Add `x-cloak` and `@keydown.escape.window="auditModal.show = false"`.
+- `dashboard/frontend/partials/modals/modal_delete.html`: Add `@keydown.escape.window="cancelDelete()"`.
+- `dashboard/frontend/partials/view_explorer.html`: Add `x-cloak` to root container.
+- `dashboard/frontend/partials/view_audit.html`: Add `x-cloak` to root container.
+- `dashboard/frontend/partials/view_remotes.html`: Add `x-cloak` to root container.
+- `dashboard/frontend/partials/toast.html`: Add `x-cloak` to notification container.
+- `internal/server/server_test.go`: Update string assertion for modal_daemon details iteration.
 
 ### Technical Strategy & Data Flow
 
-- The `window.API` object exposes:
-  - `request(endpoint, options)`: Core wrapper attaching `X-Dashboard-Request: 1`, parsing JSON safely, and throwing descriptive Error objects on non-2xx responses.
-  - `get(endpoint, options)`: Shortcut for GET requests.
-  - `post(endpoint, body, options)`: Shortcut for POST requests with auto-JSON body serialization.
-- Retain existing UI behavior, toast feedback, and error handling contracts.
+- Alpine.js `x-for` regex parser does not support array destructuring `[key, val] in collection`. Iterations are refactored to `(item, idx)` pairs, referencing index `item[0]` (key) and `item[1]` (val).
+- `[x-cloak]` CSS rule hides all inactive views and modals until Alpine initializes and strips `x-cloak`.
+- Escape key listeners (`@keydown.escape.window`) provide standard keyboard dismissal for all overlay modals.
 
 ### Safety & Error Handling
 
-- Ensures every API request includes `X-Dashboard-Request: 1` header, preventing CSRF / unauthorized browser cross-origin submissions.
-- Ensures non-OK HTTP status codes throw actionable Errors with response details attached.
+- All changes preserve HTML formatting, valid Go html/template syntax, and strict LOC under 400 lines per file.
+- All template assembly tests in `server_test.go` and static validation (`check.sh`) verified clean.
 
 ## Verification Plan
 
-- `esbuild` JS syntax validation via `./scripts/check.sh`.
-- HTML Tidy structural validation via `./scripts/check.sh`.
-- `./scripts/check-loc.sh 400` ensuring all JS files remain strictly < 400 LOC.
-- Full 8-stage quality gate `./scripts/check.sh`.
+- `go test -count=1 ./internal/server -run TestDashboardHandler_HTMLStructure`
+- `./scripts/check-loc.sh 400`
+- `./scripts/check.sh`
+- Binary build & UI server verification: Launch `bisync-hub` and curl `/` to verify rendered HTML, style block, and lack of unparsed template directives.
 

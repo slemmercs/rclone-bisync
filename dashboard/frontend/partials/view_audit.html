@@ -1,6 +1,6 @@
 {{ define "view_audit" }}
         <!-- View 4: Immutable Audit Ledger & Compliance Cockpit -->
-        <div x-show="currentTab === 'audit'" x-transition.opacity.duration.200ms class="space-y-6">
+        <div x-show="currentTab === 'audit'" x-cloak x-transition.opacity.duration.200ms class="space-y-6">
             <!-- Cryptographic Ledger Continuity Banner -->
             <div class="rounded-2xl p-5 border transition-all"
                  :class="auditData.verification.valid ? 'bg-slate-900/80 border-emerald-500/30 shadow-lg shadow-emerald-950/20' : 'bg-rose-950/40 border-rose-500/50 shadow-lg shadow-rose-950/30'">

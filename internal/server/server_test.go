@@ -1219,7 +1219,7 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 	if strings.Contains(body, `x-for="(val, key) in entry.details"`) {
 		t.Error("found invalid x-for loop over non-iterable Object in modal_daemon")
 	}
-	if !strings.Contains(body, `x-for="[key, val] in Object.entries(entry.details`) {
+	if !strings.Contains(body, `x-for="(pair, idx) in Object.entries(entry.details`) {
 		t.Error("expected Object.entries iteration for entry.details in modal_daemon")
 	}
 
