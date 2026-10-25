@@ -1230,6 +1230,24 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 	if !strings.Contains(body, "v1.0") {
 		t.Errorf("expected dynamic version 'v1.0' in header, got body: %s", body[:500])
 	}
+
+	// Verify global x-cloak CSS style rule and x-cloak presence on views and modals
+	if !strings.Contains(body, "[x-cloak] { display: none !important; }") {
+		t.Error("expected global [x-cloak] CSS rule in head")
+	}
+	if cloakCount := strings.Count(body, "x-cloak"); cloakCount < 10 {
+		t.Errorf("expected at least 10 x-cloak attributes on views/modals, found %d", cloakCount)
+	}
+
+	// Verify keyboard escape listeners across modals
+	if escCount := strings.Count(body, "@keydown.escape.window"); escCount < 7 {
+		t.Errorf("expected at least 7 @keydown.escape.window listeners on modals, found %d", escCount)
+	}
+
+	// Verify no unsupported Alpine array destructuring in templates
+	if strings.Contains(body, `x-for="[`) {
+		t.Error("found unsupported Alpine x-for array destructuring syntax")
+	}
 }
 
 func TestFormatMajorMinor(t *testing.T) {
