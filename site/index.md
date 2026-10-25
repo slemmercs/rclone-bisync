@@ -16,9 +16,9 @@ permalink: /
   <h1>Bisync Hub</h1>
   <p class="hero-tagline">Review. Decide. Sync. The safety layer missing from automated cloud synchronization.</p>
   
-  ```bash
-  curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | bash
-  ```
+  <div class="hero-install">
+    <code>curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | bash</code>
+  </div>
 </div>
 <div class="screenshot-frame">
   <img src="{{ '/assets/images/screenshots/bisync-hub_engine-telemetry.png' | relative_url }}" alt="Bisync Hub Real-Time Telemetry Cockpit" />

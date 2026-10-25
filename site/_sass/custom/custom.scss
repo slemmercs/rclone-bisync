@@ -45,6 +45,35 @@ h4 {
 }
 
 
+/* Site Title and Logo in Header */
+.site-title {
+  display: flex !important;
+  align-items: center !important;
+  text-decoration: none !important;
+}
+
+.site-title-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.site-title-logo {
+  width: 1.85rem;
+  height: 1.85rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+
+.site-title-text {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #ffffff !important;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
 /* Hero Container */
 .hero-box {
   background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, rgba(19, 25, 43, 0.9) 70%);
@@ -76,6 +105,29 @@ h4 {
   gap: 0.5rem;
   margin-bottom: 1.5rem;
 }
+
+.hero-install {
+  display: inline-block;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  color: #a5b4fc;
+  max-width: 100%;
+  overflow-x: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  margin-top: 0.5rem;
+}
+
+.hero-install code {
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: inherit;
+  color: inherit;
+}
+
 
 /* Status Badges & Pills */
 .badge-online {

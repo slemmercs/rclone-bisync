@@ -106,7 +106,7 @@ func TestCheckLOC(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := checkLOC(tmpDir, 10); err != nil {
+	if err := checkLOC(tmpDir, 10, false); err != nil {
 		t.Fatalf("expected nil error for short file, got: %v", err)
 	}
 
@@ -117,7 +117,7 @@ func TestCheckLOC(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := checkLOC(tmpDir, 10)
+	err := checkLOC(tmpDir, 10, false)
 	if err == nil {
 		t.Fatalf("expected error for file exceeding LOC threshold 10, got nil")
 	}
@@ -132,7 +132,7 @@ func TestCheckLOC(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := checkLOC(tmpDir, 10); err != nil {
+	if err := checkLOC(tmpDir, 10, false); err != nil {
 		t.Fatalf("expected _test.go files to be ignored, got: %v", err)
 	}
 }
@@ -147,7 +147,7 @@ func TestCheckFmtAndScripts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := checkFmtAndScripts(tmpDir); err != nil {
+	if err := checkFmtAndScripts(tmpDir, false); err != nil {
 		t.Fatalf("expected nil error for formatted Go file, got: %v", err)
 	}
 
@@ -158,7 +158,7 @@ func TestCheckFmtAndScripts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := checkFmtAndScripts(tmpDir)
+	err := checkFmtAndScripts(tmpDir, false)
 	if err == nil {
 		t.Fatalf("expected error for unformatted Go file, got nil")
 	}
@@ -187,4 +187,132 @@ func TestShouldSkip(t *testing.T) {
 			t.Errorf("shouldSkip(%q) = %v, expected %v", c.path, got, c.expected)
 		}
 	}
+}
+func TestPartitionArgs(t *testing.T) {
+	cases := []struct {
+		name         string
+		args         []string
+		wantFlagArgs []string
+		wantPosArgs  []string
+	}{
+		{
+			name:         "stage with trailing verbose flag",
+			args:         []string{"all", "-v"},
+			wantFlagArgs: []string{"-v"},
+			wantPosArgs:  []string{"all"},
+		},
+		{
+			name:         "stage with leading verbose flag",
+			args:         []string{"-v", "fmt"},
+			wantFlagArgs: []string{"-v"},
+			wantPosArgs:  []string{"fmt"},
+		},
+		{
+			name:         "loc with positional limit and trailing flag",
+			args:         []string{"loc", "350", "-v"},
+			wantFlagArgs: []string{"-v"},
+			wantPosArgs:  []string{"loc", "350"},
+		},
+		{
+			name:         "loc with flag limit separated by space",
+			args:         []string{"-loc", "350", "loc"},
+			wantFlagArgs: []string{"-loc", "350"},
+			wantPosArgs:  []string{"loc"},
+		},
+		{
+			name:         "loc with flag limit joined by equal",
+			args:         []string{"loc", "-loc=250", "--verbose"},
+			wantFlagArgs: []string{"-loc=250", "--verbose"},
+			wantPosArgs:  []string{"loc"},
+		},
+		{
+			name:         "test with race and min-coverage",
+			args:         []string{"test", "-race", "--min-coverage", "88.5"},
+			wantFlagArgs: []string{"-race", "--min-coverage", "88.5"},
+			wantPosArgs:  []string{"test"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			flags, pos := partitionArgs(tc.args)
+			if strings.Join(flags, " ") != strings.Join(tc.wantFlagArgs, " ") {
+				t.Errorf("flags mismatch: got %v, want %v", flags, tc.wantFlagArgs)
+			}
+			if strings.Join(pos, " ") != strings.Join(tc.wantPosArgs, " ") {
+				t.Errorf("pos mismatch: got %v, want %v", pos, tc.wantPosArgs)
+			}
+		})
+	}
+}
+
+func TestParseConfigWithEnv(t *testing.T) {
+	noEnv := func(k string) string { return "" }
+
+	t.Run("default empty args", func(t *testing.T) {
+		cfg, isHelp, err := parseConfigWithEnv([]string{}, noEnv)
+		if err != nil || isHelp {
+			t.Fatalf("unexpected err: %v or isHelp: %v", err, isHelp)
+		}
+		if cfg.Stage != "all" || cfg.Verbose || cfg.LocThreshold != 400 || cfg.MinCoverage != 80.0 {
+			t.Errorf("unexpected defaults: %+v", cfg)
+		}
+	})
+
+	t.Run("stage all with trailing verbose", func(t *testing.T) {
+		cfg, isHelp, err := parseConfigWithEnv([]string{"all", "-v"}, noEnv)
+		if err != nil || isHelp {
+			t.Fatalf("unexpected err: %v or isHelp: %v", err, isHelp)
+		}
+		if cfg.Stage != "all" || !cfg.Verbose {
+			t.Errorf("expected Stage=all, Verbose=true, got %+v", cfg)
+		}
+	})
+
+	t.Run("stage loc with positional threshold and verbose", func(t *testing.T) {
+		cfg, isHelp, err := parseConfigWithEnv([]string{"loc", "320", "-v"}, noEnv)
+		if err != nil || isHelp {
+			t.Fatalf("unexpected err: %v or isHelp: %v", err, isHelp)
+		}
+		if cfg.Stage != "loc" || cfg.LocThreshold != 320 || !cfg.Verbose {
+			t.Errorf("expected Stage=loc, Loc=320, Verbose=true, got %+v", cfg)
+		}
+	})
+
+	t.Run("stage test with race and min-coverage", func(t *testing.T) {
+		cfg, isHelp, err := parseConfigWithEnv([]string{"test", "-race", "--min-coverage", "92.5"}, noEnv)
+		if err != nil || isHelp {
+			t.Fatalf("unexpected err: %v or isHelp: %v", err, isHelp)
+		}
+		if cfg.Stage != "test" || !cfg.RunRace || cfg.MinCoverage != 92.5 {
+			t.Errorf("expected Stage=test, Race=true, MinCov=92.5, got %+v", cfg)
+		}
+	})
+
+	t.Run("help flag and positional", func(t *testing.T) {
+		for _, arg := range [][]string{{"help"}, {"-h"}, {"--help"}} {
+			cfg, isHelp, err := parseConfigWithEnv(arg, noEnv)
+			if err != nil || !isHelp {
+				t.Errorf("expected isHelp=true for %v, got isHelp=%v, err=%v, cfg=%+v", arg, isHelp, err, cfg)
+			}
+		}
+	})
+
+	t.Run("environment variable fallback", func(t *testing.T) {
+		mockEnv := map[string]string{
+			"VERBOSE":       "1",
+			"LOC_THRESHOLD": "300",
+			"MIN_COVERAGE":  "85.0",
+			"RUN_RACE":      "true",
+		}
+		cfg, isHelp, err := parseConfigWithEnv([]string{"test"}, func(k string) string {
+			return mockEnv[k]
+		})
+		if err != nil || isHelp {
+			t.Fatalf("unexpected err: %v or isHelp: %v", err, isHelp)
+		}
+		if !cfg.Verbose || cfg.LocThreshold != 300 || cfg.MinCoverage != 85.0 || !cfg.RunRace {
+			t.Errorf("expected env overrides to take effect, got %+v", cfg)
+		}
+	})
 }

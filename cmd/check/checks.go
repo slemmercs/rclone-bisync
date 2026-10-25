@@ -14,9 +14,10 @@ import (
 )
 
 // checkFmtAndScripts checks that Go files are formatted and shell scripts pass syntax checks.
-func checkFmtAndScripts(root string) error {
+func checkFmtAndScripts(root string, verbose bool) error {
 	var unformatted []string
 	var shellScripts []string
+	var goFilesCount int
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || shouldSkip(path) {
@@ -24,6 +25,7 @@ func checkFmtAndScripts(root string) error {
 		}
 		rel, _ := filepath.Rel(root, path)
 		if strings.HasSuffix(path, ".go") {
+			goFilesCount++
 			src, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -39,6 +41,10 @@ func checkFmtAndScripts(root string) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	if verbose {
+		fmt.Printf("    Checked %d Go files and %d shell scripts\n", goFilesCount, len(shellScripts))
 	}
 
 	if len(unformatted) > 0 {
@@ -63,12 +69,13 @@ func checkFmtAndScripts(root string) error {
 }
 
 // checkLOC audits Go, JS, and HTML files against a line count threshold.
-func checkLOC(root string, threshold int) error {
+func checkLOC(root string, threshold int, verbose bool) error {
 	type locEntry struct {
 		file  string
 		lines int
 	}
 	var oversized []locEntry
+	var totalScanned int
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || shouldSkip(path) {
@@ -79,6 +86,7 @@ func checkLOC(root string, threshold int) error {
 			return nil
 		}
 		if ext == ".go" || ext == ".js" || ext == ".html" {
+			totalScanned++
 			content, err := os.ReadFile(path)
 			if err != nil {
 				return nil
@@ -93,6 +101,10 @@ func checkLOC(root string, threshold int) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	if verbose {
+		fmt.Printf("    Audited %d files under threshold %d LOC\n", totalScanned, threshold)
 	}
 
 	if len(oversized) > 0 {
@@ -113,6 +125,9 @@ func runLintAndSecurity(cfg Config) error {
 	var errors []string
 
 	// 1. go vet ./...
+	if cfg.Verbose {
+		fmt.Println("    Running go vet ./...")
+	}
 	cmd := exec.Command("go", "vet", "./...")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		errors = append(errors, fmt.Sprintf("go vet failed:\n%s", strings.TrimSpace(string(out))))
@@ -120,22 +135,35 @@ func runLintAndSecurity(cfg Config) error {
 
 	// 2. staticcheck ./... (optional)
 	if path, err := exec.LookPath("staticcheck"); err == nil {
+		if cfg.Verbose {
+			fmt.Println("    Running staticcheck ./...")
+		}
 		cmd := exec.Command(path, "./...")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			errors = append(errors, fmt.Sprintf("staticcheck failed:\n%s", strings.TrimSpace(string(out))))
 		}
+	} else if cfg.Verbose {
+		fmt.Println("    staticcheck not found (skipped)")
 	}
 
 	// 3. govulncheck ./... (optional)
 	if path, err := exec.LookPath("govulncheck"); err == nil {
+		if cfg.Verbose {
+			fmt.Println("    Running govulncheck ./...")
+		}
 		cmd := exec.Command(path, "./...")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			errors = append(errors, fmt.Sprintf("govulncheck failed:\n%s", strings.TrimSpace(string(out))))
 		}
+	} else if cfg.Verbose {
+		fmt.Println("    govulncheck not found (skipped)")
 	}
 
 	// 4. betterleaks dir . (optional)
 	if path, err := exec.LookPath("betterleaks"); err == nil {
+		if cfg.Verbose {
+			fmt.Println("    Running betterleaks secret scan...")
+		}
 		var args []string
 		if _, err := os.Stat(".betterleaks.toml"); err == nil {
 			args = []string{"dir", "--config", ".betterleaks.toml", "."}
@@ -148,21 +176,31 @@ func runLintAndSecurity(cfg Config) error {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			errors = append(errors, fmt.Sprintf("betterleaks failed:\n%s", strings.TrimSpace(string(out))))
 		}
+	} else if cfg.Verbose {
+		fmt.Println("    betterleaks not found (skipped)")
 	}
 
 	// 5. esbuild check for frontend syntax (optional)
 	if path, err := exec.LookPath("esbuild"); err == nil {
 		appJS := filepath.Join("dashboard", "frontend", "app.js")
 		if _, err := os.Stat(appJS); err == nil {
+			if cfg.Verbose {
+				fmt.Println("    Running esbuild bundle syntax check...")
+			}
 			cmd := exec.Command(path, "--bundle", appJS, "--outfile=/dev/null")
 			if out, err := cmd.CombinedOutput(); err != nil {
 				errors = append(errors, fmt.Sprintf("esbuild JS check failed:\n%s", strings.TrimSpace(string(out))))
 			}
 		}
+	} else if cfg.Verbose {
+		fmt.Println("    esbuild not found (skipped)")
 	}
 
 	// 6. tidy HTML structure (optional)
 	if path, err := exec.LookPath("tidy"); err == nil {
+		if cfg.Verbose {
+			fmt.Println("    Running HTML tidy structure check...")
+		}
 		var htmlFiles []string
 		_ = filepath.WalkDir("dashboard/frontend", func(p string, d fs.DirEntry, err error) error {
 			if err == nil && !d.IsDir() && strings.HasSuffix(p, ".html") {
@@ -197,12 +235,26 @@ func runTests(cfg Config) error {
 	if cfg.RunRace {
 		args = append(args, "-race", "-shuffle=on")
 	}
+	if cfg.Verbose {
+		args = append(args, "-v")
+	}
 	args = append(args, "./...")
 
+	if cfg.Verbose {
+		fmt.Printf("    Running: go %s\n", strings.Join(args, " "))
+	}
 	cmd := exec.Command("go", args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go test failed:\n%s", strings.TrimSpace(string(out)))
+	if cfg.Verbose {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("go test failed: %w", err)
+		}
+	} else {
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("go test failed:\n%s", strings.TrimSpace(string(out)))
+		}
 	}
 
 	// Verify coverage percentage if coverage file was generated
@@ -217,6 +269,9 @@ func runTests(cfg Config) error {
 					if len(fields) >= 3 {
 						pctStr := strings.TrimSuffix(fields[len(fields)-1], "%")
 						if pct, parseErr := strconv.ParseFloat(pctStr, 64); parseErr == nil {
+							if cfg.Verbose {
+								fmt.Printf("    Coverage total: %.1f%% (minimum threshold: %.1f%%)\n", pct, cfg.MinCoverage)
+							}
 							if pct < cfg.MinCoverage {
 								return fmt.Errorf("test coverage %.1f%% is below required threshold %.1f%%", pct, cfg.MinCoverage)
 							}
@@ -239,6 +294,9 @@ func runBuilds(cfg Config) error {
 	}
 	defer os.RemoveAll(tmpDir)
 
+	if cfg.Verbose {
+		fmt.Printf("    Building native binary from %s...\n", cfg.BuildTarget)
+	}
 	nativeBinary := filepath.Join(tmpDir, "rclone-bisync")
 	cmd := exec.Command("go", "build", "-trimpath", "-o", nativeBinary, cfg.BuildTarget)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -250,6 +308,9 @@ func runBuilds(cfg Config) error {
 		{"linux", "arm64"},
 	}
 	for _, t := range targets {
+		if cfg.Verbose {
+			fmt.Printf("    Cross-compiling for %s/%s...\n", t.os, t.arch)
+		}
 		outPath := filepath.Join(tmpDir, fmt.Sprintf("rclone-bisync-%s-%s", t.os, t.arch))
 		c := exec.Command("go", "build", "-trimpath", "-o", outPath, cfg.BuildTarget)
 		c.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+t.os, "GOARCH="+t.arch)

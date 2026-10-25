@@ -201,13 +201,15 @@ func ScanHTMLForAlpineViolations(filePath string, content []byte) []BooleanAttri
 }
 
 // checkAlpineTemplates scans all HTML templates under root for unsafe dotted boolean bindings.
-func checkAlpineTemplates(root string) error {
+func checkAlpineTemplates(root string, verbose bool) error {
 	var allViolations []BooleanAttributeViolation
+	var htmlCount int
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || shouldSkip(path) || !strings.HasSuffix(path, ".html") {
 			return nil
 		}
+		htmlCount++
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -220,6 +222,10 @@ func checkAlpineTemplates(root string) error {
 
 	if err != nil {
 		return err
+	}
+
+	if verbose {
+		fmt.Printf("    Audited %d HTML templates\n", htmlCount)
 	}
 
 	if len(allViolations) > 0 {

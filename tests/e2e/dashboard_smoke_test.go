@@ -177,7 +177,25 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				t.Fatalf("failed clicking tab %q: %v", tc.name, err)
 			}
 
-			time.Sleep(300 * time.Millisecond)
+			// Poll until async tab data loading finishes (up to 5 seconds)
+			deadline := time.Now().Add(5 * time.Second)
+			for time.Now().Before(deadline) {
+				stillLoading, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+					const el = document.querySelector('body[x-data]');
+					if (!el || !window.Alpine) return false;
+					const data = Alpine.$data(el);
+					if (!data) return false;
+					if (data.remotesData && data.remotesData.loading) return true;
+					if (data.audit && data.audit.loading) return true;
+					if (data.explorer && ((data.explorer.left && data.explorer.left.loading) || (data.explorer.right && data.explorer.right.loading))) return true;
+					return false;
+				})()`))
+				if err == nil && !stillLoading {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			time.Sleep(100 * time.Millisecond)
 
 			type TabButtonAudit struct {
 				TotalButtons    int      `json:"totalButtons"`
