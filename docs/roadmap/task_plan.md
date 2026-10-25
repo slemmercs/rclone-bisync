@@ -13,8 +13,8 @@ Modularize `internal/services/review_service.go` (722 LOC) into cohesive sub-com
   - **Scope**: `internal/services/review_service_test.go` (tested `parseCandidateTime`, `RollbackReviewSession` execution & audit recording, WAL reconciliation, missing session handling, path fallbacks).
   - **Verification**: `go test -count=1 -cover ./internal/services -run TestReviewService`
 
-- [ ] Task 3: Service Hardening - `CanaryService` Tests
-  - **Scope**: `internal/services/canary_service_test.go` (jail traversal escapes, directory trap, nil client / touch failures).
+- [x] Task 3: Service Hardening - `CanaryService` Tests
+  - **Scope**: `internal/services/canary_service_test.go` (jail traversal escapes, directory trap, nil client, tilde path expansion, empty path fallback, file creation errors, remote failures).
   - **Verification**: `go test -count=1 -cover ./internal/services -run TestCanary`
 
 - [ ] Task 4: Service Hardening - `LogService` Tests
@@ -37,4 +37,5 @@ Modularize `internal/services/review_service.go` (722 LOC) into cohesive sub-com
 
 - 2026-10-25: Initialized branch `test/service-hardening-and-modularization` and created plans.
 - 2026-10-25: Completed Task 1 (Modularization of `review_service.go` into three cohesive files <330 LOC) and Task 2 (Hardened `ReviewService` test suite, raising coverage from 75.2% to 86.8%, and overall repository coverage to 85.3%).
+- 2026-10-25: Completed Task 3 (Hardened `CanaryService` test suite, raising statement coverage to 97.7%, and overall repository coverage to 85.8%).
 
