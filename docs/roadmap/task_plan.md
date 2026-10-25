@@ -17,9 +17,9 @@ Modularize `internal/services/review_service.go` (722 LOC) into cohesive sub-com
   - **Scope**: `internal/services/canary_service_test.go` (jail traversal escapes, directory trap, nil client, tilde path expansion, empty path fallback, file creation errors, remote failures).
   - **Verification**: `go test -count=1 -cover ./internal/services -run TestCanary`
 
-- [ ] Task 4: Service Hardening - `LogService` Tests
-  - **Scope**: `internal/services/log_service_test.go` (`extractNestedJSONLogs` line fallback, scanner errors, non-JSON logs).
-  - **Verification**: `go test -count=1 -cover ./internal/services -run TestLogService`
+- [x] Task 4: Service Hardening - `LogService` Tests
+  - **Scope**: `internal/services/log_service_test.go` (`extractNestedJSONLogs` line fallback, scanner buffer overflow errors, unreadable files, wrapper line timestamps, non-JSON logs).
+  - **Verification**: `go test -count=1 -cover ./internal/services -run "TestLogService|TestExtractNestedJSONLogs|TestParseLogTime"`
 
 - [ ] Task 5: Service Hardening - `ExplorerService` Tests
   - **Scope**: `internal/services/explorer_service_test.go` (canary deletion protection, jail confinement, remote failure).
@@ -39,3 +39,5 @@ Modularize `internal/services/review_service.go` (722 LOC) into cohesive sub-com
 - 2026-10-25: Completed Task 1 (Modularization of `review_service.go` into three cohesive files <330 LOC) and Task 2 (Hardened `ReviewService` test suite, raising coverage from 75.2% to 86.8%, and overall repository coverage to 85.3%).
 - 2026-10-25: Completed Task 3 (Hardened `CanaryService` test suite, raising statement coverage to 97.7%, and overall repository coverage to 85.8%).
 
+
+- 2026-10-25: Completed Task 4 (Hardened `LogService` test suite, raising statement coverage to 96.4%, and overall repository coverage to 86.3%).
