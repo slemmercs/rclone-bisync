@@ -24,9 +24,12 @@ Alternatively, download the target binary directly from GitHub Releases:
 
 ```bash
 # Example for Linux x86_64
-curl -LO https://github.com/slemmercs/rclone-bisync/releases/latest/download/bisync-hub-linux-amd64
-chmod +x bisync-hub-linux-amd64
-sudo mv bisync-hub-linux-amd64 /usr/local/bin/bisync-hub
+curl -LO https://github.com/slemmercs/rclone-bisync/releases/latest/download/rclone-bisync-linux-amd64
+chmod +x rclone-bisync-linux-amd64
+sudo mv rclone-bisync-linux-amd64 /usr/local/bin/rclone-bisync
+
+# Optional: create friendly symlink
+sudo ln -sf /usr/local/bin/rclone-bisync /usr/local/bin/bisync-hub
 ```
 
 ---
@@ -56,11 +59,8 @@ CANARY_FILENAME=RCLONE_TEST
 CONFLICT_AUTO_RESOLVE_MIN_CONFIDENCE=0.85
 CONFLICT_BACKUP_LOSERS=true
 
-# Notification Webhooks (Planned Roadmap Feature)
-# DISCORD_WEBHOOK_URL=
-# TELEGRAM_BOT_TOKEN=
-# TELEGRAM_CHAT_ID=
-# HEALTHCHECKS_URL=
+# Notification Webhooks
+# WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
 
 ---
@@ -70,7 +70,11 @@ CONFLICT_BACKUP_LOSERS=true
 Run the orchestrator interactively:
 
 ```bash
-bisync-hub --config bisync.env
+# Launch the real-time operational dashboard
+rclone-bisync dashboard --env-file bisync.env
+
+# Or test synchronization in dry-run simulation mode
+rclone-bisync sync --dry-run --env-file bisync.env
 ```
 
 Open your browser to `http://localhost:8080` to access the real-time operational dashboard, inspect remote mounts, check canary health, and review pending sync events.
@@ -109,7 +113,7 @@ Wants=network-online.target
 Type=simple
 User=csaba
 WorkingDirectory=/home/csaba/sync
-ExecStart=/usr/local/bin/bisync-hub --config /home/csaba/sync/bisync.env
+ExecStart=/usr/local/bin/rclone-bisync dashboard --env-file /home/csaba/sync/bisync.env
 Restart=always
 RestartSec=10
 

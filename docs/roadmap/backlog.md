@@ -76,36 +76,51 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
 * **[COMPLETED] Frontend Template Modularization (`html/template`) [COMPLETED - Refactor]**
   - Decomposed monolithic `index.html` into Go `html/template` partials served via `embed.FS`.
 
+* **[COMPLETED] Immutable Audit Ledger & Unified Log Architecture [COMPLETED - PR #27]**
+  - Cryptographically chained SQLite append-only audit ledger (`internal/audit`) using pure-Go `modernc.org/sqlite` and `pressly/goose/v3`.
+  - Schema triggers (`BEFORE UPDATE`, `BEFORE DELETE`) enforcing write-once immutability.
+  - In-process thread-safe size-bounded POSIX log rotator with dual-stream audit logging (`"type": "audit"`).
+  - Web UI Audit tab with in-browser SHA-256 chain verification, action/actor filters, and CSV/JSONL compliance export.
+
+* **[COMPLETED] Service Layer Decoupling & Sub-400 LOC Enforcement [COMPLETED - PR #28, PR #29, PR #31]**
+  - Decomposed services into cohesive single-responsibility domain engines strictly under 400 LOC (`ReviewService`, `TelemetryService`, `CanaryService`, `DeletionService`, `ExplorerService`, `SyncService`).
+  - Centralized frontend API client (`api.js`) and resolved Alpine boolean attribute reactivity edge cases.
+
+* **[COMPLETED] Go CLI Quality Gate (`cmd/check`) & Headless Chrome E2E Testing [COMPLETED - PR #32]**
+  - High-performance Go CLI check engine (`cmd/check`) with parallel check runners and deterministic POSIX exit codes.
+  - Custom HTML attribute tokenizer detecting multi-line and dotted Alpine.js boolean attributes (`:disabled`, `:readonly`).
+  - Headless Chrome end-to-end smoke test suite (`tests/e2e/dashboard_smoke_test.go` via `chromedp`) validating tab transitions and DOM state.
+  - Verified overall statement test coverage at 88.3%.
+
 ---
 
 ### Active Near-Term Backlog (Sequenced Priorities)
 
-#### 1. Immutable Audit Ledger & Unified Log Architecture [ESTIMATE: 6-8h | 5 SP]
-Cryptographically chained append-only SQLite ledger (`internal/audit`) paired with unified dual-logging in `bisync.log` and in-process POSIX log rotation:
-* **Pure-Go SQLite Ledger (`modernc.org/sqlite` + `pressly/goose/v3`)**: Zero-CGO SQLite driver with WAL mode, `BEFORE UPDATE`/`BEFORE DELETE` abort triggers, and SHA-256 hash chaining (`prev_hash` $\rightarrow$ `hash`).
-* **Unified Dual-Logging**: Dual-emit audit milestones into `bisync.log` (`"type": "audit"`) alongside sync runs.
-* **POSIX Log Rotator**: In-process size-bounded rotation (10 MB, 5 archives).
-* **Dedicated Audit Workspace**: Multi-stream terminal switcher plus a dedicated 4th top-level tab `[Audit Ledger]` (`partials/view_audit.html`) with cryptographic verification badges.
-
-#### 2. Multi-Profile Workspace Manager [ESTIMATE: 6-8h | 5 SP]
+#### 1. Multi-Profile Workspace Manager [ESTIMATE: 6-8h | 5 SP]
 Supports independent synchronization workloads from a single background daemon and dashboard session:
 * Single Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, NAS backup).
 * Pairs independent local folders to different remotes (e.g., `/home/user/Documents` $\rightarrow$ `gdrive:`, `/home/user/Photos` $\rightarrow$ `onedrive:`).
 * Strict flock isolation (`/tmp/rclone-bisync-<profile>.lock`) and dedicated state directories.
 * Refer to [profile-manager.md](../design/profile-manager.md).
 
-#### 3. In-Dashboard Configuration & Setup Manager [ESTIMATE: 5-7h | 4 SP]
+#### 2. In-Dashboard Configuration & Setup Manager [ESTIMATE: 5-7h | 4 SP]
 Provides visual setup, flag customization, and safety validation:
 * **Visual Parameter Editor**: In-dashboard adjustment for `--buffer-size`, `--tpslimit`, conflict strategies, and webhook endpoints.
 * **Remote Setup & Onboarding Wizard**: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration.
 * **3-Layer Safety Pipeline**: Automated snapshot backups, SHA-256 integrity checks, and JSON/env schema validation before applying new settings.
 * **Rollback API**: One-click restore of historical configurations.
 
-#### 4. In-App User Guidance, Info & Help Documents [ESTIMATE: 3-5h | 3 SP]
+#### 3. In-App User Guidance, Info & Help Documents [ESTIMATE: 3-5h | 3 SP]
 Improves operational transparency and onboarding for new users:
 * **Contextual Tooltips & Policy Banners**: Embeds inline tooltips across `partials/view_*.html` explaining safety mechanisms (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in non-technical terms.
 * **In-Dashboard Reference Manual**: A slide-over help panel summarizing CLI commands, Rclone flag impacts, and step-by-step conflict recovery workflows.
 * **Diagnostic Documentation**: Integrated guides for resolving OAuth token drops, path permissions errors, and systemd service status.
+
+#### 4. Remote Mount Lifecycle Manager & Pooled Storage Engine (`internal/mount`) [ESTIMATE: 8-10h | 8 SP]
+Programmatic management of VFS virtual drive mounts and multi-cloud storage pooling:
+* **Stage A (Remote Mount Manager)**: Mount, inspect, configure, and unmount individual remotes to local paths via Rclone RC `/mount/*` endpoints. Keepalive probes with automatic reconnect on transient network drops.
+* **Stage B (Pooled Storage Engine)**: Provision stacked multi-cloud topologies (`union` + `chunker` + `crypt`) over RC `/config/create`. Combines disparate storage tiers into a single encrypted virtual drive guarded by Bisync Hub's safety probes.
+* Refer to [`docs/design/remote_mount_manager_design_specification.md`](../design/remote_mount_manager_design_specification.md).
 
 ---
 

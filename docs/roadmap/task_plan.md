@@ -1,33 +1,33 @@
-# Task Plan: Native Go CLI Quality Gate (`cmd/check`) with Hybrid Wrapper
+# Task Plan: Documentation, Roadmap & Showcase Site Synchronization
 
 ## Goal
-Implement a high-performance Go CLI tool in `cmd/check/main.go` that replaces bash quality scripts, provides robust HTML token scanning and parallel auditing, and wire it to `scripts/check.sh` for full backwards compatibility.
+Synchronize `README.md`, `docs/roadmap/ROADMAP.md`, `docs/roadmap/backlog.md`, and all `site/` showcase documentation with delivered capabilities (Audit Ledger, E2E tests, Go `cmd/check` quality gate, sub-400 LOC service decoupling) and re-sequence near-term priorities.
 
 ## Tasks
 
-- [x] Task 1: Implement robust HTML template scanner and LOC auditor in `cmd/check/main.go`
-  - **Scope**: `cmd/check/main.go`, HTML tokenizer, LOC scanner
-  - **Verification**: `go run ./cmd/check templates` && `go run ./cmd/check loc 400`
+- [x] Task 1: Reconcile Root `README.md`
+  - **Scope**: `README.md`
+  - **Verification**: Verify markdown layout, command accuracy, and roadmap alignment
 
-- [x] Task 2: Implement full suite of checks in `cmd/check/main.go` (`fmt`, `lint`, `test`, `build`, `all`)
-  - **Scope**: `cmd/check/main.go`
-  - **Verification**: `go run ./cmd/check all`
+- [x] Task 2: Reconcile `docs/roadmap/ROADMAP.md` and `docs/roadmap/backlog.md`
+  - **Scope**: `docs/roadmap/ROADMAP.md`, `docs/roadmap/backlog.md`
+  - **Verification**: Cross-reference PR history (#27–#32) and verify consistency
 
-- [x] Task 3: Add unit tests for `cmd/check` in `cmd/check/main_test.go`
-  - **Scope**: `cmd/check/main_test.go`
-  - **Verification**: `go test -count=1 ./cmd/check/...`
+- [x] Task 3: Synchronize Showcase Site (`site/roadmap.md`, `site/architecture.md`, `site/index.md`, `site/quickstart.md`, `site/usps/03-safety-policies.md`)
+  - **Scope**: `site/roadmap.md`, `site/architecture.md`, `site/index.md`, `site/quickstart.md`, `site/usps/03-safety-policies.md`
+  - **Verification**: Inspect links, front matter, badges, and commands
 
-- [x] Task 4: Refactor `scripts/check.sh` to delegate to `cmd/check` and verify CI compatibility
-  - **Scope**: `scripts/check.sh`
-  - **Verification**: `./scripts/check.sh all` and `./scripts/check.sh loc 400`
+- [x] Task 4: Run Quality Gate & Pre-Flight Checks
+  - **Scope**: Entire repository
+  - **Verification**: `./scripts/check.sh fmt` && `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-25: Initialized plan for Go CLI migration (`cmd/check`) on branch `feat/alpine-boolean-lint-and-e2e`.
-- 2026-10-25: Completed Task 1: Implemented custom HTML attribute tokenizer (`html_scanner.go`) and LOC auditor (`checks.go`).
-- 2026-10-25: Completed Task 2: Implemented full suite of checks in `cmd/check` (`fmt`, `lint`, `test`, `build`, `all`) with parallel execution.
-- 2026-10-25: Completed Task 3: Added unit tests for HTML scanner, LOC counter, and formatter in `cmd/check/main_test.go` (100% passing in 3ms).
-- 2026-10-25: Completed Task 4: Refactored `scripts/check.sh` into a thin delegator forwarding to `cmd/check`, verified full 6-stage suite passes in ~10s.
+- 2026-10-25: Initialized plan from implementation_plan.md on branch `docs/sync-roadmap-site-and-readme`.
+- 2026-10-25: Completed Task 1: Reconciled root `README.md` (Current Capabilities, Planned Capabilities, Development quality gate stages, Roadmap Priorities).
+- 2026-10-25: Completed Task 2: Reconciled `docs/roadmap/ROADMAP.md` and `docs/roadmap/backlog.md` with delivered PRs #27–#32 and re-sequenced active priorities (#1 Multi-Profile Workspace Manager, #2 Configuration & Setup Manager, #3 In-App Guidance).
+- 2026-10-25: Completed Task 3: Synchronized showcase site (`site/roadmap.md`, `site/architecture.md`, `site/index.md`, `site/quickstart.md`, `site/usps/03-safety-policies.md`, `site/usps/index.md`) with 88.3% coverage badge, `betterleaks`, and valid CLI flags (`--env-file`).
+- 2026-10-25: Completed Task 4: Ran full quality gate (`./scripts/check.sh fmt` and `./scripts/check.sh all`) - all 6 stages passed.
 
 
 

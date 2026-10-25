@@ -33,7 +33,7 @@ Bisync Hub was engineered from first principles to turn unpredictable bidirectio
    Inspect proposed additions, modifications, and deletions before disk mutations occur.
 2. **[Multi-Analyzer Heuristic Conflict Engine]({% link usps/02-heuristic-conflict-engine.md %})** <span class="badge-online">Available</span>
    Resolve non-trivial file conflicts with multi-signal confidence scoring and skew tolerance.
-3. **[Customizable Safety Policies & Circuit Breakers]({% link usps/03-safety-policies.md %})** <span class="badge-planned">Planned Roadmap</span>
+3. **[Customizable Safety Policies & Circuit Breakers]({% link usps/03-safety-policies.md %})** <span class="badge-online">Available</span>
    Enforce strict deletion quotas, canary file invariants, and automatic backoff throttles.
 4. **[Cryptographic Immutable Audit Ledger]({% link usps/04-audit-ledger.md %})** <span class="badge-online">Available</span>
    Maintain verifiable SQLite-backed records of every sync action, decision, and error.

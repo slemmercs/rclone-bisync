@@ -9,7 +9,7 @@ permalink: /
 <div class="hero-box">
   <img src="{{ '/assets/images/logo.svg' | relative_url }}" alt="Bisync Hub Logo" class="hero-logo" />
   <div class="hero-badges">
-    <span class="badge-online">● Test Gate Passed (83.2% Coverage)</span>
+    <span class="badge-online">● Test Gate Passed (88.3% Coverage)</span>
     <span class="badge-indigo">Go 1.24+</span>
     <span class="badge-indigo">Single Binary</span>
   </div>
@@ -49,9 +49,9 @@ Raw `rclone bisync` provides raw power across 40+ storage providers, but in prod
     <p>Multi-analyzer resolution evaluating size divergence, binary signatures, cloud clock skew, and edit velocity.</p>
   </div>
   <div class="feature-card">
-    <span class="badge-planned">◆ Planned Roadmap</span>
+    <span class="badge-online">● Available Now</span>
     <h3>Configurable Safety Policies</h3>
-    <p>Declarative pre-execution and pre-mutation rules with strict delete percentage bounds and canary file protection.</p>
+    <p>Pre-execution canary guards (`RCLONE_TEST`), path confinement jails, and deletion quota circuit breakers.</p>
   </div>
   <div class="feature-card">
     <span class="badge-online">● Available Now</span>
@@ -68,7 +68,7 @@ Explore the deep technical architecture powering Bisync Hub:
 
 1. **[Interactive Sync Review & Deletion Diff Visualizer]({% link usps/01-interactive-sync-review.md %})** <span class="badge-online">Available</span>: Full visibility into pending cloud mutations before any files are altered or removed.
 2. **[Multi-Analyzer Heuristic Conflict Engine]({% link usps/02-heuristic-conflict-engine.md %})** <span class="badge-online">Available</span>: Multi-signal confidence calculation eliminating blind last-modified-wins data loss.
-3. **[Customizable Safety Policies & Circuit Breakers]({% link usps/03-safety-policies.md %})** <span class="badge-planned">Planned</span>: Pre-execution canaries, max-delete ratios, and rate-limit backoff handling.
+3. **[Customizable Safety Policies & Circuit Breakers]({% link usps/03-safety-policies.md %})** <span class="badge-online">Available</span>: Pre-execution canaries, max-delete ratios, and rate-limit backoff handling.
 4. **[Cryptographic Immutable Audit Ledger]({% link usps/04-audit-ledger.md %})** <span class="badge-online">Available</span>: SQLite triggers and SHA-256 hash chains providing tamper-proof sync accountability.
 5. **[Zero-Dependency Single Binary Distribution]({% link usps/05-single-binary.md %})** <span class="badge-online">Available</span>: Native Go executable with embedded Web UI, zero Python/pip/npm runtime requirements.
 

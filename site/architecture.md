@@ -43,7 +43,13 @@ All external inputs, configuration files, and API logs pass through recursive sa
 
 ### 4. Zero-Exposure CI/CD Security
 Bisync Hub's GitHub Actions pipelines are deployed 100% on cloud-hosted ephemeral runners (`ubuntu-latest`) with zero self-hosted runner exposure. Every commit is validated with:
-- Static analysis via `go vet`
-- Automated leak scanning via `gitleaks`
+- Static analysis via `go vet` and `staticcheck`
+- Automated leak scanning via `betterleaks`
 - Vulnerability auditing via `govulncheck`
 - Strict branch protection with sole review governance (`@slemmercs`)
+
+### 5. High-Performance Go Quality Gate (`cmd/check`)
+To catch regressions early during local development, Bisync Hub includes a dedicated native Go audit engine (`cmd/check`) executing check stages in parallel:
+- **True HTML Tokenization**: Multi-line attribute tokenization preventing Alpine.js boolean attribute coercion bugs (`:disabled`, `:readonly`).
+- **Architectural LOC Budgets**: Single-pass line-count enforcement ensuring services remain modular and stay under ~400 LOC.
+- **Coverage Assurance**: Pre-commit validation enforcing >80% statement coverage across all packages (currently at 88.3%).
