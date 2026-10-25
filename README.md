@@ -169,11 +169,15 @@ Synchronization state, remote health, conflicts, and risks should be visible wit
 - Authentication recovery workflows for Google Drive and OneDrive
 - Canary validation (`RCLONE_TEST`) and filesystem jail confinement
 - Interactive sync review modal with per-file triage and heuristic recommendations
+- Multi-analyzer heuristic conflict engine (size divergence, binary signatures, cloud clock skew, edit velocity)
 - Atomic pre-mutation backups (`.review_backups/`) and automated post-review sync execution
 - Cryptographic Immutable Audit Ledger with trigger-enforced SQLite append-only storage
 - Verifiable SHA-256 hash chaining and in-browser cryptographic integrity verification
 - Compliance export to CSV and JSONL formats
 - In-process POSIX size-bounded log rotator with dual-stream audit logging (`bisync.log`)
+- High-performance Go CLI quality gate (`cmd/check`) with parallel check runners and true HTML attribute tokenization
+- Headless Chrome end-to-end smoke testing (`chromedp`)
+- Decoupled, single-responsibility Go service architecture with strict LOC budgets (<=400 LOC per file)
 - Synchronization orchestration and scheduling
 - Systemd integration with real-time journal log streaming
 - Safety-focused execution controls and circuit breakers
@@ -211,70 +215,38 @@ Rather than investigating problems after synchronization has completed, users sh
 
 # Planned Capabilities
 
-## Interactive Sync Review
-
-Review synchronization actions before execution.
-
-Planned capabilities:
-
-- Dry-run analysis
-- Pending action review
-- Synchronization previews
-- Risk visibility
-
-## Conflict Visualization
-
-Provide clear explanations of synchronization conflicts.
-
-Planned capabilities:
-
-- Side-by-side comparison
-- Conflict timelines
-- Recommended actions
-- Per-file decisions
-
-## Deletion Review
-
-Help users understand deletions before they occur.
-
-Planned capabilities:
-
-- Deletion analysis
-- Directory impact summaries
-- Approval workflows
-- Delete-risk visibility
-
-## Guided Recovery
-
-Transform synchronization recovery into a guided experience.
-
-Planned capabilities:
-
-- Recovery recommendations
-- Recovery automation
-- Failure diagnostics
-- Assisted resynchronization
-
-## Rollback Support
-
-Provide rollback-oriented synchronization workflows.
-
-Planned capabilities:
-
-- Configuration snapshots
-- Recovery checkpoints
-- Synchronization rollback foundations
-
 ## Multi-Profile Synchronization
 
-Manage multiple synchronization environments from a single operational hub.
+Manage multiple independent synchronization environments from a single operational hub:
 
-Examples:
+- Personal Google Drive, Business OneDrive, NAS archive, and remote cloud pairings
+- Isolated per-profile background runners with dedicated state and POSIX flock management
+- Profile-aware telemetry streams, speed metrics, and file explorer views
 
-- Personal Google Drive
-- Business OneDrive
-- NAS synchronization
-- Archive storage
+## Visual Configuration & Setup Manager
+
+Provide safe, in-dashboard editing of sync flags and onboarding setup:
+
+- In-dashboard tuning of sync flags (`--buffer-size`, `--tpslimit`, `--transfers`)
+- Guided visual setup wizard for initial Rclone RC remote pairing
+- 3-layer safety pipeline with snapshot backups, SHA-256 integrity verification, and schema checks
+- One-click rollback API to restore historical configurations
+
+## In-App User Guidance & Guided Recovery
+
+Enhance operational clarity and assisted recovery directly within the UI:
+
+- Inline contextual tooltips and policy banners explaining safety triggers in plain language
+- Slide-over reference manual for CLI commands, sync flags, and conflict recovery steps
+- Step-by-step diagnostic workflows for OAuth drops, permission errors, and service halts
+
+## Remote Mount Lifecycle Manager & Storage Pooling
+
+Turn fragile cloud connections into resilient, self-healing virtual storage endpoints:
+
+- Background daemon managing `rclone mount` lifecycles on Linux (FUSE) and Windows (WinFsp)
+- Multi-cloud storage pooling (`union` + `chunker` + `crypt`) over RC APIs
+- Automatic keepalive health probes and clean unmount handlers (`fusermount -u`)
 
 ---
 
@@ -388,42 +360,55 @@ as a stable local endpoint while maintaining automatic port management internall
 
 Run the pre-flight quality gate before opening a pull request.
 
+Bisync Hub includes a high-performance Go-based quality engine (`cmd/check`) wrapped by `./scripts/check.sh`:
+
 ```bash
-./scripts/check.sh
+# Run all quality gate stages
+./scripts/check.sh all
+
+# Or invoke the Go check engine directly
+go run ./cmd/check all
+
+# Run specific stages
+go run ./cmd/check fmt        # Code formatting (gofmt) & shell script validation
+go run ./cmd/check templates  # HTML attribute tokenization & Alpine boolean audits
+go run ./cmd/check loc 400    # Code metrics & per-file LOC budget enforcement
+go run ./cmd/check lint       # Linters (go vet, betterleaks, staticcheck, govulncheck)
+go run ./cmd/check test       # Unit tests with race detector & coverage validation (>80%)
+go run ./cmd/check build      # Compilation & cross-builds (linux/amd64, linux/arm64)
 ```
 
-This verifies:
+The quality gate automatically validates:
 
-1. Shell script syntax
-2. Secret leak protection
-3. Go static analysis
-4. Automated Go tests
+1. **Formatting & Syntax**: Strict Go source formatting and POSIX shell script syntax (`bash -n`)
+2. **Template Attributes**: Multi-line HTML attribute tokenization preventing Alpine.js boolean coercion bugs
+3. **Architecture & LOC**: Structural line-count audit ensuring Go files stay under ~400 LOC
+4. **Security & Linters**: Deep secret scanning via `betterleaks`, vulnerability checks via `govulncheck`, and `go vet`
+5. **Test Coverage**: Automated test execution verifying >80% statement coverage across all packages
+6. **Cross-Compilation**: Clean binary artifact generation across target architectures
 
 ---
 
 # Roadmap Priorities
 
-## Near-Term
+## Near-Term Strategic Priorities
 
-- Test coverage >80%
-- OAuth reconnect improvements
-- Interactive Sync Review
-- Multi-profile synchronization
-- Configuration management
-- Security hardening
+- **Priority 1: Multi-Profile Workspace Manager**: Independent synchronization profiles, isolated goroutine runners, dedicated POSIX lock and state isolation
+- **Priority 2: Visual Configuration & Setup Manager**: In-dashboard tuning of sync flags (`--buffer-size`, `--tpslimit`), guided remote onboarding wizard, 3-layer safety pipeline, and one-click rollback
+- **Priority 3: In-App User Guidance & Diagnostic Manual**: Contextual tooltips, plain-language safety banners, slide-over reference manual, and guided troubleshooting workflows
+- **Priority 4: Remote Mount Lifecycle Manager & Storage Pooling**: Programmatic FUSE/WinFsp mount management, keepalive probes, and multi-cloud virtual drive pooling (`union` + `chunker` + `crypt`)
 
 ## Medium-Term
 
-- Conflict visualization
-- Deletion review workflows
-- Guided recovery
-- Rollback capabilities
+- Multi-channel webhook alerts (Discord, Telegram, Healthchecks.io dead-man snitch pings)
+- Provider-specific optimizations (Google Drive change-polling, OneDrive 2-second timestamp window smoothing)
+- Guided assisted resynchronization and recovery checkpoints
 
 ## Long-Term
 
-Bisync Hub aims to become the safest and most understandable way to operate Rclone Bisync.
-
-The project is intentionally focused on synchronization safety, operational visibility, and decision support rather than generic file management.
+- Peer-to-peer state coordination across distributed branch nodes
+- Encrypted remote telemetry synchronization
+- Desktop application packaging via Wails
 
 ---
 
