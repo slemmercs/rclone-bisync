@@ -40,10 +40,12 @@ Roadmap items are not commitments and may change based on project needs.
 | **Interactive Sync Review & Deletion Diff Visualizer** | **Delivered** | Milestone 4 (`feat/interactive-sync-review`) |
 | **Heuristic Conflict Recommendation Engine** | **Delivered** | Milestone 4 Extension (`feat/heuristic-conflict-engine`) |
 | **Frontend Template Modularization (`html/template`)** | **Delivered** | Refactor (`refactor/modularize-frontend-templates`) |
-| **Immutable Audit Ledger & Unified Log Architecture** | **Next Priority (#1)** | Governance & Compliance |
-| **Multi-Profile Workspace Manager** | **Next Priority (#2)** | Multi-Workload Pairing |
-| **Configuration & Setup Manager** | **Next Priority (#3)** | Setup, Safety Pipeline & Flags |
-| **In-App User Guidance, Info & Help Documents** | **Next Priority (#4)** | Contextual Assistance & Manual |
+| **Immutable Audit Ledger & Unified Log Architecture** | **Delivered** | PR #27 (`feat/immutable-audit-ledger-and-unified-logging`) |
+| **Service Layer Decoupling & Architecture Modularization (sub-400 LOC)** | **Delivered** | PR #28, PR #29, PR #31 (`v1.0.0-beta.2`–`beta.4`) |
+| **Go CLI Quality Gate (`cmd/check`) & E2E Testing Suite** | **Delivered** | PR #32 (`feat/alpine-boolean-lint-and-e2e`) |
+| **Multi-Profile Workspace Manager** | **Next Priority (#1)** | Multi-Workload Pairing |
+| **Configuration & Setup Manager** | **Next Priority (#2)** | Setup, Safety Pipeline & Flags |
+| **In-App User Guidance, Info & Help Documents** | **Next Priority (#3)** | Contextual Assistance & Manual |
 | Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
 | Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
 | Local Inter-Process Communication (IPC) via Unix Sockets | Planned | Infrastructure Hardening |
@@ -54,16 +56,7 @@ Roadmap items are not commitments and may change based on project needs.
 
 ## Active Strategic Priorities
 
-### Near-Term Priority 1: Immutable Audit Ledger & Unified Log Architecture
-
-Implements cryptographically chained SQLite audit logging (`internal/audit`) using a pure-Go driver (`modernc.org/sqlite`) and goose migrations (`pressly/goose/v3`):
-- **Dual-Logging**: Critical milestones dual-logged to `bisync.log` alongside sync execution runs.
-- **POSIX Log Rotator**: In-process size-bounded rotation (10 MB, 5 archives) for `bisync.log` and `rclone-daemon.log`.
-- **Dedicated Audit Workspace**: Multi-stream terminal switcher plus a dedicated 4th top-level tab `[Audit Ledger]` with live cryptographic SHA-256 chain verification.
-
----
-
-### Near-Term Priority 2: Multi-Profile Workspace Manager
+### Near-Term Priority 1: Multi-Profile Workspace Manager
 
 Supports independent synchronization profiles from a single daemon and dashboard:
 - Spawns isolated goroutine runners per profile (e.g., Personal GDrive, Work OneDrive, NAS backup).
@@ -74,7 +67,7 @@ Supports independent synchronization profiles from a single daemon and dashboard
 
 ---
 
-### Near-Term Priority 3: Configuration & Setup Manager
+### Near-Term Priority 2: Configuration & Setup Manager
 
 Provides safe, in-dashboard editing of synchronization flags, rate limits, timing intervals, and remote setup:
 - **Visual Flag Editor**: Adjust `--buffer-size`, `--tpslimit`, conflict resolution strategies, and webhook endpoints safely from the UI.
@@ -84,12 +77,21 @@ Provides safe, in-dashboard editing of synchronization flags, rate limits, timin
 
 ---
 
-### Near-Term Priority 4: In-App User Guidance, Info & Help Documents
+### Near-Term Priority 3: In-App User Guidance, Info & Help Documents
 
 Enhances dashboard accessibility for non-technical operators and new users:
 - **Contextual Tooltips & Policy Explanations**: Embeds inline tooltips and modal banners across `partials/view_*.html` explaining safety mechanisms (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
 - **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags (`--buffer-size`, `--tpslimit`), and step-by-step conflict recovery workflows.
 - **Interactive Diagnostics & Troubleshooting**: Embedded help documents for resolving OAuth token drops, path permissions issues, and systemd service status.
+
+---
+
+### Near-Term Priority 4: Remote Mount Lifecycle Manager & Pooled Storage Engine
+
+Programmatic management of VFS virtual drive mounts and multi-cloud storage pooling (`internal/mount`):
+- **Stage A (Remote Mount Manager)**: Mount, inspect, configure, and unmount individual remotes to local paths via Rclone RC `/mount/*` endpoints. Keepalive probes with automatic reconnect on transient network drops.
+- **Stage B (Pooled Storage Engine)**: Provision stacked multi-cloud topologies (`union` + `chunker` + `crypt`) over RC `/config/create`. Combines disparate storage tiers into a single encrypted virtual drive guarded by Bisync Hub's safety probes.
+- Refer to [`docs/design/remote_mount_manager_design_specification.md`](../design/remote_mount_manager_design_specification.md).
 
 ---
 

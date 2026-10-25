@@ -93,6 +93,38 @@ jobs:
           chmod +x scripts/check.sh
           ./scripts/check.sh lint
 
+  templates:
+    name: Alpine Template Safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run Alpine Template Safety Check
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh templates
+
+  loc:
+    name: Lines of Code Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run LOC Audit
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh loc
+
   test:
     name: Unit Tests & Coverage
     runs-on: ubuntu-latest

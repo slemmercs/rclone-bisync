@@ -7,10 +7,10 @@ nav_order: 3
 
 # Customizable Safety Policies & Circuit Breakers
 
-<span class="badge-planned">◆ Planned Milestone (Near-Term Priority #2)</span>
+<span class="badge-online">● Shipped & Active</span>
 
 {: .note }
-> **Roadmap Specification**: The customizable two-stage safety policy engine and declarative circuit breakers described below are fully specified in [Safety Policies Design Specification](https://github.com/slemmercs/rclone-bisync/blob/main/docs/design/customizable_safety_policies_design_specification.md) and scheduled for implementation following the Immutable Audit Ledger.
+> **Core Safety Tenets**: Pre-execution canary protection (`RCLONE_TEST`), path confinement filesystem jails, and pre-mutation deletion quotas (`SAFETY_MAX_DELETE_COUNT`, `SAFETY_MAX_DELETE_RATIO`) are fully active in the core engine. Dynamic in-dashboard parameter configuration is scheduled for the upcoming [Configuration & Setup Manager](https://github.com/slemmercs/rclone-bisync/blob/main/docs/roadmap/ROADMAP.md) milestone.
 
 Automated tools must know when to stop. Running bidirectional synchronization when a network share is unmounted, when a cloud provider returns HTTP 429 rate limits, or when a disk is failing will corrupt sync state and trigger cascading deletions.
 

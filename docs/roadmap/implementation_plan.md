@@ -1,61 +1,49 @@
-# Implementation Plan: Fix Explorer Copy Button Disabled State & Reactivity
-
-Fixes the issue where clicking the transfer/copy button for files (such as `Hatlapos.docx`) in the Dual-Pane File Explorer does not transfer the file to the opposing remote or local pane.
+# Implementation Plan: Quality Engine Hardening, E2E Stability & Showcase Rendering Fixes
 
 ## Proposed Changes
 
-### Root Cause Analysis
-
-1. **Alpine.js Boolean Attribute Binding on Undefined Property**:
-   In `dashboard/frontend/partials/view_explorer.html` (lines 185 and 363), the file transfer buttons are bound with:
-   `:disabled="item._copying"`
-   When items are loaded from `/api/browse`, the API returns directory entries (`Name`, `Path`, `Size`, `IsDir`, `ModTime`, `MimeType`) without a `_copying` property.
-   In Alpine.js v3, evaluating an expression containing a dot (`.`) that resolves to `undefined` causes Alpine's internal evaluator to replace `undefined` with `""` (empty string). When applying `""` to boolean attributes (e.g. `disabled`, `checked`), Alpine treats any non-null, non-undefined, non-false value as presence of the attribute, setting `disabled="disabled"`.
-   Consequently, every copy button in both left and right explorer panes was rendered with `disabled="disabled"`. While visually styled as interactive (opacity on hover, pointer cursor), HTML browsers suppress all user mouse click events on disabled buttons, so no action or network request was dispatched.
-
-2. **Reactive State Initialization**:
-   `item._copying` was uninitialized in the reactive items array, meaning dynamic mutation during copying was not guaranteed to trigger reactive UI updates.
-
-3. **Asset Cache Busting**:
-   Increment script asset cache busting parameters (`?v=18`) across `index.html` to guarantee existing browser sessions immediately load the fixed template logic and explorer scripts.
+Address three operational regressions on branch `feat/alpine-boolean-lint-and-e2e`:
+1. **Showcase Site (`site/`)**:
+   - Fix missing site title text next to logo in navbar caused by `just-the-docs` logo replacement behavior. Override `_includes/title.html` and style `.site-title-container`, `.site-title-logo`, and `.site-title-text`.
+   - Fix unparsed backtick markdown in `site/index.md` inside `<div class="hero-box">` by replacing it with a styled HTML code block.
+2. **Quality Engine CLI (`cmd/check`)**:
+   - Pre-process CLI arguments in `cmd/check/main.go` so flags (`-v`, `--verbose`, `-loc`, `-min-coverage`, `-race`, `-target`, etc.) are recognized regardless of whether they appear before or after the stage name.
+   - Wire `cfg.Verbose` into `cmd/check/checks.go` and `cmd/check/main.go` to provide meaningful live progress and test output when verbose mode is enabled.
+   - Add unit test coverage in `cmd/check/main_test.go` for flexible flag and argument parsing.
+3. **Headless Chrome E2E Smoke Test (`tests/e2e/dashboard_smoke_test.go`)**:
+   - Replace brittle fixed `time.Sleep(300 * time.Millisecond)` after tab switching with dynamic polling that waits for Alpine.js async loading (`remotesData.loading === false`, `auditData.loading === false`) before asserting button disabled states.
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/partials/view_explorer.html`:
-  - Change `:disabled="item._copying"` to `:disabled="Boolean(item && item._copying)"` on both the left (line 185) and right (line 363) pane copy buttons.
-  - Enforce `< 400 LOC` constraint.
-
-- `dashboard/frontend/js/explorer.js`:
-  - In `fetchExplorerDirectory`, map items to explicitly initialize `_copying: false` on every directory entry.
-  - Enforce `< 400 LOC` constraint.
-
-- `dashboard/frontend/index.html`:
-  - Increment script cache busting query parameter from `?v=17` to `?v=18`.
-
-- System Deployment & Service Restart:
-  - Recompile single binary (`bisync-hub` and `/home/csaba/rclone-bisync/bin/rclone-bisync`).
-  - Restart user systemd daemon service `rclone-dashboard.service`.
+- `site/_includes/title.html`: Custom header title component rendering both logo and text.
+- `site/_sass/custom/custom.scss`: Navbar title and hero installation code container styling.
+- `site/index.md`: Standard HTML markup for hero installation command.
+- `cmd/check/main.go`: Flexible argument partitioning, flag parsing, and stage progress logging.
+- `cmd/check/checks.go`: Streaming/verbose execution for tests, linters, and builds.
+- `cmd/check/main_test.go`: Tests for CLI argument parsing.
+- `tests/e2e/dashboard_smoke_test.go`: Polling wait for async Alpine.js tab load settlement.
 
 ### Technical Strategy & Data Flow
 
-- Explicit boolean coercion in Alpine bindings ensures `:disabled` is always strictly evaluated as a boolean (`false` by default, `true` only during an active transfer).
-- With `disabled` removed from the DOM, mouse click events cleanly fire on the `<button>` element, invoking `transferItem(paneKey, item)`.
-- `transferItem` executes `POST /api/browse/copy` via `window.API.post`, displays success toast, and refreshes the opposing remote directory pane (`fetchExplorerDirectory`), showing the transferred file.
+- **Jekyll Include Override**: `just-the-docs` looks for `_includes/title.html` to render the content of `<a class="site-title">`. Rendering `<img>` and `<span>` together with flex alignment provides clean brand presentation.
+- **Argument Partitioning**: Partition `os.Args[1:]` into flags and positional tokens. Flag parsing evaluates all flag arguments via `flag.CommandLine.Parse()`, while positional tokens determine stage and stage-specific arguments.
+- **E2E Async Settlement**: In headless Chrome, wait for `window.Alpine.$data(el).remotesData.loading === false` to eliminate timing flakes on slow CI environments.
 
 ### Safety & Error Handling
 
-- Existing path confinement jails (`isLocalPathJailed`) and canary protection checks in `ExplorerService` are fully preserved.
-- No live network requests during tests; unit tests mock HTTP endpoints.
+- Zero API or daemon contract breakage.
+- All checks adhere to POSIX exit codes (0 for pass, 1 for failure).
 
 ## Verification Plan
 
-- Run Chrome headless browser CDP automated test simulating real mouse press and release on `Hatlapos.docx` copy button:
-  - Confirm `disabled="disabled"` attribute is absent.
-  - Confirm real OS-level mouse click triggers `transferItem`.
-  - Confirm toast notification displays success message.
-  - Confirm opposite pane refreshes and contains `Hatlapos.docx`.
-- Run codebase quality script: `./scripts/check.sh`.
-- Run LOC checker: `./scripts/check-loc.sh 400`.
+- Run `./scripts/check.sh fmt` and `./scripts/check.sh all -v` to verify flag parsing and live output.
+- Run `go test -v -count=1 ./cmd/check` to verify CLI parser tests.
+- Run `go test -v -count=1 ./tests/e2e` repeatedly to verify zero race flakes.
+
+
+
+
+
 
 
 

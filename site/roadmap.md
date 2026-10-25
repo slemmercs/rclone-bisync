@@ -15,6 +15,8 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • Interactive Review & Deletion Diff Modal                  │
   │  • 4-Analyzer Heuristic Conflict Confidence Engine           │
   │  • Cryptographic Immutable Audit Ledger (SQLite + SHA-256)   │
+  │  • Go CLI Quality Engine (cmd/check) & E2E Testing Suite     │
+  │  • Decoupled Service Architecture (Strictly <400 LOC)        │
   │  • Zero-Dependency Single Go Binary Distribution             │
   │  • Embedded Alpine.js / Tailwind CSS Management Cockpit      │
   │  • POSIX Advisory Locking & Local Path Confinement Jails     │
@@ -24,10 +26,10 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
   │             NEAR-TERM STRATEGIC PRIORITIES                   │
-  │  1. Dual-Stage Customizable Safety Policies & Canaries       │
-  │  2. Automated Remote Mount Lifecycle Manager (FUSE / WinFsp) │
-  │  3. Multi-Channel Webhook Notifications (Discord, Telegram)  │
-  │  4. Cloud Multi-Provider Optimization (Google Drive, OneDrive│
+  │  1. Multi-Profile Workspace Manager (Isolated Runners)       │
+  │  2. In-Dashboard Configuration & Setup Manager (Rollback API)│
+  │  3. In-App User Guidance & Interactive Diagnostic Manual     │
+  │  4. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
   └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -63,38 +65,51 @@ The following core modules are implemented, tested, and included in current bina
 - **Path Confinement Jails**: Directory traversal (`../`) prevention protects local storage roots.
 - **Rclone Integration**: Seamless inter-process communication with Rclone RC API and local filesystem synchronization.
 
+### 5. High-Performance Go Quality Engine (`cmd/check`) & E2E Testing
+- **Parallel Quality Gate**: Concurrent Go CLI check runner validating formatting, templates, line-count budgets, linters, and tests in under 10 seconds.
+- **Multi-Line HTML Attribute Tokenizer**: True AST-style token parsing ignoring comments and detecting dotted boolean attributes (`:disabled`, `:readonly`).
+- **Headless Chrome E2E Suite**: Smoke tests using `chromedp` executing against the live embedded dashboard to verify real browser DOM reactivity.
+- **Coverage Assurance**: Statement coverage actively verified at 88.3% across all packages.
+
+### 6. Decoupled Service Architecture (Sub-400 LOC Enforcement)
+- **Bounded Contexts**: Core logic decoupled into focused domain engines (`TelemetryService`, `CanaryService`, `DeletionService`, `ReviewService`, `ExplorerService`, `SyncService`).
+- **Strict Maintainability Limits**: All Go files strictly enforced to remain under ~400 lines of code to prevent architectural drift.
+
 ---
 
 ## 🟡 Near-Term Strategic Priorities (In Development)
 
 The following capabilities represent our immediate development milestones following public launch:
 
-### Priority 1: Dual-Stage Customizable Safety Policies
-- **Objective**: Declarative circuit breakers stopping runaway syncs before damage occurs.
+### Priority 1: Multi-Profile Workspace Manager
+- **Objective**: Manage multiple independent synchronization pairs from a single daemon and dashboard.
 - **Architecture**:
-  - **Stage 1 (Pre-Execution Gate)**: Single-call RC `operations/stat` lookup verifying required mount canaries (`RCLONE_TEST`) in $< 200\text{ms}$ before scanning.
-  - **Stage 2 (Pre-Mutation Gate)**: Strict configurable deletion quota bounds (`SAFETY_MAX_DELETE_COUNT`, `SAFETY_MAX_DELETE_RATIO`).
-  - **Adaptive Rate Throttling**: Exponential backoff with jitter responding immediately to provider HTTP 429 rate limits.
+  - Spawns isolated goroutine runners per profile (e.g. Personal Google Drive, Work OneDrive, NAS backup).
+  - Pairs independent local folders to different cloud remotes with dedicated POSIX flock isolation (`/tmp/rclone-bisync-<profile>.lock`).
+  - Profile-aware telemetry streams, speed charts, and file explorer remote routing.
+  - Refer to [Multi-Profile Design Specification](https://github.com/slemmercs/rclone-bisync/blob/main/docs/design/profile-manager.md).
 
-### Priority 2: Remote Mount Lifecycle Manager
-- **Objective**: Turn fragile OS FUSE mounts into resilient, self-healing storage endpoints.
+### Priority 2: In-Dashboard Configuration & Setup Manager
+- **Objective**: Provide safe visual editing of sync flags, intervals, and remote setup.
 - **Architecture**:
-  - Pure-Go daemon managing `rclone mount` subprocess lifecycles on Linux (FUSE) and Windows (WinFsp).
-  - Background keepalive probes with automatic reconnect on transient network drops.
-  - Clean unmount handlers (`fusermount -u`) preventing stuck mountpoints during unexpected crashes.
+  - **Visual Flag Editor**: Adjust `--buffer-size`, `--tpslimit`, conflict strategies, and webhook endpoints safely from the UI.
+  - **Setup & Onboarding Wizard**: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration.
+  - **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and schema validation before applying changes.
+  - **One-Click Rollback API**: Restore historical configurations immediately if a change fails verification.
 
-### Priority 3: Multi-Channel Webhook Notifications
-- **Objective**: Real-time alerting when interactive reviews are required or sync runs fail.
+### Priority 3: In-App User Guidance & Diagnostic Manual
+- **Objective**: Enhance operational clarity and assisted recovery directly within the UI.
 - **Architecture**:
-  - Outbound dispatchers for Discord Webhooks and Telegram Bot APIs.
-  - Dead-man snitch ping integration with Healthchecks.io on successful sync completions.
-  - Configurable alert severity filtering (warnings, errors, review halts).
+  - **Contextual Tooltips & Policy Explanations**: Inline tooltips and modal banners explaining safety triggers (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
+  - **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags, and step-by-step conflict recovery workflows.
+  - **Interactive Diagnostics**: Integrated troubleshooting guides for resolving OAuth token drops, path permissions issues, and systemd service status.
 
-### Priority 4: Cloud Multi-Provider Optimizations
-- **Objective**: Provider-specific resilience and skew compensation across leading cloud backends.
+### Priority 4: Remote Mount Lifecycle Manager & Storage Pooling (`internal/mount`)
+- **Objective**: Turn fragile OS FUSE mounts into resilient, self-healing virtual storage endpoints.
 - **Architecture**:
-  - Dedicated Microsoft OneDrive Graph API rate limit smoothing and 2-second timestamp window alignment.
-  - Google Drive v3 API token refresh coordination and change-polling optimizations.
+  - **Stage A (Remote Mount Manager)**: Pure-Go daemon managing `rclone mount` subprocess lifecycles on Linux (FUSE) and Windows (WinFsp) with keepalive probes and clean unmount handlers (`fusermount -u`).
+  - **Stage B (Pooled Storage Engine)**: Provision stacked multi-cloud topologies (`union` + `chunker` + `crypt`) over RC `/config/create`.
+  - Refer to [Remote Mount Manager Design Specification](https://github.com/slemmercs/rclone-bisync/blob/main/docs/design/remote_mount_manager_design_specification.md).
 
 <div class="screenshot-grid">
   <div class="screenshot-frame">

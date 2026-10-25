@@ -148,5 +148,17 @@ window.AuditModule = {
         } catch (e) {
             return ts;
         }
+    },
+
+    isAuditVerifying() {
+        return Boolean(this.auditData?.verification?.checking);
+    },
+
+    isFirstAuditPage() {
+        return Boolean(this.auditData?.page <= 1);
+    },
+
+    isLastAuditPage() {
+        return Boolean(this.auditData?.page >= this.auditData?.totalPages);
     }
 };
