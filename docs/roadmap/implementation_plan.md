@@ -1,41 +1,42 @@
-# Implementation Plan: Alpine.js Runtime Syntax Fixes, Cloak FOUC Prevention & Modal Keyboard Accessibility
+# Implementation Plan: Replace Non-Existent Rclone RC operations/touch with core/command
 
 ## Proposed Changes
 
-Address Alpine.js runtime syntax limitations, eliminate initial page load FOUC, and complete WCAG-compliant keyboard escape navigation across all modal templates.
+Address the HTTP 404 error when clicking "+ Touch Canary" on remote storage (such as `onedrive:`, `gdrive:`) caused by requesting non-existent endpoint `/operations/touch`. Replace with the official Rclone Remote Control method `/core/command` passing `command: "touch"` and `arg: ["<remote>:<path>"]`. Ensure the explorer UI passes the active directory path when provisioning canaries in subfolders.
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/index.html`: Inject `<style>[x-cloak] { display: none !important; }</style>` in `<head>`.
-- `dashboard/frontend/partials/modals/modal_daemon.html`: Fix array destructuring in `x-for`, add `x-cloak`, add `@keydown.escape.window="closeDaemonModal()"`.
-- `dashboard/frontend/partials/view_telemetry.html`: Fix array destructuring in `filteredConfigEntries` `x-for`, add `x-cloak` to root view container.
-- `dashboard/frontend/partials/modals/modal_review.html`: Add `x-cloak` and `@keydown.escape.window="closeReviewModal()"`.
-- `dashboard/frontend/partials/modals/modal_deletions.html`: Add `x-cloak` and `@keydown.escape.window="showDeletionsModal = false"`.
-- `dashboard/frontend/partials/modals/modal_reconnect.html`: Add `x-cloak` and `@keydown.escape.window="reconnectModal.show = false"`.
-- `dashboard/frontend/partials/modals/modal_oauth_migration.html`: Add `x-cloak` and `@keydown.escape.window="closeMigrationWizard()"`.
-- `dashboard/frontend/partials/modals/modal_auth_audit.html`: Add `x-cloak` and `@keydown.escape.window="auditModal.show = false"`.
-- `dashboard/frontend/partials/modals/modal_delete.html`: Add `@keydown.escape.window="cancelDelete()"`.
-- `dashboard/frontend/partials/view_explorer.html`: Add `x-cloak` to root container.
-- `dashboard/frontend/partials/view_audit.html`: Add `x-cloak` to root container.
-- `dashboard/frontend/partials/view_remotes.html`: Add `x-cloak` to root container.
-- `dashboard/frontend/partials/toast.html`: Add `x-cloak` to notification container.
-- `internal/server/server_test.go`: Update string assertion for modal_daemon details iteration.
+- `internal/core/client/fs_ops.go`: Refactor `TouchFile` to call `core/command` with `{ command: "touch", arg: [target] }`, parsing Rclone's `{ error: bool, result: string }` response format.
+- `dashboard/frontend/js/explorer.js`: In `provisionCanary`, pass `pane.path || ""` instead of hardcoded `""` so canaries can be provisioned in nested subdirectories when navigating.
+- `internal/core/client/client_test.go`: Update `TestTouchFile` mock server to handle `/core/command`, validating command arguments, success payloads, and error outputs.
+- `internal/services/canary_service_test.go`: Update test mock servers from `/operations/touch` to `/core/command`.
+- `internal/services/sync_service_test.go`: Update test mock servers from `/operations/touch` to `/core/command`.
 
 ### Technical Strategy & Data Flow
 
-- Alpine.js `x-for` regex parser does not support array destructuring `[key, val] in collection`. Iterations are refactored to `(item, idx)` pairs, referencing index `item[0]` (key) and `item[1]` (val).
-- `[x-cloak]` CSS rule hides all inactive views and modals until Alpine initializes and strips `x-cloak`.
-- Escape key listeners (`@keydown.escape.window`) provide standard keyboard dismissal for all overlay modals.
+- Remote target formatting:
+  - If `fs` ends with `:` (e.g., `onedrive:`), `target` is `fs + cleanPath`.
+  - If local path (e.g., `/home/user`), `target` is `filepath.Join(fs, cleanPath)`.
+- Rclone `core/command` contract:
+  - Request: `POST /core/command` with `{"command": "touch", "arg": [target]}`.
+  - Success response: HTTP 200 with `{"error": false, "result": ""}`.
+  - Command error response: HTTP 200 with `{"error": true, "result": "<error message>"}` or HTTP >= 400.
+  - `TouchFile` validates HTTP status, parses `cmdResp.Error`, and returns a detailed error message from `cmdResp.Result`.
 
 ### Safety & Error Handling
 
-- All changes preserve HTML formatting, valid Go html/template syntax, and strict LOC under 400 lines per file.
-- All template assembly tests in `server_test.go` and static validation (`check.sh`) verified clean.
+- Safe path handling: Preserves `NormalizeFs` and trims leading slashes.
+- File size constraints: Ensure all modified files stay well below the 400 LOC ceiling.
+- Regression safety: Run full test suite and quality gate to verify zero regressions.
 
 ## Verification Plan
 
-- `go test -count=1 ./internal/server -run TestDashboardHandler_HTMLStructure`
+- `go test -count=1 ./internal/core/client -run TestTouchFile`
+- `go test -count=1 ./internal/services -run TestCanaryService`
+- `go test -count=1 ./internal/services -run TestSyncService`
+- `go test -count=1 ./...`
 - `./scripts/check-loc.sh 400`
 - `./scripts/check.sh`
-- Binary build & UI server verification: Launch `bisync-hub` and curl `/` to verify rendered HTML, style block, and lack of unparsed template directives.
+- Binary build & live rclone RC verification: verify `core/command` touch against real `rclone rcd`.
+
 

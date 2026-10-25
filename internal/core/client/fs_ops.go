@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -87,23 +88,43 @@ func (c *RcloneClient) ListDirectory(ctx context.Context, remote, path string) D
 	return listing
 }
 
-// TouchFile calls /operations/touch to create/update timestamp on a file.
+// TouchFile calls /core/command with "touch" to create/update timestamp on a file.
 func (c *RcloneClient) TouchFile(ctx context.Context, remote, path string) (bool, error) {
 	fs := NormalizeFs(remote)
 	cleanPath := strings.Trim(path, "/")
 
-	payload := map[string]string{
-		"fs":     fs,
-		"remote": cleanPath,
+	var target string
+	if strings.HasSuffix(fs, ":") {
+		target = fs + cleanPath
+	} else {
+		target = filepath.Join(fs, cleanPath)
 	}
 
-	resp, body, err := c.post(ctx, "operations/touch", payload, 10*time.Second)
+	payload := map[string]interface{}{
+		"command": "touch",
+		"arg":     []string{target},
+	}
+
+	resp, body, err := c.post(ctx, "core/command", payload, 15*time.Second)
 	if err != nil {
 		return false, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		return false, fmt.Errorf("touch failed (HTTP %d): %s", resp.StatusCode, string(body))
 	}
+
+	var cmdResp struct {
+		Error  bool   `json:"error"`
+		Result string `json:"result"`
+	}
+	if err := json.Unmarshal(body, &cmdResp); err == nil && cmdResp.Error {
+		errMsg := strings.TrimSpace(cmdResp.Result)
+		if errMsg == "" {
+			errMsg = "unknown error from rclone touch"
+		}
+		return false, fmt.Errorf("touch failed: %s", errMsg)
+	}
+
 	return true, nil
 }
 

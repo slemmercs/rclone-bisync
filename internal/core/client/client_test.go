@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -116,10 +117,28 @@ func TestRemoteConfigSanitization(t *testing.T) {
 
 func TestTouchFile(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/operations/touch" {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{}`))
-			return
+		if r.URL.Path == "/core/command" {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["command"] == "touch" {
+				args, _ := body["arg"].([]interface{})
+				if len(args) > 0 {
+					target := args[0].(string)
+					if strings.Contains(target, "fail.txt") {
+						w.WriteHeader(http.StatusOK)
+						_, _ = w.Write([]byte(`{"error": true, "result": "permission denied"}`))
+						return
+					}
+					if strings.Contains(target, "server-error.txt") {
+						w.WriteHeader(http.StatusInternalServerError)
+						_, _ = w.Write([]byte(`Internal Server Error`))
+						return
+					}
+				}
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"error": false, "result": ""}`))
+				return
+			}
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -131,7 +150,23 @@ func TestTouchFile(t *testing.T) {
 		t.Fatalf("expected TouchFile to succeed: %v", err)
 	}
 
-	// Error path
+	// Local path target formatting
+	okLocal, err := c.TouchFile(context.Background(), "/tmp/local", "sub/test.txt")
+	if err != nil || !okLocal {
+		t.Fatalf("expected TouchFile to succeed on local path: %v", err)
+	}
+
+	// Command failure path (error: true)
+	if _, err := c.TouchFile(context.Background(), "gdrive", "fail.txt"); err == nil {
+		t.Fatal("expected error on rclone command error")
+	}
+
+	// HTTP error path
+	if _, err := c.TouchFile(context.Background(), "gdrive", "server-error.txt"); err == nil {
+		t.Fatal("expected error on HTTP 500")
+	}
+
+	// Connection failure path
 	cBad := NewRcloneClient("http://127.0.0.1:1", "user", "pass")
 	if _, err := cBad.TouchFile(context.Background(), "gdrive", "test.txt"); err == nil {
 		t.Fatal("expected error on connection failure")
