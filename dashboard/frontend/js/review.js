@@ -35,6 +35,81 @@ window.ReviewModule = {
         this.reviewState.showModal = false;
     },
 
+    get reviewCandidates() {
+        const sess = this.reviewState?.session;
+        if (!sess) return [];
+        const dels = (sess.deletions || []).map(d => ({
+            ...d,
+            type: "deletion",
+            candidateSide: d.side || "Path1",
+            path: d.path
+        }));
+        const cnfs = (sess.conflicts || []).map(c => ({
+            ...c,
+            type: "conflict",
+            candidateSide: "Both",
+            path: c.path
+        }));
+        return [...dels, ...cnfs];
+    },
+
+    get filteredReviewCandidates() {
+        let list = this.reviewCandidates;
+        const q = (this.reviewState.search || "").toLowerCase().trim();
+        const typeFilter = this.reviewState.filter;
+        const statusFilter = this.reviewState.statusFilter;
+
+        if (typeFilter === "deletions") {
+            list = list.filter(c => c.type === "deletion");
+        } else if (typeFilter === "conflicts") {
+            list = list.filter(c => c.type === "conflict");
+        }
+
+        if (statusFilter === "pending") {
+            list = list.filter(c => !c.decision || c.decision === "pending");
+        } else if (statusFilter === "decided") {
+            list = list.filter(c => c.decision && c.decision !== "pending");
+        }
+
+        if (q) {
+            list = list.filter(c => (c.path || "").toLowerCase().includes(q) || (c.reason || "").toLowerCase().includes(q));
+        }
+
+        return list;
+    },
+
+    get reviewStats() {
+        const all = this.reviewCandidates;
+        const dels = all.filter(c => c.type === "deletion");
+        const cnfs = all.filter(c => c.type === "conflict");
+        const decided = all.filter(c => c.decision && c.decision !== "pending");
+        const pending = all.filter(c => !c.decision || c.decision === "pending");
+
+        return {
+            total: all.length,
+            deletions: dels.length,
+            conflicts: cnfs.length,
+            decided: decided.length,
+            pending: pending.length
+        };
+    },
+
+    get hasPendingReviewDecisions() {
+        return this.reviewStats.pending > 0;
+    },
+
+    get canApplyReview() {
+        const s = this.reviewState;
+        if (!s.session || s.executing || s.rollingBack) return false;
+        return this.reviewStats.decided > 0 || s.session.status === "STAGED";
+    },
+
+    get canRollbackReview() {
+        const sess = this.reviewState.session;
+        if (!sess || this.reviewState.executing || this.reviewState.rollingBack) return false;
+        return sess.status === "COMPLETED" || sess.status === "APPLIED" || (sess.actions && sess.actions.length > 0);
+    },
+
     async stageReviewDecision(candidateId, decision) {
         if (!this.reviewState.session) return;
         const candidate = this.reviewCandidates.find(c => c.id === candidateId);
