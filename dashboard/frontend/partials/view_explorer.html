@@ -1,6 +1,6 @@
 {{ define "view_explorer" }}
         <!-- View 3: File Explorer Workspace -->
-        <div x-show="currentTab === 'explorer'" x-transition.opacity.duration.200ms class="space-y-5">
+        <div x-show="currentTab === 'explorer'" x-cloak x-transition.opacity.duration.200ms class="space-y-5">
             <!-- Explorer Cockpit Subheader Toolbar -->
             <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
                 <div class="flex items-center gap-2">

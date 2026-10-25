@@ -22,23 +22,23 @@ window.RemotesModule = {
         this.remotesData.error = null;
         try {
             const [remotesRes, authRes] = await Promise.allSettled([
-                fetch("/api/remotes"),
-                fetch("/api/remotes/auth")
+                window.API.get("/api/remotes"),
+                window.API.get("/api/remotes/auth")
             ]);
 
-            if (remotesRes.status === "fulfilled" && remotesRes.value.ok) {
-                const data = await remotesRes.value.json();
+            if (remotesRes.status === "fulfilled") {
+                const data = remotesRes.value;
                 this.remotesData.remotes = data.remotes || [];
                 this.remotesData.summary = data.summary || {};
                 this.remotesData.count = data.count || 0;
                 this.remotesData.active_remote = data.active_remote || null;
                 this.remotesData.last_checked = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-            } else if (remotesRes.status === "fulfilled") {
-                throw new Error("HTTP " + remotesRes.value.status);
+            } else {
+                throw remotesRes.reason;
             }
 
-            if (authRes.status === "fulfilled" && authRes.value.ok) {
-                const authData = await authRes.value.json();
+            if (authRes.status === "fulfilled") {
+                const authData = authRes.value;
                 this.remotesData.authSummary = authData.summary || {};
                 const authMap = {};
                 (authData.remotes || []).forEach(r => {
@@ -61,15 +61,12 @@ window.RemotesModule = {
         const startTime = Date.now();
         try {
             const [remotesRes, checkRes] = await Promise.allSettled([
-                fetch("/api/remotes"),
-                fetch("/api/remotes/auth/check", {
-                    method: "POST",
-                    headers: { "X-Dashboard-Request": "1" }
-                })
+                window.API.get("/api/remotes"),
+                window.API.post("/api/remotes/auth/check")
             ]);
 
-            if (remotesRes.status === "fulfilled" && remotesRes.value.ok) {
-                const data = await remotesRes.value.json();
+            if (remotesRes.status === "fulfilled") {
+                const data = remotesRes.value;
                 this.remotesData.remotes = data.remotes || [];
                 this.remotesData.summary = data.summary || {};
                 this.remotesData.count = data.count || 0;
@@ -77,8 +74,8 @@ window.RemotesModule = {
                 this.remotesData.last_checked = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
             }
 
-            if (checkRes.status === "fulfilled" && checkRes.value.ok) {
-                const authData = await checkRes.value.json();
+            if (checkRes.status === "fulfilled") {
+                const authData = checkRes.value;
                 this.remotesData.authSummary = authData.summary || {};
                 const authMap = {};
                 (authData.remotes || []).forEach(r => {
@@ -154,11 +151,7 @@ window.RemotesModule = {
         };
 
         try {
-            const res = await fetch(`/api/remotes/${encodeURIComponent(name)}/reconnect`, {
-                method: "POST",
-                headers: { "X-Dashboard-Request": "1" }
-            });
-            const data = await res.json();
+            const data = await window.API.post(`/api/remotes/${encodeURIComponent(name)}/reconnect`);
             if (data.status === "success") {
                 this.reconnectModal.msg = data.msg || `Re-authenticated "${name}" successfully.`;
                 this.reconnectModal.authUrl = data.auth_url || null;
@@ -190,11 +183,7 @@ window.RemotesModule = {
         this.showToast(`Testing connection to "${name}"...`, "info");
         const startTime = Date.now();
         try {
-            const res = await fetch(`/api/remotes/${encodeURIComponent(name)}/validate`, {
-                method: "POST",
-                headers: { "X-Dashboard-Request": "1" }
-            });
-            const data = await res.json();
+            const data = await window.API.post(`/api/remotes/${encodeURIComponent(name)}/validate`);
 
             // Enforce minimum visual duration (600ms) so user clearly perceives the check
             const elapsed = Date.now() - startTime;
@@ -254,18 +243,10 @@ window.RemotesModule = {
         this.migrationModal.success = null;
 
         try {
-            const res = await fetch(`/api/remotes/${encodeURIComponent(this.migrationModal.remote)}/credentials`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Dashboard-Request": "1"
-                },
-                body: JSON.stringify({
-                    client_id: this.migrationModal.clientId.trim(),
-                    client_secret: this.migrationModal.clientSecret ? this.migrationModal.clientSecret.trim() : ""
-                })
+            const data = await window.API.post(`/api/remotes/${encodeURIComponent(this.migrationModal.remote)}/credentials`, {
+                client_id: this.migrationModal.clientId.trim(),
+                client_secret: this.migrationModal.clientSecret ? this.migrationModal.clientSecret.trim() : ""
             });
-            const data = await res.json();
             if (data.status === "success") {
                 this.migrationModal.success = "OAuth credentials successfully saved!";
                 this.showToast("Credentials saved successfully!", "success");
@@ -285,10 +266,7 @@ window.RemotesModule = {
 
     async cancelReconnect(name) {
         try {
-            await fetch(`/api/remotes/${encodeURIComponent(name)}/reconnect/cancel`, {
-                method: "POST",
-                headers: { "X-Dashboard-Request": "1" }
-            });
+            await window.API.post(`/api/remotes/${encodeURIComponent(name)}/reconnect/cancel`);
         } catch (e) {
             console.error(e);
         } finally {
@@ -308,11 +286,8 @@ window.RemotesModule = {
     async viewAuthAudit() {
         this.auditModal = { show: true, loading: true, events: [] };
         try {
-            const res = await fetch("/api/remotes/auth/audit?limit=50");
-            if (res.ok) {
-                const data = await res.json();
-                this.auditModal.events = data.events || [];
-            }
+            const data = await window.API.get("/api/remotes/auth/audit?limit=50");
+            this.auditModal.events = data.events || [];
         } catch (err) {
             console.error("Failed to fetch auth audit:", err);
         } finally {
@@ -322,10 +297,7 @@ window.RemotesModule = {
 
     async stopOAuth() {
         try {
-            await fetch("/api/remotes/auth/oauth-stop", {
-                method: "POST",
-                headers: { "X-Dashboard-Request": "1" }
-            });
+            await window.API.post("/api/remotes/auth/oauth-stop");
             this.showToast("Stopped OAuth authentication processes.", "info");
             if (this.reconnectModal.show) {
                 this.reconnectModal.loading = false;

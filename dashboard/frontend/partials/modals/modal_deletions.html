@@ -1,6 +1,6 @@
 {{ define "modal_deletions" }}
     <!-- Review Pending Deletions Modal -->
-    <div x-show="showDeletionsModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div x-show="showDeletionsModal" x-cloak @keydown.escape.window="showDeletionsModal = false" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
             <!-- Modal Header -->
             <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">

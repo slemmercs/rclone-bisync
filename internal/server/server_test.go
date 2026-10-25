@@ -1219,7 +1219,7 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 	if strings.Contains(body, `x-for="(val, key) in entry.details"`) {
 		t.Error("found invalid x-for loop over non-iterable Object in modal_daemon")
 	}
-	if !strings.Contains(body, `x-for="[key, val] in Object.entries(entry.details`) {
+	if !strings.Contains(body, `x-for="(pair, idx) in Object.entries(entry.details`) {
 		t.Error("expected Object.entries iteration for entry.details in modal_daemon")
 	}
 
@@ -1229,6 +1229,24 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 	}
 	if !strings.Contains(body, "v1.0") {
 		t.Errorf("expected dynamic version 'v1.0' in header, got body: %s", body[:500])
+	}
+
+	// Verify global x-cloak CSS style rule and x-cloak presence on views and modals
+	if !strings.Contains(body, "[x-cloak] { display: none !important; }") {
+		t.Error("expected global [x-cloak] CSS rule in head")
+	}
+	if cloakCount := strings.Count(body, "x-cloak"); cloakCount < 10 {
+		t.Errorf("expected at least 10 x-cloak attributes on views/modals, found %d", cloakCount)
+	}
+
+	// Verify keyboard escape listeners across modals
+	if escCount := strings.Count(body, "@keydown.escape.window"); escCount < 7 {
+		t.Errorf("expected at least 7 @keydown.escape.window listeners on modals, found %d", escCount)
+	}
+
+	// Verify no unsupported Alpine array destructuring in templates
+	if strings.Contains(body, `x-for="[`) {
+		t.Error("found unsupported Alpine x-for array destructuring syntax")
 	}
 }
 

@@ -1,6 +1,6 @@
 {{ define "view_telemetry" }}
         <!-- View 1: Telemetry & Engine -->
-        <div x-show="currentTab === 'telemetry'" class="space-y-5">
+        <div x-show="currentTab === 'telemetry'" x-cloak class="space-y-5">
 
             <!-- Cockpit Telemetry Workspace Subheader Toolbar -->
             <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
@@ -73,10 +73,10 @@
 
             <!-- Extended Config Grid (Restored rich key/value pair design) -->
             <div x-show="configExpanded" x-transition.duration.200ms class="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                <template x-for="[key, val] in filteredConfigEntries" :key="key">
+                <template x-for="(entry, idx) in filteredConfigEntries" :key="entry[0]">
                     <div class="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/40 flex flex-col justify-between overflow-hidden hover:border-slate-700/60 transition-colors">
-                        <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold truncate" x-text="key.replace(/_/g, ' ')" :title="key"></div>
-                        <div class="w-full" x-html="formatConfig(key, val)"></div>
+                        <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold truncate" x-text="entry[0].replace(/_/g, ' ')" :title="entry[0]"></div>
+                        <div class="w-full" x-html="formatConfig(entry[0], entry[1])"></div>
                     </div>
                 </template>
             </div>

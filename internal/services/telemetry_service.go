@@ -19,6 +19,19 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
+// FileCacheItem stores cached file content with mtime/size headers.
+type FileCacheItem struct {
+	MTime int64
+	Size  int64
+	Data  interface{}
+}
+
+// LiveHealthCache stores daemon health check with timestamp.
+type LiveHealthCache struct {
+	Time float64
+	Data map[string]interface{}
+}
+
 // TelemetryService manages daemon health, remotes summary, transfer statistics, and metrics caching.
 type TelemetryService struct {
 	Config          *config.Config

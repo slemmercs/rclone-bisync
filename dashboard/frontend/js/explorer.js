@@ -41,18 +41,7 @@ window.ExplorerModule = {
             pane.loading = true;
             pane.error = null;
             try {
-                const res = await fetch("/api/browse", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({ remote: target, path: path })
-                });
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                }
-                const data = await res.json();
+                const data = await window.API.post("/api/browse", { remote: target, path: path });
                 if (data.error) {
                     pane.error = data.error;
                     pane.items = [];
@@ -200,15 +189,7 @@ window.ExplorerModule = {
             const pane = this.explorer[paneKey];
             if (!pane) return;
             try {
-                const res = await fetch("/api/browse/canary", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({ remote: pane.target, path: "" })
-                });
-                const data = await res.json();
+                const data = await window.API.post("/api/browse/canary", { remote: pane.target, path: "" });
                 if (data.status === "success") {
                     pane.hasCanary = true;
                     this.showToast("Canary file RCLONE_TEST provisioned successfully", "success");
@@ -217,7 +198,7 @@ window.ExplorerModule = {
                     this.showToast(data.error || "Failed to provision canary", "error");
                 }
             } catch (err) {
-                this.showToast("Network error: " + err.message, "error");
+                this.showToast("Failed to provision canary: " + err.message, "error");
             }
         },
 
@@ -244,21 +225,13 @@ window.ExplorerModule = {
             const dst_path = this.explorer[targetPaneKey].path;
 
             try {
-                const res = await fetch("/api/browse/copy", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({
-                        src_remote,
-                        src_path,
-                        dst_remote,
-                        dst_path,
-                        is_dir: item.IsDir
-                    })
+                const data = await window.API.post("/api/browse/copy", {
+                    src_remote,
+                    src_path,
+                    dst_remote,
+                    dst_path,
+                    is_dir: item.IsDir
                 });
-                const data = await res.json();
                 if (data.status === "success") {
                     this.showToast(`Transferred "${item.Name}" successfully!`, "success");
                     this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
@@ -266,101 +239,11 @@ window.ExplorerModule = {
                     this.showToast(`Transfer failed: ${data.error || 'Unknown error'}`, "error");
                 }
             } catch (err) {
-                this.showToast(`Network error: ${err.message}`, "error");
+                this.showToast(`Transfer failed: ${err.message}`, "error");
             } finally {
                 item._copying = false;
             }
         },
-
-        setDeleteConfirmMode(mode) {
-            this.deleteConfirmMode = mode;
-            try {
-                localStorage.setItem("rclone_delete_confirm_mode", mode);
-            } catch (e) {}
-        },
-
-        promptDeleteItem(paneKey, item) {
-            if (!item || item.Name === "RCLONE_TEST") {
-                this.showToast("Canary file (RCLONE_TEST) cannot be deleted.", "warning");
-                return;
-            }
-            if (this.deleteConfirmMode === "none") {
-                this.executeDeleteItem(paneKey, item);
-            } else if (this.deleteConfirmMode === "single") {
-                this.deleteModal = {
-                    show: true,
-                    step: 2,
-                    paneKey,
-                    item,
-                    deleting: false
-                };
-            } else {
-                // Default: double confirmation
-                this.deleteModal = {
-                    show: true,
-                    step: 1,
-                    paneKey,
-                    item,
-                    deleting: false
-                };
-            }
-        },
-
-        advanceDeleteStep() {
-            if (this.deleteModal.step === 1) {
-                this.deleteModal.step = 2;
-            } else {
-                this.executeDeleteItem(this.deleteModal.paneKey, this.deleteModal.item);
-            }
-        },
-
-        cancelDelete() {
-            this.deleteModal.show = false;
-            this.deleteModal.item = null;
-            this.deleteModal.paneKey = null;
-            this.deleteModal.step = 1;
-            this.deleteModal.deleting = false;
-        },
-
-        async executeDeleteItem(paneKey, item) {
-            if (!item || !paneKey) return;
-            this.deleteModal.deleting = true;
-            const remote = this.explorer[paneKey].target;
-            let path = item.Path || item.Name;
-            const currentPanePath = this.explorer[paneKey].path;
-            if (currentPanePath && !path.startsWith(currentPanePath)) {
-                path = `${currentPanePath}/${path}`.replace(/^\/+/, "");
-            }
-            const is_dir = !!item.IsDir;
-
-            try {
-                const res = await fetch("/api/browse/delete", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({
-                        remote,
-                        path,
-                        is_dir
-                    })
-                });
-                const data = await res.json();
-                if (data.status === "success") {
-                    this.showToast(`Deleted "${item.Name}" successfully`, "success");
-                    this.cancelDelete();
-                    this.fetchExplorerDirectory(paneKey, remote, this.explorer[paneKey].path);
-                } else {
-                    this.showToast(`Delete failed: ${data.error || 'Unknown error'}`, "error");
-                }
-            } catch (err) {
-                this.showToast(`Network error: ${err.message}`, "error");
-            } finally {
-                this.deleteModal.deleting = false;
-            }
-        },
-
 
         async syncCurrentDirectory(sourcePaneKey) {
             const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";
@@ -376,21 +259,13 @@ window.ExplorerModule = {
 
             this.showToast("Initiating directory synchronization...", "info");
             try {
-                const res = await fetch("/api/browse/copy", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Dashboard-Request": "1"
-                    },
-                    body: JSON.stringify({
-                        src_remote,
-                        src_path,
-                        dst_remote,
-                        dst_path,
-                        is_dir: true
-                    })
+                const data = await window.API.post("/api/browse/copy", {
+                    src_remote,
+                    src_path,
+                    dst_remote,
+                    dst_path,
+                    is_dir: true
                 });
-                const data = await res.json();
                 if (data.status === "success") {
                     this.showToast("Directory synchronization complete!", "success");
                     this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
@@ -398,49 +273,7 @@ window.ExplorerModule = {
                     this.showToast(`Sync failed: ${data.error || 'Unknown error'}`, "error");
                 }
             } catch (err) {
-                this.showToast(`Network error: ${err.message}`, "error");
+                this.showToast(`Directory sync failed: ${err.message}`, "error");
             }
-        },
-
-        onDragStart(sourcePaneKey, item, event) {
-            this.explorer.draggedItem = item;
-            this.explorer.draggedSourcePane = sourcePaneKey;
-            if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = "copy";
-                try {
-                    event.dataTransfer.setData("text/plain", item.Path || item.Name);
-                } catch (e) {}
-            }
-        },
-
-        onDragOver(targetPaneKey, event) {
-            if (this.explorer.draggedSourcePane && this.explorer.draggedSourcePane !== targetPaneKey) {
-                event.preventDefault();
-                if (event.dataTransfer) {
-                    event.dataTransfer.dropEffect = "copy";
-                }
-                if (targetPaneKey === "left") this.explorer.isDragOverLeft = true;
-                if (targetPaneKey === "right") this.explorer.isDragOverRight = true;
-            }
-        },
-
-        onDragLeave(targetPaneKey, event) {
-            if (targetPaneKey === "left") this.explorer.isDragOverLeft = false;
-            if (targetPaneKey === "right") this.explorer.isDragOverRight = false;
-        },
-
-        onDrop(targetPaneKey, event) {
-            event.preventDefault();
-            this.explorer.isDragOverLeft = false;
-            this.explorer.isDragOverRight = false;
-
-            const item = this.explorer.draggedItem;
-            const srcPane = this.explorer.draggedSourcePane;
-            this.explorer.draggedItem = null;
-            this.explorer.draggedSourcePane = null;
-
-            if (item && srcPane && srcPane !== targetPaneKey) {
-                this.transferItem(srcPane, item);
-            }
-        },
+        }
 };

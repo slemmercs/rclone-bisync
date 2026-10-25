@@ -1,6 +1,6 @@
 {{ define "modal_review" }}
     <!-- Interactive Sync Review & Resolution Engine Modal ("Review. Decide. Sync.") -->
-    <div x-show="reviewState.showModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div x-show="reviewState.showModal" x-cloak @keydown.escape.window="closeReviewModal()" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
             <!-- Modal Header -->
             <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/60">
