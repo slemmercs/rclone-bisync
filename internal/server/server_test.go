@@ -20,6 +20,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/remoteauth"
+	"github.com/slemmercs/rclone-bisync/internal/review"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
@@ -938,6 +939,170 @@ func TestReviewEndpoints(t *testing.T) {
 	nilReviewSrv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for nil review action-batch, got: %d", rec.Code)
+	}
+}
+
+func TestReviewEndpoints_ExtendedErrorsAndEdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		BaseDir:              tmpDir,
+		LocalPath:            filepath.Join(tmpDir, "local"),
+		RemotePath:           "gdrive:data",
+		ActiveReviewFile:     filepath.Join(tmpDir, "review_session.json"),
+		PendingDeletionsFile: filepath.Join(tmpDir, "pending.json"),
+		ReviewDir:            tmpDir,
+		ReviewBackupsDir:     filepath.Join(tmpDir, "backups"),
+	}
+	_ = os.MkdirAll(cfg.LocalPath, 0755)
+
+	syncSvc := services.NewSyncService(cfg, nil)
+	srv := NewServer(cfg, syncSvc, embed.FS{})
+
+	// 1. When no active session exists:
+	// a. Execute with empty session_id -> "No active review session found"
+	req, _ := http.NewRequest("POST", "/api/review/execute", bytes.NewBuffer([]byte(`{"session_id":""}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var execResp models.ExecuteReviewResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &execResp)
+	if execResp.Status != "error" || !strings.Contains(execResp.Error, "No active review session found") {
+		t.Fatalf("expected error on empty session execute without active session, got: %+v", execResp)
+	}
+
+	// b. Rollback with empty session_id -> "No active review session found"
+	req, _ = http.NewRequest("POST", "/api/review/rollback", bytes.NewBuffer([]byte(`{"session_id":""}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var rollResp models.RollbackReviewResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &rollResp)
+	if rollResp.Status != "error" || !strings.Contains(rollResp.Error, "No active review session found") {
+		t.Fatalf("expected error on empty session rollback without active session, got: %+v", rollResp)
+	}
+
+	// c. Action with empty session_id -> "No active review session found"
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer([]byte(`{"candidate_id":"c1","decision":"skip"}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var stageResp models.StageDecisionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &stageResp)
+	if stageResp.Status != "error" || !strings.Contains(stageResp.Error, "No active review session found") {
+		t.Fatalf("expected error on empty session action without active session, got: %+v", stageResp)
+	}
+
+	// d. Dismiss with empty session_id -> "No active review session found"
+	req, _ = http.NewRequest("POST", "/api/review/dismiss", bytes.NewBuffer([]byte(`{"session_id":""}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var dismResp models.ActionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &dismResp)
+	if dismResp.Status != "error" || !strings.Contains(dismResp.Error, "No active review session found") {
+		t.Fatalf("expected error on empty session dismiss without active session, got: %+v", dismResp)
+	}
+
+	// e. Action-batch with empty session_id -> "No active review session found"
+	req, _ = http.NewRequest("POST", "/api/review/action-batch", bytes.NewBuffer([]byte(`{"session_id":""}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var batchResp models.BatchReviewActionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &batchResp)
+	if batchResp.Status != "error" || !strings.Contains(batchResp.Error, "No active review session found") {
+		t.Fatalf("expected error on empty session action-batch without active session, got: %+v", batchResp)
+	}
+
+	// 2. Execute on non-existent session ID -> ApplyReviewSession failure
+	req, _ = http.NewRequest("POST", "/api/review/execute", bytes.NewBuffer([]byte(`{"session_id":"nonexistent_123"}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var execFailResp models.ExecuteReviewResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &execFailResp)
+	if execFailResp.Status != "error" || !strings.Contains(execFailResp.Error, "not found or inactive") {
+		t.Fatalf("expected error on nonexistent session execute, got: %+v", execFailResp)
+	}
+
+	// 3. Staging and batch errors with active session
+	sess, err := syncSvc.Review.DiscoverSession(context.Background(), "CONFLICT", "Conflict error")
+	if err != nil || sess == nil {
+		t.Fatalf("failed discovering session: %v", err)
+	}
+
+	// Staging on non-existent candidate ID
+	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer([]byte(fmt.Sprintf(`{"session_id":%q,"candidate_id":"missing_cand","decision":"skip"}`, sess.ID))))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var stageErrResp models.StageDecisionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &stageErrResp)
+	if stageErrResp.Status != "error" {
+		t.Fatalf("expected error staging missing candidate, got: %+v", stageErrResp)
+	}
+
+	// Action-batch with wrong session ID
+	req, _ = http.NewRequest("POST", "/api/review/action-batch", bytes.NewBuffer([]byte(`{"session_id":"wrong_sess"}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var batchErrResp models.BatchReviewActionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &batchErrResp)
+	if batchErrResp.Status != "error" {
+		t.Fatalf("expected error on action-batch with wrong session id, got: %+v", batchErrResp)
+	}
+
+	// Action-batch with empty session ID falling back to active session
+	req, _ = http.NewRequest("POST", "/api/review/action-batch", bytes.NewBuffer([]byte(`{"session_id":""}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	// Execute with empty session ID falling back to active session
+	req, _ = http.NewRequest("POST", "/api/review/execute", bytes.NewBuffer([]byte(`{"session_id":""}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	// Dismiss with nonexistent session ID returning error
+	req, _ = http.NewRequest("POST", "/api/review/dismiss", bytes.NewBuffer([]byte(`{"session_id":"nonexistent_sess_99"}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var dismErrResp models.ActionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &dismErrResp)
+	if dismErrResp.Status != "error" {
+		t.Fatalf("expected error dismissing nonexistent session, got: %+v", dismErrResp)
+	}
+
+	// Dismiss current session so active memory session is cleared
+	_ = syncSvc.Review.DismissReviewSession(sess.ID)
+
+	// 4. Successful rollback through HTTP with saved session containing actions
+	rollSess := &models.ReviewSession{
+		ID:     "roll-test-sess",
+		Status: models.ReviewStatusApplying,
+		Actions: []models.ResolutionAction{
+			{
+				ID:       "act-1",
+				ItemPath: "restored.txt",
+				Status:   "completed",
+				Type:     models.DecisionAcceptDelete,
+			},
+		},
+	}
+	_ = review.SaveActiveSession(cfg.ActiveReviewFile, rollSess)
+
+	// Rollback with empty session_id targeting active session
+	req, _ = http.NewRequest("POST", "/api/review/rollback", bytes.NewBuffer([]byte(`{"session_id":""}`)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var rollSuccessResp models.RollbackReviewResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &rollSuccessResp)
+	if rollSuccessResp.Status != "success" || rollSuccessResp.Restored != 1 {
+		t.Fatalf("expected successful rollback with 1 restored, got: %+v", rollSuccessResp)
 	}
 
 }

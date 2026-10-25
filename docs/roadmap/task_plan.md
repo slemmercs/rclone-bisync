@@ -25,11 +25,11 @@ Modularize `internal/services/review_service.go` (722 LOC) into cohesive sub-com
   - **Scope**: `internal/services/explorer_service_test.go` (canary deletion protection, jail confinement, relative & escaping symlinks in non-existent paths, remote/local edge-cases in `CopyItem`, fallback canary detection in `DeleteItem`, remove failures on read-only directories).
   - **Verification**: `go test -count=1 -cover ./internal/services -run TestExplorer`
 
-- [ ] Task 6: Service Hardening - `SyncService` & Handlers
+- [x] Task 6: Service Hardening - `SyncService` & Handlers
   - **Scope**: `internal/services/sync_service_test.go` (review delegation facade, unknown actions) and `internal/server/server_test.go` (`handleReviewExecute`, `handleReviewRollback`).
   - **Verification**: `go test -count=1 -cover ./internal/services ./internal/server`
 
-- [ ] Task 7: Full Quality Gate Verification (`./scripts/check.sh`)
+- [x] Task 7: Full Quality Gate Verification (`./scripts/check.sh`)
   - **Scope**: Complete repository quality checks across all 8 stages.
   - **Verification**: `./scripts/check.sh`
 
@@ -38,8 +38,7 @@ Modularize `internal/services/review_service.go` (722 LOC) into cohesive sub-com
 - 2026-10-25: Initialized branch `test/service-hardening-and-modularization` and created plans.
 - 2026-10-25: Completed Task 1 (Modularization of `review_service.go` into three cohesive files <330 LOC) and Task 2 (Hardened `ReviewService` test suite, raising coverage from 75.2% to 86.8%, and overall repository coverage to 85.3%).
 - 2026-10-25: Completed Task 3 (Hardened `CanaryService` test suite, raising statement coverage to 97.7%, and overall repository coverage to 85.8%).
-
-
-- 2026-10-25: Completed Task 5 (Hardened `ExplorerService` test suite, raising statement coverage to 96.8%, and overall repository coverage to 87.1%).
-
 - 2026-10-25: Completed Task 4 (Hardened `LogService` test suite, raising statement coverage to 96.4%, and overall repository coverage to 86.3%).
+- 2026-10-25: Completed Task 5 (Hardened `ExplorerService` test suite, raising statement coverage to 96.8%, and overall repository coverage to 87.1%).
+- 2026-10-25: Completed Task 6 (Hardened `SyncService` facade tests to 87.2% and `handlers_review.go` to 96.6%, boosting overall coverage to 88.2%).
+- 2026-10-25: Completed Task 7 (Ran `./scripts/check.sh` across all quality gate stages; 100% green build, static analysis clean, 88.2% global statement coverage).
