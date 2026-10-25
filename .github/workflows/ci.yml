@@ -86,13 +86,9 @@ jobs:
           sudo apt-get update && sudo apt-get install -y tidy
           go install honnef.co/go/tools/cmd/staticcheck@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/betterleaks/betterleaks@latest
 
-      - name: Run Gitleaks Secret Scanner
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run Static Analysis
+      - name: Run Static Analysis & Secret Scan
         run: |
           chmod +x scripts/check.sh
           ./scripts/check.sh lint

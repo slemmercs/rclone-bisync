@@ -104,6 +104,8 @@ check_lint_and_security() {
         info "--> Running betterleaks..."
         if [[ -f ".betterleaks.toml" ]]; then
             betterleaks dir --config .betterleaks.toml . || failed=1
+        elif [[ -f ".gitleaks.toml" ]]; then
+            betterleaks dir --config .gitleaks.toml . || failed=1
         else
             betterleaks dir . || failed=1
         fi

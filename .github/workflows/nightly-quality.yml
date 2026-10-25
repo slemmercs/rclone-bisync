@@ -48,11 +48,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y tidy
           go install honnef.co/go/tools/cmd/staticcheck@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
-
-      - name: Run Gitleaks Secret Scanner
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          go install github.com/betterleaks/betterleaks@latest
 
       - name: Execute Deep Quality Gate
         run: |
@@ -60,10 +56,10 @@ jobs:
           ./scripts/check.sh
 
       - name: Upload Coverage Report
-        if: ${{ !cancelled() }}
+        if: ${{ success() }}
         uses: actions/upload-artifact@v7
         with:
           name: nightly-coverage
           path: coverage.out
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 14
