@@ -18,16 +18,37 @@ defaults:
     shell: bash
 
 jobs:
-  nightly-deep-check:
-    name: Nightly Deep Validation
+  fmt:
+    name: Code Formatting & Shell Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+          cache: true
+
+      - name: Run Formatting Check
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh fmt
+
+  security-and-lint:
+    name: Static Analysis & Secret Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     env:
       GOFLAGS: "-mod=readonly"
       GOTOOLCHAIN: local
-      MIN_COVERAGE: "85.0"
-      RUN_RACE: "true"
 
     steps:
       - name: Checkout full repository history
@@ -43,17 +64,47 @@ jobs:
           check-latest: true
           cache: true
 
-      - name: Install Analysis Tools
+      - name: Install Analysis & Security Tools
         run: |
           sudo apt-get update && sudo apt-get install -y tidy
           go install honnef.co/go/tools/cmd/staticcheck@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
           go install github.com/betterleaks/betterleaks@latest
 
-      - name: Execute Deep Quality Gate
+      - name: Run Static Analysis & Betterleaks
         run: |
           chmod +x scripts/check.sh
-          ./scripts/check.sh
+          ./scripts/check.sh lint
+
+  test:
+    name: Deep Unit Tests & Race Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      GOFLAGS: "-mod=readonly"
+      GOTOOLCHAIN: local
+      MIN_COVERAGE: "85.0"
+      RUN_RACE: "true"
+      COVERAGE_FILE: "coverage.out"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+          cache: true
+
+      - name: Execute Deep Unit Tests
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh test
 
       - name: Upload Coverage Report
         if: ${{ success() }}
@@ -63,3 +114,26 @@ jobs:
           path: coverage.out
           if-no-files-found: ignore
           retention-days: 14
+
+  build:
+    name: Cross-Platform Builds & CLI Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+          cache: true
+
+      - name: Run Build Verification
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh build
