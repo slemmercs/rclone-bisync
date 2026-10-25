@@ -51,7 +51,7 @@ window.ExplorerModule = {
                     if (!path) {
                         pane.hasCanary = Boolean(data.has_canary);
                     }
-                    pane.items = data.items || [];
+                    pane.items = (data.items || []).map(item => ({ ...item, _copying: false }));
                     pane.itemCount = pane.items.length;
                     pane.totalSize = pane.items.reduce((acc, item) => (item.Size > 0 ? acc + item.Size : acc), 0);
                 }
