@@ -12,6 +12,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/lock"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 func TestBrowsePathLocalJailAndCanary(t *testing.T) {
@@ -529,20 +530,30 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 		t.Fatal("expected HasDeletions false when log is missing")
 	}
 
-	// 14. runBisyncSystemd execution path
+	// 14. runBisyncSystemd execution path with fallback binary in BaseDir
+	fakeBin := filepath.Join(tmpDir, "rclone-bisync")
+	_ = os.WriteFile(fakeBin, []byte("#!/bin/sh\nexit 0\n"), 0755)
 	_ = svc.runBisyncSystemd([]string{"--dry-run"}, "test-unit", "test")
+
+	// 15. clear_rate_limit when flag does not exist
+	svcNoFlag := NewSyncService(&config.Config{RateLimitBackoffFile: filepath.Join(tmpDir, "nonexistent.flag")}, nil)
+	resNoFlag, err := svcNoFlag.HandleAction(ctx, "clear_rate_limit")
+	if err != nil || resNoFlag.Status != "info" || !strings.Contains(resNoFlag.Msg, "No active rate limit flag found") {
+		t.Fatalf("expected info on missing rate limit flag, got: %v", resNoFlag)
+	}
 }
 
 func TestSyncService_ReviewBarrierAndFacade(t *testing.T) {
 	tmpDir := t.TempDir()
 	sessionFile := filepath.Join(tmpDir, "review_session.json")
 	cfg := &config.Config{
-		LocalPath:        filepath.Join(tmpDir, "local"),
-		RemotePath:       "gdrive:data",
-		BaseDir:          tmpDir,
-		ActiveReviewFile: sessionFile,
-		ReviewDir:        tmpDir,
-		ReviewBackupsDir: filepath.Join(tmpDir, "backups"),
+		LocalPath:            filepath.Join(tmpDir, "local"),
+		RemotePath:           "gdrive:data",
+		BaseDir:              tmpDir,
+		ActiveReviewFile:     sessionFile,
+		PendingDeletionsFile: filepath.Join(tmpDir, "pending.json"),
+		ReviewDir:            tmpDir,
+		ReviewBackupsDir:     filepath.Join(tmpDir, "backups"),
 	}
 	_ = os.MkdirAll(cfg.LocalPath, 0755)
 
@@ -585,6 +596,32 @@ func TestSyncService_ReviewBarrierAndFacade(t *testing.T) {
 
 	if svc.Review.HasBlockingReview() {
 		t.Fatal("expected review to no longer be blocking after dismiss")
+	}
+
+	// 4b. Facade StageReviewDecision, ApplyReviewSession, and RollbackReviewSession with active service
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"files":["test.txt"],"error":"Too many deletes"}`), 0644)
+	_ = os.WriteFile(filepath.Join(cfg.LocalPath, "test.txt"), []byte("data"), 0644)
+	sess2, err := svc.Review.DiscoverSession(ctx, "TOO_MANY_DELETES", "Safety abort round 2")
+	if err != nil || sess2 == nil || len(sess2.Deletions) == 0 {
+		t.Fatalf("failed creating second session with deletions: %v", err)
+	}
+	candID := sess2.Deletions[0].ID
+
+	stagedSess, err := svc.StageReviewDecision(sess2.ID, candID, models.DecisionSkip)
+	if err != nil || stagedSess == nil {
+		t.Fatalf("failed staging review decision via facade: %v", err)
+	}
+
+	appliedSess, err := svc.ApplyReviewSession(ctx, sess2.ID)
+	if err != nil || appliedSess == nil {
+		t.Fatalf("failed applying review session via facade: %v", err)
+	}
+
+	// Allow RollbackReviewSession to target the applied session
+	svc.Review.session = appliedSess
+	rolledBackSess, err := svc.RollbackReviewSession(ctx, sess2.ID)
+	if err != nil || rolledBackSess == nil {
+		t.Fatalf("failed rolling back review session via facade: %v", err)
 	}
 
 	// 5. Facade error handling with nil ReviewService

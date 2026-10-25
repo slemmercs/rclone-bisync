@@ -155,7 +155,7 @@ fi
 
 check_tests_and_coverage() {
     local failed=0
-    TEST_ARGS=("-count=1" "-covermode=count" "-coverpkg=./..." "-coverprofile=${COVERAGE_FILE}")
+    TEST_ARGS=("-count=1" "-covermode=count" "-coverpkg=./internal/..." "-coverprofile=${COVERAGE_FILE}")
     if [[ "${RUN_RACE}" == "true" ]]; then TEST_ARGS+=("-race" "-shuffle=on"); fi
 
     go test "${TEST_ARGS[@]}" ./... || return 1

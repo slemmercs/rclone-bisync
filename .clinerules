@@ -113,6 +113,18 @@ When completing a verified task, halt and output:
 > - **Next Up**: [Next Task in task_plan.md]
 > 💡 *Please compact context to preserve conversation state while optimizing token usage for the next task.*
 
+
+---
+
+### 1.7 File Size & LOC Inspection Protocol
+
+- **Batch Scanning Only**: Never run single `wc -l` commands on individual files.
+- **Single-Pass Audit**: To check for oversized files or God Objects, run `./scripts/check-loc.sh 400` or a single pipeline:
+
+  ```bash
+  find internal/ -name "*.go" -not -name "*_test.go" -exec wc -l {} + | sort -nr | head -n 15
+  ```
+
 ---
 
 ## 2. Tech Stack & Engineering Standards
