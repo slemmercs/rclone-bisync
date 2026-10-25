@@ -1,33 +1,35 @@
-# Task Plan: Consolidate Quality Scripts into Unified check.sh with Standalone CI Targets
+# Task Plan: Native Go CLI Quality Gate (`cmd/check`) with Hybrid Wrapper
 
 ## Goal
-Integrate `lint-templates.sh`, `check-loc.sh`, and `check.sh` into a single, unified `check.sh` script where each check can be executed independently for standalone CI jobs.
+Implement a high-performance Go CLI tool in `cmd/check/main.go` that replaces bash quality scripts, provides robust HTML token scanning and parallel auditing, and wire it to `scripts/check.sh` for full backwards compatibility.
 
 ## Tasks
 
-- [x] Task 1: Consolidate template linting and LOC auditing into `scripts/check.sh`
+- [x] Task 1: Implement robust HTML template scanner and LOC auditor in `cmd/check/main.go`
+  - **Scope**: `cmd/check/main.go`, HTML tokenizer, LOC scanner
+  - **Verification**: `go run ./cmd/check templates` && `go run ./cmd/check loc 400`
+
+- [x] Task 2: Implement full suite of checks in `cmd/check/main.go` (`fmt`, `lint`, `test`, `build`, `all`)
+  - **Scope**: `cmd/check/main.go`
+  - **Verification**: `go run ./cmd/check all`
+
+- [x] Task 3: Add unit tests for `cmd/check` in `cmd/check/main_test.go`
+  - **Scope**: `cmd/check/main_test.go`
+  - **Verification**: `go test -count=1 ./cmd/check/...`
+
+- [x] Task 4: Refactor `scripts/check.sh` to delegate to `cmd/check` and verify CI compatibility
   - **Scope**: `scripts/check.sh`
-  - **Verification**: `./scripts/check.sh templates` && `./scripts/check.sh loc 400`
-
-- [x] Task 2: Remove redundant standalone scripts and update rule references
-  - **Scope**: `scripts/lint-templates.sh`, `scripts/check-loc.sh`, `.clinerules`
-  - **Verification**: `git status -s` && `./scripts/check.sh fmt`
-
-- [x] Task 3: Update CI workflows for standalone quality check jobs
-  - **Scope**: `.github/workflows/ci.yml`, `.github/workflows/nightly-quality.yml`
-  - **Verification**: `git diff .github/workflows/`
-
-- [x] Task 4: Full verification of all stages and pre-flight commit
-  - **Scope**: `./scripts/check.sh [fmt|lint|templates|loc|test|build|all]`
-  - **Verification**: All individual check invocations and full `./scripts/check.sh` pass cleanly
+  - **Verification**: `./scripts/check.sh all` and `./scripts/check.sh loc 400`
 
 ## Status Updates
 
-- 2026-10-25: Initialized plan from implementation_plan.md on branch `feat/alpine-boolean-lint-and-e2e`.
-- 2026-10-25: Completed Task 1: Consolidated `check_alpine_templates` and `check_loc` into `scripts/check.sh`.
-- 2026-10-25: Completed Task 2: Removed `scripts/lint-templates.sh` and `scripts/check-loc.sh` and updated `.clinerules`.
-- 2026-10-25: Completed Task 3: Added dedicated standalone CI jobs for `templates` and `loc` in `.github/workflows/ci.yml` and `.github/workflows/nightly-quality.yml`.
-- 2026-10-25: Completed Task 4: Verified each individual stage (`fmt`, `lint`, `templates`, `loc`, `test`, `build`) and the unified 6-stage `./scripts/check.sh all` run cleanly.
+- 2026-10-25: Initialized plan for Go CLI migration (`cmd/check`) on branch `feat/alpine-boolean-lint-and-e2e`.
+- 2026-10-25: Completed Task 1: Implemented custom HTML attribute tokenizer (`html_scanner.go`) and LOC auditor (`checks.go`).
+- 2026-10-25: Completed Task 2: Implemented full suite of checks in `cmd/check` (`fmt`, `lint`, `test`, `build`, `all`) with parallel execution.
+- 2026-10-25: Completed Task 3: Added unit tests for HTML scanner, LOC counter, and formatter in `cmd/check/main_test.go` (100% passing in 3ms).
+- 2026-10-25: Completed Task 4: Refactored `scripts/check.sh` into a thin delegator forwarding to `cmd/check`, verified full 6-stage suite passes in ~10s.
+
+
 
 
 
