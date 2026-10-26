@@ -227,15 +227,13 @@ func runLintAndSecurity(cfg Config) error {
 func runTests(cfg Config) error {
 	coverMode := "count"
 	if cfg.RunRace {
-		// Go requires atomic counters when the race detector is active.
-		// count uses non-atomic increments which are unsafe under concurrent access.
 		coverMode = "atomic"
 	}
 
 	args := []string{
 		"test",
 		"-count=1",
-		"-covermode=" + coverMode,  // ← derived, never conflicts with -race
+		"-covermode=" + coverMode,
 		"-coverpkg=./internal/...",
 		"-coverprofile=" + cfg.CoverageFile,
 	}
