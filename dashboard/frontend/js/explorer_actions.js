@@ -66,10 +66,12 @@ window.ExplorerActionsModule = {
         const is_dir = !!item.IsDir;
 
         try {
+            const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
             const data = await window.API.post("/api/browse/delete", {
                 remote,
                 path,
-                is_dir
+                is_dir,
+                profile_id: profileId
             });
             if (data.status === "success") {
                 this.showToast(`Deleted "${item.Name}" successfully`, "success");
@@ -140,12 +142,14 @@ window.ExplorerActionsModule = {
         const dst_path = this.explorer[targetPaneKey].path;
 
         try {
+            const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
             const data = await window.API.post("/api/browse/copy", {
                 src_remote,
                 src_path,
                 dst_remote,
                 dst_path,
-                is_dir: item.IsDir
+                is_dir: item.IsDir,
+                profile_id: profileId
             });
             if (data.status === "success") {
                 this.showToast(`Transferred "${item.Name}" successfully!`, "success");
@@ -174,12 +178,14 @@ window.ExplorerActionsModule = {
 
         this.showToast("Initiating directory synchronization...", "info");
         try {
+            const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
             const data = await window.API.post("/api/browse/copy", {
                 src_remote,
                 src_path,
                 dst_remote,
                 dst_path,
-                is_dir: true
+                is_dir: true,
+                profile_id: profileId
             });
             if (data.status === "success") {
                 this.showToast("Directory synchronization complete!", "success");

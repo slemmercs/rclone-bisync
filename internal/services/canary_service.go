@@ -39,13 +39,15 @@ func (c *CanaryService) SafeguardCanary(cleanPath string) error {
 }
 
 // CanaryInDir checks whether a directory (or any of its subdirectories) contains RCLONE_TEST.
-func (c *CanaryService) CanaryInDir(ctx context.Context, remote, path string) bool {
+func (c *CanaryService) CanaryInDir(ctx context.Context, remote, path string, localBase ...string) bool {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
 		rawBase := ""
-		if c.Config != nil {
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if c.Config != nil {
 			rawBase = c.Config.LocalPath
 		}
 		if rawBase == "" {
@@ -78,12 +80,17 @@ func (c *CanaryService) CanaryInDir(ctx context.Context, remote, path string) bo
 }
 
 // CanaryExists checks if the canary file exists locally or remotely at the target path.
-func (c *CanaryService) CanaryExists(ctx context.Context, remote, path string) bool {
+func (c *CanaryService) CanaryExists(ctx context.Context, remote, path string, localBase ...string) bool {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := c.Config.LocalPath
+		rawBase := ""
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if c.Config != nil {
+			rawBase = c.Config.LocalPath
+		}
 		if rawBase == "" {
 			rawBase = "~/gdrive"
 		}
@@ -120,12 +127,20 @@ func (c *CanaryService) CanaryExists(ctx context.Context, remote, path string) b
 }
 
 // CreateCanary provisions an RCLONE_TEST canary file on target local or remote filesystem.
-func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string) (map[string]interface{}, error) {
+func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, localBase ...string) (map[string]interface{}, error) {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := c.Config.LocalPath
+		rawBase := ""
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if c.Config != nil {
+			rawBase = c.Config.LocalPath
+		}
+		if rawBase == "" {
+			rawBase = "~/gdrive"
+		}
 		if strings.HasPrefix(rawBase, "~") {
 			home, _ := os.UserHomeDir()
 			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))

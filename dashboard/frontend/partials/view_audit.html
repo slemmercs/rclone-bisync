@@ -67,8 +67,14 @@
                         <input type="text"
                                x-model="auditData.filterProfile"
                                @keydown.enter="applyAuditFilters()"
+                               list="auditProfileSuggestions"
                                placeholder="Filter Profile..."
                                class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none">
+                        <datalist id="auditProfileSuggestions">
+                            <template x-for="p in (profilesData?.list || [])" :key="p.id">
+                                <option :value="p.name" x-text="p.name"></option>
+                            </template>
+                        </datalist>
                     </div>
 
                     <select x-model="auditData.filterAction" @change="applyAuditFilters()" class="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none">
@@ -123,7 +129,12 @@
                                 <tr class="hover:bg-slate-800/40 transition-colors">
                                     <td class="py-3 px-4 text-indigo-400 font-bold" x-text="`#${rec.seq_id}`"></td>
                                     <td class="py-3 px-4 text-slate-400 whitespace-nowrap" x-text="formatAuditTimestamp(rec.timestamp)"></td>
-                                    <td class="py-3 px-4 font-sans font-medium text-slate-200" x-text="rec.profile_id"></td>
+                                    <td class="py-3 px-4 font-sans font-medium text-slate-200">
+                                        <div class="flex flex-col">
+                                            <span x-text="getProfileDisplayName(rec.profile_id, rec)" class="text-slate-200 font-medium"></span>
+                                            <span x-show="rec.profile_name && rec.profile_name !== rec.profile_id" x-text="rec.profile_id" class="text-[10px] text-slate-500 font-mono"></span>
+                                        </div>
+                                    </td>
                                     <td class="py-3 px-4 whitespace-nowrap">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border"
                                               :class="getAuditActionBadgeClass(rec.action)"
@@ -217,8 +228,9 @@
 
                         <div class="grid grid-cols-2 gap-3 font-sans">
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
-                                <span class="text-slate-500 block text-[10px] uppercase tracking-wider font-semibold">Profile ID</span>
-                                <span class="text-slate-200 text-sm font-semibold mt-0.5 block" x-text="auditData.selectedRecord?.profile_id"></span>
+                                <span class="text-slate-500 block text-[10px] uppercase tracking-wider font-semibold">Profile</span>
+                                <span class="text-slate-200 text-sm font-semibold mt-0.5 block" x-text="getProfileDisplayName(auditData.selectedRecord?.profile_id, auditData.selectedRecord)"></span>
+                                <span class="text-slate-500 text-[10px] font-mono mt-0.5 block" x-text="auditData.selectedRecord?.profile_id"></span>
                             </div>
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
                                 <span class="text-slate-500 block text-[10px] uppercase tracking-wider font-semibold">Actor</span>

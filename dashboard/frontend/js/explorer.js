@@ -120,7 +120,8 @@ window.ExplorerModule = {
             pane.loading = true;
             pane.error = null;
             try {
-                const data = await window.API.post("/api/browse", { remote: target, path: path });
+                const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
+                const data = await window.API.post("/api/browse", { remote: target, path: path, profile_id: profileId });
                 if (data.error) {
                     pane.error = data.error;
                     pane.items = [];
@@ -285,7 +286,8 @@ window.ExplorerModule = {
             const pane = this.explorer[paneKey];
             if (!pane) return;
             try {
-                const data = await window.API.post("/api/browse/canary", { remote: pane.target, path: pane.path || "" });
+                const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
+                const data = await window.API.post("/api/browse/canary", { remote: pane.target, path: pane.path || "", profile_id: profileId });
                 if (data.status === "success") {
                     pane.hasCanary = true;
                     this.showToast("Canary file RCLONE_TEST provisioned successfully", "success");

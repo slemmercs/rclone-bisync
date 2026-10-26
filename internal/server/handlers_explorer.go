@@ -7,6 +7,18 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
+func (s *Server) resolveLocalPath(profileID string) string {
+	if s.ProfileService != nil && profileID != "" {
+		if p, err := s.ProfileService.Get(profileID); err == nil && p != nil && p.LocalPath != "" {
+			return p.LocalPath
+		}
+	}
+	if s.Config != nil && s.Config.LocalPath != "" {
+		return s.Config.LocalPath
+	}
+	return "~/gdrive"
+}
+
 func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	var req models.BrowseRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
@@ -14,7 +26,7 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	if remote == "" {
 		remote = "local"
 	}
-	res := s.ExplorerService.BrowsePath(r.Context(), remote, req.Path)
+	res := s.ExplorerService.BrowsePath(r.Context(), remote, req.Path, s.resolveLocalPath(req.ProfileID))
 	writeJSON(w, http.StatusOK, res)
 }
 
@@ -25,7 +37,7 @@ func (s *Server) handleProvisionCanary(w http.ResponseWriter, r *http.Request) {
 	if remote == "" {
 		remote = "local"
 	}
-	res, err := s.CanaryService.CreateCanary(r.Context(), remote, req.Path)
+	res, err := s.CanaryService.CreateCanary(r.Context(), remote, req.Path, s.resolveLocalPath(req.ProfileID))
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.CanaryResponse{Status: "error", Error: err.Error()})
 		return
@@ -39,7 +51,7 @@ func (s *Server) handleCopyItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, models.CopyResponse{Status: "error", Error: "Invalid request body"})
 		return
 	}
-	res, err := s.ExplorerService.CopyItem(r.Context(), req.SrcRemote, req.SrcPath, req.DstRemote, req.DstPath, req.IsDir)
+	res, err := s.ExplorerService.CopyItem(r.Context(), req.SrcRemote, req.SrcPath, req.DstRemote, req.DstPath, req.IsDir, s.resolveLocalPath(req.ProfileID))
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.CopyResponse{Status: "error", Error: err.Error()})
 		return
@@ -53,7 +65,7 @@ func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, models.DeleteResponse{Status: "error", Error: "Invalid request body"})
 		return
 	}
-	res, err := s.ExplorerService.DeleteItem(r.Context(), req.Remote, req.Path, req.IsDir)
+	res, err := s.ExplorerService.DeleteItem(r.Context(), req.Remote, req.Path, req.IsDir, s.resolveLocalPath(req.ProfileID))
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.DeleteResponse{Status: "error", Error: err.Error()})
 		return

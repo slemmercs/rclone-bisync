@@ -11,14 +11,16 @@ import (
 )
 
 // CopyItem transfers a file or directory with path jail enforcement.
-func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (models.CopyResponse, error) {
+func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool, localBase ...string) (models.CopyResponse, error) {
 	cleanSrcPath := strings.Trim(strings.TrimSpace(srcPath), "/")
 	cleanDstPath := strings.Trim(strings.TrimSpace(dstPath), "/")
 	srcIsLocal := strings.ToLower(strings.TrimSpace(srcRemote)) == "local" || strings.TrimSpace(srcRemote) == ""
 	dstIsLocal := strings.ToLower(strings.TrimSpace(dstRemote)) == "local" || strings.TrimSpace(dstRemote) == ""
 
 	rawBase := ""
-	if e.Config != nil {
+	if len(localBase) > 0 && localBase[0] != "" {
+		rawBase = localBase[0]
+	} else if e.Config != nil {
 		rawBase = e.Config.LocalPath
 	}
 	if rawBase == "" {
@@ -125,7 +127,7 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 }
 
 // DeleteItem removes a file or directory, safeguarding RCLONE_TEST canary and enforcing path jail.
-func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, isDir bool) (map[string]interface{}, error) {
+func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, isDir bool, localBase ...string) (map[string]interface{}, error) {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	if cleanPath == "" {
 		return map[string]interface{}{"status": "error", "error": "Root directory cannot be deleted"}, nil
@@ -141,7 +143,9 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 
 	if isLocal {
 		rawBase := ""
-		if e.Config != nil {
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if e.Config != nil {
 			rawBase = e.Config.LocalPath
 		}
 		if rawBase == "" {
@@ -161,7 +165,7 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 			// Recursive canary protection: refuse to delete directory containing RCLONE_TEST
 			canaryBlocked := false
 			if e.Canary != nil {
-				canaryBlocked = e.Canary.CanaryInDir(ctx, remote, cleanPath)
+				canaryBlocked = e.Canary.CanaryInDir(ctx, remote, cleanPath, rawBase)
 			} else {
 				_ = filepath.Walk(target, func(p string, info os.FileInfo, err error) error {
 					if err != nil {

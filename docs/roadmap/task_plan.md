@@ -25,6 +25,11 @@ Integrate workspace profiles with the dual-pane file explorer (auto-binding, ori
   - **Scope**: Entire codebase
   - **Verification**: `./scripts/check.sh all`
 
+- [x] Task 6: Active Profile Local Path Routing in Dual-Pane Explorer & Human-Friendly Profile Names in Audit Ledger
+  - **Scope**: `internal/models/api.go`, `internal/services/explorer_service.go`, `internal/services/explorer_ops.go`, `internal/services/canary_service.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_audit.go`, `internal/audit/ledger.go`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/audit.js`, `dashboard/frontend/partials/view_audit.html`
+  - **Verification**: `go test -count=1 ./internal/...` and `./scripts/check.sh all`
+
+
 ## Status Updates
 
 - 2026-10-26: Created branch `feat/profile-explorer-integration-and-modal` and initialized plan from implementation_plan.md.
@@ -33,4 +38,6 @@ Integrate workspace profiles with the dual-pane file explorer (auto-binding, ori
 - 2026-10-26: Completed Task 3 (Implemented Lucide trash SVG, dark confirmation dialog, exclude input, and isProfileDeleting helper).
 - 2026-10-26: Completed Task 4 (Integrated profile target auto-binding in explorer, orientation swap button ⇄ with array-destructuring state swap, and exclude-pattern visual dimming/badge).
 - 2026-10-26: Completed Task 5 (Optimized LOC in explorer.js, explorer_actions.js, and view_explorer.html ensuring strict adherence to the 400 LOC ceiling; verified all 6 quality stages pass via `./scripts/check.sh all`).
+
+- 2026-10-26: Completed Task 6 (Plumbed profile local path resolution to explorer browse/canary/copy/delete handlers and services; bound Alpine active profile ID to all explorer fetch requests; enriched immutable audit ledger with friendly profile names and profile filter autocomplete).
 

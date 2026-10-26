@@ -10,6 +10,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
@@ -152,5 +153,78 @@ func TestAuditEndpoints_NilService(t *testing.T) {
 	srv.ServeHTTP(w, req)
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503 on nil service export, got %d", w.Code)
+	}
+}
+
+func TestAuditRecords_ProfileNameResolution(t *testing.T) {
+	srv, auditSvc := setupTestServerWithAudit(t)
+	defer auditSvc.Close()
+
+	// Setup profile store & service
+	tmpDir := t.TempDir()
+	pStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
+	if err != nil {
+		t.Fatalf("failed to create profile store: %v", err)
+	}
+	_ = pStore.Save(&profiles.Profile{
+		ID:        "prof_abc123",
+		Name:      "OneDrive (Personal)",
+		Remote:    "onedrive:",
+		LocalPath: filepath.Join(tmpDir, "onedrive"),
+	}, "test setup")
+
+	pService := profiles.NewService(pStore, nil, nil)
+	srv.ProfileService = pService
+
+	// Record audit events
+	_, _ = auditSvc.RecordEvent("prof_abc123", audit.ActionSyncExecuted, "SYSTEM", map[string]any{"files": 5})
+	_, _ = auditSvc.RecordEvent("default", audit.ActionSyncExecuted, "SYSTEM", map[string]any{"files": 1})
+
+	// 1. GET /api/audit/records without filter -> should enrich profile_name
+	req := httptest.NewRequest(http.MethodGet, "/api/audit/records", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp struct {
+		Records []struct {
+			ProfileID   string `json:"profile_id"`
+			ProfileName string `json:"profile_name"`
+		} `json:"records"`
+		Total int `json:"total"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if resp.Total != 2 {
+		t.Fatalf("expected total 2, got %d", resp.Total)
+	}
+	if resp.Records[0].ProfileName != "Default" && resp.Records[0].ProfileName != "OneDrive (Personal)" {
+		t.Fatalf("expected friendly name, got %s", resp.Records[0].ProfileName)
+	}
+
+	// 2. Filter by human friendly profile name "OneDrive (Personal)"
+	req = httptest.NewRequest(http.MethodGet, "/api/audit/records?profile_id=OneDrive+(Personal)", nil)
+	w = httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	var filteredResp struct {
+		Records []struct {
+			ProfileID   string `json:"profile_id"`
+			ProfileName string `json:"profile_name"`
+		} `json:"records"`
+		Total int `json:"total"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &filteredResp); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if filteredResp.Total != 1 {
+		t.Fatalf("expected 1 record when filtered by friendly name, got %d", filteredResp.Total)
+	}
+	if filteredResp.Records[0].ProfileID != "prof_abc123" || filteredResp.Records[0].ProfileName != "OneDrive (Personal)" {
+		t.Fatalf("unexpected record details: %+v", filteredResp.Records[0])
 	}
 }
