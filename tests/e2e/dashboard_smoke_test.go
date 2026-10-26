@@ -81,13 +81,30 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
 
-	// Configure Chrome execution
+	// Configure Chrome execution with flags hardened for containerized/CI runners
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(chromePath),
 		chromedp.DisableGPU,
 		chromedp.NoSandbox,
 		chromedp.Headless,
 		chromedp.WindowSize(1440, 900),
+		// Prevent shared memory exhaustion in container environments (redirect to /tmp)
+		chromedp.Flag("disable-dev-shm-usage", true),
+		// Avoid software GL fallback hang when GPU disabled
+		chromedp.Flag("disable-software-rasterizer", true),
+		// Avoid routing loopback test server through external proxies
+		chromedp.Flag("proxy-server", "direct://"),
+		chromedp.Flag("proxy-bypass-list", "*"),
+		// Optimize background resource consumption and prevent throttle hangs
+		chromedp.Flag("disable-background-networking", true),
+		chromedp.Flag("disable-background-timer-throttling", true),
+		chromedp.Flag("disable-backgrounding-occluded-windows", true),
+		chromedp.Flag("disable-breakpad", true),
+		chromedp.Flag("disable-component-update", true),
+		chromedp.Flag("disable-ipc-flooding-protection", true),
+		chromedp.Flag("disable-hang-monitor", true),
+		chromedp.Flag("disable-renderer-backgrounding", true),
+		chromedp.Flag("force-color-profile", "srgb"),
 	)
 
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
@@ -96,7 +113,13 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 	ctx, cancelCtx := chromedp.NewContext(allocCtx)
 	defer cancelCtx()
 
-	ctx, cancelTimeout := context.WithTimeout(ctx, 35*time.Second)
+	// In virtualized CI environments (such as GitHub Actions ubuntu-latest),
+	// high CPU contention during parallel 'go test ./...' runs warrants a higher timeout margin.
+	testTimeout := 35 * time.Second
+	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		testTimeout = 60 * time.Second
+	}
+	ctx, cancelTimeout := context.WithTimeout(ctx, testTimeout)
 	defer cancelTimeout()
 
 	// Capture console messages & uncaught exceptions
@@ -124,7 +147,13 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		chromedp.WaitVisible("header"),
 	)
 	if err != nil {
-		t.Fatalf("failed to load dashboard: %v", err)
+		mu.Lock()
+		loggedErrors := strings.Join(consoleErrors, "\n")
+		mu.Unlock()
+		if len(loggedErrors) > 0 {
+			t.Fatalf("failed to load dashboard within %v: %v\nConsole errors:\n%s", testTimeout, err, loggedErrors)
+		}
+		t.Fatalf("failed to load dashboard within %v: %v", testTimeout, err)
 	}
 
 	title, err := chromedp.Run(ctx, chromedp.Title())

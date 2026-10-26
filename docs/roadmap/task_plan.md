@@ -42,5 +42,7 @@ Harmonize architecture principles across the project, establish the ADR director
 - 2026-10-26: Completed Task 4 (Authored foundational ADRs: ADR-001 through ADR-005).
 - 2026-10-26: Completed Task 5 (Updated CONTRIBUTING.md and PULL_REQUEST_TEMPLATE.md).
 - 2026-10-26: Completed Task 6 (Verified markdown link integrity across all documents and verified git status).
+- 2026-10-26: Merged fix/e2e-headless-chrome-ci-flakiness (hardened headless Chrome allocator flags, dynamic CI timeout margin, and console error diagnostics in tests/e2e/dashboard_smoke_test.go).
+
 
 
