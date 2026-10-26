@@ -1,0 +1,201 @@
+{{ define "modal_profiles" }}
+<!-- Profile Management Modal -->
+<div x-show="profileModal.show" x-cloak @keydown.escape.window="closeProfilesModal()" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-transition.opacity.duration.200ms>
+    <div @click.away="closeProfilesModal()" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative space-y-4 max-h-[90vh] flex flex-col">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                    <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider">Sync Profiles Manager</h3>
+                    <div class="text-[11px] text-slate-400">Multi-workload isolation, schedule tickers, and version rollback</div>
+                </div>
+            </div>
+            <button @click="closeProfilesModal()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors">
+                <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex items-center justify-between border-b border-slate-800/80 pb-2 shrink-0">
+            <div class="flex items-center gap-2">
+                <button @click="profileModal.tab = 'list'" :class="profileModal.tab === 'list' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg text-xs transition-all flex items-center gap-1.5">
+                    <span>Active Profiles</span>
+                    <span x-text="profilesData.list.length" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono"></span>
+                </button>
+                <button x-show="profileModal.tab === 'edit'" class="bg-indigo-600 text-white font-semibold px-3 py-1 rounded-lg text-xs transition-all">
+                    <span x-text="profileModal.isNew ? 'Create Profile' : 'Edit Configuration'"></span>
+                </button>
+                <button x-show="profileModal.tab === 'history'" class="bg-indigo-600 text-white font-semibold px-3 py-1 rounded-lg text-xs transition-all">
+                    <span>Version History</span>
+                </button>
+            </div>
+            <button x-show="profileModal.tab === 'list'" @click="startNewProfile()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors">
+                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>New Profile</span>
+            </button>
+        </div>
+
+        <!-- Error Message Banner -->
+        <template x-if="profileModal.error">
+            <div class="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 flex items-center justify-between shrink-0">
+                <span x-text="profileModal.error"></span>
+                <button @click="profileModal.error = null" class="text-rose-400 hover:text-rose-200 text-xs">Dismiss</button>
+            </div>
+        </template>
+
+        <!-- Tab 1: Profiles List -->
+        <div x-show="profileModal.tab === 'list'" class="overflow-y-auto space-y-3 pr-1 flex-1">
+            <!-- Clone Prompt Box -->
+            <div x-show="profileModal.showClonePrompt" class="p-3 bg-slate-950/80 border border-indigo-500/40 rounded-xl space-y-2.5">
+                <div class="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    <span>Clone Profile: <span class="text-white" x-text="profileModal.editing?.name"></span></span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input type="text" x-model="profileModal.cloneTarget.id" placeholder="New Profile ID" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                    <input type="text" x-model="profileModal.cloneTarget.name" placeholder="New Display Name" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="flex items-center justify-end gap-2">
+                    <button @click="profileModal.showClonePrompt = false" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs">Cancel</button>
+                    <button @click="submitCloneProfile()" :disabled="isProfileSaving()" class="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold">Confirm</button>
+                </div>
+            </div>
+
+            <!-- Profile Cards -->
+            <template x-for="p in profilesData.list" :key="p.id">
+                <div class="p-3.5 rounded-xl border transition-all" :class="profilesData.activeId === p.id ? 'bg-indigo-950/20 border-indigo-500/50' : 'bg-slate-950/50 border-slate-800'">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-sm text-white" x-text="p.name"></span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded font-mono bg-slate-800 text-slate-400" x-text="'v' + (p.version || 1)"></span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase" :class="p.state?.status === 'healthy' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'" x-text="p.state?.status || 'idle'"></span>
+                                <span x-show="profilesData.activeId === p.id" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/20 text-indigo-300">ACTIVE</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-x-3 text-xs text-slate-400 font-mono">
+                                <span>ID: <span class="text-slate-300" x-text="p.id"></span></span>
+                                <span>Remote: <span class="text-slate-300" x-text="p.remote"></span></span>
+                                <span>Schedule: <span class="text-slate-300" x-text="p.schedule"></span></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button x-show="profilesData.activeId !== p.id" @click="selectProfile(p.id)" class="px-2 py-1 bg-slate-800 text-slate-300 rounded text-xs">Switch</button>
+                            <button @click="triggerProfileSync(p.id, false)" :disabled="isProfileSyncing(p)" class="px-2 py-1 bg-emerald-600/20 text-emerald-300 rounded text-xs disabled:opacity-50">Sync</button>
+                            <button @click="startEditProfile(p)" class="px-2 py-1 bg-slate-800 text-slate-300 rounded text-xs">Edit</button>
+                            <button @click="promptCloneProfile(p)" class="px-2 py-1 bg-slate-800 text-slate-300 rounded text-xs">Clone</button>
+                            <button @click="viewProfileHistory(p)" class="px-2 py-1 bg-slate-800 text-slate-300 rounded text-xs">History</button>
+                            <button @click="deleteProfile(p.id)" class="p-1 text-slate-500 hover:text-rose-400">
+                                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+        <!-- Tab 2: Create / Edit Form -->
+        <div x-show="profileModal.tab === 'edit' && profileModal.editing" class="overflow-y-auto space-y-3.5 pr-1 flex-1">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Display Name <span class="text-rose-400">*</span></label>
+                    <input type="text" x-model="profileModal.editing.name" placeholder="e.g. Work Google Drive" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-semibold text-slate-300">Profile ID</label>
+                        <span x-show="!isProfileEditingExisting()" class="text-[10px] text-slate-400 font-mono">auto-generated</span>
+                        <span x-show="isProfileEditingExisting()" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">immutable</span>
+                    </div>
+                    <input type="text" x-model="profileModal.editing.id" :disabled="isProfileEditingExisting()" placeholder="e.g. prof_1a2b3c" class="w-full bg-slate-950 border border-slate-700 disabled:opacity-60 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Storage Remote <span class="text-rose-400">*</span></label>
+                    <template x-if="hasDiscoveredRemotes()">
+                        <select x-model="profileModal.editing.remote" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                            <option value="" disabled>-- Select Storage Remote --</option>
+                            <template x-for="r in remotesData.remotes" :key="r.name">
+                                <option :value="r.name" x-text="r.name + (r.type ? ' (' + r.type + ')' : '')"></option>
+                            </template>
+                        </select>
+                    </template>
+                    <template x-if="!hasDiscoveredRemotes()">
+                        <input type="text" x-model="profileModal.editing.remote" placeholder="e.g. gdrive" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                    </template>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Remote Subpath (Optional)</label>
+                    <input type="text" x-model="profileModal.editing.remote_path" placeholder="e.g. docs" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Local Directory Path</label>
+                <input type="text" x-model="profileModal.editing.local_path" placeholder="e.g. /home/user/work" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Schedule</label>
+                    <select x-model="profileModal.editing.schedule" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                        <option value="manual">manual (On-Demand)</option>
+                        <option value="15m">15m</option>
+                        <option value="30m">30m</option>
+                        <option value="1h">1h</option>
+                        <option value="4h">4h</option>
+                        <option value="daily">daily</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Review Mode</label>
+                    <select x-model="profileModal.editing.review_mode" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                        <option value="disabled">disabled</option>
+                        <option value="deletions">deletions</option>
+                        <option value="conflicts">conflicts</option>
+                        <option value="all">all</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Failure Threshold</label>
+                    <input type="number" x-model.number="profileModal.editing.safety.failure_threshold" min="1" max="10" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 pt-2">
+                <button @click="saveProfileForm()" :disabled="isProfileSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold">
+                    <span x-text="profileModal.saving ? 'Saving...' : 'Save Configuration'"></span>
+                </button>
+                <button @click="profileModal.tab = 'list'" class="px-3 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Tab 3: History & Rollback -->
+        <div x-show="profileModal.tab === 'history'" class="overflow-y-auto space-y-3 pr-1 flex-1">
+            <div class="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800">
+                <span>Version History for <span class="font-bold text-white" x-text="profileModal.editing?.name"></span></span>
+                <button @click="profileModal.tab = 'list'" class="text-indigo-400 hover:text-indigo-300">&larr; Back to Profiles</button>
+            </div>
+            <template x-if="profileModal.historyLoading">
+                <div class="text-center py-6 text-slate-500 text-xs">Loading history snapshots...</div>
+            </template>
+            <template x-for="h in profileModal.history" :key="h.version">
+                <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono font-bold text-xs text-indigo-400" x-text="'Version ' + h.version"></span>
+                            <span class="text-[10px] text-slate-500" x-text="new Date(h.timestamp).toLocaleString()"></span>
+                        </div>
+                        <p class="text-xs text-slate-300" x-text="h.reason || 'Configuration updated'"></p>
+                    </div>
+                    <button @click="rollbackProfile(profileModal.editing.id, h.version)" :disabled="isProfileSaving()" class="px-2.5 py-1 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium">Rollback</button>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{{ end }}
+

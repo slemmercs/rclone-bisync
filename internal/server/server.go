@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -8,13 +9,16 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/security"
+	"github.com/slemmercs/rclone-bisync/internal/engine/runner"
 	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/remoteauth"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -30,6 +34,7 @@ type Server struct {
 	AuditService     *services.AuditService
 	LogService       *services.LogService
 	AuthService      *remoteauth.RemoteAuthService
+	ProfileService   *profiles.Service
 	FrontendFS       fs.FS
 	Mux              *http.ServeMux
 	Version          string
@@ -87,6 +92,37 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 		reviewSvc = services.NewReviewService(cfg, rcClient)
 	}
 
+	var profSvc *profiles.Service
+	if cfg != nil && cfg.ProfilesFile != "" {
+		profStore, err := profiles.NewStore(cfg.ProfilesFile, cfg.ProfilesHistoryFile)
+		if err == nil {
+			_, _ = profStore.BootstrapDefault(cfg.LocalPath, cfg.RemotePath)
+			executor := func(ctx context.Context, p *profiles.Profile, opts profiles.SyncOptions) error {
+				if err := os.MkdirAll(p.LocalPath, 0755); err != nil {
+					return fmt.Errorf("failed to create local path %s: %w", p.LocalPath, err)
+				}
+				profCfg := *cfg
+				profCfg.ProfileID = p.ID
+				profCfg.RemotePath = p.FullRemoteTarget()
+				profCfg.LocalPath = p.LocalPath
+				profCfg.LockFile = p.LockFilePath()
+				syncRunner := runner.NewSyncRunner(&profCfg)
+				origin := "scheduler"
+				if opts.Force || opts.Resync || opts.DryRun {
+					origin = "dashboard"
+				}
+				success := syncRunner.Run(ctx, opts.Resync, opts.Force, opts.DryRun, origin, "", false)
+				if !success {
+					return fmt.Errorf("sync failed for profile %s", p.ID)
+				}
+				return nil
+			}
+			sched := profiles.NewScheduler(profStore, executor)
+			profSvc = profiles.NewService(profStore, rcClient, auditSvc, sched)
+			_ = sched.Start(context.Background())
+		}
+	}
+
 	s := &Server{
 		Config:           cfg,
 		SyncService:      syncService,
@@ -98,6 +134,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 		AuditService:     auditSvc,
 		LogService:       services.NewLogService(),
 		AuthService:      remoteauth.NewRemoteAuthService(cfg, rcClient, nil),
+		ProfileService:   profSvc,
 		FrontendFS:       frontendFS,
 		Mux:              http.NewServeMux(),
 	}
@@ -211,6 +248,17 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/audit/records", s.handleAuditRecords)
 	s.Mux.HandleFunc("GET /api/audit/verify", s.handleAuditVerify)
 	s.Mux.HandleFunc("GET /api/audit/export", s.handleAuditExport)
+
+	// Profile Manager Endpoints
+	s.Mux.HandleFunc("GET /api/profiles", s.handleListProfiles)
+	s.Mux.HandleFunc("POST /api/profiles", s.handleCreateProfile)
+	s.Mux.HandleFunc("GET /api/profiles/{id}", s.handleGetProfile)
+	s.Mux.HandleFunc("PUT /api/profiles/{id}", s.handleUpdateProfile)
+	s.Mux.HandleFunc("DELETE /api/profiles/{id}", s.handleDeleteProfile)
+	s.Mux.HandleFunc("POST /api/profiles/{id}/clone", s.handleCloneProfile)
+	s.Mux.HandleFunc("POST /api/profiles/{id}/rollback", s.handleRollbackProfile)
+	s.Mux.HandleFunc("POST /api/profiles/{id}/sync", s.handleProfileSync)
+	s.Mux.HandleFunc("GET /api/profiles/{id}/history", s.handleProfileHistory)
 
 	// Static assets & SPA
 	if s.FrontendFS != nil {

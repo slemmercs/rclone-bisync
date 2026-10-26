@@ -242,6 +242,9 @@ document.addEventListener("alpine:init", () => {
         async initDashboard() {
             initPerformanceChart();
             await this.poll();
+            if (typeof this.fetchProfiles === "function") {
+                this.fetchProfiles();
+            }
             this.fetchRemotes(false);
             this.fetchReviewSession(false);
             setInterval(() => this.poll(), 3000);
@@ -262,7 +265,11 @@ document.addEventListener("alpine:init", () => {
         async triggerAction(actionStr) {
             this.actionLoading = actionStr;
             try {
-                const data = await window.API.post("/api/action", { action: actionStr });
+                const payload = { action: actionStr };
+                if (this.profilesData && this.profilesData.activeId) {
+                    payload.profile_id = this.profilesData.activeId;
+                }
+                const data = await window.API.post("/api/action", payload);
                 if (data.status === "error") {
                     const errDetail = data.msg || data.error || "Request failed";
                     this.showToast("Action Error: " + errDetail, "error");
@@ -292,6 +299,7 @@ document.addEventListener("alpine:init", () => {
             }
         },
     },
+        window.ProfilesModule,
         window.RemotesModule,
         window.ExplorerModule,
         window.ExplorerActionsModule,

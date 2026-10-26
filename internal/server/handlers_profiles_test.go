@@ -1,0 +1,280 @@
+package server
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/profiles"
+)
+
+func setupTestServerWithProfiles(t *testing.T) (*Server, *profiles.Service) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	profPath := filepath.Join(tmpDir, "profiles.json")
+	histPath := filepath.Join(tmpDir, "profiles_history.json")
+
+	store, err := profiles.NewStore(profPath, histPath)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	executed := make(map[string]bool)
+	executor := func(ctx context.Context, p *profiles.Profile, opts profiles.SyncOptions) error {
+		executed[p.ID] = true
+		return nil
+	}
+
+	sched := profiles.NewScheduler(store, executor)
+	_ = sched.Start(context.Background())
+	t.Cleanup(func() {
+		sched.Stop()
+	})
+	svc := profiles.NewService(store, nil, nil, sched)
+
+	cfg := &config.Config{
+		BaseDir:             tmpDir,
+		ProfilesFile:        profPath,
+		ProfilesHistoryFile: histPath,
+	}
+
+	s := NewServer(cfg, nil, nil)
+	s.ProfileService = svc
+	return s, svc
+}
+
+func doJSONReq(s *Server, method, target string, body any, withHeader bool) *httptest.ResponseRecorder {
+	var bodyBytes []byte
+	if body != nil {
+		bodyBytes, _ = json.Marshal(body)
+	}
+	req := httptest.NewRequest(method, target, bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	if withHeader {
+		req.Header.Set("X-Dashboard-Request", "1")
+	}
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, req)
+	return w
+}
+
+func TestProfiles_CRUD_Endpoints(t *testing.T) {
+	s, _ := setupTestServerWithProfiles(t)
+
+	// 1. Initial GET /api/profiles (empty)
+	w := doJSONReq(s, http.MethodGet, "/api/profiles", nil, false)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var listResp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &listResp)
+	if listResp["status"] != "success" || listResp["total"].(float64) != 0 {
+		t.Fatalf("expected 0 profiles, got %+v", listResp)
+	}
+
+	// 2. CSRF rejection on POST /api/profiles without header
+	workPath := filepath.Join(s.Config.BaseDir, "work")
+	newProf := profiles.Profile{
+		ID:         "prof-1",
+		Name:       "Work Google Drive",
+		Remote:     "work-drive",
+		RemotePath: "documents",
+		LocalPath:  workPath,
+		Schedule:   "manual",
+		Enabled:    true,
+	}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles", newProf, false)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 CSRF rejection without header, got %d", w.Code)
+	}
+
+	// 3. Valid POST /api/profiles
+	w = doJSONReq(s, http.MethodPost, "/api/profiles", newProf, true)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 4. Duplicate POST /api/profiles -> 409 Conflict
+	w = doJSONReq(s, http.MethodPost, "/api/profiles", newProf, true)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected 409 Conflict for duplicate ID, got %d", w.Code)
+	}
+
+	// 5. GET /api/profiles/{id}
+	w = doJSONReq(s, http.MethodGet, "/api/profiles/prof-1", nil, false)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var getResp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &getResp)
+	if getResp["status"] != "success" {
+		t.Fatalf("expected success, got %+v", getResp)
+	}
+
+	// 6. GET /api/profiles/{id} not found
+	w = doJSONReq(s, http.MethodGet, "/api/profiles/nonexistent", nil, false)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+
+	// 7. PUT /api/profiles/{id}
+	updatePayload := map[string]any{
+		"name":       "Updated Work Drive",
+		"remote":     "work-drive",
+		"local_path": workPath,
+		"schedule":   "manual",
+		"reason":     "Updating display name",
+	}
+	w = doJSONReq(s, http.MethodPut, "/api/profiles/prof-1", updatePayload, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 8. PUT /api/profiles/{id} not found
+	w = doJSONReq(s, http.MethodPut, "/api/profiles/missing", updatePayload, true)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for missing profile update, got %d", w.Code)
+	}
+}
+
+func TestProfiles_CloneRollbackSyncEndpoints(t *testing.T) {
+	s, svc := setupTestServerWithProfiles(t)
+
+	// Create base profile
+	drivePath := filepath.Join(s.Config.BaseDir, "drive")
+	p := &profiles.Profile{
+		ID:         "orig-1",
+		Name:       "Original Drive",
+		Enabled:    true,
+		Remote:     "gdrive",
+		LocalPath:  drivePath,
+		Schedule:   "manual",
+		ReviewMode: profiles.ReviewDeletions,
+	}
+	_, err := svc.Create(context.Background(), p)
+	if err != nil {
+		t.Fatalf("failed to create base profile: %v", err)
+	}
+
+	// 1. Clone profile: POST /api/profiles/{id}/clone
+	cloneBody := map[string]string{
+		"id":   "clone-1",
+		"name": "Cloned Drive",
+	}
+	w := doJSONReq(s, http.MethodPost, "/api/profiles/orig-1/clone", cloneBody, true)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created on clone, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 2. Clone duplicate target ID -> 409 Conflict
+	w = doJSONReq(s, http.MethodPost, "/api/profiles/orig-1/clone", cloneBody, true)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected 409 Conflict on duplicate clone, got %d", w.Code)
+	}
+
+	// 3. Update clone to create version history
+	cloneUpdated := *p
+	cloneUpdated.ID = "clone-1"
+	cloneUpdated.Name = "Cloned Drive V2"
+	_, _ = svc.Update(context.Background(), &cloneUpdated, "bumped version")
+
+	// Check history endpoint: GET /api/profiles/{id}/history
+	w = doJSONReq(s, http.MethodGet, "/api/profiles/clone-1/history", nil, false)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on history, got %d", w.Code)
+	}
+	var histResp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &histResp)
+	histItems := histResp["history"].([]any)
+	if len(histItems) < 2 {
+		t.Fatalf("expected at least 2 versions, got %d", len(histItems))
+	}
+
+	// 4. Rollback clone: POST /api/profiles/{id}/rollback
+	rollbackBody := map[string]int{
+		"target_version": 1,
+	}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles/clone-1/rollback", rollbackBody, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on rollback, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 5. Trigger sync: POST /api/profiles/{id}/sync
+	syncBody := map[string]bool{"force": false}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles/clone-1/sync", syncBody, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on sync trigger, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 6. Delete profile: DELETE /api/profiles/{id}
+	w = doJSONReq(s, http.MethodDelete, "/api/profiles/clone-1", nil, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on delete, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 7. Verify deletion: GET /api/profiles/{id} -> 404
+	w = doJSONReq(s, http.MethodGet, "/api/profiles/clone-1", nil, false)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 after delete, got %d", w.Code)
+	}
+
+	// 8. Test /api/action profile routing
+	actionBody := map[string]string{
+		"action":     "start_sync",
+		"profile_id": "orig-1",
+	}
+	w = doJSONReq(s, http.MethodPost, "/api/action", actionBody, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on /api/action with profile_id, got %d: %s", w.Code, w.Body.String())
+	}
+	var actResp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &actResp)
+	if actResp["status"] != "success" {
+		t.Fatalf("expected success on /api/action, got %+v", actResp)
+	}
+
+	// 9. Test POST /api/profiles with auto-generated ID
+	autoProf := map[string]any{
+		"name":       "Auto Profile",
+		"remote":     "gdrive",
+		"local_path": filepath.Join(s.Config.BaseDir, "auto_prof"),
+		"enabled":    true,
+	}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles", autoProf, true)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 on auto-id create, got %d: %s", w.Code, w.Body.String())
+	}
+	var autoResp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &autoResp)
+	createdProf := autoResp["profile"].(map[string]any)
+	genID := createdProf["id"].(string)
+	if !strings.HasPrefix(genID, "prof_") {
+		t.Fatalf("expected generated ID with prof_ prefix, got %s", genID)
+	}
+}
+
+func TestProfiles_NilServiceHandling(t *testing.T) {
+	s := NewServer(&config.Config{}, nil, nil)
+	s.ProfileService = nil
+
+	w := doJSONReq(s, http.MethodGet, "/api/profiles", nil, false)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with empty list when ProfileService is nil, got %d", w.Code)
+	}
+
+	w = doJSONReq(s, http.MethodGet, "/api/profiles/default", nil, false)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 when ProfileService is nil, got %d", w.Code)
+	}
+
+	w = doJSONReq(s, http.MethodPost, "/api/profiles", map[string]any{}, true)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 on POST when ProfileService is nil, got %d", w.Code)
+	}
+}

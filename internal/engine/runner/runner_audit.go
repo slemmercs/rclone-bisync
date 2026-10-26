@@ -9,7 +9,9 @@ func (r *SyncRunner) recordAuditExecuted(runID string, jobID int, origin string,
 		return
 	}
 	profileID := "default"
-	if r.Config != nil && r.Config.RemotePath != "" {
+	if r.Config != nil && r.Config.ProfileID != "" {
+		profileID = r.Config.ProfileID
+	} else if r.Config != nil && r.Config.RemotePath != "" {
 		profileID = r.Config.RemotePath
 	}
 	actor := "SYSTEM"
@@ -33,7 +35,9 @@ func (r *SyncRunner) recordAuditAborted(runID string, origin string, errType str
 		return
 	}
 	profileID := "default"
-	if r.Config != nil && r.Config.RemotePath != "" {
+	if r.Config != nil && r.Config.ProfileID != "" {
+		profileID = r.Config.ProfileID
+	} else if r.Config != nil && r.Config.RemotePath != "" {
 		profileID = r.Config.RemotePath
 	}
 	actor := "SYSTEM"

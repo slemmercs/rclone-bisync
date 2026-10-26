@@ -49,6 +49,14 @@
                     </button>
                 </div>
 
+                <!-- Profile Switcher & Workspace Pill -->
+                <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-3 py-1.5 rounded-xl font-mono text-xs cursor-pointer transition-colors" @click="openProfilesModal('list')" title="Manage profiles and switch active workspace">
+                    <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                    <span class="text-slate-400">Profile:</span>
+                    <span class="text-white font-semibold truncate max-w-[10rem]" x-text="activeProfile ? activeProfile.name : 'Default'"></span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase" :class="activeProfile?.state?.status === 'healthy' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'" x-text="activeProfile?.state?.status || 'idle'"></span>
+                </div>
+
                 <!-- Global Daemon Health & Latency Pill -->
                 <div @click="openDaemonModal(null)" class="flex items-center gap-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-3 py-1.5 rounded-xl self-start md:self-auto font-mono text-xs cursor-pointer transition-colors" title="Click to view live daemon stream and correlated logs">
                     <span class="relative flex h-2 w-2">
@@ -80,11 +88,13 @@
     {{ template "modal_oauth_migration" . }}
     {{ template "modal_reconnect" . }}
     {{ template "modal_auth_audit" . }}
+    {{ template "modal_profiles" . }}
     {{ template "toast" . }}
 
     <!-- Modular Frontend Scripts -->
     <script src="/static/js/utils.js?v=19"></script>
     <script src="/static/js/api.js?v=19"></script>
+    <script src="/static/js/profiles.js?v=19"></script>
     <script src="/static/js/charts.js?v=19"></script>
     <script src="/static/js/remotes.js?v=19"></script>
     <script src="/static/js/explorer_actions.js?v=19"></script>

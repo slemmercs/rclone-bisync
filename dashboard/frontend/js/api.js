@@ -58,5 +58,17 @@ window.API = {
             method: "POST",
             body: body !== undefined ? JSON.stringify(body) : undefined
         });
+    },
+
+    put(endpoint, body, options = {}) {
+        return this.request(endpoint, {
+            ...options,
+            method: "PUT",
+            body: body !== undefined ? JSON.stringify(body) : undefined
+        });
+    },
+
+    delete(endpoint, options = {}) {
+        return this.request(endpoint, { ...options, method: "DELETE" });
     }
 };

@@ -3,7 +3,8 @@ package models
 import "encoding/json"
 
 type ActionRequest struct {
-	Action string `json:"action"`
+	Action    string `json:"action"`
+	ProfileID string `json:"profile_id,omitempty"`
 }
 
 type ActionResponse struct {
