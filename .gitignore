@@ -91,3 +91,9 @@ site/.jekyll-cache/
 site/.jekyll-metadata
 .sass-cache/
 vendor/bundle/
+
+# ----------------------------------------------------------------------
+# Local AI Tool Configurations
+# ----------------------------------------------------------------------
+.clinerules
+.clineignore
