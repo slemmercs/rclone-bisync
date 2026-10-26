@@ -4,6 +4,8 @@
 
 **Bisync Hub is a safety-first operational platform for Rclone Bisync.**
 
+![Sync Review and Resolution](site/assets/images/screenshots/bisync-hub_sync-review-resolution.png)
+
 Most synchronization tools focus on executing sync jobs.
 
 Bisync Hub focuses on helping users understand synchronization outcomes before data changes occur.
@@ -13,6 +15,8 @@ Instead of relying on logs, terminal output, and recovery procedures after somet
 Bisync Hub provides automated, bidirectional synchronization between your local machine and cloud storage using the **Rclone Remote Control (RC) API**, paired with a single-binary native Go operational dashboard and synchronization orchestrator.
 
 The project focuses on making Rclone Bisync easier to understand, operate, and recover when synchronization becomes complex.
+
+For more screenshots check [here](site/assets/images/screenshots)
 
 ---
 
