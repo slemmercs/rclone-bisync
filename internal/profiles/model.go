@@ -10,7 +10,7 @@ import (
 
 var (
 	ErrProfileNotFound      = errors.New("profile not found")
-	ErrProfileAlreadyExists  = errors.New("profile already exists")
+	ErrProfileAlreadyExists = errors.New("profile already exists")
 	ErrInvalidProfileID     = errors.New("invalid profile id: must contain only alphanumeric characters, underscores, and hyphens")
 	ErrInvalidLocalPath     = errors.New("invalid local path: path cannot be empty")
 	ErrInvalidRemote        = errors.New("invalid remote: remote cannot be empty")

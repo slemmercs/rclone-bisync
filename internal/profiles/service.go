@@ -46,6 +46,11 @@ func (s *Service) Get(id string) (*Profile, error) {
 	return s.store.Get(id)
 }
 
+// GetHistory returns version snapshot history for a profile.
+func (s *Service) GetHistory(id string) ([]ProfileVersion, error) {
+	return s.store.GetHistory(id)
+}
+
 // Create validates operational parameters and persists a new profile.
 func (s *Service) Create(ctx context.Context, p *Profile) (*Profile, error) {
 	if p == nil {
@@ -85,6 +90,9 @@ func (s *Service) Create(ctx context.Context, p *Profile) (*Profile, error) {
 func (s *Service) Update(ctx context.Context, p *Profile, reason string) (*Profile, error) {
 	if p == nil {
 		return nil, fmt.Errorf("profile cannot be nil")
+	}
+	if _, err := s.store.Get(p.ID); err != nil {
+		return nil, err
 	}
 	if err := p.Validate(); err != nil {
 		return nil, err

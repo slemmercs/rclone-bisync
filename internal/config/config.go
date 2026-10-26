@@ -14,6 +14,7 @@ type Config struct {
 	BaseDir    string
 	LocalPath  string
 	RemotePath string
+	ProfileID  string
 
 	LogFile               string
 	LockFile              string
@@ -27,6 +28,8 @@ type Config struct {
 	ReviewBackupsDir      string
 	ReviewBackupTTLHours  float64
 	AuditDBPath           string
+	ProfilesFile          string
+	ProfilesHistoryFile   string
 
 	RCHost        string
 	RCPort        int
@@ -280,6 +283,8 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		ReviewBackupsDir:      filepath.Join(baseDir, "review_backups"),
 		ReviewBackupTTLHours:  getEnvFloat("REVIEW_BACKUP_TTL_HOURS", 48.0),
 		AuditDBPath:           getEnv("AUDIT_DB_PATH", filepath.Join(baseDir, "audit.db")),
+		ProfilesFile:          getEnv("PROFILES_FILE", filepath.Join(baseDir, "profiles.json")),
+		ProfilesHistoryFile:   getEnv("PROFILES_HISTORY_FILE", filepath.Join(baseDir, "profiles_history.json")),
 
 		RCHost:        rcHost,
 		RCPort:        rcPort,

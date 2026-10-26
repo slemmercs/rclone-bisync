@@ -242,6 +242,9 @@ document.addEventListener("alpine:init", () => {
         async initDashboard() {
             initPerformanceChart();
             await this.poll();
+            if (typeof this.fetchProfiles === "function") {
+                this.fetchProfiles();
+            }
             this.fetchRemotes(false);
             this.fetchReviewSession(false);
             setInterval(() => this.poll(), 3000);
@@ -292,6 +295,7 @@ document.addEventListener("alpine:init", () => {
             }
         },
     },
+        window.ProfilesModule,
         window.RemotesModule,
         window.ExplorerModule,
         window.ExplorerActionsModule,
