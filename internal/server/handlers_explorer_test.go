@@ -229,3 +229,100 @@ func TestHandleCopyItem_ProfileRouting(t *testing.T) {
 		t.Fatalf("expected srcFs and dstFs to be %s, got srcFs=%s, dstFs=%s", profileLocal, lastSrcFs, lastDstFs)
 	}
 }
+
+func TestHandleCopyItem_RemoteSubdirectoryDestination(t *testing.T) {
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+
+	var lastSrcFs, lastSrcRemote, lastDstFs, lastDstRemote string
+	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/operations/copyfile" {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if src, ok := body["srcFs"].(string); ok {
+				lastSrcFs = src
+			}
+			if srcRem, ok := body["srcRemote"].(string); ok {
+				lastSrcRemote = srcRem
+			}
+			if dst, ok := body["dstFs"].(string); ok {
+				lastDstFs = dst
+			}
+			if dstRem, ok := body["dstRemote"].(string); ok {
+				lastDstRemote = dstRem
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer mockRC.Close()
+
+	rcClient := client.NewRcloneClient(mockRC.URL, "user", "pass")
+	srv.ExplorerService.Client = rcClient
+
+	tests := []struct {
+		name          string
+		dstRemote     string
+		dstPath       string
+		wantDstFs     string
+		wantDstRemote string
+	}{
+		{
+			name:          "remote root destination",
+			dstRemote:     "onedrive",
+			dstPath:       "",
+			wantDstFs:     "onedrive:",
+			wantDstRemote: "profile_file.txt",
+		},
+		{
+			name:          "remote subdirectory destination without trailing colon",
+			dstRemote:     "onedrive",
+			dstPath:       "Documents",
+			wantDstFs:     "onedrive:Documents",
+			wantDstRemote: "profile_file.txt",
+		},
+		{
+			name:          "remote nested subdirectory destination",
+			dstRemote:     "onedrive",
+			dstPath:       "Documents/Projects",
+			wantDstFs:     "onedrive:Documents/Projects",
+			wantDstRemote: "profile_file.txt",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lastSrcFs, lastSrcRemote, lastDstFs, lastDstRemote = "", "", "", ""
+			body, _ := json.Marshal(models.CopyRequest{
+				SrcRemote: "local",
+				SrcPath:   "profile_file.txt",
+				DstRemote: tt.dstRemote,
+				DstPath:   tt.dstPath,
+				IsDir:     false,
+				ProfileID: "prof_onedrive",
+			})
+			req := httptest.NewRequest(http.MethodPost, "/api/browse/copy", bytes.NewBuffer(body))
+			req.Header.Set("X-Dashboard-Request", "1")
+			req.Header.Set("Origin", "http://localhost:8080")
+			w := httptest.NewRecorder()
+			srv.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d", w.Code)
+			}
+
+			if lastSrcFs != profileLocal {
+				t.Errorf("srcFs = %q, want %q", lastSrcFs, profileLocal)
+			}
+			if lastSrcRemote != "profile_file.txt" {
+				t.Errorf("srcRemote = %q, want 'profile_file.txt'", lastSrcRemote)
+			}
+			if lastDstFs != tt.wantDstFs {
+				t.Errorf("dstFs = %q, want %q", lastDstFs, tt.wantDstFs)
+			}
+			if lastDstRemote != tt.wantDstRemote {
+				t.Errorf("dstRemote = %q, want %q", lastDstRemote, tt.wantDstRemote)
+			}
+		})
+	}
+}

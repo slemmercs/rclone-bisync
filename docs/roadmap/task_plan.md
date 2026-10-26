@@ -29,6 +29,9 @@ Integrate workspace profiles with the dual-pane file explorer (auto-binding, ori
   - **Scope**: `internal/models/api.go`, `internal/services/explorer_service.go`, `internal/services/explorer_ops.go`, `internal/services/canary_service.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_audit.go`, `internal/audit/ledger.go`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/audit.js`, `dashboard/frontend/partials/view_audit.html`
   - **Verification**: `go test -count=1 ./internal/...` and `./scripts/check.sh all`
 
+- [x] Task 7: Fix File Transfer Target Destination Formatting & NormalizeFs Redundant Colon
+  - **Scope**: `internal/core/client/fs_ops.go`, `internal/core/client/client_test.go`, `internal/server/handlers_explorer_test.go`
+  - **Verification**: `go test -count=1 ./...` and `./scripts/check.sh all`
 
 ## Status Updates
 
@@ -38,6 +41,6 @@ Integrate workspace profiles with the dual-pane file explorer (auto-binding, ori
 - 2026-10-26: Completed Task 3 (Implemented Lucide trash SVG, dark confirmation dialog, exclude input, and isProfileDeleting helper).
 - 2026-10-26: Completed Task 4 (Integrated profile target auto-binding in explorer, orientation swap button ⇄ with array-destructuring state swap, and exclude-pattern visual dimming/badge).
 - 2026-10-26: Completed Task 5 (Optimized LOC in explorer.js, explorer_actions.js, and view_explorer.html ensuring strict adherence to the 400 LOC ceiling; verified all 6 quality stages pass via `./scripts/check.sh all`).
-
 - 2026-10-26: Completed Task 6 (Plumbed profile local path resolution to explorer browse/canary/copy/delete handlers and services; bound Alpine active profile ID to all explorer fetch requests; enriched immutable audit ledger with friendly profile names and profile filter autocomplete).
+- 2026-10-26: Completed Task 7 (Fixed NormalizeFs in client/fs_ops.go to avoid appending redundant trailing colon to remote paths containing subdirectories, e.g. onedrive:Documents, and added unit tests in client_test.go and handlers_explorer_test.go; rebuilt binary and restarted dashboard).
 
