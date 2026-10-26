@@ -1,44 +1,39 @@
-# Implementation Plan: Quality Engine Hardening, E2E Stability & Showcase Rendering Fixes
+# Implementation Plan: Harden Headless Chrome E2E Smoke Tests for CI
 
 ## Proposed Changes
 
-Address three operational regressions on branch `feat/alpine-boolean-lint-and-e2e`:
-1. **Showcase Site (`site/`)**:
-   - Fix missing site title text next to logo in navbar caused by `just-the-docs` logo replacement behavior. Override `_includes/title.html` and style `.site-title-container`, `.site-title-logo`, and `.site-title-text`.
-   - Fix unparsed backtick markdown in `site/index.md` inside `<div class="hero-box">` by replacing it with a styled HTML code block.
-2. **Quality Engine CLI (`cmd/check`)**:
-   - Pre-process CLI arguments in `cmd/check/main.go` so flags (`-v`, `--verbose`, `-loc`, `-min-coverage`, `-race`, `-target`, etc.) are recognized regardless of whether they appear before or after the stage name.
-   - Wire `cfg.Verbose` into `cmd/check/checks.go` and `cmd/check/main.go` to provide meaningful live progress and test output when verbose mode is enabled.
-   - Add unit test coverage in `cmd/check/main_test.go` for flexible flag and argument parsing.
-3. **Headless Chrome E2E Smoke Test (`tests/e2e/dashboard_smoke_test.go`)**:
-   - Replace brittle fixed `time.Sleep(300 * time.Millisecond)` after tab switching with dynamic polling that waits for Alpine.js async loading (`remotesData.loading === false`, `auditData.loading === false`) before asserting button disabled states.
+Harden `TestDashboard_HeadlessChromeSmoke` in `tests/e2e/dashboard_smoke_test.go` against transient timeouts and resource starvation in containerized / virtualized CI environments (such as GitHub Actions `ubuntu-latest`).
 
 ### Affected Components & Packages
 
-- `site/_includes/title.html`: Custom header title component rendering both logo and text.
-- `site/_sass/custom/custom.scss`: Navbar title and hero installation code container styling.
-- `site/index.md`: Standard HTML markup for hero installation command.
-- `cmd/check/main.go`: Flexible argument partitioning, flag parsing, and stage progress logging.
-- `cmd/check/checks.go`: Streaming/verbose execution for tests, linters, and builds.
-- `cmd/check/main_test.go`: Tests for CLI argument parsing.
-- `tests/e2e/dashboard_smoke_test.go`: Polling wait for async Alpine.js tab load settlement.
+- `tests/e2e/dashboard_smoke_test.go`:
+  - Enhance `chromedp.DefaultExecAllocatorOptions` with container resilience flags (`--disable-dev-shm-usage`, `--disable-software-rasterizer`, `--proxy-server=direct://`, `--disable-background-*`).
+  - Scale test context deadline dynamically when running under CI (`CI=true` / `GITHUB_ACTIONS=true`) to 60s while maintaining fast local default (35s).
+  - Dump captured browser console logs on initial page navigation failures to provide actionable failure diagnostics instead of an opaque context deadline.
 
 ### Technical Strategy & Data Flow
 
-- **Jekyll Include Override**: `just-the-docs` looks for `_includes/title.html` to render the content of `<a class="site-title">`. Rendering `<img>` and `<span>` together with flex alignment provides clean brand presentation.
-- **Argument Partitioning**: Partition `os.Args[1:]` into flags and positional tokens. Flag parsing evaluates all flag arguments via `flag.CommandLine.Parse()`, while positional tokens determine stage and stage-specific arguments.
-- **E2E Async Settlement**: In headless Chrome, wait for `window.Alpine.$data(el).remotesData.loading === false` to eliminate timing flakes on slow CI environments.
+- Explicitly pass flags to the chromedp browser process allocator:
+  - `--disable-dev-shm-usage`: prevents crash/hang from 64MB default `/dev/shm` in docker/CI.
+  - `--disable-software-rasterizer`: avoids stalling on software GL rasterizer fallback.
+  - `--proxy-server=direct://` & `--proxy-bypass-list=*`: bypasses host ambient proxy environment variables for loopback addresses (`127.0.0.1`).
+  - Background optimization flags (`disable-background-networking`, `disable-background-timer-throttling`, `disable-backgrounding-occluded-windows`, `disable-ipc-flooding-protection`, `disable-hang-monitor`, `disable-renderer-backgrounding`).
+  - `--force-color-profile=srgb`: avoids color-profile lookup stalls.
+- Diagnostic observability:
+  - If initial `chromedp.Do(ctx, chromedp.Navigate(...))` returns an error, lock and print all collected `consoleErrors` in the failure message.
 
 ### Safety & Error Handling
 
-- Zero API or daemon contract breakage.
-- All checks adhere to POSIX exit codes (0 for pass, 1 for failure).
+- Changes are scoped strictly to test execution configuration in `tests/e2e/dashboard_smoke_test.go`.
+- No application runtime code or API contracts are modified.
+- Strict LOC budget check maintained (file remains well under 400 LOC limit).
 
 ## Verification Plan
 
-- Run `./scripts/check.sh fmt` and `./scripts/check.sh all -v` to verify flag parsing and live output.
-- Run `go test -v -count=1 ./cmd/check` to verify CLI parser tests.
-- Run `go test -v -count=1 ./tests/e2e` repeatedly to verify zero race flakes.
+- `go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke` (Local run verification)
+- `CI=true go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke` (Simulated CI environment verification)
+- `./scripts/check.sh test` (Full unit test & statement coverage suite)
+- `./scripts/check.sh all` (Pre-flight 8-stage quality gate)
 
 
 

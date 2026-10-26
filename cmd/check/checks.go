@@ -240,7 +240,7 @@ func runTests(cfg Config) error {
 	if cfg.RunRace {
 		args = append(args, "-race", "-shuffle=on")
 	}
-	
+
 	if cfg.Verbose {
 		args = append(args, "-v")
 	}
