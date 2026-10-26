@@ -95,7 +95,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 	if cfg != nil && cfg.ProfilesFile != "" {
 		profStore, err := profiles.NewStore(cfg.ProfilesFile, cfg.ProfilesHistoryFile)
 		if err == nil {
-			_, _ = profStore.BootstrapDefault(cfg.RemotePath, cfg.LocalPath)
+			_, _ = profStore.BootstrapDefault(cfg.LocalPath, cfg.RemotePath)
 			executor := func(ctx context.Context, p *profiles.Profile, force bool) error {
 				profCfg := *cfg
 				profCfg.ProfileID = p.ID
