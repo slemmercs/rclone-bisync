@@ -96,11 +96,12 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
 
 ### Active Near-Term Backlog (Sequenced Priorities)
 
-#### 1. Multi-Profile Workspace Manager [ESTIMATE: 6-8h | 5 SP]
+#### 1. Multi-Profile Workspace Manager [ESTIMATE: 6-8h | 5 SP] - NEXT FOR IMPLEMENTATION
 Supports independent synchronization workloads from a single background daemon and dashboard session:
 * Single Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, NAS backup).
 * Pairs independent local folders to different remotes (e.g., `/home/user/Documents` $\rightarrow$ `gdrive:`, `/home/user/Photos` $\rightarrow$ `onedrive:`).
 * Strict flock isolation (`/tmp/rclone-bisync-<profile>.lock`) and dedicated state directories.
+* Profile-aware telemetry streams, speed charts, and file explorer remote routing.
 * Refer to [profile-manager.md](../design/profile-manager.md).
 
 #### 2. In-Dashboard Configuration & Setup Manager [ESTIMATE: 5-7h | 4 SP]
@@ -110,13 +111,36 @@ Provides visual setup, flag customization, and safety validation:
 * **3-Layer Safety Pipeline**: Automated snapshot backups, SHA-256 integrity checks, and JSON/env schema validation before applying new settings.
 * **Rollback API**: One-click restore of historical configurations.
 
-#### 3. In-App User Guidance, Info & Help Documents [ESTIMATE: 3-5h | 3 SP]
+
+#### 3. Unified Operational Log Ledger, Run ID Correlation & Deep Path Navigation [ESTIMATE: 4-5h | 3 SP] - LOCKED IN
+Provides high-density, structured operational visibility aligned with the Audit Ledger:
+* **Log Ledger Restructuring**: Align `bisync.log` unified viewer card to structured table format matching `view_audit.html` (`TIME`, `LEVEL`, `SOURCE`, `RUN ID`, `MESSAGE`, `ACTIONS`).
+* **Run ID & Rev ID Cross-Correlation**: Clickable Run ID pills (`#run-...`) jumping directly to filtered Audit Ledger records and correlated daemon execution traces. Historical Review IDs (`@rev-...`) directly open the interactive review resolution modal.
+* **Deep Path Tokenizer & Navigation**: Contextual path parser extracting file references (`Duplicate ignored`, `Deleted`, `Transferring`) with deep links that switch to File Explorer, load the target directory, and scroll/flash the target file row.
+* Refer to [operational_visibility_and_queued_upload_specification.md](../design/operational_visibility_and_queued_upload_specification.md).
+
+#### 4. Remote Cloud Web Link Navigation ("Open on Remote in New Tab") [ESTIMATE: 2-3h | 2 SP] - LOCKED IN
+Enables instant one-click navigation to cloud provider web interfaces:
+* **Rclone RC Public Link Integration**: Connect to Rclone RC `operations/publiclink` to retrieve canonical web URLs for cloud files and directories (Google Drive, OneDrive).
+* **Explorer & Log Integration**: "Open on Remote" quick-action icon embedded in remote File Explorer table rows and rendered next to remote path chips in the unified log ledger.
+* **Graceful Degradation**: Capability detection that dynamically hides or disables external link actions on storage tiers lacking web interfaces (local, SFTP, S3) without throwing errors.
+* Refer to [operational_visibility_and_queued_upload_specification.md](../design/operational_visibility_and_queued_upload_specification.md).
+
+#### 5. Queued Dual-Pane File Explorer Direct Upload [ESTIMATE: 5-6h | 4 SP] - LOCKED IN
+Enables direct file upload capabilities with zero sync lock collisions:
+* **Dual-Pane Upload Targets**: Support uploading to both Local (jailed) and Remote directories via file selector and drag-and-drop dropzones.
+* **Non-Blocking Asynchronous Upload Queue**: Automatically queues file uploads during active synchronization (`telemetry.is_syncing === true` or POSIX flock contention) in a floating dock instead of rejecting them with HTTP 409.
+* **Sequential Auto-Resume**: Automatically triggers sequential uploads once active sync runs finish and lock contention releases.
+* **Mid-Upload Lock Protection**: Advisory upload coordination delaying scheduled sync runs while active multipart streams are in-flight.
+* Refer to [operational_visibility_and_queued_upload_specification.md](../design/operational_visibility_and_queued_upload_specification.md).
+
+#### 6. In-App User Guidance, Info & Help Documents [ESTIMATE: 3-5h | 3 SP]
 Improves operational transparency and onboarding for new users:
 * **Contextual Tooltips & Policy Banners**: Embeds inline tooltips across `partials/view_*.html` explaining safety mechanisms (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in non-technical terms.
 * **In-Dashboard Reference Manual**: A slide-over help panel summarizing CLI commands, Rclone flag impacts, and step-by-step conflict recovery workflows.
 * **Diagnostic Documentation**: Integrated guides for resolving OAuth token drops, path permissions errors, and systemd service status.
 
-#### 4. Remote Mount Lifecycle Manager & Pooled Storage Engine (`internal/mount`) [ESTIMATE: 8-10h | 8 SP]
+#### 7. Remote Mount Lifecycle Manager & Pooled Storage Engine (`internal/mount`) [ESTIMATE: 8-10h | 8 SP]
 Programmatic management of VFS virtual drive mounts and multi-cloud storage pooling:
 * **Stage A (Remote Mount Manager)**: Mount, inspect, configure, and unmount individual remotes to local paths via Rclone RC `/mount/*` endpoints. Keepalive probes with automatic reconnect on transient network drops.
 * **Stage B (Pooled Storage Engine)**: Provision stacked multi-cloud topologies (`union` + `chunker` + `crypt`) over RC `/config/create`. Combines disparate storage tiers into a single encrypted virtual drive guarded by Bisync Hub's safety probes.
@@ -125,6 +149,15 @@ Programmatic management of VFS virtual drive mounts and multi-cloud storage pool
 ---
 
 ## 4. Medium & Infrastructure Backlog
+
+* **Native Browser Notifications [ESTIMATE: 3-4h | 2 SP]**
+  - Integrate HTML5 Web Notification API.
+  - Alert operator when safety barriers trigger (`TOO_MANY_DELETES`), sync operations fail, or long runs finish.
+  - Includes window focus handlers to bring Bisync Hub dashboard to front when clicking notifications.
+
+* **File Explorer Content Preview [ESTIMATE: 4-5h | 3 SP]**
+  - Modal content viewer for text/code files (up to 2MB) with syntax highlighting.
+  - Safe inline rendering for common image formats (PNG, JPG, SVG, WebP up to 5MB) directly from local jail and remote streams.
 
 * **Rclone Remote Control (RC) Framework Hardening [ESTIMATE: 4-5h | 3 SP]**
   - HTTP connection pooling, retry backoff with jitter for HTTP 429 throttling, dynamic API version compatibility checks.
