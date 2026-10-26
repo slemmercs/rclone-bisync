@@ -29,13 +29,16 @@ This helps avoid duplicate work and architectural drift.
 
 ## Development Principles
 
-Please review:
+Please review the architectural governance and principles suite before submitting major changes:
 
-- [ARCHITECTURE_PRINCIPLES.md](docs/architecture/ARCHITECTURE_PRINCIPLES.md)
+- [Architecture Principles](docs/architecture/ARCHITECTURE_PRINCIPLES.md) (Master Charter & Invariants)
+- [Product Principles](docs/architecture/PRODUCT_PRINCIPLES.md) (Review. Decide. Sync.)
+- [Engineering Principles](docs/architecture/ENGINEERING_PRINCIPLES.md) (Engineering Standards & Modularity)
+- [Security Principles](docs/architecture/SECURITY_PRINCIPLES.md) (Safety & Confinement)
+- [Contributor Workflow](docs/architecture/CONTRIBUTOR_WORKFLOW.md) (Development Lifecycle & Quality Gate)
+- [Architecture Decision Records (ADRs)](docs/architecture/adr/README.md) (Decision Registry)
 - [GOVERNANCE.md](GOVERNANCE.md)
 - [AI_DISCLOSURE.md](AI_DISCLOSURE.md)
-
-before submitting major changes.
 
 ---
 
@@ -55,10 +58,13 @@ Pull requests should:
 
 - [ ] Code builds successfully
 - [ ] Tests added or updated
+- [ ] Pre-flight quality gate passed locally (`./scripts/check.sh all`)
 - [ ] Documentation updated
+- [ ] ADR proposed under `docs/architecture/adr/` (if introducing architectural or schema changes)
 - [ ] No secrets introduced
 - [ ] Existing tests pass
 - [ ] Architecture principles respected
+
 
 ---
 

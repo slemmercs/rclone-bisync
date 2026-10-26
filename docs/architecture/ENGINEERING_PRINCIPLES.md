@@ -8,16 +8,16 @@ This document defines the engineering standards and architectural principles tha
 
 # 1. Service-Oriented Architecture
 
-Business logic belongs in domain services.
+Business logic belongs in domain services (`internal/services/`).
 
 Avoid embedding business logic in:
 
-- HTTP handlers
+- HTTP handlers and routing packages (`internal/server/`)
 - API controllers
-- UI code
+- UI code and frontend templates
 - Background job wrappers
 
-Services should remain testable and reusable.
+Services should remain testable and reusable with clear dependency injection boundaries. The application ships as a **Single Binary First**, embedding frontend assets via Go's standard `embed` package without external runtime dependencies.
 
 ---
 
@@ -27,13 +27,13 @@ System contracts must be explicit.
 
 Prefer:
 
-- Typed structs
-- Defined interfaces
-- Versioned schemas
+- Typed Go structs defined in centralized schema packages (`internal/models`)
+- Defined interfaces with minimal method sets
+- Versioned schemas for persistent state and API communication
 
 Avoid:
 
-- Unstructured maps
+- Unstructured maps (`map[string]interface{}`) in core API payloads
 - Anonymous payloads
 - Implicit runtime contracts
 
@@ -41,15 +41,15 @@ Avoid:
 
 # 3. Small Cohesive Components
 
-Each package should have a clear responsibility.
+Each package and module should have a single, well-defined responsibility.
 
 Avoid:
 
-- God objects
-- Multi-purpose services
-- Cross-domain coupling
+- God objects and monolithic services exceeding ~400–500 lines of code (LOC)
+- Multi-purpose services spanning unrelated domains
+- Cross-domain circular coupling
 
-When components grow beyond a single responsibility, they should be decomposed.
+When components grow beyond a single responsibility or exceed file length thresholds, decompose them into cohesive domain packages or focused helper modules.
 
 ---
 
@@ -59,36 +59,38 @@ Code should be designed for testing before implementation.
 
 Implications:
 
-- External dependencies should be abstracted.
-- Integrations should be mockable.
-- Services should be independently testable.
+- External dependencies (such as Rclone RC API and subprocess execution) must be abstracted and mockable via standard `net/http/httptest`.
+- Integrations must never invoke live cloud providers or destructive network calls during automated testing.
+- Services should be independently testable using Arrange-Act-Assert (AAA) conventions.
+- Maintain comprehensive unit test coverage (>80% statement target).
 
 ---
 
-# 5. Atomic State Changes
+# 5. Atomic State Changes & Concurrency Control
 
-Critical state updates should be atomic.
+Critical state updates must be atomic, and process execution must be race-free.
 
-Partial writes and inconsistent state introduce operational risk.
+Partial writes and inconsistent state introduce operational and data loss risks.
 
 Implications:
 
-- Use temporary files and atomic rename strategies.
-- Avoid partially committed state.
+- Any telemetry, configuration, or profile persistence to disk must follow atomic write patterns (`.tmp.<pid>` + `os.Rename`).
+- Critical background synchronization loops and engine operations must enforce advisory POSIX process locks (`flock`, `syscall.Flock`).
+- State transitions must support clean rollback or fail-safe defaults if execution is interrupted.
 
 ---
 
 # 6. Structured Observability
 
-Logs are a product capability.
+Logs and telemetry are core product capabilities, not debugging side-effects.
 
-Logging should help users answer:
+Logging should help users and operators answer:
 
 - What happened?
 - When did it happen?
 - Why did it happen?
 
-Logs should provide operational context.
+Logs should provide structured operational context while strictly sanitizing credentials, passwords, tokens, and webhook secrets.
 
 ---
 
@@ -96,9 +98,11 @@ Logs should provide operational context.
 
 Safe behavior should be the default configuration.
 
-Users may choose to reduce protections.
+Users may choose to reduce protections deliberately, but:
 
-The system should never require users to manually enable basic safety controls.
+- Local storage browsing must be jailed within bounded directories (path traversal protection via `filepath.Rel`).
+- Canary files (`RCLONE_TEST`) must be verified before mutating targets.
+- The system should never require users to manually enable baseline safety controls.
 
 ---
 
@@ -108,28 +112,39 @@ Configuration changes should minimize disruption.
 
 When breaking changes are unavoidable:
 
-- Document them clearly.
-- Provide migration guidance.
-- Preserve user data.
+- Document them clearly in changelogs and release notes.
+- Provide automated or guided migration paths.
+- Preserve user profiles and historical audit records.
 
 ---
 
 # 9. Simplicity Over Cleverness
 
-Simple solutions are preferred over clever solutions.
+Simple, idiomatic solutions are preferred over complex abstractions.
 
-Future maintainers should be able to understand system behavior without extensive reverse engineering.
+Future maintainers and contributors should be able to understand system behavior without extensive reverse engineering. Avoid metaprogramming or unnecessary dependency frameworks when standard Go library capabilities suffice.
 
 ---
 
 # 10. Build For Maintenance
 
-The project is intended to be maintained over time.
+The project is intended to be maintained over time as an open-source tool.
 
 Implementation decisions should favor:
 
-- Readability
-- Consistency
-- Operational reliability
+- Readability and standard Go formatting (`gofmt`, `go vet`)
+- Consistency across packages
+- Operational reliability and graceful degradation
 
-over short-term convenience.
+over short-term convenience or premature optimization.
+
+---
+
+## Related Documentation
+
+- [Architecture Principles](ARCHITECTURE_PRINCIPLES.md)
+- [Product Principles](PRODUCT_PRINCIPLES.md)
+- [Security Principles](SECURITY_PRINCIPLES.md)
+- [Contributor Workflow](CONTRIBUTOR_WORKFLOW.md)
+- [Architecture Decision Records (ADRs)](adr/README.md)
+

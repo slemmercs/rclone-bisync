@@ -32,6 +32,8 @@ Plans should identify:
 - validation strategy
 - testing strategy
 
+When proposing non-trivial architectural decisions or contract shifts, create an [Architecture Decision Record (ADR)](adr/README.md).
+
 ---
 
 # 3. Break Work Into Small Tasks
@@ -53,10 +55,21 @@ Changes should be validated as they are implemented.
 
 Examples include:
 
-- unit tests
-- integration tests
-- linting
-- static analysis
+- unit tests (`go test -count=1 ./...`)
+- integration and end-to-end smoke tests
+- linting and static analysis (`go vet ./...`)
+- repository quality gate checks
+
+Contributors should run the pre-flight quality check before opening or updating pull requests:
+
+```bash
+# Run all quality stages (fmt, lint, templates, loc, test, build)
+./scripts/check.sh all
+
+# Or run individual checks during inner-loop development
+./scripts/check.sh fmt
+./scripts/check.sh test
+```
 
 Verification is part of implementation, not an afterthought.
 
@@ -71,7 +84,7 @@ If repeated attempts fail to solve a problem:
 - Review the design.
 - Seek feedback.
 
-Persistent trial-and-error often indicates a deeper issue.
+Enforce a **3-try limit**: after 2–3 unresolved attempts on a bug or test flake, halt, summarize the hypothesis, and reassess before continuing. Persistent trial-and-error often indicates an architectural misalignment.
 
 ---
 
@@ -81,11 +94,11 @@ Commits should represent coherent, working units of change.
 
 Prefer:
 
-- small commits
-- clear commit messages
-- verified changes
+- small, focused commits
+- conventional commit format (`feat(...)`, `fix(...)`, `chore(...)`, `docs(...)`)
+- verified changes passing local tests
 
-over large batches of unrelated edits.
+Avoid large batches of unrelated edits.
 
 ---
 
@@ -95,23 +108,26 @@ A successful contribution is more than working code.
 
 Reviewers should evaluate:
 
-- safety implications
+- safety implications and circuit breakers
 - architectural consistency
-- testability
-- maintainability
-- product principles
+- testability and statement coverage (>80%)
+- maintainability and lines-of-code thresholds
+- adherence to product and security principles
 
 ---
 
 # 8. Respect Product Principles
 
-All contributions should align with:
+All contributions must align with the core [Product Principles](PRODUCT_PRINCIPLES.md):
 
-- Safety Before Automation
-- Human Decision Authority
-- Explainability Over Black Boxes
-- Review Before Mutation
-- Audit Significant Decisions
+1. **Safety Before Automation**
+2. **Human Decision Authority**
+3. **Explainability Over Black Boxes**
+4. **Review Before Mutation**
+5. **Audit Significant Decisions**
+6. **Profiles Are The Primary User Object**
+7. **Rclone Remains The Source Of Truth**
+8. **Local First**
 
 Features that conflict with these principles should be reconsidered regardless of implementation quality.
 
@@ -121,7 +137,7 @@ Features that conflict with these principles should be reconsidered regardless o
 
 Bisync Hub builds on Rclone.
 
-Contributions should avoid duplicating responsibilities already handled effectively by Rclone.
+Contributions should avoid duplicating responsibilities already handled effectively by Rclone. Rclone remains responsible for file transport, cloud vendor APIs, and direct storage operations. Bisync Hub provides safety, orchestration, governance, and human review.
 
 ---
 
@@ -130,10 +146,19 @@ Contributions should avoid duplicating responsibilities already handled effectiv
 Contributors are encouraged to improve:
 
 - documentation
-- tests
-- observability
-- maintainability
+- test coverage and mock reliability
+- observability and logging clarity
+- maintainability and component cohesion
 
-while implementing new functionality.
+while implementing new functionality. Every change should move the project forward.
 
-Every change should move the project forward.
+---
+
+## Related Documentation
+
+- [Architecture Principles](ARCHITECTURE_PRINCIPLES.md)
+- [Product Principles](PRODUCT_PRINCIPLES.md)
+- [Engineering Principles](ENGINEERING_PRINCIPLES.md)
+- [Security Principles](SECURITY_PRINCIPLES.md)
+- [Architecture Decision Records (ADRs)](adr/README.md)
+

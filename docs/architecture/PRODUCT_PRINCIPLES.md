@@ -21,6 +21,7 @@ Implications:
 - Destructive actions should require explicit user intent.
 - Uncertainty should favor caution.
 - Risky operations should be visible before execution.
+- Related Decision: [ADR-003: Human-In-The-Loop Review](adr/ADR-003-Human-In-The-Loop-Review.md)
 
 ---
 
@@ -69,6 +70,7 @@ Implications:
 - Conflict resolution should occur before synchronization proceeds.
 - Dangerous deletions should be reviewed.
 - Safety policies should be evaluated before execution.
+- Related Decision: [ADR-003: Human-In-The-Loop Review](adr/ADR-003-Human-In-The-Loop-Review.md)
 
 ---
 
@@ -83,7 +85,8 @@ Implications:
 - Approvals should be recorded.
 - Policy violations should be recorded.
 - Synchronization outcomes should be recorded.
-- Audit records should be immutable.
+- Audit records should be append-only and cryptographically verified.
+- Related Decision: [ADR-004: Immutable Audit Ledger](adr/ADR-004-Immutable-Audit-Ledger.md)
 
 ---
 
@@ -98,6 +101,7 @@ Implications:
 - Features should be organized around Profiles.
 - Profile lifecycle management should remain simple and understandable.
 - Internal implementation details should not leak into user workflows.
+- Related Decision: [ADR-001: Profiles As Primary User Object](adr/ADR-001-Profiles-As-Primary-User-Object.md)
 
 ---
 
@@ -112,6 +116,7 @@ Implications:
 - Avoid duplicating Rclone capabilities.
 - Prefer leveraging Rclone interfaces and APIs.
 - Bisync Hub should focus on orchestration, visibility, review, and governance.
+- Related Decision: [ADR-002: Rclone As Source Of Truth](adr/ADR-002-Rclone-As-Source-Of-Truth.md)
 
 ---
 
@@ -124,9 +129,21 @@ Implications:
 - Core functionality should remain self-hosted.
 - Critical workflows should not require internet connectivity beyond configured storage providers.
 - User data remains under user control.
+- Related Decision: [ADR-005: Local-First Architecture](adr/ADR-005-Local-First-Architecture.md)
 
 ---
 
 # Product Mission
 
-Review. Decide. Sync.
+**Review. Decide. Sync.**
+
+---
+
+## Related Documentation
+
+- [Architecture Principles](ARCHITECTURE_PRINCIPLES.md)
+- [Engineering Principles](ENGINEERING_PRINCIPLES.md)
+- [Security Principles](SECURITY_PRINCIPLES.md)
+- [Contributor Workflow](CONTRIBUTOR_WORKFLOW.md)
+- [Architecture Decision Records (ADRs)](adr/README.md)
+
