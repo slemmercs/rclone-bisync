@@ -8,6 +8,7 @@ window.ProfilesModule = {
     profilesData: {
         list: [],
         activeId: localStorage.getItem("rclone_active_profile_id") || "default",
+        homeDir: "",
         loading: false,
         error: null,
         syncingId: null
@@ -22,6 +23,7 @@ window.ProfilesModule = {
             remote: "",
             remote_path: "",
             local_path: "",
+            exclude_patterns: [],
             schedule: "manual",
             review_mode: "deletions",
             notification_pref: "all",
@@ -32,13 +34,20 @@ window.ProfilesModule = {
                 canary_validation: true
             }
         },
+        excludePatternsInput: ".git/**, *.tmp, .DS_Store",
         isNew: false,
         history: [],
         historyLoading: false,
         saving: false,
         error: null,
         cloneTarget: { id: "", name: "" },
-        showClonePrompt: false
+        showClonePrompt: false,
+        deleteConfirm: {
+            show: false,
+            profile: null,
+            deleting: false,
+            error: null
+        }
     },
 
     get activeProfile() {
@@ -50,6 +59,10 @@ window.ProfilesModule = {
 
     isProfileSaving() {
         return !!(this.profileModal && this.profileModal.saving);
+    },
+
+    isProfileDeleting() {
+        return !!(this.profileModal && this.profileModal.deleteConfirm && this.profileModal.deleteConfirm.deleting);
     },
 
     isProfileSyncing(item) {
@@ -72,6 +85,9 @@ window.ProfilesModule = {
         try {
             const data = await window.API.get("/api/profiles");
             if (data && data.status === "success") {
+                if (data.home_dir) {
+                    this.profilesData.homeDir = data.home_dir;
+                }
                 this.profilesData.list = data.profiles || [];
                 if (this.profilesData.list.length > 0) {
                     const exists = this.profilesData.list.some(p => p.id === this.profilesData.activeId);
@@ -97,9 +113,12 @@ window.ProfilesModule = {
             const p = this.profilesData.list.find(item => item.id === id);
             this.showToast(`Active profile switched to "${p ? p.name : id}"`, "info");
         }
-        if (this.currentTab === "explorer" && typeof this.initExplorer === "function") {
+        if (typeof this.syncExplorerWithActiveProfile === "function") {
+            this.syncExplorerWithActiveProfile();
+        } else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") {
             this.initExplorer();
-        } else if (this.currentTab === "audit" && typeof this.fetchAuditRecords === "function") {
+        }
+        if (this.currentTab === "audit" && typeof this.fetchAuditRecords === "function") {
             this.auditData.filterProfile = id;
             this.fetchAuditRecords();
         }
@@ -121,6 +140,7 @@ window.ProfilesModule = {
         this.profileModal.isNew = false;
         this.profileModal.history = [];
         this.profileModal.showClonePrompt = false;
+        this.cancelDeleteProfile();
     },
 
     startNewProfile() {
@@ -130,12 +150,15 @@ window.ProfilesModule = {
         const defaultRemote = (this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0)
             ? this.remotesData.remotes[0].name
             : "";
+        const defaultBase = this.profilesData.homeDir || "~";
+        const defaultLocal = defaultRemote ? `${defaultBase}/${defaultRemote}` : `${defaultBase}/sync`;
         this.profileModal.editing = {
             id: `prof_${randomHex}`,
             name: "",
             remote: defaultRemote,
             remote_path: "",
-            local_path: "",
+            local_path: defaultLocal,
+            exclude_patterns: [".git/**", "*.tmp", ".DS_Store"],
             schedule: "manual",
             review_mode: "deletions",
             notification_pref: "all",
@@ -146,6 +169,7 @@ window.ProfilesModule = {
                 canary_validation: true
             }
         };
+        this.profileModal.excludePatternsInput = ".git/**, *.tmp, .DS_Store";
         this.profileModal.tab = "edit";
     },
 
@@ -160,6 +184,8 @@ window.ProfilesModule = {
                 canary_validation: true
             };
         }
+        const patterns = this.profileModal.editing.exclude_patterns || [];
+        this.profileModal.excludePatternsInput = patterns.join(", ");
         this.profileModal.tab = "edit";
     },
 
@@ -168,6 +194,12 @@ window.ProfilesModule = {
         if (!p) return;
         if (this.profileModal.isNew && (!p.id || !p.id.trim())) {
             p.id = "prof_" + Math.random().toString(16).substring(2, 8);
+        }
+        if (typeof this.profileModal.excludePatternsInput === "string") {
+            p.exclude_patterns = this.profileModal.excludePatternsInput
+                .split(",")
+                .map(s => s.trim())
+                .filter(Boolean);
         }
         this.profileModal.saving = true;
         this.profileModal.error = null;
@@ -191,6 +223,9 @@ window.ProfilesModule = {
             }
             await this.fetchProfiles();
             this.profileModal.tab = "list";
+            if (this.profilesData.activeId === p.id && typeof this.syncExplorerWithActiveProfile === "function") {
+                this.syncExplorerWithActiveProfile();
+            }
         } catch (err) {
             this.profileModal.error = err.message;
             if (typeof this.showToast === "function") {
@@ -300,22 +335,57 @@ window.ProfilesModule = {
         }
     },
 
-    async deleteProfile(profId) {
-        if (!confirm(`Are you sure you want to permanently delete profile "${profId}"? Background sync tickers will be stopped.`)) {
-            return;
+    promptDeleteProfile(prof) {
+        let target = prof;
+        if (typeof prof === "string") {
+            target = (this.profilesData.list || []).find(p => p.id === prof) || { id: prof, name: prof };
         }
+        this.profileModal.deleteConfirm = {
+            show: true,
+            profile: target,
+            deleting: false,
+            error: null
+        };
+    },
+
+    cancelDeleteProfile() {
+        this.profileModal.deleteConfirm = {
+            show: false,
+            profile: null,
+            deleting: false,
+            error: null
+        };
+    },
+
+    async executeDeleteProfile() {
+        const prof = this.profileModal.deleteConfirm.profile;
+        if (!prof || !prof.id) return;
+        this.profileModal.deleteConfirm.deleting = true;
+        this.profileModal.deleteConfirm.error = null;
         try {
-            const res = await window.API.delete(`/api/profiles/${encodeURIComponent(profId)}`);
+            const res = await window.API.delete(`/api/profiles/${encodeURIComponent(prof.id)}`);
             if (res && res.status === "error") throw new Error(res.error || "Delete failed");
             if (typeof this.showToast === "function") {
-                this.showToast(`Profile "${profId}" deleted.`, "info");
+                this.showToast(`Profile "${prof.name || prof.id}" deleted.`, "info");
             }
+            this.profileModal.deleteConfirm.show = false;
+            this.profileModal.deleteConfirm.profile = null;
             await this.fetchProfiles();
+            if (this.profilesData.activeId === prof.id && this.profilesData.list.length > 0) {
+                this.selectProfile(this.profilesData.list[0].id);
+            }
         } catch (err) {
+            this.profileModal.deleteConfirm.error = err.message;
             if (typeof this.showToast === "function") {
                 this.showToast(`Delete failed: ${err.message}`, "error");
             }
+        } finally {
+            this.profileModal.deleteConfirm.deleting = false;
         }
+    },
+
+    deleteProfile(profId) {
+        this.promptDeleteProfile(profId);
     }
 };
 

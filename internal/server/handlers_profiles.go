@@ -5,17 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 )
 
 func (s *Server) handleListProfiles(w http.ResponseWriter, r *http.Request) {
+	homeDir, _ := os.UserHomeDir()
 	if s.ProfileService == nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":   "success",
 			"profiles": []*profiles.Profile{},
 			"total":    0,
+			"home_dir": homeDir,
 		})
 		return
 	}
@@ -25,6 +28,7 @@ func (s *Server) handleListProfiles(w http.ResponseWriter, r *http.Request) {
 		"status":   "success",
 		"profiles": profs,
 		"total":    len(profs),
+		"home_dir": homeDir,
 	})
 }
 

@@ -116,7 +116,7 @@ document.addEventListener("alpine:init", () => {
             draggedSourcePane: null,
             isDragOverLeft: false,
             isDragOverRight: false,
-
+            isSwapped: false
         },
         toast: {
             show: false,

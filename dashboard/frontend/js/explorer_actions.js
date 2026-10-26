@@ -125,5 +125,70 @@ window.ExplorerActionsModule = {
         if (item && srcPane && srcPane !== targetPaneKey) {
             this.transferItem(srcPane, item);
         }
+    },
+
+    async transferItem(sourcePaneKey, item) {
+        item._copying = true;
+        const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";
+        const src_remote = this.explorer[sourcePaneKey].target;
+        let src_path = item.Path || item.Name;
+        const currentPanePath = this.explorer[sourcePaneKey].path;
+        if (currentPanePath && !src_path.startsWith(currentPanePath)) {
+            src_path = `${currentPanePath}/${src_path}`.replace(/^\/+/, "");
+        }
+        const dst_remote = this.explorer[targetPaneKey].target;
+        const dst_path = this.explorer[targetPaneKey].path;
+
+        try {
+            const data = await window.API.post("/api/browse/copy", {
+                src_remote,
+                src_path,
+                dst_remote,
+                dst_path,
+                is_dir: item.IsDir
+            });
+            if (data.status === "success") {
+                this.showToast(`Transferred "${item.Name}" successfully!`, "success");
+                this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
+            } else {
+                this.showToast(`Transfer failed: ${data.error || 'Unknown error'}`, "error");
+            }
+        } catch (err) {
+            this.showToast(`Transfer failed: ${err.message}`, "error");
+        } finally {
+            item._copying = false;
+        }
+    },
+
+    async syncCurrentDirectory(sourcePaneKey) {
+        const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";
+        const src_remote = this.explorer[sourcePaneKey].target;
+        const src_path = this.explorer[sourcePaneKey].path;
+        const dst_remote = this.explorer[targetPaneKey].target;
+        const dst_path = this.explorer[targetPaneKey].path;
+
+        const dirName = sourcePaneKey === "left" ? `Local (${src_remote}:${src_path || '/'}) ➔ Remote (${dst_remote}:${dst_path || '/'})` : `Remote (${src_remote}:${src_path || '/'}) ➔ Local (${dst_remote}:${dst_path || '/'})`;
+        if (!confirm(`Are you sure you want to copy directory contents:\n${dirName}?`)) {
+            return;
+        }
+
+        this.showToast("Initiating directory synchronization...", "info");
+        try {
+            const data = await window.API.post("/api/browse/copy", {
+                src_remote,
+                src_path,
+                dst_remote,
+                dst_path,
+                is_dir: true
+            });
+            if (data.status === "success") {
+                this.showToast("Directory synchronization complete!", "success");
+                this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
+            } else {
+                this.showToast(`Sync failed: ${data.error || 'Unknown error'}`, "error");
+            }
+        } catch (err) {
+            this.showToast(`Directory sync failed: ${err.message}`, "error");
+        }
     }
 };

@@ -36,7 +36,7 @@ func setupTestServerWithProfiles(t *testing.T) (*Server, *profiles.Service) {
 	t.Cleanup(func() {
 		sched.Stop()
 	})
-	svc := profiles.NewService(store, nil, nil, sched)
+	svc := profiles.NewService(store, nil, sched)
 
 	cfg := &config.Config{
 		BaseDir:             tmpDir,

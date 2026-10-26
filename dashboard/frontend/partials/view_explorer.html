@@ -6,7 +6,14 @@
                 <div class="flex items-center gap-2">
                     <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>
                     <span class="text-xs font-semibold uppercase tracking-wider text-slate-200">Dual-Pane Directory Explorer</span>
-                    <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block">Local ↔ Remote</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block" x-text="explorer.isSwapped ? 'Remote ⇄ Local' : 'Local ⇄ Remote'"></span>
+                    <template x-if="activeProfile">
+                        <div class="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-950/60 border border-indigo-700/50 rounded-lg text-xs">
+                            <span class="text-[10px] text-slate-400">Profile:</span>
+                            <span class="text-indigo-300 font-semibold truncate max-w-[10rem]" x-text="activeProfile.name"></span>
+                            <button @click="openProfilesModal('list')" class="text-[10px] text-indigo-400 hover:text-white underline ml-0.5">Switch</button>
+                        </div>
+                    </template>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
@@ -18,13 +25,14 @@
                             <option value="none">Direct (No Confirmation)</option>
                         </select>
                     </div>
+                    <button @click="swapExplorerPanes()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60" title="Swap Left and Right Panes (⇄)">
+                        <span class="text-sm font-bold">⇄</span><span>Swap Panes</span>
+                    </button>
                     <button @click="syncCurrentDirectory('left')" :disabled="isExplorerLoading()" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-indigo-500/30" title="Sync current local directory contents to remote">
-                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                        <span>Sync Local to Remote</span>
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><span>Sync Local to Remote</span>
                     </button>
                     <button @click="syncCurrentDirectory('right')" :disabled="isExplorerLoading()" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-500/30" title="Sync current remote directory contents to local">
-                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-                        <span>Sync Remote to Local</span>
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg><span>Sync Remote to Local</span>
                     </button>
                     <button @click="refreshExplorer()" :disabled="isExplorerLoading()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
                         <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': isExplorerLoading() }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
@@ -44,15 +52,15 @@
                     <!-- Drag-and-Drop Active Overlay -->
                     <div x-show="explorer.isDragOverLeft" class="absolute inset-0 bg-indigo-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-indigo-400 rounded-2xl">
                         <svg class="w-10 h-10 text-indigo-400 animate-bounce mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                        <div class="text-sm font-bold text-white uppercase tracking-wider">Drop to Copy to Local</div>
+                        <div class="text-sm font-bold text-white uppercase tracking-wider" x-text="'Drop to Copy to ' + getPaneTargetLabel('left')"></div>
                         <div class="text-xs text-indigo-300 mt-1 font-mono" x-text="explorer.draggedItem ? explorer.draggedItem.Name : ''"></div>
                     </div>
 
                     <!-- Pane Header -->
                     <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2 h-14 shrink-0">
                         <div class="flex items-center gap-2 min-w-0">
-                            <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Local</span>
-                            <span class="text-xs font-semibold text-slate-200 truncate" x-text="telemetry.config.LOCAL_PATH || telemetry.config.LOCALPATH || '~/gdrive'"></span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0" :class="explorer.left.target === 'local' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'" x-text="getPaneTargetLabel('left')"></span>
+                            <span class="text-xs font-semibold text-slate-200 truncate" x-text="getPaneDisplayPath('left')"></span>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
                             <div class="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.left.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
@@ -79,14 +87,9 @@
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             <button @click="copyPanePath('left')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-sans transition-all flex items-center gap-1 border border-slate-700/60" :class="explorer.left.copied ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : ''">
-                                <span x-show="explorer.left.copied" class="flex items-center gap-1">
-                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                                    <span>Copied</span>
-                                </span>
-                                <span x-show="!explorer.left.copied" class="flex items-center gap-1">
-                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                                    <span>Copy</span>
-                                </span>
+                                <svg x-show="explorer.left.copied" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                <svg x-show="!explorer.left.copied" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                <span x-text="explorer.left.copied ? 'Copied' : 'Copy'"></span>
                             </button>
                             <span class="text-[10px] text-slate-500 hidden sm:inline-block" x-text="`${explorer.left.items.length} items`"></span>
                         </div>
@@ -155,25 +158,22 @@
                             <div draggable="true" @dragstart="onDragStart('left', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="getItemReviewRowClass('left', item)">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
-                                        <button draggable="false" @mousedown.stop @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
-                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                                            <span class="font-medium truncate" x-text="item.Name"></span>
-                                        </button>
+                                        <div class="flex items-center gap-2 min-w-0 truncate">
+                                            <button draggable="false" @mousedown.stop @click="navigateFolder('left', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
+                                                <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                                                <span class="font-medium truncate" x-text="item.Name"></span>
+                                            </button>
+                                            <span x-show="isItemExcluded(item)" class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0 select-none uppercase tracking-wider" title="Excluded from sync via profile rules">EXCLUDED</span>
+                                        </div>
                                     </template>
                                     <template x-if="!item.IsDir">
                                         <div class="flex items-center gap-2 truncate">
-                                            <template x-if="item.Name === 'RCLONE_TEST'">
-                                                <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-                                            </template>
-                                            <template x-if="item.Name !== 'RCLONE_TEST'">
-                                                <svg class="w-4 h-4 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-                                            </template>
-                                            <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
+                                            <svg x-show="item.Name === 'RCLONE_TEST'" class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                            <svg x-show="item.Name !== 'RCLONE_TEST'" class="w-4 h-4 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                                            <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : (isItemExcluded(item) ? 'line-through text-slate-500' : '')" x-text="item.Name"></span>
+                                            <span x-show="isItemExcluded(item)" class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0 select-none uppercase tracking-wider" title="Excluded from sync via profile rules">EXCLUDED</span>
                                             <template x-if="getItemReviewBadge('left', item)">
-                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold border shrink-0 tracking-wider"
-                                                      :class="getItemReviewBadge('left', item).class"
-                                                      :title="getItemReviewBadge('left', item).title"
-                                                      x-text="getItemReviewBadge('left', item).label"></span>
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold border shrink-0 tracking-wider" :class="getItemReviewBadge('left', item).class" :title="getItemReviewBadge('left', item).title" x-text="getItemReviewBadge('left', item).label"></span>
                                             </template>
                                         </div>
                                     </template>
@@ -218,19 +218,24 @@
                     <!-- Drag-and-Drop Active Overlay -->
                     <div x-show="explorer.isDragOverRight" class="absolute inset-0 bg-emerald-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-emerald-400 rounded-2xl">
                         <svg class="w-10 h-10 text-emerald-400 animate-bounce mb-2 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                        <div class="text-sm font-bold text-white uppercase tracking-wider">Drop to Copy to Remote</div>
+                        <div class="text-sm font-bold text-white uppercase tracking-wider" x-text="'Drop to Copy to ' + getPaneTargetLabel('right')"></div>
                         <div class="text-xs text-emerald-300 mt-1 font-mono" x-text="explorer.draggedItem ? explorer.draggedItem.Name : ''"></div>
                     </div>
 
                     <!-- Pane Header with Remote Selector Dropdown -->
                     <div class="p-3.5 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-2 h-14 shrink-0">
                         <div class="flex items-center gap-2 min-w-0">
-                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider shrink-0">Remote</span>
-                            <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
-                                <template x-for="r in remotesData.remotes" :key="r.name">
-                                    <option :value="r.name" x-text="r.name + ':' + (r.is_active_target ? ' (Active)' : '')"></option>
-                                </template>
-                            </select>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0" :class="explorer.right.target === 'local' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'" x-text="getPaneTargetLabel('right')"></span>
+                            <template x-if="explorer.right.target === 'local'">
+                                <span class="text-xs font-semibold text-slate-200 truncate" x-text="getPaneDisplayPath('right')"></span>
+                            </template>
+                            <template x-if="explorer.right.target !== 'local'">
+                                <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
+                                    <template x-for="r in remotesData.remotes" :key="r.name">
+                                        <option :value="r.name" x-text="r.name + ':' + (r.is_active_target ? ' (Active)' : '')"></option>
+                                    </template>
+                                </select>
+                            </template>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
                             <div class="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border" :class="explorer.right.hasCanary ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
@@ -257,14 +262,9 @@
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             <button @click="copyPanePath('right')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-sans transition-all flex items-center gap-1 border border-slate-700/60" :class="explorer.right.copied ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600' : ''">
-                                <span x-show="explorer.right.copied" class="flex items-center gap-1">
-                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                                    <span>Copied</span>
-                                </span>
-                                <span x-show="!explorer.right.copied" class="flex items-center gap-1">
-                                    <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                                    <span>Copy</span>
-                                </span>
+                                <svg x-show="explorer.right.copied" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                <svg x-show="!explorer.right.copied" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                <span x-text="explorer.right.copied ? 'Copied' : 'Copy'"></span>
                             </button>
                             <span class="text-[10px] text-slate-500 hidden sm:inline-block" x-text="`${explorer.right.items.length} items`"></span>
                         </div>
@@ -333,25 +333,22 @@
                             <div draggable="true" @dragstart="onDragStart('right', item, $event)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="getItemReviewRowClass('right', item)">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
-                                        <button draggable="false" @mousedown.stop @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
-                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                                            <span class="font-medium truncate" x-text="item.Name"></span>
-                                        </button>
+                                        <div class="flex items-center gap-2 min-w-0 truncate">
+                                            <button draggable="false" @mousedown.stop @click="navigateFolder('right', item.Name)" class="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 transition-colors text-left truncate cursor-pointer">
+                                                <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                                                <span class="font-medium truncate" x-text="item.Name"></span>
+                                            </button>
+                                            <span x-show="isItemExcluded(item)" class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0 select-none uppercase tracking-wider" title="Excluded from sync via profile rules">EXCLUDED</span>
+                                        </div>
                                     </template>
                                     <template x-if="!item.IsDir">
                                         <div class="flex items-center gap-2 truncate">
-                                            <template x-if="item.Name === 'RCLONE_TEST'">
-                                                <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-                                            </template>
-                                            <template x-if="item.Name !== 'RCLONE_TEST'">
-                                                <svg class="w-4 h-4 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-                                            </template>
-                                            <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : ''" x-text="item.Name"></span>
+                                            <svg x-show="item.Name === 'RCLONE_TEST'" class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                            <svg x-show="item.Name !== 'RCLONE_TEST'" class="w-4 h-4 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                                            <span class="text-slate-300 truncate" :class="item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : (isItemExcluded(item) ? 'line-through text-slate-500' : '')" x-text="item.Name"></span>
+                                            <span x-show="isItemExcluded(item)" class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0 select-none uppercase tracking-wider" title="Excluded from sync via profile rules">EXCLUDED</span>
                                             <template x-if="getItemReviewBadge('right', item)">
-                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold border shrink-0 tracking-wider"
-                                                      :class="getItemReviewBadge('right', item).class"
-                                                      :title="getItemReviewBadge('right', item).title"
-                                                      x-text="getItemReviewBadge('right', item).label"></span>
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold border shrink-0 tracking-wider" :class="getItemReviewBadge('right', item).class" :title="getItemReviewBadge('right', item).title" x-text="getItemReviewBadge('right', item).label"></span>
                                             </template>
                                         </div>
                                     </template>

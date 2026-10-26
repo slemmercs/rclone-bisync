@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -126,9 +127,21 @@ func (s *Store) Save(p *Profile, reason string) error {
 		p.UpdatedAt = now
 	}
 
+	action := "UPDATED"
+	if !exists {
+		action = "CREATED"
+	}
+	if strings.HasPrefix(reason, "Cloned from") {
+		action = "CLONED"
+	}
+	if strings.HasPrefix(reason, "Rollback") {
+		action = "ROLLED_BACK"
+	}
+
 	snapshot := ProfileVersion{
 		Version:   p.Version,
 		ProfileID: p.ID,
+		Action:    action,
 		Timestamp: now,
 		Reason:    reason,
 		Snapshot:  *p,

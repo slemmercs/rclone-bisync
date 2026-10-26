@@ -118,7 +118,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 				return nil
 			}
 			sched := profiles.NewScheduler(profStore, executor)
-			profSvc = profiles.NewService(profStore, rcClient, auditSvc, sched)
+			profSvc = profiles.NewService(profStore, rcClient, sched)
 			_ = sched.Start(context.Background())
 		}
 	}

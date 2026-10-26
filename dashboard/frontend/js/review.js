@@ -320,16 +320,22 @@ window.ReviewModule = {
 
     getItemReviewRowClass(paneKey, item) {
         const badge = this.getItemReviewBadge(paneKey, item);
-        if (!badge) {
-            return item && item.Name === "RCLONE_TEST" ? "bg-amber-500/5 border-l-2 border-amber-500" : "";
+        if (badge) {
+            if (badge.label.includes("DELETE") || badge.label.includes("DELETION")) {
+                return "bg-rose-500/10 border-l-2 border-rose-500";
+            }
+            if (badge.label.includes("CONFLICT")) {
+                return "bg-amber-500/10 border-l-2 border-amber-500";
+            }
+            return "bg-emerald-500/10 border-l-2 border-emerald-500";
         }
-        if (badge.label.includes("DELETE") || badge.label.includes("DELETION")) {
-            return "bg-rose-500/10 border-l-2 border-rose-500";
+        if (item && item.Name === "RCLONE_TEST") {
+            return "bg-amber-500/5 border-l-2 border-amber-500";
         }
-        if (badge.label.includes("CONFLICT")) {
-            return "bg-amber-500/10 border-l-2 border-amber-500";
+        if (typeof this.isItemExcluded === "function" && this.isItemExcluded(item)) {
+            return "opacity-50 text-slate-500";
         }
-        return "bg-emerald-500/10 border-l-2 border-emerald-500";
+        return "";
     },
 
     isReviewDismissing() {

@@ -1,48 +1,36 @@
-# Task Plan: Architecture Principles Harmonization, ADR Foundation & Local Tooling Hygiene
+# Task Plan: Profile-Driven Dual-Pane Explorer Integration, Safeguarded Local Path Resolution & Custom Deletion Modal
 
 ## Goal
-Harmonize architecture principles across the project, establish the ADR directory structure with foundational records (ADR-001 through ADR-005), and untrack local developer tool configurations (`.clinerules`, `.clineignore`) from Git tracking.
+Integrate workspace profiles with the dual-pane file explorer (auto-binding, orientation swap, exclude rule visual dimming), safeguard local path auto-resolution, decouple configuration audit history, implement dark UI delete confirmation modal with trash SVG, and ensure all files adhere to the 400 LOC ceiling and Alpine safety checks.
 
 ## Tasks
 
-- [x] Task 1: Untrack Local Developer Tool Configurations
-  - **Scope**: `.clinerules`, `.clineignore`, `.gitignore`
-  - **Verification**: `git status` verifies `.clinerules` and `.clineignore` are untracked and ignored while preserved locally
+- [x] Task 1: Audit Domain Decoupling & Exclude Patterns Backend Support
+  - **Scope**: `internal/profiles/model.go`, `internal/profiles/store.go`, `internal/profiles/service.go`, `internal/profiles/service_test.go`
+  - **Verification**: `go test -count=1 ./internal/profiles/...`
 
-- [x] Task 2: Harmonize Principles Documents
-  - **Scope**: `docs/architecture/CONTRIBUTOR_WORKFLOW.md`, `docs/architecture/ENGINEERING_PRINCIPLES.md`, `docs/architecture/PRODUCT_PRINCIPLES.md`, `docs/architecture/ARCHITECTURE_PRINCIPLES.md`
-  - **Verification**: Markdown link integrity and consistency check
+- [x] Task 2: Home Directory Detection & Path Safeguarding
+  - **Scope**: `internal/profiles/service.go`, `internal/server/handlers_profiles.go`, `internal/server/handlers_profiles_test.go`, `internal/server/server.go`
+  - **Verification**: `go test -count=1 ./internal/server/...`
 
+- [x] Task 3: Profile Management UI, Trash SVG & Delete Confirmation Modal
+  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`
+  - **Verification**: `./scripts/check.sh templates`
 
-- [x] Task 3: Establish ADR Registry & Standardize Template
-  - **Scope**: `docs/architecture/adr/README.md`, `docs/architecture/adr/ADR-000-Template.md`, remove `docs/architecture/adr/adr-xxx_title_template.md`
-  - **Verification**: ADR registry links and template structure check
+- [x] Task 4: Explorer Integration, Orientation Swap & Exclude Pattern Dimming
+  - **Scope**: `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/partials/view_explorer.html`
+  - **Verification**: `./scripts/check.sh loc` and `./scripts/check.sh templates`
 
-
-- [x] Task 4: Author Foundational ADRs (ADR-001 through ADR-005)
-  - **Scope**: `docs/architecture/adr/ADR-001-Profiles-As-Primary-User-Object.md`, `docs/architecture/adr/ADR-002-Rclone-As-Source-Of-Truth.md`, `docs/architecture/adr/ADR-003-Human-In-The-Loop-Review.md`, `docs/architecture/adr/ADR-004-Immutable-Audit-Ledger.md`, `docs/architecture/adr/ADR-005-Local-First-Architecture.md`
-  - **Verification**: Link and format verification across all ADRs
-
-
-- [x] Task 5: Update Contributor Guidelines & PR Templates
-  - **Scope**: `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE.md`
-  - **Verification**: Verify all referenced documentation URLs and checklists
-
-
-- [x] Task 6: Markdown Link Integrity & Git Hygiene Check
-  - **Scope**: Relative links across `docs/architecture/`, `docs/architecture/adr/`, `CONTRIBUTING.md`, and `.gitignore`
-  - **Verification**: Link existence check and `git status`
+- [x] Task 5: Pre-Flight Verification & LOC Audit Compliance
+  - **Scope**: Entire codebase
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-26: Initialized plan from implementation_plan.md on branch `chore/architecture-principles`.
-- 2026-10-26: Completed Task 1 (Untracked .clinerules and .clineignore from git index and added to .gitignore).
-- 2026-10-26: Completed Task 2 (Harmonized CONTRIBUTOR_WORKFLOW, ENGINEERING_PRINCIPLES, PRODUCT_PRINCIPLES, and ARCHITECTURE_PRINCIPLES).
-- 2026-10-26: Completed Task 3 (Created ADR registry README.md and standardized ADR-000-Template.md).
-- 2026-10-26: Completed Task 4 (Authored foundational ADRs: ADR-001 through ADR-005).
-- 2026-10-26: Completed Task 5 (Updated CONTRIBUTING.md and PULL_REQUEST_TEMPLATE.md).
-- 2026-10-26: Completed Task 6 (Verified markdown link integrity across all documents and verified git status).
-- 2026-10-26: Merged fix/e2e-headless-chrome-ci-flakiness (hardened headless Chrome allocator flags, dynamic CI timeout margin, and console error diagnostics in tests/e2e/dashboard_smoke_test.go).
-
-
+- 2026-10-26: Created branch `feat/profile-explorer-integration-and-modal` and initialized plan from implementation_plan.md.
+- 2026-10-26: Completed Task 1 (Decoupled profile lifecycle events into profiles_history.json with Action discriminator, added ExcludePatterns to Profile model).
+- 2026-10-26: Completed Task 2 (Added home_dir endpoint and path safeguarding for outside-home directories).
+- 2026-10-26: Completed Task 3 (Implemented Lucide trash SVG, dark confirmation dialog, exclude input, and isProfileDeleting helper).
+- 2026-10-26: Completed Task 4 (Integrated profile target auto-binding in explorer, orientation swap button ⇄ with array-destructuring state swap, and exclude-pattern visual dimming/badge).
+- 2026-10-26: Completed Task 5 (Optimized LOC in explorer.js, explorer_actions.js, and view_explorer.html ensuring strict adherence to the 400 LOC ceiling; verified all 6 quality stages pass via `./scripts/check.sh all`).
 

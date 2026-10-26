@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/slemmercs/rclone-bisync/internal/audit"
 )
 
 type mockRemoteChecker struct {
@@ -22,22 +20,7 @@ func (m *mockRemoteChecker) ListRemotes(ctx context.Context) ([]string, error) {
 	return m.remotes, nil
 }
 
-type mockAuditRecorder struct {
-	events []struct {
-		profileID string
-		action    audit.Action
-	}
-}
-
-func (m *mockAuditRecorder) RecordEvent(profileID string, action audit.Action, actor string, details map[string]any) (*audit.AuditRecord, error) {
-	m.events = append(m.events, struct {
-		profileID string
-		action    audit.Action
-	}{profileID, action})
-	return &audit.AuditRecord{ProfileID: profileID, Action: action}, nil
-}
-
-func TestProfileService_CRUDAndAudit(t *testing.T) {
+func TestProfileService_CRUDAndHistory(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, err := NewStore(filepath.Join(tmpDir, "p.json"), filepath.Join(tmpDir, "h.json"))
 	if err != nil {
@@ -45,12 +28,11 @@ func TestProfileService_CRUDAndAudit(t *testing.T) {
 	}
 
 	remotes := &mockRemoteChecker{remotes: []string{"gdrive:", "onedrive:"}}
-	auditRec := &mockAuditRecorder{}
 	sched := NewScheduler(store, nil)
 	_ = sched.Start(context.Background())
 	defer sched.Stop()
 
-	svc := NewService(store, remotes, auditRec, sched)
+	svc := NewService(store, remotes, sched)
 
 	// Test List before create
 	emptyList := svc.List(false)
@@ -172,8 +154,25 @@ func TestProfileService_CRUDAndAudit(t *testing.T) {
 		t.Fatalf("expected unique auto-generated clone ID, got: %s", clonedAuto.ID)
 	}
 
-	// 12. Check audit logs
-	if len(auditRec.events) < 5 {
-		t.Fatalf("expected at least 5 audit events, got %d", len(auditRec.events))
+	// 12. Check version history actions
+	hist, err := svc.GetHistory("work-sync")
+	if err != nil || len(hist) < 2 {
+		t.Fatalf("expected at least 2 history records for work-sync, got %d (err: %v)", len(hist), err)
+	}
+	if hist[0].Action != "CREATED" {
+		t.Fatalf("expected first history action to be CREATED, got: %s", hist[0].Action)
+	}
+
+	// 13. Path outside home/tmp that does not exist returns clear error
+	outsideProfile := &Profile{
+		ID:        "prof_outside",
+		Name:      "Outside Path",
+		Remote:    "gdrive",
+		LocalPath: "/root/forbidden-test-dir-12345",
+		Enabled:   true,
+	}
+	_, err = svc.Create(ctx, outsideProfile)
+	if err == nil || !strings.Contains(err.Error(), "must be created manually first") {
+		t.Fatalf("expected error requiring manual creation for outside paths, got: %v", err)
 	}
 }
