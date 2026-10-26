@@ -186,10 +186,17 @@ func (s *Server) handleProfileSync(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	var req struct {
-		Force bool `json:"force"`
+		Force  bool `json:"force"`
+		Resync bool `json:"resync"`
+		DryRun bool `json:"dry_run"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	err := s.ProfileService.TriggerSync(r.Context(), id, req.Force)
+	opts := profiles.SyncOptions{
+		Force:  req.Force,
+		Resync: req.Resync,
+		DryRun: req.DryRun,
+	}
+	err := s.ProfileService.TriggerSyncWithOptions(r.Context(), id, opts)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, profiles.ErrProfileNotActive) || errors.Is(err, profiles.ErrProfileNotFound) {

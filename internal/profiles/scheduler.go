@@ -3,14 +3,10 @@ package profiles
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
-
-	"github.com/slemmercs/rclone-bisync/internal/core/lock"
 )
 
 var (
@@ -19,11 +15,18 @@ var (
 	ErrSyncInProgress   = errors.New("synchronization is already in progress for this profile")
 )
 
+// SyncOptions specifies parameters for a synchronization run.
+type SyncOptions struct {
+	Force  bool `json:"force"`
+	Resync bool `json:"resync"`
+	DryRun bool `json:"dry_run"`
+}
+
 // SyncExecutor executes a single sync run for a profile.
-type SyncExecutor func(ctx context.Context, p *Profile, force bool) error
+type SyncExecutor func(ctx context.Context, p *Profile, opts SyncOptions) error
 
 type triggerReq struct {
-	force bool
+	opts  SyncOptions
 	errCh chan error
 }
 
@@ -95,8 +98,13 @@ func (s *Scheduler) Stop() {
 	s.wg.Wait()
 }
 
-// TriggerSync requests an immediate sync run for a profile.
+// TriggerSync requests an immediate sync run for a profile with force flag.
 func (s *Scheduler) TriggerSync(ctx context.Context, profileID string, force bool) error {
+	return s.TriggerSyncWithOptions(ctx, profileID, SyncOptions{Force: force})
+}
+
+// TriggerSyncWithOptions requests an immediate sync run for a profile with custom options.
+func (s *Scheduler) TriggerSyncWithOptions(ctx context.Context, profileID string, opts SyncOptions) error {
 	s.mu.RLock()
 	if s.stopped {
 		s.mu.RUnlock()
@@ -110,7 +118,7 @@ func (s *Scheduler) TriggerSync(ctx context.Context, profileID string, force boo
 	}
 
 	req := triggerReq{
-		force: force,
+		opts:  opts,
 		errCh: make(chan error, 1),
 	}
 
@@ -194,9 +202,9 @@ func (s *Scheduler) runWorker(ctx context.Context, w *profileWorker, initialProf
 		case <-ctx.Done():
 			return
 		case <-tickerCh:
-			s.executeProfileSync(ctx, w, profileID, false, nil)
+			s.executeProfileSync(ctx, w, profileID, SyncOptions{}, nil)
 		case req := <-w.triggerCh:
-			s.executeProfileSync(ctx, w, profileID, req.force, req.errCh)
+			s.executeProfileSync(ctx, w, profileID, req.opts, req.errCh)
 		}
 	}
 }
@@ -205,7 +213,7 @@ func (s *Scheduler) executeProfileSync(
 	ctx context.Context,
 	w *profileWorker,
 	profileID string,
-	force bool,
+	opts SyncOptions,
 	errCh chan error,
 ) {
 	if !w.running.TryLock() {
@@ -224,16 +232,6 @@ func (s *Scheduler) executeProfileSync(
 		return
 	}
 
-	lockMgr := lock.NewLockManager(prof.LockFilePath(), 300, true)
-	acquired, err := lockMgr.Acquire()
-	if err != nil || !acquired {
-		if errCh != nil {
-			errCh <- fmt.Errorf("lock contention for profile %s: %w", profileID, syscall.EWOULDBLOCK)
-		}
-		return
-	}
-	defer lockMgr.Release()
-
 	state := prof.State
 	state.Status = StatusRunning
 	_ = s.store.UpdateState(profileID, state)
@@ -241,7 +239,7 @@ func (s *Scheduler) executeProfileSync(
 	startTime := time.Now().UTC()
 	var execErr error
 	if s.executor != nil {
-		execErr = s.executor(ctx, prof, force)
+		execErr = s.executor(ctx, prof, opts)
 	}
 	duration := time.Since(startTime).Seconds()
 

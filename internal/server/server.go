@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 
@@ -96,14 +97,21 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 		profStore, err := profiles.NewStore(cfg.ProfilesFile, cfg.ProfilesHistoryFile)
 		if err == nil {
 			_, _ = profStore.BootstrapDefault(cfg.LocalPath, cfg.RemotePath)
-			executor := func(ctx context.Context, p *profiles.Profile, force bool) error {
+			executor := func(ctx context.Context, p *profiles.Profile, opts profiles.SyncOptions) error {
+				if err := os.MkdirAll(p.LocalPath, 0755); err != nil {
+					return fmt.Errorf("failed to create local path %s: %w", p.LocalPath, err)
+				}
 				profCfg := *cfg
 				profCfg.ProfileID = p.ID
 				profCfg.RemotePath = p.FullRemoteTarget()
 				profCfg.LocalPath = p.LocalPath
 				profCfg.LockFile = p.LockFilePath()
 				syncRunner := runner.NewSyncRunner(&profCfg)
-				success := syncRunner.Run(ctx, false, force, false, "scheduler", "", false)
+				origin := "scheduler"
+				if opts.Force || opts.Resync || opts.DryRun {
+					origin = "dashboard"
+				}
+				success := syncRunner.Run(ctx, opts.Resync, opts.Force, opts.DryRun, origin, "", false)
 				if !success {
 					return fmt.Errorf("sync failed for profile %s", p.ID)
 				}

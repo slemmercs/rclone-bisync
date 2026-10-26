@@ -1,6 +1,7 @@
 package profiles
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"regexp"
@@ -107,6 +108,15 @@ func (p *Profile) FullRemoteTarget() string {
 		return r + ":"
 	}
 	return fmt.Sprintf("%s:%s", r, sub)
+}
+
+// GenerateProfileID creates a collision-resistant unique profile identifier prefixed with "prof_".
+func GenerateProfileID() string {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("prof_%x", time.Now().UnixNano())
+	}
+	return fmt.Sprintf("prof_%x", b)
 }
 
 // LockFilePath returns the dedicated lock file path for this profile.

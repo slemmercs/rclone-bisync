@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -25,7 +26,7 @@ func setupTestServerWithProfiles(t *testing.T) (*Server, *profiles.Service) {
 	}
 
 	executed := make(map[string]bool)
-	executor := func(ctx context.Context, p *profiles.Profile, force bool) error {
+	executor := func(ctx context.Context, p *profiles.Profile, opts profiles.SyncOptions) error {
 		executed[p.ID] = true
 		return nil
 	}
@@ -78,12 +79,13 @@ func TestProfiles_CRUD_Endpoints(t *testing.T) {
 	}
 
 	// 2. CSRF rejection on POST /api/profiles without header
+	workPath := filepath.Join(s.Config.BaseDir, "work")
 	newProf := profiles.Profile{
 		ID:         "prof-1",
 		Name:       "Work Google Drive",
 		Remote:     "work-drive",
 		RemotePath: "documents",
-		LocalPath:  "/home/user/work",
+		LocalPath:  workPath,
 		Schedule:   "manual",
 		Enabled:    true,
 	}
@@ -125,7 +127,7 @@ func TestProfiles_CRUD_Endpoints(t *testing.T) {
 	updatePayload := map[string]any{
 		"name":       "Updated Work Drive",
 		"remote":     "work-drive",
-		"local_path": "/home/user/work",
+		"local_path": workPath,
 		"schedule":   "manual",
 		"reason":     "Updating display name",
 	}
@@ -145,12 +147,13 @@ func TestProfiles_CloneRollbackSyncEndpoints(t *testing.T) {
 	s, svc := setupTestServerWithProfiles(t)
 
 	// Create base profile
+	drivePath := filepath.Join(s.Config.BaseDir, "drive")
 	p := &profiles.Profile{
 		ID:         "orig-1",
 		Name:       "Original Drive",
 		Enabled:    true,
 		Remote:     "gdrive",
-		LocalPath:  "/home/user/drive",
+		LocalPath:  drivePath,
 		Schedule:   "manual",
 		ReviewMode: profiles.ReviewDeletions,
 	}
@@ -219,6 +222,40 @@ func TestProfiles_CloneRollbackSyncEndpoints(t *testing.T) {
 	w = doJSONReq(s, http.MethodGet, "/api/profiles/clone-1", nil, false)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 after delete, got %d", w.Code)
+	}
+
+	// 8. Test /api/action profile routing
+	actionBody := map[string]string{
+		"action":     "start_sync",
+		"profile_id": "orig-1",
+	}
+	w = doJSONReq(s, http.MethodPost, "/api/action", actionBody, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on /api/action with profile_id, got %d: %s", w.Code, w.Body.String())
+	}
+	var actResp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &actResp)
+	if actResp["status"] != "success" {
+		t.Fatalf("expected success on /api/action, got %+v", actResp)
+	}
+
+	// 9. Test POST /api/profiles with auto-generated ID
+	autoProf := map[string]any{
+		"name":       "Auto Profile",
+		"remote":     "gdrive",
+		"local_path": filepath.Join(s.Config.BaseDir, "auto_prof"),
+		"enabled":    true,
+	}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles", autoProf, true)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 on auto-id create, got %d: %s", w.Code, w.Body.String())
+	}
+	var autoResp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &autoResp)
+	createdProf := autoResp["profile"].(map[string]any)
+	genID := createdProf["id"].(string)
+	if !strings.HasPrefix(genID, "prof_") {
+		t.Fatalf("expected generated ID with prof_ prefix, got %s", genID)
 	}
 }
 

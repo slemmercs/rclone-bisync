@@ -56,7 +56,7 @@ func TestScheduler_ExecutionAndFlock(t *testing.T) {
 	var execCount int64
 	var shouldFail bool
 
-	executor := func(ctx context.Context, prof *Profile, force bool) error {
+	executor := func(ctx context.Context, prof *Profile, opts SyncOptions) error {
 		atomic.AddInt64(&execCount, 1)
 		if shouldFail {
 			return errors.New("simulated sync error")

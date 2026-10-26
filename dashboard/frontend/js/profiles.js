@@ -62,6 +62,10 @@ window.ProfilesModule = {
         return !(this.profileModal && this.profileModal.isNew);
     },
 
+    hasDiscoveredRemotes() {
+        return !!(this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0);
+    },
+
     async fetchProfiles() {
         this.profilesData.loading = true;
         this.profilesData.error = null;
@@ -106,6 +110,9 @@ window.ProfilesModule = {
         this.profileModal.error = null;
         this.profileModal.show = true;
         this.fetchProfiles();
+        if (typeof this.fetchRemotes === "function" && (!this.remotesData || !this.remotesData.remotes || this.remotesData.remotes.length === 0)) {
+            this.fetchRemotes(false);
+        }
     },
 
     closeProfilesModal() {
@@ -119,10 +126,14 @@ window.ProfilesModule = {
     startNewProfile() {
         this.profileModal.isNew = true;
         this.profileModal.error = null;
+        const randomHex = Math.random().toString(16).substring(2, 8);
+        const defaultRemote = (this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0)
+            ? this.remotesData.remotes[0].name
+            : "";
         this.profileModal.editing = {
-            id: "",
+            id: `prof_${randomHex}`,
             name: "",
-            remote: "",
+            remote: defaultRemote,
             remote_path: "",
             local_path: "",
             schedule: "manual",
@@ -151,9 +162,13 @@ window.ProfilesModule = {
         }
         this.profileModal.tab = "edit";
     },
+
     async saveProfileForm() {
         const p = this.profileModal.editing;
         if (!p) return;
+        if (this.profileModal.isNew && (!p.id || !p.id.trim())) {
+            p.id = "prof_" + Math.random().toString(16).substring(2, 8);
+        }
         this.profileModal.saving = true;
         this.profileModal.error = null;
 
@@ -188,8 +203,9 @@ window.ProfilesModule = {
 
     promptCloneProfile(prof) {
         this.profileModal.editing = prof;
+        const randomHex = Math.random().toString(16).substring(2, 8);
         this.profileModal.cloneTarget = {
-            id: `${prof.id}-copy`,
+            id: `prof_${randomHex}`,
             name: `${prof.name} (Copy)`
         };
         this.profileModal.showClonePrompt = true;

@@ -3,6 +3,7 @@ package profiles
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
@@ -56,6 +57,20 @@ func (s *Service) Create(ctx context.Context, p *Profile) (*Profile, error) {
 	if p == nil {
 		return nil, fmt.Errorf("profile cannot be nil")
 	}
+	if strings.TrimSpace(p.ID) == "" {
+		for {
+			cand := GenerateProfileID()
+			if _, err := s.store.Get(cand); err != nil {
+				p.ID = cand
+				break
+			}
+		}
+	} else {
+		if _, err := s.store.Get(p.ID); err == nil {
+			return nil, ErrProfileAlreadyExists
+		}
+	}
+
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}
@@ -63,8 +78,10 @@ func (s *Service) Create(ctx context.Context, p *Profile) (*Profile, error) {
 		return nil, err
 	}
 
-	if _, err := s.store.Get(p.ID); err == nil {
-		return nil, ErrProfileAlreadyExists
+	if strings.TrimSpace(p.LocalPath) != "" {
+		if err := os.MkdirAll(p.LocalPath, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create local path %q: %w", p.LocalPath, err)
+		}
 	}
 
 	if err := s.store.Save(p, "Profile created"); err != nil {
@@ -101,6 +118,12 @@ func (s *Service) Update(ctx context.Context, p *Profile, reason string) (*Profi
 		return nil, err
 	}
 
+	if strings.TrimSpace(p.LocalPath) != "" {
+		if err := os.MkdirAll(p.LocalPath, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create local path %q: %w", p.LocalPath, err)
+		}
+	}
+
 	if reason == "" {
 		reason = "Profile updated"
 	}
@@ -134,6 +157,20 @@ func (s *Service) Clone(ctx context.Context, sourceID, newID, newName string) (*
 
 	cloned := *source
 	cloned.ID = strings.TrimSpace(newID)
+	if cloned.ID == "" {
+		for {
+			cand := GenerateProfileID()
+			if _, err := s.store.Get(cand); err != nil {
+				cloned.ID = cand
+				break
+			}
+		}
+	} else {
+		if _, err := s.store.Get(cloned.ID); err == nil {
+			return nil, ErrProfileAlreadyExists
+		}
+	}
+
 	cloned.Name = strings.TrimSpace(newName)
 	cloned.State = OperationalState{Status: StatusHealthy}
 
@@ -141,8 +178,10 @@ func (s *Service) Clone(ctx context.Context, sourceID, newID, newName string) (*
 		return nil, err
 	}
 
-	if _, err := s.store.Get(cloned.ID); err == nil {
-		return nil, ErrProfileAlreadyExists
+	if strings.TrimSpace(cloned.LocalPath) != "" {
+		if err := os.MkdirAll(cloned.LocalPath, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create local path %q: %w", cloned.LocalPath, err)
+		}
 	}
 
 	if err := s.store.Save(&cloned, fmt.Sprintf("Cloned from %s", sourceID)); err != nil {
@@ -205,10 +244,15 @@ func (s *Service) Rollback(ctx context.Context, id string, targetVersion int) (*
 
 // TriggerSync prompts immediate execution of a profile sync.
 func (s *Service) TriggerSync(ctx context.Context, id string, force bool) error {
+	return s.TriggerSyncWithOptions(ctx, id, SyncOptions{Force: force})
+}
+
+// TriggerSyncWithOptions prompts immediate execution of a profile sync with custom options.
+func (s *Service) TriggerSyncWithOptions(ctx context.Context, id string, opts SyncOptions) error {
 	if s.scheduler == nil {
 		return fmt.Errorf("scheduler is not active")
 	}
-	return s.scheduler.TriggerSync(ctx, id, force)
+	return s.scheduler.TriggerSyncWithOptions(ctx, id, opts)
 }
 
 // ListRemotes queries available remotes from Rclone RC.

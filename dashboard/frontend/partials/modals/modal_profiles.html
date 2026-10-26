@@ -99,19 +99,33 @@
         <div x-show="profileModal.tab === 'edit' && profileModal.editing" class="overflow-y-auto space-y-3.5 pr-1 flex-1">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Profile ID</label>
-                    <input type="text" x-model="profileModal.editing.id" :disabled="isProfileEditingExisting()" placeholder="e.g. work_drive" class="w-full bg-slate-950 border border-slate-700 disabled:opacity-60 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Display Name <span class="text-rose-400">*</span></label>
+                    <input type="text" x-model="profileModal.editing.name" placeholder="e.g. Work Google Drive" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Display Name</label>
-                    <input type="text" x-model="profileModal.editing.name" placeholder="e.g. Work Google Drive" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-semibold text-slate-300">Profile ID</label>
+                        <span x-show="!isProfileEditingExisting()" class="text-[10px] text-slate-400 font-mono">auto-generated</span>
+                        <span x-show="isProfileEditingExisting()" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">immutable</span>
+                    </div>
+                    <input type="text" x-model="profileModal.editing.id" :disabled="isProfileEditingExisting()" placeholder="e.g. prof_1a2b3c" class="w-full bg-slate-950 border border-slate-700 disabled:opacity-60 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Storage Remote</label>
-                    <input type="text" x-model="profileModal.editing.remote" placeholder="e.g. gdrive" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Storage Remote <span class="text-rose-400">*</span></label>
+                    <template x-if="hasDiscoveredRemotes()">
+                        <select x-model="profileModal.editing.remote" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                            <option value="" disabled>-- Select Storage Remote --</option>
+                            <template x-for="r in remotesData.remotes" :key="r.name">
+                                <option :value="r.name" x-text="r.name + (r.type ? ' (' + r.type + ')' : '')"></option>
+                            </template>
+                        </select>
+                    </template>
+                    <template x-if="!hasDiscoveredRemotes()">
+                        <input type="text" x-model="profileModal.editing.remote" placeholder="e.g. gdrive" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                    </template>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1">Remote Subpath (Optional)</label>

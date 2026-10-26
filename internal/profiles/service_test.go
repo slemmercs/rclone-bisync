@@ -2,7 +2,9 @@ package profiles
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
@@ -142,7 +144,35 @@ func TestProfileService_CRUDAndAudit(t *testing.T) {
 		t.Fatalf("expected ErrProfileNotFound for deleted profile, got %v", err)
 	}
 
-	// 10. Check audit logs
+	// 10. Auto-generated ID and directory provisioning on Create
+	nestedDir := filepath.Join(tmpDir, "auto_provision_dir", "sub")
+	autoProfile := &Profile{
+		Name:      "Auto Generated ID Profile",
+		Remote:    "gdrive",
+		LocalPath: nestedDir,
+		Enabled:   true,
+	}
+	autoCreated, err := svc.Create(ctx, autoProfile)
+	if err != nil {
+		t.Fatalf("failed to create profile with auto-id: %v", err)
+	}
+	if !strings.HasPrefix(autoCreated.ID, "prof_") {
+		t.Fatalf("expected auto-generated ID to start with prof_, got: %s", autoCreated.ID)
+	}
+	if fi, err := os.Stat(nestedDir); err != nil || !fi.IsDir() {
+		t.Fatalf("expected directory %s to be auto-provisioned, err: %v", nestedDir, err)
+	}
+
+	// 11. Auto-generated ID on Clone
+	clonedAuto, err := svc.Clone(ctx, autoCreated.ID, "", "Cloned Auto")
+	if err != nil {
+		t.Fatalf("failed to clone with empty target id: %v", err)
+	}
+	if !strings.HasPrefix(clonedAuto.ID, "prof_") || clonedAuto.ID == autoCreated.ID {
+		t.Fatalf("expected unique auto-generated clone ID, got: %s", clonedAuto.ID)
+	}
+
+	// 12. Check audit logs
 	if len(auditRec.events) < 5 {
 		t.Fatalf("expected at least 5 audit events, got %d", len(auditRec.events))
 	}
