@@ -225,16 +225,24 @@ func runLintAndSecurity(cfg Config) error {
 
 // runTests runs the Go test suite and verifies statement coverage against MinCoverage.
 func runTests(cfg Config) error {
+	coverMode := "count"
+	if cfg.RunRace {
+		// Go requires atomic counters when the race detector is active.
+		// count uses non-atomic increments which are unsafe under concurrent access.
+		coverMode = "atomic"
+	}
+
 	args := []string{
 		"test",
 		"-count=1",
-		"-covermode=count",
+		"-covermode=" + coverMode,  // ← derived, never conflicts with -race
 		"-coverpkg=./internal/...",
 		"-coverprofile=" + cfg.CoverageFile,
 	}
 	if cfg.RunRace {
 		args = append(args, "-race", "-shuffle=on")
 	}
+	
 	if cfg.Verbose {
 		args = append(args, "-v")
 	}
