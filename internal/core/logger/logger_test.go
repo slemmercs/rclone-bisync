@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -142,5 +143,42 @@ func TestLogger_ConcurrentWrites(t *testing.T) {
 	}
 	if len(data) == 0 {
 		t.Fatal("expected content in concurrent log")
+	}
+}
+
+func TestLogger_SecretRedactionInLogFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "redacted.log")
+
+	l, err := New(logPath, false)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+	defer l.Close()
+
+	// 1. slog entry with secrets
+	l.Info("running command with flag", "flag", "--rc-pass=secret_password_123")
+
+	// 2. RecordSyncRun entry with secrets
+	_ = l.RecordSyncRun(models.BisyncLogEntry{
+		Msg:    "sync completed for token ya29.secret_token_value",
+		RunID:  "run_redact_test",
+		Status: "SUCCESS",
+	})
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read log: %v", err)
+	}
+
+	content := string(data)
+	if strings.Contains(content, "secret_password_123") {
+		t.Errorf("expected secret password to be redacted from log, got: %s", content)
+	}
+	if strings.Contains(content, "ya29.secret_token_value") {
+		t.Errorf("expected oauth token to be redacted from log, got: %s", content)
+	}
+	if !strings.Contains(content, "********") {
+		t.Errorf("expected masked placeholder in log, got: %s", content)
 	}
 }

@@ -8,10 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 )
 
 // TailFile reads the last N whole lines from a file by seeking from EOF.
-// Returns lines in chronological order (oldest to newest among the last N lines).
+// Returns lines in chronological order (oldest to newest among the last N lines)
+// with credentials, tokens, and secrets masked.
 func TailFile(filepathStr string, linesCount int) []string {
 	// #nosec G304 - reading tail of configured log target
 	f, err := os.Open(filepath.Clean(filepathStr))
@@ -68,10 +71,21 @@ func TailFile(filepathStr string, linesCount int) []string {
 		lines[i], lines[j] = lines[j], lines[i]
 	}
 
+	// Apply secret redaction to every line
+	for i := range lines {
+		lines[i] = logger.MaskLine(lines[i])
+	}
+
 	return lines
 }
 
-// TailJSONLog reads log file, unwrapping nested JSON strings if present.
+// TailLines is an alias for TailFile, reading the last N whole lines with secrets masked.
+func TailLines(filepathStr string, linesCount int) []string {
+	return TailFile(filepathStr, linesCount)
+}
+
+// TailJSONLog reads log file, unwrapping nested JSON strings if present,
+// with credentials, tokens, and secrets masked.
 func TailJSONLog(filepathStr string, entriesCount int) []string {
 	rawLines := TailFile(filepathStr, entriesCount*2)
 	entries := make([]string, 0)
@@ -93,21 +107,21 @@ func TailJSONLog(filepathStr string, entriesCount int) []string {
 						var inner map[string]interface{}
 						if err := json.Unmarshal([]byte(subTrim), &inner); err == nil {
 							b, _ := json.Marshal(inner)
-							entries = append(entries, string(b))
+							entries = append(entries, logger.MaskLine(string(b)))
 							unwrappedAny = true
 						}
 					}
 				}
 				if !unwrappedAny {
 					b, _ := json.Marshal(parsed)
-					entries = append(entries, string(b))
+					entries = append(entries, logger.MaskLine(string(b)))
 				}
 			} else {
 				b, _ := json.Marshal(parsed)
-				entries = append(entries, string(b))
+				entries = append(entries, logger.MaskLine(string(b)))
 			}
 		} else {
-			entries = append(entries, lineStr)
+			entries = append(entries, logger.MaskLine(lineStr))
 		}
 	}
 
