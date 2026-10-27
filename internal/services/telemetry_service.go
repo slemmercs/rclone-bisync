@@ -350,6 +350,11 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 		daemonLogs = TailJSONLog(daemonLogPath, limit)
 	}
 
+	execStatus := "IDLE"
+	if isSync {
+		execStatus = "SYNCING"
+	}
+
 	return map[string]interface{}{
 		"daemon_health":      daemonData,
 		"notification_state": notifState,
@@ -358,6 +363,7 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 		"daemon_logs":        daemonLogs,
 		"config":             t.GetRuntimeConfig(),
 		"is_syncing":         isSync,
+		"execution_status":   execStatus,
 		"transfer_stats":     transferStats,
 	}
 }

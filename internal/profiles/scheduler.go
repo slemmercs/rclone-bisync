@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -35,6 +36,7 @@ type profileWorker struct {
 	triggerCh chan triggerReq
 	cancel    context.CancelFunc
 	running   sync.Mutex
+	isSyncing atomic.Bool
 }
 
 // Scheduler coordinates concurrent, flock-isolated goroutines for synchronization profiles.
@@ -138,6 +140,35 @@ func (s *Scheduler) TriggerSyncWithOptions(ctx context.Context, profileID string
 	}
 }
 
+// IsProfileRunning reports whether a profile is actively executing a synchronization cycle.
+func (s *Scheduler) IsProfileRunning(profileID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.stopped {
+		return false
+	}
+	w, exists := s.workers[profileID]
+	if !exists {
+		return false
+	}
+	return w.isSyncing.Load()
+}
+
+// IsAnyRunning reports whether any profile worker is actively synchronizing.
+func (s *Scheduler) IsAnyRunning() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.stopped {
+		return false
+	}
+	for _, w := range s.workers {
+		if w.isSyncing.Load() {
+			return true
+		}
+	}
+	return false
+}
+
 // RestartProfile updates or starts a profile worker reflecting new configuration.
 func (s *Scheduler) RestartProfile(p *Profile) {
 	s.mu.Lock()
@@ -222,7 +253,11 @@ func (s *Scheduler) executeProfileSync(
 		}
 		return
 	}
-	defer w.running.Unlock()
+	w.isSyncing.Store(true)
+	defer func() {
+		w.isSyncing.Store(false)
+		w.running.Unlock()
+	}()
 
 	prof, err := s.store.Get(profileID)
 	if err != nil || !prof.Enabled || prof.Archived {

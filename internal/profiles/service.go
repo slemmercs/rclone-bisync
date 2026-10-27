@@ -216,6 +216,22 @@ func (s *Service) TriggerSyncWithOptions(ctx context.Context, id string, opts Sy
 	return s.scheduler.TriggerSyncWithOptions(ctx, id, opts)
 }
 
+// IsAnySyncing reports whether any profile worker is actively executing a synchronization cycle.
+func (s *Service) IsAnySyncing() bool {
+	if s.scheduler == nil {
+		return false
+	}
+	return s.scheduler.IsAnyRunning()
+}
+
+// IsProfileSyncing reports whether the specified profile is actively executing a synchronization cycle.
+func (s *Service) IsProfileSyncing(id string) bool {
+	if s.scheduler == nil {
+		return false
+	}
+	return s.scheduler.IsProfileRunning(id)
+}
+
 // ListRemotes queries available remotes from Rclone RC.
 func (s *Service) ListRemotes(ctx context.Context) ([]string, error) {
 	if s.remotes == nil {

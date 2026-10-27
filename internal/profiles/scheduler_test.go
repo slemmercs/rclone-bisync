@@ -148,3 +148,114 @@ func TestScheduler_RestartAndStopProfile(t *testing.T) {
 		t.Fatalf("expected nil error after RestartProfile, got: %v", err)
 	}
 }
+
+func TestScheduler_RunningStateQueries(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewStore(filepath.Join(tmpDir, "p.json"), filepath.Join(tmpDir, "h.json"))
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	p1 := &Profile{
+		ID:        "prof-running-1",
+		Name:      "Running 1",
+		Remote:    "gdrive",
+		LocalPath: "/tmp",
+		Enabled:   true,
+		Schedule:  "manual",
+	}
+	p2 := &Profile{
+		ID:        "prof-idle-2",
+		Name:      "Idle 2",
+		Remote:    "onedrive",
+		LocalPath: "/tmp",
+		Enabled:   true,
+		Schedule:  "manual",
+	}
+	_ = store.Save(p1, "Init 1")
+	_ = store.Save(p2, "Init 2")
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+
+	executor := func(ctx context.Context, p *Profile, opts SyncOptions) error {
+		if p.ID == "prof-running-1" {
+			close(started)
+			<-release
+		}
+		return nil
+	}
+
+	sched := NewScheduler(store, executor)
+	svc := NewService(store, nil, sched)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := sched.Start(ctx); err != nil {
+		t.Fatalf("failed to start scheduler: %v", err)
+	}
+
+	// Initially idle
+	if sched.IsAnyRunning() {
+		t.Fatalf("expected IsAnyRunning = false initially")
+	}
+	if svc.IsProfileSyncing("prof-running-1") {
+		t.Fatalf("expected prof-running-1 idle initially")
+	}
+
+	doneCh := make(chan error, 1)
+	go func() {
+		doneCh <- sched.TriggerSync(context.Background(), "prof-running-1", false)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for sync to begin")
+	}
+
+	// Verify running state queries
+	if !sched.IsProfileRunning("prof-running-1") {
+		t.Errorf("expected IsProfileRunning(prof-running-1) = true")
+	}
+	if sched.IsProfileRunning("prof-idle-2") {
+		t.Errorf("expected IsProfileRunning(prof-idle-2) = false")
+	}
+	if !sched.IsAnyRunning() {
+		t.Errorf("expected IsAnyRunning = true")
+	}
+	if !svc.IsAnySyncing() {
+		t.Errorf("expected svc.IsAnySyncing = true")
+	}
+	if !svc.IsProfileSyncing("prof-running-1") {
+		t.Errorf("expected svc.IsProfileSyncing(prof-running-1) = true")
+	}
+	if svc.IsProfileSyncing("prof-idle-2") {
+		t.Errorf("expected svc.IsProfileSyncing(prof-idle-2) = false")
+	}
+
+	// Release and finish
+	close(release)
+	if err := <-doneCh; err != nil {
+		t.Fatalf("expected nil error from sync, got: %v", err)
+	}
+
+	if sched.IsProfileRunning("prof-running-1") {
+		t.Errorf("expected IsProfileRunning(prof-running-1) = false after completion")
+	}
+	if sched.IsAnyRunning() {
+		t.Errorf("expected IsAnyRunning = false after completion")
+	}
+	if svc.IsAnySyncing() {
+		t.Errorf("expected svc.IsAnySyncing = false after completion")
+	}
+
+	// Stopped scheduler
+	sched.Stop()
+	if sched.IsAnyRunning() {
+		t.Errorf("expected IsAnyRunning = false when stopped")
+	}
+	if sched.IsProfileRunning("prof-running-1") {
+		t.Errorf("expected IsProfileRunning = false when stopped")
+	}
+}

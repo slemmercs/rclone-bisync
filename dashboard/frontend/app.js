@@ -161,6 +161,23 @@ document.addEventListener("alpine:init", () => {
             }, 4500);
         },
 
+        isEngineSyncing() {
+            if (this.telemetry && (this.telemetry.is_syncing || this.telemetry.execution_status === "SYNCING")) {
+                return true;
+            }
+            if (this.activeProfile && this.activeProfile.state && this.activeProfile.state.status === "running") {
+                return true;
+            }
+            if (typeof this.isProfileSyncing === "function" && this.activeProfile && this.isProfileSyncing(this.activeProfile)) {
+                return true;
+            }
+            return false;
+        },
+
+        getEngineStatus() {
+            return this.isEngineSyncing() ? "SYNCING" : (this.telemetry?.execution_status || "IDLE");
+        },
+
         get daemonStatusText() {
             const status = this.telemetry.daemon_health?.status;
             return status === "healthy" ? "ONLINE" : "OFFLINE";
@@ -177,7 +194,7 @@ document.addEventListener("alpine:init", () => {
         },
 
         get executionStatusText() {
-            if (this.telemetry.is_syncing) return "SYNC IN PROGRESS";
+            if (this.isEngineSyncing()) return "SYNC IN PROGRESS";
             const notif = this.telemetry.notification_state || {};
             const successTs = notif.last_success_timestamp || 0;
             const errorTs = notif.last_error_timestamp || 0;
@@ -187,7 +204,7 @@ document.addEventListener("alpine:init", () => {
         },
 
         get executionStatusClass() {
-            if (this.telemetry.is_syncing) return "text-amber-400 font-bold tracking-wide";
+            if (this.isEngineSyncing()) return "text-amber-400 font-bold tracking-wide";
             const notif = this.telemetry.notification_state || {};
             const successTs = notif.last_success_timestamp || 0;
             const errorTs = notif.last_error_timestamp || 0;
@@ -257,6 +274,9 @@ document.addEventListener("alpine:init", () => {
                 this.telemetry = data;
                 updatePerformanceChart(data.metrics || []);
                 this.fetchReviewSession(false);
+                if (typeof this.fetchProfiles === "function") {
+                    this.fetchProfiles();
+                }
             } catch (err) {
                 console.error("Telemetry poll failed:", err);
             }

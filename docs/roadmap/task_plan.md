@@ -1,46 +1,42 @@
-# Task Plan: Profile-Driven Dual-Pane Explorer Integration, Safeguarded Local Path Resolution & Custom Deletion Modal
+# Task Plan: Phase 1 - Multi-Profile UI & Engine Cohesion
 
 ## Goal
-Integrate workspace profiles with the dual-pane file explorer (auto-binding, orientation swap, exclude rule visual dimming), safeguard local path auto-resolution, decouple configuration audit history, implement dark UI delete confirmation modal with trash SVG, and ensure all files adhere to the 400 LOC ceiling and Alpine safety checks.
+Stabilize the Multi-Profile Workspace Manager feature across frontend and backend: eliminate Alpine.js reactive null pointer exceptions on modal close, unify engine and telemetry sync status with profile scheduler workers, bind the cockpit engine badge to dynamic execution states, and forward profile exclude rules to the sync runner.
 
 ## Tasks
 
-- [x] Task 1: Audit Domain Decoupling & Exclude Patterns Backend Support
-  - **Scope**: `internal/profiles/model.go`, `internal/profiles/store.go`, `internal/profiles/service.go`, `internal/profiles/service_test.go`
+- [x] Task 1: Fix Alpine `profileModal.editing` Null Dereference on Close & Reset
+  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`
+  - **Verification**: `./scripts/check.sh templates` and browser check for clean console on modal open/close
+
+- [x] Task 2: Expose Scheduler Worker Execution State in Profiles Subsystem
+  - **Scope**: `internal/profiles/scheduler.go`, `internal/profiles/service.go`, `internal/profiles/scheduler_test.go`
   - **Verification**: `go test -count=1 ./internal/profiles/...`
 
-- [x] Task 2: Home Directory Detection & Path Safeguarding
-  - **Scope**: `internal/profiles/service.go`, `internal/server/handlers_profiles.go`, `internal/server/handlers_profiles_test.go`, `internal/server/server.go`
+- [x] Task 3: Unify Telemetry Sync Status with Profile Scheduler Workers
+  - **Scope**: `internal/server/handlers_telemetry.go`, `internal/server/server.go`, `internal/server/handlers_telemetry_test.go`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [x] Task 3: Profile Management UI, Trash SVG & Delete Confirmation Modal
-  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`
-  - **Verification**: `./scripts/check.sh templates`
+- [x] Task 4: Bind Cockpit Status Badge to Active Profile & Engine State
+  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
-- [x] Task 4: Explorer Integration, Orientation Swap & Exclude Pattern Dimming
-  - **Scope**: `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/partials/view_explorer.html`
-  - **Verification**: `./scripts/check.sh loc` and `./scripts/check.sh templates`
+- [x] Task 5: Forward Profile Exclude Patterns to SyncRunner CLI Payload
+  - **Scope**: `internal/server/server.go`, `internal/core/compiler/compiler.go`, `internal/server/handlers_profiles_test.go`
+  - **Verification**: `go test -count=1 ./internal/server/...` and `go test -count=1 ./internal/core/compiler/...`
 
-- [x] Task 5: Pre-Flight Verification & LOC Audit Compliance
-  - **Scope**: Entire codebase
+- [x] Task 6: Pre-Flight Quality Gate Audit (LOC, Lints, Tests, Leaks)
+  - **Scope**: Entire repository
   - **Verification**: `./scripts/check.sh all`
-
-- [x] Task 6: Active Profile Local Path Routing in Dual-Pane Explorer & Human-Friendly Profile Names in Audit Ledger
-  - **Scope**: `internal/models/api.go`, `internal/services/explorer_service.go`, `internal/services/explorer_ops.go`, `internal/services/canary_service.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_audit.go`, `internal/audit/ledger.go`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/audit.js`, `dashboard/frontend/partials/view_audit.html`
-  - **Verification**: `go test -count=1 ./internal/...` and `./scripts/check.sh all`
-
-- [x] Task 7: Fix File Transfer Target Destination Formatting & NormalizeFs Redundant Colon
-  - **Scope**: `internal/core/client/fs_ops.go`, `internal/core/client/client_test.go`, `internal/server/handlers_explorer_test.go`
-  - **Verification**: `go test -count=1 ./...` and `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-26: Created branch `feat/profile-explorer-integration-and-modal` and initialized plan from implementation_plan.md.
-- 2026-10-26: Completed Task 1 (Decoupled profile lifecycle events into profiles_history.json with Action discriminator, added ExcludePatterns to Profile model).
-- 2026-10-26: Completed Task 2 (Added home_dir endpoint and path safeguarding for outside-home directories).
-- 2026-10-26: Completed Task 3 (Implemented Lucide trash SVG, dark confirmation dialog, exclude input, and isProfileDeleting helper).
-- 2026-10-26: Completed Task 4 (Integrated profile target auto-binding in explorer, orientation swap button ⇄ with array-destructuring state swap, and exclude-pattern visual dimming/badge).
-- 2026-10-26: Completed Task 5 (Optimized LOC in explorer.js, explorer_actions.js, and view_explorer.html ensuring strict adherence to the 400 LOC ceiling; verified all 6 quality stages pass via `./scripts/check.sh all`).
-- 2026-10-26: Completed Task 6 (Plumbed profile local path resolution to explorer browse/canary/copy/delete handlers and services; bound Alpine active profile ID to all explorer fetch requests; enriched immutable audit ledger with friendly profile names and profile filter autocomplete).
-- 2026-10-26: Completed Task 7 (Fixed NormalizeFs in client/fs_ops.go to avoid appending redundant trailing colon to remote paths containing subdirectories, e.g. onedrive:Documents, and added unit tests in client_test.go and handlers_explorer_test.go; rebuilt binary and restarted dashboard).
+- 2026-10-27: Initialized Phase 1 Task Plan from four-phase implementation plan.
+- 2026-10-27: Completed Task 1. Replaced modal form conditional mount with `<template x-if>` and added `createDefaultProfile()` fallback to prevent Alpine.js reactive null dereference errors.
+- 2026-10-27: Completed Task 2. Added `atomic.Bool` sync state tracking in profile workers and exposed `IsProfileRunning(id)` and `IsAnyRunning()` in Scheduler and ProfileService.
+- 2026-10-27: Completed Task 3. Integrated ProfileService sync state into `handleTelemetry` and added `execution_status: SYNCING | IDLE` in `TelemetryService`. Verified with unit test in `handlers_telemetry_test.go`.
+- 2026-10-27: Completed Task 4. Bound cockpit engine status badge to dynamic profile and engine syncing states in `app.js` and `view_telemetry.html`.
+- 2026-10-27: Completed Task 5. Added `--exclude` pattern mapping in `compiler.go` (`_filter["ExcludeRule"]`) and forwarded profile exclude patterns in `server.go` executor. Verified with end-to-end unit test `TestProfiles_ExecutorExcludeRulesForwarding`.
+- 2026-10-27: Completed Task 6. Verified entire repository with all 6 quality gate checks passing via `./scripts/check.sh all`. Built binary `bisync-hub`.
+
 

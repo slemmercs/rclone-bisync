@@ -134,9 +134,30 @@ window.ProfilesModule = {
         }
     },
 
+    createDefaultProfile() {
+        const randomHex = Math.random().toString(16).substring(2, 8);
+        const remotes = this.remotesData && this.remotesData.remotes;
+        const defaultRemote = (remotes && remotes.length > 0) ? remotes[0].name : "";
+        const defaultBase = (this.profilesData && this.profilesData.homeDir) || "~";
+        return {
+            id: `prof_${randomHex}`,
+            name: "",
+            remote: defaultRemote,
+            remote_path: "",
+            local_path: defaultRemote ? `${defaultBase}/${defaultRemote}` : `${defaultBase}/sync`,
+            exclude_patterns: [".git/**", "*.tmp", ".DS_Store"],
+            schedule: "manual",
+            review_mode: "deletions",
+            notification_pref: "all",
+            enabled: true,
+            safety: { delete_threshold_pct: 10.0, failure_threshold: 3, canary_validation: true }
+        };
+    },
+
     closeProfilesModal() {
         this.profileModal.show = false;
-        this.profileModal.editing = null;
+        this.profileModal.editing = this.createDefaultProfile();
+        this.profileModal.tab = "list";
         this.profileModal.isNew = false;
         this.profileModal.history = [];
         this.profileModal.showClonePrompt = false;
@@ -146,29 +167,7 @@ window.ProfilesModule = {
     startNewProfile() {
         this.profileModal.isNew = true;
         this.profileModal.error = null;
-        const randomHex = Math.random().toString(16).substring(2, 8);
-        const defaultRemote = (this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0)
-            ? this.remotesData.remotes[0].name
-            : "";
-        const defaultBase = this.profilesData.homeDir || "~";
-        const defaultLocal = defaultRemote ? `${defaultBase}/${defaultRemote}` : `${defaultBase}/sync`;
-        this.profileModal.editing = {
-            id: `prof_${randomHex}`,
-            name: "",
-            remote: defaultRemote,
-            remote_path: "",
-            local_path: defaultLocal,
-            exclude_patterns: [".git/**", "*.tmp", ".DS_Store"],
-            schedule: "manual",
-            review_mode: "deletions",
-            notification_pref: "all",
-            enabled: true,
-            safety: {
-                delete_threshold_pct: 10.0,
-                failure_threshold: 3,
-                canary_validation: true
-            }
-        };
+        this.profileModal.editing = this.createDefaultProfile();
         this.profileModal.excludePatternsInput = ".git/**, *.tmp, .DS_Store";
         this.profileModal.tab = "edit";
     },

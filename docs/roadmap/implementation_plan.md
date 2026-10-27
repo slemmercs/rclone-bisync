@@ -1,63 +1,92 @@
-# Implementation Plan: Profile-Driven Dual-Pane Explorer Integration, Safeguarded Local Path Resolution & Custom Deletion Modal
+# Implementation Plan: Four-Phase Multi-Profile Stabilization & Architecture Evolution
 
-## Proposed Changes
+This plan establishes the architectural roadmap across all four strategic phases:
+- **Phase 1: Multi-Profile UI & Engine Cohesion** (Active Execution Scope)
+- **Phase 2: Core Refactoring & Subsystem Consolidation**
+- **Phase 3: Operational Flags & Profile Schema Alignment**
+- **Phase 4: Dashboard UI Evolution & Config Flow**
 
-Integrate workspace profiles seamlessly with the dual-pane file explorer, safeguard local directory provisioning with home directory confinement, decouple configuration lifecycle events from file audit records, and enhance the dashboard UI with exclude-pattern visual dimming, pane orientation swapping, and a styled custom profile deletion confirmation modal.
+---
+
+## 1. Phase 1: Multi-Profile UI & Engine Cohesion (Active Scope)
+
+### Proposed Changes
+Resolve Alpine.js reactive null pointer exceptions on profile modal close, unify telemetry and sync status across multi-profile schedulers and single-tenant runners, bind cockpit engine badges to the active profile's execution state, and forward profile-specific exclude patterns to the underlying Rclone sync runner.
 
 ### Affected Components & Packages
-
-- `internal/profiles/model.go`: Add `ExcludePatterns []string` to `Profile` model and `ProfileHistorySnapshot`.
-- `internal/profiles/store.go`: Support `ExcludePatterns` in JSON serialization and history persistence.
-- `internal/profiles/service.go`:
-  - Decouple audit domains: profile lifecycle operations record strictly into `profiles_history.json` with discriminator actions (`CREATED`, `UPDATED`, `CLONED`, `ROLLED_BACK`), reserving file audit ledger exclusively for file transfer operations.
-  - Implement path expansion (`~`) and home directory auto-provisioning (`os.MkdirAll` for paths within `$HOME` or temporary directory).
-  - Enforce safeguarding against OS permission errors by requiring non-home paths to exist prior to profile creation/update.
-- `internal/server/handlers_profiles.go`: Return detected user `home_dir` in `GET /api/profiles` payload.
 - `dashboard/frontend/js/profiles.js`:
-  - Store `homeDir` and compute initial profile local path defaults (`${homeDir}/${remoteName || 'sync'}`).
-  - Provide `isProfileDeleting()` helper for Alpine safety compliance.
-  - Replace native browser `confirm()` with custom deletion confirmation modal state and methods (`promptDeleteProfile`, `cancelDeleteProfile`, `executeDeleteProfile`).
-  - Support comma-separated exclude patterns in editing state.
+  - Introduce `createDefaultProfile()` helper.
+  - Reset `profileModal.editing` to safe default object in `closeProfilesModal()`.
 - `dashboard/frontend/partials/modals/modal_profiles.html`:
-  - Replace broken trash icon with complete Lucide trash SVG.
-  - Add comma-separated exclude pattern input under directory settings.
-  - Render action badges (`CREATED`, `UPDATED`, `CLONED`, `ROLLED_BACK`) in history view.
-  - Embed native dark-themed profile deletion confirmation dialog.
-- `dashboard/frontend/js/explorer.js`:
-  - Bind left/right panes to active profile target and paths.
-  - Implement `swapExplorerPanes()` toggle (`⇄`) and track swapped state.
-  - Implement `isItemExcluded(item)` matching profile glob patterns.
-  - Refactor into modular helpers to adhere to the 400 LOC ceiling.
-- `dashboard/frontend/partials/view_explorer.html`:
-  - Add active profile indicator and `⇄ Swap Panes` button in cockpit toolbar.
-  - Dynamically display `Local` vs `Remote` pane badges and paths based on swapped state.
-  - Apply `isItemExcluded(item)` visual dimming and `EXCLUDED` badge to filtered files/folders.
-  - Modularize partials if needed to stay below the 400 LOC ceiling.
-- `dashboard/frontend/js/review.js`: Integrate `isItemExcluded(item)` into row classification.
+  - Refactor Tab 2 to use `<template x-if="profileModal.tab === 'edit'">` for DOM detachment.
+  - Add null-safe bindings (`profileModal.editing?.name`, `profileModal.editing?.id`).
+- `internal/profiles/scheduler.go`:
+  - Expose `IsAnyRunning() bool` and `IsProfileRunning(profileID string) bool`.
+- `internal/profiles/service.go`:
+  - Add delegate methods `IsAnySyncing() bool` and `IsProfileSyncing(id string) bool`.
+- `internal/server/handlers_telemetry.go`:
+  - Return `"execution_status": "SYNCING" | "IDLE"` in `/api/telemetry` payload.
+  - Return `is_syncing: true` if global lock acquired or any profile scheduler worker running.
+- `dashboard/frontend/partials/view_telemetry.html`:
+  - Update status badge to evaluate `telemetry.execution_status` and active profile state.
+- `internal/server/server.go`:
+  - In `executor`, map `p.ExcludePatterns` into `profCfg.RcloneCommonArgs` as `--exclude` flags.
 
 ### Technical Strategy & Data Flow
+1. **Alpine State Safety**:
+   - `createDefaultProfile()` initializes non-null defaults for all bound properties.
+   - On modal close, `editing` resets to defaults, eliminating `TypeError: Cannot read properties of null`.
+2. **Telemetry & Concurrency Harmonization**:
+   - Scheduler tracks active worker sync runs.
+   - `/api/telemetry` checks both single-tenant lock and active profile workers.
+3. **Exclude Rule Forwarding**:
+   - Profile `ExcludePatterns` are appended to `profCfg.RcloneCommonArgs` before running `SyncRunner`.
 
-- **Path Resolution & Safeguarding**:
-  - `filepath.Clean` and `os.UserHomeDir` normalize paths with `~`.
-  - Path confinement check tests if path has prefix of `homeDir` or `os.TempDir()`. If yes, auto-create directory with `0755`. If outside, check if directory exists; if not, return actionable error message instructing manual creation.
-- **Audit Domain Decoupling**:
-  - Profile mutations write strictly to `profiles_history.json` with an explicit `Action` discriminator. The `AuditLedger` remains strictly dedicated to file synchronization actions.
-- **Dual-Pane Binding & Swapping**:
-  - When profile changes, explorer rebinds Pane A and Pane B to the active profile's local and remote targets.
-  - Swapping panes switches target, current path, and items between left and right without reloading.
-- **LOC Compliance**:
-  - Strictly maintain Go, JS, and HTML files below 400 lines by modularizing code or extracting sub-partials if necessary.
+---
 
-### Safety & Error Handling
+## 2. Phase 2: Core Refactoring & Subsystem Consolidation
 
-- **Alpine Template Safety**: Ensure all `:disabled` and `:class` bindings avoid unsafe optional chaining on dotted properties by using Alpine component methods (e.g., `isProfileDeleting()`).
-- **Canary File Preservation**: Never treat canary file `RCLONE_TEST` as an excluded file; preserve canary touch and inspection operations.
-- **No Path Traversal**: Restrict local file exploration within permitted directories and prevent accidental root filesystem modifications.
+### Proposed Changes
+Introduce central Dependency Injection (DI) Container (`internal/app/container.go`), consolidate `internal/review/` domain into `internal/engine/review/`, and implement a recursive logger secret-redaction masking engine.
+
+### Affected Components & Packages
+- `internal/app/container.go`: Central application container wiring services.
+- `internal/engine/review/`: Relocate review session manager and diff calculator.
+- `internal/core/logger/redact.go`: Stream/line secret redactor for logs.
+
+---
+
+## 3. Phase 3: Operational Flags & Profile Schema Alignment
+
+### Proposed Changes
+Implement 3-tier operational flags architecture (`docs/design/bisync_operational_flags.md`), flag inheritance (`Profile Override > Global Default > Hardcoded Fallback`), and security blocklist validation.
+
+### Affected Components & Packages
+- `internal/config/dto.go`: Operational flags schema and DTO definitions.
+- `internal/config/inheritance.go`: Flag inheritance resolver engine.
+- `internal/config/validator.go`: Prohibited flag blocklist and POSIX shlex sanitizer.
+
+---
+
+## 4. Phase 4: Dashboard UI Evolution & Config Flow
+
+### Proposed Changes
+Deliver profile-first Cockpit UI redesign: quick-switcher in main navigation, visual flag and safety policy editor with inheritance badges, and step-by-step profile onboarding wizard.
+
+### Affected Components & Packages
+- `dashboard/frontend/partials/header.html` & `view_telemetry.html`: Profile quick-switcher.
+- `dashboard/frontend/partials/modals/modal_profiles.html`: Visual flag editor and inheritance indicators.
+- `dashboard/frontend/js/profiles.js` & `app.js`: Onboarding state machine.
+
+---
 
 ## Verification Plan
 
-- `go test -count=1 ./internal/profiles/...`: Verify path resolution, auto-provisioning, history actions, and validation logic.
-- `go test -count=1 ./internal/server/...`: Verify `GET /api/profiles` returns `home_dir` and exclude patterns.
-- `./scripts/check.sh all`: Run full pre-flight verification across all stages (vet, test, loc, template safety, formatting).
-- Browser / smoke check: Test profile creation, deletion modal, pane swap, and exclude dimming.
+### Phase 1 Verification
+- `go test -count=1 ./internal/profiles/...`: Verify scheduler running status checks.
+- `go test -count=1 ./internal/server/...`: Verify `/api/telemetry` reports `execution_status` and exclude patterns forward to runner.
+- `./scripts/check.sh templates`: Verify Alpine.js template safety.
+- `./scripts/check.sh loc`: Verify LOC constraints (<= 400 lines).
+- `./scripts/check.sh all`: Full 8-stage pre-flight quality check.
+
 

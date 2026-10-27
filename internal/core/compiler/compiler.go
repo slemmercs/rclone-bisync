@@ -84,10 +84,22 @@ func CompileBisyncPayload(
 	}
 	engineConfig := make(map[string]interface{})
 	var backendOptions []string
+	var excludeRules []string
 
 	i := 0
 	for i < len(argsList) {
 		arg := argsList[i]
+		if arg == "--exclude" {
+			i++
+			if i < len(argsList) {
+				pattern := strings.TrimSpace(argsList[i])
+				if pattern != "" {
+					excludeRules = append(excludeRules, pattern)
+				}
+			}
+			i++
+			continue
+		}
 		if mapping, found := CLIToRCMap[arg]; found {
 			switch mapping.Type {
 			case TypeIgnore:
@@ -169,6 +181,12 @@ func CompileBisyncPayload(
 	if ff, ok := bisyncParams["filtersFile"].(string); ok && ff != "" {
 		if abs, err := filepath.Abs(ff); err == nil {
 			bisyncParams["filtersFile"] = abs
+		}
+	}
+
+	if len(excludeRules) > 0 {
+		bisyncParams["_filter"] = map[string]interface{}{
+			"ExcludeRule": excludeRules,
 		}
 	}
 

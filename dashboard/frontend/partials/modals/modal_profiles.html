@@ -96,7 +96,8 @@
             </template>
         </div>
         <!-- Tab 2: Create / Edit Form -->
-        <div x-show="profileModal.tab === 'edit' && profileModal.editing" class="overflow-y-auto space-y-3.5 pr-1 flex-1">
+        <template x-if="profileModal.tab === 'edit' && profileModal.editing">
+            <div class="overflow-y-auto space-y-3.5 pr-1 flex-1">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1">Display Name <span class="text-rose-400">*</span></label>
@@ -177,31 +178,34 @@
                 </button>
                 <button @click="profileModal.tab = 'list'" class="px-3 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs">Cancel</button>
             </div>
-        </div>
+            </div>
+        </template>
 
         <!-- Tab 3: History & Rollback -->
-        <div x-show="profileModal.tab === 'history'" class="overflow-y-auto space-y-3 pr-1 flex-1">
-            <div class="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800">
-                <span>Version History for <span class="font-bold text-white" x-text="profileModal.editing?.name"></span></span>
-                <button @click="profileModal.tab = 'list'" class="text-indigo-400 hover:text-indigo-300">&larr; Back to Profiles</button>
-            </div>
-            <template x-if="profileModal.historyLoading">
-                <div class="text-center py-6 text-slate-500 text-xs">Loading history snapshots...</div>
-            </template>
-            <template x-for="h in profileModal.history" :key="h.version">
-                <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="font-mono font-bold text-xs text-indigo-400" x-text="'Version ' + h.version"></span>
-                            <span x-show="h.action" class="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 uppercase tracking-wider" x-text="h.action"></span>
-                            <span class="text-[10px] text-slate-500" x-text="new Date(h.timestamp).toLocaleString()"></span>
-                        </div>
-                        <p class="text-xs text-slate-300" x-text="h.reason || 'Configuration updated'"></p>
-                    </div>
-                    <button @click="rollbackProfile(profileModal.editing.id, h.version)" :disabled="isProfileSaving()" class="px-2.5 py-1 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium">Rollback</button>
+        <template x-if="profileModal.tab === 'history'">
+            <div class="overflow-y-auto space-y-3 pr-1 flex-1">
+                <div class="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800">
+                    <span>Version History for <span class="font-bold text-white" x-text="profileModal.editing?.name"></span></span>
+                    <button @click="profileModal.tab = 'list'" class="text-indigo-400 hover:text-indigo-300">&larr; Back to Profiles</button>
                 </div>
-            </template>
-        </div>
+                <template x-if="profileModal.historyLoading">
+                    <div class="text-center py-6 text-slate-500 text-xs">Loading history snapshots...</div>
+                </template>
+                <template x-for="h in profileModal.history" :key="h.version">
+                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-bold text-xs text-indigo-400" x-text="'Version ' + h.version"></span>
+                                <span x-show="h.action" class="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 uppercase tracking-wider" x-text="h.action"></span>
+                                <span class="text-[10px] text-slate-500" x-text="new Date(h.timestamp).toLocaleString()"></span>
+                            </div>
+                            <p class="text-xs text-slate-300" x-text="h.reason || 'Configuration updated'"></p>
+                        </div>
+                        <button @click="rollbackProfile(profileModal.editing?.id, h.version)" :disabled="isProfileSaving()" class="px-2.5 py-1 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium">Rollback</button>
+                    </div>
+                </template>
+            </div>
+        </template>
     </div>
 
     <!-- Native Profile Deletion Confirmation Modal -->

@@ -60,6 +60,14 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 	var rcClient *client.RcloneClient
 	if syncService != nil {
 		rcClient = syncService.Client
+	} else if cfg != nil && cfg.RCAPIURL != "" {
+		user := ""
+		pass := ""
+		if cfg.RCAuthEnabled {
+			user = cfg.RCUser
+			pass = cfg.RCPass
+		}
+		rcClient = client.NewRcloneClient(cfg.RCAPIURL, user, pass)
 	}
 	var telemetrySvc *services.TelemetryService
 	var canarySvc *services.CanaryService
@@ -106,6 +114,16 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 				profCfg.RemotePath = p.FullRemoteTarget()
 				profCfg.LocalPath = p.LocalPath
 				profCfg.LockFile = p.LockFilePath()
+				if len(p.ExcludePatterns) > 0 {
+					commonArgs := append([]string{}, profCfg.RcloneCommonArgs...)
+					for _, pattern := range p.ExcludePatterns {
+						pattern = strings.TrimSpace(pattern)
+						if pattern != "" {
+							commonArgs = append(commonArgs, "--exclude", pattern)
+						}
+					}
+					profCfg.RcloneCommonArgs = commonArgs
+				}
 				syncRunner := runner.NewSyncRunner(&profCfg)
 				origin := "scheduler"
 				if opts.Force || opts.Resync || opts.DryRun {

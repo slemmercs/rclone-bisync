@@ -117,6 +117,9 @@ func (s *Server) handleTelemetry(w http.ResponseWriter, r *http.Request) {
 	if s.SyncService != nil {
 		isSyncing = s.SyncService.IsSyncing()
 	}
+	if !isSyncing && s.ProfileService != nil {
+		isSyncing = s.ProfileService.IsAnySyncing()
+	}
 	payload := s.TelemetryService.GetTelemetryPayload(r.Context(), isSyncing, limit)
 	writeJSON(w, http.StatusOK, payload)
 }
