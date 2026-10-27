@@ -307,22 +307,30 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 		}
 	}
 
+	var matchedRoot string
 	for _, root := range safeRoots {
 		rootPrefix := root + string(filepath.Separator)
 		if cleanPath == root || strings.HasPrefix(cleanPath, rootPrefix) {
-			rel, err := filepath.Rel(root, cleanPath)
-			if err == nil && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel) {
-				safePath := filepath.Join(root, rel)
-				if !strings.HasPrefix(safePath, rootPrefix) && safePath != root {
-					continue
-				}
-				if err := os.MkdirAll(safePath, 0750); err != nil {
-					return "", fmt.Errorf("failed to create local path %q: %w", safePath, err)
-				}
-				return safePath, nil
-			}
+			matchedRoot = root
+			break
 		}
 	}
+	if matchedRoot == "" {
+		return "", fmt.Errorf("local path %q must reside within your home directory, /tmp, /mnt, or /media", cleanPath)
+	}
 
-	return "", fmt.Errorf("local path %q must reside within your home directory, /tmp, /mnt, or /media", cleanPath)
+	rootPrefix := matchedRoot + string(filepath.Separator)
+	rel, err := filepath.Rel(matchedRoot, cleanPath)
+	if err != nil || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("path traversal forbidden: %q", cleanPath)
+	}
+	safePath := filepath.Join(matchedRoot, rel)
+	if !strings.HasPrefix(safePath, rootPrefix) && safePath != matchedRoot {
+		return "", fmt.Errorf("path traversal forbidden: %q", cleanPath)
+	}
+
+	if err := os.MkdirAll(safePath, 0750); err != nil {
+		return "", fmt.Errorf("failed to create local path %q: %w", safePath, err)
+	}
+	return safePath, nil
 }
