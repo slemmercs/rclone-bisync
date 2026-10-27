@@ -84,6 +84,7 @@ type Profile struct {
 	ReviewMode       ReviewMode             `json:"review_mode"`
 	NotificationPref NotificationPreference `json:"notification_pref"`
 	Safety           SafetySettings         `json:"safety"`
+	ExcludePatterns  []string               `json:"exclude_patterns,omitempty"`
 	Tags             []string               `json:"tags,omitempty"`
 	Version          int                    `json:"version"`
 	CreatedAt        time.Time              `json:"created_at"`
@@ -95,6 +96,7 @@ type Profile struct {
 type ProfileVersion struct {
 	Version   int       `json:"version"`
 	ProfileID string    `json:"profile_id"`
+	Action    string    `json:"action,omitempty"`
 	Timestamp time.Time `json:"timestamp"`
 	Reason    string    `json:"reason"`
 	Snapshot  Profile   `json:"snapshot"`

@@ -153,6 +153,9 @@ func (s *Server) handleRemotesAuthAudit(w http.ResponseWriter, r *http.Request) 
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			if parsed > 500 {
+				parsed = 500
+			}
 			limit = parsed
 		}
 	}

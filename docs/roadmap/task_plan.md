@@ -1,48 +1,64 @@
-# Task Plan: Architecture Principles Harmonization, ADR Foundation & Local Tooling Hygiene
+# Task Plan: Phase 1 - Multi-Profile UI & Engine Cohesion
 
 ## Goal
-Harmonize architecture principles across the project, establish the ADR directory structure with foundational records (ADR-001 through ADR-005), and untrack local developer tool configurations (`.clinerules`, `.clineignore`) from Git tracking.
+Stabilize the Multi-Profile Workspace Manager feature across frontend and backend: eliminate Alpine.js reactive null pointer exceptions on modal close, unify engine and telemetry sync status with profile scheduler workers, bind the cockpit engine badge to dynamic execution states, and forward profile exclude rules to the sync runner.
 
 ## Tasks
 
-- [x] Task 1: Untrack Local Developer Tool Configurations
-  - **Scope**: `.clinerules`, `.clineignore`, `.gitignore`
-  - **Verification**: `git status` verifies `.clinerules` and `.clineignore` are untracked and ignored while preserved locally
+- [x] Task 1: Fix Alpine `profileModal.editing` Null Dereference on Close & Reset
+  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`
+  - **Verification**: `./scripts/check.sh templates` and browser check for clean console on modal open/close
 
-- [x] Task 2: Harmonize Principles Documents
-  - **Scope**: `docs/architecture/CONTRIBUTOR_WORKFLOW.md`, `docs/architecture/ENGINEERING_PRINCIPLES.md`, `docs/architecture/PRODUCT_PRINCIPLES.md`, `docs/architecture/ARCHITECTURE_PRINCIPLES.md`
-  - **Verification**: Markdown link integrity and consistency check
+- [x] Task 2: Expose Scheduler Worker Execution State in Profiles Subsystem
+  - **Scope**: `internal/profiles/scheduler.go`, `internal/profiles/service.go`, `internal/profiles/scheduler_test.go`
+  - **Verification**: `go test -count=1 ./internal/profiles/...`
 
+- [x] Task 3: Unify Telemetry Sync Status with Profile Scheduler Workers
+  - **Scope**: `internal/server/handlers_telemetry.go`, `internal/server/server.go`, `internal/server/handlers_telemetry_test.go`
+  - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [x] Task 3: Establish ADR Registry & Standardize Template
-  - **Scope**: `docs/architecture/adr/README.md`, `docs/architecture/adr/ADR-000-Template.md`, remove `docs/architecture/adr/adr-xxx_title_template.md`
-  - **Verification**: ADR registry links and template structure check
+- [x] Task 4: Bind Cockpit Status Badge to Active Profile & Engine State
+  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
+- [x] Task 5: Forward Profile Exclude Patterns to SyncRunner CLI Payload
+  - **Scope**: `internal/server/server.go`, `internal/core/compiler/compiler.go`, `internal/server/handlers_profiles_test.go`
+  - **Verification**: `go test -count=1 ./internal/server/...` and `go test -count=1 ./internal/core/compiler/...`
 
-- [x] Task 4: Author Foundational ADRs (ADR-001 through ADR-005)
-  - **Scope**: `docs/architecture/adr/ADR-001-Profiles-As-Primary-User-Object.md`, `docs/architecture/adr/ADR-002-Rclone-As-Source-Of-Truth.md`, `docs/architecture/adr/ADR-003-Human-In-The-Loop-Review.md`, `docs/architecture/adr/ADR-004-Immutable-Audit-Ledger.md`, `docs/architecture/adr/ADR-005-Local-First-Architecture.md`
-  - **Verification**: Link and format verification across all ADRs
+- [x] Task 6: Pre-Flight Quality Gate Audit (LOC, Lints, Tests, Leaks)
+  - **Scope**: Entire repository
+  - **Verification**: `./scripts/check.sh all`
 
+- [x] Task 7: Replace Browser Popups with Styled Confirmation Modal
+  - **Scope**: `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/review.js`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
-- [x] Task 5: Update Contributor Guidelines & PR Templates
-  - **Scope**: `CONTRIBUTING.md`, `.github/PULL_REQUEST_TEMPLATE.md`
-  - **Verification**: Verify all referenced documentation URLs and checklists
+- [x] Task 8: Dynamic Active Remote Badge & Topology Binding to Active Profile
+  - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/explorer.js`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
+- [x] Task 9: Forward Exclude Patterns to Directory Copy (/api/browse/copy & CopyDir)
+  - **Scope**: `internal/core/client/fs_ops.go`, `internal/services/explorer_ops.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_explorer_test.go`
+  - **Verification**: `go test -count=1 ./internal/server/...` and `go test -count=1 ./internal/core/client/...` and `./scripts/check.sh all`
 
-- [x] Task 6: Markdown Link Integrity & Git Hygiene Check
-  - **Scope**: Relative links across `docs/architecture/`, `docs/architecture/adr/`, `CONTRIBUTING.md`, and `.gitignore`
-  - **Verification**: Link existence check and `git status`
+- [x] Task 10: Resolve CodeQL Path Injection Alerts (#17, #19, #20, #21)
+  - **Scope**: `internal/server/handlers_profiles.go`, `internal/server/handlers_explorer.go`, `internal/profiles/service.go`, `internal/services/explorer_jail.go`, `internal/profiles/service_test.go`, `internal/services/explorer_service_test.go`
+  - **Verification**: `go test -count=1 ./internal/...` and `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-26: Initialized plan from implementation_plan.md on branch `chore/architecture-principles`.
-- 2026-10-26: Completed Task 1 (Untracked .clinerules and .clineignore from git index and added to .gitignore).
-- 2026-10-26: Completed Task 2 (Harmonized CONTRIBUTOR_WORKFLOW, ENGINEERING_PRINCIPLES, PRODUCT_PRINCIPLES, and ARCHITECTURE_PRINCIPLES).
-- 2026-10-26: Completed Task 3 (Created ADR registry README.md and standardized ADR-000-Template.md).
-- 2026-10-26: Completed Task 4 (Authored foundational ADRs: ADR-001 through ADR-005).
-- 2026-10-26: Completed Task 5 (Updated CONTRIBUTING.md and PULL_REQUEST_TEMPLATE.md).
-- 2026-10-26: Completed Task 6 (Verified markdown link integrity across all documents and verified git status).
-- 2026-10-26: Merged fix/e2e-headless-chrome-ci-flakiness (hardened headless Chrome allocator flags, dynamic CI timeout margin, and console error diagnostics in tests/e2e/dashboard_smoke_test.go).
+- 2026-10-27: Completed Task 10 resolving CodeQL path injection alerts (#17, #19, #20, #21) via boundary relative traversal validation, confined safe roots ($HOME, /tmp, /mnt, /media), and explicit prefix barriers preceding filesystem sinks in explorer and profile services. All 6 quality gate stages passed clean.
 
+- 2026-10-27: Completed Task 9 forwarding profile exclude rules to directory copy in Rclone RC (`_filter.ExcludeRule`), preventing unauthenticated Microsoft Personal Vault listing errors when syncing remote OneDrive roots.
+
+- 2026-10-27: Initialized Phase 1 Task Plan from four-phase implementation plan.
+- 2026-10-27: Completed Task 1. Replaced modal form conditional mount with `<template x-if>` and added `createDefaultProfile()` fallback to prevent Alpine.js reactive null dereference errors.
+- 2026-10-27: Completed Task 2. Added `atomic.Bool` sync state tracking in profile workers and exposed `IsProfileRunning(id)` and `IsAnyRunning()` in Scheduler and ProfileService.
+- 2026-10-27: Completed Task 3. Integrated ProfileService sync state into `handleTelemetry` and added `execution_status: SYNCING | IDLE` in `TelemetryService`. Verified with unit test in `handlers_telemetry_test.go`.
+- 2026-10-27: Completed Task 4. Bound cockpit engine status badge to dynamic profile and engine syncing states in `app.js` and `view_telemetry.html`.
+- 2026-10-27: Completed Task 5. Added `--exclude` pattern mapping in `compiler.go` (`_filter["ExcludeRule"]`) and forwarded profile exclude patterns in `server.go` executor. Verified with end-to-end unit test `TestProfiles_ExecutorExcludeRulesForwarding`.
+- 2026-10-27: Completed Task 6. Verified entire repository with all 6 quality gate checks passing via `./scripts/check.sh all`. Built binary `bisync-hub`.
+- 2026-10-27: Completed Task 7. Replaced native browser `confirm(...)` dialogs across Telemetry resync, File Explorer directory sync, profile rollback, and review decisions with dark-mode `modal_confirm.html` and `askConfirmation()`.
+- 2026-10-27: Completed Task 8. Added `isRemoteActiveTarget(remote)` and dynamic topology bindings to ensure `ACTIVE TARGET` and Local/Remote topology reflect the currently selected profile. All quality gates verified clean (`./scripts/check.sh all`).
 
 

@@ -37,6 +37,7 @@ func ResolveDBPath(overridePath string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve absolute path for %s: %w", EnvAuditDBPath, err)
 		}
+		// #nosec G703 - directory creation for operator-configured audit db environment variable
 		if err := os.MkdirAll(filepath.Dir(absPath), 0700); err != nil {
 			return "", fmt.Errorf("failed to create directory for env audit db: %w", err)
 		}

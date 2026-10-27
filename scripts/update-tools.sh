@@ -22,6 +22,7 @@ set -euo pipefail
 GO_VERSION_DEFAULT="1.26.10"
 STATICCHECK_VERSION="2025.1.1"
 GOVULNCHECK_VERSION="v1.9.0"
+GOSEC_VERSION="v2.30.0"
 BETTERLEAKS_VERSION="v1.9.0"
 ESBUILD_VERSION="v0.25.0"
 
@@ -201,6 +202,14 @@ show_status() {
     echo "govulncheck"
     if command -v govulncheck >/dev/null 2>&1; then
         echo "  Path : $(command -v govulncheck)"
+    else
+        echo "  Installed : NO"
+    fi
+    echo
+
+    echo "gosec"
+    if command -v gosec >/dev/null 2>&1; then
+        echo "  Path : $(command -v gosec)"
     else
         echo "  Installed : NO"
     fi
@@ -482,6 +491,9 @@ if [[ "${DRY_RUN}" == "false" ]]; then
     log "Installing staticcheck..."
     go install "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}"
 
+    log "Installing gosec..."
+    go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
+
     log "Installing betterleaks..."
     go install "github.com/betterleaks/betterleaks@${BETTERLEAKS_VERSION}"
 
@@ -496,6 +508,7 @@ fi
 if [[ "${DRY_RUN}" == "false" ]]; then
     command -v govulncheck >/dev/null 2>&1 || fatal "govulncheck installation failed"
     command -v staticcheck >/dev/null 2>&1 || fatal "staticcheck installation failed"
+    command -v gosec >/dev/null 2>&1 || fatal "gosec installation failed"
     command -v betterleaks >/dev/null 2>&1 || fatal "betterleaks installation failed"
     command -v esbuild >/dev/null 2>&1 || fatal "esbuild installation failed"
 fi
@@ -540,6 +553,9 @@ echo "  ${GOVULNCHECK_VERSION}"
 echo
 echo "staticcheck:"
 echo "  ${STATICCHECK_VERSION}"
+echo
+echo "gosec:"
+echo "  ${GOSEC_VERSION}"
 echo
 echo "betterleaks:"
 echo "  ${BETTERLEAKS_VERSION}"

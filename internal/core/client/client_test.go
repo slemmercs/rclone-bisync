@@ -202,12 +202,18 @@ func TestNormalizeFs(t *testing.T) {
 		input    string
 		expected string
 	}{
+		{"", ""},
 		{"gdrive", "gdrive:"},
 		{"gdrive:", "gdrive:"},
+		{"onedrive:Documents", "onedrive:Documents"},
+		{"onedrive:path/to/folder", "onedrive:path/to/folder"},
 		{"/tmp/test/remote", "/tmp/test/remote"},
 		{"/tmp/test/remote:", "/tmp/test/remote"},
 		{"./local/path", "./local/path"},
+		{"~/local/path", "~/local/path"},
 		{"  myremote  ", "myremote:"},
+		{"C:/Users/name", "C:/Users/name"},
+		{"C:\\Users\\name", "C:\\Users\\name"},
 	}
 	for _, tt := range tests {
 		got := NormalizeFs(tt.input)

@@ -6,24 +6,103 @@
 
 window.ExplorerModule = {
     initExplorer() {
-            if (this.remotesData.remotes.length === 0) {
-                this.fetchRemotes(false);
+        if (!this.remotesData.remotes || this.remotesData.remotes.length === 0) {
+            this.fetchRemotes(false);
+        }
+
+        const p = this.activeProfile;
+        if (p) {
+            const remote = (p.remote || "").replace(/:$/, "");
+            const remotePath = (p.remote_path || "").replace(/^\/+/, "");
+            if (!this.explorer.isSwapped) {
+                this.explorer.left.target = "local";
+                if (remote && !this.explorer.right.target) this.explorer.right.target = remote;
+                if (remotePath && !this.explorer.right.path) this.explorer.right.path = remotePath;
+            } else {
+                if (remote && !this.explorer.left.target) this.explorer.left.target = remote;
+                if (remotePath && !this.explorer.left.path) this.explorer.left.path = remotePath;
+                this.explorer.right.target = "local";
             }
-            if (this.explorer.left.items.length === 0) {
-                this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
+        } else if (this.remotesData.remotes && this.remotesData.remotes.length > 0) {
+            const active = this.remotesData.remotes.find(r => typeof this.isRemoteActiveTarget === "function" ? this.isRemoteActiveTarget(r) : r.is_active_target);
+            if (!this.explorer.isSwapped && !this.explorer.right.target) {
+                this.explorer.right.target = active ? active.name : this.remotesData.remotes[0].name;
             }
-            if (this.explorer.right.items.length === 0) {
-                if (this.remotesData.remotes && this.remotesData.remotes.length > 0) {
-                    const active = this.remotesData.remotes.find(r => r.is_active_target);
-                    if (active) {
-                        this.explorer.right.target = active.name;
-                    } else {
-                        this.explorer.right.target = this.remotesData.remotes[0].name;
-                    }
-                }
-                this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
+        }
+
+        if (this.explorer.left.items.length === 0) {
+            this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
+        }
+        if (this.explorer.right.items.length === 0) {
+            this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
+        }
+    },
+
+    syncExplorerWithActiveProfile() {
+        const p = this.activeProfile;
+        if (!p) return;
+        const remote = (p.remote || "").replace(/:$/, "");
+        const remotePath = (p.remote_path || "").replace(/^\/+/, "");
+        if (!this.explorer.isSwapped) {
+            this.explorer.left.target = "local";
+            this.explorer.left.path = "";
+            if (remote) this.explorer.right.target = remote;
+            this.explorer.right.path = remotePath;
+        } else {
+            if (remote) this.explorer.left.target = remote;
+            this.explorer.left.path = remotePath;
+            this.explorer.right.target = "local";
+            this.explorer.right.path = "";
+        }
+        this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
+        this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
+    },
+
+    swapExplorerPanes() {
+        this.explorer.isSwapped = !this.explorer.isSwapped;
+        [this.explorer.left.target, this.explorer.right.target] = [this.explorer.right.target, this.explorer.left.target];
+        [this.explorer.left.path, this.explorer.right.path] = [this.explorer.right.path, this.explorer.left.path];
+        [this.explorer.left.items, this.explorer.right.items] = [this.explorer.right.items, this.explorer.left.items];
+        [this.explorer.left.hasCanary, this.explorer.right.hasCanary] = [this.explorer.right.hasCanary, this.explorer.left.hasCanary];
+        [this.explorer.left.totalSize, this.explorer.right.totalSize] = [this.explorer.right.totalSize, this.explorer.left.totalSize];
+        [this.explorer.left.itemCount, this.explorer.right.itemCount] = [this.explorer.right.itemCount, this.explorer.left.itemCount];
+
+        if (typeof this.showToast === "function") {
+            this.showToast(this.explorer.isSwapped ? "Explorer swapped: Remote ↔ Local" : "Explorer restored: Local ↔ Remote", "info");
+        }
+    },
+
+    isItemExcluded(item) {
+        if (!item || !item.Name) return false;
+        if (item.Name === "RCLONE_TEST") return false;
+        const p = this.activeProfile;
+        const rawPatterns = (p && p.exclude_patterns && p.exclude_patterns.length > 0)
+            ? p.exclude_patterns
+            : [".git/**", "*.tmp", ".DS_Store", "Thumbs.db", "desktop.ini"];
+
+        const name = item.Name;
+        for (let pat of rawPatterns) {
+            if (!pat) continue;
+            pat = pat.trim();
+            const cleanPat = pat.replace(/\/+\*{1,2}$/, "").replace(/^\/+/, "");
+            if (cleanPat && cleanPat === name) {
+                return true;
             }
-        },
+            if (pat.startsWith("*.") && name.endsWith(pat.slice(1))) {
+                return true;
+            }
+            if (pat.endsWith("*") && name.startsWith(pat.slice(0, -1))) {
+                return true;
+            }
+            if (pat.includes("*")) {
+                const regexStr = "^" + pat.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&").replace(/\\\*/g, ".*") + "$";
+                try {
+                    if (new RegExp(regexStr, "i").test(name)) return true;
+                } catch (_) {}
+            }
+        }
+        return false;
+    },
 
         openRemoteInExplorer(remoteName) {
             this.currentTab = "explorer";
@@ -41,7 +120,8 @@ window.ExplorerModule = {
             pane.loading = true;
             pane.error = null;
             try {
-                const data = await window.API.post("/api/browse", { remote: target, path: path });
+                const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
+                const data = await window.API.post("/api/browse", { remote: target, path: path, profile_id: profileId });
                 if (data.error) {
                     pane.error = data.error;
                     pane.items = [];
@@ -93,7 +173,7 @@ window.ExplorerModule = {
         getBreadcrumbs(paneKey) {
             const pane = this.explorer[paneKey];
             if (!pane) return [];
-            const rootLabel = paneKey === "left" ? "~" : `${pane.target}:`;
+            const rootLabel = pane.target === "local" ? "~" : `${pane.target}:`;
             const crumbs = [{ name: rootLabel, path: "" }];
             if (!pane.path) return crumbs;
 
@@ -106,12 +186,29 @@ window.ExplorerModule = {
             return crumbs;
         },
 
+        getPaneTargetLabel(paneKey) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return "";
+            return pane.target === "local" ? "Local" : "Remote";
+        },
+
+        getPaneDisplayPath(paneKey) {
+            const pane = this.explorer[paneKey];
+            if (!pane) return "";
+            if (pane.target === "local") {
+                const p = this.activeProfile;
+                return (p && p.local_path) || this.telemetry.config?.LOCAL_PATH || "~/gdrive";
+            }
+            return `${pane.target}:${pane.path || ""}`;
+        },
+
         async copyPanePath(paneKey) {
             const pane = this.explorer[paneKey];
             if (!pane) return;
             let fullPath = "";
-            if (paneKey === "left") {
-                const base = this.telemetry.config?.LOCAL_PATH || this.telemetry.config?.LOCALPATH || "~/gdrive";
+            if (pane.target === "local") {
+                const p = this.activeProfile;
+                const base = (p && p.local_path) || this.telemetry.config?.LOCAL_PATH || this.telemetry.config?.LOCALPATH || "~/gdrive";
                 fullPath = pane.path ? `${base.replace(/\/+$/, "")}/${pane.path}` : base;
             } else {
                 fullPath = pane.path ? `${pane.target}:${pane.path}` : `${pane.target}:`;
@@ -189,7 +286,8 @@ window.ExplorerModule = {
             const pane = this.explorer[paneKey];
             if (!pane) return;
             try {
-                const data = await window.API.post("/api/browse/canary", { remote: pane.target, path: pane.path || "" });
+                const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
+                const data = await window.API.post("/api/browse/canary", { remote: pane.target, path: pane.path || "", profile_id: profileId });
                 if (data.status === "success") {
                     pane.hasCanary = true;
                     this.showToast("Canary file RCLONE_TEST provisioned successfully", "success");
@@ -199,81 +297,6 @@ window.ExplorerModule = {
                 }
             } catch (err) {
                 this.showToast("Failed to provision canary: " + err.message, "error");
-            }
-        },
-
-        showToast(message, type = "info") {
-            if (this.toast.timeout) clearTimeout(this.toast.timeout);
-            this.toast.message = message;
-            this.toast.type = type;
-            this.toast.show = true;
-            this.toast.timeout = setTimeout(() => {
-                this.toast.show = false;
-            }, 3000);
-        },
-
-        async transferItem(sourcePaneKey, item) {
-            item._copying = true;
-            const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";
-            const src_remote = this.explorer[sourcePaneKey].target;
-            let src_path = item.Path || item.Name;
-            const currentPanePath = this.explorer[sourcePaneKey].path;
-            if (currentPanePath && !src_path.startsWith(currentPanePath)) {
-                src_path = `${currentPanePath}/${src_path}`.replace(/^\/+/, "");
-            }
-            const dst_remote = this.explorer[targetPaneKey].target;
-            const dst_path = this.explorer[targetPaneKey].path;
-
-            try {
-                const data = await window.API.post("/api/browse/copy", {
-                    src_remote,
-                    src_path,
-                    dst_remote,
-                    dst_path,
-                    is_dir: item.IsDir
-                });
-                if (data.status === "success") {
-                    this.showToast(`Transferred "${item.Name}" successfully!`, "success");
-                    this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
-                } else {
-                    this.showToast(`Transfer failed: ${data.error || 'Unknown error'}`, "error");
-                }
-            } catch (err) {
-                this.showToast(`Transfer failed: ${err.message}`, "error");
-            } finally {
-                item._copying = false;
-            }
-        },
-
-        async syncCurrentDirectory(sourcePaneKey) {
-            const targetPaneKey = sourcePaneKey === "left" ? "right" : "left";
-            const src_remote = this.explorer[sourcePaneKey].target;
-            const src_path = this.explorer[sourcePaneKey].path;
-            const dst_remote = this.explorer[targetPaneKey].target;
-            const dst_path = this.explorer[targetPaneKey].path;
-
-            const dirName = sourcePaneKey === "left" ? `Local (${src_remote}:${src_path || '/'}) ➔ Remote (${dst_remote}:${dst_path || '/'})` : `Remote (${src_remote}:${src_path || '/'}) ➔ Local (${dst_remote}:${dst_path || '/'})`;
-            if (!confirm(`Are you sure you want to copy directory contents:\n${dirName}?`)) {
-                return;
-            }
-
-            this.showToast("Initiating directory synchronization...", "info");
-            try {
-                const data = await window.API.post("/api/browse/copy", {
-                    src_remote,
-                    src_path,
-                    dst_remote,
-                    dst_path,
-                    is_dir: true
-                });
-                if (data.status === "success") {
-                    this.showToast("Directory synchronization complete!", "success");
-                    this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
-                } else {
-                    this.showToast(`Sync failed: ${data.error || 'Unknown error'}`, "error");
-                }
-            } catch (err) {
-                this.showToast(`Directory sync failed: ${err.message}`, "error");
             }
         },
 

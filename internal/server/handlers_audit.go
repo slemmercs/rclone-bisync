@@ -4,10 +4,43 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
+
+func (s *Server) resolveProfileFilterID(query string) string {
+	if query == "" || s.ProfileService == nil {
+		return query
+	}
+	profiles := s.ProfileService.List(true)
+	for _, p := range profiles {
+		if strings.EqualFold(p.Name, query) {
+			return p.ID
+		}
+	}
+	return query
+}
+
+func (s *Server) enrichAuditRecordProfileNames(records []audit.AuditRecord) {
+	nameMap := make(map[string]string)
+	if s.ProfileService != nil {
+		profiles := s.ProfileService.List(true)
+		for _, p := range profiles {
+			nameMap[p.ID] = p.Name
+		}
+	}
+	for i := range records {
+		if name, ok := nameMap[records[i].ProfileID]; ok && name != "" {
+			records[i].ProfileName = name
+		} else if records[i].ProfileID == "default" {
+			records[i].ProfileName = "Default"
+		} else {
+			records[i].ProfileName = records[i].ProfileID
+		}
+	}
+}
 
 func (s *Server) handleAuditRecords(w http.ResponseWriter, r *http.Request) {
 	if s.AuditService == nil {
@@ -44,7 +77,7 @@ func (s *Server) handleAuditRecords(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := audit.Filter{
-		ProfileID: q.Get("profile_id"),
+		ProfileID: s.resolveProfileFilterID(q.Get("profile_id")),
 		Action:    audit.Action(q.Get("action")),
 		Actor:     q.Get("actor"),
 		Limit:     limit,
@@ -63,6 +96,8 @@ func (s *Server) handleAuditRecords(w http.ResponseWriter, r *http.Request) {
 	if records == nil {
 		records = []audit.AuditRecord{}
 	}
+
+	s.enrichAuditRecordProfileNames(records)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":  "success",
@@ -121,7 +156,7 @@ func (s *Server) handleAuditExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := audit.Filter{
-		ProfileID: q.Get("profile_id"),
+		ProfileID: s.resolveProfileFilterID(q.Get("profile_id")),
 		Action:    audit.Action(q.Get("action")),
 		Actor:     q.Get("actor"),
 	}
@@ -133,7 +168,9 @@ func (s *Server) handleAuditExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.WriteHeader(http.StatusOK)
+	// #nosec G705 - exported audit data is served as an attachment download with nosniff
 	_, _ = w.Write(data)
 }

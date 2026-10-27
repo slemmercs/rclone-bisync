@@ -132,12 +132,14 @@ func (r *SyncRunner) handleSyncFailure(
 		var logLines []string
 		if r.Config.BaseDir != "" {
 			daemonLog := filepath.Join(r.Config.BaseDir, "rclone-daemon.log")
-			if data, err := os.ReadFile(daemonLog); err == nil {
+			// #nosec G304 - reading configured daemon log file
+			if data, err := os.ReadFile(filepath.Clean(daemonLog)); err == nil {
 				logLines = append(logLines, strings.Split(string(data), "\n")...)
 			}
 		}
 		if r.Config.LogFile != "" {
-			if data, err := os.ReadFile(r.Config.LogFile); err == nil {
+			// #nosec G304 - reading configured log file
+			if data, err := os.ReadFile(filepath.Clean(r.Config.LogFile)); err == nil {
 				logLines = append(logLines, strings.Split(string(data), "\n")...)
 			}
 		}

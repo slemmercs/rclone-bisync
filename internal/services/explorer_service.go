@@ -33,13 +33,15 @@ func NewExplorerService(cfg *config.Config, rcClient *client.RcloneClient, canar
 }
 
 // BrowsePath lists directory items and verifies canary presence, enforcing path jails for local FS.
-func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string) client.DirectoryListing {
+func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, localBase ...string) client.DirectoryListing {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
 		rawBase := ""
-		if e.Config != nil {
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if e.Config != nil {
 			rawBase = e.Config.LocalPath
 		}
 		if rawBase == "" {
@@ -48,6 +50,15 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string) c
 
 		baseDir, targetDir, ok := isLocalPathJailed(rawBase, cleanPath)
 		if !ok {
+			return client.DirectoryListing{
+				Remote: "local",
+				Path:   cleanPath,
+				Error:  "Directory traversal forbidden",
+			}
+		}
+		cleanBase := filepath.Clean(baseDir)
+		basePrefix := cleanBase + string(filepath.Separator)
+		if targetDir != cleanBase && !strings.HasPrefix(targetDir, basePrefix) {
 			return client.DirectoryListing{
 				Remote: "local",
 				Path:   cleanPath,

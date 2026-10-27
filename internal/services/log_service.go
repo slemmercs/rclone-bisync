@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -34,7 +35,8 @@ func (s *LogService) FilterDaemonLogs(logPath string, startTime, endTime time.Ti
 		limit = 2000
 	}
 
-	file, err := os.Open(logPath)
+	// #nosec G304 - reading configured daemon log file
+	file, err := os.Open(filepath.Clean(logPath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []string{}, nil

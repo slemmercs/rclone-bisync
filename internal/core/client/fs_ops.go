@@ -22,15 +22,25 @@ type DirectoryListing struct {
 // NormalizeFs formats a remote identifier or local path into a valid rclone fs string.
 // Absolute or relative local paths are preserved without a trailing colon.
 // Remote identifiers are given a trailing colon (e.g., "gdrive:").
+// Remote paths with subdirectories (e.g., "onedrive:documents") preserve the remote colon without adding another trailing colon.
 func NormalizeFs(remote string) string {
 	clean := strings.TrimSpace(remote)
-	if strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, ".") {
+	if clean == "" {
+		return ""
+	}
+	if strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, ".") || strings.HasPrefix(clean, "~") {
 		return strings.TrimSuffix(clean, ":")
 	}
-	if !strings.HasSuffix(clean, ":") {
-		return clean + ":"
+	// Windows drive letter check (e.g., C:\path or C:/path)
+	if len(clean) >= 2 && clean[1] == ':' && ((clean[0] >= 'a' && clean[0] <= 'z') || (clean[0] >= 'A' && clean[0] <= 'Z')) {
+		if len(clean) == 2 || clean[2] == '/' || clean[2] == '\\' {
+			return strings.TrimSuffix(clean, ":")
+		}
 	}
-	return clean
+	if strings.Contains(clean, ":") {
+		return clean
+	}
+	return clean + ":"
 }
 
 // ListDirectory queries /operations/list to explore contents non-recursively.
@@ -146,13 +156,18 @@ func (c *RcloneClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, ds
 	return true, nil
 }
 
-// CopyDir calls /sync/copy to copy an entire directory tree.
-func (c *RcloneClient) CopyDir(ctx context.Context, srcFs, dstFs string) (bool, error) {
-	payload := map[string]string{
+// CopyDir calls /sync/copy to copy an entire directory tree with optional exclude filter rules.
+func (c *RcloneClient) CopyDir(ctx context.Context, srcFs, dstFs string, excludeRules ...[]string) (bool, error) {
+	payload := map[string]interface{}{
 		"srcFs": NormalizeFs(srcFs),
 		"dstFs": NormalizeFs(dstFs),
 	}
-	resp, body, err := c.post(ctx, "sync/copy", payload, 60*time.Second)
+	if len(excludeRules) > 0 && len(excludeRules[0]) > 0 {
+		payload["_filter"] = map[string]interface{}{
+			"ExcludeRule": excludeRules[0],
+		}
+	}
+	resp, body, err := c.post(ctx, "sync/copy", payload, 120*time.Second)
 	if err != nil {
 		return false, err
 	}

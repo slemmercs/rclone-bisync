@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -126,9 +127,21 @@ func (s *Store) Save(p *Profile, reason string) error {
 		p.UpdatedAt = now
 	}
 
+	action := "UPDATED"
+	if !exists {
+		action = "CREATED"
+	}
+	if strings.HasPrefix(reason, "Cloned from") {
+		action = "CLONED"
+	}
+	if strings.HasPrefix(reason, "Rollback") {
+		action = "ROLLED_BACK"
+	}
+
 	snapshot := ProfileVersion{
 		Version:   p.Version,
 		ProfileID: p.ID,
+		Action:    action,
 		Timestamp: now,
 		Reason:    reason,
 		Snapshot:  *p,
@@ -272,7 +285,7 @@ func (s *Store) BootstrapDefault(localPath, remote string) (*Profile, error) {
 
 func (s *Store) persistLocked() error {
 	dir := filepath.Dir(s.storePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory for profile store: %w", err)
 	}
 
@@ -298,7 +311,7 @@ func atomicWriteJSON(filePath string, data any) error {
 	}
 
 	tmpPath := fmt.Sprintf("%s.tmp.%d", filePath, os.Getpid())
-	if err := os.WriteFile(tmpPath, bytes, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, bytes, 0600); err != nil {
 		return err
 	}
 

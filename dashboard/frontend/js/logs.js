@@ -125,7 +125,18 @@ window.LogsModule = {
     },
 
     confirmResync() {
-        if (confirm("⚠ FORCE RESYNC ⚠\n\nAre you sure you want to rebuild baseline sync states?\nThis will take significantly longer.")) {
+        if (typeof this.askConfirmation === "function") {
+            this.askConfirmation({
+                title: "Force Resync Confirmation",
+                message: "Are you sure you want to rebuild baseline sync states?\nThis will recreate listings and take significantly longer.",
+                confirmText: "Rebuild & Resync",
+                confirmClass: "bg-amber-600 hover:bg-amber-500 shadow-amber-950/40",
+                icon: "warning",
+                onConfirm: () => {
+                    this.triggerAction("force_resync");
+                }
+            });
+        } else if (confirm("⚠ FORCE RESYNC ⚠\n\nAre you sure you want to rebuild baseline sync states?\nThis will take significantly longer.")) {
             this.triggerAction("force_resync");
         }
     },

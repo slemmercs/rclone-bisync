@@ -1,63 +1,106 @@
-# Implementation Plan: Architecture Principles Harmonization, ADR Foundation & Local Tooling Hygiene
+# Implementation Plan: Four-Phase Multi-Profile Stabilization & Architecture Evolution
 
-## Proposed Changes
+This plan establishes the architectural roadmap across all four strategic phases:
+- **Phase 1: Multi-Profile UI & Engine Cohesion** (Active Execution Scope)
+- **Phase 2: Core Refactoring & Subsystem Consolidation**
+- **Phase 3: Operational Flags & Profile Schema Alignment**
+- **Phase 4: Dashboard UI Evolution & Config Flow**
 
-Establish a cohesive architectural governance and ADR framework for Bisync Hub, align all core principles documents, standardize the ADR directory structure with foundational records (ADR-001 through ADR-005), and untrack local developer tool configurations (`.clinerules`, `.clineignore`) from Git tracking.
+---
+
+## 1. Phase 1: Multi-Profile UI & Engine Cohesion (Active Scope)
+
+### Proposed Changes
+Resolve Alpine.js reactive null pointer exceptions on profile modal close, unify telemetry and sync status across multi-profile schedulers and single-tenant runners, bind cockpit engine badges to the active profile's execution state, and forward profile-specific exclude patterns to the underlying Rclone sync runner.
 
 ### Affected Components & Packages
-
-- `.gitignore`: Add `.clinerules` and `.clineignore` to ignore patterns.
-- `.clinerules` & `.clineignore`: Untrack from Git index using `git rm --cached` while preserving files locally.
-- `docs/architecture/CONTRIBUTOR_WORKFLOW.md`:
-  - Complete Section 8 by adding missing product principles (Principle 6: Profiles As Primary Object, Principle 7: Rclone Remains Source Of Truth, Principle 8: Local First) with links to `PRODUCT_PRINCIPLES.md`.
-  - Update Section 4 ("Verify Continuously") to explicitly specify the native quality gate `./scripts/check.sh all` and `cmd/check`.
-- `docs/architecture/ENGINEERING_PRINCIPLES.md`:
-  - Incorporate advisory POSIX locking (`flock`) under Principle 5 ("Atomic State Changes") for concurrency isolation.
-  - Formalize single-binary packaging with embedded frontend under Principle 1 / 3.
-- `docs/architecture/PRODUCT_PRINCIPLES.md`:
-  - Cross-link product principles directly to foundational ADRs and contributor workflow.
-- `docs/architecture/ARCHITECTURE_PRINCIPLES.md`:
-  - Restructure as the central umbrella architecture index/hub connecting Product Principles, Engineering Principles, Security Principles, and Contributor Workflow.
-- `docs/architecture/adr/`:
-  - `README.md`: Create ADR registry index table and lifecycle guidance.
-  - `ADR-000-Template.md`: Create standardized template matching naming convention.
-  - `adr-xxx_title_template.md`: Remove in favor of `ADR-000-Template.md`.
-  - `ADR-001-Profiles-As-Primary-User-Object.md`: Foundational ADR establishing profiles as primary configuration and intent abstraction.
-  - `ADR-002-Rclone-As-Source-Of-Truth.md`: Foundational ADR establishing Rclone RC API as sole storage connector and engine.
-  - `ADR-003-Human-In-The-Loop-Review.md`: Foundational ADR formalizing interactive conflict and deletion review over silent mutation.
-  - `ADR-004-Immutable-Audit-Ledger.md`: Foundational ADR establishing append-only cryptographic SQLite audit ledger.
-  - `ADR-005-Local-First-Architecture.md`: Foundational ADR establishing local-first single binary, embedded UI, and zero external telemetry/cloud dependencies.
-- `CONTRIBUTING.md` & `.github/PULL_REQUEST_TEMPLATE.md`:
-  - Update links and checklists to reference the unified architecture suite.
+- `dashboard/frontend/js/profiles.js`:
+  - Introduce `createDefaultProfile()` helper.
+  - Reset `profileModal.editing` to safe default object in `closeProfilesModal()`.
+- `dashboard/frontend/partials/modals/modal_profiles.html`:
+  - Refactor Tab 2 to use `<template x-if="profileModal.tab === 'edit'">` for DOM detachment.
+  - Add null-safe bindings (`profileModal.editing?.name`, `profileModal.editing?.id`).
+- `internal/profiles/scheduler.go`:
+  - Expose `IsAnyRunning() bool` and `IsProfileRunning(profileID string) bool`.
+- `internal/profiles/service.go`:
+  - Add delegate methods `IsAnySyncing() bool` and `IsProfileSyncing(id string) bool`.
+- `internal/server/handlers_telemetry.go`:
+  - Return `"execution_status": "SYNCING" | "IDLE"` in `/api/telemetry` payload.
+  - Return `is_syncing: true` if global lock acquired or any profile scheduler worker running.
+- `dashboard/frontend/partials/view_telemetry.html`:
+  - Update status badge to evaluate `telemetry.execution_status` and active profile state.
+- `internal/server/server.go`:
+  - In `executor`, map `p.ExcludePatterns` into `profCfg.RcloneCommonArgs` as `--exclude` flags.
 
 ### Technical Strategy & Data Flow
+1. **Alpine State Safety**:
+   - `createDefaultProfile()` initializes non-null defaults for all bound properties.
+   - On modal close, `editing` resets to defaults, eliminating `TypeError: Cannot read properties of null`.
+2. **Telemetry & Concurrency Harmonization**:
+   - Scheduler tracks active worker sync runs.
+   - `/api/telemetry` checks both single-tenant lock and active profile workers.
+3. **Exclude Rule Forwarding**:
+   - Profile `ExcludePatterns` are appended to `profCfg.RcloneCommonArgs` before running `SyncRunner`.
 
-- **Git Tracking Isolation**: Use `git rm --cached` to delete `.clinerules` and `.clineignore` from index and future commits without affecting local working tree copies.
-- **Architectural Link Topology**:
-  - `ARCHITECTURE_PRINCIPLES.md` serves as Root Hub.
-  - Pillars branch into `PRODUCT_PRINCIPLES.md`, `ENGINEERING_PRINCIPLES.md`, `SECURITY_PRINCIPLES.md`, and `CONTRIBUTOR_WORKFLOW.md`.
-  - Concrete decisions branch into `docs/architecture/adr/ADR-XXX-*.md` referenced by `docs/architecture/adr/README.md`.
-- **Foundational ADR Alignment**: Capture existing, already-built architectural decisions (Milestone 1–4, PR #27, PR #33) as accepted ADRs to provide historical and future rationale for contributors and maintainers.
+---
 
-### Safety & Error Handling
+## 2. Phase 2: Core Refactoring & Subsystem Consolidation
 
-- **No Code/Runtime Regressions**: Changes are strictly documentation, governance, gitignore, and ADR records. No Go runtime code is modified.
-- **Canary & Concurrency Guarantees**: Documented principles explicitly enforce canary file verification (`RCLONE_TEST`) and POSIX flock locking across all sync operations.
-- **Clean Git Status**: Ensure local `.clinerules` and `.clineignore` remain available on disk for active development while git status remains clean.
+### Proposed Changes
+Introduce central Dependency Injection (DI) Container (`internal/app/container.go`), consolidate `internal/review/` domain into `internal/engine/review/`, and implement a recursive logger secret-redaction masking engine.
+
+### Affected Components & Packages
+- `internal/app/container.go`: Central application container wiring services.
+- `internal/engine/review/`: Relocate review session manager and diff calculator.
+- `internal/core/logger/redact.go`: Stream/line secret redactor for logs.
+
+---
+
+## 3. Phase 3: Operational Flags & Profile Schema Alignment
+
+### Proposed Changes
+Implement 3-tier operational flags architecture (`docs/design/bisync_operational_flags.md`), flag inheritance (`Profile Override > Global Default > Hardcoded Fallback`), and security blocklist validation.
+
+### Affected Components & Packages
+- `internal/config/dto.go`: Operational flags schema and DTO definitions.
+- `internal/config/inheritance.go`: Flag inheritance resolver engine.
+- `internal/config/validator.go`: Prohibited flag blocklist and POSIX shlex sanitizer.
+
+---
+
+## 4. Phase 4: Dashboard UI Evolution & Config Flow
+
+### Proposed Changes
+Deliver profile-first Cockpit UI redesign: quick-switcher in main navigation, visual flag and safety policy editor with inheritance badges, and step-by-step profile onboarding wizard.
+
+### Affected Components & Packages
+- `dashboard/frontend/partials/header.html` & `view_telemetry.html`: Profile quick-switcher.
+- `dashboard/frontend/partials/modals/modal_profiles.html`: Visual flag editor and inheritance indicators.
+- `dashboard/frontend/js/profiles.js` & `app.js`: Onboarding state machine.
+
+---
 
 ## Verification Plan
 
-- `git status`: Confirm `.clinerules` and `.clineignore` are untracked and ignored, but preserved locally.
-- Link Integrity: Verify all relative markdown links between `docs/architecture/`, `docs/architecture/adr/`, `CONTRIBUTING.md`, and `.github/`.
-- `./scripts/check.sh fmt`: Validate formatting across all markdown and shell scripts.
-- `./scripts/check.sh all`: Run full 8-stage pre-flight quality gate to verify zero regressions.
+### Phase 1 Polish: Confirmation Modals & Dynamic Target Binding
+- `dashboard/frontend/partials/modals/modal_confirm.html`:
+  - Introduce themed, dark-mode confirmation modal to replace native browser `confirm(...)` dialogs.
+- `dashboard/frontend/app.js`:
+  - Add `confirmModal` reactive state and `askConfirmation({ title, message, confirmText, confirmClass, icon, onConfirm })` helper.
+- `dashboard/frontend/js/logs.js` & `explorer_actions.js`:
+  - Refactor `confirmResync()` and `syncCurrentDirectory()` to trigger `askConfirmation(...)`.
+- `dashboard/frontend/js/remotes.js`:
+  - Introduce `isRemoteActiveTarget(remote)` helper dynamically checking against `activeProfile.remote`.
+- `dashboard/frontend/partials/view_remotes.html`:
+  - Bind `ACTIVE TARGET` badge to `isRemoteActiveTarget(remote)`.
+- `dashboard/frontend/partials/view_telemetry.html`:
+  - Dynamically display `activeProfile.local_path` and `activeProfile.remote` in `Active Profile Topology` banner.
 
-
-
-
-
-
-
-
+### Phase 1 Verification
+- `go test -count=1 ./internal/profiles/...`: Verify scheduler running status checks.
+- `go test -count=1 ./internal/server/...`: Verify `/api/telemetry` reports `execution_status` and exclude patterns forward to runner.
+- `./scripts/check.sh templates`: Verify Alpine.js template safety.
+- `./scripts/check.sh loc`: Verify LOC constraints (<= 400 lines).
+- `./scripts/check.sh all`: Full 8-stage pre-flight quality check.
 
 

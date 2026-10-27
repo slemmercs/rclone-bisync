@@ -2,11 +2,11 @@ package profiles
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
-
-	"github.com/slemmercs/rclone-bisync/internal/audit"
 )
 
 // RemoteChecker abstracts remote validation against Rclone RC.
@@ -14,25 +14,18 @@ type RemoteChecker interface {
 	ListRemotes(ctx context.Context) ([]string, error)
 }
 
-// AuditRecorder defines audit logging capability.
-type AuditRecorder interface {
-	RecordEvent(profileID string, action audit.Action, actor string, details map[string]any) (*audit.AuditRecord, error)
-}
-
 // Service manages operational lifecycle, remote validation, and scheduling for profiles.
 type Service struct {
 	store     *Store
 	remotes   RemoteChecker
-	audit     AuditRecorder
 	scheduler *Scheduler
 }
 
 // NewService creates a profile management service.
-func NewService(store *Store, remotes RemoteChecker, auditRec AuditRecorder, scheduler *Scheduler) *Service {
+func NewService(store *Store, remotes RemoteChecker, scheduler *Scheduler) *Service {
 	return &Service{
 		store:     store,
 		remotes:   remotes,
-		audit:     auditRec,
 		scheduler: scheduler,
 	}
 }
@@ -79,9 +72,11 @@ func (s *Service) Create(ctx context.Context, p *Profile) (*Profile, error) {
 	}
 
 	if strings.TrimSpace(p.LocalPath) != "" {
-		if err := os.MkdirAll(p.LocalPath, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create local path %q: %w", p.LocalPath, err)
+		resolved, err := resolveAndEnsureLocalPath(p.LocalPath)
+		if err != nil {
+			return nil, err
 		}
+		p.LocalPath = resolved
 	}
 
 	if err := s.store.Save(p, "Profile created"); err != nil {
@@ -91,14 +86,6 @@ func (s *Service) Create(ctx context.Context, p *Profile) (*Profile, error) {
 	if s.scheduler != nil && p.Enabled && !p.Archived {
 		s.scheduler.RestartProfile(p)
 	}
-
-	s.recordAudit(p.ID, audit.ActionProfileCreated, map[string]any{
-		"name":        p.Name,
-		"remote":      p.Remote,
-		"local_path":  p.LocalPath,
-		"schedule":    p.Schedule,
-		"review_mode": p.ReviewMode,
-	})
 
 	return s.store.Get(p.ID)
 }
@@ -119,9 +106,11 @@ func (s *Service) Update(ctx context.Context, p *Profile, reason string) (*Profi
 	}
 
 	if strings.TrimSpace(p.LocalPath) != "" {
-		if err := os.MkdirAll(p.LocalPath, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create local path %q: %w", p.LocalPath, err)
+		resolved, err := resolveAndEnsureLocalPath(p.LocalPath)
+		if err != nil {
+			return nil, err
 		}
+		p.LocalPath = resolved
 	}
 
 	if reason == "" {
@@ -135,15 +124,6 @@ func (s *Service) Update(ctx context.Context, p *Profile, reason string) (*Profi
 	if s.scheduler != nil {
 		s.scheduler.RestartProfile(p)
 	}
-
-	s.recordAudit(p.ID, audit.ActionProfileUpdated, map[string]any{
-		"name":        p.Name,
-		"version":     p.Version,
-		"reason":      reason,
-		"enabled":     p.Enabled,
-		"schedule":    p.Schedule,
-		"review_mode": p.ReviewMode,
-	})
 
 	return s.store.Get(p.ID)
 }
@@ -179,9 +159,11 @@ func (s *Service) Clone(ctx context.Context, sourceID, newID, newName string) (*
 	}
 
 	if strings.TrimSpace(cloned.LocalPath) != "" {
-		if err := os.MkdirAll(cloned.LocalPath, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create local path %q: %w", cloned.LocalPath, err)
+		resolved, err := resolveAndEnsureLocalPath(cloned.LocalPath)
+		if err != nil {
+			return nil, err
 		}
+		cloned.LocalPath = resolved
 	}
 
 	if err := s.store.Save(&cloned, fmt.Sprintf("Cloned from %s", sourceID)); err != nil {
@@ -192,19 +174,12 @@ func (s *Service) Clone(ctx context.Context, sourceID, newID, newName string) (*
 		s.scheduler.RestartProfile(&cloned)
 	}
 
-	s.recordAudit(cloned.ID, audit.ActionProfileCloned, map[string]any{
-		"source_id": sourceID,
-		"name":      cloned.Name,
-		"remote":    cloned.Remote,
-	})
-
 	return s.store.Get(cloned.ID)
 }
 
 // Delete stops execution and permanently removes a profile.
 func (s *Service) Delete(ctx context.Context, id string) error {
-	p, err := s.store.Get(id)
-	if err != nil {
+	if _, err := s.store.Get(id); err != nil {
 		return err
 	}
 
@@ -212,15 +187,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		s.scheduler.StopProfile(id)
 	}
 
-	if err := s.store.Delete(id); err != nil {
-		return err
-	}
-
-	s.recordAudit(id, audit.ActionProfileDeleted, map[string]any{
-		"name":   p.Name,
-		"remote": p.Remote,
-	})
-	return nil
+	return s.store.Delete(id)
 }
 
 // Rollback restores a profile to an earlier version snapshot.
@@ -233,11 +200,6 @@ func (s *Service) Rollback(ctx context.Context, id string, targetVersion int) (*
 	if s.scheduler != nil {
 		s.scheduler.RestartProfile(restored)
 	}
-
-	s.recordAudit(id, audit.ActionProfileRolledBack, map[string]any{
-		"target_version": targetVersion,
-		"new_version":    restored.Version,
-	})
 
 	return restored, nil
 }
@@ -253,6 +215,22 @@ func (s *Service) TriggerSyncWithOptions(ctx context.Context, id string, opts Sy
 		return fmt.Errorf("scheduler is not active")
 	}
 	return s.scheduler.TriggerSyncWithOptions(ctx, id, opts)
+}
+
+// IsAnySyncing reports whether any profile worker is actively executing a synchronization cycle.
+func (s *Service) IsAnySyncing() bool {
+	if s.scheduler == nil {
+		return false
+	}
+	return s.scheduler.IsAnyRunning()
+}
+
+// IsProfileSyncing reports whether the specified profile is actively executing a synchronization cycle.
+func (s *Service) IsProfileSyncing(id string) bool {
+	if s.scheduler == nil {
+		return false
+	}
+	return s.scheduler.IsProfileRunning(id)
 }
 
 // ListRemotes queries available remotes from Rclone RC.
@@ -283,8 +261,79 @@ func (s *Service) validateRemote(ctx context.Context, remote string) error {
 	return fmt.Errorf("remote '%s' is not configured in Rclone", remote)
 }
 
-func (s *Service) recordAudit(profileID string, action audit.Action, details map[string]any) {
-	if s.audit != nil {
-		_, _ = s.audit.RecordEvent(profileID, action, "SYSTEM", details)
+func resolveAndEnsureLocalPath(localPath string) (string, error) {
+	cleanPath := strings.TrimSpace(localPath)
+	if cleanPath == "" {
+		return "", nil
 	}
+	if strings.Contains(cleanPath, "..") {
+		return "", errors.New("relative path traversal '..' is forbidden")
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	if homeDir != "" {
+		if cleanPath == "~" {
+			cleanPath = homeDir
+		} else if strings.HasPrefix(cleanPath, "~/") {
+			cleanPath = filepath.Join(homeDir, strings.TrimPrefix(cleanPath, "~/"))
+		}
+	}
+
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		return "", fmt.Errorf("invalid local path %q: %w", cleanPath, err)
+	}
+	cleanPath = filepath.Clean(absPath)
+
+	// Collect safe roots for auto-provisioning (user home directory, temp directories, standard mount points).
+	var safeRoots []string
+	if homeDir != "" {
+		h := filepath.Clean(homeDir)
+		safeRoots = append(safeRoots, h)
+		if realH, err := filepath.EvalSymlinks(h); err == nil && realH != h {
+			safeRoots = append(safeRoots, realH)
+		}
+	}
+	if tmp := os.TempDir(); tmp != "" {
+		t := filepath.Clean(tmp)
+		safeRoots = append(safeRoots, t)
+		if realT, err := filepath.EvalSymlinks(t); err == nil && realT != t {
+			safeRoots = append(safeRoots, realT)
+		}
+	}
+	for _, mnt := range []string{"/mnt", "/media", "/Volumes"} {
+		if fi, err := os.Stat(mnt); err == nil && fi.IsDir() {
+			safeRoots = append(safeRoots, mnt)
+		}
+	}
+
+	var matchedRoot string
+	for _, root := range safeRoots {
+		rootPrefix := root + string(filepath.Separator)
+		if cleanPath == root || strings.HasPrefix(cleanPath, rootPrefix) {
+			matchedRoot = root
+			break
+		}
+	}
+	if matchedRoot == "" {
+		return "", fmt.Errorf("local path %q must reside within your home directory, /tmp, /mnt, or /media", cleanPath)
+	}
+
+	rootPrefix := matchedRoot + string(filepath.Separator)
+	rel, err := filepath.Rel(matchedRoot, cleanPath)
+	if err != nil || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("path traversal forbidden: %q", cleanPath)
+	}
+	safePath := filepath.Join(matchedRoot, rel)
+	if safePath == matchedRoot {
+		return matchedRoot, nil
+	}
+	if !strings.HasPrefix(safePath, rootPrefix) {
+		return "", fmt.Errorf("path traversal forbidden: %q", cleanPath)
+	}
+
+	if err := os.MkdirAll(safePath, 0750); err != nil {
+		return "", fmt.Errorf("failed to create local path %q: %w", safePath, err)
+	}
+	return safePath, nil
 }

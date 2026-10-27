@@ -92,8 +92,9 @@ func runDashboard(host string, port int, envFile string) {
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	httpServer := &http.Server{
-		Addr:    addr,
-		Handler: srv,
+		Addr:              addr,
+		Handler:           srv,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	stopSig := make(chan os.Signal, 1)

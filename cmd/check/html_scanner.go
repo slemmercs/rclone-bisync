@@ -210,6 +210,7 @@ func checkAlpineTemplates(root string, verbose bool) error {
 			return nil
 		}
 		htmlCount++
+		// #nosec G122,G304 - check tool reading html templates
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return err

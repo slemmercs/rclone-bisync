@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ func setupTestServerWithProfiles(t *testing.T) (*Server, *profiles.Service) {
 	t.Cleanup(func() {
 		sched.Stop()
 	})
-	svc := profiles.NewService(store, nil, nil, sched)
+	svc := profiles.NewService(store, nil, sched)
 
 	cfg := &config.Config{
 		BaseDir:             tmpDir,
@@ -276,5 +277,114 @@ func TestProfiles_NilServiceHandling(t *testing.T) {
 	w = doJSONReq(s, http.MethodPost, "/api/profiles", map[string]any{}, true)
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503 on POST when ProfileService is nil, got %d", w.Code)
+	}
+}
+
+func TestProfiles_ExecutorExcludeRulesForwarding(t *testing.T) {
+	tmpDir := t.TempDir()
+	profPath := filepath.Join(tmpDir, "profiles.json")
+	histPath := filepath.Join(tmpDir, "profiles_history.json")
+
+	var receivedExcludeRules []any
+	rcSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/config/listremotes" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"remotes": []string{"mockremote"}})
+			return
+		}
+		if r.URL.Path == "/sync/bisync" {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if filterMap, ok := body["_filter"].(map[string]any); ok {
+				if rules, ok := filterMap["ExcludeRule"].([]any); ok {
+					receivedExcludeRules = rules
+				}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"jobid": 999})
+			return
+		}
+		if r.URL.Path == "/job/status" {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"finished": true,
+				"success":  true,
+				"error":    "",
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer rcSrv.Close()
+
+	localDir := filepath.Join(tmpDir, "local_test")
+	_ = os.MkdirAll(localDir, 0755)
+
+	cfg := &config.Config{
+		BaseDir:             tmpDir,
+		ProfilesFile:        profPath,
+		ProfilesHistoryFile: histPath,
+		RCAPIURL:            rcSrv.URL,
+		LockFile:            filepath.Join(tmpDir, "main.lock"),
+		JobTimeoutSeconds:   60,
+	}
+
+	srv := NewServer(cfg, nil, nil)
+	if srv.ProfileService == nil {
+		t.Fatal("expected non-nil ProfileService")
+	}
+
+	testProf := &profiles.Profile{
+		ID:              "prof-ex",
+		Name:            "Exclude Profile",
+		Remote:          "mockremote",
+		LocalPath:       localDir,
+		Schedule:        "manual",
+		Enabled:         true,
+		ExcludePatterns: []string{".git/**", "node_modules/**", "*.tmp"},
+	}
+
+	if _, err := srv.ProfileService.Create(context.Background(), testProf); err != nil {
+		t.Fatalf("failed to create profile: %v", err)
+	}
+
+	err := srv.ProfileService.TriggerSync(context.Background(), "prof-ex", false)
+	if err != nil {
+		t.Fatalf("failed to trigger sync: %v", err)
+	}
+
+	if len(receivedExcludeRules) != 3 {
+		t.Fatalf("expected 3 exclude rules forwarded to daemon, got %d: %v", len(receivedExcludeRules), receivedExcludeRules)
+	}
+
+	expected := []string{".git/**", "node_modules/**", "*.tmp"}
+	for i, rule := range expected {
+		if receivedExcludeRules[i] != rule {
+			t.Errorf("rule[%d]: expected %s, got %v", i, rule, receivedExcludeRules[i])
+		}
+	}
+}
+
+func TestProfiles_PathTraversalForbidden(t *testing.T) {
+	s, _ := setupTestServerWithProfiles(t)
+
+	// 1. POST /api/profiles with relative path traversal
+	badCreate := map[string]any{
+		"name":       "Bad Profile",
+		"remote":     "gdrive",
+		"local_path": "../../../etc/passwd",
+		"enabled":    true,
+	}
+	w := doJSONReq(s, http.MethodPost, "/api/profiles", badCreate, true)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on traversal path in create, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 2. PUT /api/profiles/:id with relative path traversal
+	badUpdate := map[string]any{
+		"local_path": "/var/tmp/../../etc",
+		"reason":     "test",
+	}
+	w = doJSONReq(s, http.MethodPut, "/api/profiles/prof_test", badUpdate, true)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on traversal path in update, got %d: %s", w.Code, w.Body.String())
 	}
 }

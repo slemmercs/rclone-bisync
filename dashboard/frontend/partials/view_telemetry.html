@@ -5,8 +5,11 @@
             <!-- Cockpit Telemetry Workspace Subheader Toolbar -->
             <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
                 <div class="flex items-center gap-2 px-1">
-                    <span class="w-2 h-2 rounded-full" :class="telemetry.execution_status === 'SYNCING' ? 'bg-amber-400 animate-pulse' : (telemetry.execution_status === 'IDLE' ? 'bg-emerald-400' : 'bg-slate-500')"></span>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono" x-text="'Engine: ' + (telemetry.execution_status || 'IDLE')"></span>
+                    <span class="w-2 h-2 rounded-full" :class="isEngineSyncing() ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"></span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-300 font-mono" x-text="'Engine: ' + getEngineStatus()"></span>
+                    <template x-if="activeProfile">
+                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 ml-1.5" x-text="activeProfile.name"></span>
+                    </template>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -59,11 +62,11 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
                 <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
                     <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Local Source (LOCAL_PATH)</span>
-                    <span class="text-indigo-300 break-all font-medium" x-text="telemetry.config.LOCAL_PATH || telemetry.config.LOCALPATH || '--'"></span>
+                    <span class="text-indigo-300 break-all font-medium" x-text="activeProfile ? activeProfile.local_path : (telemetry.config.LOCAL_PATH || telemetry.config.LOCALPATH || '--')"></span>
                 </div>
                 <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
                     <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Remote Target (REMOTE_PATH)</span>
-                    <span class="text-indigo-300 break-all font-medium" x-text="telemetry.config.REMOTE_PATH || telemetry.config.REMOTEPATH || '--'"></span>
+                    <span class="text-indigo-300 break-all font-medium" x-text="activeProfile ? (activeProfile.remote.endsWith(':') ? activeProfile.remote : activeProfile.remote + ':') + (activeProfile.remote_path || '') : (telemetry.config.REMOTE_PATH || telemetry.config.REMOTEPATH || '--')"></span>
                 </div>
                 <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
                     <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Base Directory (BASE_DIR)</span>

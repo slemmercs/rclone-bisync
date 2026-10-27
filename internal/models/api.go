@@ -14,8 +14,9 @@ type ActionResponse struct {
 }
 
 type BrowseRequest struct {
-	Remote string `json:"remote"`
-	Path   string `json:"path"`
+	Remote    string `json:"remote"`
+	Path      string `json:"path"`
+	ProfileID string `json:"profile_id,omitempty"`
 }
 
 type BrowseItem struct {
@@ -50,6 +51,7 @@ type CopyRequest struct {
 	DstRemote string `json:"dst_remote"`
 	DstPath   string `json:"dst_path"`
 	IsDir     bool   `json:"is_dir"`
+	ProfileID string `json:"profile_id,omitempty"`
 }
 
 type CopyResponse struct {
@@ -61,9 +63,10 @@ type CopyResponse struct {
 }
 
 type DeleteRequest struct {
-	Remote string `json:"remote"`
-	Path   string `json:"path"`
-	IsDir  bool   `json:"is_dir"`
+	Remote    string `json:"remote"`
+	Path      string `json:"path"`
+	IsDir     bool   `json:"is_dir"`
+	ProfileID string `json:"profile_id,omitempty"`
 }
 
 type DeleteResponse struct {

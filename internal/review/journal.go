@@ -32,7 +32,8 @@ func SaveActiveSession(activeFilePath string, session *models.ReviewSession) err
 	}
 
 	tmpFile := fmt.Sprintf("%s.tmp.%d", activeFilePath, os.Getpid())
-	f, err := os.OpenFile(tmpFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	// #nosec G304 - atomic session file creation
+	f, err := os.OpenFile(filepath.Clean(tmpFile), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -68,7 +69,8 @@ func LoadActiveSession(activeFilePath string) (*models.ReviewSession, error) {
 		return nil, nil
 	}
 
-	data, err := os.ReadFile(activeFilePath)
+	// #nosec G304 - reading verified active review session file
+	data, err := os.ReadFile(filepath.Clean(activeFilePath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -129,7 +131,8 @@ func AppendWAL(walPath string, entry models.WALEntry) error {
 		return fmt.Errorf("failed to create directory for WAL: %w", err)
 	}
 
-	f, err := os.OpenFile(walPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	// #nosec G304 - appending to session WAL
+	f, err := os.OpenFile(filepath.Clean(walPath), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to open WAL file: %w", err)
 	}
@@ -152,7 +155,8 @@ func ReadWAL(walPath string) ([]models.WALEntry, error) {
 		return nil, nil
 	}
 
-	f, err := os.Open(walPath)
+	// #nosec G304 - reading session WAL
+	f, err := os.Open(filepath.Clean(walPath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

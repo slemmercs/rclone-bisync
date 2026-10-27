@@ -55,10 +55,7 @@ func (c *RcloneClient) backoffWithJitter(attempt int, baseDelay time.Duration) t
 	if jitterMax > 0 {
 		var b [8]byte
 		_, _ = rand.Read(b[:])
-		n := int64(binary.LittleEndian.Uint64(b[:]))
-		if n < 0 {
-			n = -n
-		}
+		n := int64(binary.LittleEndian.Uint64(b[:]) & 0x7fffffffffffffff)
 		jitter := time.Duration(n % jitterMax)
 		backoff += jitter
 	}
@@ -137,7 +134,7 @@ func (c *RcloneClient) post(ctx context.Context, endpoint string, payload interf
 		}
 
 		respBytes, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if cancel != nil {
 			cancel()
 		}

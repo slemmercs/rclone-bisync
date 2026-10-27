@@ -63,11 +63,16 @@ func (s *ReviewService) enrichDeletionRecommendationsLocked(ctx context.Context,
 		deletions[i].Name = filepath.Base(deletions[i].Path)
 
 		if s.Config != nil && s.Config.LocalPath != "" && deletions[i].Size == 0 {
-			fullPath := filepath.Join(s.Config.LocalPath, deletions[i].Path)
-			if fi, err := os.Stat(fullPath); err == nil {
-				deletions[i].Size = fi.Size()
-				deletions[i].ModTime = fi.ModTime().UTC().Format(time.RFC3339)
-				deletions[i].IsDir = fi.IsDir()
+			cleanBase := filepath.Clean(s.Config.LocalPath)
+			basePrefix := cleanBase + string(filepath.Separator)
+			fullPath := filepath.Clean(filepath.Join(cleanBase, deletions[i].Path))
+			if fullPath == cleanBase || strings.HasPrefix(fullPath, basePrefix) {
+				// #nosec G703 - fullPath is strictly verified to reside within cleanBase
+				if fi, err := os.Stat(fullPath); err == nil {
+					deletions[i].Size = fi.Size()
+					deletions[i].ModTime = fi.ModTime().UTC().Format(time.RFC3339)
+					deletions[i].IsDir = fi.IsDir()
+				}
 			}
 		}
 

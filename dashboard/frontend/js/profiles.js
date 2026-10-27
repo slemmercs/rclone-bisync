@@ -8,6 +8,7 @@ window.ProfilesModule = {
     profilesData: {
         list: [],
         activeId: localStorage.getItem("rclone_active_profile_id") || "default",
+        homeDir: "",
         loading: false,
         error: null,
         syncingId: null
@@ -22,6 +23,7 @@ window.ProfilesModule = {
             remote: "",
             remote_path: "",
             local_path: "",
+            exclude_patterns: [],
             schedule: "manual",
             review_mode: "deletions",
             notification_pref: "all",
@@ -32,13 +34,20 @@ window.ProfilesModule = {
                 canary_validation: true
             }
         },
+        excludePatternsInput: ".git/**, *.tmp, .DS_Store",
         isNew: false,
         history: [],
         historyLoading: false,
         saving: false,
         error: null,
         cloneTarget: { id: "", name: "" },
-        showClonePrompt: false
+        showClonePrompt: false,
+        deleteConfirm: {
+            show: false,
+            profile: null,
+            deleting: false,
+            error: null
+        }
     },
 
     get activeProfile() {
@@ -48,23 +57,14 @@ window.ProfilesModule = {
         return this.profilesData.list.find(p => p.id === this.profilesData.activeId) || this.profilesData.list[0];
     },
 
-    isProfileSaving() {
-        return !!(this.profileModal && this.profileModal.saving);
-    },
-
+    isProfileSaving() { return !!(this.profileModal && this.profileModal.saving); },
+    isProfileDeleting() { return !!(this.profileModal && this.profileModal.deleteConfirm && this.profileModal.deleteConfirm.deleting); },
     isProfileSyncing(item) {
         if (!item) return false;
-        const id = typeof item === "string" ? item : item.id;
-        return !!(this.profilesData && this.profilesData.syncingId === id);
+        return !!(this.profilesData && this.profilesData.syncingId === (typeof item === "string" ? item : item.id));
     },
-
-    isProfileEditingExisting() {
-        return !(this.profileModal && this.profileModal.isNew);
-    },
-
-    hasDiscoveredRemotes() {
-        return !!(this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0);
-    },
+    isProfileEditingExisting() { return !(this.profileModal && this.profileModal.isNew); },
+    hasDiscoveredRemotes() { return !!(this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0); },
 
     async fetchProfiles() {
         this.profilesData.loading = true;
@@ -72,6 +72,9 @@ window.ProfilesModule = {
         try {
             const data = await window.API.get("/api/profiles");
             if (data && data.status === "success") {
+                if (data.home_dir) {
+                    this.profilesData.homeDir = data.home_dir;
+                }
                 this.profilesData.list = data.profiles || [];
                 if (this.profilesData.list.length > 0) {
                     const exists = this.profilesData.list.some(p => p.id === this.profilesData.activeId);
@@ -97,9 +100,12 @@ window.ProfilesModule = {
             const p = this.profilesData.list.find(item => item.id === id);
             this.showToast(`Active profile switched to "${p ? p.name : id}"`, "info");
         }
-        if (this.currentTab === "explorer" && typeof this.initExplorer === "function") {
+        if (typeof this.syncExplorerWithActiveProfile === "function") {
+            this.syncExplorerWithActiveProfile();
+        } else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") {
             this.initExplorer();
-        } else if (this.currentTab === "audit" && typeof this.fetchAuditRecords === "function") {
+        }
+        if (this.currentTab === "audit" && typeof this.fetchAuditRecords === "function") {
             this.auditData.filterProfile = id;
             this.fetchAuditRecords();
         }
@@ -115,37 +121,41 @@ window.ProfilesModule = {
         }
     },
 
+    createDefaultProfile() {
+        const randomHex = Math.random().toString(16).substring(2, 8);
+        const remotes = this.remotesData && this.remotesData.remotes;
+        const defaultRemote = (remotes && remotes.length > 0) ? remotes[0].name : "";
+        const defaultBase = (this.profilesData && this.profilesData.homeDir) || "~";
+        return {
+            id: `prof_${randomHex}`,
+            name: "",
+            remote: defaultRemote,
+            remote_path: "",
+            local_path: defaultRemote ? `${defaultBase}/${defaultRemote}` : `${defaultBase}/sync`,
+            exclude_patterns: [".git/**", "*.tmp", ".DS_Store"],
+            schedule: "manual",
+            review_mode: "deletions",
+            notification_pref: "all",
+            enabled: true,
+            safety: { delete_threshold_pct: 10.0, failure_threshold: 3, canary_validation: true }
+        };
+    },
+
     closeProfilesModal() {
         this.profileModal.show = false;
-        this.profileModal.editing = null;
+        this.profileModal.editing = this.createDefaultProfile();
+        this.profileModal.tab = "list";
         this.profileModal.isNew = false;
         this.profileModal.history = [];
         this.profileModal.showClonePrompt = false;
+        this.cancelDeleteProfile();
     },
 
     startNewProfile() {
         this.profileModal.isNew = true;
         this.profileModal.error = null;
-        const randomHex = Math.random().toString(16).substring(2, 8);
-        const defaultRemote = (this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0)
-            ? this.remotesData.remotes[0].name
-            : "";
-        this.profileModal.editing = {
-            id: `prof_${randomHex}`,
-            name: "",
-            remote: defaultRemote,
-            remote_path: "",
-            local_path: "",
-            schedule: "manual",
-            review_mode: "deletions",
-            notification_pref: "all",
-            enabled: true,
-            safety: {
-                delete_threshold_pct: 10.0,
-                failure_threshold: 3,
-                canary_validation: true
-            }
-        };
+        this.profileModal.editing = this.createDefaultProfile();
+        this.profileModal.excludePatternsInput = ".git/**, *.tmp, .DS_Store";
         this.profileModal.tab = "edit";
     },
 
@@ -160,6 +170,8 @@ window.ProfilesModule = {
                 canary_validation: true
             };
         }
+        const patterns = this.profileModal.editing.exclude_patterns || [];
+        this.profileModal.excludePatternsInput = patterns.join(", ");
         this.profileModal.tab = "edit";
     },
 
@@ -168,6 +180,12 @@ window.ProfilesModule = {
         if (!p) return;
         if (this.profileModal.isNew && (!p.id || !p.id.trim())) {
             p.id = "prof_" + Math.random().toString(16).substring(2, 8);
+        }
+        if (typeof this.profileModal.excludePatternsInput === "string") {
+            p.exclude_patterns = this.profileModal.excludePatternsInput
+                .split(",")
+                .map(s => s.trim())
+                .filter(Boolean);
         }
         this.profileModal.saving = true;
         this.profileModal.error = null;
@@ -191,6 +209,9 @@ window.ProfilesModule = {
             }
             await this.fetchProfiles();
             this.profileModal.tab = "list";
+            if (this.profilesData.activeId === p.id && typeof this.syncExplorerWithActiveProfile === "function") {
+                this.syncExplorerWithActiveProfile();
+            }
         } catch (err) {
             this.profileModal.error = err.message;
             if (typeof this.showToast === "function") {
@@ -255,30 +276,42 @@ window.ProfilesModule = {
     },
 
     async rollbackProfile(profId, targetVersion) {
-        if (!confirm(`Rollback profile to version ${targetVersion}? Current configuration will be overwritten.`)) {
-            return;
-        }
-        this.profileModal.saving = true;
-        try {
-            const res = await window.API.post(`/api/profiles/${encodeURIComponent(profId)}/rollback`, {
-                target_version: targetVersion
+        const executeRollback = async () => {
+            this.profileModal.saving = true;
+            try {
+                const res = await window.API.post(`/api/profiles/${encodeURIComponent(profId)}/rollback`, {
+                    target_version: targetVersion
+                });
+                if (res.status === "error") throw new Error(res.error || "Rollback failed");
+                if (typeof this.showToast === "function") {
+                    this.showToast(`Profile rolled back to version ${targetVersion}.`, "success");
+                }
+                await this.fetchProfiles();
+                const updated = this.profilesData.list.find(p => p.id === profId);
+                if (updated) {
+                    await this.viewProfileHistory(updated);
+                }
+            } catch (err) {
+                this.profileModal.error = err.message;
+                if (typeof this.showToast === "function") {
+                    this.showToast(`Rollback failed: ${err.message}`, "error");
+                }
+            } finally {
+                this.profileModal.saving = false;
+            }
+        };
+
+        if (typeof this.askConfirmation === "function") {
+            this.askConfirmation({
+                title: "Confirm Profile Rollback",
+                message: `Rollback profile to version ${targetVersion}?\nCurrent configuration will be overwritten with archived version settings.`,
+                confirmText: "Rollback",
+                confirmClass: "bg-amber-600 hover:bg-amber-500 shadow-amber-950/40",
+                icon: "warning",
+                onConfirm: executeRollback
             });
-            if (res.status === "error") throw new Error(res.error || "Rollback failed");
-            if (typeof this.showToast === "function") {
-                this.showToast(`Profile rolled back to version ${targetVersion}.`, "success");
-            }
-            await this.fetchProfiles();
-            const updated = this.profilesData.list.find(p => p.id === profId);
-            if (updated) {
-                await this.viewProfileHistory(updated);
-            }
-        } catch (err) {
-            this.profileModal.error = err.message;
-            if (typeof this.showToast === "function") {
-                this.showToast(`Rollback failed: ${err.message}`, "error");
-            }
-        } finally {
-            this.profileModal.saving = false;
+        } else if (confirm(`Rollback profile to version ${targetVersion}? Current configuration will be overwritten.`)) {
+            await executeRollback();
         }
     },
 
@@ -300,22 +333,57 @@ window.ProfilesModule = {
         }
     },
 
-    async deleteProfile(profId) {
-        if (!confirm(`Are you sure you want to permanently delete profile "${profId}"? Background sync tickers will be stopped.`)) {
-            return;
+    promptDeleteProfile(prof) {
+        let target = prof;
+        if (typeof prof === "string") {
+            target = (this.profilesData.list || []).find(p => p.id === prof) || { id: prof, name: prof };
         }
+        this.profileModal.deleteConfirm = {
+            show: true,
+            profile: target,
+            deleting: false,
+            error: null
+        };
+    },
+
+    cancelDeleteProfile() {
+        this.profileModal.deleteConfirm = {
+            show: false,
+            profile: null,
+            deleting: false,
+            error: null
+        };
+    },
+
+    async executeDeleteProfile() {
+        const prof = this.profileModal.deleteConfirm.profile;
+        if (!prof || !prof.id) return;
+        this.profileModal.deleteConfirm.deleting = true;
+        this.profileModal.deleteConfirm.error = null;
         try {
-            const res = await window.API.delete(`/api/profiles/${encodeURIComponent(profId)}`);
+            const res = await window.API.delete(`/api/profiles/${encodeURIComponent(prof.id)}`);
             if (res && res.status === "error") throw new Error(res.error || "Delete failed");
             if (typeof this.showToast === "function") {
-                this.showToast(`Profile "${profId}" deleted.`, "info");
+                this.showToast(`Profile "${prof.name || prof.id}" deleted.`, "info");
             }
+            this.profileModal.deleteConfirm.show = false;
+            this.profileModal.deleteConfirm.profile = null;
             await this.fetchProfiles();
+            if (this.profilesData.activeId === prof.id && this.profilesData.list.length > 0) {
+                this.selectProfile(this.profilesData.list[0].id);
+            }
         } catch (err) {
+            this.profileModal.deleteConfirm.error = err.message;
             if (typeof this.showToast === "function") {
                 this.showToast(`Delete failed: ${err.message}`, "error");
             }
+        } finally {
+            this.profileModal.deleteConfirm.deleting = false;
         }
+    },
+
+    deleteProfile(profId) {
+        this.promptDeleteProfile(profId);
     }
 };
 

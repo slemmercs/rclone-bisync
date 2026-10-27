@@ -323,5 +323,26 @@ window.RemotesModule = {
 
     cannotSaveMigration() {
         return Boolean(this.migrationModal?.loading || !this.migrationModal?.clientId?.trim());
+    },
+
+    isRemoteActiveTarget(remote) {
+        if (!remote) return false;
+        const rName = (remote.name || "").replace(/:$/, "").trim();
+        if (this.activeProfile && this.activeProfile.remote) {
+            const pRemote = this.activeProfile.remote.replace(/:$/, "").trim();
+            return rName === pRemote;
+        }
+        return !!remote.is_active_target;
+    },
+
+    viewSyncForRemote(remoteName) {
+        if (this.profilesData && this.profilesData.list) {
+            const clean = (remoteName || "").replace(/:$/, "").trim();
+            const prof = this.profilesData.list.find(p => (p.remote || "").replace(/:$/, "").trim() === clean);
+            if (prof && typeof this.selectProfile === "function") {
+                this.selectProfile(prof.id);
+            }
+        }
+        this.switchTab("telemetry");
     }
 };

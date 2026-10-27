@@ -127,7 +127,7 @@
                                     </div>
                                 </div>
                                 <div class="shrink-0 flex items-center">
-                                    <span x-show="remote.is_active_target" class="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1 shadow-sm">
+                                    <span x-show="isRemoteActiveTarget(remote)" class="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1 shadow-sm">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                                         <span>Active Target</span>
                                     </span>
@@ -208,7 +208,7 @@
                                     <span>Browse Files</span>
                                     <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
                                 </button>
-                                <button @click="switchTab('telemetry')" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-400 rounded border border-slate-800 transition-colors">View Sync</button>
+                                <button @click="viewSyncForRemote(remote.name)" class="px-2.5 py-1 text-[11px] bg-slate-950 hover:bg-slate-800 text-slate-400 rounded border border-slate-800 transition-colors">View Sync</button>
                             </div>
                         </div>
                     </div>

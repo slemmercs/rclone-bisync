@@ -102,3 +102,34 @@ func TestCompileAdvancedParameters(t *testing.T) {
 		t.Fatalf("expected TPSLimit 15.5 and TPSLimitBurst 20, got: %v", cfg)
 	}
 }
+
+func TestCompileExcludeRules(t *testing.T) {
+	args := []string{
+		"--exclude", ".git/**",
+		"--fast-list",
+		"--exclude", "*.tmp",
+		"--exclude", ".DS_Store",
+	}
+
+	payload, err := CompileBisyncPayload(args, "/tmp/local", "gdrive:", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+
+	filterMap, ok := payload["_filter"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected _filter map in payload, got: %v", payload["_filter"])
+	}
+
+	rules, ok := filterMap["ExcludeRule"].([]string)
+	if !ok {
+		t.Fatalf("expected []string ExcludeRule, got: %T", filterMap["ExcludeRule"])
+	}
+
+	if len(rules) != 3 {
+		t.Fatalf("expected 3 exclude rules, got %d: %v", len(rules), rules)
+	}
+	if rules[0] != ".git/**" || rules[1] != "*.tmp" || rules[2] != ".DS_Store" {
+		t.Fatalf("unexpected rules content: %v", rules)
+	}
+}

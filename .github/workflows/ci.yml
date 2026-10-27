@@ -29,6 +29,8 @@ on:
 
 permissions:
   contents: read
+  statuses: write
+  checks: write
 
 concurrency:
   group: ci-quality-gate-${{ github.ref }}

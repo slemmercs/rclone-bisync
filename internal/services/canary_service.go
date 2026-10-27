@@ -39,13 +39,15 @@ func (c *CanaryService) SafeguardCanary(cleanPath string) error {
 }
 
 // CanaryInDir checks whether a directory (or any of its subdirectories) contains RCLONE_TEST.
-func (c *CanaryService) CanaryInDir(ctx context.Context, remote, path string) bool {
+func (c *CanaryService) CanaryInDir(ctx context.Context, remote, path string, localBase ...string) bool {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
 		rawBase := ""
-		if c.Config != nil {
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if c.Config != nil {
 			rawBase = c.Config.LocalPath
 		}
 		if rawBase == "" {
@@ -78,12 +80,17 @@ func (c *CanaryService) CanaryInDir(ctx context.Context, remote, path string) bo
 }
 
 // CanaryExists checks if the canary file exists locally or remotely at the target path.
-func (c *CanaryService) CanaryExists(ctx context.Context, remote, path string) bool {
+func (c *CanaryService) CanaryExists(ctx context.Context, remote, path string, localBase ...string) bool {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := c.Config.LocalPath
+		rawBase := ""
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if c.Config != nil {
+			rawBase = c.Config.LocalPath
+		}
 		if rawBase == "" {
 			rawBase = "~/gdrive"
 		}
@@ -120,21 +127,28 @@ func (c *CanaryService) CanaryExists(ctx context.Context, remote, path string) b
 }
 
 // CreateCanary provisions an RCLONE_TEST canary file on target local or remote filesystem.
-func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string) (map[string]interface{}, error) {
+func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, localBase ...string) (map[string]interface{}, error) {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := c.Config.LocalPath
-		if strings.HasPrefix(rawBase, "~") {
-			home, _ := os.UserHomeDir()
-			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
+		rawBase := ""
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if c.Config != nil {
+			rawBase = c.Config.LocalPath
 		}
-		baseDir, _ := filepath.Abs(rawBase)
-		targetDir, _ := filepath.Abs(filepath.Join(baseDir, cleanPath))
+		if rawBase == "" {
+			rawBase = "~/gdrive"
+		}
 
-		rel, err := filepath.Rel(baseDir, targetDir)
-		if err != nil || strings.HasPrefix(rel, "..") {
+		baseDir, targetDir, ok := isLocalPathJailed(rawBase, cleanPath)
+		if !ok {
+			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
+		}
+		cleanBase := filepath.Clean(baseDir)
+		basePrefix := cleanBase + string(filepath.Separator)
+		if targetDir != cleanBase && !strings.HasPrefix(targetDir, basePrefix) {
 			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
 		}
 
@@ -143,7 +157,11 @@ func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string) (
 		}
 
 		canaryFile := filepath.Join(targetDir, CanaryFilename)
-		f, err := os.OpenFile(canaryFile, os.O_CREATE|os.O_WRONLY, 0644)
+		if !strings.HasPrefix(canaryFile, basePrefix) {
+			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
+		}
+		// #nosec G304 - canaryFile is strictly confined within safe root
+		f, err := os.OpenFile(canaryFile, os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to create canary file: %v", err), "remote": "local", "path": cleanPath}, nil
 		}

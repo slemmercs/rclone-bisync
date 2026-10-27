@@ -149,6 +149,19 @@ window.AuditModule = {
             return ts;
         }
     },
+    getProfileDisplayName(profileId, record) {
+        if (record && record.profile_name) {
+            return record.profile_name;
+        }
+        if (!profileId) return "--";
+        if (this.profilesData && Array.isArray(this.profilesData.list)) {
+            const found = this.profilesData.list.find(p => p.id === profileId);
+            if (found && found.name) return found.name;
+        }
+        if (profileId === "default") return "Default";
+        return profileId;
+    },
+
 
     isAuditVerifying() {
         return Boolean(this.auditData?.verification?.checking);

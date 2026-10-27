@@ -10,6 +10,9 @@ import (
 // It resolves real paths on disk using filepath.EvalSymlinks to prevent symlink jail escapes.
 // It returns baseAbs, targetAbs, and true if safe, or false if path traversal is detected.
 func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
+	if strings.Contains(relPath, "..") {
+		return "", "", false
+	}
 	if strings.HasPrefix(rawBaseDir, "~") {
 		home, _ := os.UserHomeDir()
 		rawBaseDir = filepath.Join(home, strings.TrimPrefix(rawBaseDir, "~"))
@@ -18,25 +21,44 @@ func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
 	if err != nil {
 		return "", "", false
 	}
-	targetDir, err := filepath.Abs(filepath.Join(baseDir, relPath))
+	cleanBase := filepath.Clean(baseDir)
+	basePrefix := cleanBase + string(filepath.Separator)
+
+	targetDir, err := filepath.Abs(filepath.Join(cleanBase, relPath))
 	if err != nil {
-		return baseDir, "", false
+		return cleanBase, "", false
 	}
-	// First: lexical check
-	rel, err := filepath.Rel(baseDir, targetDir)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return baseDir, targetDir, false
+	cleanTarget := filepath.Clean(targetDir)
+
+	// First: lexical confinement check
+	if !strings.HasPrefix(cleanTarget, basePrefix) && cleanTarget != cleanBase {
+		return cleanBase, "", false
+	}
+	rel, err := filepath.Rel(cleanBase, cleanTarget)
+	if err != nil || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+		return cleanBase, "", false
+	}
+	safeTarget := filepath.Join(cleanBase, rel)
+	if !strings.HasPrefix(safeTarget, basePrefix) && safeTarget != cleanBase {
+		return cleanBase, "", false
 	}
 
 	// Second: symlink realpath confinement check
-	realBase, err := filepath.EvalSymlinks(baseDir)
+	realBase, err := filepath.EvalSymlinks(cleanBase)
 	if err == nil {
-		fi, lstatErr := os.Lstat(targetDir)
+		realBasePrefix := realBase + string(filepath.Separator)
+		if !strings.HasPrefix(safeTarget, basePrefix) && safeTarget != cleanBase {
+			return cleanBase, "", false
+		}
+		fi, lstatErr := os.Lstat(safeTarget)
 		if lstatErr == nil && fi.Mode()&os.ModeSymlink != 0 {
-			linkDest, err := os.Readlink(targetDir)
+			if !strings.HasPrefix(safeTarget, basePrefix) && safeTarget != cleanBase {
+				return cleanBase, "", false
+			}
+			linkDest, err := os.Readlink(safeTarget)
 			if err == nil {
 				if !filepath.IsAbs(linkDest) {
-					linkDest = filepath.Join(filepath.Dir(targetDir), linkDest)
+					linkDest = filepath.Join(filepath.Dir(safeTarget), linkDest)
 				}
 				realDest, err := filepath.EvalSymlinks(linkDest)
 				if err != nil {
@@ -44,26 +66,32 @@ func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
 				}
 				realRel, err := filepath.Rel(realBase, realDest)
 				if err != nil || strings.HasPrefix(realRel, "..") {
-					return baseDir, targetDir, false
+					return cleanBase, "", false
 				}
 			}
 		}
 
-		realTarget, err := filepath.EvalSymlinks(targetDir)
+		realTarget, err := filepath.EvalSymlinks(safeTarget)
 		if err == nil {
+			if realTarget != realBase && !strings.HasPrefix(realTarget, realBasePrefix) {
+				return cleanBase, "", false
+			}
 			realRel, err := filepath.Rel(realBase, realTarget)
 			if err != nil || strings.HasPrefix(realRel, "..") {
-				return baseDir, targetDir, false
+				return cleanBase, "", false
 			}
 		} else if os.IsNotExist(err) {
 			// Target does not exist yet (e.g. file to be created or copied)
 			// Verify closest existing parent directory
-			parentDir := filepath.Dir(targetDir)
+			parentDir := filepath.Dir(safeTarget)
 			for {
 				if realParent, pErr := filepath.EvalSymlinks(parentDir); pErr == nil {
+					if realParent != realBase && !strings.HasPrefix(realParent, realBasePrefix) {
+						return cleanBase, "", false
+					}
 					realRel, rErr := filepath.Rel(realBase, realParent)
 					if rErr != nil || strings.HasPrefix(realRel, "..") {
-						return baseDir, targetDir, false
+						return cleanBase, "", false
 					}
 					break
 				}
@@ -76,7 +104,7 @@ func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
 		}
 	}
 
-	return baseDir, targetDir, true
+	return cleanBase, safeTarget, true
 }
 
 func isLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {

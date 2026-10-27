@@ -83,7 +83,8 @@ type Config struct {
 // ParseEnvFile reads a simple .env file and parses its key-value pairs into a map.
 // It supports comments (#), balanced single/double quotes, and ignores missing files.
 func ParseEnvFile(path string) (map[string]string, error) {
-	f, err := os.Open(path)
+	// #nosec G304 - reading configured environment file
+	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return make(map[string]string), nil

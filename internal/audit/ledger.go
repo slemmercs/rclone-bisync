@@ -17,14 +17,15 @@ const GenesisHash = "00000000000000000000000000000000000000000000000000000000000
 
 // AuditRecord represents a single immutable, cryptographically chained audit log entry.
 type AuditRecord struct {
-	SeqID     int64           `json:"seq_id"`
-	Timestamp string          `json:"timestamp"`
-	ProfileID string          `json:"profile_id"`
-	Action    Action          `json:"action"`
-	Actor     string          `json:"actor"`
-	Details   json.RawMessage `json:"details"`
-	PrevHash  string          `json:"prev_hash"`
-	Hash      string          `json:"hash"`
+	SeqID       int64           `json:"seq_id"`
+	Timestamp   string          `json:"timestamp"`
+	ProfileID   string          `json:"profile_id"`
+	ProfileName string          `json:"profile_name,omitempty"`
+	Action      Action          `json:"action"`
+	Actor       string          `json:"actor"`
+	Details     json.RawMessage `json:"details"`
+	PrevHash    string          `json:"prev_hash"`
+	Hash        string          `json:"hash"`
 }
 
 // Filter specifies query criteria for fetching audit records.

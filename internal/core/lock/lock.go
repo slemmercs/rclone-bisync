@@ -134,7 +134,8 @@ func IsLocked(lockFilePath string) bool {
 		return false
 	}
 
-	f, err := os.Open(lockFilePath)
+	// #nosec G304 - checking state of lockfile
+	f, err := os.Open(filepath.Clean(lockFilePath))
 	if err != nil {
 		return false
 	}

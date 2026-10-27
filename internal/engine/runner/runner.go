@@ -2,9 +2,9 @@ package runner
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log"
-	"math/rand"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
@@ -86,7 +86,9 @@ func (r *SyncRunner) Run(
 	noNotify bool,
 ) bool {
 	if runID == "" {
-		runID = fmt.Sprintf("sync_%s_%x", time.Now().Format("060102_150405"), rand.Intn(0xffff))
+		var randBytes [2]byte
+		_, _ = rand.Read(randBytes[:])
+		runID = fmt.Sprintf("sync_%s_%x", time.Now().Format("060102_150405"), randBytes)
 	}
 
 	startTime := time.Now()

@@ -11,14 +11,23 @@ import (
 )
 
 // CopyItem transfers a file or directory with path jail enforcement.
-func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool) (models.CopyResponse, error) {
+func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool, localBase ...string) (models.CopyResponse, error) {
+	base := ""
+	if len(localBase) > 0 {
+		base = localBase[0]
+	}
+	return e.CopyItemWithOptions(ctx, srcRemote, srcPath, dstRemote, dstPath, isDir, base, nil)
+}
+
+// CopyItemWithOptions transfers a file or directory with path jail enforcement and optional exclude filter rules.
+func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool, localBase string, excludeRules []string) (models.CopyResponse, error) {
 	cleanSrcPath := strings.Trim(strings.TrimSpace(srcPath), "/")
 	cleanDstPath := strings.Trim(strings.TrimSpace(dstPath), "/")
 	srcIsLocal := strings.ToLower(strings.TrimSpace(srcRemote)) == "local" || strings.TrimSpace(srcRemote) == ""
 	dstIsLocal := strings.ToLower(strings.TrimSpace(dstRemote)) == "local" || strings.TrimSpace(dstRemote) == ""
 
-	rawBase := ""
-	if e.Config != nil {
+	rawBase := localBase
+	if rawBase == "" && e.Config != nil {
 		rawBase = e.Config.LocalPath
 	}
 	if rawBase == "" {
@@ -28,8 +37,13 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 	var srcFs, srcFile, dstFs, dstFile string
 
 	if srcIsLocal {
-		_, targetSrc, ok := isLocalPathJailed(rawBase, cleanSrcPath)
+		baseSrc, targetSrc, ok := isLocalPathJailed(rawBase, cleanSrcPath)
 		if !ok {
+			return models.CopyResponse{Status: "error", Error: "Source path traversal forbidden"}, nil
+		}
+		cleanBaseSrc := filepath.Clean(baseSrc)
+		srcPrefix := cleanBaseSrc + string(filepath.Separator)
+		if targetSrc != cleanBaseSrc && !strings.HasPrefix(targetSrc, srcPrefix) {
 			return models.CopyResponse{Status: "error", Error: "Source path traversal forbidden"}, nil
 		}
 
@@ -65,8 +79,13 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 	}
 
 	if dstIsLocal {
-		_, targetDst, ok := isLocalPathJailed(rawBase, cleanDstPath)
+		baseDst, targetDst, ok := isLocalPathJailed(rawBase, cleanDstPath)
 		if !ok {
+			return models.CopyResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
+		}
+		cleanBaseDst := filepath.Clean(baseDst)
+		dstPrefix := cleanBaseDst + string(filepath.Separator)
+		if targetDst != cleanBaseDst && !strings.HasPrefix(targetDst, dstPrefix) {
 			return models.CopyResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
 		}
 
@@ -109,7 +128,7 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 	}
 
 	if isDir {
-		ok, err := e.Client.CopyDir(ctx, srcFs, dstFs)
+		ok, err := e.Client.CopyDir(ctx, srcFs, dstFs, excludeRules)
 		if err != nil || !ok {
 			return models.CopyResponse{Status: "error", Error: fmt.Sprintf("copy dir failed: %v", err)}, nil
 		}
@@ -125,7 +144,7 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 }
 
 // DeleteItem removes a file or directory, safeguarding RCLONE_TEST canary and enforcing path jail.
-func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, isDir bool) (map[string]interface{}, error) {
+func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, isDir bool, localBase ...string) (map[string]interface{}, error) {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	if cleanPath == "" {
 		return map[string]interface{}{"status": "error", "error": "Root directory cannot be deleted"}, nil
@@ -141,7 +160,9 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 
 	if isLocal {
 		rawBase := ""
-		if e.Config != nil {
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if e.Config != nil {
 			rawBase = e.Config.LocalPath
 		}
 		if rawBase == "" {
@@ -150,6 +171,11 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 
 		baseDir, target, ok := isLocalPathJailed(rawBase, cleanPath)
 		if !ok || target == baseDir {
+			return map[string]interface{}{"status": "error", "error": "Path traversal or root deletion forbidden"}, nil
+		}
+		cleanBase := filepath.Clean(baseDir)
+		basePrefix := cleanBase + string(filepath.Separator)
+		if target == cleanBase || !strings.HasPrefix(target, basePrefix) {
 			return map[string]interface{}{"status": "error", "error": "Path traversal or root deletion forbidden"}, nil
 		}
 
@@ -161,7 +187,7 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 			// Recursive canary protection: refuse to delete directory containing RCLONE_TEST
 			canaryBlocked := false
 			if e.Canary != nil {
-				canaryBlocked = e.Canary.CanaryInDir(ctx, remote, cleanPath)
+				canaryBlocked = e.Canary.CanaryInDir(ctx, remote, cleanPath, rawBase)
 			} else {
 				_ = filepath.Walk(target, func(p string, info os.FileInfo, err error) error {
 					if err != nil {

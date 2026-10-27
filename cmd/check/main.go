@@ -174,7 +174,7 @@ func main() {
 		results = append(results, runStage("Lines of Code Audit", cfg.Verbose, func() error {
 			return checkLOC(repoRoot, cfg.LocThreshold, cfg.Verbose)
 		}))
-	case "lint", "vet", "security":
+	case "lint", "vet", "security", "gosec":
 		results = append(results, runStage("Static Analysis & Security", cfg.Verbose, func() error {
 			return runLintAndSecurity(cfg)
 		}))
