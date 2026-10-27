@@ -82,7 +82,7 @@ func (a *AuditLogger) GetEvents(limit int) []models.OAuthAuditEvent {
 		limit = 1
 	}
 
-	out := make([]models.OAuthAuditEvent, 0, limit)
+	out := make([]models.OAuthAuditEvent, 0)
 	for i := total - 1; i >= total-limit; i-- {
 		out = append(out, a.events[i])
 	}

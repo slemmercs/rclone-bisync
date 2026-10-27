@@ -51,7 +51,18 @@ func TestAuditLogger(t *testing.T) {
 		t.Fatalf("expected sensitive details to be masked with ********, got: %s", latest[0].Details)
 	}
 
-	// Act 4: Clear
+	// Act 4: Limit edge cases (negative, zero, and excessively large limit values)
+	if eventsNeg := logger.GetEvents(-5); len(eventsNeg) == 0 {
+		t.Fatal("expected fallback to total events for negative limit")
+	}
+	if eventsZero := logger.GetEvents(0); len(eventsZero) == 0 {
+		t.Fatal("expected fallback to total events for zero limit")
+	}
+	if eventsHuge := logger.GetEvents(50000); len(eventsHuge) > 3 {
+		t.Fatalf("expected clamped events length, got %d", len(eventsHuge))
+	}
+
+	// Act 5: Clear
 	logger.Clear()
 	if len(logger.GetEvents(10)) != 0 {
 		t.Fatal("expected empty events after Clear")
