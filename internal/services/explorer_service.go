@@ -56,6 +56,15 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 				Error:  "Directory traversal forbidden",
 			}
 		}
+		cleanBase := filepath.Clean(baseDir)
+		basePrefix := cleanBase + string(filepath.Separator)
+		if targetDir != cleanBase && !strings.HasPrefix(targetDir, basePrefix) {
+			return client.DirectoryListing{
+				Remote: "local",
+				Path:   cleanPath,
+				Error:  "Directory traversal forbidden",
+			}
+		}
 
 		fi, err := os.Stat(targetDir)
 		if os.IsNotExist(err) {

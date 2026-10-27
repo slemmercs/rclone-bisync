@@ -141,15 +141,14 @@ func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, l
 		if rawBase == "" {
 			rawBase = "~/gdrive"
 		}
-		if strings.HasPrefix(rawBase, "~") {
-			home, _ := os.UserHomeDir()
-			rawBase = filepath.Join(home, strings.TrimPrefix(rawBase, "~"))
-		}
-		baseDir, _ := filepath.Abs(rawBase)
-		targetDir, _ := filepath.Abs(filepath.Join(baseDir, cleanPath))
 
-		rel, err := filepath.Rel(baseDir, targetDir)
-		if err != nil || strings.HasPrefix(rel, "..") {
+		baseDir, targetDir, ok := isLocalPathJailed(rawBase, cleanPath)
+		if !ok {
+			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
+		}
+		cleanBase := filepath.Clean(baseDir)
+		basePrefix := cleanBase + string(filepath.Separator)
+		if targetDir != cleanBase && !strings.HasPrefix(targetDir, basePrefix) {
 			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
 		}
 
@@ -158,6 +157,9 @@ func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, l
 		}
 
 		canaryFile := filepath.Join(targetDir, CanaryFilename)
+		if !strings.HasPrefix(canaryFile, basePrefix) {
+			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
+		}
 		f, err := os.OpenFile(canaryFile, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to create canary file: %v", err), "remote": "local", "path": cleanPath}, nil

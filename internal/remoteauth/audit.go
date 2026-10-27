@@ -65,8 +65,15 @@ func (a *AuditLogger) GetEvents(limit int) []models.OAuthAuditEvent {
 		return []models.OAuthAuditEvent{}
 	}
 
+	const maxAllowedLimit = 1000
 	if limit <= 0 || limit > total {
 		limit = total
+	}
+	if limit > maxAllowedLimit {
+		limit = maxAllowedLimit
+	}
+	if a.maxSize > 0 && limit > a.maxSize {
+		limit = a.maxSize
 	}
 
 	out := make([]models.OAuthAuditEvent, 0, limit)

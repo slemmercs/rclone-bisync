@@ -37,8 +37,13 @@ func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, sr
 	var srcFs, srcFile, dstFs, dstFile string
 
 	if srcIsLocal {
-		_, targetSrc, ok := isLocalPathJailed(rawBase, cleanSrcPath)
+		baseSrc, targetSrc, ok := isLocalPathJailed(rawBase, cleanSrcPath)
 		if !ok {
+			return models.CopyResponse{Status: "error", Error: "Source path traversal forbidden"}, nil
+		}
+		cleanBaseSrc := filepath.Clean(baseSrc)
+		srcPrefix := cleanBaseSrc + string(filepath.Separator)
+		if targetSrc != cleanBaseSrc && !strings.HasPrefix(targetSrc, srcPrefix) {
 			return models.CopyResponse{Status: "error", Error: "Source path traversal forbidden"}, nil
 		}
 
@@ -74,8 +79,13 @@ func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, sr
 	}
 
 	if dstIsLocal {
-		_, targetDst, ok := isLocalPathJailed(rawBase, cleanDstPath)
+		baseDst, targetDst, ok := isLocalPathJailed(rawBase, cleanDstPath)
 		if !ok {
+			return models.CopyResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
+		}
+		cleanBaseDst := filepath.Clean(baseDst)
+		dstPrefix := cleanBaseDst + string(filepath.Separator)
+		if targetDst != cleanBaseDst && !strings.HasPrefix(targetDst, dstPrefix) {
 			return models.CopyResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
 		}
 
@@ -161,6 +171,11 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 
 		baseDir, target, ok := isLocalPathJailed(rawBase, cleanPath)
 		if !ok || target == baseDir {
+			return map[string]interface{}{"status": "error", "error": "Path traversal or root deletion forbidden"}, nil
+		}
+		cleanBase := filepath.Clean(baseDir)
+		basePrefix := cleanBase + string(filepath.Separator)
+		if target == cleanBase || !strings.HasPrefix(target, basePrefix) {
 			return map[string]interface{}{"status": "error", "error": "Path traversal or root deletion forbidden"}, nil
 		}
 
