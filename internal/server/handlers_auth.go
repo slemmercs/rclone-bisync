@@ -150,13 +150,16 @@ func (s *Server) handleRemotesAuthAudit(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusOK, models.AuditEventsResponse{})
 		return
 	}
-	limit := 50
+	const defaultLimit = 50
+	const maxLimit = 500
+	limit := defaultLimit
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			if parsed > 500 {
-				parsed = 500
+			if parsed > maxLimit {
+				limit = maxLimit
+			} else {
+				limit = parsed
 			}
-			limit = parsed
 		}
 	}
 	events := s.AuthService.GetAuditEvents(limit)
