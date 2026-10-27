@@ -325,7 +325,10 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 		return "", fmt.Errorf("path traversal forbidden: %q", cleanPath)
 	}
 	safePath := filepath.Join(matchedRoot, rel)
-	if !strings.HasPrefix(safePath, rootPrefix) && safePath != matchedRoot {
+	if safePath == matchedRoot {
+		return matchedRoot, nil
+	}
+	if !strings.HasPrefix(safePath, rootPrefix) {
 		return "", fmt.Errorf("path traversal forbidden: %q", cleanPath)
 	}
 
