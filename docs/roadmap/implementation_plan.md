@@ -44,15 +44,49 @@ Resolve Alpine.js reactive null pointer exceptions on profile modal close, unify
 
 ---
 
-## 2. Phase 2: Core Refactoring & Subsystem Consolidation
+## 2. Phase 2: Core Refactoring & Subsystem Consolidation (Active Scope)
 
 ### Proposed Changes
-Introduce central Dependency Injection (DI) Container (`internal/app/container.go`), consolidate `internal/review/` domain into `internal/engine/review/`, and implement a recursive logger secret-redaction masking engine.
+1. **Central DI Container (`internal/app/container.go`)**:
+   - Centralize lifecycle management, dependency construction, and wiring for core services: Rclone RC client, SyncService, TelemetryService, CanaryService, DeletionService, ExplorerService, ReviewService, AuditService, LogService, RemoteAuthService, ProfileStore, ProfileScheduler, and ProfileService.
+   - De-duplicate and decouple service creation from `main.go` and `internal/server/server.go`.
+   - Provide clean lifecycle methods (`Start(ctx)`, `Close()`) to manage background profile schedulers, loggers, and database handles gracefully.
+2. **Subsystem Consolidation (`internal/review/` -> `internal/engine/review/`)**:
+   - Relocate the review package (`backup.go`, `discovery.go`, `executor.go`, `journal.go`, `rollback.go`, `session.go` and their unit tests) into `internal/engine/review/` to respect domain-driven bounded contexts under `engine`.
+   - Update imports in `internal/services/review_service.go`, `internal/services/review_recommendations.go`, and test suites.
+   - Remove the orphaned `internal/review/` directory.
+3. **Stream/Line Secret Redactor (`internal/core/logger/redact.go`)**:
+   - Implement regex-based stream and line masking engine for sensitive parameters (`RC_PASS`, OAuth access/refresh tokens, webhook secrets, authorization headers, passwords).
+   - Wire the masking engine into log writing (`rotator.go` / `logger.go`) and file tailing (`internal/services/filetail.go`) as a deep defense-in-depth sanitization layer.
 
 ### Affected Components & Packages
-- `internal/app/container.go`: Central application container wiring services.
-- `internal/engine/review/`: Relocate review session manager and diff calculator.
-- `internal/core/logger/redact.go`: Stream/line secret redactor for logs.
+- `internal/app/container.go` (new), `internal/app/container_test.go` (new):
+  - Container struct, constructor `NewContainer(cfg *config.Config) (*Container, error)`, and lifecycle hooks.
+- `main.go`, `internal/server/server.go`:
+  - Wire application via `internal/app/container.go`.
+- `internal/review/` -> `internal/engine/review/`:
+  - Package relocation and import harmonization across services and tests.
+- `internal/core/logger/redact.go` (new), `internal/core/logger/redact_test.go` (new):
+  - Sanitization patterns, redaction streams, and line transformers.
+- `internal/core/logger/logger.go`, `internal/services/filetail.go`:
+  - Hook secret redaction into file sink and log tail readers.
+
+### Technical Strategy & Data Flow
+1. **DI Container**:
+   - `Container` manages service instantiation order: Config -> Client -> Core Services (Canary, Deletion, Telemetry, Explorer, Review, Audit, Log, Auth) -> SyncService -> Profile Store/Scheduler/Service.
+   - Server takes `Container` or builds one from config fallback, retaining backwards-compatible accessors for existing test fixtures.
+   - Background processes (profile scheduler) are managed explicitly via `Container.Start(ctx)` and `Container.Close()`.
+2. **Review Relocation**:
+   - Bounded context: The review engine is an execution subsystem of the bisync workflow, situated alongside `runner` and `compiler` in `internal/engine/`.
+   - Package statement updated to `package review` under `internal/engine/review`.
+3. **Secret Redaction**:
+   - Multi-pattern regex matching: `token=[^&\s]+`, `secret=[^&\s]+`, `pass(word)?=[^&\s]+`, `Bearer\s+[A-Za-z0-9\-._~+/]+=*`, etc.
+   - Replacement with safe masked tokens: `[REDACTED]`.
+
+### Safety & Error Handling
+- Nil-safe container construction: All service accessors check for nil configuration and fail with descriptive errors or fallback to safe defaults.
+- Graceful shutdown: `Container.Close()` cleanly terminates profile worker routines and flushes log/audit handles.
+- No live RC or cloud network calls during container initialization in test environments.
 
 ---
 
