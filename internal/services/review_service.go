@@ -185,12 +185,14 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 	var logLines []string
 	if s.Config.BaseDir != "" {
 		daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
-		if data, err := os.ReadFile(daemonLog); err == nil {
+		// #nosec G304 - reading configured daemon log
+		if data, err := os.ReadFile(filepath.Clean(daemonLog)); err == nil {
 			logLines = append(logLines, strings.Split(string(data), "\n")...)
 		}
 	}
 	if s.Config.LogFile != "" {
-		if data, err := os.ReadFile(s.Config.LogFile); err == nil {
+		// #nosec G304 - reading configured log file
+		if data, err := os.ReadFile(filepath.Clean(s.Config.LogFile)); err == nil {
 			logLines = append(logLines, strings.Split(string(data), "\n")...)
 		}
 	}

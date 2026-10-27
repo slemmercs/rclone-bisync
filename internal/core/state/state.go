@@ -10,7 +10,7 @@ import (
 // WriteJSONAtomic writes data serialized as JSON atomically using a .tmp file and rename.
 func WriteJSONAtomic(filename string, data interface{}) error {
 	dir := filepath.Dir(filename)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -20,12 +20,13 @@ func WriteJSONAtomic(filename string, data interface{}) error {
 	}
 
 	tmpFile := fmt.Sprintf("%s.tmp.%d", filename, os.Getpid())
-	if err := os.WriteFile(tmpFile, bytes, 0644); err != nil {
+	if err := os.WriteFile(tmpFile, bytes, 0600); err != nil {
 		return fmt.Errorf("failed to write tmp file: %w", err)
 	}
 
 	// Sync to disk if possible
-	if f, err := os.Open(tmpFile); err == nil {
+	// #nosec G304 - flushing state tmp file
+	if f, err := os.Open(filepath.Clean(tmpFile)); err == nil {
 		_ = f.Sync()
 		_ = f.Close()
 	}
@@ -40,7 +41,8 @@ func WriteJSONAtomic(filename string, data interface{}) error {
 
 // ReadJSONFile reads and parses a JSON file into target interface.
 func ReadJSONFile(filename string, target interface{}) error {
-	data, err := os.ReadFile(filename)
+	// #nosec G304 - reading configured state json file
+	data, err := os.ReadFile(filepath.Clean(filename))
 	if err != nil {
 		return err
 	}
@@ -173,7 +175,8 @@ func AppendMetricsEntry(path string, entry MetricsEntry) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// #nosec G304 - appending to configured state log file
+	f, err := os.OpenFile(filepath.Clean(path), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}

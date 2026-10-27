@@ -26,6 +26,7 @@ func checkFmtAndScripts(root string, verbose bool) error {
 		rel, _ := filepath.Rel(root, path)
 		if strings.HasSuffix(path, ".go") {
 			goFilesCount++
+			// #nosec G122,G304 - check tool scanning repo go source files for formatting
 			src, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -55,6 +56,7 @@ func checkFmtAndScripts(root string, verbose bool) error {
 	if bashPath, err := exec.LookPath("bash"); err == nil && len(shellScripts) > 0 {
 		var invalidShell []string
 		for _, sh := range shellScripts {
+			// #nosec G204 - check tool invoking bash syntax validation
 			cmd := exec.Command(bashPath, "-n", filepath.Join(root, sh))
 			if out, err := cmd.CombinedOutput(); err != nil {
 				invalidShell = append(invalidShell, fmt.Sprintf("%s:\n%s", sh, strings.TrimSpace(string(out))))
@@ -87,6 +89,7 @@ func checkLOC(root string, threshold int, verbose bool) error {
 		}
 		if ext == ".go" || ext == ".js" || ext == ".html" {
 			totalScanned++
+			// #nosec G122,G304 - check tool auditing line counts in repo
 			content, err := os.ReadFile(path)
 			if err != nil {
 				return nil
@@ -138,6 +141,7 @@ func runLintAndSecurity(cfg Config) error {
 		if cfg.Verbose {
 			fmt.Println("    Running staticcheck ./...")
 		}
+		// #nosec G204 - check tool invoking staticcheck linter
 		cmd := exec.Command(path, "./...")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			errors = append(errors, fmt.Sprintf("staticcheck failed:\n%s", strings.TrimSpace(string(out))))
@@ -151,6 +155,7 @@ func runLintAndSecurity(cfg Config) error {
 		if cfg.Verbose {
 			fmt.Println("    Running govulncheck ./...")
 		}
+		// #nosec G204 - check tool invoking govulncheck
 		cmd := exec.Command(path, "./...")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			errors = append(errors, fmt.Sprintf("govulncheck failed:\n%s", strings.TrimSpace(string(out))))
@@ -172,6 +177,7 @@ func runLintAndSecurity(cfg Config) error {
 		} else {
 			args = []string{"dir", "."}
 		}
+		// #nosec G204 - check tool invoking betterleaks
 		cmd := exec.Command(path, args...)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			errors = append(errors, fmt.Sprintf("betterleaks failed:\n%s", strings.TrimSpace(string(out))))
@@ -187,6 +193,7 @@ func runLintAndSecurity(cfg Config) error {
 			if cfg.Verbose {
 				fmt.Println("    Running esbuild bundle syntax check...")
 			}
+			// #nosec G204 - check tool invoking esbuild bundle validator
 			cmd := exec.Command(path, "--bundle", appJS, "--outfile=/dev/null")
 			if out, err := cmd.CombinedOutput(); err != nil {
 				errors = append(errors, fmt.Sprintf("esbuild JS check failed:\n%s", strings.TrimSpace(string(out))))
@@ -209,6 +216,7 @@ func runLintAndSecurity(cfg Config) error {
 			return nil
 		})
 		for _, hf := range htmlFiles {
+			// #nosec G204 - check tool invoking tidy
 			cmd := exec.Command(path, "-errors", "-quiet", "-utf8", hf)
 			_ = cmd.Run() // tidy returns 1 for warnings, 2 for errors
 			if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() > 1 {
@@ -249,6 +257,7 @@ func runTests(cfg Config) error {
 	if cfg.Verbose {
 		fmt.Printf("    Running: go %s\n", strings.Join(args, " "))
 	}
+	// #nosec G204 - check tool invoking go test with controlled flags
 	cmd := exec.Command("go", args...)
 	if cfg.Verbose {
 		cmd.Stdout = os.Stdout
@@ -265,6 +274,7 @@ func runTests(cfg Config) error {
 
 	// Verify coverage percentage if coverage file was generated
 	if _, statErr := os.Stat(cfg.CoverageFile); statErr == nil {
+		// #nosec G204 - check tool invoking go tool cover
 		covCmd := exec.Command("go", "tool", "cover", "-func="+cfg.CoverageFile)
 		covOut, covErr := covCmd.CombinedOutput()
 		if covErr == nil {
@@ -304,6 +314,7 @@ func runBuilds(cfg Config) error {
 		fmt.Printf("    Building native binary from %s...\n", cfg.BuildTarget)
 	}
 	nativeBinary := filepath.Join(tmpDir, "rclone-bisync")
+	// #nosec G204 - check tool compiling native binary
 	cmd := exec.Command("go", "build", "-trimpath", "-o", nativeBinary, cfg.BuildTarget)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("native build failed:\n%s", strings.TrimSpace(string(out)))
@@ -318,6 +329,7 @@ func runBuilds(cfg Config) error {
 			fmt.Printf("    Cross-compiling for %s/%s...\n", t.os, t.arch)
 		}
 		outPath := filepath.Join(tmpDir, fmt.Sprintf("rclone-bisync-%s-%s", t.os, t.arch))
+		// #nosec G204 - check tool compiling cross targets
 		c := exec.Command("go", "build", "-trimpath", "-o", outPath, cfg.BuildTarget)
 		c.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+t.os, "GOARCH="+t.arch)
 		if out, err := c.CombinedOutput(); err != nil {

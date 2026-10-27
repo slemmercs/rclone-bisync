@@ -160,7 +160,8 @@ func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, l
 		if !strings.HasPrefix(canaryFile, basePrefix) {
 			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
 		}
-		f, err := os.OpenFile(canaryFile, os.O_CREATE|os.O_WRONLY, 0644)
+		// #nosec G304 - canaryFile is strictly confined within safe root
+		f, err := os.OpenFile(canaryFile, os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to create canary file: %v", err), "remote": "local", "path": cleanPath}, nil
 		}

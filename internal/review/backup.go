@@ -45,7 +45,13 @@ func CheckFreeDiskSpace(dir string, requiredBytes int64) error {
 		return fmt.Errorf("failed to check filesystem disk space: %w", err)
 	}
 
-	availableBytes := uint64(stat.Bavail) * uint64(stat.Bsize)
+	if stat.Bsize < 0 {
+		return fmt.Errorf("invalid disk block size reported by filesystem")
+	}
+	if requiredBytes < 0 {
+		requiredBytes = 0
+	}
+	availableBytes := stat.Bavail * uint64(stat.Bsize)
 	needed := uint64(requiredBytes) + MinFreeDiskSafetyBuffer
 	if availableBytes < needed {
 		return fmt.Errorf("insufficient disk space: need %d bytes (incl 10MB safety margin), available %d bytes", needed, availableBytes)
@@ -104,13 +110,15 @@ func LocalBackup(srcPath, backupDir, sessionID, relPath string) (string, error) 
 		return "", fmt.Errorf("backup copy aborted: %w", err)
 	}
 
-	srcFile, err := os.Open(srcPath)
+	// #nosec G304 - srcPath is strictly confined via ResolveSafePath
+	srcFile, err := os.Open(filepath.Clean(srcPath))
 	if err != nil {
 		return "", fmt.Errorf("failed to open source for backup: %w", err)
 	}
 	defer srcFile.Close()
 
-	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	// #nosec G304 - destPath is strictly confined via ResolveSafePath
+	destFile, err := os.OpenFile(filepath.Clean(destPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return "", fmt.Errorf("failed to create backup file: %w", err)
 	}
@@ -174,13 +182,15 @@ func RestoreLocalBackup(backupPath, targetPath string) error {
 	}
 
 	// Fallback to copy
-	src, err := os.Open(backupPath)
+	// #nosec G304 - backupPath is strictly confined via ResolveSafePath
+	src, err := os.Open(filepath.Clean(backupPath))
 	if err != nil {
 		return fmt.Errorf("failed to read backup: %w", err)
 	}
 	defer src.Close()
 
-	dst, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	// #nosec G304 - targetPath is strictly confined via ResolveSafePath
+	dst, err := os.OpenFile(filepath.Clean(targetPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create restored target: %w", err)
 	}

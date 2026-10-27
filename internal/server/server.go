@@ -106,7 +106,7 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 		if err == nil {
 			_, _ = profStore.BootstrapDefault(cfg.LocalPath, cfg.RemotePath)
 			executor := func(ctx context.Context, p *profiles.Profile, opts profiles.SyncOptions) error {
-				if err := os.MkdirAll(p.LocalPath, 0755); err != nil {
+				if err := os.MkdirAll(p.LocalPath, 0750); err != nil {
 					return fmt.Errorf("failed to create local path %s: %w", p.LocalPath, err)
 				}
 				profCfg := *cfg

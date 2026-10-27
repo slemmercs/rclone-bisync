@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 // TailFile reads the last N whole lines from a file by seeking from EOF.
 // Returns lines in chronological order (oldest to newest among the last N lines).
 func TailFile(filepathStr string, linesCount int) []string {
-	f, err := os.Open(filepathStr)
+	// #nosec G304 - reading tail of configured log target
+	f, err := os.Open(filepath.Clean(filepathStr))
 	if err != nil {
 		return []string{fmt.Sprintf("Log file target not found at: %s", filepathStr)}
 	}

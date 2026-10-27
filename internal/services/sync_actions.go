@@ -104,6 +104,7 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 }
 
 func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin string) error {
+	// #nosec G204 - systemd unit reset using systemctl with controlled unitName
 	_ = exec.Command("systemctl", "--user", "reset-failed", unitName).Run()
 
 	homeDir, _ := os.UserHomeDir()
@@ -140,6 +141,7 @@ func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin stri
 	}
 	cmdArgs = append(cmdArgs, execArgs...)
 
+	// #nosec G204 - systemd-run invocation with strictly structured parameters
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

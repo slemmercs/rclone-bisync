@@ -303,7 +303,7 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 			rel, err := filepath.Rel(root, cleanPath)
 			if err == nil && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel) {
 				safePath := filepath.Join(root, rel)
-				if err := os.MkdirAll(safePath, 0755); err != nil {
+				if err := os.MkdirAll(safePath, 0750); err != nil {
 					return "", fmt.Errorf("failed to create local path %q: %w", safePath, err)
 				}
 				return safePath, nil

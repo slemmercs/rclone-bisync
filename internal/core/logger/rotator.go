@@ -45,11 +45,11 @@ func NewRotator(filePath string, maxSize int64, maxBackups int) (*Rotator, error
 
 func (r *Rotator) openFile() error {
 	dir := filepath.Dir(r.filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory for log: %w", err)
 	}
 
-	f, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	f, err := os.OpenFile(r.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to open log file %s: %w", r.filePath, err)
 	}

@@ -168,7 +168,9 @@ func (s *Server) handleAuditExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.WriteHeader(http.StatusOK)
+	// #nosec G705 - exported audit data is served as an attachment download with nosniff
 	_, _ = w.Write(data)
 }

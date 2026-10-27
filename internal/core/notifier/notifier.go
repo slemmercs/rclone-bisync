@@ -87,6 +87,7 @@ func (d *Dispatcher) SendDesktop(title, message, urgency string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	// #nosec G204 - desktop notifications via resolved notify-send binary
 	cmd := exec.CommandContext(ctx, notifyBin, "-a", d.AppName, "-u", u, "-i", d.IconPath, title, message)
 	return cmd.Run()
 }

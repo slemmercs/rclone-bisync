@@ -19,6 +19,7 @@ type CommandRunner func(ctx context.Context, name string, env []string, args ...
 
 // DefaultCommandRunner executes the system rclone binary with the provided arguments and environment.
 func DefaultCommandRunner(ctx context.Context, name string, env []string, args ...string) (string, error) {
+	// #nosec G204 - external process execution wrapper for rclone authorization
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = env
 	var stdout, stderr bytes.Buffer
@@ -46,7 +47,8 @@ func collectSessionEnvironment() []string {
 	home, err := os.UserHomeDir()
 	if err == nil {
 		dbusPath := filepath.Join(home, ".config", "dbus-vars")
-		if f, err := os.Open(dbusPath); err == nil {
+		// #nosec G304 - reading fixed user config file for dbus session variables
+		if f, err := os.Open(filepath.Clean(dbusPath)); err == nil {
 			defer f.Close()
 			scanner := bufio.NewScanner(f)
 			for scanner.Scan() {
