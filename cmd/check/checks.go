@@ -164,7 +164,21 @@ func runLintAndSecurity(cfg Config) error {
 		fmt.Println("    govulncheck not found (skipped)")
 	}
 
-	// 4. betterleaks dir . (optional)
+	// 4. gosec -tests=false ./... (optional)
+	if path, err := exec.LookPath("gosec"); err == nil {
+		if cfg.Verbose {
+			fmt.Println("    Running gosec security scanner...")
+		}
+		// #nosec G204 - check tool invoking gosec
+		cmd := exec.Command(path, "-tests=false", "./...")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			errors = append(errors, fmt.Sprintf("gosec security check failed:\n%s", strings.TrimSpace(string(out))))
+		}
+	} else if cfg.Verbose {
+		fmt.Println("    gosec not found (skipped)")
+	}
+
+	// 5. betterleaks dir . (optional)
 	if path, err := exec.LookPath("betterleaks"); err == nil {
 		if cfg.Verbose {
 			fmt.Println("    Running betterleaks secret scan...")
@@ -186,7 +200,7 @@ func runLintAndSecurity(cfg Config) error {
 		fmt.Println("    betterleaks not found (skipped)")
 	}
 
-	// 5. esbuild check for frontend syntax (optional)
+	// 6. esbuild check for frontend syntax (optional)
 	if path, err := exec.LookPath("esbuild"); err == nil {
 		appJS := filepath.Join("dashboard", "frontend", "app.js")
 		if _, err := os.Stat(appJS); err == nil {
@@ -203,7 +217,7 @@ func runLintAndSecurity(cfg Config) error {
 		fmt.Println("    esbuild not found (skipped)")
 	}
 
-	// 6. tidy HTML structure (optional)
+	// 7. tidy HTML structure (optional)
 	if path, err := exec.LookPath("tidy"); err == nil {
 		if cfg.Verbose {
 			fmt.Println("    Running HTML tidy structure check...")
