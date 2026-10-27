@@ -43,7 +43,6 @@ Resolve Alpine.js reactive null pointer exceptions on profile modal close, unify
    - Profile `ExcludePatterns` are appended to `profCfg.RcloneCommonArgs` before running `SyncRunner`.
 
 ---
-
 ## 2. Phase 2: Core Refactoring & Subsystem Consolidation (Active Scope)
 
 ### Proposed Changes
@@ -87,7 +86,6 @@ Resolve Alpine.js reactive null pointer exceptions on profile modal close, unify
 - Nil-safe container construction: All service accessors check for nil configuration and fail with descriptive errors or fallback to safe defaults.
 - Graceful shutdown: `Container.Close()` cleanly terminates profile worker routines and flushes log/audit handles.
 - No live RC or cloud network calls during container initialization in test environments.
-
 ---
 
 ## 3. Phase 3: Operational Flags & Profile Schema Alignment
