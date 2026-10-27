@@ -17,12 +17,13 @@ Centralize application lifecycle and dependency wiring via a DI container, conso
   - **Scope**: `internal/core/logger/redact.go`, `internal/core/logger/redact_test.go`, `internal/core/logger/logger.go`, `internal/services/filetail.go`
   - **Verification**: `go test -count=1 ./internal/core/logger/...` and `go test -count=1 ./internal/services/...` and `./scripts/check.sh all`
 
-- [ ] Task 4: Full Quality Gate & Pre-Flight Verification
+- [x] Task 4: Full Quality Gate & Pre-Flight Verification
   - **Scope**: Full repository
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
+- 2026-10-27: Completed Task 4 (Full Quality Gate & Pre-Flight Verification). Executed all 6 automated quality stages via `./scripts/check.sh all` (formatting, shell check, go vet, lint, tests with coverage, and loc limits). All checks passed with zero errors or warnings.
 - 2026-10-27: Completed Task 3 (Stream/Line Secret Redactor). Implemented regex-based stream/line masking in internal/core/logger/redact.go, wrapped logger sinks with MaskingWriter, and integrated secret masking into TailLines and TailJSONLog with unit tests in logger and services packages. All 6 quality gate stages passed clean.
 - 2026-10-27: Completed Task 2 (Subsystem Consolidation). Relocated internal/review/ into internal/engine/review/ under engine bounded domain, updating service imports and documentation references. All 6 quality gate stages passed clean.
 - 2026-10-27: Completed Task 1 (Central DI Container). Extracted manual service wiring and scheduler orchestration out of main.go and internal/server/server.go into internal/app/container.go. All 6 quality gate stages passed clean.
