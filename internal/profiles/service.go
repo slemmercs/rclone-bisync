@@ -273,28 +273,42 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 			cleanPath = filepath.Join(homeDir, strings.TrimPrefix(cleanPath, "~/"))
 		}
 	}
-	cleanPath = filepath.Clean(cleanPath)
 
-	isAutoProvisionable := false
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		return "", fmt.Errorf("invalid local path %q: %w", cleanPath, err)
+	}
+	cleanPath = filepath.Clean(absPath)
+
+	// Collect safe roots for auto-provisioning (user home directory and temp directories).
+	var safeRoots []string
 	if homeDir != "" {
-		rel, err := filepath.Rel(homeDir, cleanPath)
-		if err == nil && !strings.HasPrefix(rel, "..") {
-			isAutoProvisionable = true
+		h := filepath.Clean(homeDir)
+		safeRoots = append(safeRoots, h)
+		if realH, err := filepath.EvalSymlinks(h); err == nil && realH != h {
+			safeRoots = append(safeRoots, realH)
 		}
 	}
-	tmpDir := os.TempDir()
-	if tmpDir != "" {
-		rel, err := filepath.Rel(tmpDir, cleanPath)
-		if err == nil && !strings.HasPrefix(rel, "..") {
-			isAutoProvisionable = true
+	if tmp := os.TempDir(); tmp != "" {
+		t := filepath.Clean(tmp)
+		safeRoots = append(safeRoots, t)
+		if realT, err := filepath.EvalSymlinks(t); err == nil && realT != t {
+			safeRoots = append(safeRoots, realT)
 		}
 	}
 
-	if isAutoProvisionable {
-		if err := os.MkdirAll(cleanPath, 0755); err != nil {
-			return "", fmt.Errorf("failed to create local path %q: %w", cleanPath, err)
+	for _, root := range safeRoots {
+		rootPrefix := root + string(filepath.Separator)
+		if cleanPath == root || strings.HasPrefix(cleanPath, rootPrefix) {
+			rel, err := filepath.Rel(root, cleanPath)
+			if err == nil && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel) {
+				safePath := filepath.Join(root, rel)
+				if err := os.MkdirAll(safePath, 0755); err != nil {
+					return "", fmt.Errorf("failed to create local path %q: %w", safePath, err)
+				}
+				return safePath, nil
+			}
 		}
-		return cleanPath, nil
 	}
 
 	fi, err := os.Stat(cleanPath)

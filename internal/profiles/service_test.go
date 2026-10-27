@@ -176,3 +176,41 @@ func TestProfileService_CRUDAndHistory(t *testing.T) {
 		t.Fatalf("expected error requiring manual creation for outside paths, got: %v", err)
 	}
 }
+
+func TestResolveAndEnsureLocalPath_PathConfinement(t *testing.T) {
+	// Arrange
+	tmpDir := t.TempDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("skipping test: no user home directory available")
+	}
+
+	// Act & Assert 1: Valid subpath in tmpDir is auto-provisioned
+	subTmp := filepath.Join(tmpDir, "auto_test_sub")
+	resolvedTmp, err := resolveAndEnsureLocalPath(subTmp)
+	if err != nil {
+		t.Fatalf("expected valid tmp path to succeed, got: %v", err)
+	}
+	if resolvedTmp != subTmp {
+		t.Errorf("expected %q, got %q", subTmp, resolvedTmp)
+	}
+
+	// Act & Assert 2: Path traversal attempting to escape tmpDir is rejected or not auto-provisioned
+	traversalPath := filepath.Join(tmpDir, "../../../root/nonexistent_escape_target")
+	_, err = resolveAndEnsureLocalPath(traversalPath)
+	if err == nil {
+		t.Fatalf("expected path traversal escaping safe root to fail")
+	}
+
+	// Act & Assert 3: Tilde expansion within home directory
+	tildePath := "~/test_rclone_tilde_sub"
+	expectedHomeSub := filepath.Join(homeDir, "test_rclone_tilde_sub")
+	resolvedTilde, err := resolveAndEnsureLocalPath(tildePath)
+	if err != nil {
+		t.Fatalf("expected tilde path to resolve cleanly, got: %v", err)
+	}
+	defer os.Remove(resolvedTilde)
+	if resolvedTilde != expectedHomeSub {
+		t.Errorf("expected %q, got %q", expectedHomeSub, resolvedTilde)
+	}
+}
