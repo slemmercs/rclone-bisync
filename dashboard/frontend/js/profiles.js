@@ -57,27 +57,14 @@ window.ProfilesModule = {
         return this.profilesData.list.find(p => p.id === this.profilesData.activeId) || this.profilesData.list[0];
     },
 
-    isProfileSaving() {
-        return !!(this.profileModal && this.profileModal.saving);
-    },
-
-    isProfileDeleting() {
-        return !!(this.profileModal && this.profileModal.deleteConfirm && this.profileModal.deleteConfirm.deleting);
-    },
-
+    isProfileSaving() { return !!(this.profileModal && this.profileModal.saving); },
+    isProfileDeleting() { return !!(this.profileModal && this.profileModal.deleteConfirm && this.profileModal.deleteConfirm.deleting); },
     isProfileSyncing(item) {
         if (!item) return false;
-        const id = typeof item === "string" ? item : item.id;
-        return !!(this.profilesData && this.profilesData.syncingId === id);
+        return !!(this.profilesData && this.profilesData.syncingId === (typeof item === "string" ? item : item.id));
     },
-
-    isProfileEditingExisting() {
-        return !(this.profileModal && this.profileModal.isNew);
-    },
-
-    hasDiscoveredRemotes() {
-        return !!(this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0);
-    },
+    isProfileEditingExisting() { return !(this.profileModal && this.profileModal.isNew); },
+    hasDiscoveredRemotes() { return !!(this.remotesData && this.remotesData.remotes && this.remotesData.remotes.length > 0); },
 
     async fetchProfiles() {
         this.profilesData.loading = true;
@@ -289,30 +276,42 @@ window.ProfilesModule = {
     },
 
     async rollbackProfile(profId, targetVersion) {
-        if (!confirm(`Rollback profile to version ${targetVersion}? Current configuration will be overwritten.`)) {
-            return;
-        }
-        this.profileModal.saving = true;
-        try {
-            const res = await window.API.post(`/api/profiles/${encodeURIComponent(profId)}/rollback`, {
-                target_version: targetVersion
+        const executeRollback = async () => {
+            this.profileModal.saving = true;
+            try {
+                const res = await window.API.post(`/api/profiles/${encodeURIComponent(profId)}/rollback`, {
+                    target_version: targetVersion
+                });
+                if (res.status === "error") throw new Error(res.error || "Rollback failed");
+                if (typeof this.showToast === "function") {
+                    this.showToast(`Profile rolled back to version ${targetVersion}.`, "success");
+                }
+                await this.fetchProfiles();
+                const updated = this.profilesData.list.find(p => p.id === profId);
+                if (updated) {
+                    await this.viewProfileHistory(updated);
+                }
+            } catch (err) {
+                this.profileModal.error = err.message;
+                if (typeof this.showToast === "function") {
+                    this.showToast(`Rollback failed: ${err.message}`, "error");
+                }
+            } finally {
+                this.profileModal.saving = false;
+            }
+        };
+
+        if (typeof this.askConfirmation === "function") {
+            this.askConfirmation({
+                title: "Confirm Profile Rollback",
+                message: `Rollback profile to version ${targetVersion}?\nCurrent configuration will be overwritten with archived version settings.`,
+                confirmText: "Rollback",
+                confirmClass: "bg-amber-600 hover:bg-amber-500 shadow-amber-950/40",
+                icon: "warning",
+                onConfirm: executeRollback
             });
-            if (res.status === "error") throw new Error(res.error || "Rollback failed");
-            if (typeof this.showToast === "function") {
-                this.showToast(`Profile rolled back to version ${targetVersion}.`, "success");
-            }
-            await this.fetchProfiles();
-            const updated = this.profilesData.list.find(p => p.id === profId);
-            if (updated) {
-                await this.viewProfileHistory(updated);
-            }
-        } catch (err) {
-            this.profileModal.error = err.message;
-            if (typeof this.showToast === "function") {
-                this.showToast(`Rollback failed: ${err.message}`, "error");
-            }
-        } finally {
-            this.profileModal.saving = false;
+        } else if (confirm(`Rollback profile to version ${targetVersion}? Current configuration will be overwritten.`)) {
+            await executeRollback();
         }
     },
 

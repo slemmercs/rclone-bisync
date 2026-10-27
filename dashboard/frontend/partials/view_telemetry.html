@@ -62,11 +62,11 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
                 <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
                     <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Local Source (LOCAL_PATH)</span>
-                    <span class="text-indigo-300 break-all font-medium" x-text="telemetry.config.LOCAL_PATH || telemetry.config.LOCALPATH || '--'"></span>
+                    <span class="text-indigo-300 break-all font-medium" x-text="activeProfile ? activeProfile.local_path : (telemetry.config.LOCAL_PATH || telemetry.config.LOCALPATH || '--')"></span>
                 </div>
                 <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
                     <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Remote Target (REMOTE_PATH)</span>
-                    <span class="text-indigo-300 break-all font-medium" x-text="telemetry.config.REMOTE_PATH || telemetry.config.REMOTEPATH || '--'"></span>
+                    <span class="text-indigo-300 break-all font-medium" x-text="activeProfile ? (activeProfile.remote.endsWith(':') ? activeProfile.remote : activeProfile.remote + ':') + (activeProfile.remote_path || '') : (telemetry.config.REMOTE_PATH || telemetry.config.REMOTEPATH || '--')"></span>
                 </div>
                 <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/50">
                     <span class="text-slate-500 block uppercase tracking-wider text-[9px] font-bold mb-0.5">Base Directory (BASE_DIR)</span>

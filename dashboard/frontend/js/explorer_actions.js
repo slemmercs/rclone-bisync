@@ -172,29 +172,40 @@ window.ExplorerActionsModule = {
         const dst_path = this.explorer[targetPaneKey].path;
 
         const dirName = sourcePaneKey === "left" ? `Local (${src_remote}:${src_path || '/'}) ➔ Remote (${dst_remote}:${dst_path || '/'})` : `Remote (${src_remote}:${src_path || '/'}) ➔ Local (${dst_remote}:${dst_path || '/'})`;
-        if (!confirm(`Are you sure you want to copy directory contents:\n${dirName}?`)) {
-            return;
-        }
-
-        this.showToast("Initiating directory synchronization...", "info");
-        try {
-            const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
-            const data = await window.API.post("/api/browse/copy", {
-                src_remote,
-                src_path,
-                dst_remote,
-                dst_path,
-                is_dir: true,
-                profile_id: profileId
-            });
-            if (data.status === "success") {
-                this.showToast("Directory synchronization complete!", "success");
-                this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
-            } else {
-                this.showToast(`Sync failed: ${data.error || 'Unknown error'}`, "error");
+        const executeCopy = async () => {
+            this.showToast("Initiating directory synchronization...", "info");
+            try {
+                const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
+                const data = await window.API.post("/api/browse/copy", {
+                    src_remote,
+                    src_path,
+                    dst_remote,
+                    dst_path,
+                    is_dir: true,
+                    profile_id: profileId
+                });
+                if (data.status === "success") {
+                    this.showToast("Directory synchronization complete!", "success");
+                    this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
+                } else {
+                    this.showToast(`Sync failed: ${data.error || 'Unknown error'}`, "error");
+                }
+            } catch (err) {
+                this.showToast(`Directory sync failed: ${err.message}`, "error");
             }
-        } catch (err) {
-            this.showToast(`Directory sync failed: ${err.message}`, "error");
+        };
+
+        if (typeof this.askConfirmation === "function") {
+            this.askConfirmation({
+                title: "Confirm Directory Copy",
+                message: `Are you sure you want to copy directory contents?\n\n${dirName}`,
+                confirmText: "Start Copy",
+                confirmClass: "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-950/40",
+                icon: "sync",
+                onConfirm: executeCopy
+            });
+        } else if (confirm(`Are you sure you want to copy directory contents:\n${dirName}?`)) {
+            await executeCopy();
         }
     }
 };

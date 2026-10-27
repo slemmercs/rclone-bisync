@@ -29,6 +29,14 @@ Stabilize the Multi-Profile Workspace Manager feature across frontend and backen
   - **Scope**: Entire repository
   - **Verification**: `./scripts/check.sh all`
 
+- [x] Task 7: Replace Browser Popups with Styled Confirmation Modal
+  - **Scope**: `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/review.js`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
+
+- [x] Task 8: Dynamic Active Remote Badge & Topology Binding to Active Profile
+  - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/explorer.js`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
+
 ## Status Updates
 
 - 2026-10-27: Initialized Phase 1 Task Plan from four-phase implementation plan.
@@ -38,5 +46,7 @@ Stabilize the Multi-Profile Workspace Manager feature across frontend and backen
 - 2026-10-27: Completed Task 4. Bound cockpit engine status badge to dynamic profile and engine syncing states in `app.js` and `view_telemetry.html`.
 - 2026-10-27: Completed Task 5. Added `--exclude` pattern mapping in `compiler.go` (`_filter["ExcludeRule"]`) and forwarded profile exclude patterns in `server.go` executor. Verified with end-to-end unit test `TestProfiles_ExecutorExcludeRulesForwarding`.
 - 2026-10-27: Completed Task 6. Verified entire repository with all 6 quality gate checks passing via `./scripts/check.sh all`. Built binary `bisync-hub`.
+- 2026-10-27: Completed Task 7. Replaced native browser `confirm(...)` dialogs across Telemetry resync, File Explorer directory sync, profile rollback, and review decisions with dark-mode `modal_confirm.html` and `askConfirmation()`.
+- 2026-10-27: Completed Task 8. Added `isRemoteActiveTarget(remote)` and dynamic topology bindings to ensure `ACTIVE TARGET` and Local/Remote topology reflect the currently selected profile. All quality gates verified clean (`./scripts/check.sh all`).
 
 

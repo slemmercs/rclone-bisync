@@ -24,7 +24,7 @@ window.ExplorerModule = {
                 this.explorer.right.target = "local";
             }
         } else if (this.remotesData.remotes && this.remotesData.remotes.length > 0) {
-            const active = this.remotesData.remotes.find(r => r.is_active_target);
+            const active = this.remotesData.remotes.find(r => typeof this.isRemoteActiveTarget === "function" ? this.isRemoteActiveTarget(r) : r.is_active_target);
             if (!this.explorer.isSwapped && !this.explorer.right.target) {
                 this.explorer.right.target = active ? active.name : this.remotesData.remotes[0].name;
             }

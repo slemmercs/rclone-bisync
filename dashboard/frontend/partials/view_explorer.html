@@ -232,7 +232,7 @@
                             <template x-if="explorer.right.target !== 'local'">
                                 <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
                                     <template x-for="r in remotesData.remotes" :key="r.name">
-                                        <option :value="r.name" x-text="r.name + ':' + (r.is_active_target ? ' (Active)' : '')"></option>
+                                        <option :value="r.name" x-text="r.name + ':' + (isRemoteActiveTarget(r) ? ' (Active)' : '')"></option>
                                     </template>
                                 </select>
                             </template>

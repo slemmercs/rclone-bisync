@@ -82,6 +82,20 @@ Deliver profile-first Cockpit UI redesign: quick-switcher in main navigation, vi
 
 ## Verification Plan
 
+### Phase 1 Polish: Confirmation Modals & Dynamic Target Binding
+- `dashboard/frontend/partials/modals/modal_confirm.html`:
+  - Introduce themed, dark-mode confirmation modal to replace native browser `confirm(...)` dialogs.
+- `dashboard/frontend/app.js`:
+  - Add `confirmModal` reactive state and `askConfirmation({ title, message, confirmText, confirmClass, icon, onConfirm })` helper.
+- `dashboard/frontend/js/logs.js` & `explorer_actions.js`:
+  - Refactor `confirmResync()` and `syncCurrentDirectory()` to trigger `askConfirmation(...)`.
+- `dashboard/frontend/js/remotes.js`:
+  - Introduce `isRemoteActiveTarget(remote)` helper dynamically checking against `activeProfile.remote`.
+- `dashboard/frontend/partials/view_remotes.html`:
+  - Bind `ACTIVE TARGET` badge to `isRemoteActiveTarget(remote)`.
+- `dashboard/frontend/partials/view_telemetry.html`:
+  - Dynamically display `activeProfile.local_path` and `activeProfile.remote` in `Active Profile Topology` banner.
+
 ### Phase 1 Verification
 - `go test -count=1 ./internal/profiles/...`: Verify scheduler running status checks.
 - `go test -count=1 ./internal/server/...`: Verify `/api/telemetry` reports `execution_status` and exclude patterns forward to runner.

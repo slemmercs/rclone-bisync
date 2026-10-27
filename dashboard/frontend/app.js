@@ -134,6 +134,41 @@ document.addEventListener("alpine:init", () => {
             deleting: false
         },
 
+        // Reusable Confirmation Modal State
+        confirmModal: {
+            show: false,
+            title: "",
+            message: "",
+            confirmText: "Confirm",
+            confirmClass: "bg-indigo-600 hover:bg-indigo-500",
+            icon: "warning",
+            onConfirm: null
+        },
+
+        askConfirmation({ title, message, confirmText = "Confirm", confirmClass = "bg-indigo-600 hover:bg-indigo-500", icon = "warning", onConfirm }) {
+            this.confirmModal.title = title;
+            this.confirmModal.message = message;
+            this.confirmModal.confirmText = confirmText;
+            this.confirmModal.confirmClass = confirmClass;
+            this.confirmModal.icon = icon;
+            this.confirmModal.onConfirm = onConfirm;
+            this.confirmModal.show = true;
+        },
+
+        handleConfirmModal() {
+            const fn = this.confirmModal.onConfirm;
+            this.confirmModal.show = false;
+            this.confirmModal.onConfirm = null;
+            if (typeof fn === "function") {
+                fn();
+            }
+        },
+
+        cancelConfirmModal() {
+            this.confirmModal.show = false;
+            this.confirmModal.onConfirm = null;
+        },
+
         // Interactive Sync Review State
         reviewState: {
             active: false,
