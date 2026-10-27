@@ -12,8 +12,8 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
-	"github.com/slemmercs/rclone-bisync/internal/review"
 )
 
 func createTestConfig(t *testing.T) (*config.Config, string) {

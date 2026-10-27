@@ -6,7 +6,7 @@ Implemented (Phase 4 - `feat/interactive-sync-review`)
 
 ## Delivered Components
 
-- Package `internal/review/`: state machine, abort discovery, atomic write-ahead log (WAL), dual backup staging (zero-byte local hardlink + cloud server-side copy), reversible resolution executor, saga rollback runner.
+- Package `internal/engine/review/`: state machine, abort discovery, atomic write-ahead log (WAL), dual backup staging (zero-byte local hardlink + cloud server-side copy), reversible resolution executor, saga rollback runner.
 - Package `internal/services/review_service.go`: thread-safe facade, pre-sync safety barrier, lazy-load session recovery.
 - Package `internal/server/handlers_review.go`: REST endpoints (`/api/review/session`, `/api/review/action`, `/api/review/execute`, `/api/review/rollback`, `/api/review/dismiss`).
 - Frontend `dashboard/frontend/js/review.js`: interactive review modal, batch staging, visual candidate indicators in dual-pane explorer.
@@ -678,13 +678,13 @@ COMPLETE          │
 ### New Package
 
 ```text
-internal/review/
+internal/engine/review/
 ```
 
 Suggested structure:
 
 ```text
-internal/review/
+internal/engine/review/
 ├── session.go
 ├── resolver.go
 ├── conflicts.go

@@ -9,7 +9,7 @@ Centralize application lifecycle and dependency wiring via a DI container, conso
   - **Scope**: `internal/app/container.go`, `internal/app/container_test.go`, `main.go`, `internal/server/server.go`
   - **Verification**: `go test -count=1 ./internal/app/...` and `go test -count=1 ./internal/server/...` and `./scripts/check.sh all`
 
-- [ ] Task 2: Subsystem Consolidation (`internal/review/` -> `internal/engine/review/`)
+- [x] Task 2: Subsystem Consolidation (`internal/review/` -> `internal/engine/review/`)
   - **Scope**: `internal/review/` -> `internal/engine/review/`, `internal/services/review_service.go`, `internal/services/review_recommendations.go`, `internal/app/container.go`
   - **Verification**: `go test -count=1 ./internal/engine/review/...` and `go test -count=1 ./internal/services/...` and `./scripts/check.sh all`
 
@@ -23,6 +23,7 @@ Centralize application lifecycle and dependency wiring via a DI container, conso
 
 ## Status Updates
 
+- 2026-10-27: Completed Task 2 (Subsystem Consolidation). Relocated internal/review/ into internal/engine/review/ under engine bounded domain, updating service imports and documentation references. All 6 quality gate stages passed clean.
 - 2026-10-27: Completed Task 1 (Central DI Container). Extracted manual service wiring and scheduler orchestration out of main.go and internal/server/server.go into internal/app/container.go. All 6 quality gate stages passed clean.
 - 2026-10-27: Initialized Phase 2 Task Plan from implementation_plan.md.
 

@@ -6,7 +6,7 @@
 
 **Target Milestones**: Phase 4 & Phase 5
 
-**Package References**: `internal/remoteauth`, `internal/review`, `internal/engine/heuristics`, `internal/audit`
+**Package References**: `internal/remoteauth`, `internal/engine/review`, `internal/engine/heuristics`, `internal/audit`
 
 ---
 
@@ -15,7 +15,7 @@
 Bisync Hub provides a unified, safety-first operational platform built on top of Rclone Bisync. To prevent silent data corruption, accidental mass deletions, and unrecoverable sync failures, the platform connects four core operational modules into an integrated lifecycle pipeline:
 
 1. **OAuth Connection Manager** (`internal/remoteauth`): Ensures authentication health and guides credential reconnects.
-2. **Interactive Sync Review** (`internal/review`): Intercepts bisync safety aborts and provides a transactional, file-by-file resolution state machine.
+2. **Interactive Sync Review** (`internal/engine/review`): Intercepts bisync safety aborts and provides a transactional, file-by-file resolution state machine.
 3. **Heuristic Conflict Recommendation Engine** (`internal/engine/heuristics`): Analyzes candidate conflicts using pure-Go heuristics to provide confidence-scored recommendations.
 4. **Immutable Audit Ledger** (`internal/audit`): Logs executed operational decisions into a cryptographically chained, append-only SQLite database.
 
@@ -75,7 +75,7 @@ This document formalizes the end-to-end operational pipeline, component hand-off
   * Intercepts `403 Access Denied` or token expiration errors occurring during Stage 3 resolution execution, launching an inline OAuth reconnect workflow without destroying the active `ReviewSession`.
   * Emits `ActionOAuthReconnected` and `ActionConfigUpdated` entries directly to the `internal/audit` ledger.
 
-### 3.2 Interactive Sync Review (`internal/review`)
+### 3.2 Interactive Sync Review (`internal/engine/review`)
 * **Role**: State machine managing transient review sessions (`CREATED`, `REVIEWING`, `APPLYING`, `READY`, `RUNNING_BISYNC`).
 * **Pipeline Triggers**:
   * Traps bisync abort states (`TOO_MANY_DELETES`, unhandled conflicts) and constructs the candidate item payload.
