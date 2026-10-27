@@ -40,10 +40,11 @@ func setupTestServerWithProfilesAndExplorer(t *testing.T) (*Server, string, stri
 	}
 
 	_ = pStore.Save(&profiles.Profile{
-		ID:        "prof_onedrive",
-		Name:      "OneDrive Work",
-		Remote:    "onedrive:",
-		LocalPath: profileLocal,
+		ID:              "prof_onedrive",
+		Name:            "OneDrive Work",
+		Remote:          "onedrive:",
+		LocalPath:       profileLocal,
+		ExcludePatterns: []string{"Personal Vault/**", "*.tmp"},
 	}, "init profile")
 
 	pService := profiles.NewService(pStore, nil, nil)
@@ -324,5 +325,61 @@ func TestHandleCopyItem_RemoteSubdirectoryDestination(t *testing.T) {
 				t.Errorf("dstRemote = %q, want %q", lastDstRemote, tt.wantDstRemote)
 			}
 		})
+	}
+}
+func TestHandleCopyItem_ExcludePatternsForwarding(t *testing.T) {
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+
+	var receivedExcludeRules []interface{}
+	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/sync/copy" {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if filter, ok := body["_filter"].(map[string]interface{}); ok {
+				if rules, ok := filter["ExcludeRule"].([]interface{}); ok {
+					receivedExcludeRules = rules
+				}
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer mockRC.Close()
+
+	rcClient := client.NewRcloneClient(mockRC.URL, "user", "pass")
+	srv.ExplorerService.Client = rcClient
+
+	subDir := filepath.Join(profileLocal, "myfolder")
+	_ = os.MkdirAll(subDir, 0755)
+
+	body, _ := json.Marshal(models.CopyRequest{
+		SrcRemote: "onedrive:",
+		SrcPath:   "",
+		DstRemote: "local",
+		DstPath:   "myfolder",
+		IsDir:     true,
+		ProfileID: "prof_onedrive",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/browse/copy", bytes.NewBuffer(body))
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var res models.CopyResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if res.Status != "success" {
+		t.Fatalf("expected status success, got: %+v", res)
+	}
+
+	if len(receivedExcludeRules) != 2 || receivedExcludeRules[0] != "Personal Vault/**" || receivedExcludeRules[1] != "*.tmp" {
+		t.Fatalf("expected exclude rules to be forwarded to sync/copy, got: %v", receivedExcludeRules)
 	}
 }

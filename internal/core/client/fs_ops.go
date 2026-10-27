@@ -156,13 +156,18 @@ func (c *RcloneClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, ds
 	return true, nil
 }
 
-// CopyDir calls /sync/copy to copy an entire directory tree.
-func (c *RcloneClient) CopyDir(ctx context.Context, srcFs, dstFs string) (bool, error) {
-	payload := map[string]string{
+// CopyDir calls /sync/copy to copy an entire directory tree with optional exclude filter rules.
+func (c *RcloneClient) CopyDir(ctx context.Context, srcFs, dstFs string, excludeRules ...[]string) (bool, error) {
+	payload := map[string]interface{}{
 		"srcFs": NormalizeFs(srcFs),
 		"dstFs": NormalizeFs(dstFs),
 	}
-	resp, body, err := c.post(ctx, "sync/copy", payload, 60*time.Second)
+	if len(excludeRules) > 0 && len(excludeRules[0]) > 0 {
+		payload["_filter"] = map[string]interface{}{
+			"ExcludeRule": excludeRules[0],
+		}
+	}
+	resp, body, err := c.post(ctx, "sync/copy", payload, 120*time.Second)
 	if err != nil {
 		return false, err
 	}

@@ -37,7 +37,13 @@ Stabilize the Multi-Profile Workspace Manager feature across frontend and backen
   - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/explorer.js`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
+- [x] Task 9: Forward Exclude Patterns to Directory Copy (/api/browse/copy & CopyDir)
+  - **Scope**: `internal/core/client/fs_ops.go`, `internal/services/explorer_ops.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_explorer_test.go`
+  - **Verification**: `go test -count=1 ./internal/server/...` and `go test -count=1 ./internal/core/client/...` and `./scripts/check.sh all`
+
 ## Status Updates
+
+- 2026-10-27: Completed Task 9 forwarding profile exclude rules to directory copy in Rclone RC (`_filter.ExcludeRule`), preventing unauthenticated Microsoft Personal Vault listing errors when syncing remote OneDrive roots.
 
 - 2026-10-27: Initialized Phase 1 Task Plan from four-phase implementation plan.
 - 2026-10-27: Completed Task 1. Replaced modal form conditional mount with `<template x-if>` and added `createDefaultProfile()` fallback to prevent Alpine.js reactive null dereference errors.

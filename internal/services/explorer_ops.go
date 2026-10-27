@@ -12,15 +12,22 @@ import (
 
 // CopyItem transfers a file or directory with path jail enforcement.
 func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool, localBase ...string) (models.CopyResponse, error) {
+	base := ""
+	if len(localBase) > 0 {
+		base = localBase[0]
+	}
+	return e.CopyItemWithOptions(ctx, srcRemote, srcPath, dstRemote, dstPath, isDir, base, nil)
+}
+
+// CopyItemWithOptions transfers a file or directory with path jail enforcement and optional exclude filter rules.
+func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, srcPath, dstRemote, dstPath string, isDir bool, localBase string, excludeRules []string) (models.CopyResponse, error) {
 	cleanSrcPath := strings.Trim(strings.TrimSpace(srcPath), "/")
 	cleanDstPath := strings.Trim(strings.TrimSpace(dstPath), "/")
 	srcIsLocal := strings.ToLower(strings.TrimSpace(srcRemote)) == "local" || strings.TrimSpace(srcRemote) == ""
 	dstIsLocal := strings.ToLower(strings.TrimSpace(dstRemote)) == "local" || strings.TrimSpace(dstRemote) == ""
 
-	rawBase := ""
-	if len(localBase) > 0 && localBase[0] != "" {
-		rawBase = localBase[0]
-	} else if e.Config != nil {
+	rawBase := localBase
+	if rawBase == "" && e.Config != nil {
 		rawBase = e.Config.LocalPath
 	}
 	if rawBase == "" {
@@ -111,7 +118,7 @@ func (e *ExplorerService) CopyItem(ctx context.Context, srcRemote, srcPath, dstR
 	}
 
 	if isDir {
-		ok, err := e.Client.CopyDir(ctx, srcFs, dstFs)
+		ok, err := e.Client.CopyDir(ctx, srcFs, dstFs, excludeRules)
 		if err != nil || !ok {
 			return models.CopyResponse{Status: "error", Error: fmt.Sprintf("copy dir failed: %v", err)}, nil
 		}

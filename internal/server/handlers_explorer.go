@@ -19,6 +19,25 @@ func (s *Server) resolveLocalPath(profileID string) string {
 	return "~/gdrive"
 }
 
+func (s *Server) resolveExcludePatterns(profileID string) []string {
+	if s.ProfileService != nil && profileID != "" {
+		if p, err := s.ProfileService.Get(profileID); err == nil && p != nil && len(p.ExcludePatterns) > 0 {
+			return p.ExcludePatterns
+		}
+	}
+	if s.Config != nil && len(s.Config.RcloneCommonArgs) > 0 {
+		var rules []string
+		for i := 0; i < len(s.Config.RcloneCommonArgs); i++ {
+			if s.Config.RcloneCommonArgs[i] == "--exclude" && i+1 < len(s.Config.RcloneCommonArgs) {
+				rules = append(rules, s.Config.RcloneCommonArgs[i+1])
+				i++
+			}
+		}
+		return rules
+	}
+	return nil
+}
+
 func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	var req models.BrowseRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
@@ -51,7 +70,9 @@ func (s *Server) handleCopyItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, models.CopyResponse{Status: "error", Error: "Invalid request body"})
 		return
 	}
-	res, err := s.ExplorerService.CopyItem(r.Context(), req.SrcRemote, req.SrcPath, req.DstRemote, req.DstPath, req.IsDir, s.resolveLocalPath(req.ProfileID))
+	localBase := s.resolveLocalPath(req.ProfileID)
+	excludes := s.resolveExcludePatterns(req.ProfileID)
+	res, err := s.ExplorerService.CopyItemWithOptions(r.Context(), req.SrcRemote, req.SrcPath, req.DstRemote, req.DstPath, req.IsDir, localBase, excludes)
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.CopyResponse{Status: "error", Error: err.Error()})
 		return
