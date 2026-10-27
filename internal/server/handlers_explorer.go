@@ -3,7 +3,9 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
@@ -41,6 +43,14 @@ func (s *Server) resolveExcludePatterns(profileID string) []string {
 func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	var req models.BrowseRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
+	if strings.Contains(req.Path, "..") {
+		writeJSON(w, http.StatusOK, client.DirectoryListing{
+			Remote: req.Remote,
+			Path:   req.Path,
+			Error:  "Path traversal forbidden",
+		})
+		return
+	}
 	remote := req.Remote
 	if remote == "" {
 		remote = "local"
@@ -52,6 +62,10 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleProvisionCanary(w http.ResponseWriter, r *http.Request) {
 	var req models.BrowseRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
+	if strings.Contains(req.Path, "..") {
+		writeJSON(w, http.StatusOK, models.CanaryResponse{Status: "error", Error: "Path traversal forbidden"})
+		return
+	}
 	remote := req.Remote
 	if remote == "" {
 		remote = "local"
@@ -70,6 +84,10 @@ func (s *Server) handleCopyItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, models.CopyResponse{Status: "error", Error: "Invalid request body"})
 		return
 	}
+	if strings.Contains(req.SrcPath, "..") || strings.Contains(req.DstPath, "..") {
+		writeJSON(w, http.StatusOK, models.CopyResponse{Status: "error", Error: "Path traversal forbidden"})
+		return
+	}
 	localBase := s.resolveLocalPath(req.ProfileID)
 	excludes := s.resolveExcludePatterns(req.ProfileID)
 	res, err := s.ExplorerService.CopyItemWithOptions(r.Context(), req.SrcRemote, req.SrcPath, req.DstRemote, req.DstPath, req.IsDir, localBase, excludes)
@@ -84,6 +102,10 @@ func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
 	var req models.DeleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, models.DeleteResponse{Status: "error", Error: "Invalid request body"})
+		return
+	}
+	if strings.Contains(req.Path, "..") {
+		writeJSON(w, http.StatusOK, models.DeleteResponse{Status: "error", Error: "Path traversal forbidden"})
 		return
 	}
 	res, err := s.ExplorerService.DeleteItem(r.Context(), req.Remote, req.Path, req.IsDir, s.resolveLocalPath(req.ProfileID))

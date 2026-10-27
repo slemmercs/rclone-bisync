@@ -362,3 +362,29 @@ func TestProfiles_ExecutorExcludeRulesForwarding(t *testing.T) {
 		}
 	}
 }
+
+func TestProfiles_PathTraversalForbidden(t *testing.T) {
+	s, _ := setupTestServerWithProfiles(t)
+
+	// 1. POST /api/profiles with relative path traversal
+	badCreate := map[string]any{
+		"name":       "Bad Profile",
+		"remote":     "gdrive",
+		"local_path": "../../../etc/passwd",
+		"enabled":    true,
+	}
+	w := doJSONReq(s, http.MethodPost, "/api/profiles", badCreate, true)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on traversal path in create, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 2. PUT /api/profiles/:id with relative path traversal
+	badUpdate := map[string]any{
+		"local_path": "/var/tmp/../../etc",
+		"reason":     "test",
+	}
+	w = doJSONReq(s, http.MethodPut, "/api/profiles/prof_test", badUpdate, true)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on traversal path in update, got %d: %s", w.Code, w.Body.String())
+	}
+}

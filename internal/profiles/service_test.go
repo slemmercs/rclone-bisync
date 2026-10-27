@@ -172,8 +172,8 @@ func TestProfileService_CRUDAndHistory(t *testing.T) {
 		Enabled:   true,
 	}
 	_, err = svc.Create(ctx, outsideProfile)
-	if err == nil || !strings.Contains(err.Error(), "must be created manually first") {
-		t.Fatalf("expected error requiring manual creation for outside paths, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "must reside within your home directory") {
+		t.Fatalf("expected error for outside paths, got: %v", err)
 	}
 }
 

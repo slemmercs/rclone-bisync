@@ -10,6 +10,9 @@ import (
 // It resolves real paths on disk using filepath.EvalSymlinks to prevent symlink jail escapes.
 // It returns baseAbs, targetAbs, and true if safe, or false if path traversal is detected.
 func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
+	if strings.Contains(relPath, "..") {
+		return "", "", false
+	}
 	if strings.HasPrefix(rawBaseDir, "~") {
 		home, _ := os.UserHomeDir()
 		rawBaseDir = filepath.Join(home, strings.TrimPrefix(rawBaseDir, "~"))
@@ -28,7 +31,7 @@ func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
 	cleanTarget := filepath.Clean(targetDir)
 
 	// First: lexical confinement check
-	if cleanTarget != cleanBase && !strings.HasPrefix(cleanTarget, basePrefix) {
+	if !strings.HasPrefix(cleanTarget, basePrefix) && cleanTarget != cleanBase {
 		return cleanBase, "", false
 	}
 	rel, err := filepath.Rel(cleanBase, cleanTarget)
@@ -36,7 +39,7 @@ func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
 		return cleanBase, "", false
 	}
 	safeTarget := filepath.Join(cleanBase, rel)
-	if safeTarget != cleanBase && !strings.HasPrefix(safeTarget, basePrefix) {
+	if !strings.HasPrefix(safeTarget, basePrefix) && safeTarget != cleanBase {
 		return cleanBase, "", false
 	}
 
@@ -44,8 +47,14 @@ func IsLocalPathJailed(rawBaseDir, relPath string) (string, string, bool) {
 	realBase, err := filepath.EvalSymlinks(cleanBase)
 	if err == nil {
 		realBasePrefix := realBase + string(filepath.Separator)
+		if !strings.HasPrefix(safeTarget, basePrefix) && safeTarget != cleanBase {
+			return cleanBase, "", false
+		}
 		fi, lstatErr := os.Lstat(safeTarget)
 		if lstatErr == nil && fi.Mode()&os.ModeSymlink != 0 {
+			if !strings.HasPrefix(safeTarget, basePrefix) && safeTarget != cleanBase {
+				return cleanBase, "", false
+			}
 			linkDest, err := os.Readlink(safeTarget)
 			if err == nil {
 				if !filepath.IsAbs(linkDest) {

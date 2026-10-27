@@ -41,7 +41,13 @@ Stabilize the Multi-Profile Workspace Manager feature across frontend and backen
   - **Scope**: `internal/core/client/fs_ops.go`, `internal/services/explorer_ops.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_explorer_test.go`
   - **Verification**: `go test -count=1 ./internal/server/...` and `go test -count=1 ./internal/core/client/...` and `./scripts/check.sh all`
 
+- [x] Task 10: Resolve CodeQL Path Injection Alerts (#17, #19, #20, #21)
+  - **Scope**: `internal/server/handlers_profiles.go`, `internal/server/handlers_explorer.go`, `internal/profiles/service.go`, `internal/services/explorer_jail.go`, `internal/profiles/service_test.go`, `internal/services/explorer_service_test.go`
+  - **Verification**: `go test -count=1 ./internal/...` and `./scripts/check.sh all`
+
 ## Status Updates
+
+- 2026-10-27: Completed Task 10 resolving CodeQL path injection alerts (#17, #19, #20, #21) via boundary relative traversal validation, confined safe roots ($HOME, /tmp, /mnt, /media), and explicit prefix barriers preceding filesystem sinks in explorer and profile services. All 6 quality gate stages passed clean.
 
 - 2026-10-27: Completed Task 9 forwarding profile exclude rules to directory copy in Rclone RC (`_filter.ExcludeRule`), preventing unauthenticated Microsoft Personal Vault listing errors when syncing remote OneDrive roots.
 

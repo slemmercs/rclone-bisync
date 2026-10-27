@@ -383,3 +383,85 @@ func TestHandleCopyItem_ExcludePatternsForwarding(t *testing.T) {
 		t.Fatalf("expected exclude rules to be forwarded to sync/copy, got: %v", receivedExcludeRules)
 	}
 }
+
+func TestExplorer_PathTraversalForbidden(t *testing.T) {
+	srv, _, _ := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. Browse with traversal
+	browseBody, _ := json.Marshal(models.BrowseRequest{
+		Remote: "local",
+		Path:   "../../../etc",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/browse", bytes.NewBuffer(browseBody))
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with error body, got %d", w.Code)
+	}
+	var browseRes client.DirectoryListing
+	_ = json.Unmarshal(w.Body.Bytes(), &browseRes)
+	if browseRes.Error != "Path traversal forbidden" {
+		t.Fatalf("expected path traversal error, got: %s", browseRes.Error)
+	}
+
+	// 2. Canary with traversal
+	canaryBody, _ := json.Marshal(models.BrowseRequest{
+		Remote: "local",
+		Path:   "../../../root",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/api/browse/canary", bytes.NewBuffer(canaryBody))
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	w = httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with error body, got %d", w.Code)
+	}
+	var canaryRes models.CanaryResponse
+	_ = json.Unmarshal(w.Body.Bytes(), &canaryRes)
+	if canaryRes.Status != "error" || canaryRes.Error != "Path traversal forbidden" {
+		t.Fatalf("expected path traversal error, got: %+v", canaryRes)
+	}
+
+	// 3. Copy with traversal
+	copyBody, _ := json.Marshal(models.CopyRequest{
+		SrcRemote: "local",
+		SrcPath:   "../../../etc/shadow",
+		DstRemote: "local",
+		DstPath:   "stolen.txt",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/api/browse/copy", bytes.NewBuffer(copyBody))
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	w = httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with error body, got %d", w.Code)
+	}
+	var copyRes models.CopyResponse
+	_ = json.Unmarshal(w.Body.Bytes(), &copyRes)
+	if copyRes.Status != "error" || copyRes.Error != "Path traversal forbidden" {
+		t.Fatalf("expected path traversal error, got: %+v", copyRes)
+	}
+
+	// 4. Delete with traversal
+	delBody, _ := json.Marshal(models.DeleteRequest{
+		Remote: "local",
+		Path:   "../../../etc/passwd",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/api/browse/delete", bytes.NewBuffer(delBody))
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	w = httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with error body, got %d", w.Code)
+	}
+	var delRes models.DeleteResponse
+	_ = json.Unmarshal(w.Body.Bytes(), &delRes)
+	if delRes.Status != "error" || delRes.Error != "Path traversal forbidden" {
+		t.Fatalf("expected path traversal error, got: %+v", delRes)
+	}
+}

@@ -2,6 +2,7 @@ package profiles
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -265,6 +266,10 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 	if cleanPath == "" {
 		return "", nil
 	}
+	if strings.Contains(cleanPath, "..") {
+		return "", errors.New("relative path traversal '..' is forbidden")
+	}
+
 	homeDir, _ := os.UserHomeDir()
 	if homeDir != "" {
 		if cleanPath == "~" {
@@ -280,7 +285,7 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 	}
 	cleanPath = filepath.Clean(absPath)
 
-	// Collect safe roots for auto-provisioning (user home directory and temp directories).
+	// Collect safe roots for auto-provisioning (user home directory, temp directories, standard mount points).
 	var safeRoots []string
 	if homeDir != "" {
 		h := filepath.Clean(homeDir)
@@ -296,6 +301,11 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 			safeRoots = append(safeRoots, realT)
 		}
 	}
+	for _, mnt := range []string{"/mnt", "/media", "/Volumes"} {
+		if fi, err := os.Stat(mnt); err == nil && fi.IsDir() {
+			safeRoots = append(safeRoots, mnt)
+		}
+	}
 
 	for _, root := range safeRoots {
 		rootPrefix := root + string(filepath.Separator)
@@ -303,6 +313,9 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 			rel, err := filepath.Rel(root, cleanPath)
 			if err == nil && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel) {
 				safePath := filepath.Join(root, rel)
+				if !strings.HasPrefix(safePath, rootPrefix) && safePath != root {
+					continue
+				}
 				if err := os.MkdirAll(safePath, 0750); err != nil {
 					return "", fmt.Errorf("failed to create local path %q: %w", safePath, err)
 				}
@@ -311,16 +324,5 @@ func resolveAndEnsureLocalPath(localPath string) (string, error) {
 		}
 	}
 
-	fi, err := os.Stat(cleanPath)
-	if err != nil {
-		if os.IsNotExist(err) || os.IsPermission(err) {
-			return "", fmt.Errorf("directory %q does not exist or is inaccessible; paths outside your home directory must be created manually first", cleanPath)
-		}
-		return "", fmt.Errorf("cannot access local path %q: %w", cleanPath, err)
-	}
-	if !fi.IsDir() {
-		return "", fmt.Errorf("local path %q exists but is not a directory", cleanPath)
-	}
-
-	return cleanPath, nil
+	return "", fmt.Errorf("local path %q must reside within your home directory, /tmp, /mnt, or /media", cleanPath)
 }

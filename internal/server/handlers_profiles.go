@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
@@ -59,6 +60,10 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, models.ErrorResponse{Status: "error", Error: "Invalid JSON payload"})
 		return
 	}
+	if strings.Contains(p.LocalPath, "..") {
+		writeJSON(w, http.StatusBadRequest, models.ErrorResponse{Status: "error", Error: "Relative path traversal forbidden in local path"})
+		return
+	}
 	created, err := s.ProfileService.Create(r.Context(), &p)
 	if err != nil {
 		status := http.StatusBadRequest
@@ -86,6 +91,10 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, models.ErrorResponse{Status: "error", Error: "Invalid JSON payload"})
+		return
+	}
+	if strings.Contains(req.Profile.LocalPath, "..") {
+		writeJSON(w, http.StatusBadRequest, models.ErrorResponse{Status: "error", Error: "Relative path traversal forbidden in local path"})
 		return
 	}
 	req.Profile.ID = id
