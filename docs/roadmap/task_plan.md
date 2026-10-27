@@ -1,64 +1,33 @@
-# Task Plan: Phase 1 - Multi-Profile UI & Engine Cohesion
+# Task Plan: Phase 2 - Core Refactoring & Subsystem Consolidation
 
 ## Goal
-Stabilize the Multi-Profile Workspace Manager feature across frontend and backend: eliminate Alpine.js reactive null pointer exceptions on modal close, unify engine and telemetry sync status with profile scheduler workers, bind the cockpit engine badge to dynamic execution states, and forward profile exclude rules to the sync runner.
+Centralize application lifecycle and dependency wiring via a DI container, consolidate the review domain under `internal/engine/review/`, and implement a deep defense-in-depth secret-redaction masking engine for logging and file tailing.
 
 ## Tasks
 
-- [x] Task 1: Fix Alpine `profileModal.editing` Null Dereference on Close & Reset
-  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`
-  - **Verification**: `./scripts/check.sh templates` and browser check for clean console on modal open/close
+- [x] Task 1: Central DI Container (`internal/app/container.go`)
+  - **Scope**: `internal/app/container.go`, `internal/app/container_test.go`, `main.go`, `internal/server/server.go`
+  - **Verification**: `go test -count=1 ./internal/app/...` and `go test -count=1 ./internal/server/...` and `./scripts/check.sh all`
 
-- [x] Task 2: Expose Scheduler Worker Execution State in Profiles Subsystem
-  - **Scope**: `internal/profiles/scheduler.go`, `internal/profiles/service.go`, `internal/profiles/scheduler_test.go`
-  - **Verification**: `go test -count=1 ./internal/profiles/...`
+- [x] Task 2: Subsystem Consolidation (`internal/review/` -> `internal/engine/review/`)
+  - **Scope**: `internal/review/` -> `internal/engine/review/`, `internal/services/review_service.go`, `internal/services/review_recommendations.go`, `internal/app/container.go`
+  - **Verification**: `go test -count=1 ./internal/engine/review/...` and `go test -count=1 ./internal/services/...` and `./scripts/check.sh all`
 
-- [x] Task 3: Unify Telemetry Sync Status with Profile Scheduler Workers
-  - **Scope**: `internal/server/handlers_telemetry.go`, `internal/server/server.go`, `internal/server/handlers_telemetry_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...`
+- [x] Task 3: Stream/Line Secret Redactor (`internal/core/logger/redact.go`)
+  - **Scope**: `internal/core/logger/redact.go`, `internal/core/logger/redact_test.go`, `internal/core/logger/logger.go`, `internal/services/filetail.go`
+  - **Verification**: `go test -count=1 ./internal/core/logger/...` and `go test -count=1 ./internal/services/...` and `./scripts/check.sh all`
 
-- [x] Task 4: Bind Cockpit Status Badge to Active Profile & Engine State
-  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/app.js`
-  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
-
-- [x] Task 5: Forward Profile Exclude Patterns to SyncRunner CLI Payload
-  - **Scope**: `internal/server/server.go`, `internal/core/compiler/compiler.go`, `internal/server/handlers_profiles_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...` and `go test -count=1 ./internal/core/compiler/...`
-
-- [x] Task 6: Pre-Flight Quality Gate Audit (LOC, Lints, Tests, Leaks)
-  - **Scope**: Entire repository
+- [x] Task 4: Full Quality Gate & Pre-Flight Verification
+  - **Scope**: Full repository
   - **Verification**: `./scripts/check.sh all`
-
-- [x] Task 7: Replace Browser Popups with Styled Confirmation Modal
-  - **Scope**: `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/review.js`
-  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
-
-- [x] Task 8: Dynamic Active Remote Badge & Topology Binding to Active Profile
-  - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/explorer.js`
-  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
-
-- [x] Task 9: Forward Exclude Patterns to Directory Copy (/api/browse/copy & CopyDir)
-  - **Scope**: `internal/core/client/fs_ops.go`, `internal/services/explorer_ops.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_explorer_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...` and `go test -count=1 ./internal/core/client/...` and `./scripts/check.sh all`
-
-- [x] Task 10: Resolve CodeQL Path Injection Alerts (#17, #19, #20, #21)
-  - **Scope**: `internal/server/handlers_profiles.go`, `internal/server/handlers_explorer.go`, `internal/profiles/service.go`, `internal/services/explorer_jail.go`, `internal/profiles/service_test.go`, `internal/services/explorer_service_test.go`
-  - **Verification**: `go test -count=1 ./internal/...` and `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-27: Completed Task 10 resolving CodeQL path injection alerts (#17, #19, #20, #21) via boundary relative traversal validation, confined safe roots ($HOME, /tmp, /mnt, /media), and explicit prefix barriers preceding filesystem sinks in explorer and profile services. All 6 quality gate stages passed clean.
+- 2026-10-27: Completed Task 4 (Full Quality Gate & Pre-Flight Verification). Executed all 6 automated quality stages via `./scripts/check.sh all` (formatting, shell check, go vet, lint, tests with coverage, and loc limits). All checks passed with zero errors or warnings.
+- 2026-10-27: Completed Task 3 (Stream/Line Secret Redactor). Implemented regex-based stream/line masking in internal/core/logger/redact.go, wrapped logger sinks with MaskingWriter, and integrated secret masking into TailLines and TailJSONLog with unit tests in logger and services packages. All 6 quality gate stages passed clean.
+- 2026-10-27: Completed Task 2 (Subsystem Consolidation). Relocated internal/review/ into internal/engine/review/ under engine bounded domain, updating service imports and documentation references. All 6 quality gate stages passed clean.
+- 2026-10-27: Completed Task 1 (Central DI Container). Extracted manual service wiring and scheduler orchestration out of main.go and internal/server/server.go into internal/app/container.go. All 6 quality gate stages passed clean.
+- 2026-10-27: Initialized Phase 2 Task Plan from implementation_plan.md.
 
-- 2026-10-27: Completed Task 9 forwarding profile exclude rules to directory copy in Rclone RC (`_filter.ExcludeRule`), preventing unauthenticated Microsoft Personal Vault listing errors when syncing remote OneDrive roots.
-
-- 2026-10-27: Initialized Phase 1 Task Plan from four-phase implementation plan.
-- 2026-10-27: Completed Task 1. Replaced modal form conditional mount with `<template x-if>` and added `createDefaultProfile()` fallback to prevent Alpine.js reactive null dereference errors.
-- 2026-10-27: Completed Task 2. Added `atomic.Bool` sync state tracking in profile workers and exposed `IsProfileRunning(id)` and `IsAnyRunning()` in Scheduler and ProfileService.
-- 2026-10-27: Completed Task 3. Integrated ProfileService sync state into `handleTelemetry` and added `execution_status: SYNCING | IDLE` in `TelemetryService`. Verified with unit test in `handlers_telemetry_test.go`.
-- 2026-10-27: Completed Task 4. Bound cockpit engine status badge to dynamic profile and engine syncing states in `app.js` and `view_telemetry.html`.
-- 2026-10-27: Completed Task 5. Added `--exclude` pattern mapping in `compiler.go` (`_filter["ExcludeRule"]`) and forwarded profile exclude patterns in `server.go` executor. Verified with end-to-end unit test `TestProfiles_ExecutorExcludeRulesForwarding`.
-- 2026-10-27: Completed Task 6. Verified entire repository with all 6 quality gate checks passing via `./scripts/check.sh all`. Built binary `bisync-hub`.
-- 2026-10-27: Completed Task 7. Replaced native browser `confirm(...)` dialogs across Telemetry resync, File Explorer directory sync, profile rollback, and review decisions with dark-mode `modal_confirm.html` and `askConfirmation()`.
-- 2026-10-27: Completed Task 8. Added `isRemoteActiveTarget(remote)` and dynamic topology bindings to ensure `ACTIVE TARGET` and Local/Remote topology reflect the currently selected profile. All quality gates verified clean (`./scripts/check.sh all`).
 
 

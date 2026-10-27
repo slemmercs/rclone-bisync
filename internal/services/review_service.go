@@ -11,8 +11,8 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/engine/heuristics"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
-	"github.com/slemmercs/rclone-bisync/internal/review"
 )
 
 // ReviewService orchestrates interactive sync review sessions, candidate staging, and execution.

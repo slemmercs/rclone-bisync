@@ -18,9 +18,9 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/remoteauth"
-	"github.com/slemmercs/rclone-bisync/internal/review"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 

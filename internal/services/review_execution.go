@@ -9,8 +9,8 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/engine/heuristics"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
-	"github.com/slemmercs/rclone-bisync/internal/review"
 )
 
 // ApplyBatchRecommendations auto-stages resolutions for conflict candidates matching confidence and risk criteria.

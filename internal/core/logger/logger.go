@@ -41,7 +41,7 @@ func NewWithRotation(filePath string, enableConsole bool, maxSizeMB int, maxBack
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize rotator for %q: %w", filePath, err)
 		}
-		writer = rotator
+		writer = NewMaskingWriter(rotator)
 	}
 
 	var writers []io.Writer
@@ -49,7 +49,7 @@ func NewWithRotation(filePath string, enableConsole bool, maxSizeMB int, maxBack
 		writers = append(writers, writer)
 	}
 	if enableConsole {
-		writers = append(writers, os.Stderr)
+		writers = append(writers, NewMaskingWriter(os.Stderr))
 	}
 
 	var combinedWriter io.Writer
@@ -113,7 +113,7 @@ func (l *Logger) RecordSyncRun(entry models.BisyncLogEntry) error {
 		}
 	}
 	if l.enableConsole {
-		_, _ = os.Stderr.Write(line)
+		_, _ = os.Stderr.Write([]byte(RedactString(string(line))))
 	}
 	return nil
 }
@@ -145,7 +145,7 @@ func (l *Logger) RecordAuditEvent(entry models.AuditLogRecord) error {
 		}
 	}
 	if l.enableConsole {
-		_, _ = os.Stderr.Write(line)
+		_, _ = os.Stderr.Write([]byte(RedactString(string(line))))
 	}
 	return nil
 }

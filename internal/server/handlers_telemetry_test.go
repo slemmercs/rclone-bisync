@@ -95,8 +95,9 @@ func TestHandleTelemetry_ProfileSyncIntegration(t *testing.T) {
 	}
 
 	// 2. Trigger profile sync in background
+	syncDone := make(chan error, 1)
 	go func() {
-		_ = sched.TriggerSync(context.Background(), "prof-active", false)
+		syncDone <- sched.TriggerSync(context.Background(), "prof-active", false)
 	}()
 
 	select {
@@ -127,14 +128,35 @@ func TestHandleTelemetry_ProfileSyncIntegration(t *testing.T) {
 
 	// 4. Release and complete sync
 	close(release)
-	time.Sleep(50 * time.Millisecond)
-
-	recPost := httptest.NewRecorder()
-	srv.ServeHTTP(recPost, req)
+	select {
+	case <-syncDone:
+	case <-time.After(3 * time.Second):
+		t.Fatalf("timeout waiting for profile sync to complete")
+	}
 
 	var postPayload map[string]interface{}
-	if err := json.Unmarshal(recPost.Body.Bytes(), &postPayload); err != nil {
-		t.Fatalf("failed to parse json response: %v", err)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		recPost := httptest.NewRecorder()
+		srv.ServeHTTP(recPost, req)
+
+		if recPost.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK after completion, got %d", recPost.Code)
+		}
+
+		if err := json.Unmarshal(recPost.Body.Bytes(), &postPayload); err != nil {
+			t.Fatalf("failed to parse json response: %v", err)
+		}
+
+		isSync, _ := postPayload["is_syncing"].(bool)
+		execStatus, _ := postPayload["execution_status"].(string)
+		if !isSync && execStatus == "IDLE" {
+			break
+		}
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	if isSync, ok := postPayload["is_syncing"].(bool); !ok || isSync {

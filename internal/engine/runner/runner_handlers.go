@@ -11,8 +11,8 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/core/classifier"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
-	"github.com/slemmercs/rclone-bisync/internal/review"
 )
 
 func (r *SyncRunner) handleSyncSuccess(

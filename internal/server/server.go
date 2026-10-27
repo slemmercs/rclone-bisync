@@ -9,14 +9,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
-	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/security"
-	"github.com/slemmercs/rclone-bisync/internal/engine/runner"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/remoteauth"
@@ -24,6 +22,7 @@ import (
 )
 
 type Server struct {
+	Container        *app.Container
 	Config           *config.Config
 	SyncService      *services.SyncService
 	TelemetryService *services.TelemetryService
@@ -56,108 +55,45 @@ func (s *Server) FormatMajorMinorVersion() string {
 	return FormatMajorMinor(s.Version)
 }
 
-func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS fs.FS) *Server {
-	var rcClient *client.RcloneClient
-	if syncService != nil {
-		rcClient = syncService.Client
-	} else if cfg != nil && cfg.RCAPIURL != "" {
-		user := ""
-		pass := ""
-		if cfg.RCAuthEnabled {
-			user = cfg.RCUser
-			pass = cfg.RCPass
-		}
-		rcClient = client.NewRcloneClient(cfg.RCAPIURL, user, pass)
+// NewServerWithContainer creates a Server instance bound to an initialized Container.
+func NewServerWithContainer(container *app.Container, frontendFS fs.FS) *Server {
+	if container == nil {
+		container, _ = app.NewContainer(&config.Config{})
 	}
-	var telemetrySvc *services.TelemetryService
-	var canarySvc *services.CanaryService
-	var deletionSvc *services.DeletionService
-	var explorerSvc *services.ExplorerService
-	var reviewSvc *services.ReviewService
-	var auditSvc *services.AuditService
-
-	if syncService != nil {
-		telemetrySvc = syncService.Telemetry
-		canarySvc = syncService.Canary
-		deletionSvc = syncService.Deletion
-		explorerSvc = syncService.Explorer
-		reviewSvc = syncService.Review
-		auditSvc = syncService.Audit
-	}
-	if telemetrySvc == nil {
-		telemetrySvc = services.NewTelemetryService(cfg, rcClient)
-	}
-	if canarySvc == nil {
-		canarySvc = services.NewCanaryService(cfg, rcClient)
-	}
-	if deletionSvc == nil {
-		deletionSvc = services.NewDeletionService(cfg)
-	}
-	if explorerSvc == nil {
-		explorerSvc = services.NewExplorerService(cfg, rcClient, canarySvc)
-	}
-	if reviewSvc == nil {
-		reviewSvc = services.NewReviewService(cfg, rcClient)
-	}
-
-	var profSvc *profiles.Service
-	if cfg != nil && cfg.ProfilesFile != "" {
-		profStore, err := profiles.NewStore(cfg.ProfilesFile, cfg.ProfilesHistoryFile)
-		if err == nil {
-			_, _ = profStore.BootstrapDefault(cfg.LocalPath, cfg.RemotePath)
-			executor := func(ctx context.Context, p *profiles.Profile, opts profiles.SyncOptions) error {
-				if err := os.MkdirAll(p.LocalPath, 0750); err != nil {
-					return fmt.Errorf("failed to create local path %s: %w", p.LocalPath, err)
-				}
-				profCfg := *cfg
-				profCfg.ProfileID = p.ID
-				profCfg.RemotePath = p.FullRemoteTarget()
-				profCfg.LocalPath = p.LocalPath
-				profCfg.LockFile = p.LockFilePath()
-				if len(p.ExcludePatterns) > 0 {
-					commonArgs := append([]string{}, profCfg.RcloneCommonArgs...)
-					for _, pattern := range p.ExcludePatterns {
-						pattern = strings.TrimSpace(pattern)
-						if pattern != "" {
-							commonArgs = append(commonArgs, "--exclude", pattern)
-						}
-					}
-					profCfg.RcloneCommonArgs = commonArgs
-				}
-				syncRunner := runner.NewSyncRunner(&profCfg)
-				origin := "scheduler"
-				if opts.Force || opts.Resync || opts.DryRun {
-					origin = "dashboard"
-				}
-				success := syncRunner.Run(ctx, opts.Resync, opts.Force, opts.DryRun, origin, "", false)
-				if !success {
-					return fmt.Errorf("sync failed for profile %s", p.ID)
-				}
-				return nil
-			}
-			sched := profiles.NewScheduler(profStore, executor)
-			profSvc = profiles.NewService(profStore, rcClient, sched)
-			_ = sched.Start(context.Background())
-		}
-	}
-
 	s := &Server{
-		Config:           cfg,
-		SyncService:      syncService,
-		TelemetryService: telemetrySvc,
-		CanaryService:    canarySvc,
-		DeletionService:  deletionSvc,
-		ExplorerService:  explorerSvc,
-		ReviewService:    reviewSvc,
-		AuditService:     auditSvc,
-		LogService:       services.NewLogService(),
-		AuthService:      remoteauth.NewRemoteAuthService(cfg, rcClient, nil),
-		ProfileService:   profSvc,
+		Container:        container,
+		Config:           container.Config,
+		SyncService:      container.SyncService,
+		TelemetryService: container.TelemetryService,
+		CanaryService:    container.CanaryService,
+		DeletionService:  container.DeletionService,
+		ExplorerService:  container.ExplorerService,
+		ReviewService:    container.ReviewService,
+		AuditService:     container.AuditService,
+		LogService:       container.LogService,
+		AuthService:      container.AuthService,
+		ProfileService:   container.ProfileService,
 		FrontendFS:       frontendFS,
 		Mux:              http.NewServeMux(),
 	}
 	s.routes()
 	return s
+}
+
+// NewServer initializes a new Server using the central DI container.
+func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS fs.FS) *Server {
+	var opts []app.Option
+	if syncService != nil {
+		opts = append(opts, app.WithSyncService(syncService))
+		if syncService.Client != nil {
+			opts = append(opts, app.WithClient(syncService.Client))
+		}
+	}
+	container, _ := app.NewContainer(cfg, opts...)
+	if container != nil && container.ProfileScheduler != nil {
+		_ = container.ProfileScheduler.Start(context.Background())
+	}
+	return NewServerWithContainer(container, frontendFS)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

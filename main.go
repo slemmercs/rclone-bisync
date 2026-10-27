@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/engine/runner"
 	"github.com/slemmercs/rclone-bisync/internal/server"
-	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 //go:embed dashboard/frontend/*
@@ -86,8 +86,20 @@ func runDashboard(host string, port int, envFile string) {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	syncSvc := services.NewSyncService(cfg, nil)
-	srv := server.NewServer(cfg, syncSvc, frontendFS)
+	appContainer, err := app.NewContainer(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize application container: %v", err)
+	}
+	if err := appContainer.Start(context.Background()); err != nil {
+		log.Printf("Warning: failed to start background services: %v", err)
+	}
+	defer func() {
+		if err := appContainer.Close(); err != nil {
+			log.Printf("Error during container shutdown: %v", err)
+		}
+	}()
+
+	srv := server.NewServerWithContainer(appContainer, frontendFS)
 	srv.Version = Version
 
 	addr := fmt.Sprintf("%s:%d", host, port)
@@ -136,8 +148,15 @@ func runCanary(remote, path, envFile string) {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	canarySvc := services.NewCanaryService(cfg, nil)
-	res, err := canarySvc.CreateCanary(context.Background(), remote, path)
+	appContainer, err := app.NewContainer(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize application container: %v", err)
+	}
+	defer func() {
+		_ = appContainer.Close()
+	}()
+
+	res, err := appContainer.CanaryService.CreateCanary(context.Background(), remote, path)
 	if err != nil {
 		log.Fatalf("Failed to provision canary: %v", err)
 	}

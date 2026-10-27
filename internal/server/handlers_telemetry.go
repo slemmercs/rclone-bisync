@@ -82,6 +82,9 @@ func (s *Server) handleDaemonLogs(w http.ResponseWriter, r *http.Request) {
 	limit := 200
 	if qLimit := q.Get("limit"); qLimit != "" {
 		if parsed, err := strconv.Atoi(qLimit); err == nil && parsed > 0 {
+			if parsed > 1000 {
+				parsed = 1000
+			}
 			limit = parsed
 		}
 	}
@@ -110,6 +113,9 @@ func (s *Server) handleTelemetry(w http.ResponseWriter, r *http.Request) {
 	limit := 40
 	if qLimit := r.URL.Query().Get("limit"); qLimit != "" {
 		if parsed, err := strconv.Atoi(qLimit); err == nil && parsed > 0 {
+			if parsed > 500 {
+				parsed = 500
+			}
 			limit = parsed
 		}
 	}
