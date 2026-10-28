@@ -168,6 +168,11 @@ Synchronization state, remote health, conflicts, and risks should be visible wit
 - Browser-based operational dashboard with 4 core views
 - Embedded single-page application UI (zero-dependency, compiled-in)
 - Native Go single-binary deployment with sub-30MB footprint
+- Multi-profile workload management with isolated background schedulers and POSIX lock confinement (`/tmp/rclone-bisync-<id>.lock`)
+- 3-tier operational flags architecture (`Execution Override > Profile Override > Global Default > Hardcoded Fallback`) with POSIX shell tokenizer and prohibited flags security blocklist
+- Hybrid Fleet Overview dashboard with aggregate health summary banner and interactive profile tile grid
+- Contextual profile workspace with global header profile switcher dropdown and breadcrumb navigation
+- Visual 3-tier flags editor with live inheritance badges and client-side security validation
 - Integrated dual-pane local and remote file explorer
 - OAuth connection health monitoring and guided renewal modals
 - Authentication recovery workflows for Google Drive and OneDrive

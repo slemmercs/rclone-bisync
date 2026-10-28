@@ -213,6 +213,9 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("POST /api/profiles/{id}/rollback", s.handleRollbackProfile)
 	s.Mux.HandleFunc("POST /api/profiles/{id}/sync", s.handleProfileSync)
 	s.Mux.HandleFunc("GET /api/profiles/{id}/history", s.handleProfileHistory)
+	// Global Fleet Settings Endpoints
+	s.Mux.HandleFunc("GET /api/config", s.handleGetConfig)
+	s.Mux.HandleFunc("PUT /api/config", s.handleUpdateConfig)
 
 	// Static assets & SPA
 	if s.FrontendFS != nil {

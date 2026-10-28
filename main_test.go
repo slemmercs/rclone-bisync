@@ -45,6 +45,22 @@ func TestEmbeddedFrontendFS(t *testing.T) {
 		t.Fatal("embedded review.js is empty")
 	}
 
+	dataFleet, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/fleet.js")
+	if err != nil {
+		t.Fatalf("expected dashboard/frontend/js/fleet.js in embedded FS, got: %v", err)
+	}
+	if len(dataFleet) == 0 {
+		t.Fatal("embedded fleet.js is empty")
+	}
+
+	dataHistory, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/profiles_history.js")
+	if err != nil {
+		t.Fatalf("expected dashboard/frontend/js/profiles_history.js in embedded FS, got: %v", err)
+	}
+	if len(dataHistory) == 0 {
+		t.Fatal("embedded profiles_history.js is empty")
+	}
+
 	subFS, err := fs.Sub(frontendFS, "dashboard/frontend")
 	if err != nil {
 		t.Fatalf("failed sub fs: %v", err)

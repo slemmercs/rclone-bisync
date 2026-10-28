@@ -184,10 +184,11 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		name       string
 		tabPillIdx int
 	}{
-		{"telemetry", 0},
-		{"remotes", 1},
-		{"explorer", 2},
-		{"audit", 3},
+		{"fleet", 0},
+		{"telemetry", 1},
+		{"remotes", 2},
+		{"explorer", 3},
+		{"audit", 4},
 	}
 
 	for _, tc := range tabs {
@@ -262,7 +263,85 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		})
 	}
 
-	// 3. Check for any runtime JavaScript console errors or exceptions
+	// 3. Test Fleet Profile Card Click -> Telemetry Navigation
+	t.Run("FleetCardClickNavigation", func(t *testing.T) {
+		clickFleetScript := `(() => {
+			const btn = document.querySelector('nav button[data-tab="fleet"]');
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickFleetScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed clicking fleet nav button: %v", err)
+		}
+
+		time.Sleep(150 * time.Millisecond)
+
+		clickCardScript := `(() => {
+			const cards = document.querySelectorAll('[x-show*="fleet"] .grid div[class*="cursor-pointer"]');
+			if (cards.length > 0) {
+				cards[0].click();
+				return true;
+			}
+			return false;
+		})()`
+		cardClicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickCardScript))
+		if err == nil && cardClicked {
+			time.Sleep(150 * time.Millisecond)
+			tabCheckScript := `window.Alpine ? Alpine.$data(document.querySelector('[x-data]')).currentTab : ''`
+			activeTab, err := chromedp.Run(ctx, chromedp.Evaluate[string](tabCheckScript))
+			if err == nil && activeTab != "telemetry" {
+				t.Errorf("expected currentTab to be 'telemetry' after clicking profile card, got %q", activeTab)
+			}
+		}
+	})
+	// 4. Test Global Fleet Settings Modal Opening & Tab Switching
+	t.Run("GlobalSettingsModalTabs", func(t *testing.T) {
+		openScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.openGlobalSettingsModal('defaults');
+			return true;
+		})()`
+		opened, err := chromedp.Run(ctx, chromedp.Evaluate[bool](openScript))
+		if err != nil || !opened {
+			t.Fatalf("failed opening global settings modal: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+
+		// Test switching to engine tab
+		switchEngineScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.globalSettingsModal.tab = 'engine';
+			return true;
+		})()`
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](switchEngineScript))
+		if err != nil {
+			t.Fatalf("failed switching to engine tab: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify engine input fields are visible and bound
+		engineInputCheck := `(() => {
+			const inputs = document.querySelectorAll('input[x-model\\.number*="daemon"]');
+			return inputs.length;
+		})()`
+		count, err := chromedp.Run(ctx, chromedp.Evaluate[int](engineInputCheck))
+		if err != nil || count == 0 {
+			t.Errorf("expected daemon engine inputs to be present in DOM, got %d (err: %v)", count, err)
+		}
+
+		// Close modal
+		closeScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (app) app.closeGlobalSettingsModal();
+			return true;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](closeScript))
+	})
+
+	// 4. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
 	defer mu.Unlock()
 

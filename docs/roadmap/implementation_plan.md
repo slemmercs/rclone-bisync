@@ -122,39 +122,118 @@ Implement the 3-tier operational flags architecture (`docs/design/bisync_operati
 
 ---
 
-## 4. Phase 4: Dashboard UI Evolution & Config Flow
+## 4. Phase 4: Hybrid Fleet Overview & Operational Flags UI
 
 ### Proposed Changes
-Deliver profile-first Cockpit UI redesign: quick-switcher in main navigation, visual flag and safety policy editor with inheritance badges, and step-by-step profile onboarding wizard.
+Deliver the workload-centric dashboard hierarchy specified in `docs/design/hybrid_fleet_overview_contextual_profile_workspace.md` and the visual operational flags editor from `docs/design/bisync_operational_flags.md`:
+1. **Level 1: Fleet View (`dashboard/frontend/partials/view_fleet.html`)**:
+   - Central command dashboard displaying fleet health summary counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`) with interactive click-to-filter pills.
+   - Interactive profile tile grid with status tags, schedule type, local/remote topology, operational telemetry (last run, duration, next run), and inline quick actions (`Sync Now`, `Review Diff`, `Settings`, `Logs`).
+   - Search and sort controls (`Search profiles...`, `Sort by Status / Name`).
+2. **Level 2: Scoped Header Context Switcher & Breadcrumb Navigation**:
+   - Persistent global profile switcher dropdown in header replacing the static pill, featuring micro-status indicators (`● Healthy`, `⚠ Review`, `✖ Failed`).
+   - Breadcrumb navigation (`Profiles / [Profile Name]`) allowing instant one-click return to Level 1 Fleet View.
+   - Dynamic binding across all child tabs (`Engine & Telemetry`, `Storage Remotes`, `File Explorer`, `Audit Ledger`) to the active profile context.
+3. **Visual 3-Tier Operational Flags Editor (`dashboard/frontend/partials/modals/modal_profiles.html`)**:
+   - **Tier 1 (Execution Controls)**: `DryRun`, `Resync`, `Force`, `ConflictResolve` strategy dropdown, `MaxDelete` percentage input.
+   - **Tier 2 (Profile Settings)**: `CanaryValidation` toggle, `CompareMode` dropdown (`size,modtime`, `checksum`, `modtime`), Directory Cleanup (`RemoveEmptyDirs`, `CreateEmptyDirs`), `FiltersFilePath`.
+   - **Tier 3 (Custom Flags Escape Hatch)**: Freeform text input with client-side & server-side validation against the Phase 3 prohibited flags blocklist.
+   - **Inheritance Badges**: Clear visual badges (`Inherited from Global Default` vs `Profile Override`) displaying global default values when a field is null/inherited.
 
 ### Affected Components & Packages
-- `dashboard/frontend/partials/header.html` & `view_telemetry.html`: Profile quick-switcher.
-- `dashboard/frontend/partials/modals/modal_profiles.html`: Visual flag editor and inheritance indicators.
-- `dashboard/frontend/js/profiles.js` & `app.js`: Onboarding state machine.
+- `dashboard/frontend/partials/view_fleet.html`: New Level 1 Fleet View partial.
+- `dashboard/frontend/index.html`: Registration of `view_fleet` partial, nav tab pill, and breadcrumb header.
+- `dashboard/frontend/partials/modals/modal_profiles.html`: 3-tier operational flags editor controls and inheritance indicators in Tab 2.
+- `dashboard/frontend/js/profiles.js`: Fleet summary calculations, filtering/sorting, flag overrides binding, and custom flags validation.
+- `dashboard/frontend/app.js`: Tab routing update (default tab logic, breadcrumb transitions, fleet store state).
+- `internal/server/server.go`: Template parsing inclusion for `view_fleet.html`.
+
+### Technical Strategy & Data Flow
+1. **Fleet Store & Aggregate State**:
+   - Fleet summary metrics computed dynamically from `profilesData.list` and active worker telemetry.
+   - Filter state (`filterStatus = 'all' | 'healthy' | 'review' | 'failing' | 'syncing'`) filters the tile grid in real time.
+2. **Context Routing**:
+   - Clicking any profile tile card in Level 1 sets `activeId` and switches tab to `telemetry` (Level 2 Scoped Workspace).
+   - Breadcrumbs in header detect whether user is in Fleet View or Scoped Workspace and provide easy navigation.
+3. **3-Tier Flag Binding & Inheritance**:
+   - In `modal_profiles.html`, profile flags map to `profileModal.editing.flags`.
+   - Each input evaluates `profileModal.editing.flags?.[key]` vs `globalDefaults?.[key]`.
+
 
 ---
 
-## Verification Plan
+## 5. UI/UX Refinement: Contextual Fleet vs. Workload Scoping & Header Redesign
 
-### Phase 1 Polish: Confirmation Modals & Dynamic Target Binding
-- `dashboard/frontend/partials/modals/modal_confirm.html`:
-  - Introduce themed, dark-mode confirmation modal to replace native browser `confirm(...)` dialogs.
-- `dashboard/frontend/app.js`:
-  - Add `confirmModal` reactive state and `askConfirmation({ title, message, confirmText, confirmClass, icon, onConfirm })` helper.
-- `dashboard/frontend/js/logs.js` & `explorer_actions.js`:
-  - Refactor `confirmResync()` and `syncCurrentDirectory()` to trigger `askConfirmation(...)`.
-- `dashboard/frontend/js/remotes.js`:
-  - Introduce `isRemoteActiveTarget(remote)` helper dynamically checking against `activeProfile.remote`.
-- `dashboard/frontend/partials/view_remotes.html`:
-  - Bind `ACTIVE TARGET` badge to `isRemoteActiveTarget(remote)`.
-- `dashboard/frontend/partials/view_telemetry.html`:
-  - Dynamically display `activeProfile.local_path` and `activeProfile.remote` in `Active Profile Topology` banner.
+### Proposed Changes
+Refine the Phase 4 UI/UX based on industry best practices for multi-tenant and multi-workload architectures (Vercel, Portainer, Supabase):
+1. **Clean 2-Tier Header**:
+   - Eliminate wrapping and layout squeeze by separating global context (top bar) from tab navigation (sub-bar).
+   - Top Bar: App brand, integrated breadcrumb context switcher (`Bisync Hub | ⊞ Fleet / [ Active Profile ▾ ] [Status]`), and global daemon health/latency.
+   - Remove the long subtitle taking up horizontal navbar space.
+2. **Context-Aware Navigation & Subnav**:
+   - Level 1 (Fleet Scope): Nav tabs for `[ ⊞ Workload Fleet ]` and `[ ☁ Cloud Remotes Inventory ]`.
+   - Level 2 (Workload / Profile Scope): Nav tabs for `[ ⚡ Engine & Telemetry ]`, `[ ☁ Target Storage ]`, `[ 📁 File Explorer ]`, `[ 🛡 Audit Ledger ]`.
+   - Persistent view preference: `localStorage` active tab caching with smart default (Fleet when $\ge 2$ profiles, Telemetry when single profile).
+3. **Fleet Card Interactive Surface**:
+   - Fix premature tag closure in `view_fleet.html` so the entire card is clickable, immediately activating that profile and opening its scoped telemetry workspace.
+4. **Contextual Scoping for Remotes and Audit Ledger**:
+   - Remotes: Global inventory at Fleet level; filtered to active profile's local directory and remote target when inside a Profile workspace.
+   - Audit Ledger: Auto-filter by `?profile_id=<active_id>` when in Profile workspace, with a 1-click toggle to clear the filter and show all system events.
 
-### Phase 1 Verification
-- `go test -count=1 ./internal/profiles/...`: Verify scheduler running status checks.
-- `go test -count=1 ./internal/server/...`: Verify `/api/telemetry` reports `execution_status` and exclude patterns forward to runner.
-- `./scripts/check.sh templates`: Verify Alpine.js template safety.
-- `./scripts/check.sh loc`: Verify LOC constraints (<= 400 lines).
-- `./scripts/check.sh all`: Full 8-stage pre-flight quality check.
+### Verification Plan
+- Template AST validation (`./scripts/check.sh templates`)
+- Line counter audit (`./scripts/check.sh loc`)
+- Headless Chrome E2E test verifying header navigation, fleet tile clicks, and context transitions (`go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`)
+- Full pre-flight quality check (`./scripts/check.sh all`)
+
+   - Reset button allows clearing a profile override back to `nil` to re-inherit global defaults.
+4. **Safety & Security**:
+   - Custom flags input triggers validation on change, rendering clear inline error badges if prohibited flags (`--config`, `--rc`, etc.) are detected.
+
+### Verification Plan
+- `go test -count=1 ./internal/server/...`: Verify template rendering and profile endpoints.
+- `./scripts/check.sh templates`: Verify AST-tokenized Alpine.js template validity.
+- `./scripts/check.sh loc`: Verify LOC budget (<= 400 lines) across all modified files.
+- Manual DOM reactivity & browser verification of Fleet View and Flags Editor.
+- `./scripts/check.sh all`: Run full quality gate pre-flight check.
+
+---
+
+## 6. Phase 5: Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings
+
+### Proposed Changes
+1. **Engine Decoupling**:
+   - Remove Google Drive-specific flags (`--drive-export-formats`, `--drive-skip-gdocs`, `--drive-use-trash`, `--drive-acknowledge-abuse`, `--drive-skip-shortcuts`) from universal `defaultArgs` in `internal/config/config.go` and `bisync.env`.
+   - Ensure global defaults are strictly provider-agnostic.
+2. **Provider Options Modeling & Compiler Translation**:
+   - Extend `ProfileFlags` with `ProviderOptions map[string]string` in `internal/profiles/model.go`.
+   - Update `internal/profiles/builder.go` to emit provider options as CLI flags.
+   - Register Tier 1 provider flags in `internal/core/compiler/compiler.go` (`--onedrive-no-versions`, `--s3-chunk-size`, `--s3-storage-class`, `--dropbox-chunk-size`, etc.) so `CompileBisyncPayload` attaches them directly to remote `path1` connection strings.
+3. **Unified Provider Options UI**:
+   - Consolidate provider configuration and the audited custom flags field into a single **Target Provider Configuration** panel in `modal_profiles.html`.
+   - Tier 1 Providers (Google Drive, OneDrive, S3, Dropbox) get first-class typed UI controls + custom flags field for advanced arguments.
+   - Tier 2 Generic Providers (WebDAV, SFTP, Box, B2, etc.) get clear guidance with the audited custom flags field as their primary interface.
+4. **Profile Execution Contract in Telemetry**:
+   - Replace raw host environment dump in `view_telemetry.html` with a concise **Profile Execution Contract** card displaying Source & Target paths, Remote Provider badge, schedule status, effective resolved flags pill cloud, and a 1-click **Configure Profile** shortcut.
+5. **Global Fleet Settings Modal**:
+   - Introduce `modal_global_settings.html` and endpoints (`GET /api/config`, `PUT /api/config`) to manage fleet-wide operational defaults, daemon polling/timeout parameters, and alert notifications.
+
+### Affected Components & Packages
+- `internal/config/config.go` & `bisync.env`: Strip provider-specific flags from universal daemon default arguments.
+- `internal/core/compiler/compiler.go`: Map Tier 1 provider flags to `path1` backend options.
+- `internal/profiles/model.go`: Add `ProviderOptions map[string]string` to `ProfileFlags` and `ResolvedFlags`.
+- `internal/profiles/builder.go`: Translate `ProviderOptions` into CLI arguments in `BuildCLIArgs`.
+- `internal/server/handlers_config.go` & `server.go`: Expose `GET /api/config` and `PUT /api/config` for global fleet settings.
+- `dashboard/frontend/partials/modals/modal_profiles.html` & `profiles.js`: Unified Provider Options section with dynamic Tier 1 UI fields + audited custom flags.
+- `dashboard/frontend/partials/view_telemetry.html`: Profile Execution Contract replacing raw `.env` dump.
+- `dashboard/frontend/partials/modals/modal_global_settings.html`: Fleet settings manager.
+
+### Verification Plan
+- Unit tests: `go test -count=1 ./internal/config/... ./internal/profiles/... ./internal/core/compiler/... ./internal/server/...`
+- Template verification: `./scripts/check.sh templates`
+- LOC budget verification: `./scripts/check.sh loc 400`
+- E2E smoke tests: `go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`
+- Full pre-flight quality gate: `./scripts/check.sh all`
+
 
 

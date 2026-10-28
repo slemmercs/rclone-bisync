@@ -17,7 +17,7 @@ func DefaultGlobalDefaults() GlobalDefaults {
 		MaxDelete:        50,
 		CanaryValidation: true,
 		ConflictResolve:  "newer",
-		CompareMode:      "modtime",
+		CompareMode:      "size,modtime",
 		RemoveEmptyDirs:  true,
 		CreateEmptyDirs:  true,
 	}

@@ -75,19 +75,24 @@ The following core modules are implemented, tested, and included in current bina
 - **Bounded Contexts**: Core logic decoupled into focused domain engines (`TelemetryService`, `CanaryService`, `DeletionService`, `ReviewService`, `ExplorerService`, `SyncService`).
 - **Strict Maintainability Limits**: All Go files strictly enforced to remain under ~400 lines of code to prevent architectural drift.
 
+### 7. Multi-Profile Backend & 3-Tier Operational Flags Engine
+- **Independent Workload Scheduling**: Spawns isolated runner goroutines per profile with dedicated advisory lock confinement (`/tmp/rclone-bisync-<id>.lock`) and SQLite state tracking.
+- **3-Tier Operational Flags Architecture**: Fine-grained flag inheritance model (`Execution Override > Profile Override > Global Default > Hardcoded Fallback`).
+- **POSIX Shell Argument Tokenizer & Security Blocklist**: Safe tokenizer with hard blocklist preventing command injection and unauthorized override of daemon flags (`--config`, `--rc`, `--use-mmap`, `--log-file`, `--json`).
+
 ---
 
 ## 🟡 Near-Term Strategic Priorities (In Development)
 
 The following capabilities represent our immediate development milestones following public launch:
 
-### Priority 1: Multi-Profile Workspace Manager
-- **Objective**: Manage multiple independent synchronization pairs from a single daemon and dashboard.
+### Priority 1: Hybrid Fleet Overview & Contextual Profile Workspace
+- **Objective**: Deliver a workload-centric dashboard hierarchy supporting fleet-wide visibility and profile-scoped management.
 - **Architecture**:
-  - Spawns isolated goroutine runners per profile (e.g. Personal Google Drive, Work OneDrive, NAS backup).
-  - Pairs independent local folders to different cloud remotes with dedicated POSIX flock isolation (`/tmp/rclone-bisync-<profile>.lock`).
-  - Profile-aware telemetry streams, speed charts, and file explorer remote routing.
-  - Refer to [Multi-Profile Design Specification](https://github.com/slemmercs/rclone-bisync/blob/main/docs/design/profile-manager.md).
+  - **Level 1 Fleet View**: Central command dashboard with aggregate health summary counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`), interactive tile grid, and instant quick-actions (`Sync Now`, `Dry Run`, `Settings`).
+  - **Level 2 Scoped Workspace**: Context-aware workspace with global header profile switcher dropdown and breadcrumb navigation.
+  - **Visual 3-Tier Flags Editor**: Interactive parameter controls with live inheritance badges (`Inherited from Global` vs `Profile Override`) and client-side security blocklist validation.
+  - Refer to [Hybrid Fleet Overview & Contextual Workspace Specification](https://github.com/slemmercs/rclone-bisync/blob/main/docs/design/hybrid_fleet_overview_contextual_profile_workspace.md).
 
 ### Priority 2: In-Dashboard Configuration & Setup Manager
 - **Objective**: Provide safe visual editing of sync flags, intervals, and remote setup.

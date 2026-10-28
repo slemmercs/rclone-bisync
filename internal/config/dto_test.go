@@ -17,8 +17,8 @@ func TestDefaultGlobalDefaults(t *testing.T) {
 	if d.ConflictResolve != "newer" {
 		t.Errorf("expected ConflictResolve 'newer', got '%s'", d.ConflictResolve)
 	}
-	if d.CompareMode != "modtime" {
-		t.Errorf("expected CompareMode 'modtime', got '%s'", d.CompareMode)
+	if d.CompareMode != "size,modtime" {
+		t.Errorf("expected CompareMode 'size,modtime', got '%s'", d.CompareMode)
 	}
 	if !d.RemoveEmptyDirs {
 		t.Errorf("expected RemoveEmptyDirs true")

@@ -1,0 +1,117 @@
+{{ define "modal_provider_options" }}
+<!-- Target Provider Configuration (Tier 1 First-Class UI & Audited Custom Flags) -->
+<div class="bg-slate-950/60 border border-slate-800/70 rounded-xl p-3 space-y-3">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-slate-300">Target Provider Options</label>
+            <span class="text-[9px] px-2 py-0.5 rounded font-mono font-bold uppercase"
+                  :class="isTier1Provider() ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700/60'"
+                  x-text="isTier1Provider() ? (getEditingRemoteType().toUpperCase() + ' • TIER 1') : 'TIER 2 GENERIC'"></span>
+        </div>
+        <span class="text-[10px] text-slate-500 font-mono" x-text="profileModal.editing?.remote ? profileModal.editing.remote : 'No Remote Selected'"></span>
+    </div>
+
+    <!-- Tier 1: Google Drive Controls -->
+    <template x-if="getEditingRemoteType() === 'drive'">
+        <div class="space-y-2.5 pt-1 border-t border-slate-900">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <input type="checkbox" :checked="getProviderOption('drive_skip_shortcuts', 'true') === 'true'" @change="setProviderOption('drive_skip_shortcuts', $event.target.checked ? 'true' : 'false')" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
+                    <span class="text-[11px] text-slate-300 font-medium">Skip Shortcuts</span>
+                </label>
+                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <input type="checkbox" :checked="getProviderOption('drive_use_trash', 'true') === 'true'" @change="setProviderOption('drive_use_trash', $event.target.checked ? 'true' : 'false')" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
+                    <span class="text-[11px] text-slate-300 font-medium">Use Trash</span>
+                </label>
+                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <input type="checkbox" :checked="getProviderOption('drive_skip_gdocs', 'true') === 'true'" @change="setProviderOption('drive_skip_gdocs', $event.target.checked ? 'true' : 'false')" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
+                    <span class="text-[11px] text-slate-300 font-medium">Skip GDocs</span>
+                </label>
+                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <input type="checkbox" :checked="getProviderOption('drive_acknowledge_abuse', 'true') === 'true'" @change="setProviderOption('drive_acknowledge_abuse', $event.target.checked ? 'true' : 'false')" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
+                    <span class="text-[11px] text-slate-300 font-medium">Ack Abuse</span>
+                </label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-[10px] font-semibold text-slate-400 mb-1">Export Formats</label>
+                    <input type="text" :value="getProviderOption('drive_export_formats', 'docx,xlsx,pptx')" @input="setProviderOption('drive_export_formats', $event.target.value)" placeholder="docx,xlsx,pptx" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-semibold text-slate-400 mb-1">Import Formats</label>
+                    <input type="text" :value="getProviderOption('drive_import_formats', 'docx,xlsx,pptx')" @input="setProviderOption('drive_import_formats', $event.target.value)" placeholder="docx,xlsx,pptx" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono">
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Tier 1: OneDrive Controls -->
+    <template x-if="getEditingRemoteType() === 'onedrive'">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-900">
+            <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700">
+                <input type="checkbox" :checked="getProviderOption('onedrive_no_versions', 'false') === 'true'" @change="setProviderOption('onedrive_no_versions', $event.target.checked ? 'true' : 'false')" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
+                <span class="text-[11px] text-slate-300 font-medium">No Versions</span>
+            </label>
+            <div>
+                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Upload Chunk Size</label>
+                <input type="text" :value="getProviderOption('onedrive_chunk_size', '10M')" @input="setProviderOption('onedrive_chunk_size', $event.target.value)" placeholder="10M" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono">
+            </div>
+        </div>
+    </template>
+
+    <!-- Tier 1: Amazon S3 Controls -->
+    <template x-if="getEditingRemoteType() === 's3'">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-900">
+            <div>
+                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Storage Class</label>
+                <select :value="getProviderOption('s3_storage_class', 'STANDARD')" @change="setProviderOption('s3_storage_class', $event.target.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono">
+                    <option value="STANDARD">STANDARD</option>
+                    <option value="STANDARD_IA">STANDARD_IA</option>
+                    <option value="INTELLIGENT_TIERING">INTELLIGENT_TIERING</option>
+                    <option value="ONEZONE_IA">ONEZONE_IA</option>
+                    <option value="GLACIER_IR">GLACIER_IR</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Chunk Size</label>
+                <input type="text" :value="getProviderOption('s3_chunk_size', '16M')" @input="setProviderOption('s3_chunk_size', $event.target.value)" placeholder="16M" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono">
+            </div>
+        </div>
+    </template>
+
+    <!-- Tier 1: Dropbox Controls -->
+    <template x-if="getEditingRemoteType() === 'dropbox'">
+        <div class="pt-1 border-t border-slate-900">
+            <label class="block text-[10px] font-semibold text-slate-400 mb-1">Upload Chunk Size</label>
+            <input type="text" :value="getProviderOption('dropbox_chunk_size', '48M')" @input="setProviderOption('dropbox_chunk_size', $event.target.value)" placeholder="48M" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono">
+        </div>
+    </template>
+
+    <!-- Tier 2: Generic Context Notice -->
+    <template x-if="!isTier1Provider()">
+        <div class="p-2.5 bg-slate-900/80 rounded-lg border border-slate-800 text-[11px] text-slate-400 space-y-1">
+            <div class="font-medium text-slate-300">Generic Cloud Backend</div>
+            <div>All provider-specific parameters should be supplied via Audited Custom CLI Flags below.</div>
+        </div>
+    </template>
+</div>
+
+<!-- Tier 3: Audited Custom CLI Flags Escape Hatch -->
+<div class="bg-slate-950/60 border border-slate-800/70 rounded-xl p-3 space-y-2">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-slate-300">Tier 3: Audited Custom CLI Flags</label>
+            <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('custom_flags') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('custom_flags') ? 'Active Override' : 'None'"></span>
+        </div>
+        <button type="button" x-show="isFlagOverridden('custom_flags')" @click="resetFlagOverride('custom_flags')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Clear</button>
+    </div>
+    <input type="text" :value="profileModal.editing?.flags ? profileModal.editing.flags.custom_flags : ''" @input="setFlagOverride('custom_flags', $event.target.value === '' ? null : $event.target.value)" :placeholder="isTier1Provider() ? 'e.g. --fast-list --checkers 16' : 'e.g. --fast-list --b2-hard-delete'" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+    <div class="text-[10px] text-slate-400">Audited via POSIX tokenizer. Blocklist: --config, -c, --rc, --rc-*, --use-mmap, --log-file, --json.</div>
+    <template x-if="getCustomFlagsValidationError(profileModal.editing?.flags?.custom_flags)">
+        <div class="text-[11px] font-mono text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-2 py-1 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12.01" y1="16" x2="12.01" y2="16"/></svg>
+            <span x-text="getCustomFlagsValidationError(profileModal.editing?.flags?.custom_flags)"></span>
+        </div>
+    </template>
+</div>
+{{ end }}

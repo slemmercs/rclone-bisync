@@ -344,5 +344,15 @@ window.RemotesModule = {
             }
         }
         this.switchTab("telemetry");
+    },
+
+    getDisplayedRemotes() {
+        if (!this.remotesData) return [];
+        if (this.remotesData.showAll || !this.activeProfile || !this.activeProfile.remote) {
+            return this.remotesData.remotes || [];
+        }
+        const target = this.activeProfile.remote.replace(/:$/, "").trim();
+        const matched = (this.remotesData.remotes || []).filter(r => (r.name || "").replace(/:$/, "").trim() === target);
+        return matched.length > 0 ? matched : (this.remotesData.remotes || []);
     }
 };

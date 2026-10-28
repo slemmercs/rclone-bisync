@@ -1,38 +1,76 @@
-# Task Plan: Phase 3 - Operational Flags & Profile Schema Alignment
+# Task Plan: Phase 5 - Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings
 
 ## Goal
-Implement the 3-tier operational flags architecture (`docs/design/bisync_operational_flags.md`), flag inheritance (`Execution Override > Profile Override > Global Default > Hardcoded Fallback`), POSIX shell argument sanitizer with prohibited flag security blocklist, and profile CLI argument builder.
+Implement a tiered cloud provider settings architecture with first-class UI controls for Tier-1 providers (Google Drive, OneDrive, S3, Dropbox) and an audited custom flags field for Tier-2 generic providers, decouple daemon engine defaults from workload sync payloads, surface a Profile Execution Contract in Telemetry, and introduce a Global Fleet Settings manager.
 
 ## Tasks
 
-- [x] Task 1: Operational Flags DTOs & Global Defaults
-  - **Scope**: `internal/config/dto.go`, `internal/config/dto_test.go`, `internal/profiles/model.go`
-  - **Verification**: `go test -count=1 ./internal/config/... ./internal/profiles/...`
+- [x] Task 1: Engine Flag Decoupling & Compiler Tier-1 Provider Flag Registration
+  - **Scope**: `internal/config/config.go`, `bisync.env`, `internal/config/config_test.go`, `internal/core/compiler/compiler.go`, `internal/core/compiler/compiler_test.go`
+  - **Verification**: `go test -count=1 ./internal/config/... ./internal/core/compiler/...`
 
-- [x] Task 2: Custom Flags Validator & Shell Tokenizer
-  - **Scope**: `internal/profiles/validator.go`, `internal/profiles/validator_test.go`
-  - **Verification**: `go test -count=1 ./internal/profiles/... -run "Test(SplitCommandLine|ValidateCustomFlags)"`
+- [x] Task 2: Provider Options Model & Flag Builder Implementation
+  - **Scope**: `internal/profiles/model.go`, `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
+  - **Verification**: `go test -count=1 ./internal/profiles/...`
 
-- [x] Task 3: Flag Inheritance & CLI Argument Builder
-  - **Scope**: `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
-  - **Verification**: `go test -count=1 ./internal/profiles/... -run "Test(ResolveFlags|BuildCLIArgs)"`
+- [x] Task 3: Global Fleet Settings Backend Endpoints (`GET/PUT /api/config`)
+  - **Scope**: `internal/server/handlers_config.go`, `internal/server/server.go`, `internal/server/server_test.go`
+  - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [x] Task 4: App Wiring & Server Integration
-  - **Scope**: `internal/app/container.go`, `internal/server/handlers_profiles.go`, `internal/server/handlers_config.go`
-  - **Verification**: `go test -count=1 ./internal/app/... ./internal/server/...`
+- [x] Task 4: Unified Provider Options UI in Profile Modal (`modal_profiles.html`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/js/profiles.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 5: Full Quality Gate & Pre-Flight Verification
+- [x] Task 5: Profile Execution Contract in Telemetry View (`view_telemetry.html`)
+  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [x] Task 6: Global Fleet Settings Modal Component (`modal_global_settings.html`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [x] Task 7: Full Quality Verification & Headless Chrome Testing
   - **Scope**: Full repository
-  - **Verification**: `./scripts/check.sh all`
+  - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`
+
+- [x] Task 8: Multi-Megabyte Daemon Log Parsing & Correlated Log Modal Error Surfacing
+  - **Scope**: `internal/services/log_service.go`, `internal/services/log_service_test.go`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/modals/modal_daemon.html`
+  - **Verification**: `go test -v -count=1 ./internal/services -run TestLogService && ./scripts/check.sh all`
+
+- [x] Task 9: Compare Mode Expansion, Prominent Custom Flags Escape Hatch, Max Delete 0% Display & Manual Origin Tagging
+  - **Scope**: `internal/config/`, `internal/server/`, `internal/profiles/`, `internal/app/`, `dashboard/frontend/partials/`
+  - **Verification**: `go test -count=1 ./internal/... && ./scripts/check.sh all`
+
+- [x] Task 10: Edit Profile Cog Modal Trigger, Compare Mode Resync Guidance & Deterministic Profile Ordering Across Fleet & Pill Switcher
+  - **Scope**: `internal/profiles/store.go`, `internal/profiles/store_test.go`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`
+  - **Verification**: `go test -count=1 ./internal/profiles/... && ./scripts/check.sh all`
+
 
 ## Status Updates
+- 2026-10-28: Completed Task 10:
+  1. Fixed Edit Profile cog icon and New Profile button on Fleet tab by setting `this.profileModal.show = true` and invoking `fetchRemotes()` in `startEditProfile` and `startNewProfile`.
+  2. Fixed profile tiles and header pills dynamically jumping/reordering by adding deterministic sorting in `Store.List()` (sorted by `CreatedAt` then `Name`) and client-side sorting in `fetchProfiles()`.
+  3. Added user-facing guidance callouts in `modal_profiles.html` and `modal_global_settings.html` noting that changing `Compare Mode` requires a one-time `--resync`.
 
-- 2026-10-27: Completed Task 5 (Full Quality Gate & Pre-Flight Verification). Executed all 6 automated quality stages via `./scripts/check.sh all` (formatting, shell check, go vet, lint, tests with coverage, and loc limits). All checks passed clean.
-- 2026-10-27: Completed Task 4 (App Wiring & Server Integration). Integrated BuildCLIArgs and 3-tier flag hierarchy into DefaultProfileExecutor in internal/app/container.go, added custom flag validation on profile create/update, and returned resolved_flags and global_defaults in internal/server/handlers_profiles.go with full test coverage.
-- 2026-10-27: Completed Task 3 (Flag Inheritance & CLI Argument Builder). Implemented ResolveFlags and BuildCLIArgs in internal/profiles/builder.go executing the full 3-tier hierarchy (Execution Override > Profile Override > Global Default > Hardcoded Fallback) with complete unit test coverage.
-- 2026-10-27: Completed Task 2 (Custom Flags Validator & Shell Tokenizer). Implemented POSIX shell argument tokenizer and prohibited flag blocklist validator in internal/profiles/validator.go with complete test coverage for quotes, spaces, equals syntax, and security rejections.
-- 2026-10-27: Completed Task 1 (Operational Flags DTOs & Global Defaults). Implemented GlobalDefaults in internal/config/dto.go, integrated GlobalDefaults into runtime Config, and defined ProfileFlags, ResolvedFlags, and ExecutionOverrides in internal/profiles/model.go with complete JSON serialization tests.
-- 2026-10-27: Initialized Phase 3 Task Plan from implementation_plan.md.
+
+- 2026-10-28: Completed Task 9:
+  1. Fixed unclosed `<template x-if="getEditingRemoteType() === 'drive'">` in `modal_provider_options.html` and elevated Tier 3 Audited Custom CLI Flags into a dedicated, always-visible card.
+  2. Expanded compare modes across UI and backend validation to include `size,modtime` (default: everyday sync) and `size,modtime,checksum` (thorough & reliable).
+  3. Fixed falsy `||` coercion in `view_telemetry.html` and `modal_profiles.html` with nullish coalescing `??` so `max_delete: 0` displays as `0%`.
+  4. Added `>= 0` condition in CLI builder so `--max-delete 0` is forwarded to rclone CLI.
+  5. Added `Origin` propagation in `SyncOptions`, tagging dashboard triggers as `dashboard` (emerald badge) instead of falling back to `scheduler`.
+
+- 2026-10-28: Completed Phase 5 (Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings):
+  1. Decoupled engine defaults in internal/config/config.go and bisync.env by removing Google Drive flags, ensuring global defaults are strictly provider-agnostic.
+  2. Registered Tier 1 provider flags in compiler.CLIToRCMap (OneDrive, S3, Dropbox, Google Drive) with full connection-string path parameter translation.
+  3. Extended ProfileFlags and ResolvedFlags with ProviderOptions map[string]string and implemented typed CLI argument builder with test coverage.
+  4. Introduced GET/PUT /api/config handlers with runtime validation and secrets redaction.
+  5. Implemented unified Target Provider Configuration panel (modal_provider_options.html) in profile modal with Tier 1 first-class controls (GDrive, OneDrive, S3, Dropbox) and audited custom flags for both Tier 1 and Tier 2 generic providers.
+  6. Replaced raw .env dump in view_telemetry.html with a concise Profile Execution Contract card displaying topology, schedule, provider badge, and effective flags pill cloud.
+  7. Created Global Fleet Settings modal (modal_global_settings.html, settings.js) accessible via Tier 1 header and Fleet banner.
+  8. Verified all 6 stages of ./scripts/check.sh all and headless Chrome E2E smoke tests passing with zero errors.
+- 2026-10-28: Initialized Phase 5 Task Plan from approved architectural design.
+
 
 
 

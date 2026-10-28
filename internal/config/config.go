@@ -244,8 +244,6 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	rcAPIURL := fmt.Sprintf("http://%s:%d", rcHost, rcPort)
 
 	defaultArgs := "--use-json-log --color NEVER " +
-		"--drive-export-formats docx,xlsx,pptx --drive-import-formats docx,xlsx,pptx " +
-		"--drive-skip-gdocs --drive-use-trash --drive-acknowledge-abuse --drive-skip-shortcuts " +
 		"--check-access --check-first --track-renames --remove-empty-dirs --resilient --recover " +
 		"--retries 4 --retries-sleep 15s --low-level-retries 10 --tpslimit 10 --tpslimit-burst 10 " +
 		"--fast-list --buffer-size 32M --conflict-resolve newer --conflict-loser num"
@@ -339,7 +337,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 			MaxDelete:        getEnvInt("GLOBAL_MAX_DELETE", 50),
 			CanaryValidation: getEnvBool("GLOBAL_CANARY_VALIDATION", true),
 			ConflictResolve:  getEnv("GLOBAL_CONFLICT_RESOLVE", "newer"),
-			CompareMode:      getEnv("GLOBAL_COMPARE_MODE", "modtime"),
+			CompareMode:      getEnv("GLOBAL_COMPARE_MODE", "size,modtime"),
 			RemoveEmptyDirs:  getEnvBool("GLOBAL_REMOVE_EMPTY_DIRS", true),
 			CreateEmptyDirs:  getEnvBool("GLOBAL_CREATE_EMPTY_DIRS", true),
 		},

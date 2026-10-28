@@ -23,6 +23,8 @@ type timeExtractor struct {
 	Time string `json:"time"`
 }
 
+const maxDaemonLogLineBytes = 32 * 1024 * 1024 // 32MB safety ceiling
+
 // FilterDaemonLogs reads the daemon JSON log and returns lines occurring within [startTime-1s, endTime+1s].
 // If startTime is zero, it falls back to returning the tail of the log up to limit entries.
 // If a daemon log line wraps nested JSON logs in its msg field (e.g. from bisync/rc.go),
@@ -56,84 +58,94 @@ func (s *LogService) FilterDaemonLogs(logPath string, startTime, endTime time.Ti
 		}
 	}
 
-	scanner := bufio.NewScanner(file)
-	// Buffer up to 512KB for wide JSON log lines
-	buf := make([]byte, 64*1024)
-	scanner.Buffer(buf, 512*1024)
-
+	reader := bufio.NewReaderSize(file, 64*1024)
 	var matchedLines []string
 
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
+	for {
+		lineBytes, err := reader.ReadBytes('\n')
+		if len(lineBytes) > maxDaemonLogLineBytes {
+			return matchedLines, fmt.Errorf("line in %q exceeds maximum limit of 32MB", logPath)
 		}
-
-		// Check if line wraps nested JSON events inside msg (e.g. bisync RC sub-logs)
-		subEntries, isWrapper := extractNestedJSONLogs(line)
-		if isWrapper && len(subEntries) > 0 {
-			for _, subEntry := range subEntries {
-				if !useWindow {
-					matchedLines = append(matchedLines, subEntry)
-					if len(matchedLines) > limit {
-						matchedLines = matchedLines[1:]
-					}
-					continue
-				}
-
-				subTime, ok := parseLogTime(subEntry)
-				if !ok {
-					// Fall back to outer wrapper line timestamp if subEntry has no time
-					wrapTime, wrapOk := parseLogTime(line)
-					if wrapOk && (wrapTime.Equal(windowStart) || wrapTime.After(windowStart)) &&
-						(wrapTime.Equal(windowEnd) || wrapTime.Before(windowEnd)) {
-						matchedLines = append(matchedLines, subEntry)
-						if len(matchedLines) > limit {
-							matchedLines = matchedLines[1:]
-						}
-					}
-					continue
-				}
-
-				if (subTime.Equal(windowStart) || subTime.After(windowStart)) &&
-					(subTime.Equal(windowEnd) || subTime.Before(windowEnd)) {
-					matchedLines = append(matchedLines, subEntry)
-					if len(matchedLines) > limit {
-						matchedLines = matchedLines[1:]
-					}
-				}
-			}
-			continue
-		}
-
-		if !useWindow {
-			matchedLines = append(matchedLines, line)
-			if len(matchedLines) > limit {
-				matchedLines = matchedLines[1:]
-			}
-			continue
-		}
-
-		logTime, ok := parseLogTime(line)
-		if !ok {
-			// If JSON without time or legacy format, check if fallback time matches
-			continue
-		}
-
-		if (logTime.Equal(windowStart) || logTime.After(windowStart)) &&
-			(logTime.Equal(windowEnd) || logTime.Before(windowEnd)) {
-			matchedLines = append(matchedLines, line)
-			if len(matchedLines) > limit {
-				matchedLines = matchedLines[1:]
+		if len(lineBytes) > 0 {
+			line := strings.TrimSpace(string(lineBytes))
+			if line != "" {
+				s.filterLine(line, useWindow, windowStart, windowEnd, limit, &matchedLines)
 			}
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return matchedLines, fmt.Errorf("error reading daemon log %q: %w", logPath, err)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return matchedLines, fmt.Errorf("error reading daemon log %q: %w", logPath, err)
+		}
 	}
 
 	return matchedLines, nil
+}
+
+func (s *LogService) filterLine(line string, useWindow bool, windowStart, windowEnd time.Time, limit int, matchedLines *[]string) {
+	wrapTime, wrapOk := parseLogTime(line)
+	// Optimization: if this is a wrapper line with a timestamp before windowStart,
+	// all nested events inside this bisync run occurred before windowStart, so skip.
+	if useWindow && wrapOk && wrapTime.Before(windowStart) {
+		return
+	}
+
+	// Check if line wraps nested JSON events inside msg (e.g. bisync RC sub-logs)
+	subEntries, isWrapper := extractNestedJSONLogs(line)
+	if isWrapper && len(subEntries) > 0 {
+		for _, subEntry := range subEntries {
+			if !useWindow {
+				*matchedLines = append(*matchedLines, subEntry)
+				if len(*matchedLines) > limit {
+					*matchedLines = (*matchedLines)[1:]
+				}
+				continue
+			}
+
+			subTime, ok := parseLogTime(subEntry)
+			if !ok {
+				// Fall back to outer wrapper line timestamp if subEntry has no time
+				if wrapOk && (wrapTime.Equal(windowStart) || wrapTime.After(windowStart)) &&
+					(wrapTime.Equal(windowEnd) || wrapTime.Before(windowEnd)) {
+					*matchedLines = append(*matchedLines, subEntry)
+					if len(*matchedLines) > limit {
+						*matchedLines = (*matchedLines)[1:]
+					}
+				}
+				continue
+			}
+
+			if (subTime.Equal(windowStart) || subTime.After(windowStart)) &&
+				(subTime.Equal(windowEnd) || subTime.Before(windowEnd)) {
+				*matchedLines = append(*matchedLines, subEntry)
+				if len(*matchedLines) > limit {
+					*matchedLines = (*matchedLines)[1:]
+				}
+			}
+		}
+		return
+	}
+
+	if !useWindow {
+		*matchedLines = append(*matchedLines, line)
+		if len(*matchedLines) > limit {
+			*matchedLines = (*matchedLines)[1:]
+		}
+		return
+	}
+
+	if !wrapOk {
+		return
+	}
+
+	if (wrapTime.Equal(windowStart) || wrapTime.After(windowStart)) &&
+		(wrapTime.Equal(windowEnd) || wrapTime.Before(windowEnd)) {
+		*matchedLines = append(*matchedLines, line)
+		if len(*matchedLines) > limit {
+			*matchedLines = (*matchedLines)[1:]
+		}
+	}
 }
 
 // extractNestedJSONLogs checks if a JSON log entry wraps nested JSON logs in its msg field,
@@ -195,9 +207,36 @@ func extractNestedJSONLogs(line string) ([]string, bool) {
 	return nil, false
 }
 
+func extractTimeFast(line string) string {
+	maxCheck := len(line)
+	if maxCheck > 256 {
+		maxCheck = 256
+	}
+	prefix := line[:maxCheck]
+	needle := "\"time\":\""
+	idx := strings.Index(prefix, needle)
+	if idx == -1 {
+		return ""
+	}
+	start := idx + len(needle)
+	end := strings.IndexByte(prefix[start:], '"')
+	if end == -1 {
+		return ""
+	}
+	return prefix[start : start+end]
+}
+
 // parseLogTime attempts to extract and parse the timestamp from a JSON or legacy log line.
 func parseLogTime(line string) (time.Time, bool) {
 	if strings.HasPrefix(line, "{") {
+		if fastTime := extractTimeFast(line); fastTime != "" {
+			if t, err := time.Parse(time.RFC3339Nano, fastTime); err == nil {
+				return t, true
+			}
+			if t, err := time.Parse(time.RFC3339, fastTime); err == nil {
+				return t, true
+			}
+		}
 		var te timeExtractor
 		if err := json.Unmarshal([]byte(line), &te); err == nil && te.Time != "" {
 			if t, err := time.Parse(time.RFC3339Nano, te.Time); err == nil {

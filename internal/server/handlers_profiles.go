@@ -246,6 +246,7 @@ func (s *Server) handleProfileSync(w http.ResponseWriter, r *http.Request) {
 		Force:  req.Force,
 		Resync: req.Resync,
 		DryRun: req.DryRun,
+		Origin: "dashboard",
 	}
 	err := s.ProfileService.TriggerSyncWithOptions(r.Context(), id, opts)
 	if err != nil {

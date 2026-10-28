@@ -23,6 +23,7 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 				Force:  req.Action == "force_sync",
 				Resync: req.Action == "resync" || req.Action == "force_resync",
 				DryRun: req.Action == "dry_run",
+				Origin: "dashboard",
 			}
 			if err := s.ProfileService.TriggerSyncWithOptions(r.Context(), req.ProfileID, opts); err != nil {
 				writeJSON(w, http.StatusOK, models.ActionResponse{Status: "error", Msg: err.Error(), Error: err.Error()})

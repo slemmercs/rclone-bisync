@@ -63,30 +63,32 @@ type SafetySettings struct {
 // ProfileFlags defines profile-level operational flag overrides.
 // Pointer fields represent explicit overrides; nil indicates inheritance from GlobalDefaults.
 type ProfileFlags struct {
-	ConflictResolve  *string `json:"conflict_resolve,omitempty"`
-	MaxDelete        *int    `json:"max_delete,omitempty"`
-	CanaryValidation *bool   `json:"canary_validation,omitempty"`
-	CompareMode      *string `json:"compare_mode,omitempty"`
-	RemoveEmptyDirs  *bool   `json:"remove_empty_dirs,omitempty"`
-	CreateEmptyDirs  *bool   `json:"create_empty_dirs,omitempty"`
-	FiltersFilePath  string  `json:"filters_file_path,omitempty"`
-	CustomFlags      string  `json:"custom_flags,omitempty"`
+	ConflictResolve  *string           `json:"conflict_resolve,omitempty"`
+	MaxDelete        *int              `json:"max_delete,omitempty"`
+	CanaryValidation *bool             `json:"canary_validation,omitempty"`
+	CompareMode      *string           `json:"compare_mode,omitempty"`
+	RemoveEmptyDirs  *bool             `json:"remove_empty_dirs,omitempty"`
+	CreateEmptyDirs  *bool             `json:"create_empty_dirs,omitempty"`
+	FiltersFilePath  string            `json:"filters_file_path,omitempty"`
+	CustomFlags      string            `json:"custom_flags,omitempty"`
+	ProviderOptions  map[string]string `json:"provider_options,omitempty"`
 }
 
 // ResolvedFlags represents effective execution settings after evaluating overrides and globals.
 type ResolvedFlags struct {
-	DryRun           bool     `json:"dry_run"`
-	Resync           bool     `json:"resync"`
-	Force            bool     `json:"force"`
-	ConflictResolve  string   `json:"conflict_resolve"`
-	MaxDelete        int      `json:"max_delete"`
-	CanaryValidation bool     `json:"canary_validation"`
-	CompareMode      string   `json:"compare_mode"`
-	RemoveEmptyDirs  bool     `json:"remove_empty_dirs"`
-	CreateEmptyDirs  bool     `json:"create_empty_dirs"`
-	ExcludePatterns  []string `json:"exclude_patterns,omitempty"`
-	FiltersFilePath  string   `json:"filters_file_path,omitempty"`
-	CustomFlags      string   `json:"custom_flags,omitempty"`
+	DryRun           bool              `json:"dry_run"`
+	Resync           bool              `json:"resync"`
+	Force            bool              `json:"force"`
+	ConflictResolve  string            `json:"conflict_resolve"`
+	MaxDelete        int               `json:"max_delete"`
+	CanaryValidation bool              `json:"canary_validation"`
+	CompareMode      string            `json:"compare_mode"`
+	RemoveEmptyDirs  bool              `json:"remove_empty_dirs"`
+	CreateEmptyDirs  bool              `json:"create_empty_dirs"`
+	ExcludePatterns  []string          `json:"exclude_patterns,omitempty"`
+	FiltersFilePath  string            `json:"filters_file_path,omitempty"`
+	CustomFlags      string            `json:"custom_flags,omitempty"`
+	ProviderOptions  map[string]string `json:"provider_options,omitempty"`
 }
 
 // ExecutionOverrides captures single-run execution toggles triggered via CLI or dashboard UI.
