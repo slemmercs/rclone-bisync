@@ -9,10 +9,26 @@ window.ProfilesModule = {
         list: [],
         activeId: localStorage.getItem("rclone_active_profile_id") || "default",
         homeDir: "",
+        globalDefaults: {
+            max_delete: 50,
+            conflict_resolve: "path1",
+            compare_mode: "size,modtime",
+            dry_run: false,
+            resync: false,
+            force: false,
+            canary_validation: true,
+            remove_empty_dirs: false,
+            create_empty_dirs: true,
+            filters_file_path: "",
+            custom_flags: ""
+        },
         loading: false,
         error: null,
         syncingId: null
     },
+    profileSwitcherOpen: false,
+    toggleProfileSwitcher() { this.profileSwitcherOpen = !this.profileSwitcherOpen; },
+    closeProfileSwitcher() { this.profileSwitcherOpen = false; },
 
     profileModal: {
         show: false,
@@ -74,6 +90,9 @@ window.ProfilesModule = {
             if (data && data.status === "success") {
                 if (data.home_dir) {
                     this.profilesData.homeDir = data.home_dir;
+                }
+                if (data.global_defaults) {
+                    this.profilesData.globalDefaults = data.global_defaults;
                 }
                 this.profilesData.list = data.profiles || [];
                 if (this.profilesData.list.length > 0) {
@@ -137,7 +156,20 @@ window.ProfilesModule = {
             review_mode: "deletions",
             notification_pref: "all",
             enabled: true,
-            safety: { delete_threshold_pct: 10.0, failure_threshold: 3, canary_validation: true }
+            safety: { delete_threshold_pct: 10.0, failure_threshold: 3, canary_validation: true },
+            flags: {
+                dry_run: null,
+                resync: null,
+                force: null,
+                conflict_resolve: null,
+                max_delete: null,
+                canary_validation: null,
+                compare_mode: null,
+                remove_empty_dirs: null,
+                create_empty_dirs: null,
+                filters_file_path: null,
+                custom_flags: null
+            }
         };
     },
 
@@ -168,6 +200,21 @@ window.ProfilesModule = {
                 delete_threshold_pct: 10.0,
                 failure_threshold: 3,
                 canary_validation: true
+            };
+        }
+        if (!this.profileModal.editing.flags) {
+            this.profileModal.editing.flags = {
+                dry_run: null,
+                resync: null,
+                force: null,
+                conflict_resolve: null,
+                max_delete: null,
+                canary_validation: null,
+                compare_mode: null,
+                remove_empty_dirs: null,
+                create_empty_dirs: null,
+                filters_file_path: null,
+                custom_flags: null
             };
         }
         const patterns = this.profileModal.editing.exclude_patterns || [];
@@ -222,168 +269,48 @@ window.ProfilesModule = {
         }
     },
 
-    promptCloneProfile(prof) {
-        this.profileModal.editing = prof;
-        const randomHex = Math.random().toString(16).substring(2, 8);
-        this.profileModal.cloneTarget = {
-            id: `prof_${randomHex}`,
-            name: `${prof.name} (Copy)`
-        };
-        this.profileModal.showClonePrompt = true;
+    isFlagOverridden(flagKey) {
+        const flags = this.profileModal?.editing?.flags;
+        if (!flags) return false;
+        return flags[flagKey] !== null && flags[flagKey] !== undefined;
     },
 
-    async submitCloneProfile() {
-        const source = this.profileModal.editing;
-        const target = this.profileModal.cloneTarget;
-        if (!source || !target.id) return;
-
-        this.profileModal.saving = true;
-        try {
-            const res = await window.API.post(`/api/profiles/${encodeURIComponent(source.id)}/clone`, target);
-            if (res.status === "error") throw new Error(res.error || "Clone failed");
-            if (typeof this.showToast === "function") {
-                this.showToast(`Profile cloned to "${target.name}".`, "success");
-            }
-            this.profileModal.showClonePrompt = false;
-            await this.fetchProfiles();
-        } catch (err) {
-            this.profileModal.error = err.message;
-            if (typeof this.showToast === "function") {
-                this.showToast(`Clone failed: ${err.message}`, "error");
-            }
-        } finally {
-            this.profileModal.saving = false;
+    getEffectiveFlagValue(flagKey) {
+        const flags = this.profileModal?.editing?.flags;
+        if (flags && flags[flagKey] !== null && flags[flagKey] !== undefined) {
+            return flags[flagKey];
         }
+        const globals = this.profilesData?.globalDefaults;
+        return globals ? globals[flagKey] : null;
     },
 
-    async viewProfileHistory(prof) {
-        this.profileModal.editing = prof;
-        this.profileModal.history = [];
-        this.profileModal.historyLoading = true;
-        this.profileModal.tab = "history";
-
-        try {
-            const data = await window.API.get(`/api/profiles/${encodeURIComponent(prof.id)}/history`);
-            this.profileModal.history = (data && data.history) || [];
-        } catch (err) {
-            this.profileModal.error = err.message;
-            if (typeof this.showToast === "function") {
-                this.showToast(`Failed to load history: ${err.message}`, "error");
-            }
-        } finally {
-            this.profileModal.historyLoading = false;
+    resetFlagOverride(flagKey) {
+        if (!this.profileModal?.editing) return;
+        if (!this.profileModal.editing.flags) {
+            this.profileModal.editing.flags = {};
         }
+        this.profileModal.editing.flags[flagKey] = null;
     },
 
-    async rollbackProfile(profId, targetVersion) {
-        const executeRollback = async () => {
-            this.profileModal.saving = true;
-            try {
-                const res = await window.API.post(`/api/profiles/${encodeURIComponent(profId)}/rollback`, {
-                    target_version: targetVersion
-                });
-                if (res.status === "error") throw new Error(res.error || "Rollback failed");
-                if (typeof this.showToast === "function") {
-                    this.showToast(`Profile rolled back to version ${targetVersion}.`, "success");
-                }
-                await this.fetchProfiles();
-                const updated = this.profilesData.list.find(p => p.id === profId);
-                if (updated) {
-                    await this.viewProfileHistory(updated);
-                }
-            } catch (err) {
-                this.profileModal.error = err.message;
-                if (typeof this.showToast === "function") {
-                    this.showToast(`Rollback failed: ${err.message}`, "error");
-                }
-            } finally {
-                this.profileModal.saving = false;
-            }
-        };
-
-        if (typeof this.askConfirmation === "function") {
-            this.askConfirmation({
-                title: "Confirm Profile Rollback",
-                message: `Rollback profile to version ${targetVersion}?\nCurrent configuration will be overwritten with archived version settings.`,
-                confirmText: "Rollback",
-                confirmClass: "bg-amber-600 hover:bg-amber-500 shadow-amber-950/40",
-                icon: "warning",
-                onConfirm: executeRollback
-            });
-        } else if (confirm(`Rollback profile to version ${targetVersion}? Current configuration will be overwritten.`)) {
-            await executeRollback();
+    setFlagOverride(flagKey, val) {
+        if (!this.profileModal?.editing) return;
+        if (!this.profileModal.editing.flags) {
+            this.profileModal.editing.flags = {};
         }
+        this.profileModal.editing.flags[flagKey] = val;
     },
 
-    async triggerProfileSync(profId, force = false) {
-        this.profilesData.syncingId = profId;
-        try {
-            const res = await window.API.post(`/api/profiles/${encodeURIComponent(profId)}/sync`, { force });
-            if (res.status === "error") throw new Error(res.error || "Sync trigger failed");
-            if (typeof this.showToast === "function") {
-                this.showToast(`Sync triggered for profile "${profId}".`, "success");
+    getCustomFlagsValidationError(flagsStr) {
+        if (!flagsStr || typeof flagsStr !== "string") return null;
+        const prohibited = ["--config", "-c", "--use-mmap", "--rc", "--rc-addr", "--rc-user", "--rc-pass", "--log-file", "--json"];
+        const tokens = flagsStr.trim().split(/\s+/);
+        for (const t of tokens) {
+            const flag = t.split("=")[0];
+            if (prohibited.includes(flag.toLowerCase())) {
+                return `Flag "${flag}" is restricted and cannot be overridden`;
             }
-            await this.fetchProfiles();
-        } catch (err) {
-            if (typeof this.showToast === "function") {
-                this.showToast(`Sync failed: ${err.message}`, "error");
-            }
-        } finally {
-            this.profilesData.syncingId = null;
         }
-    },
-
-    promptDeleteProfile(prof) {
-        let target = prof;
-        if (typeof prof === "string") {
-            target = (this.profilesData.list || []).find(p => p.id === prof) || { id: prof, name: prof };
-        }
-        this.profileModal.deleteConfirm = {
-            show: true,
-            profile: target,
-            deleting: false,
-            error: null
-        };
-    },
-
-    cancelDeleteProfile() {
-        this.profileModal.deleteConfirm = {
-            show: false,
-            profile: null,
-            deleting: false,
-            error: null
-        };
-    },
-
-    async executeDeleteProfile() {
-        const prof = this.profileModal.deleteConfirm.profile;
-        if (!prof || !prof.id) return;
-        this.profileModal.deleteConfirm.deleting = true;
-        this.profileModal.deleteConfirm.error = null;
-        try {
-            const res = await window.API.delete(`/api/profiles/${encodeURIComponent(prof.id)}`);
-            if (res && res.status === "error") throw new Error(res.error || "Delete failed");
-            if (typeof this.showToast === "function") {
-                this.showToast(`Profile "${prof.name || prof.id}" deleted.`, "info");
-            }
-            this.profileModal.deleteConfirm.show = false;
-            this.profileModal.deleteConfirm.profile = null;
-            await this.fetchProfiles();
-            if (this.profilesData.activeId === prof.id && this.profilesData.list.length > 0) {
-                this.selectProfile(this.profilesData.list[0].id);
-            }
-        } catch (err) {
-            this.profileModal.deleteConfirm.error = err.message;
-            if (typeof this.showToast === "function") {
-                this.showToast(`Delete failed: ${err.message}`, "error");
-            }
-        } finally {
-            this.profileModal.deleteConfirm.deleting = false;
-        }
-    },
-
-    deleteProfile(profId) {
-        this.promptDeleteProfile(profId);
+        return null;
     }
 };
 

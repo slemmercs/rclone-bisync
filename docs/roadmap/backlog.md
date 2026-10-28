@@ -92,24 +92,39 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
   - Headless Chrome end-to-end smoke test suite (`tests/e2e/dashboard_smoke_test.go` via `chromedp`) validating tab transitions and DOM state.
   - Verified overall statement test coverage at 88.3%.
 
+* **[COMPLETED] Multi-Profile Engine Phase 1: Storage, Model & Scheduler [COMPLETED - PR #37]**
+  - Pure-Go SQLite profile store (`internal/profiles/store.go`) with schema migrations (`profiles`, `profile_states`).
+  - Isolated background scheduler (`internal/profiles/scheduler.go`) with per-profile goroutines, lock isolation (`/tmp/rclone-bisync-<id>.lock`), and profile telemetry collectors.
+  - REST API routes (`/api/profiles`, `/api/profiles/{id}`, `/api/profiles/{id}/sync`, `/api/profiles/{id}/pause`).
+
+* **[COMPLETED] Multi-Profile Engine Phase 2: Central DI Container & Subsystem Consolidation [COMPLETED - PR #40]**
+  - Central dependency injection container (`internal/app/container.go`) managing lifecycle and service construction.
+  - Engine consolidation: relocated review package to `internal/engine/review/` respecting bounded contexts.
+  - Streaming secret redaction across all file sinks and backward log tailing (`filetail.go`).
+  - CodeQL #15 dynamic allocation fix and test stabilization.
+
+* **[COMPLETED] Multi-Profile Engine Phase 3: 3-Tier Operational Flags & Security Validation [COMPLETED - PR #42]**
+  - 3-tier operational flags schema: Tier 1 (Execution Controls), Tier 2 (Profile Settings), Tier 3 (Custom Flags Escape Hatch).
+  - POSIX shell argument tokenizer (`SplitCommandLine`) and prohibited flags blocklist (`--config`, `--rc`, `--use-mmap`, etc.).
+  - Flag inheritance engine (`ResolveFlags`) implementing `Execution Override > Profile Override > Global Default > Hardcoded Fallback`.
+  - Dynamic CLI argument builder (`BuildCLIArgs`) wired into profile execution runner.
+
 ---
 
 ### Active Near-Term Backlog (Sequenced Priorities)
 
-#### 1. Multi-Profile Workspace Manager [ESTIMATE: 6-8h | 5 SP] - NEXT FOR IMPLEMENTATION
-Supports independent synchronization workloads from a single background daemon and dashboard session:
-* Single Go daemon spawning lightweight goroutines per profile (Personal GDrive, Work OneDrive, NAS backup).
-* Pairs independent local folders to different remotes (e.g., `/home/user/Documents` $\rightarrow$ `gdrive:`, `/home/user/Photos` $\rightarrow$ `onedrive:`).
-* Strict flock isolation (`/tmp/rclone-bisync-<profile>.lock`) and dedicated state directories.
-* Profile-aware telemetry streams, speed charts, and file explorer remote routing.
-* Refer to [profile-manager.md](../design/profile-manager.md).
+#### 1. Multi-Profile Workspace UI & Hybrid Fleet Overview (Phase 4) [IN PROGRESS]
+Delivers the workload-centric dashboard hierarchy specified in `docs/design/hybrid_fleet_overview_contextual_profile_workspace.md`:
+* **Level 1 Fleet View (`view_fleet.html`)**: Fleet Health Summary banner with interactive filter pills, profile tile grid with topology, execution metrics, and quick-action buttons (`Sync Now`, `Review Diff`, `Settings`).
+* **Level 2 Scoped Workspace & Context Switcher**: Global header profile dropdown with status indicators and breadcrumbs to navigate between fleet view and scoped telemetry/explorer/audit panels.
+* **Visual Operational Flags Editor**: 3-tier flags configuration with inheritance badges (`Inherited from Global` vs `Profile Override`) inside `modal_profiles.html`.
+* Refer to [hybrid_fleet_overview_contextual_profile_workspace.md](../design/hybrid_fleet_overview_contextual_profile_workspace.md) and [bisync_operational_flags.md](../design/bisync_operational_flags.md).
 
-#### 2. In-Dashboard Configuration & Setup Manager [ESTIMATE: 5-7h | 4 SP]
-Provides visual setup, flag customization, and safety validation:
-* **Visual Parameter Editor**: In-dashboard adjustment for `--buffer-size`, `--tpslimit`, conflict strategies, and webhook endpoints.
-* **Remote Setup & Onboarding Wizard**: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration.
-* **3-Layer Safety Pipeline**: Automated snapshot backups, SHA-256 integrity checks, and JSON/env schema validation before applying new settings.
-* **Rollback API**: One-click restore of historical configurations.
+#### 2. Configuration & Setup Manager (Rollback & Snapshot Engine) [ESTIMATE: 5-7h | 4 SP]
+Provides server-side configuration safety for global environments:
+* **3-Layer Safety Pipeline**: Automated snapshot backups, SHA-256 integrity checks, and JSON/env schema validation before applying global configuration changes.
+* **One-Click Rollback API**: Restore historical configuration snapshots on failed verification or operator rollback request.
+* Note: Visual flag editing and profile onboarding are unified into Multi-Profile Phase 4.
 
 
 #### 3. Unified Operational Log Ledger, Run ID Correlation & Deep Path Navigation [ESTIMATE: 4-5h | 3 SP] - LOCKED IN

@@ -122,15 +122,52 @@ Implement the 3-tier operational flags architecture (`docs/design/bisync_operati
 
 ---
 
-## 4. Phase 4: Dashboard UI Evolution & Config Flow
+## 4. Phase 4: Hybrid Fleet Overview & Operational Flags UI
 
 ### Proposed Changes
-Deliver profile-first Cockpit UI redesign: quick-switcher in main navigation, visual flag and safety policy editor with inheritance badges, and step-by-step profile onboarding wizard.
+Deliver the workload-centric dashboard hierarchy specified in `docs/design/hybrid_fleet_overview_contextual_profile_workspace.md` and the visual operational flags editor from `docs/design/bisync_operational_flags.md`:
+1. **Level 1: Fleet View (`dashboard/frontend/partials/view_fleet.html`)**:
+   - Central command dashboard displaying fleet health summary counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`) with interactive click-to-filter pills.
+   - Interactive profile tile grid with status tags, schedule type, local/remote topology, operational telemetry (last run, duration, next run), and inline quick actions (`Sync Now`, `Review Diff`, `Settings`, `Logs`).
+   - Search and sort controls (`Search profiles...`, `Sort by Status / Name`).
+2. **Level 2: Scoped Header Context Switcher & Breadcrumb Navigation**:
+   - Persistent global profile switcher dropdown in header replacing the static pill, featuring micro-status indicators (`● Healthy`, `⚠ Review`, `✖ Failed`).
+   - Breadcrumb navigation (`Profiles / [Profile Name]`) allowing instant one-click return to Level 1 Fleet View.
+   - Dynamic binding across all child tabs (`Engine & Telemetry`, `Storage Remotes`, `File Explorer`, `Audit Ledger`) to the active profile context.
+3. **Visual 3-Tier Operational Flags Editor (`dashboard/frontend/partials/modals/modal_profiles.html`)**:
+   - **Tier 1 (Execution Controls)**: `DryRun`, `Resync`, `Force`, `ConflictResolve` strategy dropdown, `MaxDelete` percentage input.
+   - **Tier 2 (Profile Settings)**: `CanaryValidation` toggle, `CompareMode` dropdown (`size,modtime`, `checksum`, `modtime`), Directory Cleanup (`RemoveEmptyDirs`, `CreateEmptyDirs`), `FiltersFilePath`.
+   - **Tier 3 (Custom Flags Escape Hatch)**: Freeform text input with client-side & server-side validation against the Phase 3 prohibited flags blocklist.
+   - **Inheritance Badges**: Clear visual badges (`Inherited from Global Default` vs `Profile Override`) displaying global default values when a field is null/inherited.
 
 ### Affected Components & Packages
-- `dashboard/frontend/partials/header.html` & `view_telemetry.html`: Profile quick-switcher.
-- `dashboard/frontend/partials/modals/modal_profiles.html`: Visual flag editor and inheritance indicators.
-- `dashboard/frontend/js/profiles.js` & `app.js`: Onboarding state machine.
+- `dashboard/frontend/partials/view_fleet.html`: New Level 1 Fleet View partial.
+- `dashboard/frontend/index.html`: Registration of `view_fleet` partial, nav tab pill, and breadcrumb header.
+- `dashboard/frontend/partials/modals/modal_profiles.html`: 3-tier operational flags editor controls and inheritance indicators in Tab 2.
+- `dashboard/frontend/js/profiles.js`: Fleet summary calculations, filtering/sorting, flag overrides binding, and custom flags validation.
+- `dashboard/frontend/app.js`: Tab routing update (default tab logic, breadcrumb transitions, fleet store state).
+- `internal/server/server.go`: Template parsing inclusion for `view_fleet.html`.
+
+### Technical Strategy & Data Flow
+1. **Fleet Store & Aggregate State**:
+   - Fleet summary metrics computed dynamically from `profilesData.list` and active worker telemetry.
+   - Filter state (`filterStatus = 'all' | 'healthy' | 'review' | 'failing' | 'syncing'`) filters the tile grid in real time.
+2. **Context Routing**:
+   - Clicking any profile tile card in Level 1 sets `activeId` and switches tab to `telemetry` (Level 2 Scoped Workspace).
+   - Breadcrumbs in header detect whether user is in Fleet View or Scoped Workspace and provide easy navigation.
+3. **3-Tier Flag Binding & Inheritance**:
+   - In `modal_profiles.html`, profile flags map to `profileModal.editing.flags`.
+   - Each input evaluates `profileModal.editing.flags?.[key]` vs `globalDefaults?.[key]`.
+   - Reset button allows clearing a profile override back to `nil` to re-inherit global defaults.
+4. **Safety & Security**:
+   - Custom flags input triggers validation on change, rendering clear inline error badges if prohibited flags (`--config`, `--rc`, etc.) are detected.
+
+### Verification Plan
+- `go test -count=1 ./internal/server/...`: Verify template rendering and profile endpoints.
+- `./scripts/check.sh templates`: Verify AST-tokenized Alpine.js template validity.
+- `./scripts/check.sh loc`: Verify LOC budget (<= 400 lines) across all modified files.
+- Manual DOM reactivity & browser verification of Fleet View and Flags Editor.
+- `./scripts/check.sh all`: Run full quality gate pre-flight check.
 
 ---
 

@@ -172,6 +172,122 @@
                 </div>
             </div>
 
+
+            <!-- Operational Flags & Safety Policies (3-Tier Hierarchy) -->
+            <div class="border-t border-slate-800/80 pt-3 space-y-3 font-sans">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200">Operational Flags &amp; Inheritance</h4>
+                        <div class="text-[10px] text-slate-400">Profile overrides supersede global configuration defaults</div>
+                    </div>
+                    <span class="text-[9px] px-2 py-0.5 rounded font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 uppercase">3-Tier Hierarchy</span>
+                </div>
+
+                <!-- Tier 1: Execution Controls -->
+                <div class="bg-slate-950/60 border border-slate-800/70 rounded-xl p-3 space-y-2.5">
+                    <div class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                        <span>Tier 1: Execution Safety</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <!-- Max Delete Percentage -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-300">Max Delete (%)</label>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('max_delete') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('max_delete') ? 'Override' : 'Inherited (' + (profilesData.globalDefaults?.max_delete || 50) + '%)'"></span>
+                                    <button type="button" x-show="isFlagOverridden('max_delete')" @click="resetFlagOverride('max_delete')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Reset</button>
+                                </div>
+                            </div>
+                            <input type="number" :value="profileModal.editing.flags ? profileModal.editing.flags.max_delete : null" @input="setFlagOverride('max_delete', $event.target.value === '' ? null : parseInt($event.target.value, 10))" :placeholder="'Default: ' + (profilesData.globalDefaults?.max_delete || 50) + '%'" min="1" max="100" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                        </div>
+
+                        <!-- Conflict Resolution -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-300">Conflict Resolve</label>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('conflict_resolve') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('conflict_resolve') ? 'Override' : 'Inherited (' + (profilesData.globalDefaults?.conflict_resolve || 'path1') + ')'"></span>
+                                    <button type="button" x-show="isFlagOverridden('conflict_resolve')" @click="resetFlagOverride('conflict_resolve')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Reset</button>
+                                </div>
+                            </div>
+                            <select :value="profileModal.editing.flags?.conflict_resolve ?? ''" @change="setFlagOverride('conflict_resolve', $event.target.value === '' ? null : $event.target.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                                <option value="" x-text="'-- Inherit Global (' + (profilesData.globalDefaults?.conflict_resolve || 'path1') + ') --'"></option>
+                                <option value="path1">path1 (Prefer Local / Path1)</option>
+                                <option value="path2">path2 (Prefer Remote / Path2)</option>
+                                <option value="newer">newer (Prefer Newer Timestamp)</option>
+                                <option value="older">older (Prefer Older Timestamp)</option>
+                                <option value="larger">larger (Prefer Larger File Size)</option>
+                                <option value="smaller">smaller (Prefer Smaller File Size)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tier 2: Settings & Compare -->
+                <div class="bg-slate-950/60 border border-slate-800/70 rounded-xl p-3 space-y-2.5">
+                    <div class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                        <span>Tier 2: Profile Settings</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <!-- Compare Mode -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-300">Compare Mode</label>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('compare_mode') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('compare_mode') ? 'Override' : 'Inherited (' + (profilesData.globalDefaults?.compare_mode || 'size,modtime') + ')'"></span>
+                                    <button type="button" x-show="isFlagOverridden('compare_mode')" @click="resetFlagOverride('compare_mode')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Reset</button>
+                                </div>
+                            </div>
+                            <select :value="profileModal.editing.flags?.compare_mode ?? ''" @change="setFlagOverride('compare_mode', $event.target.value === '' ? null : $event.target.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                                <option value="" x-text="'-- Inherit Global (' + (profilesData.globalDefaults?.compare_mode || 'size,modtime') + ') --'"></option>
+                                <option value="size,modtime">size,modtime (Fast)</option>
+                                <option value="checksum">checksum (Thorough Hash)</option>
+                                <option value="modtime">modtime (Timestamp Only)</option>
+                            </select>
+                        </div>
+
+                        <!-- Canary Validation -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-300">Canary Validation</label>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('canary_validation') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('canary_validation') ? 'Override' : 'Inherited (' + (profilesData.globalDefaults?.canary_validation ? 'true' : 'false') + ')'"></span>
+                                    <button type="button" x-show="isFlagOverridden('canary_validation')" @click="resetFlagOverride('canary_validation')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Reset</button>
+                                </div>
+                            </div>
+                            <select :value="profileModal.editing.flags?.canary_validation === null || profileModal.editing.flags?.canary_validation === undefined ? '' : String(profileModal.editing.flags.canary_validation)" @change="setFlagOverride('canary_validation', $event.target.value === '' ? null : ($event.target.value === 'true'))" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                                <option value="" x-text="'-- Inherit Global (' + (profilesData.globalDefaults?.canary_validation ? 'Enabled' : 'Disabled') + ') --'"></option>
+                                <option value="true">Enabled (Strict Canary Probing)</option>
+                                <option value="false">Disabled (Bypass Canary)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tier 3: Custom Flags Escape Hatch -->
+                <div class="bg-slate-950/60 border border-slate-800/70 rounded-xl p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-semibold text-slate-300">Tier 3: Custom Rclone Flags</label>
+                        <div class="flex items-center gap-1">
+                            <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('custom_flags') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('custom_flags') ? 'Override' : 'Inherited'"></span>
+                            <button type="button" x-show="isFlagOverridden('custom_flags')" @click="resetFlagOverride('custom_flags')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Reset</button>
+                        </div>
+                    </div>
+                    <input type="text" :value="profileModal.editing.flags ? profileModal.editing.flags.custom_flags : ''" @input="setFlagOverride('custom_flags', $event.target.value === '' ? null : $event.target.value)" placeholder="e.g. --fast-list --checkers 16 --drive-chunk-size 64M" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                    <div class="text-[10px] text-slate-400">Audited argument escape hatch. Prohibited flags: --config, -c, --rc, --rc-*, --use-mmap, --log-file, --json.</div>
+                    <template x-if="getCustomFlagsValidationError(profileModal.editing.flags?.custom_flags)">
+                        <div class="text-[11px] font-mono text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-2 py-1 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12.01" y1="16" x2="12.01" y2="16"/></svg>
+                            <span x-text="getCustomFlagsValidationError(profileModal.editing.flags?.custom_flags)"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+
+
             <div class="flex items-center gap-3 pt-2">
                 <button @click="saveProfileForm()" :disabled="isProfileSaving()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold">
                     <span x-text="profileModal.saving ? 'Saving...' : 'Save Configuration'"></span>

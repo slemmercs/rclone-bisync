@@ -354,7 +354,9 @@ document.addEventListener("alpine:init", () => {
             }
         },
     },
+        window.FleetModule,
         window.ProfilesModule,
+        window.ProfilesHistoryModule,
         window.RemotesModule,
         window.ExplorerModule,
         window.ExplorerActionsModule,

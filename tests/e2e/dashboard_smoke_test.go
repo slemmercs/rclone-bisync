@@ -184,10 +184,11 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		name       string
 		tabPillIdx int
 	}{
-		{"telemetry", 0},
-		{"remotes", 1},
-		{"explorer", 2},
-		{"audit", 3},
+		{"fleet", 0},
+		{"telemetry", 1},
+		{"remotes", 2},
+		{"explorer", 3},
+		{"audit", 4},
 	}
 
 	for _, tc := range tabs {

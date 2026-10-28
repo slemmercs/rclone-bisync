@@ -43,8 +43,9 @@ Roadmap items are not commitments and may change based on project needs.
 | **Immutable Audit Ledger & Unified Log Architecture** | **Delivered** | PR #27 (`feat/immutable-audit-ledger-and-unified-logging`) |
 | **Service Layer Decoupling & Architecture Modularization (sub-400 LOC)** | **Delivered** | PR #28, PR #29, PR #31 (`v1.0.0-beta.2`–`beta.4`) |
 | **Go CLI Quality Gate (`cmd/check`) & E2E Testing Suite** | **Delivered** | PR #32 (`feat/alpine-boolean-lint-and-e2e`) |
-| **Multi-Profile Workspace Manager** | **Next Priority (#1)** | Multi-Workload Pairing |
-| **Configuration & Setup Manager** | **Next Priority (#2)** | Setup, Safety Pipeline & Flags |
+| **Multi-Profile Backend Engine (Storage, Scheduler, Flags)** | **Delivered** | PR #37, PR #40, PR #42 (`v1.0.0-beta.7`–`beta.9`) |
+| **Hybrid Fleet Overview & Contextual Workspace UI** | **Active Priority (#1)** | Phase 4 (`feat/phase4-hybrid-fleet-overview-and-flags-ui`) |
+| **Configuration Snapshot & Rollback Engine** | **Next Priority (#2)** | Safety Pipeline & Config Snapshot API |
 | **In-App User Guidance, Info & Help Documents** | **Next Priority (#3)** | Contextual Assistance & Manual |
 | Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
 | Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
@@ -56,23 +57,21 @@ Roadmap items are not commitments and may change based on project needs.
 
 ## Active Strategic Priorities
 
-### Near-Term Priority 1: Multi-Profile Workspace Manager
+### Near-Term Priority 1: Hybrid Fleet Overview & Contextual Workspace UI
 
-Supports independent synchronization profiles from a single daemon and dashboard:
-- Spawns isolated goroutine runners per profile (e.g., Personal GDrive, Work OneDrive, NAS backup).
-- Pairs independent local folders to different remotes (e.g., `/home/user/Documents` -> `gdrive:`, `/home/user/Photos` -> `onedrive:`).
-- Strict flock isolation (`/tmp/rclone-bisync-<profile>.lock`) and dedicated state directories.
-- Profile-aware telemetry streams, speed charts, and file explorer remote routing.
-- Refer to [`docs/design/profile-manager.md`](../design/profile-manager.md).
+Transitions the Bisync Hub dashboard from single-tenancy to a workload-centric operational hierarchy:
+- **Level 1 Fleet View**: Dashboard overview presenting system health summary counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`), interactive profile card grid, search/filter controls, and inline quick-actions.
+- **Level 2 Scoped Workspace**: Context-aware workspace scoped to the selected profile with header context switcher and breadcrumb navigation.
+- **Visual Operational Flags Editor**: 3-tier flag hierarchy configuration (Execution Controls, Profile Settings, Custom Flags Escape Hatch) with live inheritance badges (`Inherited from Global` vs `Profile Override`).
+- Refer to [`docs/design/hybrid_fleet_overview_contextual_profile_workspace.md`](../design/hybrid_fleet_overview_contextual_profile_workspace.md) and [`docs/design/bisync_operational_flags.md`](../design/bisync_operational_flags.md).
 
 ---
 
-### Near-Term Priority 2: Configuration & Setup Manager
+### Near-Term Priority 2: Configuration Snapshot & Rollback Engine
 
-Provides safe, in-dashboard editing of synchronization flags, rate limits, timing intervals, and remote setup:
-- **Visual Flag Editor**: Adjust `--buffer-size`, `--tpslimit`, conflict resolution strategies, and webhook endpoints safely from the UI.
-- **Setup & Onboarding Wizard**: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration.
+Provides server-side configuration safety for global environments:
 - **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying new settings.
+- **One-Click Rollback API**: Restore historical configurations immediately if a change fails verification.
 - **One-Click Rollback API**: Restore historical configurations immediately if a change fails verification.
 
 ---
