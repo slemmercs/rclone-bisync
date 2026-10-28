@@ -183,4 +183,18 @@ func TestDefaultProfileExecutor(t *testing.T) {
 	if !fi.IsDir() {
 		t.Fatalf("expected %s to be a directory", localDir)
 	}
+
+	// Test prohibited custom flags rejection in executor
+	pBad := &profiles.Profile{
+		ID:        "prof-bad",
+		Remote:    "drive",
+		LocalPath: localDir,
+		Flags: profiles.ProfileFlags{
+			CustomFlags: "--config /etc/evil.conf",
+		},
+	}
+	err = exec(ctx, pBad, profiles.SyncOptions{DryRun: true})
+	if err == nil {
+		t.Fatalf("expected executor to reject profile with prohibited flags")
+	}
 }

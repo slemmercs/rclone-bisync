@@ -8,28 +8,50 @@ import (
 	"os"
 	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 )
 
+func (s *Server) getGlobalDefaults() config.GlobalDefaults {
+	def := config.DefaultGlobalDefaults()
+	if s.Config == nil {
+		return def
+	}
+	g := s.Config.GlobalDefaults
+	if g.MaxDelete <= 0 {
+		g.MaxDelete = def.MaxDelete
+	}
+	if g.ConflictResolve == "" {
+		g.ConflictResolve = def.ConflictResolve
+	}
+	if g.CompareMode == "" {
+		g.CompareMode = def.CompareMode
+	}
+	return g
+}
+
 func (s *Server) handleListProfiles(w http.ResponseWriter, r *http.Request) {
 	homeDir, _ := os.UserHomeDir()
+	globals := s.getGlobalDefaults()
 	if s.ProfileService == nil {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"status":   "success",
-			"profiles": []*profiles.Profile{},
-			"total":    0,
-			"home_dir": homeDir,
+			"status":          "success",
+			"profiles":        []*profiles.Profile{},
+			"total":           0,
+			"home_dir":        homeDir,
+			"global_defaults": globals,
 		})
 		return
 	}
 	includeArchived := r.URL.Query().Get("archived") == "true"
 	profs := s.ProfileService.List(includeArchived)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":   "success",
-		"profiles": profs,
-		"total":    len(profs),
-		"home_dir": homeDir,
+		"status":          "success",
+		"profiles":        profs,
+		"total":           len(profs),
+		"home_dir":        homeDir,
+		"global_defaults": globals,
 	})
 }
 
@@ -44,9 +66,13 @@ func (s *Server) handleGetProfile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, models.ErrorResponse{Status: "error", Error: err.Error()})
 		return
 	}
+	globals := s.getGlobalDefaults()
+	resolved := profiles.ResolveFlags(prof, globals, nil)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":  "success",
-		"profile": prof,
+		"status":          "success",
+		"profile":         prof,
+		"resolved_flags":  resolved,
+		"global_defaults": globals,
 	})
 }
 
@@ -63,6 +89,12 @@ func (s *Server) handleCreateProfile(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(p.LocalPath, "..") {
 		writeJSON(w, http.StatusBadRequest, models.ErrorResponse{Status: "error", Error: "Relative path traversal forbidden in local path"})
 		return
+	}
+	if p.Flags.CustomFlags != "" {
+		if _, err := profiles.ValidateCustomFlags(p.Flags.CustomFlags); err != nil {
+			writeJSON(w, http.StatusBadRequest, models.ErrorResponse{Status: "error", Error: err.Error()})
+			return
+		}
 	}
 	created, err := s.ProfileService.Create(r.Context(), &p)
 	if err != nil {
@@ -96,6 +128,12 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(req.Profile.LocalPath, "..") {
 		writeJSON(w, http.StatusBadRequest, models.ErrorResponse{Status: "error", Error: "Relative path traversal forbidden in local path"})
 		return
+	}
+	if req.Profile.Flags.CustomFlags != "" {
+		if _, err := profiles.ValidateCustomFlags(req.Profile.Flags.CustomFlags); err != nil {
+			writeJSON(w, http.StatusBadRequest, models.ErrorResponse{Status: "error", Error: err.Error()})
+			return
+		}
 	}
 	req.Profile.ID = id
 	updated, err := s.ProfileService.Update(r.Context(), &req.Profile, req.Reason)

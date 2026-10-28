@@ -388,3 +388,87 @@ func TestProfiles_PathTraversalForbidden(t *testing.T) {
 		t.Fatalf("expected 400 on traversal path in update, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+func TestProfiles_OperationalFlagsAndValidation(t *testing.T) {
+	s, _ := setupTestServerWithProfiles(t)
+	tmpDir := t.TempDir()
+
+	// 1. Rejection of prohibited custom flags on create
+	badCreate := map[string]any{
+		"name":       "Prohibited Flags Profile",
+		"remote":     "gdrive",
+		"local_path": tmpDir + "/valid_path",
+		"enabled":    true,
+		"flags": map[string]any{
+			"custom_flags": "--config /etc/rclone.conf",
+		},
+	}
+	w := doJSONReq(s, http.MethodPost, "/api/profiles", badCreate, true)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on prohibited custom flags in create, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 2. Successful create with valid operational flags
+	maxDel := 25
+	cmpMode := "checksum"
+	canary := false
+	goodCreate := map[string]any{
+		"id":         "prof_flags",
+		"name":       "Operational Flags Profile",
+		"remote":     "gdrive",
+		"local_path": tmpDir + "/flags_path",
+		"enabled":    true,
+		"flags": map[string]any{
+			"max_delete":        maxDel,
+			"compare_mode":      cmpMode,
+			"canary_validation": canary,
+			"custom_flags":      "--bwlimit 10M",
+		},
+	}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles", goodCreate, true)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 on valid flags profile create, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 3. GET /api/profiles/:id returns profile with resolved_flags and global_defaults
+	w = doJSONReq(s, http.MethodGet, "/api/profiles/prof_flags", nil, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on get profile, got %d: %s", w.Code, w.Body.String())
+	}
+	var getResp struct {
+		Status         string                 `json:"status"`
+		Profile        profiles.Profile       `json:"profile"`
+		ResolvedFlags  profiles.ResolvedFlags `json:"resolved_flags"`
+		GlobalDefaults config.GlobalDefaults  `json:"global_defaults"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &getResp); err != nil {
+		t.Fatalf("failed to decode get profile response: %v", err)
+	}
+	if getResp.ResolvedFlags.MaxDelete != 25 {
+		t.Errorf("expected resolved MaxDelete 25, got %d", getResp.ResolvedFlags.MaxDelete)
+	}
+	if getResp.ResolvedFlags.CompareMode != "checksum" {
+		t.Errorf("expected resolved CompareMode 'checksum', got %s", getResp.ResolvedFlags.CompareMode)
+	}
+	if getResp.ResolvedFlags.CanaryValidation != false {
+		t.Errorf("expected resolved CanaryValidation false")
+	}
+	if getResp.ResolvedFlags.ConflictResolve != "newer" {
+		t.Errorf("expected resolved ConflictResolve inherited 'newer', got %s", getResp.ResolvedFlags.ConflictResolve)
+	}
+	if getResp.GlobalDefaults.MaxDelete != 50 {
+		t.Errorf("expected GlobalDefaults MaxDelete 50, got %d", getResp.GlobalDefaults.MaxDelete)
+	}
+
+	// 4. Rejection of prohibited custom flags on update
+	badUpdate := map[string]any{
+		"flags": map[string]any{
+			"custom_flags": "--rc-pass hacked",
+		},
+		"reason": "testing prohibited flag on update",
+	}
+	w = doJSONReq(s, http.MethodPut, "/api/profiles/prof_flags", badUpdate, true)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on prohibited custom flags in update, got %d: %s", w.Code, w.Body.String())
+	}
+}

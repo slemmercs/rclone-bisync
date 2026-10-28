@@ -115,6 +115,9 @@ func TestLoadConfigSuccess(t *testing.T) {
 	if cfg.ReviewBackupTTLHours != 48.0 {
 		t.Errorf("expected default 48.0 review backup TTL hours, got %f", cfg.ReviewBackupTTLHours)
 	}
+	if cfg.GlobalDefaults.MaxDelete != 50 || !cfg.GlobalDefaults.CanaryValidation || cfg.GlobalDefaults.ConflictResolve != "newer" {
+		t.Errorf("expected canonical global defaults, got: %+v", cfg.GlobalDefaults)
+	}
 }
 
 func TestConfigHelpersAndEnvExpansion(t *testing.T) {

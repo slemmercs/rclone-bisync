@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
@@ -75,16 +74,21 @@ func DefaultProfileExecutor(cfg *config.Config) profiles.SyncExecutor {
 		profCfg.RemotePath = p.FullRemoteTarget()
 		profCfg.LocalPath = p.LocalPath
 		profCfg.LockFile = p.LockFilePath()
-		if len(p.ExcludePatterns) > 0 {
-			commonArgs := append([]string{}, profCfg.RcloneCommonArgs...)
-			for _, pattern := range p.ExcludePatterns {
-				pattern = strings.TrimSpace(pattern)
-				if pattern != "" {
-					commonArgs = append(commonArgs, "--exclude", pattern)
-				}
-			}
-			profCfg.RcloneCommonArgs = commonArgs
+
+		// Build operational arguments from 3-tier flag hierarchy
+		cliArgs, err := profiles.BuildCLIArgs(p, cfg.GlobalDefaults, &profiles.ExecutionOverrides{
+			DryRun: &opts.DryRun,
+			Resync: &opts.Resync,
+			Force:  &opts.Force,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to build CLI arguments for profile %s: %w", p.ID, err)
 		}
+
+		commonArgs := append([]string{}, profCfg.RcloneCommonArgs...)
+		commonArgs = append(commonArgs, cliArgs...)
+		profCfg.RcloneCommonArgs = commonArgs
+
 		syncRunner := runner.NewSyncRunner(&profCfg)
 		origin := "scheduler"
 		if opts.Force || opts.Resync || opts.DryRun {
