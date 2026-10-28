@@ -630,47 +630,54 @@
     "relUrl": "/roadmap.html#6-decoupled-service-architecture-sub-400-loc-enforcement"
   },"90": {
     "doc": "Roadmap",
+    "title": "7. Multi-Profile Backend &amp; 3-Tier Operational Flags Engine",
+    "content": ". | Independent Workload Scheduling: Spawns isolated runner goroutines per profile with dedicated advisory lock confinement (/tmp/rclone-bisync-&lt;id&gt;.lock) and SQLite state tracking. | 3-Tier Operational Flags Architecture: Fine-grained flag inheritance model (Execution Override &gt; Profile Override &gt; Global Default &gt; Hardcoded Fallback). | POSIX Shell Argument Tokenizer &amp; Security Blocklist: Safe tokenizer with hard blocklist preventing command injection and unauthorized override of daemon flags (--config, --rc, --use-mmap, --log-file, --json). | . ",
+    "url": "/rclone-bisync/roadmap.html#7-multi-profile-backend--3-tier-operational-flags-engine",
+    
+    "relUrl": "/roadmap.html#7-multi-profile-backend--3-tier-operational-flags-engine"
+  },"91": {
+    "doc": "Roadmap",
     "title": "🟡 Near-Term Strategic Priorities (In Development)",
     "content": "The following capabilities represent our immediate development milestones following public launch: . ",
     "url": "/rclone-bisync/roadmap.html#-near-term-strategic-priorities-in-development",
     
     "relUrl": "/roadmap.html#-near-term-strategic-priorities-in-development"
-  },"91": {
-    "doc": "Roadmap",
-    "title": "Priority 1: Multi-Profile Workspace Manager",
-    "content": ". | Objective: Manage multiple independent synchronization pairs from a single daemon and dashboard. | Architecture: . | Spawns isolated goroutine runners per profile (e.g. Personal Google Drive, Work OneDrive, NAS backup). | Pairs independent local folders to different cloud remotes with dedicated POSIX flock isolation (/tmp/rclone-bisync-&lt;profile&gt;.lock). | Profile-aware telemetry streams, speed charts, and file explorer remote routing. | Refer to Multi-Profile Design Specification. | . | . ",
-    "url": "/rclone-bisync/roadmap.html#priority-1-multi-profile-workspace-manager",
-    
-    "relUrl": "/roadmap.html#priority-1-multi-profile-workspace-manager"
   },"92": {
+    "doc": "Roadmap",
+    "title": "Priority 1: Hybrid Fleet Overview &amp; Contextual Profile Workspace",
+    "content": ". | Objective: Deliver a workload-centric dashboard hierarchy supporting fleet-wide visibility and profile-scoped management. | Architecture: . | Level 1 Fleet View: Central command dashboard with aggregate health summary counters (Total, Healthy, Needs Review, Failing, Syncing), interactive tile grid, and instant quick-actions (Sync Now, Dry Run, Settings). | Level 2 Scoped Workspace: Context-aware workspace with global header profile switcher dropdown and breadcrumb navigation. | Visual 3-Tier Flags Editor: Interactive parameter controls with live inheritance badges (Inherited from Global vs Profile Override) and client-side security blocklist validation. | Refer to Hybrid Fleet Overview &amp; Contextual Workspace Specification. | . | . ",
+    "url": "/rclone-bisync/roadmap.html#priority-1-hybrid-fleet-overview--contextual-profile-workspace",
+    
+    "relUrl": "/roadmap.html#priority-1-hybrid-fleet-overview--contextual-profile-workspace"
+  },"93": {
     "doc": "Roadmap",
     "title": "Priority 2: In-Dashboard Configuration &amp; Setup Manager",
     "content": ". | Objective: Provide safe visual editing of sync flags, intervals, and remote setup. | Architecture: . | Visual Flag Editor: Adjust --buffer-size, --tpslimit, conflict strategies, and webhook endpoints safely from the UI. | Setup &amp; Onboarding Wizard: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration. | 3-Layer Safety Pipeline: Automated backup snapshots, SHA-256 integrity match, and schema validation before applying changes. | One-Click Rollback API: Restore historical configurations immediately if a change fails verification. | . | . ",
     "url": "/rclone-bisync/roadmap.html#priority-2-in-dashboard-configuration--setup-manager",
     
     "relUrl": "/roadmap.html#priority-2-in-dashboard-configuration--setup-manager"
-  },"93": {
+  },"94": {
     "doc": "Roadmap",
     "title": "Priority 3: In-App User Guidance &amp; Diagnostic Manual",
     "content": ". | Objective: Enhance operational clarity and assisted recovery directly within the UI. | Architecture: . | Contextual Tooltips &amp; Policy Explanations: Inline tooltips and modal banners explaining safety triggers (TOO_MANY_DELETES, MANDATORY_SUBDIR, heuristic risk scores) in plain language. | In-Dashboard Reference Manual: A dedicated slide-over panel summarizing CLI commands, Rclone flags, and step-by-step conflict recovery workflows. | Interactive Diagnostics: Integrated troubleshooting guides for resolving OAuth token drops, path permissions issues, and systemd service status. | . | . ",
     "url": "/rclone-bisync/roadmap.html#priority-3-in-app-user-guidance--diagnostic-manual",
     
     "relUrl": "/roadmap.html#priority-3-in-app-user-guidance--diagnostic-manual"
-  },"94": {
+  },"95": {
     "doc": "Roadmap",
     "title": "Priority 4: Remote Mount Lifecycle Manager &amp; Storage Pooling (internal/mount)",
     "content": ". | Objective: Turn fragile OS FUSE mounts into resilient, self-healing virtual storage endpoints. | Architecture: . | Stage A (Remote Mount Manager): Pure-Go daemon managing rclone mount subprocess lifecycles on Linux (FUSE) and Windows (WinFsp) with keepalive probes and clean unmount handlers (fusermount -u). | Stage B (Pooled Storage Engine): Provision stacked multi-cloud topologies (union + chunker + crypt) over RC /config/create. | Refer to Remote Mount Manager Design Specification. | . | . Google Drive OAuth Client ID, Secret &amp; scope setup OneDrive OAuth Personal &amp; Business Graph API setup . ",
     "url": "/rclone-bisync/roadmap.html#priority-4-remote-mount-lifecycle-manager--storage-pooling-internalmount",
     
     "relUrl": "/roadmap.html#priority-4-remote-mount-lifecycle-manager--storage-pooling-internalmount"
-  },"95": {
+  },"96": {
     "doc": "Roadmap",
     "title": "🔮 Future Vision &amp; Research",
     "content": ". | Peer-to-Peer State Coordination: Multi-node cluster coordination for organizations synchronizing across distributed branch offices. | Encrypted Remote Telemetry: Zero-knowledge telemetry syncing enabling multi-device sync status monitoring without exposing file metadata. | . ",
     "url": "/rclone-bisync/roadmap.html#-future-vision--research",
     
     "relUrl": "/roadmap.html#-future-vision--research"
-  },"96": {
+  },"97": {
     "doc": "Roadmap",
     "title": "Roadmap",
     "content": " ",
