@@ -29,6 +29,9 @@ window.AuditModule = {
     },
 
     async initAudit() {
+        if (this.activeProfile && this.activeProfile.id && !this.auditData.filterProfile) {
+            this.auditData.filterProfile = this.activeProfile.id;
+        }
         await Promise.all([
             this.fetchAuditRecords(),
             this.verifyAuditLedger()

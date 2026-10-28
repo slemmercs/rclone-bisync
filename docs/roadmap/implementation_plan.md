@@ -158,6 +158,34 @@ Deliver the workload-centric dashboard hierarchy specified in `docs/design/hybri
 3. **3-Tier Flag Binding & Inheritance**:
    - In `modal_profiles.html`, profile flags map to `profileModal.editing.flags`.
    - Each input evaluates `profileModal.editing.flags?.[key]` vs `globalDefaults?.[key]`.
+
+
+---
+
+## 5. UI/UX Refinement: Contextual Fleet vs. Workload Scoping & Header Redesign
+
+### Proposed Changes
+Refine the Phase 4 UI/UX based on industry best practices for multi-tenant and multi-workload architectures (Vercel, Portainer, Supabase):
+1. **Clean 2-Tier Header**:
+   - Eliminate wrapping and layout squeeze by separating global context (top bar) from tab navigation (sub-bar).
+   - Top Bar: App brand, integrated breadcrumb context switcher (`Bisync Hub | ⊞ Fleet / [ Active Profile ▾ ] [Status]`), and global daemon health/latency.
+   - Remove the long subtitle taking up horizontal navbar space.
+2. **Context-Aware Navigation & Subnav**:
+   - Level 1 (Fleet Scope): Nav tabs for `[ ⊞ Workload Fleet ]` and `[ ☁ Cloud Remotes Inventory ]`.
+   - Level 2 (Workload / Profile Scope): Nav tabs for `[ ⚡ Engine & Telemetry ]`, `[ ☁ Target Storage ]`, `[ 📁 File Explorer ]`, `[ 🛡 Audit Ledger ]`.
+   - Persistent view preference: `localStorage` active tab caching with smart default (Fleet when $\ge 2$ profiles, Telemetry when single profile).
+3. **Fleet Card Interactive Surface**:
+   - Fix premature tag closure in `view_fleet.html` so the entire card is clickable, immediately activating that profile and opening its scoped telemetry workspace.
+4. **Contextual Scoping for Remotes and Audit Ledger**:
+   - Remotes: Global inventory at Fleet level; filtered to active profile's local directory and remote target when inside a Profile workspace.
+   - Audit Ledger: Auto-filter by `?profile_id=<active_id>` when in Profile workspace, with a 1-click toggle to clear the filter and show all system events.
+
+### Verification Plan
+- Template AST validation (`./scripts/check.sh templates`)
+- Line counter audit (`./scripts/check.sh loc`)
+- Headless Chrome E2E test verifying header navigation, fleet tile clicks, and context transitions (`go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`)
+- Full pre-flight quality check (`./scripts/check.sh all`)
+
    - Reset button allows clearing a profile override back to `nil` to re-inherit global defaults.
 4. **Safety & Security**:
    - Custom flags input triggers validation on change, rendering clear inline error badges if prohibited flags (`--config`, `--rc`, etc.) are detected.

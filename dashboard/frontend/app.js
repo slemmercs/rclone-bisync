@@ -13,11 +13,18 @@ document.addEventListener("alpine:init", () => {
     }
 
     Alpine.data("dashboard", () => composeDashboard({
-        currentTab: "telemetry", // 'telemetry' | 'remotes' | 'explorer'
+        currentTab: (() => {
+            try {
+                const saved = localStorage.getItem("bisync_active_tab");
+                if (saved && ["fleet", "telemetry", "remotes", "explorer", "audit"].includes(saved)) return saved;
+            } catch (_) {}
+            return "fleet";
+        })(),
         remotesData: {
             remotes: [],
             summary: {},
             count: 0,
+            showAll: false,
             loading: false,
             error: null,
             last_checked: null,
@@ -299,6 +306,9 @@ document.addEventListener("alpine:init", () => {
             }
             this.fetchRemotes(false);
             this.fetchReviewSession(false);
+            if (this.currentTab === "remotes") this.fetchRemotes(true);
+            else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") this.initExplorer();
+            else if (this.currentTab === "audit" && typeof this.initAudit === "function") this.initAudit();
             setInterval(() => this.poll(), 3000);
             this.setupLogScroll("log-bisync");
         },
@@ -341,6 +351,7 @@ document.addEventListener("alpine:init", () => {
 
         switchTab(tab) {
             this.currentTab = tab;
+            try { localStorage.setItem("bisync_active_tab", tab); } catch (_) {}
             if (tab === "remotes") {
                 this.fetchRemotes(true);
             } else if (tab === "explorer") {

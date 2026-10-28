@@ -263,7 +263,40 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		})
 	}
 
-	// 3. Check for any runtime JavaScript console errors or exceptions
+	// 3. Test Fleet Profile Card Click -> Telemetry Navigation
+	t.Run("FleetCardClickNavigation", func(t *testing.T) {
+		clickFleetScript := `(() => {
+			const btn = document.querySelector('nav button[data-tab="fleet"]');
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickFleetScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed clicking fleet nav button: %v", err)
+		}
+
+		time.Sleep(150 * time.Millisecond)
+
+		clickCardScript := `(() => {
+			const cards = document.querySelectorAll('[x-show*="fleet"] .grid div[class*="cursor-pointer"]');
+			if (cards.length > 0) {
+				cards[0].click();
+				return true;
+			}
+			return false;
+		})()`
+		cardClicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickCardScript))
+		if err == nil && cardClicked {
+			time.Sleep(150 * time.Millisecond)
+			tabCheckScript := `window.Alpine ? Alpine.$data(document.querySelector('[x-data]')).currentTab : ''`
+			activeTab, err := chromedp.Run(ctx, chromedp.Evaluate[string](tabCheckScript))
+			if err == nil && activeTab != "telemetry" {
+				t.Errorf("expected currentTab to be 'telemetry' after clicking profile card, got %q", activeTab)
+			}
+		}
+	})
+
+	// 4. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
 	defer mu.Unlock()
 

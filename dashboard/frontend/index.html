@@ -13,104 +13,119 @@
 <body x-data="dashboard" x-init="initDashboard()" class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
 
     <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <!-- Header -->
-        <header class="flex flex-col md:flex-row md:items-center justify-between pb-4 mb-6 border-b border-slate-800 gap-4">
-            <div class="flex items-center gap-3">
-                <img src="/static/favicon.svg" alt="Bisync Hub Logo" class="w-8 h-8 rounded-lg shadow-sm">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                            <span>Bisync Hub</span>
-                            <span class="text-[10px] px-2 py-0.5 rounded font-mono font-medium bg-slate-800 text-slate-400 border border-slate-700/60 uppercase tracking-widest">{{ .Version }}</span>
-                        </h1>
-                        <span class="text-slate-600">/</span>
+        <!-- Header: 2-Tier Architecture -->
+        <header class="pb-3 mb-6 border-b border-slate-800">
+            <!-- Tier 1: Global Context Bar -->
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                    <button @click="switchTab('fleet')" class="flex items-center gap-2 shrink-0 group text-left">
+                        <img src="/static/favicon.svg" alt="Bisync Hub Logo" class="w-8 h-8 rounded-lg shadow-sm group-hover:scale-105 transition-transform">
+                        <span class="text-base font-bold tracking-tight text-white hidden sm:inline group-hover:text-indigo-400 transition-colors">Bisync Hub</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded font-mono font-medium bg-slate-800 text-slate-400 border border-slate-700/60 uppercase tracking-wider">{{ .Version }}</span>
+                    </button>
+                    <span class="text-slate-600 shrink-0">/</span>
+                    <!-- Context Selector & Breadcrumb -->
+                    <div class="flex items-center gap-1.5 min-w-0">
                         <template x-if="currentTab === 'fleet'">
-                            <span class="text-slate-300 font-semibold text-xs font-mono">Fleet Overview</span>
+                            <span class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono font-semibold text-slate-300">
+                                <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                                <span>Fleet Overview</span>
+                            </span>
                         </template>
+
                         <template x-if="currentTab !== 'fleet'">
-                            <div class="flex items-center gap-1.5 text-xs font-mono">
-                                <button @click="switchTab('fleet')" class="text-indigo-400 hover:text-indigo-300 transition-colors">Profiles</button>
-                                <span class="text-slate-600">/</span>
-                                <span class="text-white font-semibold truncate max-w-[12rem]" x-text="activeProfile ? activeProfile.name : 'Workspace'"></span>
+                            <div class="flex items-center gap-1.5 text-xs font-mono min-w-0">
+                                <button @click="switchTab('fleet')" class="text-indigo-400 hover:text-indigo-300 transition-colors shrink-0">
+                                    <span>Fleet</span>
+                                </button>
+                                <span class="text-slate-600 shrink-0">/</span>
+
+                                <div class="relative min-w-0" @click.outside="profileSwitcherOpen = false">
+                                    <button @click="profileSwitcherOpen = !profileSwitcherOpen" class="flex items-center gap-2 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-lg text-white font-semibold transition-all min-w-0">
+                                        <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                                        <span class="truncate max-w-[9rem] sm:max-w-[14rem]" x-text="activeProfile ? activeProfile.name : 'Select Profile'"></span>
+                                        <span x-show="activeProfile" class="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase shrink-0" :class="getProfileStatusBadgeClass(activeProfile)" x-text="getProfileStatusText(activeProfile)"></span>
+                                        <svg class="w-3 h-3 text-slate-400 shrink-0 transition-transform" :class="profileSwitcherOpen ? 'rotate-180' : ''" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                    </button>
+                                    <!-- Dropdown Menu -->
+                                    <div x-show="profileSwitcherOpen" x-cloak x-transition.opacity.duration.150ms class="absolute left-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-40 overflow-hidden text-xs">
+                                        <div class="p-2.5 bg-slate-950/70 border-b border-slate-800 flex items-center justify-between">
+                                            <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-mono">Switch Workspace</span>
+                                            <button @click="profileSwitcherOpen = false; openProfilesModal('list');" class="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors">Manage All</button>
+                                        </div>
+                                        <div class="max-h-60 overflow-y-auto divide-y divide-slate-800/60 p-1">
+                                            <template x-for="p in (profilesData ? profilesData.list : [])" :key="p.id">
+                                                <button @click="selectProfile(p.id); profileSwitcherOpen = false; if (currentTab === 'fleet') switchTab('telemetry');" class="w-full text-left p-2 hover:bg-slate-800/60 rounded-xl transition-all flex items-center justify-between gap-2" :class="profilesData.activeId === p.id ? 'bg-indigo-600/10 border border-indigo-500/20' : ''">
+                                                    <div class="min-w-0">
+                                                        <div class="font-semibold text-white truncate" x-text="p.name"></div>
+                                                        <div class="text-[10px] text-slate-400 truncate font-mono" x-text="p.remote ? (p.remote + ' → ' + (p.local_path || 'local')) : p.id"></div>
+                                                    </div>
+                                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase shrink-0" :class="getProfileStatusBadgeClass(p)" x-text="getProfileStatusText(p)"></span>
+                                                </button>
+                                            </template>
+                                        </div>
+                                        <div class="p-2 bg-slate-950/80 border-t border-slate-800">
+                                            <button @click="profileSwitcherOpen = false; startNewProfile();" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-center font-semibold text-xs transition-colors flex items-center justify-center gap-1.5">
+                                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                                <span>Create New Profile</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </template>
                     </div>
-                    <p class="text-xs text-slate-400 mt-0.5">The safety-first dashboard for Rclone Bisync &mdash; <span class="text-slate-300 font-medium">Review. Decide. Sync.</span></p>
+                </div>
+                <!-- Right: Global Daemon Health & Latency -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <div @click="openDaemonModal(null)" class="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-3 py-1.5 rounded-xl font-mono text-xs cursor-pointer transition-colors" title="Click to view live daemon stream and correlated logs">
+                        <span class="relative flex h-2 w-2">
+                            <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-rose-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
+                            <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-500' : 'bg-rose-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
+                        </span>
+                        <span :class="telemetry.daemon_health?.status === 'healthy' ? 'text-emerald-400' : 'text-rose-400'" class="font-bold tracking-wider" x-text="telemetry.daemon_health?.status === 'healthy' ? 'LIVE' : 'OFFLINE'"></span>
+                        <span class="text-slate-600">|</span>
+                        <span class="text-slate-400" x-text="daemonLatencyText !== '--' ? daemonLatencyText + 'ms' : '-- ms'"></span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Cockpit Navigation Pills & Global Status Strip -->
-            <div class="flex flex-wrap items-center gap-3">
-                <!-- Nav Pills -->
-                <div class="flex items-center bg-slate-900 border border-slate-800/80 p-1 rounded-xl text-xs font-medium">
-                    <button @click="switchTab('fleet')" :class="currentTab === 'fleet' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+            <!-- Tier 2: Sub-Navigation Bar (Context-Aware) -->
+            <div class="flex items-center justify-between gap-3 pt-3 mt-3 border-t border-slate-800/60">
+                <nav class="flex items-center bg-slate-900 border border-slate-800/80 p-1 rounded-xl text-xs font-medium overflow-x-auto">
+                    <button @click="switchTab('fleet')" :class="currentTab === 'fleet' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0" data-tab="fleet">
                         <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
                         <span>Fleet</span>
+                        <span x-show="profilesData.list.length > 0" x-text="profilesData.list.length" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono"></span>
                     </button>
-                    <button @click="switchTab('telemetry')" :class="currentTab === 'telemetry' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                    <button @click="switchTab('telemetry')" :class="currentTab === 'telemetry' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0" data-tab="telemetry">
                         <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                         <span>Engine & Telemetry</span>
                     </button>
-                    <button @click="switchTab('remotes')" :class="currentTab === 'remotes' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                    <button @click="switchTab('remotes')" :class="currentTab === 'remotes' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0" data-tab="remotes">
                         <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                         <span>Storage Remotes</span>
                         <span x-show="remotesData.count > 0" x-text="remotesData.count" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono"></span>
                     </button>
-                    <button @click="switchTab('explorer')" :class="currentTab === 'explorer' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                    <button @click="switchTab('explorer')" :class="currentTab === 'explorer' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0" data-tab="explorer">
                         <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
                         <span>File Explorer</span>
                     </button>
-                    <button @click="switchTab('audit')" :class="currentTab === 'audit' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                    <button @click="switchTab('audit')" :class="currentTab === 'audit' ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-950 font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shrink-0" data-tab="audit">
                         <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                         <span>Audit Ledger</span>
+                        <span x-show="auditData?.total > 0" x-text="auditData.total" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono"></span>
                     </button>
-                </div>
+                </nav>
 
-                <!-- Global Profile Switcher Dropdown -->
-                <div class="relative" @click.away="profileSwitcherOpen = false">
-                    <button @click="toggleProfileSwitcher()" class="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-3 py-1.5 rounded-xl font-mono text-xs transition-colors shadow-sm" title="Switch active synchronization workspace">
-                        <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
-                        <span class="text-slate-400">Profile:</span>
-                        <span class="text-white font-semibold truncate max-w-[9rem]" x-text="activeProfile ? activeProfile.name : 'Default'"></span>
-                        <span class="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase" :class="activeProfile?.state?.status === 'healthy' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'" x-text="activeProfile?.state?.status || 'idle'"></span>
-                        <svg class="w-3 h-3 text-slate-400 shrink-0 transform transition-transform" :class="{ 'rotate-180': profileSwitcherOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                    </button>
-
-                    <!-- Dropdown Menu -->
-                    <div x-show="profileSwitcherOpen" x-cloak x-transition.opacity.duration.150ms class="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-40 overflow-hidden text-xs">
-                        <div class="p-2.5 bg-slate-950/70 border-b border-slate-800 flex items-center justify-between">
-                            <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-mono">Switch Workspace</span>
-                            <button @click="profileSwitcherOpen = false; openProfilesModal('list');" class="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors">Manage All</button>
-                        </div>
-                        <div class="max-h-60 overflow-y-auto divide-y divide-slate-800/60 p-1">
-                            <template x-for="p in (profilesData ? profilesData.list : [])" :key="p.id">
-                                <button @click="selectProfile(p.id); profileSwitcherOpen = false; if (currentTab === 'fleet') switchTab('telemetry');" class="w-full text-left p-2 hover:bg-slate-800/60 rounded-xl transition-all flex items-center justify-between gap-2" :class="profilesData.activeId === p.id ? 'bg-indigo-600/10 border border-indigo-500/20' : ''">
-                                    <div class="min-w-0">
-                                        <div class="font-semibold text-white truncate" x-text="p.name"></div>
-                                        <div class="text-[10px] text-slate-400 truncate font-mono" x-text="p.remote ? (p.remote + ' → ' + (p.local_path || 'local')) : p.id"></div>
-                                    </div>
-                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase shrink-0" :class="getProfileStatusBadgeClass(p)" x-text="getProfileStatusText(p)"></span>
-                                </button>
-                            </template>
-                        </div>
-                        <div class="p-2 bg-slate-950/80 border-t border-slate-800">
-                            <button @click="profileSwitcherOpen = false; startNewProfile();" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-center font-semibold text-xs transition-colors flex items-center justify-center gap-1.5">
-                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                                <span>Create New Profile</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Global Daemon Health & Latency Pill -->
-                <div @click="openDaemonModal(null)" class="flex items-center gap-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-3 py-1.5 rounded-xl self-start md:self-auto font-mono text-xs cursor-pointer transition-colors" title="Click to view live daemon stream and correlated logs">
-                    <span class="relative flex h-2 w-2">
-                        <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-rose-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
-                        <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-500' : 'bg-rose-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
-                    </span>
-                    <span :class="telemetry.daemon_health?.status === 'healthy' ? 'text-emerald-400' : 'text-rose-400'" class="font-bold tracking-wider" x-text="telemetry.daemon_health?.status === 'healthy' ? 'LIVE' : 'OFFLINE'"></span>
-                    <span class="text-slate-600">|</span>
-                    <span class="text-slate-400" x-text="daemonLatencyText !== '--' ? daemonLatencyText + 'ms' : '-- ms'"></span>
+                <!-- Workload Scope Hint Pill (Right side of Subnav) -->
+                <div class="hidden md:flex items-center gap-2 text-xs font-mono text-slate-400">
+                    <template x-if="currentTab !== 'fleet' && activeProfile">
+                        <span class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg">
+                            <span class="text-slate-500">Scoped:</span>
+                            <span class="text-indigo-300 font-semibold truncate max-w-[12rem]" x-text="activeProfile ? activeProfile.name : ''"></span>
+                        </span>
+                    </template>
                 </div>
             </div>
         </header>

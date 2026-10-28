@@ -25,8 +25,37 @@ Implement the workload-centric dashboard hierarchy specified in `docs/design/hyb
   - **Scope**: Full repository
   - **Verification**: `./scripts/check.sh all`
 
+
+### UI/UX Refinement Tasks
+
+- [x] Task 6: Fix Fleet Tile Interactive Click Surface & Card Markup
+  - **Scope**: `dashboard/frontend/partials/view_fleet.html`, `dashboard/frontend/js/fleet.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [x] Task 7: Redesign Header to 2-Tier Layout with Integrated Breadcrumb Switcher
+  - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [x] Task 8: Smart Default View & localStorage Tab Persistence
+  - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/fleet.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [x] Task 9: Contextual Scoping for Storage Remotes & Audit Ledger
+  - **Scope**: `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/js/remotes.js`, `dashboard/frontend/js/audit.js`, `dashboard/frontend/partials/view_audit.html`
+  - **Verification**: `go test -count=1 ./tests/e2e/...`
+
+- [x] Task 10: Full Quality Verification & Headless Chrome Testing
+  - **Scope**: Full repository
+  - **Verification**: `./scripts/check.sh all`
+
 ## Status Updates
 
+- 2026-10-28: Implemented 2-Tier Context Hierarchy & UI/UX Refinement:
+  1. Restructured header to 2-Tier layout: Tier 1 Brand, Version, integrated breadcrumb profile context switcher dropdown, and Daemon status; Tier 2 dedicated subnav tabs (Fleet, Engine & Telemetry, Storage Remotes, File Explorer, Audit Ledger) with right-aligned active workload scope pill.
+  2. Fixed fleet card markup and closed tags in view_fleet.html so entire profile cards are interactive surfaces that switch context and navigate to Telemetry.
+  3. Added localStorage tab persistence and smart default landing on Fleet view.
+  4. Contextualized Storage Remotes (auto-filtering to active profile's configured cloud remote with a 1-click 'Show All Remotes' toggle) and Audit Ledger (pre-filtering by active profile ID with 1-click clear).
+  5. Verified all 6 quality checks (./scripts/check.sh all) and headless Chrome E2E smoke tests passing with zero errors.
 - 2026-10-28: Completed Phase 4 (Hybrid Fleet Overview & Operational Flags UI). Implemented Level 1 Fleet View (view_fleet.html) with real-time health summary counters, responsive tile grid, search/filter/sort, Level 2 header context switcher dropdown, breadcrumb navigation, and visual 3-tier operational flags editor with live inheritance badges and blocklist validation. Verified all 5 cockpit tabs (fleet, telemetry, remotes, explorer, audit) in headless Chrome smoke tests with zero console errors. Full pre-flight quality check passed clean (6/6 stages, 100%).
 - 2026-10-28: Initialized Phase 4 Task Plan from implementation_plan.md and hybrid_fleet_overview_contextual_profile_workspace.md.
 - 2026-10-27: Completed Phase 3 (Operational Flags & Profile Schema Alignment) with PR #42 merged and released in v1.0.0-beta.9.
