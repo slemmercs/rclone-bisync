@@ -57,6 +57,12 @@
                         <select :value="globalSettingsModal.config.global_defaults.canary_validation ? 'true' : 'false'" @change="globalSettingsModal.config.global_defaults.canary_validation = ($event.target.value === 'true')" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
                             <option value="true">Enabled (Strict RCLONE_TEST Guard)</option>
                             <option value="false">Disabled (Bypass Probing)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </template>
+
         <!-- Tab 2: Engine & Polling Tuning -->
         <template x-if="globalSettingsModal.tab === 'engine'">
             <div class="space-y-4">
@@ -111,13 +117,6 @@
                 <span x-text="globalSettingsModal.saving ? 'Saving...' : 'Apply Fleet Settings'"></span>
             </button>
         </div>
-
-                        </select>
-                    </div>
-                </div>
-            </div>
-        </template>
-
     </div>
 </div>
 {{ end }}

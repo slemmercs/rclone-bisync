@@ -295,6 +295,51 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			}
 		}
 	})
+	// 4. Test Global Fleet Settings Modal Opening & Tab Switching
+	t.Run("GlobalSettingsModalTabs", func(t *testing.T) {
+		openScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.openGlobalSettingsModal('defaults');
+			return true;
+		})()`
+		opened, err := chromedp.Run(ctx, chromedp.Evaluate[bool](openScript))
+		if err != nil || !opened {
+			t.Fatalf("failed opening global settings modal: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+
+		// Test switching to engine tab
+		switchEngineScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.globalSettingsModal.tab = 'engine';
+			return true;
+		})()`
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](switchEngineScript))
+		if err != nil {
+			t.Fatalf("failed switching to engine tab: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify engine input fields are visible and bound
+		engineInputCheck := `(() => {
+			const inputs = document.querySelectorAll('input[x-model\\.number*="daemon"]');
+			return inputs.length;
+		})()`
+		count, err := chromedp.Run(ctx, chromedp.Evaluate[int](engineInputCheck))
+		if err != nil || count == 0 {
+			t.Errorf("expected daemon engine inputs to be present in DOM, got %d (err: %v)", count, err)
+		}
+
+		// Close modal
+		closeScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (app) app.closeGlobalSettingsModal();
+			return true;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](closeScript))
+	})
 
 	// 4. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
