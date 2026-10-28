@@ -1,6 +1,7 @@
 package profiles
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -197,5 +198,50 @@ func TestStore_LifecycleAndRollback(t *testing.T) {
 	}
 	if err := storeReloaded.Delete("non-existent"); err != ErrProfileNotFound {
 		t.Fatalf("expected ErrProfileNotFound for missing profile, got %v", err)
+	}
+}
+
+func TestStore_List_DeterministicSorting(t *testing.T) {
+	tmpDir := t.TempDir()
+	storePath := filepath.Join(tmpDir, "profiles.json")
+	historyPath := filepath.Join(tmpDir, "history.json")
+
+	store, err := NewStore(storePath, historyPath)
+	if err != nil {
+		t.Fatalf("failed to init store: %v", err)
+	}
+
+	baseTime := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
+
+	// Save multiple profiles with different CreatedAt times in random order
+	names := []string{"Delta", "Alpha", "Charlie", "Bravo"}
+	for i, name := range names {
+		p := &Profile{
+			ID:        fmt.Sprintf("prof_%d", i),
+			Name:      name,
+			LocalPath: "/tmp/local",
+			Remote:    "remote:",
+			Safety: SafetySettings{
+				DeleteThresholdPct: 10.0,
+				FailureThreshold:   3,
+			},
+			CreatedAt: baseTime.Add(time.Duration(i) * time.Hour),
+		}
+		if err := store.Save(p, "Initial creation"); err != nil {
+			t.Fatalf("failed to save profile %s: %v", name, err)
+		}
+	}
+
+	// Repeatedly list and verify order is strictly deterministic (sorted by CreatedAt)
+	for iter := 0; iter < 10; iter++ {
+		list := store.List(false)
+		if len(list) != 4 {
+			t.Fatalf("expected 4 profiles, got %d", len(list))
+		}
+		for i, expectedID := range []string{"prof_0", "prof_1", "prof_2", "prof_3"} {
+			if list[i].ID != expectedID {
+				t.Fatalf("iter %d, index %d: expected %s, got %s", iter, i, expectedID, list[i].ID)
+			}
+		}
 	}
 }

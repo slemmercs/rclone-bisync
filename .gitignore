@@ -52,6 +52,8 @@ betterleaks-report.*
 telemetry.json
 audit_ledger.json
 ledger.json
+profiles.json
+profiles_history.json
 *.db
 *.db-wal
 *.db-shm

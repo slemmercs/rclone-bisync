@@ -94,7 +94,14 @@ window.ProfilesModule = {
                 if (data.global_defaults) {
                     this.profilesData.globalDefaults = data.global_defaults;
                 }
-                this.profilesData.list = data.profiles || [];
+                const rawList = data.profiles || [];
+                rawList.sort((a, b) => {
+                    const tA = new Date(a.created_at || 0).getTime();
+                    const tB = new Date(b.created_at || 0).getTime();
+                    if (tA !== tB) return tA - tB;
+                    return (a.name || "").localeCompare(b.name || "");
+                });
+                this.profilesData.list = rawList;
                 if (this.profilesData.list.length > 0) {
                     const exists = this.profilesData.list.some(p => p.id === this.profilesData.activeId);
                     if (!exists) {
@@ -190,6 +197,10 @@ window.ProfilesModule = {
         this.profileModal.editing = this.createDefaultProfile();
         this.profileModal.excludePatternsInput = ".git/**, *.tmp, .DS_Store";
         this.profileModal.tab = "edit";
+        this.profileModal.show = true;
+        if (typeof this.fetchRemotes === "function" && (!this.remotesData || !this.remotesData.remotes || this.remotesData.remotes.length === 0)) {
+            this.fetchRemotes(false);
+        }
     },
 
     startEditProfile(prof) {
@@ -224,6 +235,10 @@ window.ProfilesModule = {
         const patterns = this.profileModal.editing.exclude_patterns || [];
         this.profileModal.excludePatternsInput = patterns.join(", ");
         this.profileModal.tab = "edit";
+        this.profileModal.show = true;
+        if (typeof this.fetchRemotes === "function" && (!this.remotesData || !this.remotesData.remotes || this.remotesData.remotes.length === 0)) {
+            this.fetchRemotes(false);
+        }
     },
 
     async saveProfileForm() {

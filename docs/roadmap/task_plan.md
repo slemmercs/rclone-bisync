@@ -41,8 +41,17 @@ Implement a tiered cloud provider settings architecture with first-class UI cont
   - **Scope**: `internal/config/`, `internal/server/`, `internal/profiles/`, `internal/app/`, `dashboard/frontend/partials/`
   - **Verification**: `go test -count=1 ./internal/... && ./scripts/check.sh all`
 
+- [x] Task 10: Edit Profile Cog Modal Trigger, Compare Mode Resync Guidance & Deterministic Profile Ordering Across Fleet & Pill Switcher
+  - **Scope**: `internal/profiles/store.go`, `internal/profiles/store_test.go`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`
+  - **Verification**: `go test -count=1 ./internal/profiles/... && ./scripts/check.sh all`
+
 
 ## Status Updates
+- 2026-10-28: Completed Task 10:
+  1. Fixed Edit Profile cog icon and New Profile button on Fleet tab by setting `this.profileModal.show = true` and invoking `fetchRemotes()` in `startEditProfile` and `startNewProfile`.
+  2. Fixed profile tiles and header pills dynamically jumping/reordering by adding deterministic sorting in `Store.List()` (sorted by `CreatedAt` then `Name`) and client-side sorting in `fetchProfiles()`.
+  3. Added user-facing guidance callouts in `modal_profiles.html` and `modal_global_settings.html` noting that changing `Compare Mode` requires a one-time `--resync`.
+
 
 - 2026-10-28: Completed Task 9:
   1. Fixed unclosed `<template x-if="getEditingRemoteType() === 'drive'">` in `modal_provider_options.html` and elevated Tier 3 Audited Custom CLI Flags into a dedicated, always-visible card.

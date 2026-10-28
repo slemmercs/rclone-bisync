@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -87,6 +88,12 @@ func (s *Store) List(includeArchived bool) []*Profile {
 		copyP := *p
 		result = append(result, &copyP)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].CreatedAt.Equal(result[j].CreatedAt) {
+			return result[i].Name < result[j].Name
+		}
+		return result[i].CreatedAt.Before(result[j].CreatedAt)
+	})
 	return result
 }
 
