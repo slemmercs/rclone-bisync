@@ -40,6 +40,17 @@ var CLIToRCMap = map[string]OptionMapping{
 	"--drive-acknowledge-abuse": {TypeBackendBool, "acknowledge_abuse"},
 	"--drive-skip-shortcuts":    {TypeBackendBool, "skip_shortcuts"},
 
+	// OneDrive-specific options
+	"--onedrive-no-versions": {TypeBackendBool, "no_versions"},
+	"--onedrive-chunk-size":  {TypeBackendStr, "chunk_size"},
+
+	// S3-specific options
+	"--s3-chunk-size":    {TypeBackendStr, "chunk_size"},
+	"--s3-storage-class": {TypeBackendStr, "storage_class"},
+
+	// Dropbox-specific options
+	"--dropbox-chunk-size": {TypeBackendStr, "chunk_size"},
+
 	// Bisync parameters
 	"--check-access":      {TypeParamBool, "checkAccess"},
 	"--check-first":       {TypeParamBool, "checkFirst"},
@@ -162,10 +173,11 @@ func CompileBisyncPayload(
 	// Attach backend connection string options to path1
 	if len(backendOptions) > 0 {
 		currRemote := bisyncParams["path1"].(string)
-		if strings.HasSuffix(currRemote, ":") {
-			baseRemote := strings.TrimSuffix(currRemote, ":")
+		if colonIdx := strings.Index(currRemote, ":"); colonIdx != -1 {
+			baseRemote := currRemote[:colonIdx]
+			subPath := currRemote[colonIdx+1:]
 			optsStr := strings.Join(backendOptions, ",")
-			bisyncParams["path1"] = fmt.Sprintf("%s,%s:", baseRemote, optsStr)
+			bisyncParams["path1"] = fmt.Sprintf("%s,%s:%s", baseRemote, optsStr, subPath)
 		}
 	}
 

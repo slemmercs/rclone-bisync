@@ -186,4 +186,83 @@ func TestBuildCLIArgs(t *testing.T) {
 			t.Errorf("unexpected error message: %v", err)
 		}
 	})
+
+	t.Run("compiles provider options for Tier 1 remotes alongside custom flags", func(t *testing.T) {
+		p := &Profile{
+			ID: "prof_tier1_gdrive",
+			Flags: ProfileFlags{
+				ProviderOptions: map[string]string{
+					"drive_skip_shortcuts":    "true",
+					"drive_use_trash":         "true",
+					"drive_skip_gdocs":        "true",
+					"drive_acknowledge_abuse": "true",
+					"drive_export_formats":    "docx,xlsx,pptx",
+				},
+				CustomFlags: "--fast-list",
+			},
+		}
+
+		args, err := BuildCLIArgs(p, globals, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		argsStr := strings.Join(args, " ")
+		if !strings.Contains(argsStr, "--drive-skip-shortcuts") {
+			t.Errorf("missing --drive-skip-shortcuts in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--drive-use-trash") {
+			t.Errorf("missing --drive-use-trash in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--drive-skip-gdocs") {
+			t.Errorf("missing --drive-skip-gdocs in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--drive-acknowledge-abuse") {
+			t.Errorf("missing --drive-acknowledge-abuse in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--drive-export-formats docx,xlsx,pptx") {
+			t.Errorf("missing --drive-export-formats in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--fast-list") {
+			t.Errorf("missing custom flag --fast-list in args: %v", args)
+		}
+	})
+
+	t.Run("compiles OneDrive and S3 provider options", func(t *testing.T) {
+		pOD := &Profile{
+			ID: "prof_od",
+			Flags: ProfileFlags{
+				ProviderOptions: map[string]string{
+					"onedrive_no_versions": "true",
+					"onedrive_chunk_size":  "20M",
+				},
+			},
+		}
+		argsOD, err := BuildCLIArgs(pOD, globals, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		argsStrOD := strings.Join(argsOD, " ")
+		if !strings.Contains(argsStrOD, "--onedrive-no-versions") || !strings.Contains(argsStrOD, "--onedrive-chunk-size 20M") {
+			t.Errorf("missing onedrive flags in args: %v", argsOD)
+		}
+
+		pS3 := &Profile{
+			ID: "prof_s3",
+			Flags: ProfileFlags{
+				ProviderOptions: map[string]string{
+					"s3_chunk_size":    "32M",
+					"s3_storage_class": "STANDARD_IA",
+				},
+			},
+		}
+		argsS3, err := BuildCLIArgs(pS3, globals, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		argsStrS3 := strings.Join(argsS3, " ")
+		if !strings.Contains(argsStrS3, "--s3-chunk-size 32M") || !strings.Contains(argsStrS3, "--s3-storage-class STANDARD_IA") {
+			t.Errorf("missing s3 flags in args: %v", argsS3)
+		}
+	})
 }

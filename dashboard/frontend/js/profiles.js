@@ -168,7 +168,8 @@ window.ProfilesModule = {
                 remove_empty_dirs: null,
                 create_empty_dirs: null,
                 filters_file_path: null,
-                custom_flags: null
+                custom_flags: null,
+                provider_options: {}
             }
         };
     },
@@ -214,8 +215,11 @@ window.ProfilesModule = {
                 remove_empty_dirs: null,
                 create_empty_dirs: null,
                 filters_file_path: null,
-                custom_flags: null
+                custom_flags: null,
+                provider_options: {}
             };
+        } else if (!this.profileModal.editing.flags.provider_options) {
+            this.profileModal.editing.flags.provider_options = {};
         }
         const patterns = this.profileModal.editing.exclude_patterns || [];
         this.profileModal.excludePatternsInput = patterns.join(", ");
@@ -311,6 +315,70 @@ window.ProfilesModule = {
             }
         }
         return null;
-    }
+    },
+
+    getEditingRemoteType() {
+        if (!this.profileModal?.editing?.remote) return "generic";
+        const rName = this.profileModal.editing.remote.replace(/:$/, "").trim();
+        const found = (this.remotesData?.remotes || []).find(r => (r.name || "").replace(/:$/, "").trim() === rName);
+        if (found && found.type) {
+            return found.type.toLowerCase();
+        }
+        const lower = rName.toLowerCase();
+        if (lower.includes("drive") || lower.includes("gdrive")) return "drive";
+        if (lower.includes("onedrive")) return "onedrive";
+        if (lower.includes("s3")) return "s3";
+        if (lower.includes("dropbox")) return "dropbox";
+        return "generic";
+    },
+
+    isTier1Provider() {
+        const type = this.getEditingRemoteType();
+        return ["drive", "onedrive", "s3", "dropbox"].includes(type);
+    },
+
+    getProviderOption(key, defVal = "") {
+        if (!this.profileModal?.editing?.flags) return defVal;
+        if (!this.profileModal.editing.flags.provider_options) {
+            this.profileModal.editing.flags.provider_options = {};
+        }
+        const val = this.profileModal.editing.flags.provider_options[key];
+        return (val !== undefined && val !== null) ? val : defVal;
+    },
+
+    setProviderOption(key, val) {
+        if (!this.profileModal?.editing?.flags) return;
+        if (!this.profileModal.editing.flags.provider_options) {
+            this.profileModal.editing.flags.provider_options = {};
+        }
+        if (val === "" || val === null || val === undefined) {
+            delete this.profileModal.editing.flags.provider_options[key];
+        } else {
+            this.profileModal.editing.flags.provider_options[key] = String(val);
+        }
+    },
+
+    getActiveProfileRemoteType() {
+        if (!this.activeProfile?.remote) return "generic";
+        const rName = this.activeProfile.remote.replace(/:$/, "").trim();
+        const found = (this.remotesData?.remotes || []).find(r => (r.name || "").replace(/:$/, "").trim() === rName);
+        if (found && found.type) {
+            return found.type.toLowerCase();
+        }
+        const lower = rName.toLowerCase();
+        if (lower.includes("drive") || lower.includes("gdrive")) return "drive";
+        if (lower.includes("onedrive")) return "onedrive";
+        if (lower.includes("s3")) return "s3";
+        if (lower.includes("dropbox")) return "dropbox";
+        return "generic";
+    },
+
+    openActiveProfileSettings() {
+        if (this.activeProfile) {
+            this.startEditProfile(this.activeProfile);
+            this.openProfilesModal("edit");
+        }
+    },
+
 };
 

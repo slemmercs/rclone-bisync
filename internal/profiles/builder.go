@@ -23,6 +23,13 @@ func ResolveFlags(p *Profile, globals config.GlobalDefaults, overrides *Executio
 		CustomFlags:      p.Flags.CustomFlags,
 	}
 
+	if len(p.Flags.ProviderOptions) > 0 {
+		res.ProviderOptions = make(map[string]string, len(p.Flags.ProviderOptions))
+		for k, v := range p.Flags.ProviderOptions {
+			res.ProviderOptions[k] = v
+		}
+	}
+
 	// Fallback to canonical hardcoded defaults if globals are uninitialized
 	if res.ConflictResolve == "" {
 		res.ConflictResolve = "newer"
@@ -116,7 +123,12 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 		args = append(args, "--create-empty-src-dirs")
 	}
 
-	// Tier 3: Custom Flags Escape Hatch
+	// Provider Options (Tier 1 Provider Settings)
+	if providerArgs := buildProviderCLIArgs(effective.ProviderOptions); len(providerArgs) > 0 {
+		args = append(args, providerArgs...)
+	}
+
+	// Custom Flags Escape Hatch (Audited CLI arguments)
 	customTokens, err := ValidateCustomFlags(effective.CustomFlags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate custom flags for profile %q: %w", p.ID, err)
@@ -126,4 +138,55 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	}
 
 	return args, nil
+}
+
+// buildProviderCLIArgs translates typed ProviderOptions into command-line arguments.
+func buildProviderCLIArgs(providerOpts map[string]string) []string {
+	if len(providerOpts) == 0 {
+		return nil
+	}
+	var args []string
+
+	// Google Drive
+	if v, ok := providerOpts["drive_skip_shortcuts"]; ok && (v == "true" || v == "1") {
+		args = append(args, "--drive-skip-shortcuts")
+	}
+	if v, ok := providerOpts["drive_use_trash"]; ok && (v == "true" || v == "1") {
+		args = append(args, "--drive-use-trash")
+	}
+	if v, ok := providerOpts["drive_skip_gdocs"]; ok && (v == "true" || v == "1") {
+		args = append(args, "--drive-skip-gdocs")
+	}
+	if v, ok := providerOpts["drive_acknowledge_abuse"]; ok && (v == "true" || v == "1") {
+		args = append(args, "--drive-acknowledge-abuse")
+	}
+	if v, ok := providerOpts["drive_export_formats"]; ok && strings.TrimSpace(v) != "" {
+		args = append(args, "--drive-export-formats", strings.TrimSpace(v))
+	}
+	if v, ok := providerOpts["drive_import_formats"]; ok && strings.TrimSpace(v) != "" {
+		args = append(args, "--drive-import-formats", strings.TrimSpace(v))
+	}
+
+	// Microsoft OneDrive
+	if v, ok := providerOpts["onedrive_no_versions"]; ok && (v == "true" || v == "1") {
+		args = append(args, "--onedrive-no-versions")
+	}
+	if v, ok := providerOpts["onedrive_chunk_size"]; ok && strings.TrimSpace(v) != "" {
+		args = append(args, "--onedrive-chunk-size", strings.TrimSpace(v))
+	}
+
+	// Amazon S3
+	if v, ok := providerOpts["s3_chunk_size"]; ok && strings.TrimSpace(v) != "" {
+		args = append(args, "--s3-chunk-size", strings.TrimSpace(v))
+	}
+	if v, ok := providerOpts["s3_storage_class"]; ok && strings.TrimSpace(v) != "" {
+		args = append(args, "--s3-storage-class", strings.TrimSpace(v))
+	}
+
+	// Dropbox
+	if v, ok := providerOpts["dropbox_chunk_size"]; ok && strings.TrimSpace(v) != "" {
+		args = append(args, "--dropbox-chunk-size", strings.TrimSpace(v))
+	}
+
+	return args
 }

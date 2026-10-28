@@ -3,6 +3,7 @@ package compiler
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -100,6 +101,51 @@ func TestCompileAdvancedParameters(t *testing.T) {
 	}
 	if cfg["TPSLimit"] != 15.5 || cfg["TPSLimitBurst"] != 20 {
 		t.Fatalf("expected TPSLimit 15.5 and TPSLimitBurst 20, got: %v", cfg)
+	}
+}
+func TestCompileTier1ProviderOptions(t *testing.T) {
+	// Test OneDrive with subpath
+	oneDriveArgs := []string{
+		"--onedrive-no-versions",
+		"--onedrive-chunk-size", "10M",
+	}
+	payloadOD, err := CompileBisyncPayload(oneDriveArgs, "/tmp/local", "onedrive:Documents/Work", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error compiling OneDrive: %v", err)
+	}
+	pathOD, _ := payloadOD["path1"].(string)
+	if !strings.HasPrefix(pathOD, "onedrive,") || !strings.HasSuffix(pathOD, ":Documents/Work") {
+		t.Fatalf("expected backend options on onedrive path, got: %s", pathOD)
+	}
+	if !strings.Contains(pathOD, "no_versions=true") || !strings.Contains(pathOD, "chunk_size=10M") {
+		t.Fatalf("missing onedrive options in path1: %s", pathOD)
+	}
+
+	// Test S3
+	s3Args := []string{
+		"--s3-chunk-size", "16M",
+		"--s3-storage-class", "STANDARD_IA",
+	}
+	payloadS3, err := CompileBisyncPayload(s3Args, "/tmp/local", "mys3:backup", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error compiling S3: %v", err)
+	}
+	pathS3, _ := payloadS3["path1"].(string)
+	if !strings.Contains(pathS3, "storage_class=STANDARD_IA") || !strings.Contains(pathS3, "chunk_size=16M") {
+		t.Fatalf("missing s3 options in path1: %s", pathS3)
+	}
+
+	// Test Dropbox
+	dbArgs := []string{
+		"--dropbox-chunk-size", "48M",
+	}
+	payloadDB, err := CompileBisyncPayload(dbArgs, "/tmp/local", "dropbox:", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error compiling Dropbox: %v", err)
+	}
+	pathDB, _ := payloadDB["path1"].(string)
+	if pathDB != "dropbox,chunk_size=48M:" {
+		t.Fatalf("expected dropbox,chunk_size=48M:, got: %s", pathDB)
 	}
 }
 

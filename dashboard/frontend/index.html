@@ -78,6 +78,10 @@
                 </div>
                 <!-- Right: Global Daemon Health & Latency -->
                 <div class="flex items-center gap-2 shrink-0">
+                    <button @click="openGlobalSettingsModal('defaults')" class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-2.5 py-1.5 rounded-xl font-mono text-xs text-slate-300 hover:text-white transition-colors" title="Global Fleet Settings">
+                        <svg class="w-3.5 h-3.5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span class="hidden sm:inline">Settings</span>
+                    </button>
                     <div @click="openDaemonModal(null)" class="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-3 py-1.5 rounded-xl font-mono text-xs cursor-pointer transition-colors" title="Click to view live daemon stream and correlated logs">
                         <span class="relative flex h-2 w-2">
                             <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-rose-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>
@@ -150,6 +154,7 @@
     {{ template "modal_reconnect" . }}
     {{ template "modal_auth_audit" . }}
     {{ template "modal_profiles" . }}
+    {{ template "modal_global_settings" . }}
     {{ template "modal_confirm" . }}
     {{ template "toast" . }}
 
@@ -159,6 +164,8 @@
     <script src="/static/js/profiles.js?v=19"></script>
     <script src="/static/js/profiles_history.js?v=19"></script>
     <script src="/static/js/fleet.js?v=19"></script>
+    <script src="/static/js/settings.js?v=19"></script>
+
     <script src="/static/js/charts.js?v=19"></script>
     <script src="/static/js/remotes.js?v=19"></script>
     <script src="/static/js/explorer_actions.js?v=19"></script>

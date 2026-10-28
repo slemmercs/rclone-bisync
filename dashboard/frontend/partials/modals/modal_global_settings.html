@@ -1,0 +1,123 @@
+{{ define "modal_global_settings" }}
+<!-- Modal Backdrop: Global Fleet Settings -->
+<div x-show="globalSettingsModal && globalSettingsModal.show" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" @click.self="closeGlobalSettingsModal()" @keydown.escape.window="closeGlobalSettingsModal()">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 font-sans text-left" @click.stop>
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider">Global Fleet Settings</h3>
+                    <div class="text-[11px] text-slate-400">Daemon engine tuning, fallback flags, and alert integrations</div>
+                </div>
+            </div>
+            <button @click="closeGlobalSettingsModal()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors">
+                <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex items-center gap-2 border-b border-slate-800 pb-2 text-xs font-semibold">
+            <button @click="globalSettingsModal.tab = 'defaults'" :class="globalSettingsModal.tab === 'defaults' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors">Operational Defaults</button>
+            <button @click="globalSettingsModal.tab = 'engine'" :class="globalSettingsModal.tab === 'engine' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors">Engine &amp; Polling</button>
+            <button @click="globalSettingsModal.tab = 'notifications'" :class="globalSettingsModal.tab === 'notifications' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors">Alerts &amp; Webhooks</button>
+        </div>
+        <!-- Tab 1: Operational Defaults -->
+        <template x-if="globalSettingsModal.tab === 'defaults'">
+            <div class="space-y-4">
+                <div class="text-[11px] text-slate-400">Baseline operational parameters inherited by profiles unless overridden.</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Max Delete Threshold (%)</label>
+                        <input type="number" x-model.number="globalSettingsModal.config.global_defaults.max_delete" min="1" max="100" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Conflict Resolution Strategy</label>
+                        <select x-model="globalSettingsModal.config.global_defaults.conflict_resolve" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                            <option value="newer">newer (Keep newest file)</option>
+                            <option value="older">older (Keep oldest file)</option>
+                            <option value="larger">larger (Keep largest file)</option>
+                            <option value="smaller">smaller (Keep smallest file)</option>
+                            <option value="path1">path1 (Prefer Remote)</option>
+                            <option value="path2">path2 (Prefer Local)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Comparison Mode</label>
+                        <select x-model="globalSettingsModal.config.global_defaults.compare_mode" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                            <option value="modtime">modtime (Fastest)</option>
+                            <option value="size,modtime">size,modtime (Standard)</option>
+                            <option value="checksum">checksum (Thorough)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Canary Guard Probing</label>
+                        <select :value="globalSettingsModal.config.global_defaults.canary_validation ? 'true' : 'false'" @change="globalSettingsModal.config.global_defaults.canary_validation = ($event.target.value === 'true')" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                            <option value="true">Enabled (Strict RCLONE_TEST Guard)</option>
+                            <option value="false">Disabled (Bypass Probing)</option>
+        <!-- Tab 2: Engine & Polling Tuning -->
+        <template x-if="globalSettingsModal.tab === 'engine'">
+            <div class="space-y-4">
+                <div class="text-[11px] text-slate-400">Core daemon timeout and execution scheduler parameters.</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Job Execution Timeout (seconds)</label>
+                        <input type="number" x-model.number="globalSettingsModal.config.daemon.job_timeout_seconds" min="60" max="86400" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Stale Lock Timeout (seconds)</label>
+                        <input type="number" x-model.number="globalSettingsModal.config.daemon.lock_stale_timeout_seconds" min="300" max="86400" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Polling Initial Sleep (seconds)</label>
+                        <input type="number" x-model.number="globalSettingsModal.config.daemon.job_poll_initial_sleep_sec" min="1" max="60" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Rate Limit Backoff (hours)</label>
+                        <input type="number" x-model.number="globalSettingsModal.config.daemon.rate_limit_backoff_hours" min="0.5" max="24" step="0.5" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Tab 3: Alerts & Webhooks -->
+        <template x-if="globalSettingsModal.tab === 'notifications'">
+            <div class="space-y-4">
+                <div class="text-[11px] text-slate-400">External monitoring and incident notification endpoints.</div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Webhook Notification URL</label>
+                        <input type="url" x-model="globalSettingsModal.config.notifications.webhook_url" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Heartbeat / Watchdog Ping URL</label>
+                        <input type="url" x-model="globalSettingsModal.config.notifications.watchdog_ping_url" placeholder="https://hc-ping.com/..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Error Feedback -->
+        <template x-if="globalSettingsModal.error">
+            <div class="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300" x-text="globalSettingsModal.error"></div>
+        </template>
+
+        <!-- Action Footer -->
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <button @click="closeGlobalSettingsModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium transition-colors">Cancel</button>
+            <button @click="saveGlobalSettings()" :disabled="isGlobalSettingsSaving()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-lg shadow-indigo-950/40 transition-colors">
+                <span x-text="globalSettingsModal.saving ? 'Saving...' : 'Apply Fleet Settings'"></span>
+            </button>
+        </div>
+
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+    </div>
+</div>
+{{ end }}

@@ -1,64 +1,51 @@
-# Task Plan: Phase 4 - Hybrid Fleet Overview & Operational Flags UI
+# Task Plan: Phase 5 - Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings
 
 ## Goal
-Implement the workload-centric dashboard hierarchy specified in `docs/design/hybrid_fleet_overview_contextual_profile_workspace.md` (Level 1 Fleet View, interactive profile tile grid, summary metrics banner) and the visual 3-tier operational flags editor with inheritance badges from `docs/design/bisync_operational_flags.md`.
+Implement a tiered cloud provider settings architecture with first-class UI controls for Tier-1 providers (Google Drive, OneDrive, S3, Dropbox) and an audited custom flags field for Tier-2 generic providers, decouple daemon engine defaults from workload sync payloads, surface a Profile Execution Contract in Telemetry, and introduce a Global Fleet Settings manager.
 
 ## Tasks
 
-- [x] Task 1: Level 1 Fleet View Component (`view_fleet.html`) & Template Registration
-  - **Scope**: `dashboard/frontend/partials/view_fleet.html`, `internal/server/server.go`, `internal/server/server_test.go`
+- [x] Task 1: Engine Flag Decoupling & Compiler Tier-1 Provider Flag Registration
+  - **Scope**: `internal/config/config.go`, `bisync.env`, `internal/config/config_test.go`, `internal/core/compiler/compiler.go`, `internal/core/compiler/compiler_test.go`
+  - **Verification**: `go test -count=1 ./internal/config/... ./internal/core/compiler/...`
+
+- [x] Task 2: Provider Options Model & Flag Builder Implementation
+  - **Scope**: `internal/profiles/model.go`, `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
+  - **Verification**: `go test -count=1 ./internal/profiles/...`
+
+- [x] Task 3: Global Fleet Settings Backend Endpoints (`GET/PUT /api/config`)
+  - **Scope**: `internal/server/handlers_config.go`, `internal/server/server.go`, `internal/server/server_test.go`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [x] Task 2: Fleet Summary Counters, Filtering & Tile Action Handlers
-  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/app.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 3: Level 2 Header Context Switcher & Breadcrumb Navigation
-  - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/profiles.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 4: Visual 3-Tier Operational Flags Editor & Inheritance Badges
+- [x] Task 4: Unified Provider Options UI in Profile Modal (`modal_profiles.html`)
   - **Scope**: `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/js/profiles.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 5: End-to-End Quality Gate & Pre-Flight Verification
+- [x] Task 5: Profile Execution Contract in Telemetry View (`view_telemetry.html`)
+  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [x] Task 6: Global Fleet Settings Modal Component (`modal_global_settings.html`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [x] Task 7: Full Quality Verification & Headless Chrome Testing
   - **Scope**: Full repository
-  - **Verification**: `./scripts/check.sh all`
-
-
-### UI/UX Refinement Tasks
-
-- [x] Task 6: Fix Fleet Tile Interactive Click Surface & Card Markup
-  - **Scope**: `dashboard/frontend/partials/view_fleet.html`, `dashboard/frontend/js/fleet.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 7: Redesign Header to 2-Tier Layout with Integrated Breadcrumb Switcher
-  - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 8: Smart Default View & localStorage Tab Persistence
-  - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/fleet.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 9: Contextual Scoping for Storage Remotes & Audit Ledger
-  - **Scope**: `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/js/remotes.js`, `dashboard/frontend/js/audit.js`, `dashboard/frontend/partials/view_audit.html`
-  - **Verification**: `go test -count=1 ./tests/e2e/...`
-
-- [x] Task 10: Full Quality Verification & Headless Chrome Testing
-  - **Scope**: Full repository
-  - **Verification**: `./scripts/check.sh all`
+  - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`
 
 ## Status Updates
 
-- 2026-10-28: Implemented 2-Tier Context Hierarchy & UI/UX Refinement:
-  1. Restructured header to 2-Tier layout: Tier 1 Brand, Version, integrated breadcrumb profile context switcher dropdown, and Daemon status; Tier 2 dedicated subnav tabs (Fleet, Engine & Telemetry, Storage Remotes, File Explorer, Audit Ledger) with right-aligned active workload scope pill.
-  2. Fixed fleet card markup and closed tags in view_fleet.html so entire profile cards are interactive surfaces that switch context and navigate to Telemetry.
-  3. Added localStorage tab persistence and smart default landing on Fleet view.
-  4. Contextualized Storage Remotes (auto-filtering to active profile's configured cloud remote with a 1-click 'Show All Remotes' toggle) and Audit Ledger (pre-filtering by active profile ID with 1-click clear).
-  5. Verified all 6 quality checks (./scripts/check.sh all) and headless Chrome E2E smoke tests passing with zero errors.
-- 2026-10-28: Completed Phase 4 (Hybrid Fleet Overview & Operational Flags UI). Implemented Level 1 Fleet View (view_fleet.html) with real-time health summary counters, responsive tile grid, search/filter/sort, Level 2 header context switcher dropdown, breadcrumb navigation, and visual 3-tier operational flags editor with live inheritance badges and blocklist validation. Verified all 5 cockpit tabs (fleet, telemetry, remotes, explorer, audit) in headless Chrome smoke tests with zero console errors. Full pre-flight quality check passed clean (6/6 stages, 100%).
-- 2026-10-28: Initialized Phase 4 Task Plan from implementation_plan.md and hybrid_fleet_overview_contextual_profile_workspace.md.
-- 2026-10-27: Completed Phase 3 (Operational Flags & Profile Schema Alignment) with PR #42 merged and released in v1.0.0-beta.9.
+- 2026-10-28: Completed Phase 5 (Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings):
+  1. Decoupled engine defaults in internal/config/config.go and bisync.env by removing Google Drive flags, ensuring global defaults are strictly provider-agnostic.
+  2. Registered Tier 1 provider flags in compiler.CLIToRCMap (OneDrive, S3, Dropbox, Google Drive) with full connection-string path parameter translation.
+  3. Extended ProfileFlags and ResolvedFlags with ProviderOptions map[string]string and implemented typed CLI argument builder with test coverage.
+  4. Introduced GET/PUT /api/config handlers with runtime validation and secrets redaction.
+  5. Implemented unified Target Provider Configuration panel (modal_provider_options.html) in profile modal with Tier 1 first-class controls (GDrive, OneDrive, S3, Dropbox) and audited custom flags for both Tier 1 and Tier 2 generic providers.
+  6. Replaced raw .env dump in view_telemetry.html with a concise Profile Execution Contract card displaying topology, schedule, provider badge, and effective flags pill cloud.
+  7. Created Global Fleet Settings modal (modal_global_settings.html, settings.js) accessible via Tier 1 header and Fleet banner.
+  8. Verified all 6 stages of ./scripts/check.sh all and headless Chrome E2E smoke tests passing with zero errors.
+- 2026-10-28: Initialized Phase 5 Task Plan from approved architectural design.
+
 
 
 

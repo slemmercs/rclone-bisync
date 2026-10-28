@@ -373,6 +373,7 @@ document.addEventListener("alpine:init", () => {
         window.ExplorerActionsModule,
         window.ReviewModule,
         window.LogsModule,
-        window.AuditModule
+        window.AuditModule,
+        window.SettingsModule
     ));
 });

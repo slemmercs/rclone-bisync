@@ -199,27 +199,41 @@ Refine the Phase 4 UI/UX based on industry best practices for multi-tenant and m
 
 ---
 
-## Verification Plan
+## 6. Phase 5: Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings
 
-### Phase 1 Polish: Confirmation Modals & Dynamic Target Binding
-- `dashboard/frontend/partials/modals/modal_confirm.html`:
-  - Introduce themed, dark-mode confirmation modal to replace native browser `confirm(...)` dialogs.
-- `dashboard/frontend/app.js`:
-  - Add `confirmModal` reactive state and `askConfirmation({ title, message, confirmText, confirmClass, icon, onConfirm })` helper.
-- `dashboard/frontend/js/logs.js` & `explorer_actions.js`:
-  - Refactor `confirmResync()` and `syncCurrentDirectory()` to trigger `askConfirmation(...)`.
-- `dashboard/frontend/js/remotes.js`:
-  - Introduce `isRemoteActiveTarget(remote)` helper dynamically checking against `activeProfile.remote`.
-- `dashboard/frontend/partials/view_remotes.html`:
-  - Bind `ACTIVE TARGET` badge to `isRemoteActiveTarget(remote)`.
-- `dashboard/frontend/partials/view_telemetry.html`:
-  - Dynamically display `activeProfile.local_path` and `activeProfile.remote` in `Active Profile Topology` banner.
+### Proposed Changes
+1. **Engine Decoupling**:
+   - Remove Google Drive-specific flags (`--drive-export-formats`, `--drive-skip-gdocs`, `--drive-use-trash`, `--drive-acknowledge-abuse`, `--drive-skip-shortcuts`) from universal `defaultArgs` in `internal/config/config.go` and `bisync.env`.
+   - Ensure global defaults are strictly provider-agnostic.
+2. **Provider Options Modeling & Compiler Translation**:
+   - Extend `ProfileFlags` with `ProviderOptions map[string]string` in `internal/profiles/model.go`.
+   - Update `internal/profiles/builder.go` to emit provider options as CLI flags.
+   - Register Tier 1 provider flags in `internal/core/compiler/compiler.go` (`--onedrive-no-versions`, `--s3-chunk-size`, `--s3-storage-class`, `--dropbox-chunk-size`, etc.) so `CompileBisyncPayload` attaches them directly to remote `path1` connection strings.
+3. **Unified Provider Options UI**:
+   - Consolidate provider configuration and the audited custom flags field into a single **Target Provider Configuration** panel in `modal_profiles.html`.
+   - Tier 1 Providers (Google Drive, OneDrive, S3, Dropbox) get first-class typed UI controls + custom flags field for advanced arguments.
+   - Tier 2 Generic Providers (WebDAV, SFTP, Box, B2, etc.) get clear guidance with the audited custom flags field as their primary interface.
+4. **Profile Execution Contract in Telemetry**:
+   - Replace raw host environment dump in `view_telemetry.html` with a concise **Profile Execution Contract** card displaying Source & Target paths, Remote Provider badge, schedule status, effective resolved flags pill cloud, and a 1-click **Configure Profile** shortcut.
+5. **Global Fleet Settings Modal**:
+   - Introduce `modal_global_settings.html` and endpoints (`GET /api/config`, `PUT /api/config`) to manage fleet-wide operational defaults, daemon polling/timeout parameters, and alert notifications.
 
-### Phase 1 Verification
-- `go test -count=1 ./internal/profiles/...`: Verify scheduler running status checks.
-- `go test -count=1 ./internal/server/...`: Verify `/api/telemetry` reports `execution_status` and exclude patterns forward to runner.
-- `./scripts/check.sh templates`: Verify Alpine.js template safety.
-- `./scripts/check.sh loc`: Verify LOC constraints (<= 400 lines).
-- `./scripts/check.sh all`: Full 8-stage pre-flight quality check.
+### Affected Components & Packages
+- `internal/config/config.go` & `bisync.env`: Strip provider-specific flags from universal daemon default arguments.
+- `internal/core/compiler/compiler.go`: Map Tier 1 provider flags to `path1` backend options.
+- `internal/profiles/model.go`: Add `ProviderOptions map[string]string` to `ProfileFlags` and `ResolvedFlags`.
+- `internal/profiles/builder.go`: Translate `ProviderOptions` into CLI arguments in `BuildCLIArgs`.
+- `internal/server/handlers_config.go` & `server.go`: Expose `GET /api/config` and `PUT /api/config` for global fleet settings.
+- `dashboard/frontend/partials/modals/modal_profiles.html` & `profiles.js`: Unified Provider Options section with dynamic Tier 1 UI fields + audited custom flags.
+- `dashboard/frontend/partials/view_telemetry.html`: Profile Execution Contract replacing raw `.env` dump.
+- `dashboard/frontend/partials/modals/modal_global_settings.html`: Fleet settings manager.
+
+### Verification Plan
+- Unit tests: `go test -count=1 ./internal/config/... ./internal/profiles/... ./internal/core/compiler/... ./internal/server/...`
+- Template verification: `./scripts/check.sh templates`
+- LOC budget verification: `./scripts/check.sh loc 400`
+- E2E smoke tests: `go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`
+- Full pre-flight quality gate: `./scripts/check.sh all`
+
 
 

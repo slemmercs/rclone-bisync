@@ -244,8 +244,6 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	rcAPIURL := fmt.Sprintf("http://%s:%d", rcHost, rcPort)
 
 	defaultArgs := "--use-json-log --color NEVER " +
-		"--drive-export-formats docx,xlsx,pptx --drive-import-formats docx,xlsx,pptx " +
-		"--drive-skip-gdocs --drive-use-trash --drive-acknowledge-abuse --drive-skip-shortcuts " +
 		"--check-access --check-first --track-renames --remove-empty-dirs --resilient --recover " +
 		"--retries 4 --retries-sleep 15s --low-level-retries 10 --tpslimit 10 --tpslimit-burst 10 " +
 		"--fast-list --buffer-size 32M --conflict-resolve newer --conflict-loser num"
