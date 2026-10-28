@@ -88,15 +88,37 @@ Resolve Alpine.js reactive null pointer exceptions on profile modal close, unify
 - No live RC or cloud network calls during container initialization in test environments.
 ---
 
-## 3. Phase 3: Operational Flags & Profile Schema Alignment
+## 3. Phase 3: Operational Flags & Profile Schema Alignment (Active Scope)
 
 ### Proposed Changes
-Implement 3-tier operational flags architecture (`docs/design/bisync_operational_flags.md`), flag inheritance (`Profile Override > Global Default > Hardcoded Fallback`), and security blocklist validation.
+Implement the 3-tier operational flags architecture (`docs/design/bisync_operational_flags.md`), flag inheritance (`Execution Override > Profile Override > Global Default > Hardcoded Fallback`), POSIX shell argument sanitizer with prohibited flag security blocklist, and profile CLI argument builder.
 
 ### Affected Components & Packages
-- `internal/config/dto.go`: Operational flags schema and DTO definitions.
-- `internal/config/inheritance.go`: Flag inheritance resolver engine.
-- `internal/config/validator.go`: Prohibited flag blocklist and POSIX shlex sanitizer.
+- `internal/config/dto.go`: Operational flags schema, `GlobalDefaults` DTO with canonical defaults.
+- `internal/profiles/model.go`: Integration of `ProfileFlags`, `ResolvedFlags`, and `ExecutionOverrides` in `Profile`.
+- `internal/profiles/validator.go`: Prohibited flag blocklist, POSIX shell quote tokenizer (`shlex` equivalent), argument safety validation.
+- `internal/profiles/builder.go`: Flag inheritance engine and CLI argument generator (`BuildCLIArgs`).
+- `internal/app/container.go`: Integration of `BuildCLIArgs` and global defaults resolution into profile runner instantiation.
+- `internal/server/handlers_profiles.go` & `handlers_config.go`: Expose resolved flags and global operational defaults to API clients.
+
+### Technical Strategy & Data Flow
+1. **Tier Architecture & Governance**:
+   - Tier 1 (Execution Controls): DryRun, Resync, Force, ConflictResolve, MaxDelete.
+   - Tier 2 (Profile Settings): CanaryValidation, CompareMode, Directory Cleanup (RemoveEmptyDirs, CreateEmptyDirs), ExcludePatterns, FiltersFilePath.
+   - Tier 3 (Custom Flags Escape Hatch): Prohibited flag blocklist validation, POSIX shell tokenization, strict argument slice production.
+2. **Inheritance & Priority**:
+   `Execution Overrides > Profile Overrides (*T pointers) > Global Defaults > Hardcoded Defaults`.
+3. **Safety & Security Blocklist**:
+   - Custom flags parsed as discrete tokens without shell invocation.
+   - Blocklist strictly protects internal state: `--config`, `--use-mmap`, `--rc`, `--rc-addr`, `--rc-user`, `--rc-pass`, `--log-file`, `--json`.
+4. **Backward Compatibility**:
+   - Unset profile flags (`nil`) automatically inherit global defaults without data migration breakage.
+
+### Verification Plan
+- Unit tests in `internal/config/` for GlobalDefaults serialization and defaults.
+- Unit tests in `internal/profiles/` for validator (shlex parsing, blocklist enforcement, injection prevention).
+- Unit tests in `internal/profiles/` for inheritance resolution and `BuildCLIArgs`.
+- Full quality gate pre-flight check via `./scripts/check.sh all`.
 
 ---
 
