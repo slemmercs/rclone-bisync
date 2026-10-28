@@ -86,6 +86,8 @@ document.addEventListener("alpine:init", () => {
         daemonModalSearch: "",
         daemonModalLevelFilter: "all",
         daemonModalCopied: false,
+        daemonModalError: null,
+
 
         // Dual-Pane File Explorer State
         explorer: {

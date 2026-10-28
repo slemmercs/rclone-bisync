@@ -33,6 +33,11 @@ Implement a tiered cloud provider settings architecture with first-class UI cont
   - **Scope**: Full repository
   - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`
 
+- [x] Task 8: Multi-Megabyte Daemon Log Parsing & Correlated Log Modal Error Surfacing
+  - **Scope**: `internal/services/log_service.go`, `internal/services/log_service_test.go`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/modals/modal_daemon.html`
+  - **Verification**: `go test -v -count=1 ./internal/services -run TestLogService && ./scripts/check.sh all`
+
+
 ## Status Updates
 
 - 2026-10-28: Completed Phase 5 (Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings):

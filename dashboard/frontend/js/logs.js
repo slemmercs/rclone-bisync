@@ -86,6 +86,7 @@ window.LogsModule = {
         this.daemonModalSearch = "";
         this.daemonModalLevelFilter = "all";
         this.daemonModalCopied = false;
+        this.daemonModalError = null;
 
         let url = "/api/logs/daemon?limit=500";
         if (entry) {
@@ -97,6 +98,9 @@ window.LogsModule = {
 
         try {
             const data = await window.API.get(url);
+            if (data && data.error) {
+                this.daemonModalError = data.error;
+            }
             if (data && Array.isArray(data.logs)) {
                 this.daemonModalLogs = unwrapAndParseLogLines(data.logs);
             } else {
@@ -104,6 +108,7 @@ window.LogsModule = {
             }
         } catch (err) {
             console.error("Failed to fetch daemon logs:", err);
+            this.daemonModalError = err.message || "Failed to fetch daemon logs";
             this.daemonModalLogs = [];
         } finally {
             this.daemonModalLoading = false;
@@ -114,6 +119,7 @@ window.LogsModule = {
         this.showDaemonModal = false;
         this.daemonModalRun = null;
         this.daemonModalLogs = [];
+        this.daemonModalError = null;
     },
 
     copyDaemonLogs() {

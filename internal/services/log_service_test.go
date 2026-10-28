@@ -194,16 +194,19 @@ func TestLogService_HardenedEdgeCases(t *testing.T) {
 		t.Fatal("expected error when file is unreadable")
 	}
 
-	// 2. Scanner buffer overflow error (> 512KB line)
+	// 2. Multi-megabyte line handling (e.g. 2MB line succeeds without scanner overflow)
 	hugeFile := filepath.Join(tmpDir, "huge.log")
-	hugeLine := strings.Repeat("A", 600*1024) + "\n"
+	hugeLine := strings.Repeat("A", 2*1024*1024) + "\n"
 	if err := os.WriteFile(hugeFile, []byte(hugeLine), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = svc.FilterDaemonLogs(hugeFile, time.Time{}, time.Time{}, 10)
-	if err == nil {
-		t.Fatal("expected scanner error for line exceeding 512KB buffer")
+	lines, err := svc.FilterDaemonLogs(hugeFile, time.Time{}, time.Time{}, 10)
+	if err != nil {
+		t.Fatalf("unexpected error parsing 2MB line: %v", err)
+	}
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 line parsed from 2MB line, got %d", len(lines))
 	}
 
 	// 3. Nested log without inner time, falling back to outer wrapper line time
@@ -350,5 +353,40 @@ func TestParseLogTime_AdditionalFormats(t *testing.T) {
 	_, ok = parseLogTime(emptyTimeJSON)
 	if ok {
 		t.Fatal("expected false for empty time in JSON")
+	}
+}
+
+func TestLogService_MultiMegabyteWrappedJSON(t *testing.T) {
+	svc := NewLogService()
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "huge-nested.log")
+
+	baseTime := time.Date(2026, 10, 28, 13, 48, 20, 0, time.UTC)
+	var sb strings.Builder
+	for i := 0; i < 15000; i++ {
+		sb.WriteString(fmt.Sprintf(`{"time":"%s","level":"info","msg":"nested item %d"}`+"\n",
+			baseTime.Add(time.Duration(i)*time.Millisecond).Format(time.RFC3339Nano), i))
+	}
+	rawMsg := sb.String()
+	wrapper, err := json.Marshal(map[string]interface{}{
+		"time":  baseTime.Add(30 * time.Second).Format(time.RFC3339Nano),
+		"level": "notice",
+		"msg":   rawMsg,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(logPath, append(wrapper, '\n'), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Filter with window
+	lines, err := svc.FilterDaemonLogs(logPath, baseTime, baseTime.Add(2*time.Second), 50)
+	if err != nil {
+		t.Fatalf("unexpected error parsing multi-megabyte wrapped JSON: %v", err)
+	}
+	if len(lines) == 0 {
+		t.Fatalf("expected matching nested lines, got 0")
 	}
 }
