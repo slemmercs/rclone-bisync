@@ -58,14 +58,10 @@ func (s *Server) handleReviewAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var lastSession *models.ReviewSession
-	var err error
-	for _, cid := range candidateIDs {
-		lastSession, err = s.ReviewService.StageCandidateDecision(sessionID, cid, req.Decision)
-		if err != nil {
-			writeJSON(w, http.StatusOK, models.StageDecisionResponse{Status: "error", Error: err.Error()})
-			return
-		}
+	lastSession, err := s.ReviewService.StageCandidateDecisions(sessionID, candidateIDs, req.Decision)
+	if err != nil {
+		writeJSON(w, http.StatusOK, models.StageDecisionResponse{Status: "error", Error: err.Error()})
+		return
 	}
 
 	writeJSON(w, http.StatusOK, models.StageDecisionResponse{Status: "success", Session: lastSession})

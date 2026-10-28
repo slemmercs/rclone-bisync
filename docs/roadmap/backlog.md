@@ -109,18 +109,17 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
   - Flag inheritance engine (`ResolveFlags`) implementing `Execution Override > Profile Override > Global Default > Hardcoded Fallback`.
   - Dynamic CLI argument builder (`BuildCLIArgs`) wired into profile execution runner.
 
+* **[COMPLETED] Multi-Profile Engine Phase 4 & 5: Hybrid Fleet Overview, Provider Presets & Global Fleet Settings [COMPLETED - PR #41, PR #43 (`v1.0.0-beta.10`)]**
+  - **Level 1 Fleet View (`view_fleet.html`)**: Fleet Health Summary banner with interactive filter pills, profile tile grid with topology, execution metrics, and quick-action buttons (`Sync Now`, `Review Diff`, `Settings`).
+  - **Level 2 Scoped Workspace & Context Switcher**: Global header profile dropdown with status indicators and breadcrumbs to navigate between fleet view and scoped telemetry/explorer/audit panels.
+  - **Visual Operational Flags & Provider Presets**: 3-tier flags configuration with inheritance badges (`Inherited from Global` vs `Profile Override`), provider-specific presets (`gdrive`, `onedrive`, `dropbox`, `s3`), and editable Global Fleet Defaults (`modal_global_settings.html`, `/api/config`).
+  - **Deterministic Profile Sorting & Compare Mode Guidance**: Enforced `CreatedAt`/`Name` ordering and inline `--resync` guidance when switching `CompareMode`.
+
 ---
 
 ### Active Near-Term Backlog (Sequenced Priorities)
 
-#### 1. Multi-Profile Workspace UI & Hybrid Fleet Overview (Phase 4) [IN PROGRESS]
-Delivers the workload-centric dashboard hierarchy specified in `docs/design/hybrid_fleet_overview_contextual_profile_workspace.md`:
-* **Level 1 Fleet View (`view_fleet.html`)**: Fleet Health Summary banner with interactive filter pills, profile tile grid with topology, execution metrics, and quick-action buttons (`Sync Now`, `Review Diff`, `Settings`).
-* **Level 2 Scoped Workspace & Context Switcher**: Global header profile dropdown with status indicators and breadcrumbs to navigate between fleet view and scoped telemetry/explorer/audit panels.
-* **Visual Operational Flags Editor**: 3-tier flags configuration with inheritance badges (`Inherited from Global` vs `Profile Override`) inside `modal_profiles.html`.
-* Refer to [hybrid_fleet_overview_contextual_profile_workspace.md](../design/hybrid_fleet_overview_contextual_profile_workspace.md) and [bisync_operational_flags.md](../design/bisync_operational_flags.md).
-
-#### 2. Configuration & Setup Manager (Rollback & Snapshot Engine) [ESTIMATE: 5-7h | 4 SP]
+#### 1. Configuration & Setup Manager (Rollback & Snapshot Engine) [ESTIMATE: 5-7h | 4 SP]
 Provides server-side configuration safety for global environments:
 * **3-Layer Safety Pipeline**: Automated snapshot backups, SHA-256 integrity checks, and JSON/env schema validation before applying global configuration changes.
 * **One-Click Rollback API**: Restore historical configuration snapshots on failed verification or operator rollback request.

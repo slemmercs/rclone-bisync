@@ -230,6 +230,27 @@ func ReconcileSessionWithWAL(session *models.ReviewSession, walEntries []models.
 		}
 	}
 
+	knownActionIDs := make(map[string]bool, len(session.Actions))
+	knownPaths := make(map[string]bool, len(session.Actions))
+	for _, a := range session.Actions {
+		knownActionIDs[a.ID] = true
+		if a.ItemPath != "" {
+			knownPaths[a.ItemPath] = true
+		}
+	}
+	for _, entry := range walEntries {
+		if entry.Step == "MUTATION_COMPLETED" && entry.ItemPath != "" && !knownActionIDs[entry.ActionID] && !knownPaths[entry.ItemPath] {
+			knownActionIDs[entry.ActionID] = true
+			knownPaths[entry.ItemPath] = true
+			session.Actions = append(session.Actions, models.ResolutionAction{
+				ID:       entry.ActionID,
+				Type:     entry.Type,
+				ItemPath: entry.ItemPath,
+				Status:   "completed",
+			})
+		}
+	}
+
 	if session.Status == models.ReviewStatusApplying {
 		if hasFailed {
 			session.Status = models.ReviewStatusFailed

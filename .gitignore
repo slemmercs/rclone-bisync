@@ -50,6 +50,11 @@ betterleaks-report.*
 *.tmp
 *.tmp.*
 telemetry.json
+metrics.jsonl
+notification_state.json
+pending_deletions.json
+active_review_session.json
+global_settings.json
 audit_ledger.json
 ledger.json
 profiles.json

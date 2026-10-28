@@ -510,3 +510,65 @@ func TestExecutor_SkipCandidates(t *testing.T) {
 		t.Fatal("expected no client mutations for skipped items")
 	}
 }
+
+func TestExecutor_TrailingSpaceDirectoryAndResumeCompleted(t *testing.T) {
+	tmpDir := t.TempDir()
+	localRoot := filepath.Join(tmpDir, "local")
+	backupDir := filepath.Join(tmpDir, "backups")
+	walPath := filepath.Join(tmpDir, "review.wal")
+
+	trailingSpaceDir := filepath.Join(localRoot, "MOHU Szemétszállítás ")
+	_ = os.MkdirAll(trailingSpaceDir, 0755)
+	relPath := "MOHU Szemétszállítás /MOHU_2024-02-13_305375343.pdf"
+	_ = os.WriteFile(filepath.Join(localRoot, relPath), []byte("pdf data"), 0644)
+
+	var copiedItems []string
+	var capturedSrcFs string
+	mockClient := &mockRemoteClient{
+		copyFileFunc: func(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
+			capturedSrcFs = srcFs
+			copiedItems = append(copiedItems, srcRemote)
+			return true, nil
+		},
+	}
+
+	exec := NewResolutionExecutor(localRoot, "gdrive", backupDir, walPath, mockClient)
+	sess := NewSession("TOO_MANY_DELETES", "Review", []models.DeletionCandidate{
+		{
+			ID:       "del-already-done",
+			Path:     "already_done.pdf",
+			Source:   models.SideRemote,
+			Decision: models.DecisionRestoreItem,
+			Resolved: true,
+		},
+		{
+			ID:       "del-trailing-space",
+			Path:     relPath,
+			Source:   models.SideRemote,
+			Decision: models.DecisionRestoreItem,
+			Resolved: true,
+		},
+	}, nil)
+	sess.Actions = []models.ResolutionAction{
+		{
+			ID:       "act-del-1",
+			Type:     models.DecisionRestoreItem,
+			ItemPath: "already_done.pdf",
+			Status:   "completed",
+		},
+	}
+
+	if err := exec.ExecuteSession(context.Background(), sess); err != nil {
+		t.Fatalf("ExecuteSession failed: %v", err)
+	}
+
+	if len(copiedItems) != 1 || copiedItems[0] != relPath {
+		t.Fatalf("expected only %q to be copied on resume, got %v", relPath, copiedItems)
+	}
+	if capturedSrcFs != filepath.Clean(localRoot) {
+		t.Fatalf("expected srcFs to be localRoot %q, got %q", filepath.Clean(localRoot), capturedSrcFs)
+	}
+	if len(sess.Actions) != 2 {
+		t.Fatalf("expected 2 total completed actions, got %d", len(sess.Actions))
+	}
+}

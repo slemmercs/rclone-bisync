@@ -304,6 +304,7 @@ func (s *Scheduler) executeProfileSync(
 	}
 
 	_ = s.store.UpdateState(profileID, state)
+	w.isSyncing.Store(false)
 
 	if errCh != nil {
 		errCh <- execErr

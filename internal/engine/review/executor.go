@@ -53,11 +53,21 @@ func (e *ResolutionExecutor) ExecuteSession(ctx context.Context, session *models
 		return err
 	}
 
+	completedActions := make(map[string]models.ResolutionAction)
+	for _, a := range session.Actions {
+		if a.Status == "completed" {
+			completedActions[a.ItemPath] = a
+		}
+	}
 	session.Actions = make([]models.ResolutionAction, 0)
 
 	// Execute staged deletions
 	for _, cand := range session.Deletions {
 		if !cand.Resolved || cand.Decision == "" || cand.Decision == models.DecisionSkip {
+			continue
+		}
+		if prev, ok := completedActions[cand.Path]; ok && prev.Type == cand.Decision {
+			session.Actions = append(session.Actions, prev)
 			continue
 		}
 		if err := e.executeDeletion(ctx, session, cand); err != nil {
@@ -69,6 +79,10 @@ func (e *ResolutionExecutor) ExecuteSession(ctx context.Context, session *models
 	// Execute staged conflicts
 	for _, cand := range session.Conflicts {
 		if !cand.Resolved || cand.Decision == "" || cand.Decision == models.DecisionSkip {
+			continue
+		}
+		if prev, ok := completedActions[cand.Path]; ok && prev.Type == cand.Decision {
+			session.Actions = append(session.Actions, prev)
 			continue
 		}
 		if err := e.executeConflict(ctx, session, cand); err != nil {
@@ -155,9 +169,7 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 		if cand.Source == models.SideRemote {
 			if e.Client != nil {
 				e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-				localDir := filepath.Dir(fullLocal)
-				baseName := filepath.Base(fullLocal)
-				if ok, err := e.Client.CopyFile(ctx, localDir, baseName, e.RemoteFs(), cand.Path); err != nil || !ok {
+				if ok, err := e.Client.CopyFile(ctx, e.LocalRoot, cand.Path, e.RemoteFs(), cand.Path); err != nil || !ok {
 					errMsg := fmt.Sprintf("restore copy to remote failed: %v", err)
 					e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
 					return errors.New(errMsg)
@@ -167,9 +179,7 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 		} else {
 			if e.Client != nil {
 				e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-				localDir := filepath.Dir(fullLocal)
-				baseName := filepath.Base(fullLocal)
-				if ok, err := e.Client.CopyFile(ctx, e.RemoteFs(), cand.Path, localDir, baseName); err != nil || !ok {
+				if ok, err := e.Client.CopyFile(ctx, e.RemoteFs(), cand.Path, e.LocalRoot, cand.Path); err != nil || !ok {
 					errMsg := fmt.Sprintf("restore copy from remote failed: %v", err)
 					e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
 					return errors.New(errMsg)
@@ -201,7 +211,6 @@ func (e *ResolutionExecutor) executeConflict(ctx context.Context, session *model
 		return err
 	}
 
-	localDir := filepath.Dir(fullLocal)
 	baseName := filepath.Base(fullLocal)
 
 	switch cand.Decision {
@@ -213,7 +222,7 @@ func (e *ResolutionExecutor) executeConflict(ctx context.Context, session *model
 				e.logWAL(session.ID, actionID, "BACKUP_COMPLETED", cand.Path, cand.Decision, "")
 			}
 			e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-			if ok, err := e.Client.CopyFile(ctx, localDir, baseName, e.RemoteFs(), cand.Path); err != nil || !ok {
+			if ok, err := e.Client.CopyFile(ctx, e.LocalRoot, cand.Path, e.RemoteFs(), cand.Path); err != nil || !ok {
 				errMsg := fmt.Sprintf("copy local to remote failed: %v", err)
 				e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
 				return errors.New(errMsg)
@@ -232,7 +241,7 @@ func (e *ResolutionExecutor) executeConflict(ctx context.Context, session *model
 		}
 		if e.Client != nil {
 			e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-			if ok, err := e.Client.CopyFile(ctx, e.RemoteFs(), cand.Path, localDir, baseName); err != nil || !ok {
+			if ok, err := e.Client.CopyFile(ctx, e.RemoteFs(), cand.Path, e.LocalRoot, cand.Path); err != nil || !ok {
 				errMsg := fmt.Sprintf("copy remote to local failed: %v", err)
 				e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
 				return errors.New(errMsg)
@@ -253,7 +262,7 @@ func (e *ResolutionExecutor) executeConflict(ctx context.Context, session *model
 				e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
 				return errors.New(errMsg)
 			}
-			if ok, err := e.Client.CopyFile(ctx, localDir, baseName, e.RemoteFs(), cand.Path); err != nil || !ok {
+			if ok, err := e.Client.CopyFile(ctx, e.LocalRoot, cand.Path, e.RemoteFs(), cand.Path); err != nil || !ok {
 				errMsg := fmt.Sprintf("overwrite primary remote with local failed: %v", err)
 				e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
 				return errors.New(errMsg)

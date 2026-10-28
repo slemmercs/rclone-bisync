@@ -1,10 +1,11 @@
 # Implementation Plan: Four-Phase Multi-Profile Stabilization & Architecture Evolution
 
-This plan establishes the architectural roadmap across all four strategic phases:
-- **Phase 1: Multi-Profile UI & Engine Cohesion** (Active Execution Scope)
-- **Phase 2: Core Refactoring & Subsystem Consolidation**
-- **Phase 3: Operational Flags & Profile Schema Alignment**
-- **Phase 4: Dashboard UI Evolution & Config Flow**
+This plan establishes the architectural roadmap across all five strategic phases (Completed in `v1.0.0-beta.10`):
+- **Phase 1: Multi-Profile UI & Engine Cohesion** (Completed)
+- **Phase 2: Core Refactoring & Subsystem Consolidation** (Completed)
+- **Phase 3: Operational Flags & Profile Schema Alignment** (Completed)
+- **Phase 4: Hybrid Fleet Overview & Operational Flags UI** (Completed)
+- **Phase 5: Provider Presets, Global Fleet Config & Guided Review Resilience** (Completed)
 
 ---
 

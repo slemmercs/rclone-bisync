@@ -37,6 +37,10 @@ func (s *ReviewService) ApplyBatchRecommendations(ctx context.Context, sessionID
 	s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
 	s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
 
+	if s.session.Status == models.ReviewStatusFailed {
+		_ = review.Transition(s.session, models.ReviewStatusReviewing)
+	}
+
 	stagedCount := 0
 	for i := range s.session.Conflicts {
 		cand := &s.session.Conflicts[i]
@@ -107,12 +111,12 @@ func (s *ReviewService) ApplyBatchRecommendations(ctx context.Context, sessionID
 }
 
 func (s *ReviewService) ensureSessionLoadedLocked() {
-	if s.session != nil {
+	sessionFile := s.sessionFilePath()
+	if sessionFile == "" {
 		return
 	}
-	sessionFile := s.sessionFilePath()
-	if sessionFile != "" {
-		if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
+	if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
+		if s.session == nil || s.session.ID != sess.ID || sess.UpdatedAt.After(s.session.UpdatedAt) {
 			s.session = sess
 		}
 	}
@@ -120,16 +124,23 @@ func (s *ReviewService) ensureSessionLoadedLocked() {
 
 // StageCandidateDecision stages a resolution decision for a specific candidate.
 func (s *ReviewService) StageCandidateDecision(sessionID, candidateID string, decision models.ActionDecision) (*models.ReviewSession, error) {
+	return s.StageCandidateDecisions(sessionID, []string{candidateID}, decision)
+}
+
+// StageCandidateDecisions stages a resolution decision for one or more candidates and persists once.
+func (s *ReviewService) StageCandidateDecisions(sessionID string, candidateIDs []string, decision models.ActionDecision) (*models.ReviewSession, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.ensureSessionLoadedLocked()
-	if s.session == nil || s.session.ID != sessionID {
+	if s.session == nil || (sessionID != "" && s.session.ID != sessionID) {
 		return nil, fmt.Errorf("review session %s not found or inactive", sessionID)
 	}
 
-	if err := review.StageDecision(s.session, candidateID, decision); err != nil {
-		return nil, err
+	for _, cid := range candidateIDs {
+		if err := review.StageDecision(s.session, cid, decision); err != nil {
+			return nil, err
+		}
 	}
 
 	sessionFile := s.sessionFilePath()
@@ -150,6 +161,13 @@ func (s *ReviewService) ApplyReviewSession(ctx context.Context, sessionID string
 	s.ensureSessionLoadedLocked()
 	if s.session == nil || s.session.ID != sessionID {
 		return nil, fmt.Errorf("review session %s not found or inactive", sessionID)
+	}
+
+	// Reconcile any previously completed mutations from WAL before executing
+	if walFile := s.walFilePath(); walFile != "" {
+		if entries, err := review.ReadWAL(walFile); err == nil && len(entries) > 0 {
+			s.session = review.ReconcileSessionWithWAL(s.session, entries)
+		}
 	}
 
 	// Auto-mark any remaining un-decided candidates as 'skip' when applying resolutions
