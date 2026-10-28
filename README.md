@@ -224,19 +224,12 @@ Rather than investigating problems after synchronization has completed, users sh
 
 # Planned Capabilities
 
-## Multi-Profile Synchronization
+## Configuration Snapshot & Rollback Engine
 
-Manage multiple independent synchronization environments from a single operational hub:
+Provide server-side safety for global configuration and onboarding changes:
 
-- Personal Google Drive, Business OneDrive, NAS archive, and remote cloud pairings
-- Isolated per-profile background runners with dedicated state and POSIX flock management
-- Profile-aware telemetry streams, speed metrics, and file explorer views
-
-## Visual Configuration & Setup Manager
-
-Provide safe, in-dashboard editing of sync flags and onboarding setup:
-
-- In-dashboard tuning of sync flags (`--buffer-size`, `--tpslimit`, `--transfers`)
+- Automated backup snapshots, SHA-256 integrity checks, and schema validation before applying changes
+- One-click rollback API to restore previous known-good configurations
 - Guided visual setup wizard for initial Rclone RC remote pairing
 - 3-layer safety pipeline with snapshot backups, SHA-256 integrity verification, and schema checks
 - One-click rollback API to restore historical configurations

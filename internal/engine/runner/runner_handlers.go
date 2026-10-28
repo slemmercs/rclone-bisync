@@ -171,6 +171,32 @@ func (r *SyncRunner) handleSyncFailure(
 		if r.Config.ActiveReviewFile != "" && (len(deletions) > 0 || len(conflicts) > 0) {
 			sess := review.NewSession(errType, monitorRes.ErrorMessage, deletions, conflicts)
 			_ = review.Transition(sess, models.ReviewStatusReviewing)
+			if existing, err := review.LoadActiveSession(r.Config.ActiveReviewFile); err == nil && existing != nil &&
+				(existing.Status == models.ReviewStatusReviewing || existing.Status == models.ReviewStatusFailed || existing.Status == models.ReviewStatusApplying) {
+				sess.ID = existing.ID
+				sess.CreatedAt = existing.CreatedAt
+				sess.Actions = existing.Actions
+				existingDel := make(map[string]models.DeletionCandidate, len(existing.Deletions))
+				for _, d := range existing.Deletions {
+					existingDel[d.Path] = d
+				}
+				for i := range sess.Deletions {
+					if prev, ok := existingDel[sess.Deletions[i].Path]; ok && prev.Resolved {
+						sess.Deletions[i].Decision = prev.Decision
+						sess.Deletions[i].Resolved = prev.Resolved
+					}
+				}
+				existingConf := make(map[string]models.ConflictCandidate, len(existing.Conflicts))
+				for _, c := range existing.Conflicts {
+					existingConf[c.Path] = c
+				}
+				for i := range sess.Conflicts {
+					if prev, ok := existingConf[sess.Conflicts[i].Path]; ok && prev.Resolved {
+						sess.Conflicts[i].Decision = prev.Decision
+						sess.Conflicts[i].Resolved = prev.Resolved
+					}
+				}
+			}
 			_ = review.SaveActiveSession(r.Config.ActiveReviewFile, sess)
 		}
 	}

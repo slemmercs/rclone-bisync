@@ -6,6 +6,9 @@
 
 window.ReviewModule = {
     async fetchReviewSession(showLoading = false) {
+        if (!showLoading && (this.reviewState.executing || this.reviewState.rollingBack)) {
+            return;
+        }
         if (showLoading) this.reviewState.loading = true;
         try {
             const data = await window.API.get("/api/review/session");

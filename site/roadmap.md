@@ -21,15 +21,17 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • Embedded Alpine.js / Tailwind CSS Management Cockpit      │
   │  • POSIX Advisory Locking & Local Path Confinement Jails     │
   │  • Real-Time Telemetry & Sync Status Reporting               │
+  │  • Hybrid Fleet Overview & Multi-Profile Workspace (`beta.10`)│
+  │  • 3-Tier Operational Flags & Provider Presets (`beta.10`)   │
   └──────────────────────────────┬───────────────────────────────┘
                                  │
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
   │             NEAR-TERM STRATEGIC PRIORITIES                   │
-  │  1. Multi-Profile Workspace Manager (Isolated Runners)       │
-  │  2. In-Dashboard Configuration & Setup Manager (Rollback API)│
-  │  3. In-App User Guidance & Interactive Diagnostic Manual     │
-  │  4. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
+  │  1. In-Dashboard Configuration & Setup Manager (Rollback API)│
+  │  2. In-App User Guidance & Interactive Diagnostic Manual     │
+  │  3. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
+  │  4. Rclone RC Framework Hardening & Unix Socket IPC          │
   └──────────────────────────────────────────────────────────────┘
 ```
 

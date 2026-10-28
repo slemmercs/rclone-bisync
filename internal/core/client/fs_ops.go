@@ -29,12 +29,14 @@ func NormalizeFs(remote string) string {
 		return ""
 	}
 	if strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, ".") || strings.HasPrefix(clean, "~") {
-		return strings.TrimSuffix(clean, ":")
+		localClean := strings.TrimRight(strings.TrimLeft(remote, " \t\n\r"), "\t\n\r")
+		return strings.TrimSuffix(localClean, ":")
 	}
 	// Windows drive letter check (e.g., C:\path or C:/path)
 	if len(clean) >= 2 && clean[1] == ':' && ((clean[0] >= 'a' && clean[0] <= 'z') || (clean[0] >= 'A' && clean[0] <= 'Z')) {
 		if len(clean) == 2 || clean[2] == '/' || clean[2] == '\\' {
-			return strings.TrimSuffix(clean, ":")
+			localClean := strings.TrimRight(strings.TrimLeft(remote, " \t\n\r"), "\t\n\r")
+			return strings.TrimSuffix(localClean, ":")
 		}
 	}
 	if strings.Contains(clean, ":") {

@@ -44,9 +44,9 @@ Roadmap items are not commitments and may change based on project needs.
 | **Service Layer Decoupling & Architecture Modularization (sub-400 LOC)** | **Delivered** | PR #28, PR #29, PR #31 (`v1.0.0-beta.2`–`beta.4`) |
 | **Go CLI Quality Gate (`cmd/check`) & E2E Testing Suite** | **Delivered** | PR #32 (`feat/alpine-boolean-lint-and-e2e`) |
 | **Multi-Profile Backend Engine (Storage, Scheduler, Flags)** | **Delivered** | PR #37, PR #40, PR #42 (`v1.0.0-beta.7`–`beta.9`) |
-| **Hybrid Fleet Overview & Contextual Workspace UI** | **Active Priority (#1)** | Phase 4 (`feat/phase4-hybrid-fleet-overview-and-flags-ui`) |
-| **Configuration Snapshot & Rollback Engine** | **Next Priority (#2)** | Safety Pipeline & Config Snapshot API |
-| **In-App User Guidance, Info & Help Documents** | **Next Priority (#3)** | Contextual Assistance & Manual |
+| **Hybrid Fleet Overview, Provider Presets & Global Fleet Settings** | **Delivered** | PR #41, PR #43 (`v1.0.0-beta.8`–`beta.10`) |
+| **Configuration Snapshot & Rollback Engine** | **Active Priority (#1)** | Safety Pipeline & Config Snapshot API |
+| **In-App User Guidance, Info & Help Documents** | **Next Priority (#2)** | Contextual Assistance & Manual |
 | Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
 | Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
 | Local Inter-Process Communication (IPC) via Unix Sockets | Planned | Infrastructure Hardening |
@@ -57,21 +57,20 @@ Roadmap items are not commitments and may change based on project needs.
 
 ## Active Strategic Priorities
 
-### Near-Term Priority 1: Hybrid Fleet Overview & Contextual Workspace UI
+### Delivered Milestone: Hybrid Fleet Overview, Provider Presets & Global Fleet Settings (`v1.0.0-beta.10`)
 
 Transitions the Bisync Hub dashboard from single-tenancy to a workload-centric operational hierarchy:
 - **Level 1 Fleet View**: Dashboard overview presenting system health summary counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`), interactive profile card grid, search/filter controls, and inline quick-actions.
 - **Level 2 Scoped Workspace**: Context-aware workspace scoped to the selected profile with header context switcher and breadcrumb navigation.
-- **Visual Operational Flags Editor**: 3-tier flag hierarchy configuration (Execution Controls, Profile Settings, Custom Flags Escape Hatch) with live inheritance badges (`Inherited from Global` vs `Profile Override`).
+- **Visual Operational Flags & Provider Presets**: 3-tier flag hierarchy configuration (Execution Controls, Profile Settings, Custom Flags Escape Hatch), provider-aware presets (`gdrive`, `onedrive`, `dropbox`, `s3`), and editable Global Fleet Settings (`modal_global_settings.html`) with live inheritance badges.
 - Refer to [`docs/design/hybrid_fleet_overview_contextual_profile_workspace.md`](../design/hybrid_fleet_overview_contextual_profile_workspace.md) and [`docs/design/bisync_operational_flags.md`](../design/bisync_operational_flags.md).
 
 ---
 
-### Near-Term Priority 2: Configuration Snapshot & Rollback Engine
+### Near-Term Priority 1: Configuration Snapshot & Rollback Engine
 
 Provides server-side configuration safety for global environments:
 - **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying new settings.
-- **One-Click Rollback API**: Restore historical configurations immediately if a change fails verification.
 - **One-Click Rollback API**: Restore historical configurations immediately if a change fails verification.
 
 ---

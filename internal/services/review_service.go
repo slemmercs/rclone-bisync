@@ -132,6 +132,7 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.ensureSessionLoadedLocked()
 	if s.session != nil {
 		s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
 		s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
@@ -139,14 +140,6 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 	}
 
 	sessionFile := s.sessionFilePath()
-	if sessionFile != "" {
-		if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
-			s.session = sess
-			s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
-			s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
-			return s.session, nil
-		}
-	}
 
 	// If pending deletions file exists and indicates pending changes, auto-discover
 	if s.Config != nil && s.Config.PendingDeletionsFile != "" {
