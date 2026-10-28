@@ -43,6 +43,8 @@
                 </div>
             </div>
         </div>
+    </template>
+
     <!-- Tier 1: OneDrive Controls -->
     <template x-if="getEditingRemoteType() === 'onedrive'">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-900">
@@ -89,29 +91,27 @@
     <template x-if="!isTier1Provider()">
         <div class="p-2.5 bg-slate-900/80 rounded-lg border border-slate-800 text-[11px] text-slate-400 space-y-1">
             <div class="font-medium text-slate-300">Generic Cloud Backend</div>
-            <div>All provider-specific parameters should be supplied below via Audited Custom Flags.</div>
+            <div>All provider-specific parameters should be supplied via Audited Custom CLI Flags below.</div>
         </div>
     </template>
+</div>
 
-    <!-- Audited Custom Flags Escape Hatch (Available for BOTH Tier 1 & Tier 2) -->
-    <div class="space-y-1.5 pt-1 border-t border-slate-900">
-        <div class="flex items-center justify-between">
-            <label class="text-[11px] font-semibold text-slate-300" x-text="isTier1Provider() ? 'Additional Provider Flags' : 'Custom Provider CLI Arguments'"></label>
-            <div class="flex items-center gap-1">
-                <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('custom_flags') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('custom_flags') ? 'Active' : 'None'"></span>
-                <button type="button" x-show="isFlagOverridden('custom_flags')" @click="resetFlagOverride('custom_flags')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Clear</button>
-            </div>
+<!-- Tier 3: Audited Custom CLI Flags Escape Hatch -->
+<div class="bg-slate-950/60 border border-slate-800/70 rounded-xl p-3 space-y-2">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-slate-300">Tier 3: Audited Custom CLI Flags</label>
+            <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('custom_flags') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('custom_flags') ? 'Active Override' : 'None'"></span>
         </div>
-        <input type="text" :value="profileModal.editing.flags ? profileModal.editing.flags.custom_flags : ''" @input="setFlagOverride('custom_flags', $event.target.value === '' ? null : $event.target.value)" :placeholder="isTier1Provider() ? 'e.g. --fast-list --checkers 16' : 'e.g. --fast-list --b2-hard-delete'" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-        <div class="text-[10px] text-slate-400">Audited via POSIX tokenizer. Blocklist: --config, -c, --rc, --rc-*, --use-mmap, --log-file, --json.</div>
-        <template x-if="getCustomFlagsValidationError(profileModal.editing.flags?.custom_flags)">
-            <div class="text-[11px] font-mono text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-2 py-1 flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12.01" y1="16" x2="12.01" y2="16"/></svg>
-                <span x-text="getCustomFlagsValidationError(profileModal.editing.flags?.custom_flags)"></span>
-            </div>
-        </template>
+        <button type="button" x-show="isFlagOverridden('custom_flags')" @click="resetFlagOverride('custom_flags')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Clear</button>
     </div>
-
+    <input type="text" :value="profileModal.editing?.flags ? profileModal.editing.flags.custom_flags : ''" @input="setFlagOverride('custom_flags', $event.target.value === '' ? null : $event.target.value)" :placeholder="isTier1Provider() ? 'e.g. --fast-list --checkers 16' : 'e.g. --fast-list --b2-hard-delete'" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+    <div class="text-[10px] text-slate-400">Audited via POSIX tokenizer. Blocklist: --config, -c, --rc, --rc-*, --use-mmap, --log-file, --json.</div>
+    <template x-if="getCustomFlagsValidationError(profileModal.editing?.flags?.custom_flags)">
+        <div class="text-[11px] font-mono text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-2 py-1 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12.01" y1="16" x2="12.01" y2="16"/></svg>
+            <span x-text="getCustomFlagsValidationError(profileModal.editing?.flags?.custom_flags)"></span>
+        </div>
     </template>
 </div>
 {{ end }}

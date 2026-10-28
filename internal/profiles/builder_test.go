@@ -118,7 +118,7 @@ func TestBuildCLIArgs(t *testing.T) {
 			"--conflict-resolve", "newer",
 			"--max-delete", "50",
 			"--check-access", "--check-filename", "RCLONE_TEST",
-			"--compare", "modtime",
+			"--compare", "size,modtime",
 			"--remove-empty-dirs",
 			"--create-empty-src-dirs",
 		}
@@ -263,6 +263,29 @@ func TestBuildCLIArgs(t *testing.T) {
 		argsStrS3 := strings.Join(argsS3, " ")
 		if !strings.Contains(argsStrS3, "--s3-chunk-size 32M") || !strings.Contains(argsStrS3, "--s3-storage-class STANDARD_IA") {
 			t.Errorf("missing s3 flags in args: %v", argsS3)
+		}
+	})
+
+	t.Run("supports max_delete 0 and 3-way compare mode", func(t *testing.T) {
+		maxDelZero := 0
+		cmp3Way := "size,modtime,checksum"
+		p := &Profile{
+			ID: "prof_zero_del",
+			Flags: ProfileFlags{
+				MaxDelete:   &maxDelZero,
+				CompareMode: &cmp3Way,
+			},
+		}
+		args, err := BuildCLIArgs(p, globals, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		argsStr := strings.Join(args, " ")
+		if !strings.Contains(argsStr, "--max-delete 0") {
+			t.Errorf("expected --max-delete 0 in args, got: %s", argsStr)
+		}
+		if !strings.Contains(argsStr, "--compare size,modtime,checksum") {
+			t.Errorf("expected --compare size,modtime,checksum in args, got: %s", argsStr)
 		}
 	})
 }

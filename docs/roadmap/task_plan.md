@@ -37,8 +37,19 @@ Implement a tiered cloud provider settings architecture with first-class UI cont
   - **Scope**: `internal/services/log_service.go`, `internal/services/log_service_test.go`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/modals/modal_daemon.html`
   - **Verification**: `go test -v -count=1 ./internal/services -run TestLogService && ./scripts/check.sh all`
 
+- [x] Task 9: Compare Mode Expansion, Prominent Custom Flags Escape Hatch, Max Delete 0% Display & Manual Origin Tagging
+  - **Scope**: `internal/config/`, `internal/server/`, `internal/profiles/`, `internal/app/`, `dashboard/frontend/partials/`
+  - **Verification**: `go test -count=1 ./internal/... && ./scripts/check.sh all`
+
 
 ## Status Updates
+
+- 2026-10-28: Completed Task 9:
+  1. Fixed unclosed `<template x-if="getEditingRemoteType() === 'drive'">` in `modal_provider_options.html` and elevated Tier 3 Audited Custom CLI Flags into a dedicated, always-visible card.
+  2. Expanded compare modes across UI and backend validation to include `size,modtime` (default: everyday sync) and `size,modtime,checksum` (thorough & reliable).
+  3. Fixed falsy `||` coercion in `view_telemetry.html` and `modal_profiles.html` with nullish coalescing `??` so `max_delete: 0` displays as `0%`.
+  4. Added `>= 0` condition in CLI builder so `--max-delete 0` is forwarded to rclone CLI.
+  5. Added `Origin` propagation in `SyncOptions`, tagging dashboard triggers as `dashboard` (emerald badge) instead of falling back to `scheduler`.
 
 - 2026-10-28: Completed Phase 5 (Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings):
   1. Decoupled engine defaults in internal/config/config.go and bisync.env by removing Google Drive flags, ensuring global defaults are strictly provider-agnostic.

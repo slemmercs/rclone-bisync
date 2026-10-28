@@ -109,4 +109,22 @@ func TestConfigEndpoints_GetAndUpdate(t *testing.T) {
 	if recBad.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 Bad Request for max_delete > 100, got %d", recBad.Code)
 	}
+
+	// 4. PUT /api/config with CompareMode size,modtime,checksum -> 200 OK
+	cmp3WayPayload := UpdateConfigRequest{
+		GlobalDefaults: &config.GlobalDefaults{
+			MaxDelete:   30,
+			CompareMode: "size,modtime,checksum",
+		},
+	}
+	cmp3Body, _ := json.Marshal(cmp3WayPayload)
+	reqCmp3, _ := http.NewRequest("PUT", "/api/config", bytes.NewBuffer(cmp3Body))
+	reqCmp3.Header.Set("X-Dashboard-Request", "1")
+	reqCmp3.Header.Set("Origin", "http://localhost:5572")
+	recCmp3 := httptest.NewRecorder()
+	srv.ServeHTTP(recCmp3, reqCmp3)
+
+	if recCmp3.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for compare_mode 'size,modtime,checksum', got %d: %s", recCmp3.Code, recCmp3.Body.String())
+	}
 }

@@ -96,9 +96,9 @@
             <div class="pt-2.5 mt-3 border-t border-slate-800/60 flex flex-wrap items-center gap-2 text-[10px] font-mono">
                 <span class="text-slate-500 uppercase tracking-wider text-[9px] font-bold mr-1">Effective Flags:</span>
                 <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800/80" x-text="'Conflict: ' + (activeProfile?.flags?.conflict_resolve || profilesData.globalDefaults?.conflict_resolve || 'newer')"></span>
-                <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800/80" x-text="'Max Delete: ' + (activeProfile?.flags?.max_delete || profilesData.globalDefaults?.max_delete || 50) + '%'"></span>
+                <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800/80" x-text="'Max Delete: ' + (activeProfile?.flags?.max_delete ?? profilesData.globalDefaults?.max_delete ?? 50) + '%'"></span>
                 <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800/80" :class="(activeProfile?.flags?.canary_validation ?? profilesData.globalDefaults?.canary_validation) ? 'text-emerald-400' : 'text-amber-400'" x-text="'Canary: ' + ((activeProfile?.flags?.canary_validation ?? profilesData.globalDefaults?.canary_validation) ? 'Strict (RCLONE_TEST)' : 'Disabled')"></span>
-                <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800/80" x-text="'Compare: ' + (activeProfile?.flags?.compare_mode || profilesData.globalDefaults?.compare_mode || 'modtime')"></span>
+                <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800/80" x-text="'Compare: ' + (activeProfile?.flags?.compare_mode || profilesData.globalDefaults?.compare_mode || 'size,modtime')"></span>
                 <template x-if="activeProfile?.flags?.custom_flags">
                     <span class="px-2 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/40" x-text="'Custom: ' + activeProfile.flags.custom_flags"></span>
                 </template>
@@ -302,7 +302,7 @@
                                     <!-- Origin Badge (Sync Runs) -->
                                     <template x-if="entry.type !== 'audit'">
                                         <span x-show="entry.origin" class="px-1.5 py-0.2 text-[9px] rounded font-bold uppercase tracking-wider shrink-0"
-                                              :class="entry.origin === 'timer' ? 'bg-blue-950/80 text-blue-300 border border-blue-800/40' : 'bg-purple-950/80 text-purple-300 border border-purple-800/40'"
+                                              :class="entry.origin === 'timer' ? 'bg-blue-950/80 text-blue-300 border border-blue-800/40' : (entry.origin === 'dashboard' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/40' : 'bg-purple-950/80 text-purple-300 border border-purple-800/40')"
                                               x-text="'[' + entry.origin + ']'">
                                         </span>
                                     </template>

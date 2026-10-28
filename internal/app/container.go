@@ -90,9 +90,13 @@ func DefaultProfileExecutor(cfg *config.Config) profiles.SyncExecutor {
 		profCfg.RcloneCommonArgs = commonArgs
 
 		syncRunner := runner.NewSyncRunner(&profCfg)
-		origin := "scheduler"
-		if opts.Force || opts.Resync || opts.DryRun {
-			origin = "dashboard"
+		origin := opts.Origin
+		if origin == "" {
+			if opts.Force || opts.Resync || opts.DryRun {
+				origin = "dashboard"
+			} else {
+				origin = "scheduler"
+			}
 		}
 		success := syncRunner.Run(ctx, opts.Resync, opts.Force, opts.DryRun, origin, "", false)
 		if !success {

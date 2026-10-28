@@ -115,7 +115,12 @@ func (s *Server) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if gd.CompareMode != "" {
-			validModes := map[string]bool{"modtime": true, "size,modtime": true, "checksum": true}
+			validModes := map[string]bool{
+				"modtime":               true,
+				"size,modtime":          true,
+				"checksum":              true,
+				"size,modtime,checksum": true,
+			}
 			if !validModes[strings.ToLower(gd.CompareMode)] {
 				writeJSON(w, http.StatusBadRequest, models.ErrorResponse{
 					Status: "error",

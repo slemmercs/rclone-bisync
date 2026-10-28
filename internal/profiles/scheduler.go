@@ -18,9 +18,10 @@ var (
 
 // SyncOptions specifies parameters for a synchronization run.
 type SyncOptions struct {
-	Force  bool `json:"force"`
-	Resync bool `json:"resync"`
-	DryRun bool `json:"dry_run"`
+	Force  bool   `json:"force"`
+	Resync bool   `json:"resync"`
+	DryRun bool   `json:"dry_run"`
+	Origin string `json:"origin,omitempty"`
 }
 
 // SyncExecutor executes a single sync run for a profile.
@@ -233,7 +234,7 @@ func (s *Scheduler) runWorker(ctx context.Context, w *profileWorker, initialProf
 		case <-ctx.Done():
 			return
 		case <-tickerCh:
-			s.executeProfileSync(ctx, w, profileID, SyncOptions{}, nil)
+			s.executeProfileSync(ctx, w, profileID, SyncOptions{Origin: "scheduler"}, nil)
 		case req := <-w.triggerCh:
 			s.executeProfileSync(ctx, w, profileID, req.opts, req.errCh)
 		}

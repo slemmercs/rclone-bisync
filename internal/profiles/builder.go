@@ -97,7 +97,7 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if effective.ConflictResolve != "" {
 		args = append(args, "--conflict-resolve", effective.ConflictResolve)
 	}
-	if effective.MaxDelete > 0 {
+	if effective.MaxDelete >= 0 {
 		args = append(args, "--max-delete", strconv.Itoa(effective.MaxDelete))
 	}
 

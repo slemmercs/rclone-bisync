@@ -337,7 +337,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 			MaxDelete:        getEnvInt("GLOBAL_MAX_DELETE", 50),
 			CanaryValidation: getEnvBool("GLOBAL_CANARY_VALIDATION", true),
 			ConflictResolve:  getEnv("GLOBAL_CONFLICT_RESOLVE", "newer"),
-			CompareMode:      getEnv("GLOBAL_COMPARE_MODE", "modtime"),
+			CompareMode:      getEnv("GLOBAL_COMPARE_MODE", "size,modtime"),
 			RemoveEmptyDirs:  getEnvBool("GLOBAL_REMOVE_EMPTY_DIRS", true),
 			CreateEmptyDirs:  getEnvBool("GLOBAL_CREATE_EMPTY_DIRS", true),
 		},
