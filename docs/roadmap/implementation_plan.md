@@ -1,58 +1,87 @@
-# Implementation Plan: Design System Foundation, Telemetry Acceleration & Inline Log Folding
+# Implementation Plan: UI Polish, Network Silence, Historical Deletion Scraper Bug Fix, Hash Deduplication & MCP Roadmap
 
 ## Proposed Changes
 
-Implement the complete Bisync Hub UI Design System, accelerate backend telemetry polling (<10ms), extract telemetry polling into `polling.js` with Dev-Mode network silence controls, implement 50-line on-demand pagination with inline log deduplication/folding, migrate all five frontend views and consolidate modals into the new design system, and author the design system documentation suite.
+Consolidate UI/UX fixes across modals and logs, optimize network polling, eliminate the historical log scraper bug surfacing non-existent pending deletions, implement cloud remote hash deduplication (`rclone dedupe --by-hash`), and add Model Context Protocol (MCP) server support to the roadmap.
 
 ### Affected Components & Packages
 
-- `internal/models/api.go`: Add `PaginatedLogsResponse` model.
-- `internal/services/filetail.go`: Add `TailJSONLogPaginated(filepath, page, limit)`.
-- `internal/services/telemetry_service.go`: Decouple `rclone-daemon.log` tailing from `GetTelemetryPayload()`; cache `bisync.log` reads by `(mtime, size, limit)` and cache remote summaries with 60s TTL.
-- `internal/server/handlers_telemetry.go`: Update `/api/telemetry` handler and register `GET /api/logs/bisync` with `page` and `limit`.
-- `internal/server/server.go`: Dynamically register templates in `partials/components/*.html`, `partials/patterns/*.html`, `partials/layouts/*.html`.
-- `dashboard/frontend/css/design-tokens.css`: Semantic CSS variables, 4/8/16/24/32px spacing scale, monospace path truncation, `tabular-nums`, `.ds-card`, `.ds-btn-*`, `.ds-badge-*`, `.ds-alert-*`, `.ds-table-*`, `.ds-drawer-*`.
-- `dashboard/frontend/js/polling.js`: Extracted polling engine with `?dev=true` / `?poll=false` auto-pause, `localStorage` persistence, `Alt+P` keyboard shortcut, document visibility awareness, and header live/paused indicator.
-- `dashboard/frontend/js/logs.js`: 50-line pagination state management and O(N) inline log deduplication/folding with expandable accordions and expand/collapse all controls.
-- `dashboard/frontend/app.js`: Remove inline polling, bind `PollingModule` and standardize to the 7 Approved Status Vocabulary states (`Healthy`, `Warning`, `Critical`, `Running`, `Idle`, `Blocked`, `Review Required`).
-- `dashboard/frontend/partials/components/ui_components.html`: Core reusable partials (Card, Button, Badge, Alert, Modal, Table, Drawer, Empty State).
-- `dashboard/frontend/partials/patterns/ui_patterns.html`: Operational patterns (Health Banner, Sync Summary, Review Queue, Timeline Ledger, Entity Drawer).
-- `dashboard/frontend/partials/layouts/ui_layouts.html`: Dashboard Layout, Workspace Layout, Detail Layout page headers.
-- `dashboard/frontend/partials/view_*.html`: Full migration to Design System tokens, patterns, and vocabulary.
-- `dashboard/frontend/partials/modals/`: Consolidate redundant confirmation/deletion modals.
-- `docs/design/`: Author `status-language.md`, `components.md`, `patterns.md`, `layouts.md`, and update `daemon_log_deduplication_inline_folding.md`.
+- `internal/services/deletion_service.go`: Fix `GetPendingDeletions()` log scraping to abort immediately upon encountering `"Bisync successful"`, requiring an active circuit breaker abort without subsequent success before reporting pending deletions.
+- `internal/services/deletion_test.go`: Add regression test asserting that historical `File was deleted` lines followed by `"Bisync successful"` return `HasDeletions: false`.
+- `internal/server/handlers_auth.go`: Add optional query parameter `?remote=<name>` to `POST /api/remotes/auth/check` so scoped quota refreshes only hit the active profile's remote.
+- `dashboard/frontend/js/polling.js`: Unify polling to lightweight `GET /api/telemetry?limit=0`. Eliminate routine `/api/profiles` and `/api/review/session` cascades. Relax idle polling to 8–10s (2s during active sync).
+- `dashboard/frontend/partials/modals/modal_daemon.html`:
+  - Fix Alpine `entry is not defined` bug on line 87 (`cluster.entry.details`).
+  - Render `subEntry.object` badge in expanded duplicate clusters.
+  - Hide internal Go source paths (`bisync/operations.go:320`) unless `?dev=true`.
+  - Add count badges to Error/Warning/Info filter pills.
+  - Add `Copy JSON` button.
+- `dashboard/frontend/js/logs.js` & `pattern_timeline_ledger.html`:
+  - Reverse order to show newest entries on top.
+  - Folded clusters display latest entry timestamp.
+- `dashboard/frontend/css/design-tokens.css` & `dashboard/frontend/partials/components/ui_components.html`:
+  - Fix CSS drawer overlay stacking context (`overlay: z-40`, `panel: z-50`) to remove blur from the drawer.
+- `dashboard/frontend/partials/view_explorer.html`:
+  - Lock remote selection dropdown to active profile with `🔒 gdrive: (Locked to Google Drive Profile)`.
+  - Filter `.review_backups` from directory tree.
+- `dashboard/frontend/partials/modals/modal_confirm.html`:
+  - Visual directory copy confirmation with `[LOCAL]` ➔ `[REMOTE]` pane badges.
+- `dashboard/frontend/partials/view_remotes.html` & `dashboard/frontend/partials/modals/modal_dedupe.html`:
+  - Add interactive `[ Deduplicate by Hash ]` button, modal preview, dry-run mode, and execution guard.
+- `docs/roadmap/ROADMAP.md` & `docs/roadmap/backlog.md`:
+  - Formalize Remote Hash Deduplication specification.
+  - Formalize Model Context Protocol (MCP) server specification (`bisync-hub mcp`).
+
+---
 
 ### Technical Strategy & Data Flow
 
-1. **Telemetry Acceleration & Pagination**:
-   - `GetTelemetryPayload()` no longer reads the multi-megabyte `rclone-daemon.log`. Daemon logs remain isolated to `GET /api/logs/daemon`.
-   - `bisync.log` reads are cached with an in-memory mtime/size check. If the file hasn't changed since the previous poll, the cached slice is returned directly.
-   - `GET /api/logs/bisync?page=1&limit=50` allows the browser to request only the active window of 50 records.
-2. **Dedicated Polling Module (`polling.js`)**:
-   - Runs independently of `app.js`. If URL contains `?dev=true` or `?poll=false`, polling initializes in paused mode, ensuring the browser Network tab remains clean during development.
-   - Responds to `document.hidden` to pause background polling when the browser tab is backgrounded.
-3. **Design System Hybrid Architecture**:
-   - Atomic primitives (`Button`, `Badge`, `Card`, `Alert`) are provided as semantic CSS utility classes (`.ds-card`, `.ds-btn-primary`, `.ds-badge-healthy`) in `design-tokens.css` to allow frictionless Alpine.js reactive bindings (`:disabled`, `@click`, `x-show`).
-   - Composite structures (`Modal`, `Drawer`, `Timeline`, `Health Banner`, `Empty State`) are implemented as Go HTML templates and parameterized partials.
-4. **Approved Status Vocabulary Enforcement**:
-   - Only 7 canonical status labels are allowed: `Healthy`, `Warning`, `Critical`, `Running`, `Idle`, `Blocked`, `Review Required`. All ad-hoc status strings are eliminated.
-5. **Inline Log Folding**:
-   - `window.LogsModule.clusterLogs()` normalizes entries and groups consecutive duplicate notices (e.g. `march/march.go:350`, bulk deletion restores) into inline collapsible rows with `×N` repeat counters.
+#### 1. Pending Deletions Bug Fix (`deletion_service.go`)
+- Reverse scan in `ParsePendingDeletionsFromLog()`:
+  - When scanning backwards from the end of `rclone-daemon.log`:
+  - If `"Bisync successful"` is encountered BEFORE any `"too many deletes"` or `"Safety abort"`, any earlier deletions belong to an already completed sync run. The parser must immediately stop and return empty deletions with `HasDeletions: false`.
+  - Only if an abort is encountered without a succeeding `"Bisync successful"` are `File was deleted` lines gathered and marked as pending.
+
+#### 2. Network Silence (`polling.js`)
+- Routine poll calls: `GET /api/telemetry?limit=0`.
+- Only call `GET /api/review/session` when `telemetry.review_pending === true`.
+- Only refetch `/api/profiles` on initial load, when `telemetry.is_syncing` transitions from true to false, or after explicit user edits.
+- Idle poll cadence is relaxed to 8000ms. When `is_syncing === true`, cadence tightens to 2000ms.
+
+#### 3. Correlated Daemon Log Fixes (`modal_daemon.html`)
+- Correct object reference in comparison settings loop to `cluster.entry.details`.
+- In expanded duplicate rows: `<span class="ds-mono text-xs text-indigo-400" x-text="subEntry.object || subEntry.msg"></span>`.
+- Filter source paths: `<span x-show="isDevMode && entry.source" ...>`.
+- Count badges: dynamically calculate `daemonLogs.filter(e => e.level === 'error').length`, etc.
+
+#### 4. Reverse Unified Ledger (`logs.js`)
+- In `fetchBisyncLogs(page)` or rendering pipeline, sort newest first.
+- In `clusterLogEntries(entries)`: set cluster timestamp to `latestEntry.timestamp` (the max timestamp in the cluster) rather than the first.
+
+#### 5. Drawer Stacking (`design-tokens.css` & `ui_components.html`)
+- Adjust `.ds-drawer-overlay` to `z-index: 40; backdrop-filter: blur(4px);`
+- Adjust `.ds-drawer-panel` to `z-index: 50;`
+- Ensure child elements are not rendered under backdrop-filter.
+
+---
 
 ### Safety & Error Handling
 
-- Path traversal jail checks remain strictly enforced on all file browsing endpoints.
-- Atomic file writes and advisory POSIX locking remain unchanged.
-- Dynamic template globbing in `internal/server/server.go` verifies pattern matches before parsing to ensure backward compatibility with test `fstest.MapFS` instances.
-- Error states in logs and API failures are mapped to the canonical `Critical` status and surfaced via `.ds-alert-danger` and red badges.
+- **Deduplication Safety**: Remote deduplication acquires an exclusive file lock (`rclone-bisync.lock`) to prevent concurrent sync operations from corrupting baseline state.
+- **Circuit Breaker Protection**: Following deduplication, an automated baseline sync (`rclone bisync --resync`) is queued to ensure `TOO_MANY_DELETES` circuit breaker does not trigger.
+- **Sub-400 LOC**: All touched Go files and JS files remain strictly under 400 LOC or decomposed as needed.
+
+---
 
 ## Verification Plan
 
-- Unit tests for paginated log tailing: `go test -count=1 ./internal/services/... -run TestTailJSONLogPaginated`.
-- Unit tests for telemetry caching & handlers: `go test -count=1 ./internal/server/... -run TestTelemetry`.
-- Template and LOC validation: `./scripts/check.sh templates && ./scripts/check.sh loc`.
-- Full quality suite: `./scripts/check.sh all`.
-- Live service verification: Rebuild binary, restart service, verify `/api/telemetry` latency <10ms, test polling pause toggle, test log pagination and folding.
+- `go test -count=1 ./internal/services/... -run TestDeletion`
+- `go test -count=1 ./internal/server/...`
+- `./scripts/check.sh templates`
+- `./scripts/check.sh loc`
+- `./scripts/check.sh all`
+
+---
 
    - Centralize lifecycle management, dependency construction, and wiring for core services: Rclone RC client, SyncService, TelemetryService, CanaryService, DeletionService, ExplorerService, ReviewService, AuditService, LogService, RemoteAuthService, ProfileStore, ProfileScheduler, and ProfileService.
    - De-duplicate and decouple service creation from `main.go` and `internal/server/server.go`.

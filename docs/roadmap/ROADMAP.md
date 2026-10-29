@@ -45,8 +45,11 @@ Roadmap items are not commitments and may change based on project needs.
 | **Go CLI Quality Gate (`cmd/check`) & E2E Testing Suite** | **Delivered** | PR #32 (`feat/alpine-boolean-lint-and-e2e`) |
 | **Multi-Profile Backend Engine (Storage, Scheduler, Flags)** | **Delivered** | PR #37, PR #40, PR #42 (`v1.0.0-beta.7`–`beta.9`) |
 | **Hybrid Fleet Overview, Provider Presets & Global Fleet Settings** | **Delivered** | PR #41, PR #43 (`v1.0.0-beta.8`–`beta.10`) |
-| **Configuration Snapshot & Rollback Engine** | **Active Priority (#1)** | Safety Pipeline & Config Snapshot API |
-| **In-App User Guidance, Info & Help Documents** | **Next Priority (#2)** | Contextual Assistance & Manual |
+| **UI Design System, 10ms Telemetry & Inline Log Folding** | **Delivered** | `feat/design-system-and-telemetry-perf` |
+| **Remote Hash Deduplication & Baseline Protection** | **Delivered** | `feat/design-system-and-telemetry-perf` |
+| **Bisync Hub Model Context Protocol (MCP) Server (`bisync-hub mcp`)** | **Active Priority (#1)** | Native Go stdio/SSE Agent Protocol |
+| **Configuration Snapshot & Rollback Engine** | Planned | Safety Pipeline & Config Snapshot API |
+| **In-App User Guidance, Info & Help Documents** | Planned | Contextual Assistance & Manual |
 | Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
 | Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
 | Local Inter-Process Communication (IPC) via Unix Sockets | Planned | Infrastructure Hardening |
@@ -66,6 +69,36 @@ Transitions the Bisync Hub dashboard from single-tenancy to a workload-centric o
 - Refer to [`docs/design/hybrid_fleet_overview_contextual_profile_workspace.md`](../design/hybrid_fleet_overview_contextual_profile_workspace.md) and [`docs/design/bisync_operational_flags.md`](../design/bisync_operational_flags.md).
 
 ---
+### Delivered Milestone: Remote Hash Deduplication & Baseline Protection
+
+Safely consolidates cloud remote collisions using native MD5 checksum deduplication without triggering bisync circuit breakers:
+- **Interactive Storage View Action**: Quick-action `[Dedupe by Hash]` added to storage remote cards (`modal_dedupe.html`).
+- **3-Strategy Execution**: Supports `oldest` (recommended - preserves original creation timestamps), `newest` (preserves latest modifications), and `list` (safe dry-run preview).
+- **Automated Baseline Resync Safeguard**: Following remote deduplication, Bisync Hub refreshes internal baseline listings, completely preventing `TOO_MANY_DELETES` trips on subsequent sync runs.
+- **Engine Process Isolation**: Process execution locks prevent concurrent sync jobs from corrupting cloud state during active deduplication.
+
+---
+
+### Active Strategic Priority (#1): Bisync Hub Model Context Protocol (MCP) Server (`bisync-hub mcp`)
+
+Direct integration of Bisync Hub into AI agent workflows (Claude Desktop, Cursor, Cline) via the official [Model Context Protocol (MCP)](https://modelcontextprotocol.io/):
+- **Single-Binary Zero-Dependency Architecture**: Compiled directly into the native Go `bisync-hub` binary; zero external Node.js, Python, or npm runtime requirements.
+- **Dual Transport Support**: Operates over standard I/O (`stdio`) for local CLI agents and HTTP Server-Sent Events (`SSE`) for distributed network deployments.
+- **First-Class MCP Tools**:
+  - `bisync_get_health`: Inspect daemon connectivity, latency, active profile count, and circuit breaker trip states.
+  - `bisync_trigger_sync`: Programmatically dispatch dry-run, normal sync, or force resync for specified profile workloads.
+  - `bisync_review_queue`: Fetch pending sync review sessions, conflict items, and heuristic risk scores.
+  - `bisync_resolve_review`: Stage decisions (`keep_local`, `keep_remote`, `delete`, `merge`) and execute atomic resolutions with backup rollback protection.
+  - `bisync_dedupe_by_hash`: Execute remote MD5 checksum deduplication and trigger baseline cache rebuilds.
+  - `bisync_audit_inspect`: Query and cryptographically verify immutable audit ledger blocks.
+- **Read-Only MCP Resources**:
+  - `bisync://telemetry`: Real-time streaming metrics, active transfers, and daemon operational health.
+  - `bisync://profiles`: Detailed profile workload definitions, schedules, and effective operational flags.
+  - `bisync://audit`: Cryptographically chained compliance event log.
+
+---
+
+
 
 ### Near-Term Priority 1: Configuration Snapshot & Rollback Engine
 

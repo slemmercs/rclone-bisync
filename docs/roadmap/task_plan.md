@@ -1,50 +1,50 @@
-# Task Plan: Design System Foundation, Telemetry Acceleration & Inline Log Folding
+# Task Plan: UI Polish, Network Silence, Historical Deletion Bug Fix, Hash Deduplication & MCP Roadmap
 
 ## Goal
-Implement the complete Bisync Hub UI Design System, accelerate backend telemetry polling (<10ms), extract telemetry polling into `polling.js` with Dev-Mode network silence controls, implement 50-line on-demand pagination with inline log deduplication/folding, migrate all five frontend views and consolidate modals into the new design system, and author the design system documentation suite.
+Consolidate UI/UX fixes across modals and logs, optimize network polling, eliminate the historical log scraper bug surfacing non-existent pending deletions, implement cloud remote hash deduplication (`rclone dedupe --by-hash`), and add Model Context Protocol (MCP) server support to the roadmap.
 
 ## Tasks
 
-- [x] Task 1: Backend Telemetry Acceleration, Remote Quota TTL Caching & Paginated Log API
-  - **Scope**: `internal/models/api.go`, `internal/services/filetail.go`, `internal/services/telemetry_service.go`, `internal/services/telemetry_remotes.go`, `internal/remoteauth/service.go`, `internal/server/handlers_telemetry.go`, `internal/server/handlers_auth.go`, `internal/server/server.go`, tests
-  - **Verification**: `go test -count=1 ./internal/services/... ./internal/server/...`
+- [x] Task 1: Fix Historical Deletion Scraper Bug in Deletion Service
+  - **Scope**: `internal/services/deletion_service.go`, `internal/services/deletion_test.go`, `dashboard/frontend/partials/modals/modal_confirm.html`
+  - **Verification**: `go test -count=1 ./internal/services/... -run TestDeletion`
 
-- [x] Task 2: Dedicated Polling Engine (`polling.js`) with Dev-Mode Silence
-  - **Scope**: `dashboard/frontend/js/polling.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
+- [x] Task 2: Network Silence & Polling Optimization
+  - **Scope**: `dashboard/frontend/js/polling.js`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 3: Design System Foundations (`design-tokens.css` & Status Vocabulary)
-  - **Scope**: `dashboard/frontend/css/design-tokens.css`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/fleet.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/remotes.js`
+- [x] Task 3: Correlated Daemon Log Modal & Alpine Fixes
+  - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`
+  - **Verification**: `./scripts/check.sh templates`
+
+- [x] Task 4: Reverse Unified Ledger & Folding Timestamp Update
+  - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 4: Reusable Component Library, Patterns & Layouts
-  - **Scope**: `internal/server/server.go`, `dashboard/frontend/partials/components/ui_components.html`, `dashboard/frontend/partials/patterns/ui_patterns.html`, `dashboard/frontend/partials/layouts/ui_layouts.html`
+- [x] Task 5: Slide-Over Drawer Stacking Context Fix
+  - **Scope**: `dashboard/frontend/css/design-tokens.css`, `dashboard/frontend/partials/components/ui_components.html`
+  - **Verification**: `./scripts/check.sh templates`
+
+- [x] Task 6: Storage Remotes Scoped Quota & File Explorer Isolation
+  - **Scope**: `internal/server/handlers_auth.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/modals/modal_confirm.html`
   - **Verification**: `go test -count=1 ./internal/server/... && ./scripts/check.sh templates`
 
-- [x] Task 5: 50-Line On-Demand Pagination & Inline Log Folding
-  - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/partials/modals/modal_daemon.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 6: Migrate All Views & Consolidate Redundant Modals
-  - **Scope**: `dashboard/frontend/partials/view_fleet.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/view_audit.html`, `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/partials/modals/modal_profile_delete.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 7: Design System Documentation Suite & Full Quality Validation
-  - **Scope**: `docs/design/status-language.md`, `docs/design/components.md`, `docs/design/patterns.md`, `docs/design/layouts.md`, `docs/design/daemon_log_deduplication_inline_folding.md`
+- [x] Task 7: Remote Deduplication by Hash & MCP Server Roadmap Specifications
+  - **Scope**: `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/remotes.js`, `docs/roadmap/ROADMAP.md`, `docs/roadmap/backlog.md`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-29: Initialized plan from implementation_plan.md on branch feat/design-system-and-telemetry-perf.
-- 2026-10-29: Completed Tasks 1-7:
-  - Telemetry polling accelerated (<10ms) by decoupling rclone-daemon.log from GetTelemetryPayload and caching bisync.log reads by (mtime, size, limit).
-  - 60s TTL caching implemented for cloud storage quotas and OAuth auth status with ?refresh=true bypass.
-  - On-demand 50-line pagination implemented via GET /api/logs/bisync?page=1&limit=50.
-  - Extracted telemetry polling into dashboard/frontend/js/polling.js (window.PollingModule) with ?dev=true / ?poll=false auto-pause, Alt+P shortcut, and header toggle pill.
-  - Bisync Hub Design System foundations established (design-tokens.css, 7 Approved Status Vocabulary states, reusable components, operational patterns, and layout headers).
-  - Inline log deduplication & folding implemented for both bisync.log and correlated daemon logs with O(N) clustering and Expand/Collapse All controls.
-  - All views migrated to design system tokens and vocabulary; audit inspection converted to slide-over Entity Inspector Drawer.
-  - All 8 quality stages in ./scripts/check.sh all and headless Chrome E2E smoke tests verified passing.
+- 2026-10-29: Initialized task plan from approved implementation_plan.md.
+- 2026-10-29: Completed all 7 tasks:
+  1. Remedied historical log scraper bug in `deletion_service.go` by verifying active circuit breaker aborts and resetting upon sync success, preventing 153 completed deletions from surfacing as pending.
+  2. Optimized polling loop in `polling.js` to single lightweight `/api/telemetry?limit=0` query with adaptive intervals (8s idle / 2s sync) and conditional review/profile fetches.
+  3. Fixed `modal_daemon.html` Alpine reference errors, restored comparison settings grid, added Error/Warning/Info filter counts, and hidden Go source line noise unless in dev mode.
+  4. Reversed unified ledger order (newest on top) and updated clusterLogEntries to use latest timestamp for folded rows.
+  5. Corrected drawer stacking context (`overlay: z-40`, `panel: z-50`) to eliminate backdrop blur over the panel.
+  6. Added scoped remote quota validation (`POST /api/remotes/auth/check?remote=...`), locked Explorer remote dropdown to active profile, excluded `.review_backups` from Explorer listings, and added visual `[LOCAL]` ➔ `[REMOTE]` transfer preview to directory copy confirmation.
+  7. Implemented native Remote Hash Deduplication (`modal_dedupe.html`, `/api/remotes/dedupe`) with dry-run preview, and formalized Model Context Protocol (MCP) AI server specifications in `ROADMAP.md` and `backlog.md`.
+
 
   1. Fixed Edit Profile cog icon and New Profile button on Fleet tab by setting `this.profileModal.show = true` and invoking `fetchRemotes()` in `startEditProfile` and `startNewProfile`.
   2. Fixed profile tiles and header pills dynamically jumping/reordering by adding deterministic sorting in `Store.List()` (sorted by `CreatedAt` then `Name`) and client-side sorting in `fetchProfiles()`.

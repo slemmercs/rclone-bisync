@@ -149,6 +149,8 @@ type TelemetryPayload struct {
 	Config            map[string]interface{}   `json:"config"`
 	IsSyncing         bool                     `json:"is_syncing"`
 	TransferStats     *TransferStats           `json:"transfer_stats"`
+	HasReview         bool                     `json:"has_review"`
+	ReviewPending     bool                     `json:"review_pending"`
 }
 
 type BisyncLogEntry struct {
@@ -176,6 +178,22 @@ type PaginatedLogsResponse struct {
 }
 
 // AuditLogRecord represents a cryptographically verified milestone logged in the unified bisync.log stream.
+
+type DedupeRequest struct {
+	Remote string `json:"remote"`
+	Path   string `json:"path"`
+	Mode   string `json:"mode"` // "list", "oldest", "newest"
+}
+
+type DedupeResponse struct {
+	Status string `json:"status"`
+	Remote string `json:"remote"`
+	Path   string `json:"path"`
+	Mode   string `json:"mode"`
+	Output string `json:"output"`
+	Error  string `json:"error,omitempty"`
+}
+
 type AuditLogRecord struct {
 	Time      string          `json:"time"`
 	Level     string          `json:"level"`

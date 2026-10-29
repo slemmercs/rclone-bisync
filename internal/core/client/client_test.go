@@ -173,6 +173,58 @@ func TestTouchFile(t *testing.T) {
 	}
 }
 
+func TestDedupe(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/core/command" {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["command"] == "dedupe" {
+				args, _ := body["arg"].([]interface{})
+				if len(args) >= 4 {
+					target, _ := args[3].(string)
+					if strings.Contains(target, "fail") {
+						w.WriteHeader(http.StatusOK)
+						_, _ = w.Write([]byte(`{"error": true, "result": "dedupe permission denied"}`))
+						return
+					}
+					if strings.Contains(target, "server-error") {
+						w.WriteHeader(http.StatusInternalServerError)
+						_, _ = w.Write([]byte(`Internal Server Error`))
+						return
+					}
+				}
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"error": false, "result": "2 duplicates removed"}`))
+				return
+			}
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	out, err := c.Dedupe(context.Background(), "gdrive", "photos", "oldest")
+	if err != nil || !strings.Contains(out, "2 duplicates removed") {
+		t.Fatalf("expected Dedupe to succeed, got output: %q, err: %v", out, err)
+	}
+
+	// Default mode test
+	outDefault, err := c.Dedupe(context.Background(), "/tmp/local", "", "")
+	if err != nil || !strings.Contains(outDefault, "2 duplicates removed") {
+		t.Fatalf("expected Dedupe default mode to succeed: %v", err)
+	}
+
+	// Command error
+	if _, err := c.Dedupe(context.Background(), "gdrive", "fail", "oldest"); err == nil {
+		t.Fatal("expected error on command failure")
+	}
+
+	// HTTP error
+	if _, err := c.Dedupe(context.Background(), "gdrive", "server-error", "oldest"); err == nil {
+		t.Fatal("expected error on HTTP 500")
+	}
+}
+
 func TestCopyFileAndDir(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

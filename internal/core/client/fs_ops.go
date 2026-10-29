@@ -140,6 +140,49 @@ func (c *RcloneClient) TouchFile(ctx context.Context, remote, path string) (bool
 	return true, nil
 }
 
+// Dedupe calls /core/command with "dedupe" using hash deduplication.
+func (c *RcloneClient) Dedupe(ctx context.Context, remote, path, mode string) (string, error) {
+	fs := NormalizeFs(remote)
+	cleanPath := strings.Trim(path, "/")
+
+	var target string
+	if strings.HasSuffix(fs, ":") {
+		target = fs + cleanPath
+	} else {
+		target = filepath.Join(fs, cleanPath)
+	}
+
+	if mode == "" {
+		mode = "oldest"
+	}
+
+	payload := map[string]interface{}{
+		"command": "dedupe",
+		"arg":     []string{"--by-hash", "--dedupe-mode", mode, target},
+	}
+
+	resp, body, err := c.post(ctx, "core/command", payload, 60*time.Second)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("dedupe failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var cmdResp struct {
+		Error  bool   `json:"error"`
+		Result string `json:"result"`
+	}
+	if err := json.Unmarshal(body, &cmdResp); err == nil {
+		if cmdResp.Error {
+			return "", fmt.Errorf("dedupe error: %s", cmdResp.Result)
+		}
+		return cmdResp.Result, nil
+	}
+
+	return string(body), nil
+}
+
 // CopyFile calls /operations/copyfile to copy an individual file.
 func (c *RcloneClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
 	payload := map[string]string{

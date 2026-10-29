@@ -195,12 +195,8 @@
                             </div>
                         </template>
 
-                        <!-- Empty State -->
-                        <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.items.length === 0" class="p-8 text-center text-slate-500 text-xs">
-                            Empty directory
-                        </div>
-
-                        <!-- No Filter Matches -->
+                        <!-- Empty & Filter States -->
+                        <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.items.length === 0" class="p-8 text-center text-slate-500 text-xs">Empty directory</div>
                         <div x-show="!explorer.left.loading && !explorer.left.error && explorer.left.items.length > 0 && getFilteredItems('left').length === 0" class="p-8 text-center text-slate-500 text-xs">
                             <span>No items match "</span><span class="text-indigo-400 font-semibold" x-text="explorer.left.search"></span><span>"</span>
                             <button @click="explorer.left.search = ''" class="block mx-auto mt-2 text-indigo-400 hover:text-indigo-300 underline font-medium">Clear Filter</button>
@@ -230,11 +226,19 @@
                                 <span class="text-xs font-semibold text-slate-200 truncate" x-text="getPaneDisplayPath('right')"></span>
                             </template>
                             <template x-if="explorer.right.target !== 'local'">
-                                <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
-                                    <template x-for="r in remotesData.remotes" :key="r.name">
-                                        <option :value="r.name" x-text="r.name + ':' + (isRemoteActiveTarget(r) ? ' (Active)' : '')"></option>
+                                <div class="flex items-center gap-1.5">
+                                    <template x-if="activeProfile && activeProfile.remote">
+                                        <div class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-950/60 border border-indigo-700/50 text-xs font-semibold text-indigo-300" :title="'Locked to profile: ' + activeProfile.name">
+                                            <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            <span x-text="activeProfile.remote + ':'"></span><span class="text-[10px] text-indigo-400/80 font-normal hidden sm:inline">(Locked)</span>
+                                        </div>
                                     </template>
-                                </select>
+                                    <template x-if="!activeProfile || !activeProfile.remote">
+                                        <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
+                                            <template x-for="r in remotesData.remotes" :key="r.name"><option :value="r.name" x-text="r.name + ':' + (isRemoteActiveTarget(r) ? ' (Active)' : '')"></option></template>
+                                        </select>
+                                    </template>
+                                </div>
                             </template>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
@@ -370,12 +374,8 @@
                             </div>
                         </template>
 
-                        <!-- Empty State -->
-                        <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.items.length === 0" class="p-8 text-center text-slate-500 text-xs">
-                            Empty directory
-                        </div>
-
-                        <!-- No Filter Matches -->
+                        <!-- Empty & Filter States -->
+                        <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.items.length === 0" class="p-8 text-center text-slate-500 text-xs">Empty directory</div>
                         <div x-show="!explorer.right.loading && !explorer.right.error && explorer.right.items.length > 0 && getFilteredItems('right').length === 0" class="p-8 text-center text-slate-500 text-xs">
                             <span>No items match "</span><span class="text-emerald-400 font-semibold" x-text="explorer.right.search"></span><span>"</span>
                             <button @click="explorer.right.search = ''" class="block mx-auto mt-2 text-indigo-400 hover:text-indigo-300 underline font-medium">Clear Filter</button>

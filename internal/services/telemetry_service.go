@@ -302,6 +302,13 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 		execStatus = "SYNCING"
 	}
 
+	hasReview := false
+	if t.Config != nil && t.Config.ActiveReviewFile != "" {
+		if fi, err := os.Stat(t.Config.ActiveReviewFile); err == nil && fi.Size() > 0 {
+			hasReview = true
+		}
+	}
+
 	return map[string]interface{}{
 		"daemon_health":      daemonData,
 		"notification_state": notifState,
@@ -312,6 +319,8 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 		"is_syncing":         isSync,
 		"execution_status":   execStatus,
 		"transfer_stats":     transferStats,
+		"has_review":         hasReview,
+		"review_pending":     hasReview,
 	}
 }
 

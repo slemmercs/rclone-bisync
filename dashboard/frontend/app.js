@@ -45,14 +45,8 @@ document.addEventListener("alpine:init", () => {
             error: null,
             success: null
         },
-        reconnectModal: {
-            show: false,
-            remote: "",
-            loading: false,
-            authUrl: null,
-            msg: null,
-            error: null
-        },
+        reconnectModal: { show: false, remote: "", loading: false, authUrl: null, msg: null, error: null },
+        dedupeModal: { show: false, remote: "", path: "", mode: "oldest", executing: false, output: "" },
         entityDrawer: {
             open: false,
             title: "",
@@ -101,6 +95,7 @@ document.addEventListener("alpine:init", () => {
         daemonModalSearch: "",
         daemonModalLevelFilter: "all",
         daemonModalCopied: false,
+        daemonModalCopiedJSON: false,
         daemonModalError: null,
 
 
@@ -166,15 +161,17 @@ document.addEventListener("alpine:init", () => {
             confirmText: "Confirm",
             confirmClass: "bg-indigo-600 hover:bg-indigo-500",
             icon: "warning",
+            transfer: null,
             onConfirm: null
         },
 
-        askConfirmation({ title, message, confirmText = "Confirm", confirmClass = "bg-indigo-600 hover:bg-indigo-500", icon = "warning", onConfirm }) {
+        askConfirmation({ title, message, confirmText = "Confirm", confirmClass = "bg-indigo-600 hover:bg-indigo-500", icon = "warning", transfer = null, onConfirm }) {
             this.confirmModal.title = title;
             this.confirmModal.message = message;
             this.confirmModal.confirmText = confirmText;
             this.confirmModal.confirmClass = confirmClass;
             this.confirmModal.icon = icon;
+            this.confirmModal.transfer = transfer;
             this.confirmModal.onConfirm = onConfirm;
             this.confirmModal.show = true;
         },
@@ -183,6 +180,7 @@ document.addEventListener("alpine:init", () => {
             const fn = this.confirmModal.onConfirm;
             this.confirmModal.show = false;
             this.confirmModal.onConfirm = null;
+            this.confirmModal.transfer = null;
             if (typeof fn === "function") {
                 fn();
             }
@@ -191,6 +189,7 @@ document.addEventListener("alpine:init", () => {
         cancelConfirmModal() {
             this.confirmModal.show = false;
             this.confirmModal.onConfirm = null;
+            this.confirmModal.transfer = null;
         },
 
         // Interactive Sync Review State
@@ -279,22 +278,33 @@ document.addEventListener("alpine:init", () => {
             return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
         },
 
+        get isDevMode() {
+            const params = new URLSearchParams(window.location.search);
+            const dev = params.get("dev");
+            return dev === "true" || dev === "1";
+        },
+
         get transferStats() {
             const stats = this.telemetry.transfer_stats || {};
+            const isSyncing = Boolean(this.telemetry.is_syncing);
+            const isListing = isSyncing && (!stats.bytes || stats.bytes === 0);
             const currentFile = (stats.transferring && stats.transferring.length > 0)
                 ? stats.transferring[0].name
-                : (this.telemetry.is_syncing ? "Scanning differences & checking access..." : "Idle");
+                : (isSyncing ? (isListing ? "Listing & Diffing..." : "Syncing in progress...") : "Idle");
             let etaStr = "--";
             if (typeof stats.eta === "number") {
                 const mins = Math.floor(stats.eta / 60);
                 const secs = stats.eta % 60;
                 etaStr = `${mins}m ${secs}s`;
+            } else if (isListing) {
+                etaStr = "Diffing";
             }
             return {
-                speed_str: stats.speed_str || "0 B/s",
+                speed_str: isListing ? "Listing & Diffing" : (stats.speed_str || "0 B/s"),
                 eta_str: etaStr,
                 percentage: typeof stats.percentage === "number" ? stats.percentage : 0,
-                current_file: currentFile
+                current_file: currentFile,
+                is_listing: isListing
             };
         },
 

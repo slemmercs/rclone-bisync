@@ -39,6 +39,10 @@ function clusterLogEntries(entries, foldEnabled, expandedMap) {
         if (currentCluster && currentCluster.key === key && norm.length > 5) {
             currentCluster.count++;
             currentCluster.entries.push(item);
+            // Ensure cluster entry displays the latest occurrence timestamp
+            if (item.time && (!currentCluster.entry.time || item.time > currentCluster.entry.time)) {
+                currentCluster.entry = { ...currentCluster.entry, time: item.time };
+            }
         } else {
             if (currentCluster) {
                 currentCluster.isCluster = currentCluster.count > 1;
@@ -74,10 +78,14 @@ window.LogsModule = {
     expandedClusters: {},
 
     get parsedBisyncLogs() {
+        let logs = [];
         if (this.bisyncPaginatedLogs && this.bisyncPaginatedLogs.length > 0) {
-            return this.bisyncPaginatedLogs;
+            logs = [...this.bisyncPaginatedLogs];
+        } else {
+            logs = (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
         }
-        return (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
+        // Unified ledger: reverse order to display newest entries first
+        return logs.reverse();
     },
 
     get filteredBisyncLogs() {
@@ -122,6 +130,18 @@ window.LogsModule = {
 
     get clusteredDaemonModalLogs() {
         return clusterLogEntries(this.filteredDaemonModalLogs, this.foldRepetitive, this.expandedClusters);
+    },
+
+    get daemonModalCounts() {
+        const logs = this.daemonModalLogs || [];
+        let errors = 0, warnings = 0, info = 0;
+        for (let i = 0; i < logs.length; i++) {
+            const lvl = (logs[i].level || "").toLowerCase().trim();
+            if (lvl === "error") errors++;
+            else if (lvl === "warning" || lvl === "warn") warnings++;
+            else if (lvl === "info" || lvl === "notice") info++;
+        }
+        return { total: logs.length, errors, warnings, info };
     },
 
     async fetchBisyncLogs(page = 1) {
@@ -225,6 +245,7 @@ window.LogsModule = {
         this.daemonModalSearch = "";
         this.daemonModalLevelFilter = "all";
         this.daemonModalCopied = false;
+        this.daemonModalCopiedJSON = false;
         this.daemonModalError = null;
 
         let url = "/api/logs/daemon?limit=500";
@@ -266,6 +287,14 @@ window.LogsModule = {
         navigator.clipboard.writeText(text).then(() => {
             this.daemonModalCopied = true;
             setTimeout(() => { this.daemonModalCopied = false; }, 2000);
+        });
+    },
+
+    copyDaemonLogsJSON() {
+        const json = JSON.stringify(this.daemonModalLogs, null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+            this.daemonModalCopiedJSON = true;
+            setTimeout(() => { this.daemonModalCopiedJSON = false; }, 2000);
         });
     },
 

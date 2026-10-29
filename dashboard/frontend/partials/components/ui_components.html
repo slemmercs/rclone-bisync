@@ -13,7 +13,7 @@
 {{ define "component_entity_drawer" }}
 <div x-show="entityDrawer.open" x-cloak class="relative z-50" role="dialog" aria-modal="true" @keydown.escape.window="entityDrawer.open = false">
     <div x-show="entityDrawer.open" x-transition.opacity.duration.200ms class="ds-drawer-overlay" @click="entityDrawer.open = false"></div>
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-50">
         <div class="absolute inset-0 overflow-hidden">
             <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
                 <div x-show="entityDrawer.open"

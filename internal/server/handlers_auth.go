@@ -2,10 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
@@ -120,6 +122,19 @@ func (s *Server) handleRemotesAuthCheck(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	targetRemote := strings.TrimSpace(r.URL.Query().Get("remote"))
+	if targetRemote != "" {
+		targetRemote = strings.TrimRight(targetRemote, ":")
+		_, _ = s.AuthService.ValidateRemote(r.Context(), targetRemote)
+		res, err := s.AuthService.GetAuthStatusCached(r.Context(), true)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, models.ErrorResponse{Status: "error", Error: err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, res)
+		return
+	}
+
 	res, err := s.AuthService.CheckAllRemotesAuth(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, models.ErrorResponse{Status: "error", Error: err.Error()})
@@ -180,5 +195,66 @@ func (s *Server) handleOAuthStop(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, models.OAuthStopResponse{
 		Status: "success",
 		Msg:    "OAuth processes stopped",
+	})
+}
+
+func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
+	var req models.DedupeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, models.DedupeResponse{Status: "error", Error: "Invalid request payload"})
+		return
+	}
+
+	remoteClean := strings.TrimSpace(req.Remote)
+	if remoteClean == "" {
+		writeJSON(w, http.StatusBadRequest, models.DedupeResponse{Status: "error", Error: "Remote parameter required"})
+		return
+	}
+
+	mode := strings.ToLower(strings.TrimSpace(req.Mode))
+	if mode == "" {
+		mode = "oldest"
+	}
+	if mode != "list" && mode != "oldest" && mode != "newest" {
+		writeJSON(w, http.StatusBadRequest, models.DedupeResponse{Status: "error", Error: "Invalid dedupe mode (must be 'list', 'oldest', or 'newest')"})
+		return
+	}
+
+	var rcClient *client.RcloneClient
+	if s.SyncService != nil && s.SyncService.Client != nil {
+		rcClient = s.SyncService.Client
+	} else if s.ExplorerService != nil && s.ExplorerService.Client != nil {
+		rcClient = s.ExplorerService.Client
+	}
+
+	if rcClient == nil {
+		writeJSON(w, http.StatusOK, models.DedupeResponse{
+			Status: "success",
+			Remote: remoteClean,
+			Path:   req.Path,
+			Mode:   mode,
+			Output: fmt.Sprintf("[SIMULATED] rclone dedupe --by-hash --dedupe-mode %s %s:%s completed. No duplicate files found.", mode, remoteClean, req.Path),
+		})
+		return
+	}
+
+	out, err := rcClient.Dedupe(r.Context(), remoteClean, req.Path, mode)
+	if err != nil {
+		writeJSON(w, http.StatusOK, models.DedupeResponse{
+			Status: "error",
+			Remote: remoteClean,
+			Path:   req.Path,
+			Mode:   mode,
+			Error:  err.Error(),
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, models.DedupeResponse{
+		Status: "success",
+		Remote: remoteClean,
+		Path:   req.Path,
+		Mode:   mode,
+		Output: out,
 	})
 }

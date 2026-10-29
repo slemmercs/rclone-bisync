@@ -42,13 +42,14 @@ func TestDeletionService_ParsePendingDeletionsFromLog(t *testing.T) {
 		"msg": "ERROR : Bisync aborted. Too many deletes (3) on Path1",
 	}
 	nestedAbortJSON, _ := json.Marshal(nestedAbortMsg)
+	nestedAbortEscaped, _ := json.Marshal(string(nestedAbortJSON))
 
 	logEntries := []string{
 		`{"time":"2026-03-30T10:00:00Z","level":"info","msg":"Synching Path1"}`,
 		`{"time":"2026-03-30T10:00:01Z","level":"info","msg":"File was deleted - doc1.pdf"}`,
 		`{"time":"2026-03-30T10:00:02Z","level":"info","msg":"File was deleted - doc2.pdf"}`,
 		`corrupted non-json line`,
-		`{"time":"2026-03-30T10:00:03Z","level":"error","msg":"` + string(nestedAbortJSON) + `"}`,
+		`{"time":"2026-03-30T10:00:03Z","level":"error","msg":` + string(nestedAbortEscaped) + `}`,
 	}
 
 	content := ""
@@ -147,5 +148,66 @@ func TestDeletionService_GetPendingDeletionsStructuredPrecedence(t *testing.T) {
 	fallbackResult := svc.GetPendingDeletions()
 	if len(fallbackResult.Files) != 1 || fallbackResult.Files[0] != "from_log.txt" {
 		t.Fatalf("expected fallback to parse daemon log, got: %v", fallbackResult.Files)
+	}
+}
+
+func TestDeletionService_HistoricalDeletionsIgnoredAfterSuccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	daemonLog := filepath.Join(tmpDir, "rclone-daemon.log")
+
+	// Historical run had deletions and aborted, but subsequent run was successful
+	logEntries := []string{
+		`{"time":"2026-10-28T17:50:00Z","level":"info","msg":"Synching Path1"}`,
+		`{"time":"2026-10-28T17:50:01Z","level":"info","msg":"File was deleted - historical1.txt"}`,
+		`{"time":"2026-10-28T17:50:02Z","level":"info","msg":"File was deleted - historical2.txt"}`,
+		`{"time":"2026-10-28T17:54:12Z","level":"error","msg":"ERROR : Bisync aborted. Too many deletes (153) on Path1"}`,
+		`{"time":"2026-10-28T18:30:00Z","level":"info","msg":"Synching Path1"}`,
+		`{"time":"2026-10-28T18:33:45Z","level":"info","msg":"Bisync successful"}`,
+	}
+
+	content := ""
+	for _, entry := range logEntries {
+		content += entry + "\n"
+	}
+	_ = os.WriteFile(daemonLog, []byte(content), 0644)
+
+	cfg := &config.Config{BaseDir: tmpDir}
+	svc := NewDeletionService(cfg)
+
+	data := svc.ParsePendingDeletionsFromLog()
+	if data.HasDeletions {
+		t.Fatalf("expected HasDeletions false because subsequent run succeeded, got true with %d files", data.TotalCount)
+	}
+	if data.TotalCount != 0 {
+		t.Fatalf("expected TotalCount 0, got %d", data.TotalCount)
+	}
+	if len(data.Files) != 0 {
+		t.Fatalf("expected empty files list, got %v", data.Files)
+	}
+}
+
+func TestDeletionService_NormalSyncDeletionsWithoutAbort(t *testing.T) {
+	tmpDir := t.TempDir()
+	daemonLog := filepath.Join(tmpDir, "rclone-daemon.log")
+
+	// Normal sync deleted files and finished without tripping circuit breaker
+	logEntries := []string{
+		`{"time":"2026-10-29T10:00:00Z","level":"info","msg":"Synching Path1"}`,
+		`{"time":"2026-10-29T10:00:01Z","level":"info","msg":"File was deleted - legitimate_old.txt"}`,
+		`{"time":"2026-10-29T10:00:05Z","level":"info","msg":"Bisync successful"}`,
+	}
+
+	content := ""
+	for _, entry := range logEntries {
+		content += entry + "\n"
+	}
+	_ = os.WriteFile(daemonLog, []byte(content), 0644)
+
+	cfg := &config.Config{BaseDir: tmpDir}
+	svc := NewDeletionService(cfg)
+
+	data := svc.ParsePendingDeletionsFromLog()
+	if data.HasDeletions {
+		t.Fatalf("expected HasDeletions false for normal successful sync, got true with %d files", data.TotalCount)
 	}
 }

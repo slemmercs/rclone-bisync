@@ -55,14 +55,17 @@ window.RemotesModule = {
         }
     },
 
-    async checkAuthAndQuotas() {
+    async checkAuthAndQuotas(targetRemote = null) {
         this.remotesData.loading = true;
-        this.showToast("Checking authentication health & storage quotas...", "info");
+        const remoteToCheck = targetRemote !== undefined ? targetRemote : (this.activeProfile && this.activeProfile.remote ? this.activeProfile.remote : null);
+        const msg = remoteToCheck ? `Checking quota for ${remoteToCheck}...` : "Checking authentication health & storage quotas...";
+        this.showToast(msg, "info");
         const startTime = Date.now();
         try {
+            const checkUrl = remoteToCheck ? `/api/remotes/auth/check?remote=${encodeURIComponent(remoteToCheck)}` : "/api/remotes/auth/check";
             const [remotesRes, checkRes] = await Promise.allSettled([
                 window.API.get("/api/remotes"),
-                window.API.post("/api/remotes/auth/check")
+                window.API.post(checkUrl)
             ]);
 
             if (remotesRes.status === "fulfilled") {
@@ -324,6 +327,10 @@ window.RemotesModule = {
     cannotSaveMigration() {
         return Boolean(this.migrationModal?.loading || !this.migrationModal?.clientId?.trim());
     },
+    isDedupeExecuting() {
+        return Boolean(this.dedupeModal?.executing);
+    },
+
 
     isRemoteActiveTarget(remote) {
         if (!remote) return false;
@@ -354,5 +361,35 @@ window.RemotesModule = {
         const target = this.activeProfile.remote.replace(/:$/, "").trim();
         const matched = (this.remotesData.remotes || []).filter(r => (r.name || "").replace(/:$/, "").trim() === target);
         return matched.length > 0 ? matched : (this.remotesData.remotes || []);
-    }
+    },
+
+    openDedupeModal(remoteName) {
+        this.dedupeModal = { show: true, remote: (remoteName || "").replace(/:$/, "").trim(), path: "", mode: "oldest", executing: false, output: "" };
+    },
+
+    async runDedupe(isDryRun = false) {
+        if (this.dedupeModal.executing) return;
+        const mode = isDryRun ? "list" : this.dedupeModal.mode;
+        this.dedupeModal.executing = true;
+        this.dedupeModal.output = isDryRun
+            ? `Scanning for duplicates on ${this.dedupeModal.remote}:${this.dedupeModal.path || '/'} (mode=list)...\n`
+            : `Executing hash deduplication on ${this.dedupeModal.remote}:${this.dedupeModal.path || '/'} (mode=${mode})...\n`;
+
+        try {
+            const data = await window.API.post("/api/remotes/dedupe", { remote: this.dedupeModal.remote, path: this.dedupeModal.path, mode: mode });
+            if (data.status === "error") {
+                this.dedupeModal.output += `\nError: ${data.error || 'Deduplication failed'}`;
+                this.showToast(`Dedupe failed: ${data.error || 'Unknown error'}`, "error");
+            } else {
+                this.dedupeModal.output = data.output || "No duplicates found. All files have unique checksums.";
+                this.showToast(isDryRun ? "Duplicate scan complete (preview only)" : "Deduplication complete!", "success");
+                if (!isDryRun && typeof this.fetchRemotes === "function") this.fetchRemotes(true);
+            }
+        } catch (err) {
+            this.dedupeModal.output += `\nRequest failed: ${err.message}`;
+            this.showToast(`Request failed: ${err.message}`, "error");
+        } finally {
+            this.dedupeModal.executing = false;
+        }
+    },
 };
