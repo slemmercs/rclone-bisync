@@ -10,7 +10,8 @@ import (
 )
 
 func (s *Server) handleRemotes(w http.ResponseWriter, r *http.Request) {
-	summary, err := s.TelemetryService.GetRemotesSummary(r.Context())
+	refresh := r.URL.Query().Get("refresh") == "true"
+	summary, err := s.TelemetryService.GetRemotesSummaryCached(r.Context(), refresh)
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.RemotesResponse{
 			Remotes: []map[string]interface{}{},
@@ -28,7 +29,8 @@ func (s *Server) handleRemotesAuth(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, models.AuthStatusResponse{})
 		return
 	}
-	resp, err := s.AuthService.GetAuthStatus(r.Context())
+	refresh := r.URL.Query().Get("refresh") == "true"
+	resp, err := s.AuthService.GetAuthStatusCached(r.Context(), refresh)
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.AuthStatusResponse{
 			Summary: models.AuthHealthSummary{},

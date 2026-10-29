@@ -1,53 +1,51 @@
-# Task Plan: Phase 5 - Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings
+# Task Plan: Design System Foundation, Telemetry Acceleration & Inline Log Folding
 
 ## Goal
-Implement a tiered cloud provider settings architecture with first-class UI controls for Tier-1 providers (Google Drive, OneDrive, S3, Dropbox) and an audited custom flags field for Tier-2 generic providers, decouple daemon engine defaults from workload sync payloads, surface a Profile Execution Contract in Telemetry, and introduce a Global Fleet Settings manager.
+Implement the complete Bisync Hub UI Design System, accelerate backend telemetry polling (<10ms), extract telemetry polling into `polling.js` with Dev-Mode network silence controls, implement 50-line on-demand pagination with inline log deduplication/folding, migrate all five frontend views and consolidate modals into the new design system, and author the design system documentation suite.
 
 ## Tasks
 
-- [x] Task 1: Engine Flag Decoupling & Compiler Tier-1 Provider Flag Registration
-  - **Scope**: `internal/config/config.go`, `bisync.env`, `internal/config/config_test.go`, `internal/core/compiler/compiler.go`, `internal/core/compiler/compiler_test.go`
-  - **Verification**: `go test -count=1 ./internal/config/... ./internal/core/compiler/...`
+- [x] Task 1: Backend Telemetry Acceleration, Remote Quota TTL Caching & Paginated Log API
+  - **Scope**: `internal/models/api.go`, `internal/services/filetail.go`, `internal/services/telemetry_service.go`, `internal/services/telemetry_remotes.go`, `internal/remoteauth/service.go`, `internal/server/handlers_telemetry.go`, `internal/server/handlers_auth.go`, `internal/server/server.go`, tests
+  - **Verification**: `go test -count=1 ./internal/services/... ./internal/server/...`
 
-- [x] Task 2: Provider Options Model & Flag Builder Implementation
-  - **Scope**: `internal/profiles/model.go`, `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
-  - **Verification**: `go test -count=1 ./internal/profiles/...`
-
-- [x] Task 3: Global Fleet Settings Backend Endpoints (`GET/PUT /api/config`)
-  - **Scope**: `internal/server/handlers_config.go`, `internal/server/server.go`, `internal/server/server_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...`
-
-- [x] Task 4: Unified Provider Options UI in Profile Modal (`modal_profiles.html`)
-  - **Scope**: `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/js/profiles.js`
+- [x] Task 2: Dedicated Polling Engine (`polling.js`) with Dev-Mode Silence
+  - **Scope**: `dashboard/frontend/js/polling.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 5: Profile Execution Contract in Telemetry View (`view_telemetry.html`)
-  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/app.js`
+- [x] Task 3: Design System Foundations (`design-tokens.css` & Status Vocabulary)
+  - **Scope**: `dashboard/frontend/css/design-tokens.css`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/fleet.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/remotes.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 6: Global Fleet Settings Modal Component (`modal_global_settings.html`)
-  - **Scope**: `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+- [x] Task 4: Reusable Component Library, Patterns & Layouts
+  - **Scope**: `internal/server/server.go`, `dashboard/frontend/partials/components/ui_components.html`, `dashboard/frontend/partials/patterns/ui_patterns.html`, `dashboard/frontend/partials/layouts/ui_layouts.html`
+  - **Verification**: `go test -count=1 ./internal/server/... && ./scripts/check.sh templates`
+
+- [x] Task 5: 50-Line On-Demand Pagination & Inline Log Folding
+  - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/partials/modals/modal_daemon.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 7: Full Quality Verification & Headless Chrome Testing
-  - **Scope**: Full repository
-  - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`
+- [x] Task 6: Migrate All Views & Consolidate Redundant Modals
+  - **Scope**: `dashboard/frontend/partials/view_fleet.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/view_audit.html`, `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/partials/modals/modal_profile_delete.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 8: Multi-Megabyte Daemon Log Parsing & Correlated Log Modal Error Surfacing
-  - **Scope**: `internal/services/log_service.go`, `internal/services/log_service_test.go`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/modals/modal_daemon.html`
-  - **Verification**: `go test -v -count=1 ./internal/services -run TestLogService && ./scripts/check.sh all`
-
-- [x] Task 9: Compare Mode Expansion, Prominent Custom Flags Escape Hatch, Max Delete 0% Display & Manual Origin Tagging
-  - **Scope**: `internal/config/`, `internal/server/`, `internal/profiles/`, `internal/app/`, `dashboard/frontend/partials/`
-  - **Verification**: `go test -count=1 ./internal/... && ./scripts/check.sh all`
-
-- [x] Task 10: Edit Profile Cog Modal Trigger, Compare Mode Resync Guidance & Deterministic Profile Ordering Across Fleet & Pill Switcher
-  - **Scope**: `internal/profiles/store.go`, `internal/profiles/store_test.go`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`
-  - **Verification**: `go test -count=1 ./internal/profiles/... && ./scripts/check.sh all`
-
+- [x] Task 7: Design System Documentation Suite & Full Quality Validation
+  - **Scope**: `docs/design/status-language.md`, `docs/design/components.md`, `docs/design/patterns.md`, `docs/design/layouts.md`, `docs/design/daemon_log_deduplication_inline_folding.md`
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
-- 2026-10-28: Completed Task 10:
+
+- 2026-10-29: Initialized plan from implementation_plan.md on branch feat/design-system-and-telemetry-perf.
+- 2026-10-29: Completed Tasks 1-7:
+  - Telemetry polling accelerated (<10ms) by decoupling rclone-daemon.log from GetTelemetryPayload and caching bisync.log reads by (mtime, size, limit).
+  - 60s TTL caching implemented for cloud storage quotas and OAuth auth status with ?refresh=true bypass.
+  - On-demand 50-line pagination implemented via GET /api/logs/bisync?page=1&limit=50.
+  - Extracted telemetry polling into dashboard/frontend/js/polling.js (window.PollingModule) with ?dev=true / ?poll=false auto-pause, Alt+P shortcut, and header toggle pill.
+  - Bisync Hub Design System foundations established (design-tokens.css, 7 Approved Status Vocabulary states, reusable components, operational patterns, and layout headers).
+  - Inline log deduplication & folding implemented for both bisync.log and correlated daemon logs with O(N) clustering and Expand/Collapse All controls.
+  - All views migrated to design system tokens and vocabulary; audit inspection converted to slide-over Entity Inspector Drawer.
+  - All 8 quality stages in ./scripts/check.sh all and headless Chrome E2E smoke tests verified passing.
+
   1. Fixed Edit Profile cog icon and New Profile button on Fleet tab by setting `this.profileModal.show = true` and invoking `fetchRemotes()` in `startEditProfile` and `startNewProfile`.
   2. Fixed profile tiles and header pills dynamically jumping/reordering by adding deterministic sorting in `Store.List()` (sorted by `CreatedAt` then `Name`) and client-side sorting in `fetchProfiles()`.
   3. Added user-facing guidance callouts in `modal_profiles.html` and `modal_global_settings.html` noting that changing `Compare Mode` requires a one-time `--resync`.

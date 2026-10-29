@@ -1,0 +1,67 @@
+{{/* Reusable Empty State Component */}}
+{{ define "component_empty_state" }}
+<div class="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-800 bg-slate-900/30">
+    <div class="w-12 h-12 rounded-2xl bg-slate-800/60 border border-slate-700/60 text-slate-400 mx-auto flex items-center justify-center mb-3">
+        <svg class="w-6 h-6 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+    </div>
+    <h3 class="text-sm font-semibold text-white mb-1" x-text="$el.dataset.title || 'No Records Found'"></h3>
+    <p class="text-xs text-slate-400 max-w-sm mx-auto mb-4" x-text="$el.dataset.description || 'No entries match your current search or filter criteria.'"></p>
+</div>
+{{ end }}
+
+{{/* Slide-Over Entity Inspector Drawer */}}
+{{ define "component_entity_drawer" }}
+<div x-show="entityDrawer.open" x-cloak class="relative z-50" role="dialog" aria-modal="true" @keydown.escape.window="entityDrawer.open = false">
+    <div x-show="entityDrawer.open" x-transition.opacity.duration.200ms class="ds-drawer-overlay" @click="entityDrawer.open = false"></div>
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+                <div x-show="entityDrawer.open"
+                     x-transition:enter="transform transition ease-in-out duration-300 sm:duration-400"
+                     x-transition:enter-start="translate-x-full"
+                     x-transition:enter-end="translate-x-0"
+                     x-transition:leave="transform transition ease-in-out duration-200"
+                     x-transition:leave-start="translate-x-0"
+                     x-transition:leave-end="translate-x-full"
+                     class="pointer-events-auto w-screen max-w-md ds-drawer-panel">
+                    
+                    <!-- Drawer Header -->
+                    <div class="ds-drawer-header">
+                        <div class="min-w-0">
+                            <h2 class="text-sm font-bold text-white tracking-wide truncate" x-text="entityDrawer.title"></h2>
+                            <p class="text-xs text-slate-400 truncate font-mono mt-0.5" x-text="entityDrawer.subtitle"></p>
+                        </div>
+                        <button @click="entityDrawer.open = false" class="ds-btn ds-btn-ghost ds-btn-sm text-slate-400 hover:text-white" title="Close drawer (Esc)">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Drawer Content Body -->
+                    <div class="ds-drawer-body font-mono text-xs text-slate-300 space-y-4">
+                        <template x-if="entityDrawer.type === 'audit'">
+                            <div class="space-y-3">
+                                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                    <span class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Cryptographic Fingerprint</span>
+                                    <div class="text-indigo-400 break-all select-all text-[11px]" x-text="entityDrawer.data?.hash || '--'"></div>
+                                </div>
+                                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                    <span class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Previous Chain Hash</span>
+                                    <div class="text-slate-400 break-all select-all text-[11px]" x-text="entityDrawer.data?.prev_hash || 'GENESIS'"></div>
+                                </div>
+                                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                    <span class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Target Object / Path</span>
+                                    <div class="text-white break-all text-[11px]" x-text="entityDrawer.data?.object || '--'"></div>
+                                </div>
+                                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                                    <span class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Structured Action Metadata</span>
+                                    <pre class="text-[10px] text-slate-300 overflow-x-auto whitespace-pre-wrap select-all" x-text="JSON.stringify(entityDrawer.data?.details || {}, null, 2)"></pre>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

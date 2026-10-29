@@ -1,0 +1,115 @@
+{{/* Operational Pattern 3: Paginated Timeline Ledger with Inline Folding */}}
+{{ define "pattern_timeline_ledger" }}
+<div class="ds-card overflow-hidden flex flex-col shadow-xl">
+    <div class="ds-card-header flex-wrap">
+        <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+            <span class="text-xs font-mono font-semibold text-slate-200 tracking-wider">bisync.log (Unified Ledger)</span>
+            
+            <!-- Filter Pills -->
+            <div class="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono ml-2">
+                <button @click="telemetryLogFilter = 'all'" :class="telemetryLogFilter === 'all' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all">All</button>
+                <button @click="telemetryLogFilter = 'sync'" :class="telemetryLogFilter === 'sync' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all">Sync</button>
+                <button @click="telemetryLogFilter = 'audit'" :class="telemetryLogFilter === 'audit' ? 'bg-purple-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all">Audit</button>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- Inline Log Folding Controls -->
+            <label class="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 cursor-pointer select-none">
+                <input type="checkbox" x-model="foldRepetitive" class="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0 w-3.5 h-3.5">
+                <span>Fold Repeated</span>
+            </label>
+            <button x-show="foldRepetitive" @click="toggleAllClusters()" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors">
+                <span x-text="areAllClustersExpanded ? 'Collapse All' : 'Expand All'"></span>
+            </button>
+            <button @click="openDaemonModal(null)" class="text-[11px] font-sans text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
+                <span>Daemon Stream</span>
+            </button>
+            <a href="/api/logs/bisync/raw" target="_blank" class="text-[11px] font-sans text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1">
+                <span>Raw</span>
+                <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Terminal Stream Container -->
+    <div id="log-bisync" class="p-3 font-mono text-xs text-slate-400 overflow-y-auto h-96 space-y-1 bg-slate-950 text-left">
+        <template x-for="cluster in clusteredBisyncLogs" :key="cluster.id">
+            <div>
+                <!-- Single Entry Row -->
+                <template x-if="!cluster.isCluster">
+                    <div class="py-1 px-2 rounded hover:bg-slate-900/60 transition-all flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-[11px] leading-relaxed text-left border border-transparent hover:border-slate-800/80">
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                            <span class="text-slate-500 shrink-0 tabular-nums text-[10px]" x-text="cluster.entry.time"></span>
+                            <span class="px-1.5 py-0.2 rounded font-bold uppercase shrink-0 text-[9px]" :class="cluster.entry.levelClass" x-text="cluster.entry.level"></span>
+                            <template x-if="cluster.entry.duration_sec != null">
+                                <span class="text-slate-400 text-[10px] bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800 shrink-0 tabular-nums" x-text="cluster.entry.duration_sec.toFixed(1) + 's'"></span>
+                            </template>
+                            <span class="text-slate-200 truncate select-all" x-text="cluster.entry.msg" :title="cluster.entry.msg"></span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <template x-if="cluster.entry.type === 'audit'">
+                                <button @click="switchTab('audit')" class="ds-btn ds-btn-secondary ds-btn-sm text-[10px]">Ledger →</button>
+                            </template>
+                            <template x-if="cluster.entry.type !== 'audit'">
+                                <button @click="openDaemonModal(cluster.entry)" class="ds-btn ds-btn-ghost ds-btn-sm text-[10px] text-indigo-400 hover:text-white">Daemon</button>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                <!-- Collapsible Folded Cluster Row -->
+                <template x-if="cluster.isCluster">
+                    <div class="rounded border border-indigo-950/60 bg-indigo-950/20 my-1 overflow-hidden">
+                        <div @click="toggleCluster(cluster.id)" class="py-1.5 px-2.5 cursor-pointer hover:bg-indigo-900/30 transition-colors flex items-center justify-between gap-2 text-[11px]">
+                            <div class="flex items-center gap-2 min-w-0 flex-1">
+                                <svg class="w-3 h-3 text-indigo-400 transition-transform shrink-0" :class="cluster.expanded ? 'rotate-90' : ''" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                                <span class="text-slate-500 shrink-0 tabular-nums text-[10px]" x-text="cluster.entry.time"></span>
+                                <span class="px-1.5 py-0.2 rounded font-bold uppercase shrink-0 text-[9px]" :class="cluster.entry.levelClass" x-text="cluster.entry.level"></span>
+                                <span class="text-slate-200 truncate font-semibold" x-text="cluster.entry.msg"></span>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="ds-badge ds-badge-warning tabular-nums" x-text="'×' + cluster.count + ' repeated'"></span>
+                                <span class="text-[10px] text-indigo-400" x-text="cluster.expanded ? 'Hide' : 'Expand'"></span>
+                            </div>
+                        </div>
+
+                        <!-- Nested Cluster Entries -->
+                        <div x-show="cluster.expanded" class="border-t border-indigo-950/60 bg-slate-950/70 p-2 space-y-1">
+                            <template x-for="(subEntry, subIdx) in cluster.entries" :key="subIdx">
+                                <div class="py-0.5 px-2 flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-900 last:border-0">
+                                    <div class="flex items-center gap-2 min-w-0 truncate">
+                                        <span class="text-slate-600 tabular-nums" x-text="subEntry.time"></span>
+                                        <span class="text-slate-300 truncate" x-text="subEntry.msg"></span>
+                                    </div>
+                                    <template x-if="subEntry.type !== 'audit'">
+                                        <button @click="openDaemonModal(subEntry)" class="text-indigo-400 hover:text-white shrink-0 text-[9px]">Daemon</button>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+        <div x-show="clusteredBisyncLogs.length === 0" class="text-slate-600 animate-pulse text-center py-6">Awaiting sync execution records...</div>
+    </div>
+
+    <!-- On-Demand Pagination Footer -->
+    <div class="ds-card-footer">
+        <div class="text-slate-400 flex items-center gap-2">
+            <span>Page <strong class="text-white" x-text="bisyncLogPage"></strong> of <strong class="text-white" x-text="bisyncLogTotalPages"></strong></span>
+            <span class="text-slate-600">|</span>
+            <span x-text="bisyncLogTotal > 0 ? bisyncLogTotal + ' entries' : 'Streaming'"></span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button @click="prevBisyncPage()" :disabled="bisyncLogPage <= 1 || bisyncLogLoading" class="ds-btn ds-btn-secondary ds-btn-sm" title="Previous 50 entries">
+                <span>← Newer</span>
+            </button>
+            <button @click="nextBisyncPage()" :disabled="bisyncLogPage >= bisyncLogTotalPages || bisyncLogLoading" class="ds-btn ds-btn-secondary ds-btn-sm" title="Next 50 entries">
+                <span>Older →</span>
+            </button>
+        </div>
+    </div>
+</div>
+{{ end }}

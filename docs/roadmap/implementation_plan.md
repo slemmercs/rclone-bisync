@@ -1,53 +1,59 @@
-# Implementation Plan: Four-Phase Multi-Profile Stabilization & Architecture Evolution
+# Implementation Plan: Design System Foundation, Telemetry Acceleration & Inline Log Folding
 
-This plan establishes the architectural roadmap across all five strategic phases (Completed in `v1.0.0-beta.10`):
-- **Phase 1: Multi-Profile UI & Engine Cohesion** (Completed)
-- **Phase 2: Core Refactoring & Subsystem Consolidation** (Completed)
-- **Phase 3: Operational Flags & Profile Schema Alignment** (Completed)
-- **Phase 4: Hybrid Fleet Overview & Operational Flags UI** (Completed)
-- **Phase 5: Provider Presets, Global Fleet Config & Guided Review Resilience** (Completed)
+## Proposed Changes
 
----
-
-## 1. Phase 1: Multi-Profile UI & Engine Cohesion (Active Scope)
-
-### Proposed Changes
-Resolve Alpine.js reactive null pointer exceptions on profile modal close, unify telemetry and sync status across multi-profile schedulers and single-tenant runners, bind cockpit engine badges to the active profile's execution state, and forward profile-specific exclude patterns to the underlying Rclone sync runner.
+Implement the complete Bisync Hub UI Design System, accelerate backend telemetry polling (<10ms), extract telemetry polling into `polling.js` with Dev-Mode network silence controls, implement 50-line on-demand pagination with inline log deduplication/folding, migrate all five frontend views and consolidate modals into the new design system, and author the design system documentation suite.
 
 ### Affected Components & Packages
-- `dashboard/frontend/js/profiles.js`:
-  - Introduce `createDefaultProfile()` helper.
-  - Reset `profileModal.editing` to safe default object in `closeProfilesModal()`.
-- `dashboard/frontend/partials/modals/modal_profiles.html`:
-  - Refactor Tab 2 to use `<template x-if="profileModal.tab === 'edit'">` for DOM detachment.
-  - Add null-safe bindings (`profileModal.editing?.name`, `profileModal.editing?.id`).
-- `internal/profiles/scheduler.go`:
-  - Expose `IsAnyRunning() bool` and `IsProfileRunning(profileID string) bool`.
-- `internal/profiles/service.go`:
-  - Add delegate methods `IsAnySyncing() bool` and `IsProfileSyncing(id string) bool`.
-- `internal/server/handlers_telemetry.go`:
-  - Return `"execution_status": "SYNCING" | "IDLE"` in `/api/telemetry` payload.
-  - Return `is_syncing: true` if global lock acquired or any profile scheduler worker running.
-- `dashboard/frontend/partials/view_telemetry.html`:
-  - Update status badge to evaluate `telemetry.execution_status` and active profile state.
-- `internal/server/server.go`:
-  - In `executor`, map `p.ExcludePatterns` into `profCfg.RcloneCommonArgs` as `--exclude` flags.
+
+- `internal/models/api.go`: Add `PaginatedLogsResponse` model.
+- `internal/services/filetail.go`: Add `TailJSONLogPaginated(filepath, page, limit)`.
+- `internal/services/telemetry_service.go`: Decouple `rclone-daemon.log` tailing from `GetTelemetryPayload()`; cache `bisync.log` reads by `(mtime, size, limit)` and cache remote summaries with 60s TTL.
+- `internal/server/handlers_telemetry.go`: Update `/api/telemetry` handler and register `GET /api/logs/bisync` with `page` and `limit`.
+- `internal/server/server.go`: Dynamically register templates in `partials/components/*.html`, `partials/patterns/*.html`, `partials/layouts/*.html`.
+- `dashboard/frontend/css/design-tokens.css`: Semantic CSS variables, 4/8/16/24/32px spacing scale, monospace path truncation, `tabular-nums`, `.ds-card`, `.ds-btn-*`, `.ds-badge-*`, `.ds-alert-*`, `.ds-table-*`, `.ds-drawer-*`.
+- `dashboard/frontend/js/polling.js`: Extracted polling engine with `?dev=true` / `?poll=false` auto-pause, `localStorage` persistence, `Alt+P` keyboard shortcut, document visibility awareness, and header live/paused indicator.
+- `dashboard/frontend/js/logs.js`: 50-line pagination state management and O(N) inline log deduplication/folding with expandable accordions and expand/collapse all controls.
+- `dashboard/frontend/app.js`: Remove inline polling, bind `PollingModule` and standardize to the 7 Approved Status Vocabulary states (`Healthy`, `Warning`, `Critical`, `Running`, `Idle`, `Blocked`, `Review Required`).
+- `dashboard/frontend/partials/components/ui_components.html`: Core reusable partials (Card, Button, Badge, Alert, Modal, Table, Drawer, Empty State).
+- `dashboard/frontend/partials/patterns/ui_patterns.html`: Operational patterns (Health Banner, Sync Summary, Review Queue, Timeline Ledger, Entity Drawer).
+- `dashboard/frontend/partials/layouts/ui_layouts.html`: Dashboard Layout, Workspace Layout, Detail Layout page headers.
+- `dashboard/frontend/partials/view_*.html`: Full migration to Design System tokens, patterns, and vocabulary.
+- `dashboard/frontend/partials/modals/`: Consolidate redundant confirmation/deletion modals.
+- `docs/design/`: Author `status-language.md`, `components.md`, `patterns.md`, `layouts.md`, and update `daemon_log_deduplication_inline_folding.md`.
 
 ### Technical Strategy & Data Flow
-1. **Alpine State Safety**:
-   - `createDefaultProfile()` initializes non-null defaults for all bound properties.
-   - On modal close, `editing` resets to defaults, eliminating `TypeError: Cannot read properties of null`.
-2. **Telemetry & Concurrency Harmonization**:
-   - Scheduler tracks active worker sync runs.
-   - `/api/telemetry` checks both single-tenant lock and active profile workers.
-3. **Exclude Rule Forwarding**:
-   - Profile `ExcludePatterns` are appended to `profCfg.RcloneCommonArgs` before running `SyncRunner`.
 
----
-## 2. Phase 2: Core Refactoring & Subsystem Consolidation (Active Scope)
+1. **Telemetry Acceleration & Pagination**:
+   - `GetTelemetryPayload()` no longer reads the multi-megabyte `rclone-daemon.log`. Daemon logs remain isolated to `GET /api/logs/daemon`.
+   - `bisync.log` reads are cached with an in-memory mtime/size check. If the file hasn't changed since the previous poll, the cached slice is returned directly.
+   - `GET /api/logs/bisync?page=1&limit=50` allows the browser to request only the active window of 50 records.
+2. **Dedicated Polling Module (`polling.js`)**:
+   - Runs independently of `app.js`. If URL contains `?dev=true` or `?poll=false`, polling initializes in paused mode, ensuring the browser Network tab remains clean during development.
+   - Responds to `document.hidden` to pause background polling when the browser tab is backgrounded.
+3. **Design System Hybrid Architecture**:
+   - Atomic primitives (`Button`, `Badge`, `Card`, `Alert`) are provided as semantic CSS utility classes (`.ds-card`, `.ds-btn-primary`, `.ds-badge-healthy`) in `design-tokens.css` to allow frictionless Alpine.js reactive bindings (`:disabled`, `@click`, `x-show`).
+   - Composite structures (`Modal`, `Drawer`, `Timeline`, `Health Banner`, `Empty State`) are implemented as Go HTML templates and parameterized partials.
+4. **Approved Status Vocabulary Enforcement**:
+   - Only 7 canonical status labels are allowed: `Healthy`, `Warning`, `Critical`, `Running`, `Idle`, `Blocked`, `Review Required`. All ad-hoc status strings are eliminated.
+5. **Inline Log Folding**:
+   - `window.LogsModule.clusterLogs()` normalizes entries and groups consecutive duplicate notices (e.g. `march/march.go:350`, bulk deletion restores) into inline collapsible rows with `×N` repeat counters.
 
-### Proposed Changes
-1. **Central DI Container (`internal/app/container.go`)**:
+### Safety & Error Handling
+
+- Path traversal jail checks remain strictly enforced on all file browsing endpoints.
+- Atomic file writes and advisory POSIX locking remain unchanged.
+- Dynamic template globbing in `internal/server/server.go` verifies pattern matches before parsing to ensure backward compatibility with test `fstest.MapFS` instances.
+- Error states in logs and API failures are mapped to the canonical `Critical` status and surfaced via `.ds-alert-danger` and red badges.
+
+## Verification Plan
+
+- Unit tests for paginated log tailing: `go test -count=1 ./internal/services/... -run TestTailJSONLogPaginated`.
+- Unit tests for telemetry caching & handlers: `go test -count=1 ./internal/server/... -run TestTelemetry`.
+- Template and LOC validation: `./scripts/check.sh templates && ./scripts/check.sh loc`.
+- Full quality suite: `./scripts/check.sh all`.
+- Live service verification: Rebuild binary, restart service, verify `/api/telemetry` latency <10ms, test polling pause toggle, test log pagination and folding.
+
    - Centralize lifecycle management, dependency construction, and wiring for core services: Rclone RC client, SyncService, TelemetryService, CanaryService, DeletionService, ExplorerService, ReviewService, AuditService, LogService, RemoteAuthService, ProfileStore, ProfileScheduler, and ProfileService.
    - De-duplicate and decouple service creation from `main.go` and `internal/server/server.go`.
    - Provide clean lifecycle methods (`Start(ctx)`, `Close()`) to manage background profile schedulers, loggers, and database handles gracefully.

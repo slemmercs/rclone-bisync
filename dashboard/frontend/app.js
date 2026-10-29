@@ -53,6 +53,21 @@ document.addEventListener("alpine:init", () => {
             msg: null,
             error: null
         },
+        entityDrawer: {
+            open: false,
+            title: "",
+            subtitle: "",
+            type: "audit",
+            data: null
+        },
+        openAuditDrawer(record) {
+            if (!record) return;
+            this.entityDrawer.open = true;
+            this.entityDrawer.title = `Audit Block #${record.seq_id} — ${record.action}`;
+            this.entityDrawer.subtitle = record.timestamp || "";
+            this.entityDrawer.type = "audit";
+            this.entityDrawer.data = record;
+        },
         auditModal: {
             show: false,
             loading: false,
@@ -283,26 +298,21 @@ document.addEventListener("alpine:init", () => {
             };
         },
 
-        get filteredConfigEntries() {
-            const cfg = this.telemetry.config || {};
-            const exclude = new Set(["LOCAL_PATH", "REMOTE_PATH", "BASE_DIR", "LOCALPATH", "REMOTEPATH", "BASEDIR"]);
-            return Object.entries(cfg).filter(([k]) => {
-                if (exclude.has(k)) return false;
-                // Exclude flat uppercase aliases when snake_case version is present
-                const snake = k.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
-                if (!k.includes("_") && cfg[snake] !== undefined && snake !== k) return false;
-                return true;
-            });
+        normalizeStatus(status) {
+            return normalizeStatus(status);
         },
 
-        formatConfig(key, val) {
-            return formatConfigValue(key, val);
+        getStatusBadgeClass(status) {
+            return getStatusBadgeClass(status);
         },
 
         // Lifecycle & Navigation
         async initDashboard() {
             initPerformanceChart();
-            await this.poll();
+            this.initPolling();
+            if (!this.isPollingPaused) {
+                await this.poll();
+            }
             if (typeof this.fetchProfiles === "function") {
                 this.fetchProfiles();
             }
@@ -311,22 +321,7 @@ document.addEventListener("alpine:init", () => {
             if (this.currentTab === "remotes") this.fetchRemotes(true);
             else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") this.initExplorer();
             else if (this.currentTab === "audit" && typeof this.initAudit === "function") this.initAudit();
-            setInterval(() => this.poll(), 3000);
             this.setupLogScroll("log-bisync");
-        },
-
-        async poll() {
-            try {
-                const data = await window.API.get("/api/telemetry?limit=" + this.currentLogLimit);
-                this.telemetry = data;
-                updatePerformanceChart(data.metrics || []);
-                this.fetchReviewSession(false);
-                if (typeof this.fetchProfiles === "function") {
-                    this.fetchProfiles();
-                }
-            } catch (err) {
-                console.error("Telemetry poll failed:", err);
-            }
         },
 
         async triggerAction(actionStr) {
@@ -376,6 +371,7 @@ document.addEventListener("alpine:init", () => {
         window.ReviewModule,
         window.LogsModule,
         window.AuditModule,
-        window.SettingsModule
+        window.SettingsModule,
+        window.PollingModule
     ));
 });

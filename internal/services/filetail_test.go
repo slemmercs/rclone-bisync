@@ -76,3 +76,46 @@ func TestTailJSONLog_RedactsSecrets(t *testing.T) {
 		}
 	}
 }
+
+func TestTailJSONLogPaginated(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "paginated.log")
+
+	// Missing file case
+	resEmpty := TailJSONLogPaginated(filepath.Join(tmpDir, "nonexistent.log"), 1, 50)
+	if resEmpty.Total != 0 || resEmpty.TotalPages != 1 || len(resEmpty.Logs) != 0 {
+		t.Fatalf("expected empty response for nonexistent file, got %+v", resEmpty)
+	}
+
+	// Create 120 lines
+	var sb strings.Builder
+	for i := 1; i <= 120; i++ {
+		sb.WriteString(strings.Repeat(" ", 0))
+		sb.WriteString(`{"time":"2026-10-27T10:00:00Z","level":"info","msg":"line ` + strings.TrimSpace(string(rune('0'+i%10))) + ` with --rc-pass=secret"}` + "\n")
+	}
+	if err := os.WriteFile(logPath, []byte(sb.String()), 0600); err != nil {
+		t.Fatalf("failed to write test log: %v", err)
+	}
+
+	// Page 1 (most recent 50)
+	p1 := TailJSONLogPaginated(logPath, 1, 50)
+	if p1.Total != 120 || p1.TotalPages != 3 || len(p1.Logs) != 50 || p1.Page != 1 {
+		t.Fatalf("unexpected p1: Total=%d, TotalPages=%d, len=%d, Page=%d", p1.Total, p1.TotalPages, len(p1.Logs), p1.Page)
+	}
+	// Verify redaction
+	if strings.Contains(p1.Logs[0], "secret") && !strings.Contains(p1.Logs[0], "********") {
+		t.Errorf("expected secret to be redacted in paginated logs: %s", p1.Logs[0])
+	}
+
+	// Page 2 (middle 50)
+	p2 := TailJSONLogPaginated(logPath, 2, 50)
+	if len(p2.Logs) != 50 || p2.Page != 2 {
+		t.Fatalf("unexpected p2: len=%d, Page=%d", len(p2.Logs), p2.Page)
+	}
+
+	// Page 3 (oldest 20)
+	p3 := TailJSONLogPaginated(logPath, 3, 50)
+	if len(p3.Logs) != 20 || p3.Page != 3 {
+		t.Fatalf("unexpected p3: len=%d, Page=%d", len(p3.Logs), p3.Page)
+	}
+}

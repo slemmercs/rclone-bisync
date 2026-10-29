@@ -113,11 +113,13 @@ window.AuditModule = {
     },
 
     inspectAuditRecord(rec) {
-        this.auditData.selectedRecord = rec;
+        this.openAuditDrawer(rec);
     },
 
     closeAuditDetailsModal() {
-        this.auditData.selectedRecord = null;
+        if (this.entityDrawer) {
+            this.entityDrawer.open = false;
+        }
     },
 
     copyHeadHash(hash) {

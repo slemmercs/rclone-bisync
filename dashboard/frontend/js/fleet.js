@@ -112,40 +112,29 @@ window.FleetModule = {
         const errCount = (p.state && p.state.error_count) || 0;
         const reviewReq = (p.state && p.state.review_required) || false;
 
-        if (isSync || status === "running" || status === "syncing") return "SYNCING";
-        if (reviewReq || status === "review_required") return "REVIEW REQUIRED";
-        if (status === "failed" || status === "error" || errCount > 0) return "FAILED";
-        if (status === "healthy") return "HEALTHY";
-        if (status === "idle") return "IDLE";
-        return status ? status.toUpperCase() : "IDLE";
+        if (isSync || status === "running" || status === "syncing") return APPROVED_STATUS_LABELS.RUNNING;
+        if (reviewReq || status === "review_required") return APPROVED_STATUS_LABELS.REVIEW_REQUIRED;
+        if (status === "failed" || status === "error" || errCount > 0) return APPROVED_STATUS_LABELS.CRITICAL;
+        if (status === "healthy") return APPROVED_STATUS_LABELS.HEALTHY;
+        if (status === "idle") return APPROVED_STATUS_LABELS.IDLE;
+        return normalizeStatus(status);
     },
 
     getProfileStatusBadgeClass(p) {
         const text = this.getProfileStatusText(p);
-        switch (text) {
-            case "SYNCING":
-                return "bg-sky-500/10 text-sky-400 border-sky-500/20";
-            case "REVIEW REQUIRED":
-                return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-            case "FAILED":
-                return "bg-rose-500/10 text-rose-400 border-rose-500/20";
-            case "HEALTHY":
-                return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-            default:
-                return "bg-slate-800 text-slate-400 border-slate-700/60";
-        }
+        return getStatusBadgeClass(text);
     },
 
     getProfileStatusDotClass(p) {
         const text = this.getProfileStatusText(p);
         switch (text) {
-            case "SYNCING":
+            case APPROVED_STATUS_LABELS.RUNNING:
                 return "bg-sky-400 animate-pulse";
-            case "REVIEW REQUIRED":
-                return "bg-amber-400";
-            case "FAILED":
+            case APPROVED_STATUS_LABELS.REVIEW_REQUIRED:
+                return "bg-purple-400";
+            case APPROVED_STATUS_LABELS.CRITICAL:
                 return "bg-rose-400";
-            case "HEALTHY":
+            case APPROVED_STATUS_LABELS.HEALTHY:
                 return "bg-emerald-400";
             default:
                 return "bg-slate-500";

@@ -167,6 +167,14 @@ type BisyncLogEntry struct {
 	EndTime     string  `json:"end_time"`   // RFC3339
 }
 
+type PaginatedLogsResponse struct {
+	Page       int      `json:"page"`
+	Limit      int      `json:"limit"`
+	Total      int      `json:"total"`
+	TotalPages int      `json:"total_pages"`
+	Logs       []string `json:"logs"`
+}
+
 // AuditLogRecord represents a cryptographically verified milestone logged in the unified bisync.log stream.
 type AuditLogRecord struct {
 	Time      string          `json:"time"`

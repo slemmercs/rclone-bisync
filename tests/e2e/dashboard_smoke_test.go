@@ -144,7 +144,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 	err := chromedp.Do(ctx,
 		chromedp.Navigate(ts.URL),
 		chromedp.WaitVisible("body[x-data]"),
-		chromedp.WaitVisible("header"),
+		chromedp.WaitVisible("#app-header"),
 	)
 	if err != nil {
 		mu.Lock()
