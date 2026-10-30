@@ -13,7 +13,7 @@ Review implemented features across releases v1.0.0-beta.1 through v1.0.0-beta.12
   - **Scope**: `docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`
   - **Verification**: `test -f docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`
 
-- [ ] Task 3: Create ADR-007: 3-Tier Cascading Operational Flags Hierarchy
+- [x] Task 3: Create ADR-007: 3-Tier Cascading Operational Flags Hierarchy
   - **Scope**: `docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`
   - **Verification**: `test -f docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`
 
