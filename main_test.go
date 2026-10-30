@@ -65,7 +65,14 @@ func TestEmbeddedFrontendFS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed sub fs: %v", err)
 	}
-	tmpl, tmplErr := template.ParseFS(subFS, "index.html", "partials/*.html", "partials/modals/*.html")
+	tmpl, tmplErr := template.ParseFS(subFS,
+		"index.html",
+		"partials/*.html",
+		"partials/modals/*.html",
+		"partials/components/*.html",
+		"partials/patterns/*.html",
+		"partials/layouts/*.html",
+	)
 	if tmplErr != nil {
 		t.Fatalf("ParseFS failed on embedded frontendFS: %v", tmplErr)
 	}

@@ -2,15 +2,20 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 func (s *Server) handleRemotes(w http.ResponseWriter, r *http.Request) {
-	summary, err := s.TelemetryService.GetRemotesSummary(r.Context())
+	refresh := r.URL.Query().Get("refresh") == "true"
+	summary, err := s.TelemetryService.GetRemotesSummaryCached(r.Context(), refresh)
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.RemotesResponse{
 			Remotes: []map[string]interface{}{},
@@ -28,7 +33,8 @@ func (s *Server) handleRemotesAuth(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, models.AuthStatusResponse{})
 		return
 	}
-	resp, err := s.AuthService.GetAuthStatus(r.Context())
+	refresh := r.URL.Query().Get("refresh") == "true"
+	resp, err := s.AuthService.GetAuthStatusCached(r.Context(), refresh)
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.AuthStatusResponse{
 			Summary: models.AuthHealthSummary{},
@@ -118,6 +124,19 @@ func (s *Server) handleRemotesAuthCheck(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	targetRemote := strings.TrimSpace(r.URL.Query().Get("remote"))
+	if targetRemote != "" {
+		targetRemote = strings.TrimRight(targetRemote, ":")
+		_, _ = s.AuthService.ValidateRemote(r.Context(), targetRemote)
+		res, err := s.AuthService.GetAuthStatusCached(r.Context(), true)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, models.ErrorResponse{Status: "error", Error: err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, res)
+		return
+	}
+
 	res, err := s.AuthService.CheckAllRemotesAuth(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, models.ErrorResponse{Status: "error", Error: err.Error()})
@@ -178,5 +197,117 @@ func (s *Server) handleOAuthStop(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, models.OAuthStopResponse{
 		Status: "success",
 		Msg:    "OAuth processes stopped",
+	})
+}
+
+func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
+	var req models.DedupeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, models.DedupeResponse{Status: "error", Error: "Invalid request payload"})
+		return
+	}
+
+	remoteClean := strings.TrimSpace(req.Remote)
+	if remoteClean == "" {
+		writeJSON(w, http.StatusBadRequest, models.DedupeResponse{Status: "error", Error: "Remote parameter required"})
+		return
+	}
+
+	mode := strings.ToLower(strings.TrimSpace(req.Mode))
+	if mode == "" {
+		mode = "oldest"
+	}
+	if mode != "list" && mode != "oldest" && mode != "newest" {
+		writeJSON(w, http.StatusBadRequest, models.DedupeResponse{Status: "error", Error: "Invalid dedupe mode (must be 'list', 'oldest', or 'newest')"})
+		return
+	}
+
+	var rcClient *client.RcloneClient
+	if s.SyncService != nil && s.SyncService.Client != nil {
+		rcClient = s.SyncService.Client
+	} else if s.ExplorerService != nil && s.ExplorerService.Client != nil {
+		rcClient = s.ExplorerService.Client
+	}
+
+	var out string
+	if rcClient == nil {
+		out = fmt.Sprintf("[SIMULATED] rclone dedupe --dedupe-mode %s %s:%s completed. No duplicate files found.", mode, remoteClean, req.Path)
+	} else {
+		var err error
+		out, err = rcClient.Dedupe(r.Context(), remoteClean, req.Path, mode, req.ByHash)
+		if err != nil {
+			writeJSON(w, http.StatusOK, models.DedupeResponse{
+				Status: "error",
+				Remote: remoteClean,
+				Path:   req.Path,
+				Mode:   mode,
+				ByHash: req.ByHash,
+				Error:  err.Error(),
+			})
+			return
+		}
+	}
+
+	runID := fmt.Sprintf("dedupe-%d", time.Now().Unix())
+
+	if s.AuditService != nil && mode != "list" {
+		profileID := remoteClean
+		if s.ProfileService != nil {
+			for _, p := range s.ProfileService.List(true) {
+				if strings.EqualFold(p.Remote, remoteClean) || strings.EqualFold(p.Remote, remoteClean+":") {
+					profileID = p.ID
+					break
+				}
+			}
+		}
+
+		lines := strings.Split(out, "\n")
+		var collisionsCount, deletedCount int
+		for _, line := range lines {
+			l := strings.TrimSpace(line)
+			if l == "" {
+				continue
+			}
+			if strings.Contains(strings.ToLower(l), "duplicate") {
+				collisionsCount++
+			}
+			if strings.Contains(strings.ToLower(l), "deleted") {
+				deletedCount++
+			}
+			if s.AuditService.Logger != nil {
+				lvl := "notice"
+				if strings.Contains(strings.ToLower(l), "error") || strings.Contains(strings.ToLower(l), "failed") {
+					lvl = "error"
+				}
+				_ = s.AuditService.Logger.RecordSyncRun(models.BisyncLogEntry{
+					Time:   time.Now().Format(time.RFC3339),
+					Level:  lvl,
+					Type:   "dedupe",
+					Msg:    fmt.Sprintf("[%s] %s", profileID, l),
+					RunID:  runID,
+					Origin: "dedupe",
+				})
+			}
+		}
+
+		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, "USER", map[string]any{
+			"run_id":     runID,
+			"remote":     remoteClean,
+			"path":       req.Path,
+			"mode":       mode,
+			"by_hash":    req.ByHash,
+			"collisions": collisionsCount,
+			"deleted":    deletedCount,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, models.DedupeResponse{
+		Status: "success",
+		RunID:  runID,
+		Remote: remoteClean,
+		Path:   req.Path,
+		Mode:   mode,
+		ByHash: req.ByHash,
+		Output: out,
 	})
 }

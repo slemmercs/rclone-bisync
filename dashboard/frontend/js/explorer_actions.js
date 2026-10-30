@@ -195,16 +195,27 @@ window.ExplorerActionsModule = {
             }
         };
 
+        const srcLabel = sourcePaneKey === "left" ? "LOCAL" : "REMOTE";
+        const dstLabel = targetPaneKey === "left" ? "LOCAL" : "REMOTE";
+        const fromPath = `${src_remote}:${src_path || '/'}`;
+        const toPath = `${dst_remote}:${dst_path || '/'}`;
+
         if (typeof this.askConfirmation === "function") {
             this.askConfirmation({
                 title: "Confirm Directory Copy",
-                message: `Are you sure you want to copy directory contents?\n\n${dirName}`,
+                message: `Are you sure you want to copy directory contents?\nDestination files will be updated if modified.`,
                 confirmText: "Start Copy",
                 confirmClass: "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-950/40",
                 icon: "sync",
+                transfer: {
+                    fromLabel: `[${srcLabel}]`,
+                    fromPath: fromPath,
+                    toLabel: `[${dstLabel}]`,
+                    toPath: toPath
+                },
                 onConfirm: executeCopy
             });
-        } else if (confirm(`Are you sure you want to copy directory contents:\n${dirName}?`)) {
+        } else if (confirm(`Transfer directory contents:\nFrom: [${srcLabel}] ${fromPath}\nTo: [${dstLabel}] ${toPath}`)) {
             await executeCopy();
         }
     }

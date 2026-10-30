@@ -95,6 +95,9 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 		hasCanary := false
 
 		for _, entry := range entries {
+			if entry.Name() == ".review_backups" {
+				continue
+			}
 			info, err := entry.Info()
 			if err != nil {
 				continue
@@ -160,5 +163,18 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 			Error:  "client not configured",
 		}
 	}
-	return e.Client.ListDirectory(ctx, remoteClean, cleanPath)
+	listing := e.Client.ListDirectory(ctx, remoteClean, cleanPath)
+	if len(listing.Items) > 0 {
+		filtered := make([]map[string]interface{}, 0, len(listing.Items))
+		for _, item := range listing.Items {
+			name, _ := item["Name"].(string)
+			pathStr, _ := item["Path"].(string)
+			if name == ".review_backups" || strings.HasPrefix(pathStr, ".review_backups") {
+				continue
+			}
+			filtered = append(filtered, item)
+		}
+		listing.Items = filtered
+	}
+	return listing
 }

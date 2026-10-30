@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 func (s *Server) handleDaemonHealth(w http.ResponseWriter, r *http.Request) {
@@ -128,4 +129,31 @@ func (s *Server) handleTelemetry(w http.ResponseWriter, r *http.Request) {
 	}
 	payload := s.TelemetryService.GetTelemetryPayload(r.Context(), isSyncing, limit)
 	writeJSON(w, http.StatusOK, payload)
+}
+
+func (s *Server) handleBisyncLogs(w http.ResponseWriter, r *http.Request) {
+	page := 1
+	limit := 50
+	q := r.URL.Query()
+	if pStr := q.Get("page"); pStr != "" {
+		if p, err := strconv.Atoi(pStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	if lStr := q.Get("limit"); lStr != "" {
+		if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
+			if l > 500 {
+				l = 500
+			}
+			limit = l
+		}
+	}
+
+	logFile := ""
+	if s.Config != nil {
+		logFile = s.Config.LogFile
+	}
+
+	res := services.TailJSONLogPaginated(logFile, page, limit)
+	writeJSON(w, http.StatusOK, res)
 }

@@ -283,4 +283,28 @@ func TestTelemetryService_Direct(t *testing.T) {
 	if payloadIdle["transfer_stats"] != nil {
 		t.Fatalf("expected nil transfer_stats when idle, got: %v", payloadIdle["transfer_stats"])
 	}
+
+	// 6. Test GetCachedBisyncLogs caching
+	tmpLogDir := t.TempDir()
+	logFile := filepath.Join(tmpLogDir, "bisync_test.log")
+	if err := os.WriteFile(logFile, []byte(`{"time":"2026-10-27T10:00:00Z","level":"info","msg":"sync pass 1"}`+"\n"), 0600); err != nil {
+		t.Fatalf("failed to write test bisync log: %v", err)
+	}
+	cfg.LogFile = logFile
+
+	cachedLogs1 := telSvc.GetCachedBisyncLogs(10)
+	if len(cachedLogs1) != 1 {
+		t.Fatalf("expected 1 cached log entry, got %d", len(cachedLogs1))
+	}
+	// Second call should return cached entry without error
+	cachedLogs2 := telSvc.GetCachedBisyncLogs(10)
+	if len(cachedLogs2) != 1 {
+		t.Fatalf("expected 1 cached log entry on second read, got %d", len(cachedLogs2))
+	}
+
+	// 7. Verify remotes summary caching
+	remotesCached, err := telSvc.GetRemotesSummaryCached(context.Background(), false)
+	if err != nil || remotesCached.Count != 1 {
+		t.Fatalf("expected cached remotes summary, got %+v, err: %v", remotesCached, err)
+	}
 }

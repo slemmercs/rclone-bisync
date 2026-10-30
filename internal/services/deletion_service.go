@@ -2,7 +2,6 @@ package services
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,6 +45,11 @@ func (d *DeletionService) ParsePendingDeletionsFromLog() state.PendingDeletionsD
 			continue
 		}
 
+		// Fast check: if a sync completed successfully before any abort, no deletions can be pending
+		if abortMsg == "" && strings.Contains(strings.ToLower(lineStr), "bisync successful") {
+			return state.PendingDeletionsData{HasDeletions: false, TotalCount: 0, Files: []string{}}
+		}
+
 		var data map[string]interface{}
 		if err := json.Unmarshal([]byte(lineStr), &data); err != nil {
 			continue
@@ -65,7 +69,11 @@ func (d *DeletionService) ParsePendingDeletionsFromLog() state.PendingDeletionsD
 			}
 
 			lower := strings.ToLower(imsg)
-			if strings.Contains(lower, "too many deletes") {
+			if abortMsg == "" && strings.Contains(lower, "bisync successful") {
+				return state.PendingDeletionsData{HasDeletions: false, TotalCount: 0, Files: []string{}}
+			}
+
+			if strings.Contains(lower, "too many deletes") || strings.Contains(lower, "safety abort") {
 				abortMsg = imsg
 				if strings.Contains(lower, "path2") {
 					source = "Local (~/gdrive)"
@@ -96,26 +104,22 @@ func (d *DeletionService) ParsePendingDeletionsFromLog() state.PendingDeletionsD
 			}
 		}
 
-		if abortMsg != "" && strings.Contains(lineStr, "Synching Path1") {
+		if (abortMsg != "" || len(deletedFiles) > 0) && (strings.Contains(lineStr, "Synching Path1") || strings.Contains(strings.ToLower(lineStr), "bisync successful")) {
 			break
 		}
 	}
 
-	if len(deletedFiles) > 0 || abortMsg != "" {
+	if abortMsg != "" && len(deletedFiles) > 0 {
 		// Reverse deletedFiles to preserve chronological order
 		for i, j := 0, len(deletedFiles)-1; i < j; i, j = i+1, j-1 {
 			deletedFiles[i], deletedFiles[j] = deletedFiles[j], deletedFiles[i]
-		}
-		msg := abortMsg
-		if msg == "" {
-			msg = fmt.Sprintf("%d files deleted", len(deletedFiles))
 		}
 		return state.PendingDeletionsData{
 			HasDeletions: true,
 			TotalCount:   len(deletedFiles),
 			Source:       source,
 			TargetAction: targetAction,
-			Message:      msg,
+			Message:      abortMsg,
 			Files:        deletedFiles,
 		}
 	}

@@ -14,49 +14,6 @@ function escapeHtml(str) {
         .replace(/'/g, "&#39;");
 }
 
-// Rich styling helper for config parameters (restores original parameter cards design)
-function formatConfigValue(key, value) {
-    if (Array.isArray(value)) {
-        let argsHtml = '<div class="space-y-1 mt-1.5">';
-        for (let i = 0; i < value.length; i++) {
-            let currentItem = String(value[i]);
-            if (currentItem.startsWith('-') && i + 1 < value.length && !String(value[i + 1]).startsWith('-')) {
-                let nextValue = String(value[i + 1]);
-                argsHtml += `
-                    <div class="bg-slate-950 px-2 py-0.5 rounded text-[10px] text-slate-300 font-mono border border-slate-800/40 flex justify-between gap-x-2 truncate" title="${escapeHtml(currentItem)} ${escapeHtml(nextValue)}">
-                        <span class="text-slate-400 truncate">${escapeHtml(currentItem)}</span>
-                        <span class="text-amber-400 font-medium shrink-0">${escapeHtml(nextValue)}</span>
-                    </div>`;
-                i++;
-            } else {
-                let isFlag = currentItem.startsWith('-');
-                let flagColor = isFlag ? 'text-slate-400' : 'text-amber-400 font-medium';
-                argsHtml += `
-                    <div class="bg-slate-950 px-2 py-0.5 rounded text-[10px] ${flagColor} font-mono border border-slate-800/40 truncate text-left" title="${escapeHtml(currentItem)}">
-                        ${escapeHtml(currentItem)}
-                    </div>`;
-            }
-        }
-        argsHtml += '</div>';
-        return argsHtml;
-    } else if (typeof value === 'object' && value !== null) {
-        return `<div class="space-y-1 mt-1.5 font-mono text-[10px]">` +
-            Object.entries(value).map(([subKey, subVal]) => {
-                const stateBadge = subVal
-                    ? `<span class="text-emerald-400 font-semibold text-[9px] bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-900/30">True</span>`
-                    : `<span class="text-rose-400 font-semibold text-[9px] bg-rose-950/40 px-1 py-0.2 rounded border border-rose-900/30">False</span>`;
-                return `<div class="flex justify-between items-center border-b border-slate-900 pb-1 last:border-0"><span class="text-slate-500 truncate mr-2" title="${escapeHtml(subKey)}">${escapeHtml(subKey)}:</span>${stateBadge}</div>`;
-            }).join('') + `</div>`;
-    } else if (typeof value === 'boolean') {
-        return value
-            ? `<span class="text-emerald-400 font-semibold bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-900/40 inline-block mt-1">True</span>`
-            : `<span class="text-rose-400 font-semibold bg-rose-950/30 px-1.5 py-0.5 rounded border border-rose-900/40 inline-block mt-1">False</span>`;
-    } else {
-        const strVal = String(value);
-        return `<span class="text-slate-300 block mt-1 select-all truncate" title="${escapeHtml(strVal)}">${escapeHtml(strVal)}</span>`;
-    }
-}
-
 // Unified parser for Rclone and Bisync JSON log lines with legacy fallback
 function parseJsonLogLine(rawLine) {
     if (typeof rawLine !== "string") return null;
@@ -114,10 +71,10 @@ function parseJsonLogLine(rawLine) {
             actor: parsed.actor || null,
             hash: parsed.hash || null,
             prev_hash: parsed.prev_hash || null,
-            object: parsed.object || null,
+            object: parsed.object || (parsed.details && (parsed.details.item_path || parsed.details.path || parsed.details.object || parsed.details.file)) || null,
             objectType: parsed.objectType || null,
             source: parsed.source || null,
-            details: structuredDetails,
+            details: parsed.details || structuredDetails,
             origin: parsed.origin || null,
             run_id: parsed.run_id || null,
             job_id: parsed.job_id || null,
@@ -235,3 +192,117 @@ function formatModTime(isoStr) {
         return "--";
     }
 }
+
+// Canonical 7 Approved Status Vocabulary:
+// Healthy, Warning, Critical, Running, Idle, Blocked, Review Required
+const APPROVED_STATUS_LABELS = {
+    HEALTHY: "Healthy",
+    WARNING: "Warning",
+    CRITICAL: "Critical",
+    RUNNING: "Running",
+    IDLE: "Idle",
+    BLOCKED: "Blocked",
+    REVIEW_REQUIRED: "Review Required"
+};
+
+function normalizeStatus(rawStatus) {
+    if (!rawStatus) return APPROVED_STATUS_LABELS.IDLE;
+    const s = String(rawStatus).toUpperCase().trim();
+    if (s === "HEALTHY" || s === "OPERATIONAL" || s === "ONLINE" || s === "OK" || s === "SUCCESS") return APPROVED_STATUS_LABELS.HEALTHY;
+    if (s === "WARNING" || s === "ATTENTION REQUIRED" || s === "NEEDS ATTENTION" || s === "DEGRADED") return APPROVED_STATUS_LABELS.WARNING;
+    if (s === "CRITICAL" || s === "FAULT" || s === "OFFLINE" || s === "ERROR" || s === "DANGER" || s === "FAILED") return APPROVED_STATUS_LABELS.CRITICAL;
+    if (s === "RUNNING" || s === "SYNCING" || s === "SYNC IN PROGRESS" || s === "IN PROGRESS") return APPROVED_STATUS_LABELS.RUNNING;
+    if (s === "BLOCKED" || s === "STALE_LOCK" || s === "LOCK_WAIT" || s === "BACKOFF") return APPROVED_STATUS_LABELS.BLOCKED;
+    if (s === "REVIEW REQUIRED" || s === "NEEDS REVIEW" || s === "MANUAL APPROVAL" || s === "REVIEW" || s === "CONFLICT" || s === "PENDING APPROVAL") return APPROVED_STATUS_LABELS.REVIEW_REQUIRED;
+    if (s === "IDLE" || s === "STANDBY" || s === "READY") return APPROVED_STATUS_LABELS.IDLE;
+    return rawStatus;
+}
+
+function parseDedupeOutput(raw) {
+    if (!raw || typeof raw !== "string") {
+        return { totalCollisions: 0, totalDeleted: 0, items: [], notices: [], errors: [], raw: "" };
+    }
+    const lines = raw.split("\n");
+    const itemMap = {};
+    const notices = [];
+    const errors = [];
+    let totalCollisions = 0;
+    let totalDeleted = 0;
+
+    for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+
+        if (line.includes("Can't have duplicate names here") || line.includes("Perhaps you wanted --by-hash")) {
+            notices.push("Backend enforces unique filenames per directory. Use 'Cross-Folder Hash' mode to find identical files.");
+            continue;
+        }
+
+        if (line.includes("ERROR :") || line.includes("Failed to dedupe") || line.includes("Error:")) {
+            errors.push(line.replace(/^.*ERROR\s*:\s*/, "").replace(/^.*Error:\s*/, "").trim());
+            continue;
+        }
+
+        let m = line.match(/(?:NOTICE:\s+)?(.*?):\s+Found\s+(\d+)\s+files\s+with\s+duplicate/i);
+        if (m) {
+            const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
+            const count = parseInt(m[2], 10) || 2;
+            if (!itemMap[p]) {
+                itemMap[p] = { path: p, found: count, deleted: 0, isDir: false };
+                totalCollisions++;
+            } else {
+                itemMap[p].found = count;
+            }
+            continue;
+        }
+
+        m = line.match(/(?:NOTICE:\s+)?(.*?):\s+Deleted\s+(\d+)\s+extra\s+copies/i);
+        if (m) {
+            const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
+            const count = parseInt(m[2], 10) || 1;
+            if (!itemMap[p]) {
+                itemMap[p] = { path: p, found: count + 1, deleted: count, isDir: false };
+                totalCollisions++;
+            } else {
+                itemMap[p].deleted = count;
+            }
+            totalDeleted += count;
+            continue;
+        }
+
+        m = line.match(/(.*?):\s+(\d+)\s+duplicates\s+of\s+this\s+directory/i);
+        if (m) {
+            const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
+            const count = parseInt(m[2], 10) || 2;
+            if (!itemMap[p]) {
+                itemMap[p] = { path: p, found: count, deleted: 0, isDir: true };
+                totalCollisions++;
+            }
+            continue;
+        }
+    }
+
+    return {
+        totalCollisions,
+        totalDeleted,
+        items: Object.values(itemMap),
+        notices,
+        errors,
+        raw
+    };
+}
+
+function getStatusBadgeClass(rawStatus) {
+    const canonical = normalizeStatus(rawStatus);
+    switch (canonical) {
+        case APPROVED_STATUS_LABELS.HEALTHY: return "ds-badge-healthy";
+        case APPROVED_STATUS_LABELS.WARNING: return "ds-badge-warning";
+        case APPROVED_STATUS_LABELS.CRITICAL: return "ds-badge-critical";
+        case APPROVED_STATUS_LABELS.RUNNING: return "ds-badge-running";
+        case APPROVED_STATUS_LABELS.BLOCKED: return "ds-badge-blocked";
+        case APPROVED_STATUS_LABELS.REVIEW_REQUIRED: return "ds-badge-review";
+        case APPROVED_STATUS_LABELS.IDLE:
+        default: return "ds-badge-idle";
+    }
+}
+

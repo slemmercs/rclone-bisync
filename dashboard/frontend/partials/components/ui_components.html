@@ -1,0 +1,165 @@
+{{/* Reusable Empty State Component */}}
+{{ define "component_empty_state" }}
+<div class="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-800 bg-slate-900/30">
+    <div class="w-12 h-12 rounded-2xl bg-slate-800/60 border border-slate-700/60 text-slate-400 mx-auto flex items-center justify-center mb-3">
+        <svg class="w-6 h-6 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+    </div>
+    <h3 class="text-sm font-semibold text-white mb-1" x-text="$el.dataset.title || 'No Records Found'"></h3>
+    <p class="text-xs text-slate-400 max-w-sm mx-auto mb-4" x-text="$el.dataset.description || 'No entries match your current search or filter criteria.'"></p>
+</div>
+{{ end }}
+
+{{/* Slide-Over Entity Inspector Drawer */}}
+{{ define "component_entity_drawer" }}
+<div x-show="entityDrawer.open" x-cloak class="relative z-50" role="dialog" aria-modal="true" @keydown.escape.window="entityDrawer.open = false">
+    <div x-show="entityDrawer.open" x-transition.opacity.duration.200ms class="ds-drawer-overlay" @click="entityDrawer.open = false"></div>
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-50">
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+                <div x-show="entityDrawer.open"
+                     x-transition:enter="transform transition ease-in-out duration-300 sm:duration-400"
+                     x-transition:enter-start="translate-x-full"
+                     x-transition:enter-end="translate-x-0"
+                     x-transition:leave="transform transition ease-in-out duration-200"
+                     x-transition:leave-start="translate-x-0"
+                     x-transition:leave-end="translate-x-full"
+                     class="pointer-events-auto w-screen max-w-md ds-drawer-panel">
+                    
+                    <!-- Drawer Header -->
+                    <div class="ds-drawer-header">
+                        <div class="min-w-0">
+                            <h2 class="text-sm font-bold text-white tracking-wide truncate" x-text="entityDrawer.title"></h2>
+                            <p class="text-xs text-slate-400 truncate font-mono mt-0.5" x-text="entityDrawer.subtitle"></p>
+                        </div>
+                        <button @click="entityDrawer.open = false" class="ds-btn ds-btn-ghost ds-btn-sm text-slate-400 hover:text-white" title="Close drawer (Esc)">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Drawer Content Body -->
+                    <div class="ds-drawer-body font-mono text-xs text-slate-300 space-y-4">
+                        <template x-if="entityDrawer.type === 'audit'">
+                            <div class="space-y-4 font-sans text-xs" x-data="{ showRawJson: false }">
+                                <!-- Section 1: Audit Verification & Cryptographic Hashes -->
+                                <div class="bg-slate-950/80 rounded-xl border border-slate-800/80 overflow-hidden">
+                                    <div class="px-3.5 py-2.5 bg-slate-900/60 border-b border-slate-800/80 flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="w-4 h-4 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                                            <span class="text-xs font-bold text-white tracking-wide uppercase">Audit Verification & Hashes</span>
+                                        </div>
+                                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SHA-256 Validated</span>
+                                    </div>
+                                    <div class="p-3.5 space-y-3 font-mono text-xs">
+                                        <div>
+                                            <span class="text-[10px] uppercase font-bold text-slate-500 block mb-0.5 font-sans">Cryptographic Fingerprint</span>
+                                            <div class="text-indigo-400 break-all select-all text-[11px] bg-slate-900/50 p-2 rounded-lg border border-slate-800/60" x-text="entityDrawer.data?.hash || '--'"></div>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] uppercase font-bold text-slate-500 block mb-0.5 font-sans">Previous Chain Hash</span>
+                                            <div class="text-slate-400 break-all select-all text-[11px] bg-slate-900/50 p-2 rounded-lg border border-slate-800/60" x-text="entityDrawer.data?.prev_hash || 'GENESIS'"></div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 font-sans pt-1">
+                                            <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800/50">
+                                                <span class="text-[10px] uppercase font-bold text-slate-500 block">Actor</span>
+                                                <span class="text-xs font-semibold text-slate-200 mt-0.5 block" x-text="entityDrawer.data?.actor || '--'"></span>
+                                            </div>
+                                            <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800/50">
+                                                <span class="text-[10px] uppercase font-bold text-slate-500 block">Profile</span>
+                                                <span class="text-xs font-semibold text-slate-200 mt-0.5 block truncate" x-text="entityDrawer.data?.profile_name || entityDrawer.data?.profile_id || 'Default'"></span>
+                                            </div>
+                                        </div>
+                                        <template x-if="entityDrawer.data?.object && entityDrawer.data?.object !== '--'">
+                                            <div>
+                                                <span class="text-[10px] uppercase font-bold text-slate-500 block mb-0.5 font-sans">Target Object / Path</span>
+                                                <div class="text-white break-all text-[11px] bg-slate-900/50 p-2 rounded-lg border border-slate-800/60" x-text="entityDrawer.data?.object"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                                <!-- Section 2: Structured Action Metadata -->
+                                <!-- Dedupe Action Summary Card -->
+                                <template x-if="entityDrawer.data?.action === 'DEDUPE_EXECUTED'">
+                                    <div class="p-3.5 rounded-xl bg-amber-950/20 border border-amber-800/40 space-y-2.5 mb-3">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="font-bold text-amber-300 flex items-center gap-1.5 uppercase tracking-wide text-[11px]">
+                                                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                                <span>Deduplication Run Summary</span>
+                                            </span>
+                                            <template x-if="entityDrawer.data?.details?.run_id || entityDrawer.data?.run_id">
+                                                <button type="button" @click="if (typeof openDaemonModal === 'function') openDaemonModal({ run_id: entityDrawer.data?.details?.run_id || entityDrawer.data?.run_id }); entityDrawer.open = false;" class="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold underline flex items-center gap-1">
+                                                    <span>View in Correlated Logs</span>
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                </button>
+                                            </template>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                                            <div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800/60">
+                                                <span class="text-slate-400 block text-[10px] uppercase font-bold">Collisions Detected</span>
+                                                <span class="font-bold text-amber-300 text-sm font-mono" x-text="entityDrawer.data?.details?.collisions ?? 0"></span>
+                                            </div>
+                                            <div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800/60">
+                                                <span class="text-slate-400 block text-[10px] uppercase font-bold">Duplicates Removed</span>
+                                                <span class="font-bold text-emerald-300 text-sm font-mono" x-text="entityDrawer.data?.details?.deleted ?? 0"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <div class="bg-slate-950/80 rounded-xl border border-slate-800/80 overflow-hidden">
+                                    <div class="px-3.5 py-2.5 bg-slate-900/60 border-b border-slate-800/80 flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                            <span class="text-xs font-bold text-white tracking-wide uppercase">Structured Action Metadata</span>
+                                        </div>
+                                        <button type="button" @click="showRawJson = !showRawJson" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer">
+                                            <span x-text="showRawJson ? 'Hide Raw JSON' : 'View Raw JSON'"></span>
+                                        </button>
+                                    </div>
+                                    <div x-show="!showRawJson" class="p-3.5 space-y-2">
+                                        <template x-for="(val, key) in (entityDrawer.data?.details || {})" :key="key">
+                                            <template x-if="key !== 'output'">
+                                                <div class="flex items-start justify-between gap-3 py-1.5 px-2.5 rounded-lg bg-slate-900/40 border border-slate-800/50 text-xs">
+                                                    <span class="font-mono text-slate-400 text-[11px] shrink-0 uppercase tracking-wider font-semibold" x-text="key"></span>
+                                                    <div class="text-right min-w-0 max-w-[65%]">
+                                                        <template x-if="typeof val === 'boolean'">
+                                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="val ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'" x-text="val ? 'true' : 'false'"></span>
+                                                        </template>
+                                                        <template x-if="typeof val === 'number'">
+                                                            <span class="font-mono text-indigo-300 font-semibold" x-text="val"></span>
+                                                        </template>
+                                                        <template x-if="typeof val === 'string' && (key === 'run_id' || key === 'job_id')">
+                                                            <div class="flex items-center gap-1.5 justify-end">
+                                                                <span class="font-mono text-indigo-300 font-semibold select-all text-[11px]" x-text="val"></span>
+                                                                <button type="button" @click="if (typeof openDaemonModal === 'function') openDaemonModal({ run_id: val }); entityDrawer.open = false;" class="text-[10px] text-indigo-400 hover:text-indigo-300 underline flex items-center gap-0.5">
+                                                                    <span>Logs</span>
+                                                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                                </button>
+                                                            </div>
+                                                        </template>
+                                                        <template x-if="typeof val === 'string' && key !== 'run_id' && key !== 'job_id'">
+                                                            <span class="font-mono text-slate-200 break-all select-all text-[11px]" :class="{ 'text-rose-400 font-bold': key.toLowerCase().includes('error'), 'text-emerald-400': key.toLowerCase().includes('success') }" x-text="val"></span>
+                                                        </template>
+                                                        <template x-if="val && typeof val === 'object'">
+                                                            <pre class="font-mono text-[10px] text-slate-300 text-left bg-slate-950 p-1.5 rounded border border-slate-800/80 overflow-x-auto" x-text="JSON.stringify(val, null, 2)"></pre>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </template>
+                                        <div x-show="!entityDrawer.data?.details || Object.keys(entityDrawer.data?.details || {}).filter(k => k !== 'output').length === 0" class="text-slate-500 text-xs text-center py-2 italic font-sans">
+                                            No action metadata attached to this record.
+                                        </div>
+                                    </div>
+                                    <div x-show="showRawJson" class="p-3 bg-slate-950">
+                                        <pre class="text-[10px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap select-all leading-relaxed p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 max-h-64" x-text="JSON.stringify(Object.fromEntries(Object.entries(entityDrawer.data?.details || {}).filter(([k]) => k !== 'output')), null, 2)"></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

@@ -45,13 +45,29 @@ document.addEventListener("alpine:init", () => {
             error: null,
             success: null
         },
-        reconnectModal: {
-            show: false,
-            remote: "",
-            loading: false,
-            authUrl: null,
-            msg: null,
-            error: null
+        reconnectModal: { show: false, remote: "", loading: false, authUrl: null, msg: null, error: null },
+        dedupeModal: { show: false, remote: "", path: "", mode: "oldest", executing: false, output: "" },
+        entityDrawer: {
+            open: false,
+            title: "",
+            subtitle: "",
+            type: "audit",
+            data: null
+        },
+        openAuditDrawer(record) {
+            if (!record) return;
+            this.entityDrawer.open = true;
+            this.entityDrawer.title = `Audit Block #${record.seq_id} — ${record.action}`;
+            this.entityDrawer.subtitle = record.timestamp || "";
+            this.entityDrawer.type = "audit";
+            let rec = record;
+            if (record.action === "DEDUPE_EXECUTED" && record.details?.output && (record.details.collisions == null || record.details.deleted == null)) {
+                const parsed = typeof parseDedupeOutput === "function" ? parseDedupeOutput(record.details.output) : null;
+                if (parsed) {
+                    rec = { ...record, details: { ...record.details, collisions: record.details.collisions ?? parsed.totalCollisions, deleted: record.details.deleted ?? parsed.deletedCopies } };
+                }
+            }
+            this.entityDrawer.data = rec;
         },
         auditModal: {
             show: false,
@@ -86,6 +102,7 @@ document.addEventListener("alpine:init", () => {
         daemonModalSearch: "",
         daemonModalLevelFilter: "all",
         daemonModalCopied: false,
+        daemonModalCopiedJSON: false,
         daemonModalError: null,
 
 
@@ -151,15 +168,17 @@ document.addEventListener("alpine:init", () => {
             confirmText: "Confirm",
             confirmClass: "bg-indigo-600 hover:bg-indigo-500",
             icon: "warning",
+            transfer: null,
             onConfirm: null
         },
 
-        askConfirmation({ title, message, confirmText = "Confirm", confirmClass = "bg-indigo-600 hover:bg-indigo-500", icon = "warning", onConfirm }) {
+        askConfirmation({ title, message, confirmText = "Confirm", confirmClass = "bg-indigo-600 hover:bg-indigo-500", icon = "warning", transfer = null, onConfirm }) {
             this.confirmModal.title = title;
             this.confirmModal.message = message;
             this.confirmModal.confirmText = confirmText;
             this.confirmModal.confirmClass = confirmClass;
             this.confirmModal.icon = icon;
+            this.confirmModal.transfer = transfer;
             this.confirmModal.onConfirm = onConfirm;
             this.confirmModal.show = true;
         },
@@ -168,6 +187,7 @@ document.addEventListener("alpine:init", () => {
             const fn = this.confirmModal.onConfirm;
             this.confirmModal.show = false;
             this.confirmModal.onConfirm = null;
+            this.confirmModal.transfer = null;
             if (typeof fn === "function") {
                 fn();
             }
@@ -176,6 +196,7 @@ document.addEventListener("alpine:init", () => {
         cancelConfirmModal() {
             this.confirmModal.show = false;
             this.confirmModal.onConfirm = null;
+            this.confirmModal.transfer = null;
         },
 
         // Interactive Sync Review State
@@ -264,45 +285,51 @@ document.addEventListener("alpine:init", () => {
             return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
         },
 
+        get isDevMode() {
+            const params = new URLSearchParams(window.location.search);
+            const dev = params.get("dev");
+            return dev === "true" || dev === "1";
+        },
+
         get transferStats() {
             const stats = this.telemetry.transfer_stats || {};
+            const isSyncing = Boolean(this.telemetry.is_syncing);
+            const isListing = isSyncing && (!stats.bytes || stats.bytes === 0);
             const currentFile = (stats.transferring && stats.transferring.length > 0)
                 ? stats.transferring[0].name
-                : (this.telemetry.is_syncing ? "Scanning differences & checking access..." : "Idle");
+                : (isSyncing ? (isListing ? "Listing & Diffing..." : "Syncing in progress...") : "Idle");
             let etaStr = "--";
             if (typeof stats.eta === "number") {
                 const mins = Math.floor(stats.eta / 60);
                 const secs = stats.eta % 60;
                 etaStr = `${mins}m ${secs}s`;
+            } else if (isListing) {
+                etaStr = "Diffing";
             }
             return {
-                speed_str: stats.speed_str || "0 B/s",
+                speed_str: isListing ? "Listing & Diffing" : (stats.speed_str || "0 B/s"),
                 eta_str: etaStr,
                 percentage: typeof stats.percentage === "number" ? stats.percentage : 0,
-                current_file: currentFile
+                current_file: currentFile,
+                is_listing: isListing
             };
         },
 
-        get filteredConfigEntries() {
-            const cfg = this.telemetry.config || {};
-            const exclude = new Set(["LOCAL_PATH", "REMOTE_PATH", "BASE_DIR", "LOCALPATH", "REMOTEPATH", "BASEDIR"]);
-            return Object.entries(cfg).filter(([k]) => {
-                if (exclude.has(k)) return false;
-                // Exclude flat uppercase aliases when snake_case version is present
-                const snake = k.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
-                if (!k.includes("_") && cfg[snake] !== undefined && snake !== k) return false;
-                return true;
-            });
+        normalizeStatus(status) {
+            return normalizeStatus(status);
         },
 
-        formatConfig(key, val) {
-            return formatConfigValue(key, val);
+        getStatusBadgeClass(status) {
+            return getStatusBadgeClass(status);
         },
 
         // Lifecycle & Navigation
         async initDashboard() {
             initPerformanceChart();
-            await this.poll();
+            this.initPolling();
+            if (!this.isPollingPaused) {
+                await this.poll();
+            }
             if (typeof this.fetchProfiles === "function") {
                 this.fetchProfiles();
             }
@@ -311,22 +338,7 @@ document.addEventListener("alpine:init", () => {
             if (this.currentTab === "remotes") this.fetchRemotes(true);
             else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") this.initExplorer();
             else if (this.currentTab === "audit" && typeof this.initAudit === "function") this.initAudit();
-            setInterval(() => this.poll(), 3000);
             this.setupLogScroll("log-bisync");
-        },
-
-        async poll() {
-            try {
-                const data = await window.API.get("/api/telemetry?limit=" + this.currentLogLimit);
-                this.telemetry = data;
-                updatePerformanceChart(data.metrics || []);
-                this.fetchReviewSession(false);
-                if (typeof this.fetchProfiles === "function") {
-                    this.fetchProfiles();
-                }
-            } catch (err) {
-                console.error("Telemetry poll failed:", err);
-            }
         },
 
         async triggerAction(actionStr) {
@@ -376,6 +388,7 @@ document.addEventListener("alpine:init", () => {
         window.ReviewModule,
         window.LogsModule,
         window.AuditModule,
-        window.SettingsModule
+        window.SettingsModule,
+        window.PollingModule
     ));
 });

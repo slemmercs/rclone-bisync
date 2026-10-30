@@ -10,6 +10,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -226,5 +227,53 @@ func TestAuditRecords_ProfileNameResolution(t *testing.T) {
 	}
 	if filteredResp.Records[0].ProfileID != "prof_abc123" || filteredResp.Records[0].ProfileName != "OneDrive (Personal)" {
 		t.Fatalf("unexpected record details: %+v", filteredResp.Records[0])
+	}
+}
+
+func TestHandleRemoteDedupe_AuditLogging(t *testing.T) {
+	srv, auditSvc := setupTestServerWithAudit(t)
+	defer auditSvc.Close()
+
+	payload, _ := json.Marshal(map[string]any{
+		"remote":  "gdrive",
+		"path":    "documents",
+		"mode":    "oldest",
+		"by_hash": false,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/remotes/dedupe", strings.NewReader(string(payload)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got: %d", w.Code)
+	}
+
+	records, total, err := auditSvc.Query(audit.Filter{Action: audit.ActionDedupeExecuted})
+	if err != nil {
+		t.Fatalf("failed to query audit records: %v", err)
+	}
+	if total != 1 || len(records) != 1 {
+		t.Fatalf("expected 1 DEDUPE_EXECUTED record, got %d", total)
+	}
+	if records[0].Action != audit.ActionDedupeExecuted {
+		t.Errorf("expected action %s, got %s", audit.ActionDedupeExecuted, records[0].Action)
+	}
+	if !strings.Contains(string(records[0].Details), `"remote":"gdrive"`) {
+		t.Errorf("expected remote gdrive in details, got %s", string(records[0].Details))
+	}
+	if !strings.Contains(string(records[0].Details), `"run_id":"dedupe-`) {
+		t.Errorf("expected run_id in details, got %s", string(records[0].Details))
+	}
+	if strings.Contains(string(records[0].Details), `"output"`) {
+		t.Errorf("expected output to NOT be stored in audit ledger details, got %s", string(records[0].Details))
+	}
+
+	var resp models.DedupeResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if !strings.HasPrefix(resp.RunID, "dedupe-") {
+		t.Errorf("expected response RunID to start with dedupe-, got %s", resp.RunID)
 	}
 }

@@ -149,6 +149,8 @@ type TelemetryPayload struct {
 	Config            map[string]interface{}   `json:"config"`
 	IsSyncing         bool                     `json:"is_syncing"`
 	TransferStats     *TransferStats           `json:"transfer_stats"`
+	HasReview         bool                     `json:"has_review"`
+	ReviewPending     bool                     `json:"review_pending"`
 }
 
 type BisyncLogEntry struct {
@@ -167,12 +169,40 @@ type BisyncLogEntry struct {
 	EndTime     string  `json:"end_time"`   // RFC3339
 }
 
+type PaginatedLogsResponse struct {
+	Page       int      `json:"page"`
+	Limit      int      `json:"limit"`
+	Total      int      `json:"total"`
+	TotalPages int      `json:"total_pages"`
+	Logs       []string `json:"logs"`
+}
+
 // AuditLogRecord represents a cryptographically verified milestone logged in the unified bisync.log stream.
+
+type DedupeRequest struct {
+	Remote string `json:"remote"`
+	Path   string `json:"path"`
+	Mode   string `json:"mode"` // "list", "oldest", "newest"
+	ByHash bool   `json:"by_hash"`
+}
+
+type DedupeResponse struct {
+	Status string `json:"status"`
+	RunID  string `json:"run_id,omitempty"`
+	Remote string `json:"remote"`
+	Path   string `json:"path"`
+	Mode   string `json:"mode"`
+	ByHash bool   `json:"by_hash,omitempty"`
+	Output string `json:"output"`
+	Error  string `json:"error,omitempty"`
+}
+
 type AuditLogRecord struct {
 	Time      string          `json:"time"`
 	Level     string          `json:"level"`
 	Type      string          `json:"type"` // "audit"
 	Msg       string          `json:"msg"`
+	Object    string          `json:"object,omitempty"`
 	SeqID     int64           `json:"seq_id"`
 	ProfileID string          `json:"profile_id"`
 	Action    string          `json:"action"`

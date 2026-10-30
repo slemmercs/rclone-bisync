@@ -171,6 +171,7 @@ func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/health", s.handleDaemonHealth)
 	s.Mux.HandleFunc("GET /api/logs/bisync/raw", s.handleRawBisyncLog)
+	s.Mux.HandleFunc("GET /api/logs/bisync", s.handleBisyncLogs)
 	s.Mux.HandleFunc("GET /api/logs/daemon/raw", s.handleRawDaemonLog)
 	s.Mux.HandleFunc("GET /api/logs/daemon", s.handleDaemonLogs)
 	s.Mux.HandleFunc("GET /api/telemetry", s.handleTelemetry)
@@ -179,6 +180,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/remotes", s.handleRemotes)
 	s.Mux.HandleFunc("GET /api/remotes/auth", s.handleRemotesAuth)
 	s.Mux.HandleFunc("POST /api/remotes/auth/check", s.handleRemotesAuthCheck)
+	s.Mux.HandleFunc("POST /api/remotes/dedupe", s.handleRemoteDedupe)
 	s.Mux.HandleFunc("GET /api/remotes/auth/audit", s.handleRemotesAuthAudit)
 	s.Mux.HandleFunc("POST /api/remotes/auth/oauth-stop", s.handleOAuthStop)
 	s.Mux.HandleFunc("POST /api/remotes/{name}/reconnect", s.handleRemoteReconnect)
@@ -234,11 +236,28 @@ func (s *Server) routes() {
 				_, _ = w.Write(favicon)
 			})
 
-			indexTmpl, tmplErr := template.ParseFS(staticSubFS,
+			patterns := []string{
 				"index.html",
 				"partials/*.html",
 				"partials/modals/*.html",
-			)
+				"partials/components/*.html",
+				"partials/patterns/*.html",
+				"partials/layouts/*.html",
+			}
+			var tmplFiles []string
+			for _, pat := range patterns {
+				if matches, err := fs.Glob(staticSubFS, pat); err == nil && len(matches) > 0 {
+					tmplFiles = append(tmplFiles, matches...)
+				}
+			}
+
+			var indexTmpl *template.Template
+			var tmplErr error
+			if len(tmplFiles) > 0 {
+				indexTmpl, tmplErr = template.ParseFS(staticSubFS, tmplFiles...)
+			} else {
+				tmplErr = fmt.Errorf("no template files found")
+			}
 
 			s.Mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 				if tmplErr != nil {

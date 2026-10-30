@@ -34,6 +34,23 @@
         <!-- Body / Message -->
         <div class="text-xs text-slate-300 leading-relaxed whitespace-pre-line bg-slate-950/50 border border-slate-800/80 rounded-xl p-3.5 font-mono" x-text="confirmModal.message"></div>
 
+        <!-- Visual Transfer Path Preview (Directory Copy) -->
+        <template x-if="confirmModal.transfer">
+            <div class="p-3 bg-slate-950/90 border border-slate-800 rounded-xl space-y-2 text-xs font-mono">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold text-[10px] shrink-0" x-text="confirmModal.transfer.fromLabel"></span>
+                    <span class="text-slate-300 truncate text-[11px] flex-1 text-right" x-text="confirmModal.transfer.fromPath" :title="confirmModal.transfer.fromPath"></span>
+                </div>
+                <div class="flex items-center justify-center text-slate-500 text-xs font-bold select-none">
+                    <svg class="w-4 h-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 5 7 7-7 7"/><path d="M5 12h14"/></svg>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-[10px] shrink-0" x-text="confirmModal.transfer.toLabel"></span>
+                    <span class="text-slate-300 truncate text-[11px] flex-1 text-right" x-text="confirmModal.transfer.toPath" :title="confirmModal.transfer.toPath"></span>
+                </div>
+            </div>
+        </template>
+
         <!-- Actions -->
         <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
             <button @click="cancelConfirmModal()" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">

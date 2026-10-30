@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -170,6 +171,77 @@ func TestTouchFile(t *testing.T) {
 	cBad := NewRcloneClient("http://127.0.0.1:1", "user", "pass")
 	if _, err := cBad.TouchFile(context.Background(), "gdrive", "test.txt"); err == nil {
 		t.Fatal("expected error on connection failure")
+	}
+}
+
+func TestDedupe(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/core/command" {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["command"] == "dedupe" {
+				args, _ := body["arg"].([]interface{})
+				if len(args) >= 3 {
+					// Check for OneDrive exclusion
+					hasExclude := false
+					for _, a := range args {
+						if a == "--exclude" {
+							hasExclude = true
+							break
+						}
+					}
+					target := fmt.Sprintf("%v", args[len(args)-1])
+					if strings.Contains(target, "onedrive") && !hasExclude {
+						w.WriteHeader(http.StatusOK)
+						_, _ = w.Write([]byte(`{"error": true, "result": "missing Personal Vault exclude"}`))
+						return
+					}
+					if strings.Contains(target, "fail") {
+						w.WriteHeader(http.StatusOK)
+						_, _ = w.Write([]byte(`{"error": true, "result": "dedupe permission denied"}`))
+						return
+					}
+					if strings.Contains(target, "server-error") {
+						w.WriteHeader(http.StatusInternalServerError)
+						_, _ = w.Write([]byte(`Internal Server Error`))
+						return
+					}
+				}
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"error": false, "result": "2 duplicates removed"}`))
+				return
+			}
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	out, err := c.Dedupe(context.Background(), "gdrive", "photos", "oldest", true)
+	if err != nil || !strings.Contains(out, "2 duplicates removed") {
+		t.Fatalf("expected Dedupe to succeed, got output: %q, err: %v", out, err)
+	}
+
+	// OneDrive with Personal Vault exclude
+	outOneDrive, err := c.Dedupe(context.Background(), "onedrive", "", "oldest", true)
+	if err != nil || !strings.Contains(outOneDrive, "2 duplicates removed") {
+		t.Fatalf("expected OneDrive Dedupe to succeed: %v", err)
+	}
+
+	// Default mode test
+	outDefault, err := c.Dedupe(context.Background(), "/tmp/local", "", "", false)
+	if err != nil || !strings.Contains(outDefault, "2 duplicates removed") {
+		t.Fatalf("expected Dedupe default mode to succeed: %v", err)
+	}
+
+	// Command error
+	if _, err := c.Dedupe(context.Background(), "gdrive", "fail", "oldest", true); err == nil {
+		t.Fatal("expected error on command failure")
+	}
+
+	// HTTP error
+	if _, err := c.Dedupe(context.Background(), "gdrive", "server-error", "oldest", true); err == nil {
+		t.Fatal("expected error on HTTP 500")
 	}
 }
 

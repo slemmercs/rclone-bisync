@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -23,6 +22,7 @@ import (
 type FileCacheItem struct {
 	MTime int64
 	Size  int64
+	Limit int
 	Data  interface{}
 }
 
@@ -39,6 +39,7 @@ type TelemetryService struct {
 	lockMu          sync.Mutex
 	fileCache       map[string]FileCacheItem
 	liveHealthCache LiveHealthCache
+	remotesCache    RemotesCacheItem
 }
 
 // NewTelemetryService creates a new TelemetryService instance.
@@ -90,89 +91,6 @@ func (t *TelemetryService) GetDaemonHealth(ctx context.Context) map[string]inter
 	t.lockMu.Unlock()
 
 	return health
-}
-
-// GetRemotesSummary queries remotes and storage metrics.
-func (t *TelemetryService) GetRemotesSummary(ctx context.Context) (models.RemotesResponse, error) {
-	if t.Client == nil {
-		return models.RemotesResponse{}, fmt.Errorf("client not configured")
-	}
-	remotes, err := t.Client.ListRemotes(ctx)
-	if err != nil {
-		return models.RemotesResponse{}, err
-	}
-
-	remoteData := make([]map[string]interface{}, 0, len(remotes))
-	var totalCap, totalUsed, totalFree int64
-
-	activeRemote := ""
-	if t.Config != nil {
-		activeRemote = strings.TrimRight(t.Config.RemotePath, ":")
-	}
-
-	for _, r := range remotes {
-		cleanName := strings.TrimRight(r, ":")
-		cfg := t.Client.GetRemoteConfig(ctx, cleanName)
-		about := t.Client.GetRemoteAbout(ctx, cleanName)
-
-		rtype := "unknown"
-		if cfg != nil {
-			if at, ok := cfg["type"].(string); ok {
-				rtype = at
-			}
-		}
-
-		typeLabel := strings.ToUpper(rtype)
-		if lbl, ok := ProviderLabels[rtype]; ok {
-			typeLabel = lbl
-		}
-
-		isActive := (cleanName == activeRemote)
-
-		if about != nil {
-			if total, ok := about["total"].(float64); ok {
-				totalCap += int64(total)
-			}
-			if used, ok := about["used"].(float64); ok {
-				totalUsed += int64(used)
-			}
-			if free, ok := about["free"].(float64); ok {
-				totalFree += int64(free)
-			}
-		}
-
-		if about == nil {
-			about = make(map[string]interface{})
-		}
-
-		remoteData = append(remoteData, map[string]interface{}{
-			"name":             cleanName,
-			"fs":               fmt.Sprintf("%s:", cleanName),
-			"type":             rtype,
-			"type_label":       typeLabel,
-			"is_active_target": isActive,
-			"about":            about,
-		})
-	}
-
-	summary := map[string]interface{}{
-		"total_capacity_bytes": totalCap,
-		"total_used_bytes":     totalUsed,
-		"total_free_bytes":     totalFree,
-		"provider_count":       len(remoteData),
-	}
-
-	var activeRemoteFormatted interface{}
-	if activeRemote != "" {
-		activeRemoteFormatted = fmt.Sprintf("%s:", activeRemote)
-	}
-
-	return models.RemotesResponse{
-		Remotes:      remoteData,
-		Summary:      summary,
-		ActiveRemote: activeRemoteFormatted,
-		Count:        len(remoteData),
-	}, nil
 }
 
 // GetTransferStats queries core/stats from Rclone RC.
@@ -262,6 +180,43 @@ func (t *TelemetryService) GetCachedMetrics(linesCount int) []map[string]interfa
 	return parsed
 }
 
+// GetCachedBisyncLogs returns parsed and cached bisync log entries using mtime/size checks.
+func (t *TelemetryService) GetCachedBisyncLogs(limit int) []string {
+	if t.Config == nil || t.Config.LogFile == "" {
+		return []string{}
+	}
+	logFile := t.Config.LogFile
+	fi, err := os.Stat(logFile)
+	if err != nil {
+		return []string{}
+	}
+
+	cacheKey := fmt.Sprintf("bisync:%s:%d", logFile, limit)
+	t.lockMu.Lock()
+	if cached, ok := t.fileCache[cacheKey]; ok {
+		if cached.MTime == fi.ModTime().UnixNano() && cached.Size == fi.Size() && cached.Limit == limit {
+			if res, ok := cached.Data.([]string); ok {
+				t.lockMu.Unlock()
+				return res
+			}
+		}
+	}
+	t.lockMu.Unlock()
+
+	parsed := TailJSONLog(logFile, limit)
+
+	t.lockMu.Lock()
+	t.fileCache[cacheKey] = FileCacheItem{
+		MTime: fi.ModTime().UnixNano(),
+		Size:  fi.Size(),
+		Limit: limit,
+		Data:  parsed,
+	}
+	t.lockMu.Unlock()
+
+	return parsed
+}
+
 // GetRuntimeConfig returns sanitized configuration map with masked credentials.
 func (t *TelemetryService) GetRuntimeConfig() map[string]interface{} {
 	if t.Config == nil {
@@ -339,20 +294,19 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 		}
 	}
 
-	bisyncLogs := []string{}
-	if t.Config != nil && t.Config.LogFile != "" {
-		bisyncLogs = TailJSONLog(t.Config.LogFile, limit)
-	}
-
+	bisyncLogs := t.GetCachedBisyncLogs(limit)
 	daemonLogs := []string{}
-	if t.Config != nil && t.Config.BaseDir != "" {
-		daemonLogPath := filepath.Join(t.Config.BaseDir, "rclone-daemon.log")
-		daemonLogs = TailJSONLog(daemonLogPath, limit)
-	}
 
 	execStatus := "IDLE"
 	if isSync {
 		execStatus = "SYNCING"
+	}
+
+	hasReview := false
+	if t.Config != nil && t.Config.ActiveReviewFile != "" {
+		if fi, err := os.Stat(t.Config.ActiveReviewFile); err == nil && fi.Size() > 0 {
+			hasReview = true
+		}
 	}
 
 	return map[string]interface{}{
@@ -365,6 +319,8 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 		"is_syncing":         isSync,
 		"execution_status":   execStatus,
 		"transfer_stats":     transferStats,
+		"has_review":         hasReview,
+		"review_pending":     hasReview,
 	}
 }
 

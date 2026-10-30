@@ -1,12 +1,87 @@
 /**
  * Telemetry & Correlated Daemon Logs Module for Bisync Hub Dashboard
- * Handles bisync/daemon log filtering, correlated run log modals,
- * and deletion modal state interactions.
+ * Handles bisync/daemon log filtering, 50-line on-demand pagination,
+ * inline log deduplication/folding, correlated run modals, and deletion state.
  */
 
+function normalizeLogMessage(msg) {
+    if (!msg) return "";
+    return msg
+        .replace(/\[cid=[a-zA-Z0-9_-]+\]/g, "")
+        .replace(/\b\d+(\.\d+)?\s*(s|ms|m|h|B|KB|MB|GB|TB|PB)\b/gi, "")
+        .replace(/\b\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?\b/g, "")
+        .replace(/\b\d+\s+(transferred|checked|deleted|matching|errors)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function clusterLogEntries(entries, foldEnabled, expandedMap) {
+    if (!Array.isArray(entries) || entries.length === 0) return [];
+    if (!foldEnabled) {
+        return entries.map((entry, idx) => ({
+            id: "entry-" + idx,
+            entry: entry,
+            count: 1,
+            isCluster: false,
+            expanded: false,
+            entries: [entry]
+        }));
+    }
+
+    const clusters = [];
+    let currentCluster = null;
+
+    for (let i = 0; i < entries.length; i++) {
+        const item = entries[i];
+        const norm = normalizeLogMessage(item.msg || "");
+        const key = (item.level || "") + "::" + (item.type || "") + "::" + norm;
+
+        if (currentCluster && currentCluster.key === key && norm.length > 5) {
+            currentCluster.count++;
+            currentCluster.entries.push(item);
+        } else {
+            if (currentCluster) {
+                currentCluster.isCluster = currentCluster.count > 1;
+                clusters.push(currentCluster);
+            }
+            const clusterId = "cluster-" + clusters.length + "-" + i;
+            currentCluster = {
+                id: clusterId,
+                key: key,
+                entry: item,
+                count: 1,
+                isCluster: false,
+                expanded: !!(expandedMap && expandedMap[clusterId]),
+                entries: [item]
+            };
+        }
+    }
+    if (currentCluster) {
+        currentCluster.isCluster = currentCluster.count > 1;
+        clusters.push(currentCluster);
+    }
+    return clusters;
+}
+
 window.LogsModule = {
+    bisyncLogPage: 1,
+    bisyncLogLimit: 50,
+    bisyncLogTotal: 0,
+    bisyncLogTotalPages: 1,
+    bisyncPaginatedLogs: [],
+    bisyncLogLoading: false,
+    foldRepetitive: true,
+    expandedClusters: {},
+
     get parsedBisyncLogs() {
-        return (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
+        let logs = [];
+        if (this.bisyncPaginatedLogs && this.bisyncPaginatedLogs.length > 0) {
+            logs = [...this.bisyncPaginatedLogs];
+        } else {
+            logs = (this.telemetry.bisync_logs || []).map(parseJsonLogLine).filter(Boolean);
+        }
+        // Unified ledger: reverse order to display newest entries first
+        return logs.reverse();
     },
 
     get filteredBisyncLogs() {
@@ -18,6 +93,10 @@ window.LogsModule = {
             return logs.filter(l => l.type === "audit");
         }
         return logs;
+    },
+
+    get clusteredBisyncLogs() {
+        return clusterLogEntries(this.filteredBisyncLogs, this.foldRepetitive, this.expandedClusters);
     },
 
     get parsedDaemonLogs() {
@@ -43,6 +122,82 @@ window.LogsModule = {
             logs = logs.filter(l => (l.msg || "").toLowerCase().includes(q) || (l.object || "").toLowerCase().includes(q) || (l.source || "").toLowerCase().includes(q));
         }
         return logs;
+    },
+
+    get clusteredDaemonModalLogs() {
+        return clusterLogEntries(this.filteredDaemonModalLogs, this.foldRepetitive, this.expandedClusters);
+    },
+
+    get daemonModalCounts() {
+        const logs = this.daemonModalLogs || [];
+        let errors = 0, warnings = 0, info = 0;
+        for (let i = 0; i < logs.length; i++) {
+            const lvl = (logs[i].level || "").toLowerCase().trim();
+            if (lvl === "error") errors++;
+            else if (lvl === "warning" || lvl === "warn") warnings++;
+            else if (lvl === "info" || lvl === "notice") info++;
+        }
+        return { total: logs.length, errors, warnings, info };
+    },
+
+    async fetchBisyncLogs(page = 1) {
+        this.bisyncLogLoading = true;
+        try {
+            const data = await window.API.get(`/api/logs/bisync?page=${page}&limit=${this.bisyncLogLimit}`);
+            this.bisyncPaginatedLogs = (data.logs || []).map(parseJsonLogLine).filter(Boolean);
+            this.bisyncLogPage = data.page || 1;
+            this.bisyncLogTotal = data.total || 0;
+            this.bisyncLogTotalPages = data.total_pages || 1;
+        } catch (err) {
+            console.error("Failed to fetch paginated bisync logs:", err);
+        } finally {
+            this.bisyncLogLoading = false;
+        }
+    },
+
+    nextBisyncPage() {
+        if (this.bisyncLogPage < this.bisyncLogTotalPages) {
+            this.fetchBisyncLogs(this.bisyncLogPage + 1);
+        }
+    },
+
+    prevBisyncPage() {
+        if (this.bisyncLogPage > 1) {
+            this.fetchBisyncLogs(this.bisyncLogPage - 1);
+        }
+    },
+
+    toggleCluster(clusterId) {
+        this.expandedClusters[clusterId] = !this.expandedClusters[clusterId];
+    },
+
+    expandAllClusters() {
+        const map = {};
+        this.clusteredBisyncLogs.forEach(c => {
+            if (c.isCluster) map[c.id] = true;
+        });
+        this.clusteredDaemonModalLogs.forEach(c => {
+            if (c.isCluster) map[c.id] = true;
+        });
+        this.expandedClusters = map;
+    },
+
+    collapseAllClusters() {
+        this.expandedClusters = {};
+    },
+
+    get areAllClustersExpanded() {
+        const clusters = this.clusteredBisyncLogs.filter(c => c.isCluster);
+        if (clusters.length === 0) return false;
+        return clusters.every(c => !!this.expandedClusters[c.id]);
+    },
+
+    toggleAllClusters() {
+        if (this.areAllClustersExpanded) {
+            this.collapseAllClusters();
+        } else {
+            this.expandAllClusters();
+        }
     },
 
     get filteredDeletions() {
@@ -86,6 +241,7 @@ window.LogsModule = {
         this.daemonModalSearch = "";
         this.daemonModalLevelFilter = "all";
         this.daemonModalCopied = false;
+        this.daemonModalCopiedJSON = false;
         this.daemonModalError = null;
 
         let url = "/api/logs/daemon?limit=500";
@@ -127,6 +283,14 @@ window.LogsModule = {
         navigator.clipboard.writeText(text).then(() => {
             this.daemonModalCopied = true;
             setTimeout(() => { this.daemonModalCopied = false; }, 2000);
+        });
+    },
+
+    copyDaemonLogsJSON() {
+        const json = JSON.stringify(this.daemonModalLogs, null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+            this.daemonModalCopiedJSON = true;
+            setTimeout(() => { this.daemonModalCopiedJSON = false; }, 2000);
         });
     },
 

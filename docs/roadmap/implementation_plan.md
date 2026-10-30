@@ -1,53 +1,84 @@
-# Implementation Plan: Four-Phase Multi-Profile Stabilization & Architecture Evolution
+# Implementation Plan: Deduplication Output UX, OneDrive Backend Safeguards & Restored Item Visibility
 
-This plan establishes the architectural roadmap across all five strategic phases (Completed in `v1.0.0-beta.10`):
-- **Phase 1: Multi-Profile UI & Engine Cohesion** (Completed)
-- **Phase 2: Core Refactoring & Subsystem Consolidation** (Completed)
-- **Phase 3: Operational Flags & Profile Schema Alignment** (Completed)
-- **Phase 4: Hybrid Fleet Overview & Operational Flags UI** (Completed)
-- **Phase 5: Provider Presets, Global Fleet Config & Guided Review Resilience** (Completed)
+## Proposed Changes
 
----
-
-## 1. Phase 1: Multi-Profile UI & Engine Cohesion (Active Scope)
-
-### Proposed Changes
-Resolve Alpine.js reactive null pointer exceptions on profile modal close, unify telemetry and sync status across multi-profile schedulers and single-tenant runners, bind cockpit engine badges to the active profile's execution state, and forward profile-specific exclude patterns to the underlying Rclone sync runner.
+Improve deduplication output formatting across the Audit Ledger drawer and the Deduplication modal, add OneDrive-specific deduplication safeguards (auto-detecting name-vs-hash support and excluding locked Personal Vault), and expose concrete file/folder paths on expanded `DELETION_RESTORED` timeline log rows.
 
 ### Affected Components & Packages
-- `dashboard/frontend/js/profiles.js`:
-  - Introduce `createDefaultProfile()` helper.
-  - Reset `profileModal.editing` to safe default object in `closeProfilesModal()`.
-- `dashboard/frontend/partials/modals/modal_profiles.html`:
-  - Refactor Tab 2 to use `<template x-if="profileModal.tab === 'edit'">` for DOM detachment.
-  - Add null-safe bindings (`profileModal.editing?.name`, `profileModal.editing?.id`).
-- `internal/profiles/scheduler.go`:
-  - Expose `IsAnyRunning() bool` and `IsProfileRunning(profileID string) bool`.
-- `internal/profiles/service.go`:
-  - Add delegate methods `IsAnySyncing() bool` and `IsProfileSyncing(id string) bool`.
-- `internal/server/handlers_telemetry.go`:
-  - Return `"execution_status": "SYNCING" | "IDLE"` in `/api/telemetry` payload.
-  - Return `is_syncing: true` if global lock acquired or any profile scheduler worker running.
-- `dashboard/frontend/partials/view_telemetry.html`:
-  - Update status badge to evaluate `telemetry.execution_status` and active profile state.
-- `internal/server/server.go`:
-  - In `executor`, map `p.ExcludePatterns` into `profCfg.RcloneCommonArgs` as `--exclude` flags.
 
-### Technical Strategy & Data Flow
-1. **Alpine State Safety**:
-   - `createDefaultProfile()` initializes non-null defaults for all bound properties.
-   - On modal close, `editing` resets to defaults, eliminating `TypeError: Cannot read properties of null`.
-2. **Telemetry & Concurrency Harmonization**:
-   - Scheduler tracks active worker sync runs.
-   - `/api/telemetry` checks both single-tenant lock and active profile workers.
-3. **Exclude Rule Forwarding**:
-   - Profile `ExcludePatterns` are appended to `profCfg.RcloneCommonArgs` before running `SyncRunner`.
+- `internal/models/api.go`:
+  - Add `Object string json:"object,omitempty"` to `models.AuditLogRecord`.
+- `internal/services/audit_service.go`:
+  - When recording an event, extract `item_path`, `path`, or `object` from `details` map and assign it to `logEntry.Object` so mirror logs in `bisync.log` retain the item target.
+- `internal/core/client/fs_ops.go`:
+  - In `Dedupe()`, if the target remote or target path targets OneDrive (`onedrive:` or type `onedrive`), add `--exclude "Personal Vault/**"` so locked vault directories never cause rclone listing failures.
+- `dashboard/frontend/js/utils.js`:
+  - In `parseJsonLogLine()`: populate `entry.object = parsed.object || (parsed.details && (parsed.details.item_path || parsed.details.path || parsed.details.object)) || null`.
+  - Add `parseDedupeOutput(rawOutput)` helper to parse rclone dedupe output into summary metrics (collisions found, deleted copies, status) and structured collision items with file/directory tags.
+- `dashboard/frontend/js/remotes.js`:
+  - In `openDedupeModal()`: check the remote provider type (e.g. `onedrive` vs `drive`). If the remote is `onedrive` or does not support same-folder duplicate names, default `byHash` to `true` and note that OneDrive requires hash-based deduplication.
+- `dashboard/frontend/partials/modals/modal_dedupe.html`:
+  - Rename title from `REMOTE HASH DEDUPLICATION` to `REMOTE DEDUPLICATION`.
+  - Update subtitle: `Resolve file & directory duplicate collisions using native Rclone dedupe`.
+  - Replace the plain `<pre>` execution box with the structured dedupe component (summary badges, collision file cards with copy actions, and toggle for raw console view).
+  - Add backend guidance callout when remote is OneDrive.
+- `dashboard/frontend/partials/components/ui_components.html`:
+  - In `component_entity_drawer` when `entityDrawer.type === 'audit'`:
+    - If `entityDrawer.data?.action === 'DEDUPE_EXECUTED'` or `val` key is `output`, render the structured dedupe output component instead of raw text.
+- `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`:
+  - In expanded cluster rows (`subEntry in cluster.entries`), display `subEntry.object` (the restored file/folder path) alongside the timestamp and action badge instead of repeating generic messages.
+
+### Safety & Error Handling
+
+- OneDrive `Personal Vault` exclusion prevents API failures on locked Microsoft 2FA vaults.
+- Deduplication parsing is non-destructive and defensive; if the output cannot be structured, it gracefully renders the raw console output.
+- All file operations in `local` storage continue strictly enforcing path confinement.
+
+## Verification Plan
+
+- `go test -count=1 ./internal/core/client/...`
+- `go test -count=1 ./internal/server/...`
+- `go test -count=1 ./internal/services/...`
+- `./scripts/check.sh all` (all 6 quality stages)
+- Deploy to port 8085 and verify visually in browser.
+
+
+
+#### 3. Correlated Daemon Log Fixes (`modal_daemon.html`)
+- Correct object reference in comparison settings loop to `cluster.entry.details`.
+- In expanded duplicate rows: `<span class="ds-mono text-xs text-indigo-400" x-text="subEntry.object || subEntry.msg"></span>`.
+- Filter source paths: `<span x-show="isDevMode && entry.source" ...>`.
+- Count badges: dynamically calculate `daemonLogs.filter(e => e.level === 'error').length`, etc.
+
+#### 4. Reverse Unified Ledger (`logs.js`)
+- In `fetchBisyncLogs(page)` or rendering pipeline, sort newest first.
+- In `clusterLogEntries(entries)`: set cluster timestamp to `latestEntry.timestamp` (the max timestamp in the cluster) rather than the first.
+
+#### 5. Drawer Stacking (`design-tokens.css` & `ui_components.html`)
+- Adjust `.ds-drawer-overlay` to `z-index: 40; backdrop-filter: blur(4px);`
+- Adjust `.ds-drawer-panel` to `z-index: 50;`
+- Ensure child elements are not rendered under backdrop-filter.
 
 ---
-## 2. Phase 2: Core Refactoring & Subsystem Consolidation (Active Scope)
 
-### Proposed Changes
-1. **Central DI Container (`internal/app/container.go`)**:
+### Safety & Error Handling
+
+- **Deduplication Safety**: Remote deduplication acquires an exclusive file lock (`rclone-bisync.lock`) to prevent concurrent sync operations from corrupting baseline state.
+- **Circuit Breaker Protection**: Following deduplication, an automated baseline sync (`rclone bisync --resync`) is queued to ensure `TOO_MANY_DELETES` circuit breaker does not trigger.
+- **Sub-400 LOC**: All touched Go files and JS files remain strictly under 400 LOC or decomposed as needed.
+
+---
+
+## Verification Plan
+
+- `go test -count=1 ./internal/services/... -run TestDeletion`
+- `go test -count=1 ./internal/server/...`
+- `./scripts/check.sh templates`
+- `./scripts/check.sh loc`
+- `./scripts/check.sh all`
+
+---
+
    - Centralize lifecycle management, dependency construction, and wiring for core services: Rclone RC client, SyncService, TelemetryService, CanaryService, DeletionService, ExplorerService, ReviewService, AuditService, LogService, RemoteAuthService, ProfileStore, ProfileScheduler, and ProfileService.
    - De-duplicate and decouple service creation from `main.go` and `internal/server/server.go`.
    - Provide clean lifecycle methods (`Start(ctx)`, `Close()`) to manage background profile schedulers, loggers, and database handles gracefully.

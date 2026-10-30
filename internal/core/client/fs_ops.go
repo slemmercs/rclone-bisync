@@ -140,6 +140,60 @@ func (c *RcloneClient) TouchFile(ctx context.Context, remote, path string) (bool
 	return true, nil
 }
 
+// Dedupe calls /core/command with "dedupe".
+// If byHash is true, passes "--by-hash" for cross-directory checksum matching.
+// If byHash is false, runs standard name deduplication within each directory.
+func (c *RcloneClient) Dedupe(ctx context.Context, remote, path, mode string, byHash bool) (string, error) {
+	fs := NormalizeFs(remote)
+	cleanPath := strings.Trim(path, "/")
+
+	var target string
+	if strings.HasSuffix(fs, ":") {
+		target = fs + cleanPath
+	} else {
+		target = filepath.Join(fs, cleanPath)
+	}
+
+	if mode == "" {
+		mode = "oldest"
+	}
+
+	args := []string{}
+	if byHash {
+		args = append(args, "--by-hash")
+	}
+	if strings.Contains(strings.ToLower(remote), "onedrive") || strings.Contains(strings.ToLower(target), "onedrive") {
+		args = append(args, "--exclude", "Personal Vault/**")
+	}
+	args = append(args, "--dedupe-mode", mode, target)
+
+	payload := map[string]interface{}{
+		"command": "dedupe",
+		"arg":     args,
+	}
+
+	resp, body, err := c.post(ctx, "core/command", payload, 60*time.Second)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("dedupe failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var cmdResp struct {
+		Error  bool   `json:"error"`
+		Result string `json:"result"`
+	}
+	if err := json.Unmarshal(body, &cmdResp); err == nil {
+		if cmdResp.Error {
+			return "", fmt.Errorf("dedupe error: %s", cmdResp.Result)
+		}
+		return cmdResp.Result, nil
+	}
+
+	return string(body), nil
+}
+
 // CopyFile calls /operations/copyfile to copy an individual file.
 func (c *RcloneClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
 	payload := map[string]string{

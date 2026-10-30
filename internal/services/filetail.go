@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/core/logger"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // TailFile reads the last N whole lines from a file by seeking from EOF.
@@ -129,4 +130,78 @@ func TailJSONLog(filepathStr string, entriesCount int) []string {
 		return entries[len(entries)-entriesCount:]
 	}
 	return entries
+}
+
+// TailJSONLogPaginated reads log file, unwrapping nested JSON strings and masking secrets,
+// and returns paginated entries along with total count and page metadata.
+// Page 1 contains the most recent entries in chronological order.
+func TailJSONLogPaginated(filepathStr string, page, limit int) models.PaginatedLogsResponse {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	if filepathStr == "" {
+		return models.PaginatedLogsResponse{
+			Page:       1,
+			Limit:      limit,
+			Total:      0,
+			TotalPages: 1,
+			Logs:       []string{},
+		}
+	}
+	if _, err := os.Stat(filepathStr); os.IsNotExist(err) {
+		return models.PaginatedLogsResponse{
+			Page:       1,
+			Limit:      limit,
+			Total:      0,
+			TotalPages: 1,
+			Logs:       []string{},
+		}
+	}
+
+	allEntries := TailJSONLog(filepathStr, 2000)
+	total := len(allEntries)
+	if total == 0 {
+		return models.PaginatedLogsResponse{
+			Page:       1,
+			Limit:      limit,
+			Total:      0,
+			TotalPages: 1,
+			Logs:       []string{},
+		}
+	}
+
+	totalPages := (total + limit - 1) / limit
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	// Page 1 has the newest items: [total - limit : total]
+	// Page 2 has older items: [total - 2*limit : total - limit]
+	end := total - (page-1)*limit
+	start := end - limit
+	if start < 0 {
+		start = 0
+	}
+	if end < 0 {
+		end = 0
+	}
+
+	sliced := allEntries[start:end]
+	return models.PaginatedLogsResponse{
+		Page:       page,
+		Limit:      limit,
+		Total:      total,
+		TotalPages: totalPages,
+		Logs:       sliced,
+	}
 }

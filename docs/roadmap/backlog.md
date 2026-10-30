@@ -115,9 +115,33 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
   - **Visual Operational Flags & Provider Presets**: 3-tier flags configuration with inheritance badges (`Inherited from Global` vs `Profile Override`), provider-specific presets (`gdrive`, `onedrive`, `dropbox`, `s3`), and editable Global Fleet Defaults (`modal_global_settings.html`, `/api/config`).
   - **Deterministic Profile Sorting & Compare Mode Guidance**: Enforced `CreatedAt`/`Name` ordering and inline `--resync` guidance when switching `CompareMode`.
 
+
+* **[COMPLETED] UI Design System, 10ms Telemetry, Inline Log Folding & Remote Hash Deduplication [COMPLETED - 2026-10-29]**
+  - **Design System Foundation**: Semantic tokens (`design-tokens.css`), 7 Approved Status Vocabulary states, reusable partials (`partials/components/`, `partials/patterns/`, `partials/layouts/`), and forensic Slide-Over Entity Inspector Drawer.
+  - **10ms Telemetry Pipeline**: Decoupled `rclone-daemon.log` parsing, cached `bisync.log` reads by `(mtime, size, limit)`, 60s TTL quota caching, and adaptive polling in `polling.js` (8s idle / 2s sync).
+  - **50-Line On-Demand Pagination & O(N) Inline Log Folding**: Paginated API (`GET /api/logs/bisync?page=1&limit=50`), inline deduplication accordions with `×N` repeat counters, latest cluster occurrence timestamps, and reversed unified ledger (newest on top).
+  - **Historical Deletion Scraper Bug Fix**: Remedied `deletion_service.go` to require an active circuit breaker abort without subsequent sync success, preventing historical completed deletions from surfacing as pending.
+  - **Remote Hash Deduplication (`rclone dedupe --by-hash`)**: Safe consolidation of cloud file collisions (`modal_dedupe.html`, `/api/remotes/dedupe`) with dry-run preview, process lock isolation, and automated baseline cache resync.
+
 ---
 
 ### Active Near-Term Backlog (Sequenced Priorities)
+
+#### 0. Bisync Hub Model Context Protocol (MCP) Server (`bisync-hub mcp`) [ESTIMATE: 6-8h | 5 SP] - ACTIVE PRIORITY
+Direct integration of Bisync Hub into AI agent workflows (Claude Desktop, Cursor, Cline) via the official Model Context Protocol (JSON-RPC over stdio and SSE):
+* **Single-Binary Zero-Dependency Engine**: Built directly into the Go distribution (`cmd/mcp`, `internal/mcp`); zero external Node.js/Python runtime requirements.
+* **Agent Operational Tools**:
+  - `bisync_get_health`: Queries daemon latency, active profiles, and circuit breaker trip states (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`).
+  - `bisync_trigger_sync`: Dispatches dry-run, normal sync, or force resync for specified profile workloads.
+  - `bisync_review_queue`: Fetches pending sync review sessions, conflict items, and heuristic risk scores.
+  - `bisync_resolve_review`: Stages decisions (`keep_local`, `keep_remote`, `delete`, `merge`) and triggers safe resolution execution with automated backups.
+  - `bisync_dedupe_by_hash`: Triggers remote MD5 checksum deduplication and baseline cache resync.
+  - `bisync_audit_inspect`: Inspects and cryptographically verifies immutable audit ledger blocks.
+* **Agent Read-Only Resources**:
+  - `bisync://telemetry`: Real-time streaming metrics, active transfers, and daemon operational health.
+  - `bisync://profiles`: Complete profile workload definitions, schedules, and effective operational flags.
+  - `bisync://audit`: Cryptographically chained compliance event log.
+
 
 #### 1. Configuration & Setup Manager (Rollback & Snapshot Engine) [ESTIMATE: 5-7h | 4 SP]
 Provides server-side configuration safety for global environments:

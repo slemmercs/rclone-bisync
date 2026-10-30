@@ -1,0 +1,14 @@
+{{/* Standard View Page Header Layout */}}
+{{ define "layout_page_header" }}
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-2.5">
+            <h1 class="text-xl font-bold tracking-tight text-white" x-text="$el.dataset.title || 'Overview'"></h1>
+            <template x-if="$el.dataset.badge">
+                <span class="ds-badge" :class="$el.dataset.badgeClass || 'ds-badge-idle'" x-text="$el.dataset.badge"></span>
+            </template>
+        </div>
+        <p class="text-xs text-slate-400 mt-1" x-text="$el.dataset.subtitle || 'Operational status and fleet management'"></p>
+    </div>
+</div>
+{{ end }}

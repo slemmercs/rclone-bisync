@@ -24,10 +24,10 @@ id_rsa.pub
 bin/
 .build/
 dist/
-bisync-hub
-bisync-hub-*
-rclone-bisync
-rclone-bisync-*
+/bisync-hub
+/bisync-hub-*
+/rclone-bisync
+/rclone-bisync-*
 *.test
 
 # ----------------------------------------------------------------------
@@ -104,3 +104,4 @@ vendor/bundle/
 # ----------------------------------------------------------------------
 .clinerules
 .clineignore
+.clinerules.bak

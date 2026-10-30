@@ -18,7 +18,8 @@ window.SettingsModule = {
                 compare_mode: "modtime",
                 canary_validation: true,
                 remove_empty_dirs: true,
-                create_empty_dirs: true
+                create_empty_dirs: true,
+                lock_explorer_remote: false
             },
             daemon: {
                 job_poll_initial_sleep_sec: 2,
@@ -36,6 +37,18 @@ window.SettingsModule = {
 
     isGlobalSettingsSaving() {
         return Boolean(this.globalSettingsModal?.saving);
+    },
+
+    isExplorerRemoteLocked() {
+        return Boolean(this.globalSettingsModal?.config?.global_defaults?.lock_explorer_remote);
+    },
+
+    toggleExplorerRemoteLock() {
+        if (!this.globalSettingsModal?.config?.global_defaults) return;
+        this.globalSettingsModal.config.global_defaults.lock_explorer_remote = !this.globalSettingsModal.config.global_defaults.lock_explorer_remote;
+        if (typeof this.saveGlobalSettings === "function") {
+            this.saveGlobalSettings();
+        }
     },
 
     async openGlobalSettingsModal(tab = "defaults") {

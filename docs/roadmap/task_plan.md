@@ -1,55 +1,68 @@
-# Task Plan: Phase 5 - Tiered Cloud Provider Architecture, Provider Options UI & Global Fleet Settings
+# Task Plan: Deduplication Output UX, OneDrive Backend Safeguards & Restored Item Visibility
 
 ## Goal
-Implement a tiered cloud provider settings architecture with first-class UI controls for Tier-1 providers (Google Drive, OneDrive, S3, Dropbox) and an audited custom flags field for Tier-2 generic providers, decouple daemon engine defaults from workload sync payloads, surface a Profile Execution Contract in Telemetry, and introduce a Global Fleet Settings manager.
+Improve deduplication output formatting across the Audit Ledger drawer and the Deduplication modal, add OneDrive-specific deduplication safeguards (auto-detecting name-vs-hash support and excluding locked Personal Vault), and expose concrete file/folder paths on expanded `DELETION_RESTORED` timeline log rows.
 
 ## Tasks
 
-- [x] Task 1: Engine Flag Decoupling & Compiler Tier-1 Provider Flag Registration
-  - **Scope**: `internal/config/config.go`, `bisync.env`, `internal/config/config_test.go`, `internal/core/compiler/compiler.go`, `internal/core/compiler/compiler_test.go`
-  - **Verification**: `go test -count=1 ./internal/config/... ./internal/core/compiler/...`
+- [x] Task 1: Backend Enrichment for Audit Log Object & OneDrive Personal Vault Exclusion
+  - **Scope**: `internal/models/api.go`, `internal/services/audit_service.go`, `internal/core/client/fs_ops.go`, `internal/core/client/client_test.go`, `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
+  - **Verification**: `go test -count=1 ./internal/core/client/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/server/...`
 
-- [x] Task 2: Provider Options Model & Flag Builder Implementation
-  - **Scope**: `internal/profiles/model.go`, `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
-  - **Verification**: `go test -count=1 ./internal/profiles/...`
+- [x] Task 2: Dedupe Output Parser & Remote-Specific Mode Selector
+  - **Scope**: `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/remotes.js`
+  - **Verification**: `./scripts/check.sh loc && ./scripts/check.sh templates`
 
-- [x] Task 3: Global Fleet Settings Backend Endpoints (`GET/PUT /api/config`)
-  - **Scope**: `internal/server/handlers_config.go`, `internal/server/server.go`, `internal/server/server_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...`
-
-- [x] Task 4: Unified Provider Options UI in Profile Modal (`modal_profiles.html`)
-  - **Scope**: `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/js/profiles.js`
+- [x] Task 3: Dedupe Modal Title, Remote Type Guidance & Structured Execution Output
+  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 5: Profile Execution Contract in Telemetry View (`view_telemetry.html`)
-  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/app.js`
+- [x] Task 4: Structured Dedupe Rendering in Audit Slide-Over Drawer
+  - **Scope**: `dashboard/frontend/partials/components/ui_components.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 6: Global Fleet Settings Modal Component (`modal_global_settings.html`)
-  - **Scope**: `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+- [x] Task 5: Expanded Log Line Item Path / Object Visibility in Timeline Ledger
+  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 7: Full Quality Verification & Headless Chrome Testing
-  - **Scope**: Full repository
-  - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`
-
-- [x] Task 8: Multi-Megabyte Daemon Log Parsing & Correlated Log Modal Error Surfacing
-  - **Scope**: `internal/services/log_service.go`, `internal/services/log_service_test.go`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/modals/modal_daemon.html`
-  - **Verification**: `go test -v -count=1 ./internal/services -run TestLogService && ./scripts/check.sh all`
-
-- [x] Task 9: Compare Mode Expansion, Prominent Custom Flags Escape Hatch, Max Delete 0% Display & Manual Origin Tagging
-  - **Scope**: `internal/config/`, `internal/server/`, `internal/profiles/`, `internal/app/`, `dashboard/frontend/partials/`
-  - **Verification**: `go test -count=1 ./internal/... && ./scripts/check.sh all`
-
-- [x] Task 10: Edit Profile Cog Modal Trigger, Compare Mode Resync Guidance & Deterministic Profile Ordering Across Fleet & Pill Switcher
-  - **Scope**: `internal/profiles/store.go`, `internal/profiles/store_test.go`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`
-  - **Verification**: `go test -count=1 ./internal/profiles/... && ./scripts/check.sh all`
-
+- [x] Task 6: Pre-flight Validation, Build & Deployment on Port 8085
+  - **Scope**: Recompile `bin/bisync-hub`, deploy to port 8085, run pre-flight `./scripts/check.sh all`, checkpoint commit.
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
-- 2026-10-28: Completed Task 10:
-  1. Fixed Edit Profile cog icon and New Profile button on Fleet tab by setting `this.profileModal.show = true` and invoking `fetchRemotes()` in `startEditProfile` and `startNewProfile`.
-  2. Fixed profile tiles and header pills dynamically jumping/reordering by adding deterministic sorting in `Store.List()` (sorted by `CreatedAt` then `Name`) and client-side sorting in `fetchProfiles()`.
+
+- 2026-10-30: Completed Task 6:
+  - Verified full test suite and quality gates with `./scripts/check.sh all` (all 6 stages passed: unit tests, linters, templates, loc checks).
+  - Recompiled native binary `bin/bisync-hub`.
+  - Deployed and verified live instance running at http://127.0.0.1:8085.
+- 2026-10-30: Completed Task 5:
+  - Added object path badge (`subEntry.object` / `cluster.entry.object`) to single entry rows and nested cluster rows in `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`.
+  - Added action badge (`subEntry.action`) and contextual direct navigation button (`Ledger →` for audit records, `Daemon` for daemon logs) in expanded cluster rows.
+  - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
+- 2026-10-30: Completed Task 4:
+  - Added dedicated Deduplication Run Summary card in `dashboard/frontend/partials/components/ui_components.html` (`component_entity_drawer`) displaying collisions detected, duplicates removed, and direct "View in Correlated Logs" link button.
+  - Added deep linking button to correlated daemon logs whenever `run_id` or `job_id` appears in structured action metadata.
+  - Protected against massive stdout dumps in legacy records by displaying `output` inside a bounded, scrollable monospace container.
+  - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
+- 2026-10-30: Completed Task 3:
+  - Updated `dashboard/frontend/partials/modals/modal_dedupe.html` modal title to "Remote Deduplication" with subtitle clarifying file & directory collisions.
+  - Added OneDrive backend guidance notice explaining duplicate name constraints and default Cross-Folder Hash mode.
+  - Added structured cards view displaying collisions found and removed, notice/error alerts, and toggle to raw console.
+  - Added deep link button to jump straight to correlated daemon run logs when `dedupeModal.runId` is returned.
+  - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
+- 2026-10-30: Completed Task 2:
+  - Added `parseDedupeOutput()` in `dashboard/frontend/js/utils.js` extracting collision counts, deleted counts, error messages, and per-item duplication statistics.
+  - Added auto-detection in `openDedupeModal()` (`dashboard/frontend/js/remotes.js`) defaulting OneDrive remotes to `--by-hash` mode and tracking `runId` from backend responses with cross-link navigation support.
+  - Streamlined `dashboard/frontend/js/remotes.js` to 386 LOC adhering to the 400 LOC ceiling.
+  - Verified with `./scripts/check.sh loc && ./scripts/check.sh templates`.
+- 2026-10-30: Completed Task 1:
+  - Enriched `AuditLogRecord` with `Object string` and wired `RecordEvent()` to extract `item_path`/`path`/`object`/`file` for timeline logs.
+  - Added OneDrive `--exclude "Personal Vault/**"` safeguard to `Dedupe()` in `internal/core/client/fs_ops.go` with unit test verification.
+  - Decoupled audit decisions from log output in `internal/server/handlers_auth.go`: generated unique execution `run_id`, recorded clean structured event in `audit_ledger.db` without storing raw multiline output strings, streamed individual dedupe output lines directly to `bisync.log` via `s.AuditService.Logger.RecordSyncRun()`, and exposed `run_id` in `models.DedupeResponse`.
+  - Verified with `go test -count=1 ./internal/core/client/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/server/...`.
+- 2026-10-30: Initialized task plan for Deduplication Output UX, OneDrive Backend Safeguards & Restored Item Visibility.
+
+
   3. Added user-facing guidance callouts in `modal_profiles.html` and `modal_global_settings.html` noting that changing `Compare Mode` requires a one-time `--resync`.
 
 

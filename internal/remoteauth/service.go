@@ -3,6 +3,7 @@ package remoteauth
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
@@ -17,6 +18,8 @@ type RemoteAuthService struct {
 	AuditLogger      *AuditLogger
 	Runner           CommandRunner
 	activeReconnects map[string]context.CancelFunc
+	cachedStatus     models.AuthStatusResponse
+	cachedStatusTime time.Time
 	mu               sync.Mutex
 }
 
@@ -45,9 +48,38 @@ func NewRemoteAuthService(cfg *config.Config, rcloneClient *client.RcloneClient,
 	}
 }
 
-// GetAuthStatus queries the complete authentication health state across all configured remotes.
+// GetAuthStatus queries the complete authentication health state across all configured remotes (default cached).
 func (s *RemoteAuthService) GetAuthStatus(ctx context.Context) (models.AuthStatusResponse, error) {
-	return s.GetAllRemotesAuthStatus(ctx)
+	return s.GetAuthStatusCached(ctx, false)
+}
+
+// GetAuthStatusCached queries authentication health state with 60s TTL caching.
+func (s *RemoteAuthService) GetAuthStatusCached(ctx context.Context, forceRefresh bool) (models.AuthStatusResponse, error) {
+	if !forceRefresh {
+		s.mu.Lock()
+		if !s.cachedStatusTime.IsZero() && time.Since(s.cachedStatusTime) < 60*time.Second {
+			cached := s.cachedStatus
+			s.mu.Unlock()
+			return cached, nil
+		}
+		s.mu.Unlock()
+	}
+
+	res, err := s.GetAllRemotesAuthStatus(ctx)
+	if err == nil {
+		s.mu.Lock()
+		s.cachedStatus = res
+		s.cachedStatusTime = time.Now()
+		s.mu.Unlock()
+	}
+	return res, err
+}
+
+// InvalidateAuthCache clears cached auth state.
+func (s *RemoteAuthService) InvalidateAuthCache() {
+	s.mu.Lock()
+	s.cachedStatusTime = time.Time{}
+	s.mu.Unlock()
 }
 
 // GetAuditEvents retrieves the most recent OAuth audit lifecycle records.

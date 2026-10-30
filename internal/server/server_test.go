@@ -457,6 +457,9 @@ func TestAuthEndpoints(t *testing.T) {
 		case "/config/oauthstop":
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{}`))
+		case "/core/command":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"error": false, "result": "Duplicate files consolidation complete."}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -585,6 +588,38 @@ func TestAuthEndpoints(t *testing.T) {
 	}
 	if len(checkResp.Remotes) != 1 {
 		t.Fatalf("expected 1 remote in auth check, got: %d", len(checkResp.Remotes))
+	}
+	// 9b. POST /api/remotes/auth/check with ?remote=gdrive
+	req, _ = http.NewRequest("POST", "/api/remotes/auth/check?remote=gdrive", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for scoped remote auth check, got: %d", rec.Code)
+	}
+	var scopedCheckResp models.AuthStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &scopedCheckResp); err != nil {
+		t.Fatalf("failed to decode scoped auth check response: %v", err)
+	}
+	// 9c. POST /api/remotes/dedupe
+	dedupePayload, _ := json.Marshal(models.DedupeRequest{
+		Remote: "gdrive",
+		Path:   "Google Photos",
+		Mode:   "list",
+	})
+	req, _ = http.NewRequest("POST", "/api/remotes/dedupe", strings.NewReader(string(dedupePayload)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for dedupe, got: %d", rec.Code)
+	}
+	var dedupeResp models.DedupeResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &dedupeResp); err != nil {
+		t.Fatalf("failed to decode dedupe response: %v", err)
+	}
+	if dedupeResp.Status != "success" {
+		t.Fatalf("expected success status for dedupe, got: %s (err: %s)", dedupeResp.Status, dedupeResp.Error)
 	}
 
 	// Reconnect cancel
@@ -1219,8 +1254,8 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 	if strings.Contains(body, `x-for="(val, key) in entry.details"`) {
 		t.Error("found invalid x-for loop over non-iterable Object in modal_daemon")
 	}
-	if !strings.Contains(body, `x-for="(pair, idx) in Object.entries(entry.details`) {
-		t.Error("expected Object.entries iteration for entry.details in modal_daemon")
+	if !strings.Contains(body, `Object.entries(cluster.entry.details`) {
+		t.Error("expected Object.entries iteration for cluster.entry.details in modal_daemon")
 	}
 
 	// Verify Enterprise branding removed and dynamic version injected
@@ -1269,5 +1304,39 @@ func TestFormatMajorMinor(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("FormatMajorMinor(%q) = %q; expected %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+func TestHandleBisyncLogs_Paginated(t *testing.T) {
+	tmpDir := t.TempDir()
+	logFile := filepath.Join(tmpDir, "bisync.log")
+	cfg := &config.Config{
+		BaseDir: tmpDir,
+		LogFile: logFile,
+	}
+
+	var sb strings.Builder
+	for i := 1; i <= 60; i++ {
+		sb.WriteString(fmt.Sprintf(`{"time":"2026-10-27T10:00:00Z","level":"info","msg":"sync run %d"}`+"\n", i))
+	}
+	_ = os.WriteFile(logFile, []byte(sb.String()), 0600)
+
+	srv := NewServer(cfg, nil, embed.FS{})
+
+	req := httptest.NewRequest("GET", "/api/logs/bisync?page=1&limit=50", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec.Code)
+	}
+
+	var resp models.PaginatedLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp.Total != 60 || resp.TotalPages != 2 || len(resp.Logs) != 50 || resp.Page != 1 {
+		t.Fatalf("unexpected paginated response: %+v", resp)
 	}
 }
