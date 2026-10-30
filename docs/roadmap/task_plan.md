@@ -9,7 +9,7 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
   - **Scope**: `internal/models/api.go`, `internal/services/audit_service.go`, `internal/core/client/fs_ops.go`, `internal/core/client/client_test.go`, `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
   - **Verification**: `go test -count=1 ./internal/core/client/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/server/...`
 
-- [ ] Task 2: Dedupe Output Parser & Remote-Specific Mode Selector
+- [x] Task 2: Dedupe Output Parser & Remote-Specific Mode Selector
   - **Scope**: `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/remotes.js`
   - **Verification**: `./scripts/check.sh loc && ./scripts/check.sh templates`
 
@@ -31,6 +31,11 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
 
 ## Status Updates
 
+- 2026-10-30: Completed Task 2:
+  - Added `parseDedupeOutput()` in `dashboard/frontend/js/utils.js` extracting collision counts, deleted counts, error messages, and per-item duplication statistics.
+  - Added auto-detection in `openDedupeModal()` (`dashboard/frontend/js/remotes.js`) defaulting OneDrive remotes to `--by-hash` mode and tracking `runId` from backend responses with cross-link navigation support.
+  - Streamlined `dashboard/frontend/js/remotes.js` to 386 LOC adhering to the 400 LOC ceiling.
+  - Verified with `./scripts/check.sh loc && ./scripts/check.sh templates`.
 - 2026-10-30: Completed Task 1:
   - Enriched `AuditLogRecord` with `Object string` and wired `RecordEvent()` to extract `item_path`/`path`/`object`/`file` for timeline logs.
   - Added OneDrive `--exclude "Personal Vault/**"` safeguard to `Dedupe()` in `internal/core/client/fs_ops.go` with unit test verification.

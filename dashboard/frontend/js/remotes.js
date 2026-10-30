@@ -76,28 +76,18 @@ window.RemotesModule = {
                 this.remotesData.active_remote = data.active_remote || null;
                 this.remotesData.last_checked = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
             }
-
             if (checkRes.status === "fulfilled") {
                 const authData = checkRes.value;
                 this.remotesData.authSummary = authData.summary || {};
                 const authMap = {};
-                (authData.remotes || []).forEach(r => {
-                    authMap[r.name] = r;
-                });
-                this.remotesData.remotes.forEach(r => {
-                    r.auth = authMap[r.name] || null;
-                });
+                (authData.remotes || []).forEach(r => { authMap[r.name] = r; });
+                this.remotesData.remotes.forEach(r => { r.auth = authMap[r.name] || null; });
             }
 
             const elapsed = Date.now() - startTime;
-            if (elapsed < 600) {
-                await new Promise(r => setTimeout(r, 600 - elapsed));
-            }
-
+            if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
             this.showToast("Authentication and storage quotas verified!", "success");
-            if (this.auditModal && this.auditModal.show) {
-                await this.viewAuthAudit();
-            }
+            if (this.auditModal && this.auditModal.show) await this.viewAuthAudit();
         } catch (err) {
             this.showToast("Check error: " + err.message, "error");
         } finally {
@@ -144,15 +134,7 @@ window.RemotesModule = {
 
     async reconnectRemote(name) {
         this.remotesData.reconnecting = { ...(this.remotesData.reconnecting || {}), [name]: true };
-        this.reconnectModal = {
-            show: true,
-            remote: name,
-            loading: true,
-            authUrl: null,
-            msg: "Initiating desktop OAuth reconnect flow...",
-            error: null
-        };
-
+        this.reconnectModal = { show: true, remote: name, loading: true, authUrl: null, msg: "Initiating desktop OAuth reconnect flow...", error: null };
         try {
             const data = await window.API.post(`/api/remotes/${encodeURIComponent(name)}/reconnect`);
             if (data.status === "success") {
@@ -160,9 +142,7 @@ window.RemotesModule = {
                 this.reconnectModal.authUrl = data.auth_url || null;
                 this.showToast(`Re-authenticated ${name} successfully!`, "success");
                 await this.fetchRemotes(false);
-                if (this.auditModal && this.auditModal.show) {
-                    await this.viewAuthAudit();
-                }
+                if (this.auditModal && this.auditModal.show) await this.viewAuthAudit();
             } else {
                 this.reconnectModal.error = data.error || data.msg || "Re-authentication failed.";
                 this.reconnectModal.authUrl = data.auth_url || null;
@@ -240,11 +220,9 @@ window.RemotesModule = {
             this.migrationModal.error = "Client ID is required.";
             return;
         }
-
         this.migrationModal.loading = true;
         this.migrationModal.error = null;
         this.migrationModal.success = null;
-
         try {
             const data = await window.API.post(`/api/remotes/${encodeURIComponent(this.migrationModal.remote)}/credentials`, {
                 client_id: this.migrationModal.clientId.trim(),
@@ -254,9 +232,7 @@ window.RemotesModule = {
                 this.migrationModal.success = "OAuth credentials successfully saved!";
                 this.showToast("Credentials saved successfully!", "success");
                 await this.fetchRemotes(false);
-                setTimeout(() => {
-                    this.closeMigrationWizard();
-                }, 1200);
+                setTimeout(() => { this.closeMigrationWizard(); }, 1200);
             } else {
                 this.migrationModal.error = data.error || "Failed to update OAuth credentials.";
             }
@@ -280,9 +256,7 @@ window.RemotesModule = {
             }
             this.showToast(`Re-authentication cancelled for "${name}".`, "info");
             await this.fetchRemotes(false);
-            if (this.auditModal && this.auditModal.show) {
-                await this.viewAuthAudit();
-            }
+            if (this.auditModal && this.auditModal.show) await this.viewAuthAudit();
         }
     },
 
@@ -311,34 +285,17 @@ window.RemotesModule = {
         }
     },
 
-    isRemotesLoading() {
-        return Boolean(this.remotesData?.loading);
-    },
-
-    isRemoteValidating(remote) {
-        const key = typeof remote === "string" ? remote : remote?.name;
-        return Boolean(key && this.remotesData?.validating?.[key]);
-    },
-
-    isMigrationLoading() {
-        return Boolean(this.migrationModal?.loading);
-    },
-
-    cannotSaveMigration() {
-        return Boolean(this.migrationModal?.loading || !this.migrationModal?.clientId?.trim());
-    },
-    isDedupeExecuting() {
-        return Boolean(this.dedupeModal?.executing);
-    },
+    isRemotesLoading() { return Boolean(this.remotesData?.loading); },
+    isRemoteValidating(remote) { const k = typeof remote === "string" ? remote : remote?.name; return Boolean(k && this.remotesData?.validating?.[k]); },
+    isMigrationLoading() { return Boolean(this.migrationModal?.loading); },
+    cannotSaveMigration() { return Boolean(this.migrationModal?.loading || !this.migrationModal?.clientId?.trim()); },
+    isDedupeExecuting() { return Boolean(this.dedupeModal?.executing); },
 
 
     isRemoteActiveTarget(remote) {
         if (!remote) return false;
         const rName = (remote.name || "").replace(/:$/, "").trim();
-        if (this.activeProfile && this.activeProfile.remote) {
-            const pRemote = this.activeProfile.remote.replace(/:$/, "").trim();
-            return rName === pRemote;
-        }
+        if (this.activeProfile && this.activeProfile.remote) return rName === this.activeProfile.remote.replace(/:$/, "").trim();
         return !!remote.is_active_target;
     },
 
@@ -346,9 +303,7 @@ window.RemotesModule = {
         if (this.profilesData && this.profilesData.list) {
             const clean = (remoteName || "").replace(/:$/, "").trim();
             const prof = this.profilesData.list.find(p => (p.remote || "").replace(/:$/, "").trim() === clean);
-            if (prof && typeof this.selectProfile === "function") {
-                this.selectProfile(prof.id);
-            }
+            if (prof && typeof this.selectProfile === "function") this.selectProfile(prof.id);
         }
         this.switchTab("telemetry");
     },
@@ -366,7 +321,35 @@ window.RemotesModule = {
     openDedupeModal(remoteName) {
         const clean = (remoteName || "").replace(/:$/, "").trim();
         const p = (this.explorer?.right?.target === clean) ? (this.explorer?.right?.path || "") : "";
-        this.dedupeModal = { show: true, remote: clean, path: p, mode: "oldest", byHash: false, executing: false, output: "" };
+        const rObj = (this.remotesData?.remotes || []).find(r => (r.name || "").replace(/:$/, "").trim() === clean);
+        const rType = (rObj?.type || "").toLowerCase();
+        const isOnedrive = clean.toLowerCase().includes("onedrive") || rType === "onedrive";
+        this.dedupeModal = {
+            show: true,
+            remote: clean,
+            path: p,
+            mode: "oldest",
+            byHash: isOnedrive,
+            isOnedrive: isOnedrive,
+            executing: false,
+            runId: null,
+            output: "",
+            parsedOutput: null,
+            showRawOutput: false
+        };
+    },
+
+    closeDedupeModal() {
+        this.dedupeModal.show = false;
+    },
+
+    viewDedupeLogs() {
+        const runId = this.dedupeModal?.runId;
+        if (!runId) return;
+        this.closeDedupeModal();
+        if (typeof this.openDaemonModal === "function") {
+            this.openDaemonModal({ run_id: runId });
+        }
     },
 
     async runDedupe(isDryRun = false) {
@@ -375,20 +358,26 @@ window.RemotesModule = {
         const byHash = Boolean(this.dedupeModal.byHash);
         const desc = byHash ? "checksum hash (--by-hash)" : "same-folder duplicate names";
         this.dedupeModal.executing = true;
+        this.dedupeModal.runId = null;
+        this.dedupeModal.parsedOutput = null;
         this.dedupeModal.output = (isDryRun ? "Scanning duplicates on " : "Executing deduplication on ") + `${this.dedupeModal.remote}:${this.dedupeModal.path || '/'} via ${desc} (mode=${mode})...\n`;
 
         try {
             const data = await window.API.post("/api/remotes/dedupe", { remote: this.dedupeModal.remote, path: this.dedupeModal.path, mode, by_hash: byHash });
             if (data.status === "error") {
                 this.dedupeModal.output += `\nError: ${data.error || 'Deduplication failed'}`;
+                this.dedupeModal.parsedOutput = parseDedupeOutput(this.dedupeModal.output);
                 this.showToast(`Dedupe failed: ${data.error || 'Unknown error'}`, "error");
             } else {
+                this.dedupeModal.runId = data.run_id || null;
                 this.dedupeModal.output = data.output || "No duplicates found. All files are unique.";
+                this.dedupeModal.parsedOutput = parseDedupeOutput(this.dedupeModal.output);
                 this.showToast(isDryRun ? "Duplicate scan complete (preview only)" : "Deduplication complete!", "success");
                 if (!isDryRun && typeof this.fetchRemotes === "function") this.fetchRemotes(true);
             }
         } catch (err) {
             this.dedupeModal.output += `\nRequest failed: ${err.message}`;
+            this.dedupeModal.parsedOutput = parseDedupeOutput(this.dedupeModal.output);
             this.showToast(`Request failed: ${err.message}`, "error");
         } finally {
             this.dedupeModal.executing = false;
