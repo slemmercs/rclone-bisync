@@ -21,7 +21,7 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
   - **Scope**: `dashboard/frontend/partials/components/ui_components.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [ ] Task 5: Expanded Log Line Item Path / Object Visibility in Timeline Ledger
+- [x] Task 5: Expanded Log Line Item Path / Object Visibility in Timeline Ledger
   - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
@@ -31,6 +31,10 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
 
 ## Status Updates
 
+- 2026-10-30: Completed Task 5:
+  - Added object path badge (`subEntry.object` / `cluster.entry.object`) to single entry rows and nested cluster rows in `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`.
+  - Added action badge (`subEntry.action`) and contextual direct navigation button (`Ledger →` for audit records, `Daemon` for daemon logs) in expanded cluster rows.
+  - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
 - 2026-10-30: Completed Task 4:
   - Added dedicated Deduplication Run Summary card in `dashboard/frontend/partials/components/ui_components.html` (`component_entity_drawer`) displaying collisions detected, duplicates removed, and direct "View in Correlated Logs" link button.
   - Added deep linking button to correlated daemon logs whenever `run_id` or `job_id` appears in structured action metadata.
