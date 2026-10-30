@@ -1,53 +1,38 @@
-# Implementation Plan: Deduplication Output UX, OneDrive Backend Safeguards & Restored Item Visibility
+# Implementation Plan: Architecture Decision Records Review & Registration
 
 ## Proposed Changes
 
-Improve deduplication output formatting across the Audit Ledger drawer and the Deduplication modal, add OneDrive-specific deduplication safeguards (auto-detecting name-vs-hash support and excluding locked Personal Vault), and expose concrete file/folder paths on expanded `DELETION_RESTORED` timeline log rows.
+Review all features implemented across releases `v1.0.0-beta.1` through `v1.0.0-beta.12`, reconcile architectural decisions with existing records, update `ADR-004` to reflect execution log decoupling, and author comprehensive missing ADRs (`ADR-006` through `ADR-010`) adhering strictly to the `ADR-000-Template.md` standard.
 
-### Affected Components & Packages
+### Affected Components & Documentation
 
-- `internal/models/api.go`:
-  - Add `Object string json:"object,omitempty"` to `models.AuditLogRecord`.
-- `internal/services/audit_service.go`:
-  - When recording an event, extract `item_path`, `path`, or `object` from `details` map and assign it to `logEntry.Object` so mirror logs in `bisync.log` retain the item target.
-- `internal/core/client/fs_ops.go`:
-  - In `Dedupe()`, if the target remote or target path targets OneDrive (`onedrive:` or type `onedrive`), add `--exclude "Personal Vault/**"` so locked vault directories never cause rclone listing failures.
-- `dashboard/frontend/js/utils.js`:
-  - In `parseJsonLogLine()`: populate `entry.object = parsed.object || (parsed.details && (parsed.details.item_path || parsed.details.path || parsed.details.object)) || null`.
-  - Add `parseDedupeOutput(rawOutput)` helper to parse rclone dedupe output into summary metrics (collisions found, deleted copies, status) and structured collision items with file/directory tags.
-- `dashboard/frontend/js/remotes.js`:
-  - In `openDedupeModal()`: check the remote provider type (e.g. `onedrive` vs `drive`). If the remote is `onedrive` or does not support same-folder duplicate names, default `byHash` to `true` and note that OneDrive requires hash-based deduplication.
-- `dashboard/frontend/partials/modals/modal_dedupe.html`:
-  - Rename title from `REMOTE HASH DEDUPLICATION` to `REMOTE DEDUPLICATION`.
-  - Update subtitle: `Resolve file & directory duplicate collisions using native Rclone dedupe`.
-  - Replace the plain `<pre>` execution box with the structured dedupe component (summary badges, collision file cards with copy actions, and toggle for raw console view).
-  - Add backend guidance callout when remote is OneDrive.
-- `dashboard/frontend/partials/components/ui_components.html`:
-  - In `component_entity_drawer` when `entityDrawer.type === 'audit'`:
-    - If `entityDrawer.data?.action === 'DEDUPE_EXECUTED'` or `val` key is `output`, render the structured dedupe output component instead of raw text.
-- `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`:
-  - In expanded cluster rows (`subEntry in cluster.entries`), display `subEntry.object` (the restored file/folder path) alongside the timestamp and action badge instead of repeating generic messages.
+- `docs/architecture/adr/ADR-004-Immutable-Audit-Ledger.md`:
+  - Update with Decoupled Log Streaming & Bounded Schema section.
+  - Document correlation pattern using `run_id` (`dedupe-<timestamp>` / `sync-<timestamp>`) linking structured SQLite ledger records to rotating append-only log streams (`bisync.log`).
+- `docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`:
+  - Document Canary token verification (`RCLONE_TEST`), automated deletion thresholds (`MaxDeletePercentage`, `MaxDeleteCount`), local filesystem jail (`filepath.Rel` path confinement), and advisory POSIX process file locking (`syscall.Flock`).
+- `docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`:
+  - Document the deterministic 3-tier precedence hierarchy (Global Defaults -> Profile Overrides -> Interactive Runtime Flags), security validation / flag allowlisting, and cloud provider presets (`gdrive`, `onedrive`, `dropbox`, `s3`).
+- `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`:
+  - Document Write-Ahead Log (WAL) session engine (`review_execution.go`, WAL state store), staged resolution actions, pre-mutation backup snapshots, crash-resilient replay/resume, and atomic commit/rollback.
+- `docs/architecture/adr/ADR-009-Remote-Deduplication-With-Provider-Safeguards.md`:
+  - Document remote MD5 hash deduplication architecture, provider-specific safeguards (OneDrive unique item name per folder, auto-injecting `--exclude "Personal Vault/**"`, auto-defaulting to `--by-hash`), process isolation locks, and automated baseline listing cache rebuilds to prevent `TOO_MANY_DELETES` trips.
+- `docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`:
+  - Document zero-build CSS variable design token architecture (`design-tokens.css`), slide-over entity inspector drawer pattern, adaptive tab-aware polling coordinator (`polling.js`) with 10ms first-load acceleration, and client-side inline log folding.
+- `docs/architecture/adr/README.md`:
+  - Update Registry of Decisions table to catalog ADR-000 through ADR-010 with accurate dates, domains, and statuses.
 
-### Safety & Error Handling
+### Technical Strategy & Data Flow
 
-- OneDrive `Personal Vault` exclusion prevents API failures on locked Microsoft 2FA vaults.
-- Deduplication parsing is non-destructive and defensive; if the output cannot be structured, it gracefully renders the raw console output.
-- All file operations in `local` storage continue strictly enforcing path confinement.
+- Adhere strictly to the standard template established in `docs/architecture/adr/ADR-000-Template.md` (Context, Decision, Rationale, Consequences [Positive/Negative], Related Principles, Related ADRs, Metadata).
+- Reference corresponding core principles: `PRODUCT_PRINCIPLES.md`, `ENGINEERING_PRINCIPLES.md`, `SECURITY_PRINCIPLES.md`, and `ARCHITECTURE_PRINCIPLES.md`.
+- Maintain consistent sequential numbering (`ADR-006` through `ADR-010`).
 
 ## Verification Plan
 
-- `go test -count=1 ./internal/core/client/...`
-- `go test -count=1 ./internal/server/...`
-- `go test -count=1 ./internal/services/...`
-- `./scripts/check.sh all` (all 6 quality stages)
-- Deploy to port 8085 and verify visually in browser.
+- Validate all markdown cross-links, formatting, and file references.
+- Run `./scripts/check.sh all` to guarantee zero regressions or lint errors.
 
-
-
-#### 3. Correlated Daemon Log Fixes (`modal_daemon.html`)
-- Correct object reference in comparison settings loop to `cluster.entry.details`.
-- In expanded duplicate rows: `<span class="ds-mono text-xs text-indigo-400" x-text="subEntry.object || subEntry.msg"></span>`.
-- Filter source paths: `<span x-show="isDevMode && entry.source" ...>`.
 - Count badges: dynamically calculate `daemonLogs.filter(e => e.level === 'error').length`, etc.
 
 #### 4. Reverse Unified Ledger (`logs.js`)
