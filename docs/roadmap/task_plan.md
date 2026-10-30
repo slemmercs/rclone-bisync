@@ -1,53 +1,42 @@
-# Task Plan: Deduplication Output UX, OneDrive Backend Safeguards & Restored Item Visibility
+# Task Plan: Architecture Decision Records Review & Registration
 
 ## Goal
-Improve deduplication output formatting across the Audit Ledger drawer and the Deduplication modal, add OneDrive-specific deduplication safeguards (auto-detecting name-vs-hash support and excluding locked Personal Vault), and expose concrete file/folder paths on expanded `DELETION_RESTORED` timeline log rows.
+Review implemented features across releases v1.0.0-beta.1 through v1.0.0-beta.12, update ADR-004 to capture execution log decoupling, and create missing ADRs (ADR-006 through ADR-010) following the ADR-000 template.
 
 ## Tasks
 
-- [x] Task 1: Backend Enrichment for Audit Log Object & OneDrive Personal Vault Exclusion
-  - **Scope**: `internal/models/api.go`, `internal/services/audit_service.go`, `internal/core/client/fs_ops.go`, `internal/core/client/client_test.go`, `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
-  - **Verification**: `go test -count=1 ./internal/core/client/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/server/...`
+- [x] Task 1: Update ADR-004 with Decoupled Execution Log Streaming & Bounded Schema
+  - **Scope**: `docs/architecture/adr/ADR-004-Immutable-Audit-Ledger.md`
+  - **Verification**: `./scripts/check.sh all`
 
-- [x] Task 2: Dedupe Output Parser & Remote-Specific Mode Selector
-  - **Scope**: `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/remotes.js`
-  - **Verification**: `./scripts/check.sh loc && ./scripts/check.sh templates`
+- [ ] Task 2: Create ADR-006: Multi-Layered Safety Circuit Breakers & Path Confinement
+  - **Scope**: `docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`
+  - **Verification**: `test -f docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`
 
-- [x] Task 3: Dedupe Modal Title, Remote Type Guidance & Structured Execution Output
-  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+- [ ] Task 3: Create ADR-007: 3-Tier Cascading Operational Flags Hierarchy
+  - **Scope**: `docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`
+  - **Verification**: `test -f docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`
 
-- [x] Task 4: Structured Dedupe Rendering in Audit Slide-Over Drawer
-  - **Scope**: `dashboard/frontend/partials/components/ui_components.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+- [ ] Task 4: Create ADR-008: Write-Ahead Log (WAL) Resilient Interactive Conflict Review
+  - **Scope**: `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
+  - **Verification**: `test -f docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
 
-- [x] Task 5: Expanded Log Line Item Path / Object Visibility in Timeline Ledger
-  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+- [ ] Task 5: Create ADR-009: Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization
+  - **Scope**: `docs/architecture/adr/ADR-009-Remote-Deduplication-With-Provider-Safeguards.md`
+  - **Verification**: `test -f docs/architecture/adr/ADR-009-Remote-Deduplication-With-Provider-Safeguards.md`
 
-- [x] Task 6: Pre-flight Validation, Build & Deployment on Port 8085
-  - **Scope**: Recompile `bin/bisync-hub`, deploy to port 8085, run pre-flight `./scripts/check.sh all`, checkpoint commit.
+- [ ] Task 6: Create ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture
+  - **Scope**: `docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`
+  - **Verification**: `test -f docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`
+
+- [ ] Task 7: Update ADR Registry Table in docs/architecture/adr/README.md & Full Pre-Flight Validation
+  - **Scope**: `docs/architecture/adr/README.md`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-30: Completed Task 6:
-  - Verified full test suite and quality gates with `./scripts/check.sh all` (all 6 stages passed: unit tests, linters, templates, loc checks).
-  - Recompiled native binary `bin/bisync-hub`.
-  - Deployed and verified live instance running at http://127.0.0.1:8085.
-- 2026-10-30: Completed Task 5:
-  - Added object path badge (`subEntry.object` / `cluster.entry.object`) to single entry rows and nested cluster rows in `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`.
-  - Added action badge (`subEntry.action`) and contextual direct navigation button (`Ledger →` for audit records, `Daemon` for daemon logs) in expanded cluster rows.
-  - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
-- 2026-10-30: Completed Task 4:
-  - Added dedicated Deduplication Run Summary card in `dashboard/frontend/partials/components/ui_components.html` (`component_entity_drawer`) displaying collisions detected, duplicates removed, and direct "View in Correlated Logs" link button.
-  - Added deep linking button to correlated daemon logs whenever `run_id` or `job_id` appears in structured action metadata.
-  - Protected against massive stdout dumps in legacy records by displaying `output` inside a bounded, scrollable monospace container.
-  - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
-- 2026-10-30: Completed Task 3:
-  - Updated `dashboard/frontend/partials/modals/modal_dedupe.html` modal title to "Remote Deduplication" with subtitle clarifying file & directory collisions.
-  - Added OneDrive backend guidance notice explaining duplicate name constraints and default Cross-Folder Hash mode.
-  - Added structured cards view displaying collisions found and removed, notice/error alerts, and toggle to raw console.
+- 2026-10-30: Initialized plan from implementation_plan.md.
+
   - Added deep link button to jump straight to correlated daemon run logs when `dedupeModal.runId` is returned.
   - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
 - 2026-10-30: Completed Task 2:
