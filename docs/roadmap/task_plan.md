@@ -17,7 +17,7 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
   - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [ ] Task 4: Structured Dedupe Rendering in Audit Slide-Over Drawer
+- [x] Task 4: Structured Dedupe Rendering in Audit Slide-Over Drawer
   - **Scope**: `dashboard/frontend/partials/components/ui_components.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
@@ -31,6 +31,11 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
 
 ## Status Updates
 
+- 2026-10-30: Completed Task 4:
+  - Added dedicated Deduplication Run Summary card in `dashboard/frontend/partials/components/ui_components.html` (`component_entity_drawer`) displaying collisions detected, duplicates removed, and direct "View in Correlated Logs" link button.
+  - Added deep linking button to correlated daemon logs whenever `run_id` or `job_id` appears in structured action metadata.
+  - Protected against massive stdout dumps in legacy records by displaying `output` inside a bounded, scrollable monospace container.
+  - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
 - 2026-10-30: Completed Task 3:
   - Updated `dashboard/frontend/partials/modals/modal_dedupe.html` modal title to "Remote Deduplication" with subtitle clarifying file & directory collisions.
   - Added OneDrive backend guidance notice explaining duplicate name constraints and default Cross-Folder Hash mode.
