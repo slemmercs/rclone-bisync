@@ -60,7 +60,14 @@ document.addEventListener("alpine:init", () => {
             this.entityDrawer.title = `Audit Block #${record.seq_id} — ${record.action}`;
             this.entityDrawer.subtitle = record.timestamp || "";
             this.entityDrawer.type = "audit";
-            this.entityDrawer.data = record;
+            let rec = record;
+            if (record.action === "DEDUPE_EXECUTED" && record.details?.output && (record.details.collisions == null || record.details.deleted == null)) {
+                const parsed = typeof parseDedupeOutput === "function" ? parseDedupeOutput(record.details.output) : null;
+                if (parsed) {
+                    rec = { ...record, details: { ...record.details, collisions: record.details.collisions ?? parsed.totalCollisions, deleted: record.details.deleted ?? parsed.deletedCopies } };
+                }
+            }
+            this.entityDrawer.data = rec;
         },
         auditModal: {
             show: false,
