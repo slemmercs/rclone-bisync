@@ -13,7 +13,7 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
   - **Scope**: `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/remotes.js`
   - **Verification**: `./scripts/check.sh loc && ./scripts/check.sh templates`
 
-- [ ] Task 3: Dedupe Modal Title, Remote Type Guidance & Structured Execution Output
+- [x] Task 3: Dedupe Modal Title, Remote Type Guidance & Structured Execution Output
   - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
@@ -31,6 +31,12 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
 
 ## Status Updates
 
+- 2026-10-30: Completed Task 3:
+  - Updated `dashboard/frontend/partials/modals/modal_dedupe.html` modal title to "Remote Deduplication" with subtitle clarifying file & directory collisions.
+  - Added OneDrive backend guidance notice explaining duplicate name constraints and default Cross-Folder Hash mode.
+  - Added structured cards view displaying collisions found and removed, notice/error alerts, and toggle to raw console.
+  - Added deep link button to jump straight to correlated daemon run logs when `dedupeModal.runId` is returned.
+  - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
 - 2026-10-30: Completed Task 2:
   - Added `parseDedupeOutput()` in `dashboard/frontend/js/utils.js` extracting collision counts, deleted counts, error messages, and per-item duplication statistics.
   - Added auto-detection in `openDedupeModal()` (`dashboard/frontend/js/remotes.js`) defaulting OneDrive remotes to `--by-hash` mode and tracking `runId` from backend responses with cross-link navigation support.
