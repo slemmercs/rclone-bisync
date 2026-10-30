@@ -16,6 +16,11 @@ Architecture Decision Records (ADRs) document significant technical, architectur
 | [ADR-003](ADR-003-Human-In-The-Loop-Review.md) | Human-In-The-Loop Review Before Mutation | Accepted | 2026-10-26 | Safety & UX |
 | [ADR-004](ADR-004-Immutable-Audit-Ledger.md) | Cryptographic Append-Only SQLite Audit Ledger | Accepted | 2026-10-26 | Security & Audit |
 | [ADR-005](ADR-005-Local-First-Architecture.md) | Local-First Single Binary Deployment Model | Accepted | 2026-10-26 | Engineering |
+| [ADR-006](ADR-006-Multi-Layered-Safety-Circuit-Breakers.md) | Multi-Layered Safety Circuit Breakers & Path Confinement | Accepted | 2026-10-30 | Safety & Security |
+| [ADR-007](ADR-007-Cascading-Operational-Flags-Hierarchy.md) | 3-Tier Cascading Operational Flags Hierarchy | Accepted | 2026-10-30 | Configuration & Operations |
+| [ADR-008](ADR-008-WAL-Resilient-Interactive-Conflict-Review.md) | Write-Ahead Log (WAL) Resilient Interactive Conflict Review | Accepted | 2026-10-30 | Reliability & State |
+| [ADR-009](ADR-009-Remote-Deduplication-With-Provider-Safeguards.md) | Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization | Accepted | 2026-10-30 | Storage & Providers |
+| [ADR-010](ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md) | Zero-Build Component Design System & Responsive Telemetry Architecture | Accepted | 2026-10-30 | Frontend & UX |
 
 ---
 

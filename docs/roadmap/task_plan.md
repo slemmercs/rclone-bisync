@@ -21,21 +21,29 @@ Review implemented features across releases v1.0.0-beta.1 through v1.0.0-beta.12
   - **Scope**: `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
   - **Verification**: `test -f docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
 
-- [ ] Task 5: Create ADR-009: Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization
+- [x] Task 5: Create ADR-009: Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization
   - **Scope**: `docs/architecture/adr/ADR-009-Remote-Deduplication-With-Provider-Safeguards.md`
   - **Verification**: `test -f docs/architecture/adr/ADR-009-Remote-Deduplication-With-Provider-Safeguards.md`
 
-- [ ] Task 6: Create ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture
+- [x] Task 6: Create ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture
   - **Scope**: `docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`
   - **Verification**: `test -f docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`
 
-- [ ] Task 7: Update ADR Registry Table in docs/architecture/adr/README.md & Full Pre-Flight Validation
+- [x] Task 7: Update ADR Registry Table in docs/architecture/adr/README.md & Full Pre-Flight Validation
   - **Scope**: `docs/architecture/adr/README.md`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
 - 2026-10-30: Initialized plan from implementation_plan.md.
+- 2026-10-30: Completed Task 1: Updated ADR-004 with decoupled execution log streaming and bounded SQLite ledger schema.
+- 2026-10-30: Completed Task 2: Created ADR-006: Multi-Layered Safety Circuit Breakers & Path Confinement.
+- 2026-10-30: Completed Task 3: Created ADR-007: 3-Tier Cascading Operational Flags Hierarchy.
+- 2026-10-30: Completed Task 4: Created ADR-008: Write-Ahead Log (WAL) Resilient Interactive Conflict Review.
+- 2026-10-30: Completed Task 5: Created ADR-009: Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization.
+- 2026-10-30: Completed Task 6: Created ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture.
+- 2026-10-30: Completed Task 7: Updated ADR registry in `docs/architecture/adr/README.md` and validated full check suite (`./scripts/check.sh all`).
+
 
   - Added deep link button to jump straight to correlated daemon run logs when `dedupeModal.runId` is returned.
   - Verified with `./scripts/check.sh templates && ./scripts/check.sh loc`.
