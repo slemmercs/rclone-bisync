@@ -162,6 +162,9 @@ func (c *RcloneClient) Dedupe(ctx context.Context, remote, path, mode string, by
 	if byHash {
 		args = append(args, "--by-hash")
 	}
+	if strings.Contains(strings.ToLower(remote), "onedrive") || strings.Contains(strings.ToLower(target), "onedrive") {
+		args = append(args, "--exclude", "Personal Vault/**")
+	}
 	args = append(args, "--dedupe-mode", mode, target)
 
 	payload := map[string]interface{}{

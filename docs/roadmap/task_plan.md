@@ -1,45 +1,43 @@
-# Task Plan: Audit UX Polish, Deduplication Audit Trail, Explorer Lock Setting & Dedupe Safeguards
+# Task Plan: Deduplication Output UX, OneDrive Backend Safeguards & Restored Item Visibility
 
 ## Goal
-Improve Audit Ledger filter and forensic drawer UX, record deduplication events in the immutable audit ledger, add Global Fleet Setting to unlock/lock File Explorer remote with Lucide SVG icons, fix inner folded log ordering across midnight, and implement deduplication safeguards (same-folder name deduplication vs cross-folder `--by-hash` deduplication with root warning).
+Improve deduplication output formatting across the Audit Ledger drawer and the Deduplication modal, add OneDrive-specific deduplication safeguards (auto-detecting name-vs-hash support and excluding locked Personal Vault), and expose concrete file/folder paths on expanded `DELETION_RESTORED` timeline log rows.
 
 ## Tasks
 
-- [x] Task 1: Audit Profile Filter Dropdown & Forensic Slide-Over Drawer Redesign
-  - **Scope**: `dashboard/frontend/partials/view_audit.html`, `dashboard/frontend/js/audit.js`, `dashboard/frontend/partials/components/ui_components.html`
-  - **Verification**: `./scripts/check.sh templates`
+- [x] Task 1: Backend Enrichment for Audit Log Object & OneDrive Personal Vault Exclusion
+  - **Scope**: `internal/models/api.go`, `internal/services/audit_service.go`, `internal/core/client/fs_ops.go`, `internal/core/client/client_test.go`, `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
+  - **Verification**: `go test -count=1 ./internal/core/client/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/server/...`
 
-- [x] Task 2: Deduplication Audit Trail Integration
-  - **Scope**: `internal/audit/taxonomy.go`, `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`, `dashboard/frontend/partials/view_audit.html`
-  - **Verification**: `go test -count=1 ./internal/server/... -run TestHandleRemoteDedupe && go test -count=1 ./internal/server/... -run TestHandleAuditRecords`
-
-- [x] Task 3: Global Fleet Setting for Explorer Remote Lock & Lucide SVG Icons
-  - **Scope**: `internal/config/dto.go`, `internal/config/dto_test.go`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `dashboard/frontend/partials/view_explorer.html`
-  - **Verification**: `go test -count=1 ./internal/config/... && ./scripts/check.sh templates`
-
-- [x] Task 4: Fix Inner Folded Log Ordering & Midnight Header Timestamp
-  - **Scope**: `dashboard/frontend/js/logs.js`
+- [ ] Task 2: Dedupe Output Parser & Remote-Specific Mode Selector
+  - **Scope**: `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/remotes.js`
   - **Verification**: `./scripts/check.sh loc && ./scripts/check.sh templates`
 
-- [x] Task 5: Dedupe Safeguards: Same-Folder vs Cross-Folder Hash Option & Root Path Warning
-  - **Scope**: `internal/core/client/fs_ops.go`, `internal/core/client/client_test.go`, `internal/models/api.go`, `internal/server/handlers_auth.go`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/remotes.js`
-  - **Verification**: `go test -count=1 ./internal/core/client/... && go test -count=1 ./internal/server/...`
+- [ ] Task 3: Dedupe Modal Title, Remote Type Guidance & Structured Execution Output
+  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [x] Task 6: Pre-flight Validation, Build & Deployment on Port 8085
-  - **Scope**: Recompile `bin/bisync-hub`, redeploy to port 8085, run pre-flight `./scripts/check.sh all`, checkpoint commit.
+- [ ] Task 4: Structured Dedupe Rendering in Audit Slide-Over Drawer
+  - **Scope**: `dashboard/frontend/partials/components/ui_components.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [ ] Task 5: Expanded Log Line Item Path / Object Visibility in Timeline Ledger
+  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [ ] Task 6: Pre-flight Validation, Build & Deployment on Port 8085
+  - **Scope**: Recompile `bin/bisync-hub`, deploy to port 8085, run pre-flight `./scripts/check.sh all`, checkpoint commit.
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-30: Initialized task plan from approved implementation_plan.md.
-- 2026-10-30: Completed all 6 tasks:
-  1. Converted Audit Ledger profile filter from `<input list>` to standard `<select>` displaying human-readable profile names bound to profile IDs.
-  2. Redesigned forensic slide-over drawer into structured headers: Audit Verification & Hashes (SHA-256 fingerprint, previous chain hash with GENESIS badge, actor, profile) and Structured Action Metadata (scannable key-value cards with pills + collapsible raw JSON accordion).
-  3. Registered `DEDUPE_EXECUTED` in audit taxonomy and wired immutable audit ledger logging whenever deduplication runs.
-  4. Added `lock_explorer_remote` setting in `config.GlobalDefaults` and Global Fleet Settings modal; replaced unicode lock characters in File Explorer with native Lucide SVG icons (`lock` and `lock-open`) plus a 1-click quick-unlock toggle.
-  5. Eliminated midnight string comparison in `clusterLogEntries()`, guaranteeing cluster headers and nested folded rows strictly display newest-first timestamps.
-  6. Added Deduplication Match Mode (Same-Folder Names safe default vs Cross-Folder Hash) with root scope warning and File Explorer path auto-population.
-  7. Compiled `bin/bisync-hub`, deployed to port 8085, and passed all 6 quality stages in `./scripts/check.sh all`.
+- 2026-10-30: Completed Task 1:
+  - Enriched `AuditLogRecord` with `Object string` and wired `RecordEvent()` to extract `item_path`/`path`/`object`/`file` for timeline logs.
+  - Added OneDrive `--exclude "Personal Vault/**"` safeguard to `Dedupe()` in `internal/core/client/fs_ops.go` with unit test verification.
+  - Decoupled audit decisions from log output in `internal/server/handlers_auth.go`: generated unique execution `run_id`, recorded clean structured event in `audit_ledger.db` without storing raw multiline output strings, streamed individual dedupe output lines directly to `bisync.log` via `s.AuditService.Logger.RecordSyncRun()`, and exposed `run_id` in `models.DedupeResponse`.
+  - Verified with `go test -count=1 ./internal/core/client/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/server/...`.
+- 2026-10-30: Initialized task plan for Deduplication Output UX, OneDrive Backend Safeguards & Restored Item Visibility.
+
 
   3. Added user-facing guidance callouts in `modal_profiles.html` and `modal_global_settings.html` noting that changing `Compare Mode` requires a one-time `--resync`.
 

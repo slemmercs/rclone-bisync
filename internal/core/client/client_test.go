@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -180,8 +181,21 @@ func TestDedupe(t *testing.T) {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if body["command"] == "dedupe" {
 				args, _ := body["arg"].([]interface{})
-				if len(args) >= 4 {
-					target, _ := args[3].(string)
+				if len(args) >= 3 {
+					// Check for OneDrive exclusion
+					hasExclude := false
+					for _, a := range args {
+						if a == "--exclude" {
+							hasExclude = true
+							break
+						}
+					}
+					target := fmt.Sprintf("%v", args[len(args)-1])
+					if strings.Contains(target, "onedrive") && !hasExclude {
+						w.WriteHeader(http.StatusOK)
+						_, _ = w.Write([]byte(`{"error": true, "result": "missing Personal Vault exclude"}`))
+						return
+					}
 					if strings.Contains(target, "fail") {
 						w.WriteHeader(http.StatusOK)
 						_, _ = w.Write([]byte(`{"error": true, "result": "dedupe permission denied"}`))
@@ -206,6 +220,12 @@ func TestDedupe(t *testing.T) {
 	out, err := c.Dedupe(context.Background(), "gdrive", "photos", "oldest", true)
 	if err != nil || !strings.Contains(out, "2 duplicates removed") {
 		t.Fatalf("expected Dedupe to succeed, got output: %q, err: %v", out, err)
+	}
+
+	// OneDrive with Personal Vault exclude
+	outOneDrive, err := c.Dedupe(context.Background(), "onedrive", "", "oldest", true)
+	if err != nil || !strings.Contains(outOneDrive, "2 duplicates removed") {
+		t.Fatalf("expected OneDrive Dedupe to succeed: %v", err)
 	}
 
 	// Default mode test

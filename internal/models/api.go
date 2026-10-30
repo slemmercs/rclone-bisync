@@ -188,6 +188,7 @@ type DedupeRequest struct {
 
 type DedupeResponse struct {
 	Status string `json:"status"`
+	RunID  string `json:"run_id,omitempty"`
 	Remote string `json:"remote"`
 	Path   string `json:"path"`
 	Mode   string `json:"mode"`
@@ -201,6 +202,7 @@ type AuditLogRecord struct {
 	Level     string          `json:"level"`
 	Type      string          `json:"type"` // "audit"
 	Msg       string          `json:"msg"`
+	Object    string          `json:"object,omitempty"`
 	SeqID     int64           `json:"seq_id"`
 	ProfileID string          `json:"profile_id"`
 	Action    string          `json:"action"`

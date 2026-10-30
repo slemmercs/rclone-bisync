@@ -56,11 +56,23 @@ func (s *AuditService) RecordEvent(profileID string, action audit.Action, actor 
 
 	// Mirror to bisync.log
 	if s.Logger != nil {
+		var objectTarget string
+		if p, ok := details["item_path"].(string); ok && p != "" {
+			objectTarget = p
+		} else if p, ok := details["path"].(string); ok && p != "" {
+			objectTarget = p
+		} else if p, ok := details["object"].(string); ok && p != "" {
+			objectTarget = p
+		} else if p, ok := details["file"].(string); ok && p != "" {
+			objectTarget = p
+		}
+
 		logEntry := models.AuditLogRecord{
 			Time:      record.Timestamp,
 			Level:     "info",
 			Type:      "audit",
 			Msg:       fmt.Sprintf("[%s] %s by %s", record.ProfileID, record.Action, record.Actor),
+			Object:    objectTarget,
 			SeqID:     record.SeqID,
 			ProfileID: record.ProfileID,
 			Action:    string(record.Action),

@@ -10,6 +10,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -260,5 +261,19 @@ func TestHandleRemoteDedupe_AuditLogging(t *testing.T) {
 	}
 	if !strings.Contains(string(records[0].Details), `"remote":"gdrive"`) {
 		t.Errorf("expected remote gdrive in details, got %s", string(records[0].Details))
+	}
+	if !strings.Contains(string(records[0].Details), `"run_id":"dedupe-`) {
+		t.Errorf("expected run_id in details, got %s", string(records[0].Details))
+	}
+	if strings.Contains(string(records[0].Details), `"output"`) {
+		t.Errorf("expected output to NOT be stored in audit ledger details, got %s", string(records[0].Details))
+	}
+
+	var resp models.DedupeResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if !strings.HasPrefix(resp.RunID, "dedupe-") {
+		t.Errorf("expected response RunID to start with dedupe-, got %s", resp.RunID)
 	}
 }

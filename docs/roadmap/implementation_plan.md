@@ -1,54 +1,47 @@
-# Implementation Plan: Audit UX Polish, Deduplication Audit Trail, Explorer Lock Setting & Dedupe Safeguards
+# Implementation Plan: Deduplication Output UX, OneDrive Backend Safeguards & Restored Item Visibility
 
 ## Proposed Changes
 
-Improve Audit Ledger filter and forensic drawer UX, record deduplication events in the immutable audit ledger, add Global Fleet Setting to unlock/lock File Explorer remote with Lucide SVG icons, fix inner folded log ordering across midnight, and implement deduplication safeguards (same-folder name deduplication vs cross-folder `--by-hash` deduplication with root warning).
+Improve deduplication output formatting across the Audit Ledger drawer and the Deduplication modal, add OneDrive-specific deduplication safeguards (auto-detecting name-vs-hash support and excluding locked Personal Vault), and expose concrete file/folder paths on expanded `DELETION_RESTORED` timeline log rows.
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/partials/view_audit.html` & `dashboard/frontend/js/audit.js`:
-  - Replace `<input list="...">` profile filter with standard accessible `<select x-model="auditData.filterProfile" @change="applyAuditFilters()">` displaying human-readable profile names.
-  - Add `DEDUPE_EXECUTED` to audit action filter and badge classes.
+- `internal/models/api.go`:
+  - Add `Object string json:"object,omitempty"` to `models.AuditLogRecord`.
+- `internal/services/audit_service.go`:
+  - When recording an event, extract `item_path`, `path`, or `object` from `details` map and assign it to `logEntry.Object` so mirror logs in `bisync.log` retain the item target.
+- `internal/core/client/fs_ops.go`:
+  - In `Dedupe()`, if the target remote or target path targets OneDrive (`onedrive:` or type `onedrive`), add `--exclude "Personal Vault/**"` so locked vault directories never cause rclone listing failures.
+- `dashboard/frontend/js/utils.js`:
+  - In `parseJsonLogLine()`: populate `entry.object = parsed.object || (parsed.details && (parsed.details.item_path || parsed.details.path || parsed.details.object)) || null`.
+  - Add `parseDedupeOutput(rawOutput)` helper to parse rclone dedupe output into summary metrics (collisions found, deleted copies, status) and structured collision items with file/directory tags.
+- `dashboard/frontend/js/remotes.js`:
+  - In `openDedupeModal()`: check the remote provider type (e.g. `onedrive` vs `drive`). If the remote is `onedrive` or does not support same-folder duplicate names, default `byHash` to `true` and note that OneDrive requires hash-based deduplication.
+- `dashboard/frontend/partials/modals/modal_dedupe.html`:
+  - Rename title from `REMOTE HASH DEDUPLICATION` to `REMOTE DEDUPLICATION`.
+  - Update subtitle: `Resolve file & directory duplicate collisions using native Rclone dedupe`.
+  - Replace the plain `<pre>` execution box with the structured dedupe component (summary badges, collision file cards with copy actions, and toggle for raw console view).
+  - Add backend guidance callout when remote is OneDrive.
 - `dashboard/frontend/partials/components/ui_components.html`:
-  - Redesign `component_entity_drawer` when `entityDrawer.type === 'audit'`:
-    - Structured header for **Audit Integrity & Hashes** (SHA-256 fingerprint, previous chain hash with `GENESIS` indicator, target path, profile, actor).
-    - Structured header for **Structured Action Metadata** (scannable key-value cards with pills for `run_id`, `origin`, `dry_run`, `force`, `resync`, `error`).
-    - Collapsible accordion for raw JSON payload.
-- `internal/audit/taxonomy.go`:
-  - Register `ActionDedupeExecuted Action = "DEDUPE_EXECUTED"`.
-- `internal/server/handlers_auth.go`:
-  - In `handleRemoteDedupe`: record immutable event into `AuditService` upon dedupe execution with remote, path, dedupe mode, by_hash flag, and output summary.
-- `internal/config/dto.go`:
-  - Add `LockExplorerRemote bool` to `config.GlobalDefaults`.
-- `dashboard/frontend/partials/modals/modal_global_settings.html` & `dashboard/frontend/js/settings.js`:
-  - Add toggle for `lock_explorer_remote` under Global Safety & Sync Defaults.
-- `dashboard/frontend/partials/view_explorer.html`:
-  - Support locked / unlocked states using native Lucide SVG icons (`lock` and `lock-open` SVGs, zero unicode characters).
-  - Add 1-click quick-unlock toggle directly on the remote badge.
-- `dashboard/frontend/js/logs.js`:
-  - Fix `clusterLogEntries()` to eliminate alphabetical string timestamp comparison across midnight.
-  - Guarantee cluster header time matches `cluster.entries[0].time` (newest) and inner folded lines are rendered newest-to-oldest.
-- `internal/core/client/fs_ops.go`, `internal/models/api.go`, `internal/server/handlers_auth.go`:
-  - Update `Dedupe()` and `DedupeRequest` to accept `by_hash bool`.
-  - When `by_hash == false`, run standard `rclone dedupe` (same-directory duplicate filenames only).
-  - When `by_hash == true`, run `rclone dedupe --by-hash` (cross-directory hash matching).
-- `dashboard/frontend/partials/modals/modal_dedupe.html` & `dashboard/frontend/js/remotes.js`:
-  - Add Deduplication Type selector: Same-Folder Duplicate Names (Safe Default) vs Cross-Folder MD5 Hash Collisions.
-  - Add prominent root scope warning when Target Folder is empty.
+  - In `component_entity_drawer` when `entityDrawer.type === 'audit'`:
+    - If `entityDrawer.data?.action === 'DEDUPE_EXECUTED'` or `val` key is `output`, render the structured dedupe output component instead of raw text.
+- `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`:
+  - In expanded cluster rows (`subEntry in cluster.entries`), display `subEntry.object` (the restored file/folder path) alongside the timestamp and action badge instead of repeating generic messages.
 
 ### Safety & Error Handling
 
-- Immutable audit records cannot be tampered with or deleted; all deduplication executions are cryptographically signed into the SHA-256 chain.
-- Deduplication defaults to same-folder filename deduplication without `--by-hash` to prevent unintended cross-directory deletions.
-- File Explorer path traversal jail remains strictly enforced.
+- OneDrive `Personal Vault` exclusion prevents API failures on locked Microsoft 2FA vaults.
+- Deduplication parsing is non-destructive and defensive; if the output cannot be structured, it gracefully renders the raw console output.
+- All file operations in `local` storage continue strictly enforcing path confinement.
 
 ## Verification Plan
 
-- `go test -count=1 ./internal/config/... -run TestDefaultGlobalDefaults`
-- `go test -count=1 ./internal/server/... -run TestHandleRemoteDedupe`
-- `go test -count=1 ./internal/server/... -run TestHandleAuditRecords`
-- `./scripts/check.sh all`
-- Live curl & browser verification on port 8085.
+- `go test -count=1 ./internal/core/client/...`
+- `go test -count=1 ./internal/server/...`
+- `go test -count=1 ./internal/services/...`
+- `./scripts/check.sh all` (all 6 quality stages)
+- Deploy to port 8085 and verify visually in browser.
+
 
 
 #### 3. Correlated Daemon Log Fixes (`modal_daemon.html`)

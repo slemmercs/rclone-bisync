@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
@@ -247,6 +248,8 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	runID := fmt.Sprintf("dedupe-%d", time.Now().Unix())
+
 	if s.AuditService != nil && mode != "list" {
 		profileID := remoteClean
 		if s.ProfileService != nil {
@@ -257,17 +260,50 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+
+		lines := strings.Split(out, "\n")
+		var collisionsCount, deletedCount int
+		for _, line := range lines {
+			l := strings.TrimSpace(line)
+			if l == "" {
+				continue
+			}
+			if strings.Contains(strings.ToLower(l), "duplicate") {
+				collisionsCount++
+			}
+			if strings.Contains(strings.ToLower(l), "deleted") {
+				deletedCount++
+			}
+			if s.AuditService.Logger != nil {
+				lvl := "notice"
+				if strings.Contains(strings.ToLower(l), "error") || strings.Contains(strings.ToLower(l), "failed") {
+					lvl = "error"
+				}
+				_ = s.AuditService.Logger.RecordSyncRun(models.BisyncLogEntry{
+					Time:   time.Now().Format(time.RFC3339),
+					Level:  lvl,
+					Type:   "dedupe",
+					Msg:    fmt.Sprintf("[%s] %s", profileID, l),
+					RunID:  runID,
+					Origin: "dedupe",
+				})
+			}
+		}
+
 		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, "USER", map[string]any{
-			"remote":  remoteClean,
-			"path":    req.Path,
-			"mode":    mode,
-			"by_hash": req.ByHash,
-			"output":  strings.TrimSpace(out),
+			"run_id":     runID,
+			"remote":     remoteClean,
+			"path":       req.Path,
+			"mode":       mode,
+			"by_hash":    req.ByHash,
+			"collisions": collisionsCount,
+			"deleted":    deletedCount,
 		})
 	}
 
 	writeJSON(w, http.StatusOK, models.DedupeResponse{
 		Status: "success",
+		RunID:  runID,
 		Remote: remoteClean,
 		Path:   req.Path,
 		Mode:   mode,

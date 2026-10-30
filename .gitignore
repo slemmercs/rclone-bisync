@@ -104,3 +104,4 @@ vendor/bundle/
 # ----------------------------------------------------------------------
 .clinerules
 .clineignore
+.clinerules.bak
