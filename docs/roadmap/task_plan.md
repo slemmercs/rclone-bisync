@@ -9,7 +9,7 @@ Review implemented features across releases v1.0.0-beta.1 through v1.0.0-beta.12
   - **Scope**: `docs/architecture/adr/ADR-004-Immutable-Audit-Ledger.md`
   - **Verification**: `./scripts/check.sh all`
 
-- [ ] Task 2: Create ADR-006: Multi-Layered Safety Circuit Breakers & Path Confinement
+- [x] Task 2: Create ADR-006: Multi-Layered Safety Circuit Breakers & Path Confinement
   - **Scope**: `docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`
   - **Verification**: `test -f docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`
 
