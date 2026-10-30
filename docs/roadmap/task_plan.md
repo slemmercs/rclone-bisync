@@ -17,7 +17,7 @@ Review implemented features across releases v1.0.0-beta.1 through v1.0.0-beta.12
   - **Scope**: `docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`
   - **Verification**: `test -f docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`
 
-- [ ] Task 4: Create ADR-008: Write-Ahead Log (WAL) Resilient Interactive Conflict Review
+- [x] Task 4: Create ADR-008: Write-Ahead Log (WAL) Resilient Interactive Conflict Review
   - **Scope**: `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
   - **Verification**: `test -f docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
 
