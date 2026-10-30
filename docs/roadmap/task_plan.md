@@ -25,12 +25,16 @@ Improve deduplication output formatting across the Audit Ledger drawer and the D
   - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [ ] Task 6: Pre-flight Validation, Build & Deployment on Port 8085
+- [x] Task 6: Pre-flight Validation, Build & Deployment on Port 8085
   - **Scope**: Recompile `bin/bisync-hub`, deploy to port 8085, run pre-flight `./scripts/check.sh all`, checkpoint commit.
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
+- 2026-10-30: Completed Task 6:
+  - Verified full test suite and quality gates with `./scripts/check.sh all` (all 6 stages passed: unit tests, linters, templates, loc checks).
+  - Recompiled native binary `bin/bisync-hub`.
+  - Deployed and verified live instance running at http://127.0.0.1:8085.
 - 2026-10-30: Completed Task 5:
   - Added object path badge (`subEntry.object` / `cluster.entry.object`) to single entry rows and nested cluster rows in `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`.
   - Added action badge (`subEntry.action`) and contextual direct navigation button (`Ledger →` for audit records, `Daemon` for daemon logs) in expanded cluster rows.
