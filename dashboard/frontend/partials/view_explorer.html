@@ -227,16 +227,18 @@
                             </template>
                             <template x-if="explorer.right.target !== 'local'">
                                 <div class="flex items-center gap-1.5">
-                                    <template x-if="activeProfile && activeProfile.remote">
-                                        <div class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-950/60 border border-indigo-700/50 text-xs font-semibold text-indigo-300" :title="'Locked to profile: ' + activeProfile.name">
-                                            <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                            <span x-text="activeProfile.remote + ':'"></span><span class="text-[10px] text-indigo-400/80 font-normal hidden sm:inline">(Locked)</span>
+                                    <template x-if="isExplorerRemoteLocked() && activeProfile && activeProfile.remote">
+                                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-950/60 border border-indigo-700/50 text-xs font-semibold text-indigo-300" :title="'Locked to profile: ' + activeProfile.name">
+                                            <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            <span x-text="activeProfile.remote + ':'"></span>
+                                            <button type="button" @click.stop="toggleExplorerRemoteLock()" class="ml-1 p-0.5 hover:text-white rounded hover:bg-indigo-900/60 transition-colors" title="Unlock remote selector"><svg class="w-3.5 h-3.5 text-slate-400 hover:text-slate-200 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></button>
                                         </div>
                                     </template>
-                                    <template x-if="!activeProfile || !activeProfile.remote">
-                                        <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]">
-                                            <template x-for="r in remotesData.remotes" :key="r.name"><option :value="r.name" x-text="r.name + ':' + (isRemoteActiveTarget(r) ? ' (Active)' : '')"></option></template>
-                                        </select>
+                                    <template x-if="!isExplorerRemoteLocked() || !activeProfile || !activeProfile.remote">
+                                        <div class="flex items-center gap-1">
+                                            <select x-model="explorer.right.target" @change="changePaneTarget('right', explorer.right.target)" class="bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-white px-2.5 py-1 focus:outline-none focus:border-indigo-500 font-semibold truncate max-w-[12rem]"><template x-for="r in remotesData.remotes" :key="r.name"><option :value="r.name" x-text="r.name + ':' + (isRemoteActiveTarget(r) ? ' (Active)' : '')"></option></template></select>
+                                            <template x-if="activeProfile && activeProfile.remote"><button type="button" @click.stop="toggleExplorerRemoteLock()" class="p-1 hover:text-indigo-400 rounded hover:bg-slate-800 transition-colors" title="Lock remote to active profile"><svg class="w-3.5 h-3.5 text-slate-500 hover:text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button></template>
+                                        </div>
                                     </template>
                                 </div>
                             </template>

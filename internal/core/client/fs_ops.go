@@ -140,8 +140,10 @@ func (c *RcloneClient) TouchFile(ctx context.Context, remote, path string) (bool
 	return true, nil
 }
 
-// Dedupe calls /core/command with "dedupe" using hash deduplication.
-func (c *RcloneClient) Dedupe(ctx context.Context, remote, path, mode string) (string, error) {
+// Dedupe calls /core/command with "dedupe".
+// If byHash is true, passes "--by-hash" for cross-directory checksum matching.
+// If byHash is false, runs standard name deduplication within each directory.
+func (c *RcloneClient) Dedupe(ctx context.Context, remote, path, mode string, byHash bool) (string, error) {
 	fs := NormalizeFs(remote)
 	cleanPath := strings.Trim(path, "/")
 
@@ -156,9 +158,15 @@ func (c *RcloneClient) Dedupe(ctx context.Context, remote, path, mode string) (s
 		mode = "oldest"
 	}
 
+	args := []string{}
+	if byHash {
+		args = append(args, "--by-hash")
+	}
+	args = append(args, "--dedupe-mode", mode, target)
+
 	payload := map[string]interface{}{
 		"command": "dedupe",
-		"arg":     []string{"--by-hash", "--dedupe-mode", mode, target},
+		"arg":     args,
 	}
 
 	resp, body, err := c.post(ctx, "core/command", payload, 60*time.Second)

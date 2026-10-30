@@ -14,6 +14,7 @@ const (
 	ActionSyncExecuted     Action = "SYNC_EXECUTED"
 	ActionSyncAborted      Action = "SYNC_ABORTED"
 	ActionRollbackExecuted Action = "ROLLBACK_EXECUTED"
+	ActionDedupeExecuted   Action = "DEDUPE_EXECUTED"
 
 	// Configuration & Remote Auth Lifecycle
 	ActionConfigUpdated     Action = "CONFIG_UPDATED"

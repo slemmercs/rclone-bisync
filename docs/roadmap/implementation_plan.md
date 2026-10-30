@@ -1,52 +1,55 @@
-# Implementation Plan: UI Polish, Network Silence, Historical Deletion Scraper Bug Fix, Hash Deduplication & MCP Roadmap
+# Implementation Plan: Audit UX Polish, Deduplication Audit Trail, Explorer Lock Setting & Dedupe Safeguards
 
 ## Proposed Changes
 
-Consolidate UI/UX fixes across modals and logs, optimize network polling, eliminate the historical log scraper bug surfacing non-existent pending deletions, implement cloud remote hash deduplication (`rclone dedupe --by-hash`), and add Model Context Protocol (MCP) server support to the roadmap.
+Improve Audit Ledger filter and forensic drawer UX, record deduplication events in the immutable audit ledger, add Global Fleet Setting to unlock/lock File Explorer remote with Lucide SVG icons, fix inner folded log ordering across midnight, and implement deduplication safeguards (same-folder name deduplication vs cross-folder `--by-hash` deduplication with root warning).
 
 ### Affected Components & Packages
 
-- `internal/services/deletion_service.go`: Fix `GetPendingDeletions()` log scraping to abort immediately upon encountering `"Bisync successful"`, requiring an active circuit breaker abort without subsequent success before reporting pending deletions.
-- `internal/services/deletion_test.go`: Add regression test asserting that historical `File was deleted` lines followed by `"Bisync successful"` return `HasDeletions: false`.
-- `internal/server/handlers_auth.go`: Add optional query parameter `?remote=<name>` to `POST /api/remotes/auth/check` so scoped quota refreshes only hit the active profile's remote.
-- `dashboard/frontend/js/polling.js`: Unify polling to lightweight `GET /api/telemetry?limit=0`. Eliminate routine `/api/profiles` and `/api/review/session` cascades. Relax idle polling to 8–10s (2s during active sync).
-- `dashboard/frontend/partials/modals/modal_daemon.html`:
-  - Fix Alpine `entry is not defined` bug on line 87 (`cluster.entry.details`).
-  - Render `subEntry.object` badge in expanded duplicate clusters.
-  - Hide internal Go source paths (`bisync/operations.go:320`) unless `?dev=true`.
-  - Add count badges to Error/Warning/Info filter pills.
-  - Add `Copy JSON` button.
-- `dashboard/frontend/js/logs.js` & `pattern_timeline_ledger.html`:
-  - Reverse order to show newest entries on top.
-  - Folded clusters display latest entry timestamp.
-- `dashboard/frontend/css/design-tokens.css` & `dashboard/frontend/partials/components/ui_components.html`:
-  - Fix CSS drawer overlay stacking context (`overlay: z-40`, `panel: z-50`) to remove blur from the drawer.
+- `dashboard/frontend/partials/view_audit.html` & `dashboard/frontend/js/audit.js`:
+  - Replace `<input list="...">` profile filter with standard accessible `<select x-model="auditData.filterProfile" @change="applyAuditFilters()">` displaying human-readable profile names.
+  - Add `DEDUPE_EXECUTED` to audit action filter and badge classes.
+- `dashboard/frontend/partials/components/ui_components.html`:
+  - Redesign `component_entity_drawer` when `entityDrawer.type === 'audit'`:
+    - Structured header for **Audit Integrity & Hashes** (SHA-256 fingerprint, previous chain hash with `GENESIS` indicator, target path, profile, actor).
+    - Structured header for **Structured Action Metadata** (scannable key-value cards with pills for `run_id`, `origin`, `dry_run`, `force`, `resync`, `error`).
+    - Collapsible accordion for raw JSON payload.
+- `internal/audit/taxonomy.go`:
+  - Register `ActionDedupeExecuted Action = "DEDUPE_EXECUTED"`.
+- `internal/server/handlers_auth.go`:
+  - In `handleRemoteDedupe`: record immutable event into `AuditService` upon dedupe execution with remote, path, dedupe mode, by_hash flag, and output summary.
+- `internal/config/dto.go`:
+  - Add `LockExplorerRemote bool` to `config.GlobalDefaults`.
+- `dashboard/frontend/partials/modals/modal_global_settings.html` & `dashboard/frontend/js/settings.js`:
+  - Add toggle for `lock_explorer_remote` under Global Safety & Sync Defaults.
 - `dashboard/frontend/partials/view_explorer.html`:
-  - Lock remote selection dropdown to active profile with `🔒 gdrive: (Locked to Google Drive Profile)`.
-  - Filter `.review_backups` from directory tree.
-- `dashboard/frontend/partials/modals/modal_confirm.html`:
-  - Visual directory copy confirmation with `[LOCAL]` ➔ `[REMOTE]` pane badges.
-- `dashboard/frontend/partials/view_remotes.html` & `dashboard/frontend/partials/modals/modal_dedupe.html`:
-  - Add interactive `[ Deduplicate by Hash ]` button, modal preview, dry-run mode, and execution guard.
-- `docs/roadmap/ROADMAP.md` & `docs/roadmap/backlog.md`:
-  - Formalize Remote Hash Deduplication specification.
-  - Formalize Model Context Protocol (MCP) server specification (`bisync-hub mcp`).
+  - Support locked / unlocked states using native Lucide SVG icons (`lock` and `lock-open` SVGs, zero unicode characters).
+  - Add 1-click quick-unlock toggle directly on the remote badge.
+- `dashboard/frontend/js/logs.js`:
+  - Fix `clusterLogEntries()` to eliminate alphabetical string timestamp comparison across midnight.
+  - Guarantee cluster header time matches `cluster.entries[0].time` (newest) and inner folded lines are rendered newest-to-oldest.
+- `internal/core/client/fs_ops.go`, `internal/models/api.go`, `internal/server/handlers_auth.go`:
+  - Update `Dedupe()` and `DedupeRequest` to accept `by_hash bool`.
+  - When `by_hash == false`, run standard `rclone dedupe` (same-directory duplicate filenames only).
+  - When `by_hash == true`, run `rclone dedupe --by-hash` (cross-directory hash matching).
+- `dashboard/frontend/partials/modals/modal_dedupe.html` & `dashboard/frontend/js/remotes.js`:
+  - Add Deduplication Type selector: Same-Folder Duplicate Names (Safe Default) vs Cross-Folder MD5 Hash Collisions.
+  - Add prominent root scope warning when Target Folder is empty.
 
----
+### Safety & Error Handling
 
-### Technical Strategy & Data Flow
+- Immutable audit records cannot be tampered with or deleted; all deduplication executions are cryptographically signed into the SHA-256 chain.
+- Deduplication defaults to same-folder filename deduplication without `--by-hash` to prevent unintended cross-directory deletions.
+- File Explorer path traversal jail remains strictly enforced.
 
-#### 1. Pending Deletions Bug Fix (`deletion_service.go`)
-- Reverse scan in `ParsePendingDeletionsFromLog()`:
-  - When scanning backwards from the end of `rclone-daemon.log`:
-  - If `"Bisync successful"` is encountered BEFORE any `"too many deletes"` or `"Safety abort"`, any earlier deletions belong to an already completed sync run. The parser must immediately stop and return empty deletions with `HasDeletions: false`.
-  - Only if an abort is encountered without a succeeding `"Bisync successful"` are `File was deleted` lines gathered and marked as pending.
+## Verification Plan
 
-#### 2. Network Silence (`polling.js`)
-- Routine poll calls: `GET /api/telemetry?limit=0`.
-- Only call `GET /api/review/session` when `telemetry.review_pending === true`.
-- Only refetch `/api/profiles` on initial load, when `telemetry.is_syncing` transitions from true to false, or after explicit user edits.
-- Idle poll cadence is relaxed to 8000ms. When `is_syncing === true`, cadence tightens to 2000ms.
+- `go test -count=1 ./internal/config/... -run TestDefaultGlobalDefaults`
+- `go test -count=1 ./internal/server/... -run TestHandleRemoteDedupe`
+- `go test -count=1 ./internal/server/... -run TestHandleAuditRecords`
+- `./scripts/check.sh all`
+- Live curl & browser verification on port 8085.
+
 
 #### 3. Correlated Daemon Log Fixes (`modal_daemon.html`)
 - Correct object reference in comparison settings loop to `cluster.entry.details`.

@@ -63,23 +63,18 @@
             <!-- Filters Strip -->
             <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-                    <div class="relative flex-1 min-w-[140px]">
-                        <input type="text"
-                               x-model="auditData.filterProfile"
-                               @keydown.enter="applyAuditFilters()"
-                               list="auditProfileSuggestions"
-                               placeholder="Filter Profile..."
-                               class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none">
-                        <datalist id="auditProfileSuggestions">
-                            <template x-for="p in (profilesData?.list || [])" :key="p.id">
-                                <option :value="p.name" x-text="p.name"></option>
-                            </template>
-                        </datalist>
-                    </div>
+                    <select x-model="auditData.filterProfile" @change="applyAuditFilters()" class="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none flex-1 min-w-[150px]">
+                        <option value="">All Profiles</option>
+                        <template x-for="p in (profilesData?.list || [])" :key="p.id">
+                            <option :value="p.id" x-text="p.name"></option>
+                        </template>
+                        <option value="default">Default Profile</option>
+                    </select>
 
                     <select x-model="auditData.filterAction" @change="applyAuditFilters()" class="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none">
                         <option value="">All Actions</option>
                         <option value="SYNC_EXECUTED">SYNC_EXECUTED</option>
+                        <option value="DEDUPE_EXECUTED">DEDUPE_EXECUTED</option>
                         <option value="CONFLICT_RESOLVED">CONFLICT_RESOLVED</option>
                         <option value="DELETION_ACCEPTED">DELETION_ACCEPTED</option>
                         <option value="DELETION_RESTORED">DELETION_RESTORED</option>

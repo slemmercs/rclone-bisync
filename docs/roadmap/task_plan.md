@@ -1,53 +1,46 @@
-# Task Plan: UI Polish, Network Silence, Historical Deletion Bug Fix, Hash Deduplication & MCP Roadmap
+# Task Plan: Audit UX Polish, Deduplication Audit Trail, Explorer Lock Setting & Dedupe Safeguards
 
 ## Goal
-Consolidate UI/UX fixes across modals and logs, optimize network polling, eliminate the historical log scraper bug surfacing non-existent pending deletions, implement cloud remote hash deduplication (`rclone dedupe --by-hash`), and add Model Context Protocol (MCP) server support to the roadmap.
+Improve Audit Ledger filter and forensic drawer UX, record deduplication events in the immutable audit ledger, add Global Fleet Setting to unlock/lock File Explorer remote with Lucide SVG icons, fix inner folded log ordering across midnight, and implement deduplication safeguards (same-folder name deduplication vs cross-folder `--by-hash` deduplication with root warning).
 
 ## Tasks
 
-- [x] Task 1: Fix Historical Deletion Scraper Bug in Deletion Service
-  - **Scope**: `internal/services/deletion_service.go`, `internal/services/deletion_test.go`, `dashboard/frontend/partials/modals/modal_confirm.html`
-  - **Verification**: `go test -count=1 ./internal/services/... -run TestDeletion`
-
-- [x] Task 2: Network Silence & Polling Optimization
-  - **Scope**: `dashboard/frontend/js/polling.js`, `dashboard/frontend/app.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 3: Correlated Daemon Log Modal & Alpine Fixes
-  - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`
+- [x] Task 1: Audit Profile Filter Dropdown & Forensic Slide-Over Drawer Redesign
+  - **Scope**: `dashboard/frontend/partials/view_audit.html`, `dashboard/frontend/js/audit.js`, `dashboard/frontend/partials/components/ui_components.html`
   - **Verification**: `./scripts/check.sh templates`
 
-- [x] Task 4: Reverse Unified Ledger & Folding Timestamp Update
-  - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+- [x] Task 2: Deduplication Audit Trail Integration
+  - **Scope**: `internal/audit/taxonomy.go`, `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`, `dashboard/frontend/partials/view_audit.html`
+  - **Verification**: `go test -count=1 ./internal/server/... -run TestHandleRemoteDedupe && go test -count=1 ./internal/server/... -run TestHandleAuditRecords`
 
-- [x] Task 5: Slide-Over Drawer Stacking Context Fix
-  - **Scope**: `dashboard/frontend/css/design-tokens.css`, `dashboard/frontend/partials/components/ui_components.html`
-  - **Verification**: `./scripts/check.sh templates`
+- [x] Task 3: Global Fleet Setting for Explorer Remote Lock & Lucide SVG Icons
+  - **Scope**: `internal/config/dto.go`, `internal/config/dto_test.go`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `dashboard/frontend/partials/view_explorer.html`
+  - **Verification**: `go test -count=1 ./internal/config/... && ./scripts/check.sh templates`
 
-- [x] Task 6: Storage Remotes Scoped Quota & File Explorer Isolation
-  - **Scope**: `internal/server/handlers_auth.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/modals/modal_confirm.html`
-  - **Verification**: `go test -count=1 ./internal/server/... && ./scripts/check.sh templates`
+- [x] Task 4: Fix Inner Folded Log Ordering & Midnight Header Timestamp
+  - **Scope**: `dashboard/frontend/js/logs.js`
+  - **Verification**: `./scripts/check.sh loc && ./scripts/check.sh templates`
 
-- [x] Task 7: Remote Deduplication by Hash & MCP Server Roadmap Specifications
-  - **Scope**: `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/remotes.js`, `docs/roadmap/ROADMAP.md`, `docs/roadmap/backlog.md`
+- [x] Task 5: Dedupe Safeguards: Same-Folder vs Cross-Folder Hash Option & Root Path Warning
+  - **Scope**: `internal/core/client/fs_ops.go`, `internal/core/client/client_test.go`, `internal/models/api.go`, `internal/server/handlers_auth.go`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/remotes.js`
+  - **Verification**: `go test -count=1 ./internal/core/client/... && go test -count=1 ./internal/server/...`
+
+- [x] Task 6: Pre-flight Validation, Build & Deployment on Port 8085
+  - **Scope**: Recompile `bin/bisync-hub`, redeploy to port 8085, run pre-flight `./scripts/check.sh all`, checkpoint commit.
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-29: Initialized task plan from approved implementation_plan.md.
-- 2026-10-29: Completed all 7 tasks:
-  1. Remedied historical log scraper bug in `deletion_service.go` by verifying active circuit breaker aborts and resetting upon sync success, preventing 153 completed deletions from surfacing as pending.
-  2. Optimized polling loop in `polling.js` to single lightweight `/api/telemetry?limit=0` query with adaptive intervals (8s idle / 2s sync) and conditional review/profile fetches.
-  3. Fixed `modal_daemon.html` Alpine reference errors, restored comparison settings grid, added Error/Warning/Info filter counts, and hidden Go source line noise unless in dev mode.
-  4. Reversed unified ledger order (newest on top) and updated clusterLogEntries to use latest timestamp for folded rows.
-  5. Corrected drawer stacking context (`overlay: z-40`, `panel: z-50`) to eliminate backdrop blur over the panel.
-  6. Added scoped remote quota validation (`POST /api/remotes/auth/check?remote=...`), locked Explorer remote dropdown to active profile, excluded `.review_backups` from Explorer listings, and added visual `[LOCAL]` ➔ `[REMOTE]` transfer preview to directory copy confirmation.
-  7. Implemented native Remote Hash Deduplication (`modal_dedupe.html`, `/api/remotes/dedupe`) with dry-run preview, and formalized Model Context Protocol (MCP) AI server specifications in `ROADMAP.md` and `backlog.md`.
+- 2026-10-30: Initialized task plan from approved implementation_plan.md.
+- 2026-10-30: Completed all 6 tasks:
+  1. Converted Audit Ledger profile filter from `<input list>` to standard `<select>` displaying human-readable profile names bound to profile IDs.
+  2. Redesigned forensic slide-over drawer into structured headers: Audit Verification & Hashes (SHA-256 fingerprint, previous chain hash with GENESIS badge, actor, profile) and Structured Action Metadata (scannable key-value cards with pills + collapsible raw JSON accordion).
+  3. Registered `DEDUPE_EXECUTED` in audit taxonomy and wired immutable audit ledger logging whenever deduplication runs.
+  4. Added `lock_explorer_remote` setting in `config.GlobalDefaults` and Global Fleet Settings modal; replaced unicode lock characters in File Explorer with native Lucide SVG icons (`lock` and `lock-open`) plus a 1-click quick-unlock toggle.
+  5. Eliminated midnight string comparison in `clusterLogEntries()`, guaranteeing cluster headers and nested folded rows strictly display newest-first timestamps.
+  6. Added Deduplication Match Mode (Same-Folder Names safe default vs Cross-Folder Hash) with root scope warning and File Explorer path auto-population.
+  7. Compiled `bin/bisync-hub`, deployed to port 8085, and passed all 6 quality stages in `./scripts/check.sh all`.
 
-
-  1. Fixed Edit Profile cog icon and New Profile button on Fleet tab by setting `this.profileModal.show = true` and invoking `fetchRemotes()` in `startEditProfile` and `startNewProfile`.
-  2. Fixed profile tiles and header pills dynamically jumping/reordering by adding deterministic sorting in `Store.List()` (sorted by `CreatedAt` then `Name`) and client-side sorting in `fetchProfiles()`.
   3. Added user-facing guidance callouts in `modal_profiles.html` and `modal_global_settings.html` noting that changing `Compare Mode` requires a one-time `--resync`.
 
 

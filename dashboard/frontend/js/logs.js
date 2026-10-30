@@ -39,10 +39,6 @@ function clusterLogEntries(entries, foldEnabled, expandedMap) {
         if (currentCluster && currentCluster.key === key && norm.length > 5) {
             currentCluster.count++;
             currentCluster.entries.push(item);
-            // Ensure cluster entry displays the latest occurrence timestamp
-            if (item.time && (!currentCluster.entry.time || item.time > currentCluster.entry.time)) {
-                currentCluster.entry = { ...currentCluster.entry, time: item.time };
-            }
         } else {
             if (currentCluster) {
                 currentCluster.isCluster = currentCluster.count > 1;

@@ -26,6 +26,9 @@ func TestDefaultGlobalDefaults(t *testing.T) {
 	if !d.CreateEmptyDirs {
 		t.Errorf("expected CreateEmptyDirs true")
 	}
+	if d.LockExplorerRemote {
+		t.Errorf("expected LockExplorerRemote false by default")
+	}
 
 	data, err := json.Marshal(d)
 	if err != nil {

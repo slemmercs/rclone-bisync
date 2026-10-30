@@ -203,24 +203,24 @@ func TestDedupe(t *testing.T) {
 	defer server.Close()
 
 	c := NewRcloneClient(server.URL, "user", "pass")
-	out, err := c.Dedupe(context.Background(), "gdrive", "photos", "oldest")
+	out, err := c.Dedupe(context.Background(), "gdrive", "photos", "oldest", true)
 	if err != nil || !strings.Contains(out, "2 duplicates removed") {
 		t.Fatalf("expected Dedupe to succeed, got output: %q, err: %v", out, err)
 	}
 
 	// Default mode test
-	outDefault, err := c.Dedupe(context.Background(), "/tmp/local", "", "")
+	outDefault, err := c.Dedupe(context.Background(), "/tmp/local", "", "", false)
 	if err != nil || !strings.Contains(outDefault, "2 duplicates removed") {
 		t.Fatalf("expected Dedupe default mode to succeed: %v", err)
 	}
 
 	// Command error
-	if _, err := c.Dedupe(context.Background(), "gdrive", "fail", "oldest"); err == nil {
+	if _, err := c.Dedupe(context.Background(), "gdrive", "fail", "oldest", true); err == nil {
 		t.Fatal("expected error on command failure")
 	}
 
 	// HTTP error
-	if _, err := c.Dedupe(context.Background(), "gdrive", "server-error", "oldest"); err == nil {
+	if _, err := c.Dedupe(context.Background(), "gdrive", "server-error", "oldest", true); err == nil {
 		t.Fatal("expected error on HTTP 500")
 	}
 }

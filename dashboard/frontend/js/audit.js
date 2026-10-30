@@ -135,6 +135,7 @@ window.AuditModule = {
     getAuditActionBadgeClass(action) {
         if (!action) return "bg-slate-800 text-slate-300 border-slate-700";
         if (action.includes("SYNC_EXECUTED")) return "bg-emerald-950/80 text-emerald-300 border-emerald-800/60";
+        if (action.includes("DEDUPE")) return "bg-amber-950/80 text-amber-300 border-amber-800/60";
         if (action.includes("CONFLICT_RESOLVED")) return "bg-indigo-950/80 text-indigo-300 border-indigo-800/60";
         if (action.includes("DELETION_ACCEPTED")) return "bg-cyan-950/80 text-cyan-300 border-cyan-800/60";
         if (action.includes("DELETION_RESTORED")) return "bg-teal-950/80 text-teal-300 border-teal-800/60";

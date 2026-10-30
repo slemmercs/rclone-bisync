@@ -364,24 +364,26 @@ window.RemotesModule = {
     },
 
     openDedupeModal(remoteName) {
-        this.dedupeModal = { show: true, remote: (remoteName || "").replace(/:$/, "").trim(), path: "", mode: "oldest", executing: false, output: "" };
+        const clean = (remoteName || "").replace(/:$/, "").trim();
+        const p = (this.explorer?.right?.target === clean) ? (this.explorer?.right?.path || "") : "";
+        this.dedupeModal = { show: true, remote: clean, path: p, mode: "oldest", byHash: false, executing: false, output: "" };
     },
 
     async runDedupe(isDryRun = false) {
         if (this.dedupeModal.executing) return;
         const mode = isDryRun ? "list" : this.dedupeModal.mode;
+        const byHash = Boolean(this.dedupeModal.byHash);
+        const desc = byHash ? "checksum hash (--by-hash)" : "same-folder duplicate names";
         this.dedupeModal.executing = true;
-        this.dedupeModal.output = isDryRun
-            ? `Scanning for duplicates on ${this.dedupeModal.remote}:${this.dedupeModal.path || '/'} (mode=list)...\n`
-            : `Executing hash deduplication on ${this.dedupeModal.remote}:${this.dedupeModal.path || '/'} (mode=${mode})...\n`;
+        this.dedupeModal.output = (isDryRun ? "Scanning duplicates on " : "Executing deduplication on ") + `${this.dedupeModal.remote}:${this.dedupeModal.path || '/'} via ${desc} (mode=${mode})...\n`;
 
         try {
-            const data = await window.API.post("/api/remotes/dedupe", { remote: this.dedupeModal.remote, path: this.dedupeModal.path, mode: mode });
+            const data = await window.API.post("/api/remotes/dedupe", { remote: this.dedupeModal.remote, path: this.dedupeModal.path, mode, by_hash: byHash });
             if (data.status === "error") {
                 this.dedupeModal.output += `\nError: ${data.error || 'Deduplication failed'}`;
                 this.showToast(`Dedupe failed: ${data.error || 'Unknown error'}`, "error");
             } else {
-                this.dedupeModal.output = data.output || "No duplicates found. All files have unique checksums.";
+                this.dedupeModal.output = data.output || "No duplicates found. All files are unique.";
                 this.showToast(isDryRun ? "Duplicate scan complete (preview only)" : "Deduplication complete!", "success");
                 if (!isDryRun && typeof this.fetchRemotes === "function") this.fetchRemotes(true);
             }

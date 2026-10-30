@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -227,27 +228,42 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 		rcClient = s.ExplorerService.Client
 	}
 
+	var out string
 	if rcClient == nil {
-		writeJSON(w, http.StatusOK, models.DedupeResponse{
-			Status: "success",
-			Remote: remoteClean,
-			Path:   req.Path,
-			Mode:   mode,
-			Output: fmt.Sprintf("[SIMULATED] rclone dedupe --by-hash --dedupe-mode %s %s:%s completed. No duplicate files found.", mode, remoteClean, req.Path),
-		})
-		return
+		out = fmt.Sprintf("[SIMULATED] rclone dedupe --dedupe-mode %s %s:%s completed. No duplicate files found.", mode, remoteClean, req.Path)
+	} else {
+		var err error
+		out, err = rcClient.Dedupe(r.Context(), remoteClean, req.Path, mode, req.ByHash)
+		if err != nil {
+			writeJSON(w, http.StatusOK, models.DedupeResponse{
+				Status: "error",
+				Remote: remoteClean,
+				Path:   req.Path,
+				Mode:   mode,
+				ByHash: req.ByHash,
+				Error:  err.Error(),
+			})
+			return
+		}
 	}
 
-	out, err := rcClient.Dedupe(r.Context(), remoteClean, req.Path, mode)
-	if err != nil {
-		writeJSON(w, http.StatusOK, models.DedupeResponse{
-			Status: "error",
-			Remote: remoteClean,
-			Path:   req.Path,
-			Mode:   mode,
-			Error:  err.Error(),
+	if s.AuditService != nil && mode != "list" {
+		profileID := remoteClean
+		if s.ProfileService != nil {
+			for _, p := range s.ProfileService.List(true) {
+				if strings.EqualFold(p.Remote, remoteClean) || strings.EqualFold(p.Remote, remoteClean+":") {
+					profileID = p.ID
+					break
+				}
+			}
+		}
+		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, "USER", map[string]any{
+			"remote":  remoteClean,
+			"path":    req.Path,
+			"mode":    mode,
+			"by_hash": req.ByHash,
+			"output":  strings.TrimSpace(out),
 		})
-		return
 	}
 
 	writeJSON(w, http.StatusOK, models.DedupeResponse{
@@ -255,6 +271,7 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 		Remote: remoteClean,
 		Path:   req.Path,
 		Mode:   mode,
+		ByHash: req.ByHash,
 		Output: out,
 	})
 }

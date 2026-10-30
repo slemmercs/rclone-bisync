@@ -183,6 +183,7 @@ type DedupeRequest struct {
 	Remote string `json:"remote"`
 	Path   string `json:"path"`
 	Mode   string `json:"mode"` // "list", "oldest", "newest"
+	ByHash bool   `json:"by_hash"`
 }
 
 type DedupeResponse struct {
@@ -190,6 +191,7 @@ type DedupeResponse struct {
 	Remote string `json:"remote"`
 	Path   string `json:"path"`
 	Mode   string `json:"mode"`
+	ByHash bool   `json:"by_hash,omitempty"`
 	Output string `json:"output"`
 	Error  string `json:"error,omitempty"`
 }
