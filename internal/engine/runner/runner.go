@@ -228,4 +228,3 @@ func (r *SyncRunner) notificationTitle(base string) string {
 	}
 	return base
 }
-

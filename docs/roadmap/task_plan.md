@@ -25,7 +25,7 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
   - **Scope**: `internal/config/config.go`, `internal/app/container.go`, `internal/engine/runner/runner.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
   - **Verification**: `go test -count=1 ./internal/engine/runner/... && go test -count=1 ./internal/app/...`
 
-- [ ] Task 6: Full Pre-Flight Quality Gate & Release Readiness Validation
+- [x] Task 6: Full Pre-Flight Quality Gate & Release Readiness Validation
   - **Scope**: Full test suite and linting
   - **Verification**: `./scripts/check.sh all`
 
@@ -37,6 +37,8 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
 - 2026-10-31: Completed Task 3: Refreshed root `README.md` with modern user-centric narrative ("Review. Decide. Sync.") and removed `README_v2.md`.
 - 2026-10-31: Completed Task 4: Added prioritized `favicon.svg` candidate resolution in `internal/core/notifier/notifier.go` with unit test validation.
 - 2026-10-31: Completed Task 5: Added `ProfileName` propagation in `Config` and implemented `[<ProfileName>]` desktop notification title attribution across all runner notification dispatches.
+- 2026-10-31: Completed Task 6: Successfully ran full quality gate checks (6/6 stages passing in `./scripts/check.sh all`) across formatting, secrets scanning, AST validation, tests with race detection, LOC limits, and cross-platform builds.
+
 
 
 

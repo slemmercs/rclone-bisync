@@ -415,4 +415,3 @@ func TestSyncRunner_NotificationTitle(t *testing.T) {
 		t.Fatalf("expected 'Sync Failure', got '%s'", got)
 	}
 }
-
