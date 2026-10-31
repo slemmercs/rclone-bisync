@@ -1,10 +1,11 @@
 # Design Specification: Immutable Audit Ledger & Unified Log Architecture
 
-**Feature Name**: Immutable Audit Ledger & Unified Log Architecture  
-**Status**: Approved / Design Baseline  
-**Target Milestone**: Phase 4 Extension / Phase 5  
-**Package Path**: `internal/audit`, `internal/core/logger`  
-**Storage Driver**: Pure-Go SQLite (`modernc.org/sqlite`) + Embedded Migration Orchestrator (`pressly/goose/v3`)  
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Security, Cryptographic Ledger & Audit |
+| **Governing ADR** | [ADR-004: Immutable Audit Ledger](../architecture/adr/ADR-004-Immutable-Audit-Ledger.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Security Principles](../architecture/SECURITY_PRINCIPLES.md), [Engineering Principles](../architecture/ENGINEERING_PRINCIPLES.md) |
 
 ---
 

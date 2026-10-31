@@ -1,8 +1,13 @@
 # Rclone RC Integration Framework
 
-## Status
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Remote Control Client & Filesystem Primitives |
+| **Governing ADR** | [ADR-002: Rclone Remote Control API As Source Of Truth](../architecture/adr/ADR-002-Rclone-As-Source-Of-Truth.md) |
+| **Core Principles** | [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md), [Engineering Principles](../architecture/ENGINEERING_PRINCIPLES.md) |
 
-Partially Implemented (Core RC Client & Operations Delivered; Dynamic Provider Engine Planned)
+---
 
 ## Delivered Components
 

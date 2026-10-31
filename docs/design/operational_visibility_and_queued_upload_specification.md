@@ -1,11 +1,11 @@
 # Architecture & Design Specification: Operational Log Ledger, Remote Cloud Links & Queued Explorer Uploads
 
-**Document Status**: APPROVED SPECIFICATION (Locked for Future Implementation)  
-**Target Milestone**: Post-Multi-Profile Release  
-**Related Documents**:
-- `docs/design/profile-manager.md` (Multi-Profile Architecture)
-- `docs/design/immutable_audit_ledger_design_specification.md` (Audit Ledger Specification)
-- `docs/design/interactive-sync-review.md` (Interactive Review Engine)
+| Metadata | Details |
+|---|---|
+| **Status** | `Draft` / Backlog |
+| **Domain** | Remote Explorer, Cloud Navigation & Upload Queues |
+| **Governing ADRs** | [ADR-002: Rclone Remote Control API As Source Of Truth](../architecture/adr/ADR-002-Rclone-As-Source-Of-Truth.md), [ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture](../architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md) |
 
 ---
 

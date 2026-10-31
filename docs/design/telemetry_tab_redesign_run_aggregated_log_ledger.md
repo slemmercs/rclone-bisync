@@ -1,5 +1,14 @@
 # Design Specification: Telemetry Tab Redesign & Run-Aggregated Log Ledger
 
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Telemetry, Run-Aggregated Logging & Workload Observability |
+| **Governing ADRs** | [ADR-004: Immutable Audit Ledger](../architecture/adr/ADR-004-Immutable-Audit-Ledger.md), [ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture](../architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Engineering Principles](../architecture/ENGINEERING_PRINCIPLES.md) |
+
+---
+
 ## Executive Summary
 
 The **Telemetry Tab** provides real-time and historical operational visibility into `rclone bisync` executions, daemon health, and execution latency. 

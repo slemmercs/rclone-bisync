@@ -1,12 +1,13 @@
 # Profile Manager
 
-## Status
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Workload Abstraction & Lifecycle Management |
+| **Governing ADRs** | [ADR-001: Profiles As Primary User Object](../architecture/adr/ADR-001-Profiles-As-Primary-User-Object.md), [ADR-005: Local-First Architecture](../architecture/adr/ADR-005-Local-First-Architecture.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md) |
 
-Planned
-
-## Priority
-
-High
+---
 
 ## Goal
 

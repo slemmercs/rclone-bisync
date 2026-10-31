@@ -71,6 +71,7 @@ func DefaultProfileExecutor(cfg *config.Config) profiles.SyncExecutor {
 		}
 		profCfg := *cfg
 		profCfg.ProfileID = p.ID
+		profCfg.ProfileName = p.Name
 		profCfg.RemotePath = p.FullRemoteTarget()
 		profCfg.LocalPath = p.LocalPath
 		profCfg.LockFile = p.LockFilePath()

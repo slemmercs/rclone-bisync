@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
@@ -166,7 +167,7 @@ func (r *SyncRunner) Run(
 		}
 		r.recordAuditAborted(runID, origin, "CANARY_GUARD", err.Error(), resync, force, dryRun)
 		if !noNotify {
-			_ = r.Notifier.SendDesktop("Sync Aborted - Canary Safety Guard", err.Error(), "critical")
+			_ = r.Notifier.SendDesktop(r.notificationTitle("Sync Aborted - Canary Safety Guard"), err.Error(), "critical")
 		}
 		return false
 	}
@@ -192,7 +193,7 @@ func (r *SyncRunner) Run(
 		}
 		r.recordAuditAborted(runID, origin, errType, errStr, resync, force, dryRun)
 		if !noNotify && r.Notifier.ShouldNotifyError(errType, notificationState.LastErrorType, notificationState.LastErrorTimestamp) {
-			_ = r.Notifier.SendDesktop(fmt.Sprintf("Sync Dispatch Error - %s", errType), errStr, "critical")
+			_ = r.Notifier.SendDesktop(r.notificationTitle(fmt.Sprintf("Sync Dispatch Error - %s", errType)), errStr, "critical")
 		}
 		return false
 	}
@@ -214,4 +215,16 @@ func (r *SyncRunner) Run(
 	}
 
 	return r.handleSyncFailure(runID, jobID, origin, startTime, duration, monitorRes, resync, force, dryRun, noNotify, notificationState)
+}
+
+// notificationTitle prefixes the notification title with [<ProfileName>] if available.
+func (r *SyncRunner) notificationTitle(base string) string {
+	name := strings.TrimSpace(r.Config.ProfileName)
+	if name == "" && r.Config.ProfileID != "" && r.Config.ProfileID != "default" {
+		name = r.Config.ProfileID
+	}
+	if name != "" && name != "default" {
+		return fmt.Sprintf("[%s] %s", name, base)
+	}
+	return base
 }

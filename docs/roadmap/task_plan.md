@@ -1,48 +1,50 @@
-# Task Plan: Architecture Decision Records Review & Registration
+# Task Plan: Design Specs Consolidation, README Modernization, and Notification Polish
 
 ## Goal
-Review implemented features across releases v1.0.0-beta.1 through v1.0.0-beta.12, update ADR-004 to capture execution log decoupling, and create missing ADRs (ADR-006 through ADR-010) following the ADR-000 template.
+Consolidate UI design specifications in `docs/design/`, link them to controlling ADRs (ADR-001 through ADR-010), create `docs/design/README.md` registry, refresh root `README.md` with user-centric overview, and enhance desktop notifications with `favicon.svg` branding and profile name prefixing.
 
 ## Tasks
 
-- [x] Task 1: Update ADR-004 with Decoupled Execution Log Streaming & Bounded Schema
-  - **Scope**: `docs/architecture/adr/ADR-004-Immutable-Audit-Ledger.md`
-  - **Verification**: `./scripts/check.sh all`
+- [x] Task 1: Consolidate Design System Micro-Specs into `bisync-hub-design-system-specification.md` and Clean Up
+  - **Scope**: `docs/design/bisync-hub-design-system-specification.md`, remove `components.md`, `layouts.md`, `patterns.md`, `status-language.md`
+  - **Verification**: `test ! -f docs/design/components.md && test -f docs/design/bisync-hub-design-system-specification.md`
 
-- [x] Task 2: Create ADR-006: Multi-Layered Safety Circuit Breakers & Path Confinement
-  - **Scope**: `docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`
-  - **Verification**: `test -f docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`
+- [x] Task 2: Create Master Specifications Registry in `docs/design/README.md` & Add ADR Cross-Links
+  - **Scope**: `docs/design/README.md`, metadata headers in `docs/design/*.md`
+  - **Verification**: `test -f docs/design/README.md && ./scripts/check.sh all`
 
-- [x] Task 3: Create ADR-007: 3-Tier Cascading Operational Flags Hierarchy
-  - **Scope**: `docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`
-  - **Verification**: `test -f docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`
+- [x] Task 3: Refresh Root `README.md` with User-Centric Value Proposition & Remove `README_v2.md`
+  - **Scope**: `README.md`, delete `README_v2.md`
+  - **Verification**: `test ! -f README_v2.md && grep -q "Review. Decide. Sync." README.md`
 
-- [x] Task 4: Create ADR-008: Write-Ahead Log (WAL) Resilient Interactive Conflict Review
-  - **Scope**: `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
-  - **Verification**: `test -f docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
+- [x] Task 4: Add `favicon.svg` Desktop Notification Support & Resolution
+  - **Scope**: `internal/core/notifier/notifier.go`, `icons/favicon.svg`, `internal/core/notifier/notifier_test.go`
+  - **Verification**: `go test -count=1 ./internal/core/notifier/...`
 
-- [x] Task 5: Create ADR-009: Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization
-  - **Scope**: `docs/architecture/adr/ADR-009-Remote-Deduplication-With-Provider-Safeguards.md`
-  - **Verification**: `test -f docs/architecture/adr/ADR-009-Remote-Deduplication-With-Provider-Safeguards.md`
+- [x] Task 5: Implement Multi-Profile Attribution in Desktop Notifications
+  - **Scope**: `internal/config/config.go`, `internal/app/container.go`, `internal/engine/runner/runner.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
+  - **Verification**: `go test -count=1 ./internal/engine/runner/... && go test -count=1 ./internal/app/...`
 
-- [x] Task 6: Create ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture
-  - **Scope**: `docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`
-  - **Verification**: `test -f docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`
-
-- [x] Task 7: Update ADR Registry Table in docs/architecture/adr/README.md & Full Pre-Flight Validation
-  - **Scope**: `docs/architecture/adr/README.md`
+- [x] Task 6: Full Pre-Flight Quality Gate & Release Readiness Validation
+  - **Scope**: Full test suite and linting
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-30: Initialized plan from implementation_plan.md.
-- 2026-10-30: Completed Task 1: Updated ADR-004 with decoupled execution log streaming and bounded SQLite ledger schema.
-- 2026-10-30: Completed Task 2: Created ADR-006: Multi-Layered Safety Circuit Breakers & Path Confinement.
-- 2026-10-30: Completed Task 3: Created ADR-007: 3-Tier Cascading Operational Flags Hierarchy.
-- 2026-10-30: Completed Task 4: Created ADR-008: Write-Ahead Log (WAL) Resilient Interactive Conflict Review.
-- 2026-10-30: Completed Task 5: Created ADR-009: Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization.
-- 2026-10-30: Completed Task 6: Created ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture.
-- 2026-10-30: Completed Task 7: Updated ADR registry in `docs/architecture/adr/README.md` and validated full check suite (`./scripts/check.sh all`).
+- 2026-10-31: Initialized plan from implementation_plan.md.
+- 2026-10-31: Completed Task 1: Consolidated UI design system micro-specs (components, layouts, patterns, status-language) into `bisync-hub-design-system-specification.md` and pruned obsolete partials.
+- 2026-10-31: Completed Task 2: Created Master Specifications Registry in `docs/design/README.md` and added metadata headers with governing ADR cross-links across all design specifications.
+- 2026-10-31: Completed Task 3: Refreshed root `README.md` with modern user-centric narrative ("Review. Decide. Sync.") and removed `README_v2.md`.
+- 2026-10-31: Completed Task 4: Added prioritized `favicon.svg` candidate resolution in `internal/core/notifier/notifier.go` with unit test validation.
+- 2026-10-31: Completed Task 5: Added `ProfileName` propagation in `Config` and implemented `[<ProfileName>]` desktop notification title attribution across all runner notification dispatches.
+- 2026-10-31: Completed Task 6: Successfully ran full quality gate checks (6/6 stages passing in `./scripts/check.sh all`) across formatting, secrets scanning, AST validation, tests with race detection, LOC limits, and cross-platform builds.
+
+
+
+
+
+
+
 
 
   - Added deep link button to jump straight to correlated daemon run logs when `dedupeModal.runId` is returned.

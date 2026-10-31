@@ -1,12 +1,11 @@
 # Design Specification: System Integration & Architectural Alignment
 
-**Feature Name**: System Integration & Architectural Alignment
-
-**Status**: Approved / Design Baseline
-
-**Target Milestones**: Phase 4 & Phase 5
-
-**Package References**: `internal/remoteauth`, `internal/engine/review`, `internal/engine/heuristics`, `internal/audit`
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Subsystem Integration & Architectural Alignment |
+| **Governing ADRs** | Cross-Cutting ([ADR-001](../architecture/adr/ADR-001-Profiles-As-Primary-User-Object.md) through [ADR-010](../architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md)) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md), [Security Principles](../architecture/SECURITY_PRINCIPLES.md) |
 
 ---
 
