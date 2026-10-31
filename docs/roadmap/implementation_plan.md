@@ -1,55 +1,52 @@
-# Implementation Plan: De-Noise Unified Ledger & Sync Milestones
+# Implementation Plan: Technical Debt Remediation & Quality Hardening
 
 ## Proposed Changes
 
-Eliminate UI noise and redundant log emissions so that sync runs (such as dry-runs) present a single, clean, reassuring milestone entry in the dashboard Unified Ledger. Demote backend daemon job polling milestones and successful HTTP access records to `slog.LevelDebug`, eliminate duplicate `log.Printf` vs `RecordSyncRun` logging in `runner_handlers.go`, contextually label the sync mode (`Dry run`, `Resync`, `Sync`), and ensure the frontend Unified Ledger filters out internal HTTP access entries.
+Remediate identified technical debt across the codebase to ensure long-term maintainability, eliminate LOC ceiling hazards (<400 LOC), strengthen test coverage across core engines, and enhance workspace hygiene.
 
 ### Affected Components & Packages
 
-- `internal/core/client/monitor.go`:
-  - Demote `slog.Info("Monitoring bisync job", ...)` and `slog.Info("Job completed successfully", ...)` to `slog.Debug(...)`.
-- `internal/engine/runner/runner_handlers.go`:
-  - Remove duplicate `log.Printf` calls from `handleSyncSuccess` and `handleSyncFailure`.
-  - Contextually prefix milestone messages: `"Dry run succeeded..."` for dry-runs, `"Resync succeeded..."` for resyncs, and `"Sync succeeded..."` for standard runs.
-- `internal/engine/runner/runner_test.go`:
-  - Align test assertions with contextual mode prefixes.
-- `internal/server/server.go`:
-  - In `ServeHTTP`, demote all successful HTTP access logging (`status < 400`) to `slog.LevelDebug`, retaining `slog.LevelWarn` / `slog.LevelError` for errors (`status >= 400`).
-- `internal/server/server_test.go`:
-  - Update `TestHTTPAccessLogLevel` to test that successful mutating requests log at `slog.LevelDebug`.
-- `dashboard/frontend/js/logs.js`:
-  - In `filteredBisyncLogs`, filter out `l.type === "http_access"` across Unified Ledger views.
+- **Workspace**: Root directory binaries (`bisync-hub`, `bisync-hub-new`)
+- **Frontend Modules**:
+  - `dashboard/frontend/js/profiles.js` (399 LOC) & `dashboard/frontend/js/profiles_modal.js`
+  - `dashboard/frontend/js/review.js` (393 LOC) & `dashboard/frontend/js/review_diff.js`
+- **Backend Services**:
+  - `internal/services/log_service.go` (389 LOC) & `internal/services/log_parser.go`
+- **Backend Test Coverage**:
+  - `internal/core/security/redact_test.go` (increase package coverage from 76.9% to >80%)
+  - `internal/engine/runner/runner_test.go` (increase package coverage from 74.2% to >80%)
+- **API Models & Error Contracts**:
+  - `internal/models/api.go` and `internal/server/server.go` (standardize JSON error responses)
 
 ### Technical Strategy & Data Flow
 
-1. **Backend De-Noising**:
-   - `monitor.go` job polling steps log at `slog.LevelDebug`.
-   - `server.go` HTTP access middleware logs successful requests (`status < 400`) at `slog.LevelDebug`.
-   - `runner_handlers.go` logs sync outcomes once via `r.Logger.RecordSyncRun`.
-2. **Contextual Action Labeling**:
-   - `actionLabel` determines mode: `if dryRun { return "Dry run" } else if resync { return "Resync" } return "Sync"`.
-   - The user sees: `[OneDrive (Test)] Dry run succeeded in 2.0s (0 file(s) transferred)`.
-3. **Frontend Signal Isolation**:
-   - `filteredBisyncLogs` in `logs.js` filters out `http_access` records from the Unified Ledger, keeping HTTP server access logs strictly in diagnostic/daemon streams.
+1. **Workspace Hygiene**:
+   - Clean up untracked local binaries (`bisync-hub`, `bisync-hub-new`) from the repo root to prevent indexing bloat and search pollution.
+2. **Frontend Modularization**:
+   - Decompose `profiles.js` into core listing/state and `profiles_modal.js` (modal forms, schedule presets, input sanitization).
+   - Decompose `review.js` into core review listing and `review_diff.js` (diff modal, side-by-side view, tree rendering).
+   - Maintain Alpine.js zero-build modularity and test with E2E suite.
+3. **Backend Modularization**:
+   - Decompose `internal/services/log_service.go` by extracting parsing routines (`parseBisyncLogLine`, regex extraction, unmarshaling) into `internal/services/log_parser.go`.
+4. **Coverage Hardening**:
+   - Add deep recursive sanitization test cases to `internal/core/security/redact_test.go` covering edge-case slices, complex structs, and custom types.
+   - Add targeted error handling, timeout, and cancellation test cases to `internal/engine/runner/runner_test.go`.
+5. **Schema Governance**:
+   - Ensure uniform JSON error envelopes across HTTP routes using a standardized model.
 
 ### Safety & Error Handling
 
-- Respect strict `<400` LOC limit across all modified Go and JS files.
-- Failed HTTP requests (`status >= 400`) and failed sync runs (`FAULT`, `ABORTED`) retain `WARN` / `ERROR` levels and visibility.
-- Tracing is preserved: running `--debug` still records all debug logs to `bisync.log`.
+- All file operations adhere to path confinement jails.
+- Zero breaking changes to public Web API endpoints or dashboard Alpine state signatures.
+- All files strictly verified against `<400 LOC` (`./scripts/check.sh loc 400`).
 
 ## Verification Plan
 
-- Unit tests:
-  - `go test -count=1 ./internal/core/client/...`
-  - `go test -count=1 ./internal/engine/runner/...`
-  - `go test -count=1 ./internal/server/...`
-- File size check:
-  - `./scripts/check-loc.sh 400`
-- End-to-end smoke test:
-  - `go test -count=1 ./tests/e2e/...`
-- Full quality check:
-  - `./scripts/check.sh all`
+- Unit tests: `go test -count=1 ./internal/...`
+- E2E smoke tests: `go test -count=1 ./tests/e2e/...`
+- LOC audit: `./scripts/check.sh loc 400`
+- Full quality gate: `./scripts/check.sh all` (all 6 stages passing clean).
+
 
 
 
