@@ -17,9 +17,9 @@ Enforce defensive defaults (`max-delete: 0`, `lock_explorer_remote: true`), quie
   - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/logs.js`
   - **Verification**: `go test -count=1 ./internal/server/... && ./scripts/check.sh loc 400`
 
-- [ ] Task 4: Strict RC API Mocking in Test Suites
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `internal/services/review_service_test.go`
-  - **Verification**: `go test -count=1 ./internal/services/... ./tests/e2e/...`
+- [x] Task 4: Strict RC API Mocking in Test Suites
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `internal/services/review_service_test.go`, `internal/remoteauth/service_test.go`
+  - **Verification**: `go test -count=1 ./internal/services/... ./internal/remoteauth/... ./tests/e2e/...`
 
 - [ ] Task 5: Audit Ledger Cleanup, Reset Endpoint & Modal
   - **Scope**: `dashboard/frontend/partials/view_audit.html`, `internal/audit/`, `internal/server/handlers_audit.go`, `internal/server/handlers_audit_test.go`, `dashboard/frontend/js/audit.js`
@@ -35,5 +35,6 @@ Enforce defensive defaults (`max-delete: 0`, `lock_explorer_remote: true`), quie
 - 2026-10-31: Completed Task 1: Enforced `max_delete: 0` and `lock_explorer_remote: true` across `DefaultGlobalDefaults()`, profile builder, and frontend settings/profiles modules. Fixed builder and handler conditions (`< 0`) to treat `0` as an explicit defensive deletion threshold. Verified with `go test -count=1 ./internal/config/... ./internal/profiles/... ./internal/server/...`.
 - 2026-10-31: Completed Task 2: Demoted routine HTTP polling endpoints (`/api/telemetry`, `/api/health`, `/api/profiles/summary`, `/api/logs/*`) to `slog.Debug` level in server middleware. Formatted `http_access` lines in `utils.js` as `METHOD PATH → STATUS (Xms)` and restricted the Daemon modal button in `pattern_timeline_ledger.html` to correlated records possessing `run_id` or `job_id`. Verified with `go test -count=1 ./internal/server/...`.
 - 2026-10-31: Completed Task 3: Wired `fetchBisyncLogs(1)` into `initDashboard()` and `switchTab('telemetry')` in `dashboard/frontend/app.js` to enable 50-line bisync pagination on load and navigation, compacting helper delegates to maintain <400 LOC audit limit. Verified with `go test -count=1 ./internal/server/...` and `./scripts/check.sh loc 400`.
+- 2026-10-31: Completed Task 4: Replaced unauthenticated live `http://127.0.0.1:5572` references in `tests/e2e/dashboard_smoke_test.go`, `internal/services/review_service_test.go`, and `internal/remoteauth/service_test.go` with isolated `httptest.NewServer` mock instances. Verified with `go test -count=1 ./internal/services/... ./internal/remoteauth/... ./tests/e2e/...`.
 
 

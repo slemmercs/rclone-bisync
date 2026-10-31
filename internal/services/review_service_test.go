@@ -245,8 +245,14 @@ func TestReviewService_AutoSkipAndFailedRetry(t *testing.T) {
 }
 
 func TestReviewService_ApplyBatchRecommendations(t *testing.T) {
+	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer mockRC.Close()
+
 	cfg, _ := createTestConfig(t)
-	rcClient := client.NewRcloneClient("http://127.0.0.1:5572", "", "")
+	rcClient := client.NewRcloneClient(mockRC.URL, "", "")
 	svc := NewReviewService(cfg, rcClient)
 
 	now := time.Now().UTC()
