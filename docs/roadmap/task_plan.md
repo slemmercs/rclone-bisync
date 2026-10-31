@@ -21,7 +21,7 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
   - **Scope**: `internal/core/security/redact_test.go`
   - **Verification**: `go test -cover ./internal/core/security/...` (verify >80%)
 
-- [ ] Task 5: Engine Runner Test Coverage Hardening (>80%)
+- [x] Task 5: Engine Runner Test Coverage Hardening (>80%)
   - **Scope**: `internal/engine/runner/runner_test.go`
   - **Verification**: `go test -cover ./internal/engine/runner/...` (verify >80%)
 
@@ -40,6 +40,7 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
 - 2026-10-31: Completed Task 2: Modularized profiles.js (down to 154 LOC with profiles_modal.js at 256 LOC) and review.js (down to 196 LOC with review_actions.js at 205 LOC). Headless Chrome E2E test and LOC checks passed.
 - 2026-10-31: Completed Task 3: Decomposed log_service.go (down to 246 LOC) by extracting parsing helpers into log_parser.go (152 LOC). All services tests and LOC checks passed.
 - 2026-10-31: Completed Task 4: Hardened security package test coverage to 96.3% (up from 76.9%), covering actor contexts, prefix/suffix filters, unexported struct fields, and pointers.
+- 2026-10-31: Completed Task 5: Hardened runner package test coverage to 86.6% (up from 74.2%), adding runner_failure_test.go covering review session persistence, rate limiting, and debug flag propagation.
 
 
 
