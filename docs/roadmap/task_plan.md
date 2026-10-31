@@ -9,8 +9,8 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
   - **Scope**: Root directory binaries (`bisync-hub`, `bisync-hub-new`)
   - **Verification**: `ls bisync-hub bisync-hub-new 2>&1` (verify absent) and `git status` clean
 
-- [ ] Task 2: Frontend High-LOC Module Decomposition (`profiles.js` & `review.js`)
-  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/profiles_modal.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/js/review_diff.js`, `dashboard/frontend/index.html`
+- [x] Task 2: Frontend High-LOC Module Decomposition (`profiles.js` & `review.js`)
+  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/profiles_modal.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/js/review_actions.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh loc 400` and `go test -count=1 ./tests/e2e/...`
 
 - [ ] Task 3: Backend High-LOC Module Decomposition (`log_service.go`)
@@ -37,6 +37,7 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
 
 - 2026-10-31: Initialized technical debt remediation plan from implementation_plan.md covering LOC ceilings, test coverage gaps, and workspace cleanliness.
 - 2026-10-31: Completed Task 1: Cleaned up root workspace binary artifacts (bisync-hub, bisync-hub-new), eliminating index bloat and search scanner interference.
+- 2026-10-31: Completed Task 2: Modularized profiles.js (down to 154 LOC with profiles_modal.js at 256 LOC) and review.js (down to 196 LOC with review_actions.js at 205 LOC). Headless Chrome E2E test and LOC checks passed.
 
 
 
