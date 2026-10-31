@@ -179,6 +179,7 @@ func (l *Logger) Debug(msg string, args ...any) {
 func (l *Logger) Slog() *slog.Logger {
 	return l.slogLogger
 }
+
 // SetDebug dynamically toggles between slog.LevelDebug and slog.LevelInfo.
 func (l *Logger) SetDebug(debug bool) {
 	if l.levelVar != nil {
@@ -204,4 +205,3 @@ func (l *Logger) SetAsDefault() {
 		slog.SetDefault(l.slogLogger)
 	}
 }
-

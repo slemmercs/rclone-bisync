@@ -436,4 +436,3 @@ func TestSyncRunner_DebugModePropagation(t *testing.T) {
 		t.Fatalf("expected logger level to be LevelDebug, got %v", r.Logger.Level())
 	}
 }
-

@@ -29,4 +29,3 @@ func (r *SyncRunner) recordAuditExecuted(runID string, jobID int, origin string,
 		"dry_run":      dryRun,
 	})
 }
-

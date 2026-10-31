@@ -1471,4 +1471,3 @@ func TestServer_DashboardAPIKey(t *testing.T) {
 		t.Fatal("expected valid Bearer token to pass authorization")
 	}
 }
-

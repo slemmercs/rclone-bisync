@@ -17,7 +17,7 @@ Enforce mutation-only invariant on the SQLite Audit Ledger (`audit.db`) by dropp
   - **Scope**: `main.go`, `internal/server/server.go`, `internal/config/config.go`, `internal/core/security/security.go`, `internal/services/review_execution.go`, `internal/server/server_test.go`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [ ] Task 4: Full Pre-Flight Quality Gate & Release Readiness Validation
+- [x] Task 4: Full Pre-Flight Quality Gate & Release Readiness Validation
   - **Scope**: Entire repository test suite, linters, templates, and LOC budgets
   - **Verification**: `./scripts/check.sh all`
 
@@ -27,4 +27,5 @@ Enforce mutation-only invariant on the SQLite Audit Ledger (`audit.db`) by dropp
 - 2026-10-31: Completed Task 1: Eliminated `SYNC_ABORTED` entries and gated `DEDUPE_EXECUTED` to `deleted > 0` in `handlers_auth.go`, enforcing the mutation-only invariant on `audit.db` while preserving execution logs in `bisync.log`. Verified via `runner_test.go` and `handlers_audit_test.go`.
 - 2026-10-31: Completed Task 2: Standardized default log file to rotating `bisync-hub-log.json`, added dynamic `slog.LevelVar` and debug mode toggling, injected centralized `*logger.Logger` into container and runner, mapped `--verbose` to rclone `_config`, and replaced bare `log.Printf` with structured `slog` across engine modules. Verified via unit tests.
 - 2026-10-31: Completed Task 3: Enforced startup `syscall.Umask(0077)` for user-private filesystem assets, added reverse proxy user attribution (`X-Forwarded-User`, `Remote-User`, `X-Forwarded-Email`) across server handlers and review audit triggers, added optional `DASHBOARD_API_KEY` verification middleware for mutating endpoints (`X-API-Key` / `Bearer`), and wired structured HTTP access logging via `slog`. Verified via unit tests in `server_test.go`.
+- 2026-10-31: Completed Task 4: Formatted code and ran full 6-stage pre-flight quality gate (`./scripts/check.sh all`). All unit tests, integration tests, static analysis, secrets scan, and LOC audits passed cleanly.
 

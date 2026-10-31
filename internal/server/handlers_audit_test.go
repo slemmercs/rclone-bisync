@@ -356,4 +356,3 @@ func TestRemoteDedupe_ZeroDeletedNoAudit(t *testing.T) {
 		t.Fatalf("expected 0 DEDUPE_EXECUTED records when 0 files deleted, got %d", total)
 	}
 }
-

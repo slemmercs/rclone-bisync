@@ -222,4 +222,3 @@ func TestNewContainer_WithLoggerAndDebugMode(t *testing.T) {
 		t.Fatalf("expected logger level Debug when DebugMode is true, got: %v", c.Logger.Level())
 	}
 }
-
