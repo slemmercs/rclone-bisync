@@ -37,6 +37,13 @@ func TestCSRFProtectionMiddleware(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected 403 Forbidden for missing header, got %d", rec.Code)
 	}
+	var errResp models.ErrorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("failed to decode ErrorResponse envelope: %v", err)
+	}
+	if errResp.Status != "error" || errResp.Msg == "" || errResp.Error == "" {
+		t.Fatalf("expected uniform ErrorResponse with status, msg, and error, got: %+v", errResp)
+	}
 
 	// 2. POST with untrusted Origin header -> 403
 	req, _ = http.NewRequest("POST", "/api/action", bytes.NewBuffer([]byte(`{"action":"start_sync"}`)))

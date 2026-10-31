@@ -25,7 +25,7 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
   - **Scope**: `internal/engine/runner/runner_test.go`
   - **Verification**: `go test -cover ./internal/engine/runner/...` (verify >80%)
 
-- [ ] Task 6: Schema Uniformity for Error Responses
+- [x] Task 6: Schema Uniformity for Error Responses
   - **Scope**: `internal/models/api.go`, `internal/server/server.go`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
@@ -41,6 +41,7 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
 - 2026-10-31: Completed Task 3: Decomposed log_service.go (down to 246 LOC) by extracting parsing helpers into log_parser.go (152 LOC). All services tests and LOC checks passed.
 - 2026-10-31: Completed Task 4: Hardened security package test coverage to 96.3% (up from 76.9%), covering actor contexts, prefix/suffix filters, unexported struct fields, and pointers.
 - 2026-10-31: Completed Task 5: Hardened runner package test coverage to 86.6% (up from 74.2%), adding runner_failure_test.go covering review session persistence, rate limiting, and debug flag propagation.
+- 2026-10-31: Completed Task 6: Enforced schema uniformity with models.NewErrorResponse and server.writeJSONError, ensuring both status, msg, and error fields are populated across API error envelopes.
 
 
 
