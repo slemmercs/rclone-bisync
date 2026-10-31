@@ -166,10 +166,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		durMs := float64(time.Since(start).Microseconds()) / 1000.0
-		lvl := slog.LevelInfo
-		if (r.Method == http.MethodGet || r.Method == http.MethodHead) && sw.Status() < 400 {
-			lvl = slog.LevelDebug
-		} else if sw.Status() >= 400 {
+		lvl := slog.LevelDebug
+		if sw.Status() >= 400 {
 			lvl = slog.LevelWarn
 		}
 		slog.Log(r.Context(), lvl, "http_access",

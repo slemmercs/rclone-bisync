@@ -1504,13 +1504,18 @@ func TestHTTPAccessLogLevel(t *testing.T) {
 	rec2 := httptest.NewRecorder()
 	srv.ServeHTTP(rec2, req2)
 
-	// 3. Mutating request -> Info level
+	// 3. Mutating successful request -> Debug level
 	req3 := httptest.NewRequest("POST", "/api/review/dismiss", strings.NewReader(`{}`))
 	req3.Header.Set("X-Dashboard-Request", "1")
 	rec3 := httptest.NewRecorder()
 	srv.ServeHTTP(rec3, req3)
 
-	var telemetryRecord, configRecord, mutateRecord *slog.Record
+	// 4. Failed request (404) -> Warn level
+	req4 := httptest.NewRequest("GET", "/api/nonexistent_endpoint", nil)
+	rec4 := httptest.NewRecorder()
+	srv.ServeHTTP(rec4, req4)
+
+	var telemetryRecord, configRecord, mutateRecord, errorRecord *slog.Record
 	for i := range capturer.records {
 		r := &capturer.records[i]
 		if r.Message == "http_access" {
@@ -1524,6 +1529,9 @@ func TestHTTPAccessLogLevel(t *testing.T) {
 				if a.Key == "path" && a.Value.String() == "/api/review/dismiss" {
 					mutateRecord = r
 				}
+				if a.Key == "path" && a.Value.String() == "/api/nonexistent_endpoint" {
+					errorRecord = r
+				}
 				return true
 			})
 		}
@@ -1535,7 +1543,10 @@ func TestHTTPAccessLogLevel(t *testing.T) {
 	if configRecord == nil || configRecord.Level != slog.LevelDebug {
 		t.Fatalf("expected /api/config to be logged at Debug, got %+v", configRecord)
 	}
-	if mutateRecord == nil || mutateRecord.Level != slog.LevelInfo {
-		t.Fatalf("expected /api/review/dismiss to be logged at Info, got %+v", mutateRecord)
+	if mutateRecord == nil || mutateRecord.Level != slog.LevelDebug {
+		t.Fatalf("expected /api/review/dismiss to be logged at Debug, got %+v", mutateRecord)
+	}
+	if errorRecord == nil || errorRecord.Level != slog.LevelWarn {
+		t.Fatalf("expected /api/nonexistent_endpoint to be logged at Warn, got %+v", errorRecord)
 	}
 }

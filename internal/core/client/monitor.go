@@ -30,7 +30,7 @@ func (c *RcloneClient) MonitorJob(
 	sleepDuration := initialSleep
 	consecutiveErrors := 0
 
-	slog.Info("Monitoring bisync job", "job_id", jobID)
+	slog.Debug("Monitoring bisync job", "job_id", jobID)
 
 	for {
 		elapsed := time.Since(startTime)
@@ -76,7 +76,7 @@ func (c *RcloneClient) MonitorJob(
 				}
 
 				if success {
-					slog.Info("Job completed successfully", "job_id", jobID, "elapsed_sec", elapsed.Seconds(), "files_transferred", filesSynced)
+					slog.Debug("Job completed successfully", "job_id", jobID, "elapsed_sec", elapsed.Seconds(), "files_transferred", filesSynced)
 					return MonitorJobResult{
 						Success:     true,
 						FilesSynced: filesSynced,

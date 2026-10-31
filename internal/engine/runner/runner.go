@@ -278,15 +278,6 @@ func (r *SyncRunner) formatLogMsg(msg string) string {
 	return msg
 }
 
-// profilePrefix returns "[<ProfileLabel>] " or "" for console log formatting.
-func (r *SyncRunner) profilePrefix() string {
-	label := r.profileLabel()
-	if label != "" {
-		return fmt.Sprintf("[%s] ", label)
-	}
-	return ""
-}
-
 // notificationTitle prefixes the notification title with [<ProfileName>] if available.
 func (r *SyncRunner) notificationTitle(base string) string {
 	label := r.profileLabel()

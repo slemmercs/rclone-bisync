@@ -88,7 +88,7 @@ window.LogsModule = {
 
     get filteredBisyncLogs() {
         let logs = this.parsedBisyncLogs;
-        logs = logs.filter(l => !l.is_read_only_access);
+        logs = logs.filter(l => !l.is_read_only_access && l.type !== "http_access");
         if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") {
             const selected = (this.telemetryProfileFilter || "").toLowerCase().trim();
             const profObj = (this.profilesData?.list || []).find(p => (p.id || "").toLowerCase() === selected || (p.name || "").toLowerCase() === selected);
@@ -107,7 +107,7 @@ window.LogsModule = {
             });
         }
         if (this.telemetryLogFilter === "sync") {
-            return logs.filter(l => l.type !== "audit" && l.type !== "http_access");
+            return logs.filter(l => l.type !== "audit");
         }
         if (this.telemetryLogFilter === "audit") {
             return logs.filter(l => l.type === "audit");
