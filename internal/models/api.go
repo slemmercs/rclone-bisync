@@ -157,6 +157,8 @@ type BisyncLogEntry struct {
 	Time        string  `json:"time"`
 	Level       string  `json:"level"`
 	Type        string  `json:"type,omitempty"` // "sync" (or omitted)
+	ProfileID   string  `json:"profile_id,omitempty"`
+	ProfileName string  `json:"profile_name,omitempty"`
 	Msg         string  `json:"msg"`
 	RunID       string  `json:"run_id"`
 	JobID       int     `json:"job_id,omitempty"`

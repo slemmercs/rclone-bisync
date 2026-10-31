@@ -13,6 +13,16 @@
                 <button @click="telemetryLogFilter = 'sync'" :class="telemetryLogFilter === 'sync' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all">Sync</button>
                 <button @click="telemetryLogFilter = 'audit'" :class="telemetryLogFilter === 'audit' ? 'bg-purple-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all">Audit</button>
             </div>
+
+            <!-- Profile Dropdown Filter -->
+            <div class="flex items-center ml-1">
+                <select x-model="telemetryProfileFilter" class="bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-mono rounded px-2 py-0.5 focus:ring-0 focus:border-indigo-500">
+                    <option value="all">All Profiles</option>
+                    <template x-for="p in (profilesData?.list || [])" :key="p.id">
+                        <option :value="p.id" x-text="p.name || p.id"></option>
+                    </template>
+                </select>
+            </div>
         </div>
 
         <div class="flex items-center gap-3">
@@ -44,6 +54,12 @@
                         <div class="flex items-center gap-2 min-w-0 flex-1">
                             <span class="text-slate-500 shrink-0 tabular-nums text-[10px]" x-text="cluster.entry.time"></span>
                             <span class="px-1.5 py-0.2 rounded font-bold uppercase shrink-0 text-[9px]" :class="cluster.entry.levelClass" x-text="cluster.entry.level"></span>
+                            <template x-if="cluster.entry.profile_name && !cluster.entry.msg.startsWith('[')">
+                                <span class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 font-mono text-[9px] border border-indigo-800/50 shrink-0" x-text="'[' + cluster.entry.profile_name + ']'"></span>
+                            </template>
+                            <template x-if="!cluster.entry.profile_name && cluster.entry.profile_id && cluster.entry.profile_id !== 'default' && !cluster.entry.msg.startsWith('[')">
+                                <span class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 font-mono text-[9px] border border-indigo-800/50 shrink-0" x-text="'[' + cluster.entry.profile_id + ']'"></span>
+                            </template>
                             <template x-if="cluster.entry.duration_sec != null">
                                 <span class="text-slate-400 text-[10px] bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800 shrink-0 tabular-nums" x-text="cluster.entry.duration_sec.toFixed(1) + 's'"></span>
                             </template>

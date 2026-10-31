@@ -97,13 +97,23 @@ func (r *SyncRunner) Run(
 	startTime := time.Now()
 
 	// Acquire lock
+	profID := ""
+	profName := ""
+	if r.Config != nil {
+		profID = r.Config.ProfileID
+		profName = r.Config.ProfileName
+	}
+
 	locked, err := r.LockMgr.Acquire()
 	if err != nil || !locked {
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
 				Level:       "warn",
-				Msg:         "Sync skipped: another sync process is already running or lock acquisition failed",
+				Type:        "sync",
+				ProfileID:   profID,
+				ProfileName: profName,
+				Msg:         r.formatLogMsg("Sync skipped: another sync process is already running or lock acquisition failed"),
 				RunID:       runID,
 				Origin:      origin,
 				Status:      "ABORTED",
@@ -124,7 +134,10 @@ func (r *SyncRunner) Run(
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
 				Level:       "warn",
-				Msg:         "Sync skipped: rate limit backoff is active (use --force to override)",
+				Type:        "sync",
+				ProfileID:   profID,
+				ProfileName: profName,
+				Msg:         r.formatLogMsg("Sync skipped: rate limit backoff is active (use --force to override)"),
 				RunID:       runID,
 				Origin:      origin,
 				Status:      "ABORTED",
@@ -173,7 +186,10 @@ func (r *SyncRunner) Run(
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
 				Level:       "error",
-				Msg:         fmt.Sprintf("Sync aborted: %v", err),
+				Type:        "sync",
+				ProfileID:   profID,
+				ProfileName: profName,
+				Msg:         r.formatLogMsg(fmt.Sprintf("Sync aborted: %v", err)),
 				RunID:       runID,
 				Origin:      origin,
 				Status:      "ABORTED",
@@ -198,7 +214,10 @@ func (r *SyncRunner) Run(
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
 				Level:       "error",
-				Msg:         fmt.Sprintf("Sync dispatch failed [%s]: %s", errType, errStr),
+				Type:        "sync",
+				ProfileID:   profID,
+				ProfileName: profName,
+				Msg:         r.formatLogMsg(fmt.Sprintf("Sync dispatch failed [%s]: %s", errType, errStr)),
 				RunID:       runID,
 				Origin:      origin,
 				Status:      "FAULT",
@@ -234,14 +253,45 @@ func (r *SyncRunner) Run(
 	return r.handleSyncFailure(runID, jobID, origin, startTime, duration, monitorRes, resync, force, dryRun, noNotify, notificationState)
 }
 
+// profileLabel returns the friendly ProfileName if available, else ProfileID if not "default", else "".
+func (r *SyncRunner) profileLabel() string {
+	if r.Config == nil {
+		return ""
+	}
+	name := strings.TrimSpace(r.Config.ProfileName)
+	if name != "" && !strings.EqualFold(name, "default") {
+		return name
+	}
+	id := strings.TrimSpace(r.Config.ProfileID)
+	if id != "" && !strings.EqualFold(id, "default") {
+		return id
+	}
+	return ""
+}
+
+// formatLogMsg prepends [<ProfileLabel>] to msg if a profile label is available.
+func (r *SyncRunner) formatLogMsg(msg string) string {
+	label := r.profileLabel()
+	if label != "" {
+		return fmt.Sprintf("[%s] %s", label, msg)
+	}
+	return msg
+}
+
+// profilePrefix returns "[<ProfileLabel>] " or "" for console log formatting.
+func (r *SyncRunner) profilePrefix() string {
+	label := r.profileLabel()
+	if label != "" {
+		return fmt.Sprintf("[%s] ", label)
+	}
+	return ""
+}
+
 // notificationTitle prefixes the notification title with [<ProfileName>] if available.
 func (r *SyncRunner) notificationTitle(base string) string {
-	name := strings.TrimSpace(r.Config.ProfileName)
-	if name == "" && r.Config.ProfileID != "" && r.Config.ProfileID != "default" {
-		name = r.Config.ProfileID
-	}
-	if name != "" && name != "default" {
-		return fmt.Sprintf("[%s] %s", name, base)
+	label := r.profileLabel()
+	if label != "" {
+		return fmt.Sprintf("[%s] %s", label, base)
 	}
 	return base
 }

@@ -417,6 +417,32 @@ func TestSyncRunner_NotificationTitle(t *testing.T) {
 		t.Fatalf("expected 'Sync Failure', got '%s'", got)
 	}
 }
+func TestSyncRunner_ProfileLogFormatting(t *testing.T) {
+	// 1. Empty config
+	r1 := &SyncRunner{Config: &config.Config{}}
+	if got := r1.formatLogMsg("Sync succeeded"); got != "Sync succeeded" {
+		t.Fatalf("expected 'Sync succeeded', got '%s'", got)
+	}
+
+	// 2. Profile ID only
+	r2 := &SyncRunner{Config: &config.Config{ProfileID: "onedrive"}}
+	if got := r2.formatLogMsg("Sync succeeded"); got != "[onedrive] Sync succeeded" {
+		t.Fatalf("expected '[onedrive] Sync succeeded', got '%s'", got)
+	}
+
+	// 3. Profile Name takes precedence
+	r3 := &SyncRunner{Config: &config.Config{ProfileID: "gdrive", ProfileName: "Google Drive"}}
+	if got := r3.formatLogMsg("Sync succeeded"); got != "[Google Drive] Sync succeeded" {
+		t.Fatalf("expected '[Google Drive] Sync succeeded', got '%s'", got)
+	}
+
+	// 4. "default" profile is not prefixed
+	r4 := &SyncRunner{Config: &config.Config{ProfileID: "default", ProfileName: "default"}}
+	if got := r4.formatLogMsg("Sync succeeded"); got != "Sync succeeded" {
+		t.Fatalf("expected 'Sync succeeded', got '%s'", got)
+	}
+}
+
 func TestSyncRunner_DebugModePropagation(t *testing.T) {
 	tmpDir := t.TempDir()
 	logPath := filepath.Join(tmpDir, "debug_run.json")

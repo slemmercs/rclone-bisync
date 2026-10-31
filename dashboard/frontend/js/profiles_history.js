@@ -106,6 +106,9 @@ window.ProfilesHistoryModule = {
                 this.showToast(`Sync triggered for profile "${profId}".`, "success");
             }
             await this.fetchProfiles();
+            if (typeof this.fetchBisyncLogs === "function") {
+                this.fetchBisyncLogs(1, true);
+            }
         } catch (err) {
             if (typeof this.showToast === "function") {
                 this.showToast(`Sync failed: ${err.message}`, "error");
