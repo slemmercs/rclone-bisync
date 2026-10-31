@@ -179,3 +179,27 @@ func TestCompileExcludeRules(t *testing.T) {
 		t.Fatalf("unexpected rules content: %v", rules)
 	}
 }
+
+func TestCompileVerboseFlags(t *testing.T) {
+	// Test --verbose
+	args1 := []string{"--verbose"}
+	payload1, err := CompileBisyncPayload(args1, "/tmp/local", "gdrive:", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error compiling --verbose: %v", err)
+	}
+	cfg1, ok := payload1["_config"].(map[string]interface{})
+	if !ok || cfg1["Verbose"] != 1 {
+		t.Fatalf("expected Verbose: 1 in _config, got: %v", cfg1)
+	}
+
+	// Test -v
+	args2 := []string{"-v"}
+	payload2, err := CompileBisyncPayload(args2, "/tmp/local", "gdrive:", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error compiling -v: %v", err)
+	}
+	cfg2, ok := payload2["_config"].(map[string]interface{})
+	if !ok || cfg2["Verbose"] != 1 {
+		t.Fatalf("expected Verbose: 1 in _config, got: %v", cfg2)
+	}
+}

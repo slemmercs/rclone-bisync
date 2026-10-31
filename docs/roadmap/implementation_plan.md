@@ -1,69 +1,57 @@
-# Implementation Plan: Deduplication Correlated Log Isolation
+# Implementation Plan: Decommission Legacy Google Drive Systemd Timer & Generalize Deployment
 
 ## Proposed Changes
 
-When a user clicks "Correlated Log" from the Remote Deduplication modal (`modal_dedupe.html`), the dashboard currently displays the tail of `rclone-daemon.log` showing 500 lines from previous unrelated bisync runs instead of the deduplication log lines. This occurs because:
-1. `GET /api/logs/daemon` ignores `run_id` and falls back to tail mode on `rclone-daemon.log` whenever `start_time` is absent.
-2. `rclone dedupe` runs via RC API `core/command` and does not write to `rclone-daemon.log`; its outputs are captured by the server and streamed into `bisync.log`.
-3. Preview (dry-run) deduplication (`mode == "list"`) in `handleRemoteDedupe` bypassed log writing into `bisync.log` due to a `mode != "list"` check.
+Bisync Hub features a built-in concurrent multi-profile scheduling subsystem (`internal/profiles/scheduler.go`) executed within `rclone-dashboard.service`. Each profile maintains independent cron or interval recurrence, advisory flock isolation, and notification rules.
 
-We will isolate correlated logs by `run_id` so that viewing deduplication logs (or any correlated operation) displays strictly the log lines matching that specific operation.
+The legacy `deploy/systemd/bisync-gdrive.timer` and `bisync-gdrive.service` units are redundant single-remote artifacts from early versions. They fire every 15 minutes against the root `bisync.env` regardless of user-configured profile schedules, creating lock contention and unpredictable background execution.
+
+This plan removes the obsolete systemd units, updates `deploy/install.sh` to safely decommission any existing running timers on host machines, and generalizes transient unit naming in `internal/services/sync_actions.go`.
 
 ### Affected Components & Packages
 
-- `internal/services/log_service.go`:
-  - Introduce `FilterLogsByRunID(logPath string, runID string, limit int) ([]string, error)` to extract entries matching `run_id` from JSON log files.
-- `internal/server/handlers_telemetry.go`:
-  - Update `handleDaemonLogs` to route `run_id` queries:
-    - For `strings.HasPrefix(runID, "dedupe-")`: Query `bisync.log` via `FilterLogsByRunID` and return only matching deduplication entries.
-    - For other `runID` values without explicit timestamps: Lookup start/end time in `bisync.log` to filter `rclone-daemon.log`, or fall back to matching `bisync.log` lines, returning empty rather than unrelated tail logs if not found.
-    - Tail mode on `rclone-daemon.log` is strictly reserved for requests where `runID == ""` and `startTime.IsZero()`.
-- `internal/server/handlers_auth.go`:
-  - In `handleRemoteDedupe`, record structured log entries to `s.AuditService.Logger` for all deduplication modes (including `list` / preview) with `RunID: runID`, `Type: "dedupe"`, `Origin: "dedupe"`.
-  - Ensure guaranteed status/completion messages even when no collisions exist.
-- `dashboard/frontend/partials/modals/modal_daemon.html`:
-  - Polish header title to dynamically display "Correlated Deduplication Logs" when `run_id` starts with `dedupe-`.
-  - Polish footer window display to show `Run: <run_id>` when time window is absent.
-- `dashboard/frontend/js/remotes.js`:
-  - Pass `{ run_id: runId, remote: this.dedupeModal.remote, path: this.dedupeModal.path, type: "dedupe" }` in `viewDedupeLogs()`.
-  - Adhere to the 400 LOC ceiling on `remotes.js`.
-- Tests:
-  - `internal/services/log_service_test.go`: Test `FilterLogsByRunID`.
-  - `internal/server/server_test.go`: Test `handleDaemonLogs` with `run_id=dedupe-...`.
+- `deploy/systemd/bisync-gdrive.service`: Delete obsolete systemd service unit.
+- `deploy/systemd/bisync-gdrive.timer`: Delete obsolete systemd timer unit.
+- `deploy/install.sh`:
+  - Remove `bisync-gdrive.*` from required file checks and copy lists.
+  - Remove `bisync-gdrive.timer` from `systemctl --user enable` and `start` targets.
+  - Add explicit decommissioning commands to stop, disable, and clean up lingering `bisync-gdrive.service` and `bisync-gdrive.timer` files on target systems during installation/upgrade.
+- `internal/services/sync_actions.go`:
+  - Generalize transient unit names from `bisync-gdrive-*` to `bisync-sync-*`.
+  - Update `SyslogIdentifier` to `bisync-hub`.
+  - In `stop_sync`, halt both new unit targets (`bisync-sync-*`) and legacy unit names (`bisync-gdrive*`) to ensure backward-compatible cancellation.
+- `docs/architecture/code-review.md`:
+  - Note retirement of `bisync-gdrive.*` systemd units in favor of `ProfileScheduler`.
 
 ### Technical Strategy & Data Flow
 
 ```
-[ Dedupe Modal / Entity Drawer ]
-             │
-             │ openDaemonModal({ run_id: "dedupe-1730355123" })
-             ▼
-[ GET /api/logs/daemon?run_id=dedupe-1730355123 ]
-             │
-             ├── If strings.HasPrefix(runID, "dedupe-"):
-             │     LogService.FilterLogsByRunID(bisync.log, runID)
-             │     └── Returns ONLY lines matching run_id
-             │
-             ├── If runID != "" (sync run):
-             │     Lookup time window in bisync.log -> FilterDaemonLogs(rclone-daemon.log, start, end)
-             │     └── Returns ONLY daemon logs for that sync run
-             │
-             └── If runID == "" and startTime.IsZero():
-                   FilterDaemonLogs(rclone-daemon.log, 0, 0, limit)
-                   └── General continuous daemon stream
+[ System Boot / User Session ]
+       │
+       ├── rclone-daemon.service (Rclone RC API daemon)
+       └── rclone-dashboard.service (Bisync Hub Server & Engine)
+                    │
+                    ▼
+           [ ProfileScheduler ]
+                    │
+                    ├── Worker: Profile "Google Drive" (cron/interval, e.g., @every 1h)
+                    ├── Worker: Profile "OneDrive"    (cron/interval, e.g., @every 30m)
+                    └── Worker: Profile "Nextcloud"   (manual / event-driven)
 ```
+
+1. **Clean Decommissioning**: When `install.sh` runs, it stops and disables `bisync-gdrive.timer` and `bisync-gdrive.service` if present in `$SYSTEMD_USER_DIR/`, preventing dual-scheduler collisions.
+2. **Unified Systemd Management**: Only `rclone-daemon.service` and `rclone-dashboard.service` remain as systemd user units.
+3. **Execution Safety**: Profile execution remains fully managed by `ProfileScheduler` with flock isolation (`.bisync-<profile>.lock`).
 
 ### Safety & Error Handling
 
-- Zero risk of leaking unrelated run logs to users requesting correlated logs.
-- Safe buffer reading and bounded limits (clamped to max 1000 lines).
-- Non-existent log files safely return empty arrays (`[]string{}`).
-- Zero impact on advisory locking or sync execution.
+- **Idempotent Decommissioning**: Stopping or disabling nonexistent units in `install.sh` will ignore non-zero exits (`2>/dev/null || true`) to prevent script aborts under `set -e`.
+- **Backward-Compatible Stop**: `stop_sync` in `sync_actions.go` includes legacy unit patterns in the stop list to guarantee that any running legacy systemd unit will be halted if an upgrade occurs while a job is running.
 
 ## Verification Plan
 
-- Unit tests: `go test -count=1 ./internal/services/...`
-- Unit tests: `go test -count=1 ./internal/server/...`
-- Template verification: `./scripts/check.sh templates`
-- LOC budget verification: `./scripts/check.sh loc`
-- Full pre-flight quality gate: `./scripts/check.sh all`
+- Validate `deploy/install.sh` syntax and execution flow via shellcheck and test run.
+- Verify unit tests across `internal/services/...` pass with updated unit identifiers.
+- Execute full pre-flight quality gate (`./scripts/check.sh all`) to confirm zero regressions.
+
+

@@ -3,7 +3,7 @@ package profiles
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -324,7 +324,7 @@ func ParseSchedule(schedule string) time.Duration {
 	default:
 		d, err := time.ParseDuration(s)
 		if err != nil || d <= 0 {
-			log.Printf("invalid schedule '%s', defaulting to manual", schedule)
+			slog.Warn("invalid schedule, defaulting to manual", "schedule", schedule)
 			return 0
 		}
 		return d

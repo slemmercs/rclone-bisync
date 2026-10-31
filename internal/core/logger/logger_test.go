@@ -2,6 +2,7 @@ package logger
 
 import (
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -180,5 +181,42 @@ func TestLogger_SecretRedactionInLogFile(t *testing.T) {
 	}
 	if !strings.Contains(content, "********") {
 		t.Errorf("expected masked placeholder in log, got: %s", content)
+	}
+}
+
+func TestLogger_DynamicDebugLevel(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "debug_test.log")
+
+	l, err := New(logPath, false)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+	defer l.Close()
+
+	if l.Level() != slog.LevelInfo {
+		t.Fatalf("expected default level Info, got: %v", l.Level())
+	}
+
+	l.Debug("should not appear yet")
+	data, _ := os.ReadFile(logPath)
+	if strings.Contains(string(data), "should not appear yet") {
+		t.Fatal("debug message appeared while level was Info")
+	}
+
+	l.SetDebug(true)
+	if l.Level() != slog.LevelDebug {
+		t.Fatalf("expected level Debug, got: %v", l.Level())
+	}
+
+	l.Debug("should appear now")
+	data, _ = os.ReadFile(logPath)
+	if !strings.Contains(string(data), "should appear now") {
+		t.Fatal("expected debug message to appear after enabling debug mode")
+	}
+
+	l.SetDebug(false)
+	if l.Level() != slog.LevelInfo {
+		t.Fatalf("expected level Info, got: %v", l.Level())
 	}
 }

@@ -73,6 +73,7 @@ type Config struct {
 	RequireLocalPathExists  bool
 
 	DebugMode          bool
+	DashboardAPIKey    string
 	WebhookURL         string
 	WebhookTimeoutSec  int
 	WatchdogPingURL    string
@@ -273,7 +274,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		LocalPath:  localPathRaw,
 		RemotePath: getEnv("REMOTE_PATH", "gdrive:"),
 
-		LogFile:               filepath.Join(baseDir, "bisync.log"),
+		LogFile:               getEnv("LOG_FILE", filepath.Join(baseDir, "bisync-hub-log.json")),
 		LockFile:              filepath.Join(baseDir, "bisync_gdrive.lock"),
 		NotificationStateFile: filepath.Join(baseDir, "notification_state.json"),
 		MetricsFile:           filepath.Join(baseDir, "metrics.jsonl"),
@@ -329,6 +330,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		RequireLocalPathExists:  getEnvBool("REQUIRE_LOCAL_PATH_EXISTS", true),
 
 		DebugMode:          getEnvBool("DEBUG_MODE", false),
+		DashboardAPIKey:    getEnv("DASHBOARD_API_KEY", ""),
 		WebhookURL:         os.Getenv("WEBHOOK_URL"),
 		WebhookTimeoutSec:  getEnvInt("WEBHOOK_TIMEOUT", 5),
 		WatchdogPingURL:    os.Getenv("WATCHDOG_PING_URL"),

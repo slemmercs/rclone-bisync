@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -58,6 +57,9 @@ func NewSyncRunner(cfg *config.Config) *SyncRunner {
 		"",
 	)
 	runLogger, _ := logger.New(cfg.LogFile, true)
+	if runLogger != nil && cfg.DebugMode {
+		runLogger.SetDebug(true)
+	}
 
 	var auditRec AuditRecorder
 	if cfg.AuditDBPath != "" {
@@ -97,7 +99,6 @@ func (r *SyncRunner) Run(
 	// Acquire lock
 	locked, err := r.LockMgr.Acquire()
 	if err != nil || !locked {
-		log.Printf("Another sync process is already running or lock acquisition failed: %v", err)
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
@@ -112,14 +113,13 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
-		r.recordAuditAborted(runID, origin, "LOCK_CONTENTION", "Another sync process is already running or lock acquisition failed", resync, force, dryRun)
+		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
 		return false
 	}
 	defer r.LockMgr.Release()
 
 	// Rate limit backoff check
 	if !force && state.IsRateLimitActive(r.Config.RateLimitBackoffFile) {
-		log.Printf("Sync skipped: Rate limit backoff is active. Use --force to override.")
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
@@ -134,15 +134,34 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
-		r.recordAuditAborted(runID, origin, "RATE_LIMIT_BACKOFF", "Rate limit backoff is active (use --force to override)", resync, force, dryRun)
+		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
 		return false
 	}
 
 	notificationState := state.LoadNotificationState(r.Config.NotificationStateFile)
 
+	// Propagate debug verbose flag to rclone command options if DebugMode is active
+	commonArgs := r.Config.RcloneCommonArgs
+	if r.Config.DebugMode {
+		if r.Logger != nil {
+			r.Logger.SetDebug(true)
+			r.Logger.Debug("Debug logging enabled for sync run", "run_id", runID, "origin", origin)
+		}
+		hasVerbose := false
+		for _, a := range commonArgs {
+			if a == "--verbose" || a == "-v" || a == "-vv" {
+				hasVerbose = true
+				break
+			}
+		}
+		if !hasVerbose {
+			commonArgs = append(append([]string{}, commonArgs...), "--verbose")
+		}
+	}
+
 	// Compile bisync payload
 	params, err := compiler.CompileBisyncPayload(
-		r.Config.RcloneCommonArgs,
+		commonArgs,
 		r.Config.LocalPath,
 		r.Config.RemotePath,
 		resync,
@@ -150,7 +169,6 @@ func (r *SyncRunner) Run(
 		dryRun,
 	)
 	if err != nil {
-		log.Printf("Payload compilation failed: %v", err)
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
@@ -165,7 +183,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
-		r.recordAuditAborted(runID, origin, "CANARY_GUARD", err.Error(), resync, force, dryRun)
+		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
 		if !noNotify {
 			_ = r.Notifier.SendDesktop(r.notificationTitle("Sync Aborted - Canary Safety Guard"), err.Error(), "critical")
 		}
@@ -176,7 +194,6 @@ func (r *SyncRunner) Run(
 	if err != nil {
 		errStr := err.Error()
 		errType := classifier.ClassifyError(errStr)
-		log.Printf("Failed to dispatch bisync to daemon: %v", err)
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
@@ -191,7 +208,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
-		r.recordAuditAborted(runID, origin, errType, errStr, resync, force, dryRun)
+		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
 		if !noNotify && r.Notifier.ShouldNotifyError(errType, notificationState.LastErrorType, notificationState.LastErrorTimestamp) {
 			_ = r.Notifier.SendDesktop(r.notificationTitle(fmt.Sprintf("Sync Dispatch Error - %s", errType)), errStr, "critical")
 		}

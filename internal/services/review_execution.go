@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
+	"github.com/slemmercs/rclone-bisync/internal/core/security"
 	"github.com/slemmercs/rclone-bisync/internal/engine/heuristics"
 	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
@@ -222,6 +223,7 @@ func (s *ReviewService) ApplyReviewSession(ctx context.Context, sessionID string
 	}
 
 	if s.Audit != nil && s.session != nil {
+		actor := security.ActorFromContext(ctx, "USER")
 		profileID := "default"
 		if s.Config != nil && s.Config.RemotePath != "" {
 			profileID = s.Config.RemotePath
@@ -234,7 +236,7 @@ func (s *ReviewService) ApplyReviewSession(ctx context.Context, sessionID string
 				} else if a.Type == models.DecisionRestoreItem {
 					act = audit.ActionDeletionRestored
 				}
-				_, _ = s.Audit.RecordEvent(profileID, act, "USER", map[string]any{
+				_, _ = s.Audit.RecordEvent(profileID, act, actor, map[string]any{
 					"item_path":  a.ItemPath,
 					"decision":   string(a.Type),
 					"session_id": s.session.ID,
@@ -275,11 +277,12 @@ func (s *ReviewService) RollbackReviewSession(ctx context.Context, sessionID str
 	}
 
 	if err == nil && s.Audit != nil && s.session != nil {
+		actor := security.ActorFromContext(ctx, "USER")
 		profileID := "default"
 		if s.Config != nil && s.Config.RemotePath != "" {
 			profileID = s.Config.RemotePath
 		}
-		_, _ = s.Audit.RecordEvent(profileID, audit.ActionRollbackExecuted, "USER", map[string]any{
+		_, _ = s.Audit.RecordEvent(profileID, audit.ActionRollbackExecuted, actor, map[string]any{
 			"session_id": s.session.ID,
 		})
 	}

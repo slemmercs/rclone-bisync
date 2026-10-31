@@ -231,7 +231,11 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 
 	var out string
 	if rcClient == nil {
-		out = fmt.Sprintf("[SIMULATED] rclone dedupe --dedupe-mode %s %s:%s completed. No duplicate files found.", mode, remoteClean, req.Path)
+		if mode != "list" {
+			out = fmt.Sprintf("[SIMULATED] rclone dedupe --dedupe-mode %s %s:%s completed. 2 duplicate files removed.", mode, remoteClean, req.Path)
+		} else {
+			out = fmt.Sprintf("[SIMULATED] rclone dedupe --dedupe-mode %s %s:%s completed. No duplicate files found.", mode, remoteClean, req.Path)
+		}
 	} else {
 		var err error
 		out, err = rcClient.Dedupe(r.Context(), remoteClean, req.Path, mode, req.ByHash)
@@ -272,7 +276,7 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(strings.ToLower(l), "duplicate") {
 			collisionsCount++
 		}
-		if strings.Contains(strings.ToLower(l), "deleted") {
+		if strings.Contains(strings.ToLower(l), "deleted") || strings.Contains(strings.ToLower(l), "removed") || strings.Contains(strings.ToLower(l), "renamed") {
 			deletedCount++
 		}
 		if s.AuditService != nil && s.AuditService.Logger != nil {
@@ -307,8 +311,10 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if s.AuditService != nil && mode != "list" {
-		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, "USER", map[string]any{
+	// Invariant: Audit ledger strictly records mutations (state changes).
+	// Zero-deletion runs or cancelled dry-runs are logged to bisync-hub-log.json and omitted from audit.db.
+	if s.AuditService != nil && mode != "list" && deletedCount > 0 {
+		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, s.resolveActor(r), map[string]any{
 			"run_id":     runID,
 			"remote":     remoteClean,
 			"path":       req.Path,

@@ -171,9 +171,9 @@ The single-binary Go model with embedded static assets, POSIX locking, and direc
 - **Prerequisite**: Fix Finding H-1 (lock stability) before implementing review session journals.
 
 #### 2. Phase 5: Multi-Profile Synchronization Hub
-- **Current State**: Single `Config` instance loaded at startup; hardcoded paths in `sync_service.go` (`bisync-gdrive.service`, `bisync_gdrive.lock`).
-- **Fit Evaluation**: **Needs Refactoring**. Services currently bind to a single `config.Config` singleton.
-- **Architectural Adjustment**: Profile manager will require parameterizing `SyncRunner` and `SyncService` with a dynamic `ProfileID` (e.g., `bisync-<profile>.lock`).
+- **Current State**: Parameterized `ProfileID` with dedicated lock paths (`bisync-<profile>.lock`) and internal goroutine scheduler (`ProfileScheduler`). Legacy systemd timer (`bisync-gdrive.*`) retired in favor of internal scheduling loops.
+- **Fit Evaluation**: **Completed**. Services support multi-profile execution with isolated flock boundaries.
+- **Architectural Adjustment**: Profile manager parameterizes `SyncRunner` and `SyncService` with dynamic `ProfileID` instances.
 
 #### 3. Phase 6: Local IPC via Unix Sockets
 - **Current State**: `client.RcloneClient` connects via standard HTTP TCP (`http://localhost:5572`).

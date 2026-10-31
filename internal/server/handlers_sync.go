@@ -19,11 +19,15 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 	if req.ProfileID != "" && s.ProfileService != nil {
 		switch req.Action {
 		case "start_sync", "resync", "force_resync", "force_sync", "dry_run":
+			origin := s.resolveActor(r)
+			if origin == "USER" {
+				origin = "dashboard"
+			}
 			opts := profiles.SyncOptions{
 				Force:  req.Action == "force_sync",
 				Resync: req.Action == "resync" || req.Action == "force_resync",
 				DryRun: req.Action == "dry_run",
-				Origin: "dashboard",
+				Origin: origin,
 			}
 			if err := s.ProfileService.TriggerSyncWithOptions(r.Context(), req.ProfileID, opts); err != nil {
 				writeJSON(w, http.StatusOK, models.ActionResponse{Status: "error", Msg: err.Error(), Error: err.Error()})

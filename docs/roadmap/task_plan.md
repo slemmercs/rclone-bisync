@@ -1,35 +1,27 @@
-# Task Plan: Deduplication Correlated Log Isolation
+# Task Plan: Decommission Legacy Google Drive Systemd Timer & Generalize Deployment
 
 ## Goal
-Isolate correlated logs by `run_id` so that viewing deduplication logs (or specific run logs) displays strictly the corresponding operation log lines, eliminating user overwhelm caused by falling back to the entire unrelated daemon log tail.
+Retire redundant `bisync-gdrive.service` and `bisync-gdrive.timer`, upgrade `deploy/install.sh` with safe decommissioning of existing timer units, and generalize transient systemd units in `sync_actions.go`.
 
 ## Tasks
 
-- [x] Task 1: Deduplication Execution Logging in `handlers_auth.go`
-  - **Scope**: `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...`
+- [x] Task 1: Retire `deploy/systemd/bisync-gdrive.*` and Update `deploy/install.sh`
+  - **Scope**: `deploy/systemd/bisync-gdrive.service`, `deploy/systemd/bisync-gdrive.timer`, `deploy/install.sh`
+  - **Verification**: `bash -n deploy/install.sh`
 
-- [x] Task 2: Implement `FilterLogsByRunID` in `LogService`
-  - **Scope**: `internal/services/log_service.go`, `internal/services/log_service_test.go`
+- [x] Task 2: Generalize Transient Unit Naming & Identifiers in `internal/services/sync_actions.go`
+  - **Scope**: `internal/services/sync_actions.go`, `internal/services/sync_service_test.go`
   - **Verification**: `go test -count=1 ./internal/services/...`
 
-- [x] Task 3: Correlate `run_id` in `handleDaemonLogs`
-  - **Scope**: `internal/server/handlers_telemetry.go`, `internal/server/server_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...`
-
-- [x] Task 4: UI Modal Polish & Contextual Wiring
-  - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`, `dashboard/frontend/js/remotes.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 5: Full Pre-Flight Quality Gate & Release Readiness Validation
-  - **Scope**: Full test suite and linting
+- [x] Task 3: Quality Gate Verification & Pre-Flight Checks
+  - **Scope**: Entire repository test suite, linters, templates, and LOC budgets
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-31: Initialized plan from implementation_plan.md for Deduplication Correlated Log Isolation.
-- 2026-10-31: Completed Task 1: Enabled guaranteed structured deduplication log stream recording in `handlers_auth.go` across all execution modes (including `list` preview mode) and added unit tests in `handlers_audit_test.go`.
-- 2026-10-31: Completed Task 2: Implemented `FilterLogsByRunID` and `GetRunTimeWindow` in `LogService` with secret masking and unit test coverage in `log_service_runid_test.go`.
-- 2026-10-31: Completed Task 3: Wired `run_id` correlation in `handleDaemonLogs` to route `dedupe-` runs to `bisync.log` via `FilterLogsByRunID`, resolve sync run windows, and prevent falling back to unrelated daemon tails. Added unit tests in `server_test.go`.
-- 2026-10-31: Completed Task 4: Polished `modal_daemon.html` and `remotes.js` to dynamically adapt header titles, remote path context, and run ID footers for deduplication runs; verified LOC <= 400.
-- 2026-10-31: Completed Task 5: Ran full pre-flight verification `./scripts/check.sh all` (all 6 stages passed, 100%), recompiled production binary `./bisync-hub` and `bin/bisync-hub`. Feature complete and release-ready.
+- 2026-10-31: Initialized plan from implementation_plan.md to retire legacy Google Drive systemd timer and align system deployment with multi-profile scheduler.
+- 2026-10-31: Completed Task 1: Deleted obsolete `bisync-gdrive.service` and `bisync-gdrive.timer` from `deploy/systemd/`. Updated `deploy/install.sh` to remove them from installation targets and added migration logic to stop, disable, and clean up lingering units on target systems. Verified with `bash -n`.
+- 2026-10-31: Completed Task 2: Generalized transient unit names from `bisync-gdrive-*` to `bisync-sync-*` and updated `SyslogIdentifier` to `bisync-hub` in `internal/services/sync_actions.go`. Retained legacy stop patterns in `stop_sync` for backward compatibility. Verified with `go test -count=1 ./internal/services/...`.
+- 2026-10-31: Completed Task 3: Executed full 6-stage pre-flight quality gate (`./scripts/check.sh all`). All build, test, vet, leak check, template validation, and LOC budget stages passed cleanly.
+
+

@@ -1380,3 +1380,94 @@ func TestHandleBisyncLogs_Paginated(t *testing.T) {
 		t.Fatalf("unexpected paginated response: %+v", resp)
 	}
 }
+func TestServer_ResolveActor(t *testing.T) {
+	srv := &Server{}
+
+	// Scenario 1: Default fallback to USER
+	req1 := httptest.NewRequest("GET", "/api/status", nil)
+	if got := srv.resolveActor(req1); got != "USER" {
+		t.Fatalf("expected USER, got: %s", got)
+	}
+
+	// Scenario 2: X-Forwarded-User header (e.g. Authentik, Cloudflare Access)
+	req2 := httptest.NewRequest("GET", "/api/status", nil)
+	req2.Header.Set("X-Forwarded-User", "admin@internal.domain")
+	if got := srv.resolveActor(req2); got != "admin@internal.domain" {
+		t.Fatalf("expected admin@internal.domain, got: %s", got)
+	}
+
+	// Scenario 3: Remote-User header (e.g. Authelia, Apache/Nginx basic auth)
+	req3 := httptest.NewRequest("GET", "/api/status", nil)
+	req3.Header.Set("Remote-User", "operator1")
+	if got := srv.resolveActor(req3); got != "operator1" {
+		t.Fatalf("expected operator1, got: %s", got)
+	}
+
+	// Scenario 4: X-Forwarded-Email header
+	req4 := httptest.NewRequest("GET", "/api/status", nil)
+	req4.Header.Set("X-Forwarded-Email", "user@company.com")
+	if got := srv.resolveActor(req4); got != "user@company.com" {
+		t.Fatalf("expected user@company.com, got: %s", got)
+	}
+
+	// Priority: X-Forwarded-User precedes Remote-User
+	req5 := httptest.NewRequest("GET", "/api/status", nil)
+	req5.Header.Set("X-Forwarded-User", "primary_user")
+	req5.Header.Set("Remote-User", "secondary_user")
+	if got := srv.resolveActor(req5); got != "primary_user" {
+		t.Fatalf("expected primary_user, got: %s", got)
+	}
+}
+
+func TestServer_DashboardAPIKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		BaseDir:         tmpDir,
+		DashboardAPIKey: "secret-vault-api-key-42",
+	}
+
+	srv := NewServer(cfg, nil, embed.FS{})
+
+	// 1. GET requests should not require API key
+	getReq := httptest.NewRequest("GET", "/api/status", nil)
+	getRec := httptest.NewRecorder()
+	srv.ServeHTTP(getRec, getReq)
+	if getRec.Code == http.StatusUnauthorized {
+		t.Fatal("GET requests should not be blocked by API key requirement")
+	}
+
+	// 2. Mutating POST request without API key -> 401 Unauthorized
+	postReq1 := httptest.NewRequest("POST", "/api/sync", strings.NewReader(`{"action":"sync"}`))
+	postRec1 := httptest.NewRecorder()
+	srv.ServeHTTP(postRec1, postReq1)
+	if postRec1.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized for missing API key, got %d", postRec1.Code)
+	}
+
+	// 3. Mutating POST request with invalid X-API-Key -> 401 Unauthorized
+	postReq2 := httptest.NewRequest("POST", "/api/sync", strings.NewReader(`{"action":"sync"}`))
+	postReq2.Header.Set("X-API-Key", "wrong-key")
+	postRec2 := httptest.NewRecorder()
+	srv.ServeHTTP(postRec2, postReq2)
+	if postRec2.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized for invalid API key, got %d", postRec2.Code)
+	}
+
+	// 4. Mutating POST request with valid X-API-Key -> passes auth (not 401)
+	postReq3 := httptest.NewRequest("POST", "/api/sync", strings.NewReader(`{"action":"sync"}`))
+	postReq3.Header.Set("X-API-Key", "secret-vault-api-key-42")
+	postRec3 := httptest.NewRecorder()
+	srv.ServeHTTP(postRec3, postReq3)
+	if postRec3.Code == http.StatusUnauthorized {
+		t.Fatal("expected valid X-API-Key to pass authorization")
+	}
+
+	// 5. Mutating POST request with valid Authorization: Bearer <key> -> passes auth
+	postReq4 := httptest.NewRequest("POST", "/api/sync", strings.NewReader(`{"action":"sync"}`))
+	postReq4.Header.Set("Authorization", "Bearer secret-vault-api-key-42")
+	postRec4 := httptest.NewRecorder()
+	srv.ServeHTTP(postRec4, postReq4)
+	if postRec4.Code == http.StatusUnauthorized {
+		t.Fatal("expected valid Bearer token to pass authorization")
+	}
+}

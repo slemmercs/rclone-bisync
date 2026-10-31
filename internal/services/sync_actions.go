@@ -25,7 +25,7 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 				Msg:    "Sync blocked: unresolved interactive review session requires action. Review pending deletions or dismiss the session.",
 			}, nil
 		}
-		if err := s.runBisyncSystemd(nil, "bisync-gdrive-manual", "dashboard"); err != nil {
+		if err := s.runBisyncSystemd(nil, "bisync-sync-manual", "dashboard"); err != nil {
 			return models.ActionResponse{}, err
 		}
 		return models.ActionResponse{Status: "success", Msg: "Sync started via systemd (origin: dashboard)"}, nil
@@ -38,6 +38,10 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 			}
 		}
 		_ = exec.Command("systemctl", "--user", "stop",
+			"bisync-sync-manual.service",
+			"bisync-sync-resync.service",
+			"bisync-sync-force.service",
+			"bisync-sync-dryrun.service",
 			"bisync-gdrive.service",
 			"bisync-gdrive-manual.service",
 			"bisync-gdrive-resync.service",
@@ -59,7 +63,7 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 				Msg:    "Resync blocked: unresolved interactive review session requires action. Review pending deletions or dismiss the session.",
 			}, nil
 		}
-		if err := s.runBisyncSystemd([]string{"--resync"}, "bisync-gdrive-resync", "dashboard"); err != nil {
+		if err := s.runBisyncSystemd([]string{"--resync"}, "bisync-sync-resync", "dashboard"); err != nil {
 			return models.ActionResponse{}, err
 		}
 		return models.ActionResponse{Status: "success", Msg: "Resync initiated via systemd (origin: dashboard)"}, nil
@@ -68,7 +72,7 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 		if s.IsSyncing() {
 			return models.ActionResponse{Status: "error", Msg: "Cannot force sync: another sync is actively running."}, nil
 		}
-		if err := s.runBisyncSystemd([]string{"--force"}, "bisync-gdrive-force", "dashboard"); err != nil {
+		if err := s.runBisyncSystemd([]string{"--force"}, "bisync-sync-force", "dashboard"); err != nil {
 			return models.ActionResponse{}, err
 		}
 		return models.ActionResponse{Status: "success", Msg: "Force sync initiated via systemd (deletions authorized)"}, nil
@@ -77,7 +81,7 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 		if s.IsSyncing() {
 			return models.ActionResponse{Status: "error", Msg: "Cannot start dry run: another sync is actively running."}, nil
 		}
-		if err := s.runBisyncSystemd([]string{"--dry-run"}, "bisync-gdrive-dryrun", "dashboard"); err != nil {
+		if err := s.runBisyncSystemd([]string{"--dry-run"}, "bisync-sync-dryrun", "dashboard"); err != nil {
 			return models.ActionResponse{}, err
 		}
 		return models.ActionResponse{Status: "success", Msg: "Dry-run simulation started via systemd (origin: dashboard)"}, nil
@@ -137,7 +141,7 @@ func (s *SyncService) runBisyncSystemd(extraArgs []string, unitName, origin stri
 		"--property=PrivateTmp=true",
 		"--property=StandardOutput=journal",
 		"--property=StandardError=journal",
-		"--property=SyslogIdentifier=bisync-gdrive",
+		"--property=SyslogIdentifier=bisync-hub",
 	}
 	cmdArgs = append(cmdArgs, execArgs...)
 

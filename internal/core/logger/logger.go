@@ -18,10 +18,11 @@ type Logger struct {
 	logWriter     io.WriteCloser
 	filePath      string
 	enableConsole bool
+	levelVar      *slog.LevelVar
 	slogLogger    *slog.Logger
 }
 
-// New initializes a Logger instance with default rotation thresholds (10 MB, 5 backups).
+// New initializes a Logger instance with default rotation thresholds (10 MB, 5 backups = 50 MB bounded footprint).
 func New(filePath string, enableConsole bool) (*Logger, error) {
 	return NewWithRotation(filePath, enableConsole, 10, 5)
 }
@@ -61,8 +62,11 @@ func NewWithRotation(filePath string, enableConsole bool, maxSizeMB int, maxBack
 		combinedWriter = io.MultiWriter(writers...)
 	}
 
+	levelVar := &slog.LevelVar{}
+	levelVar.Set(slog.LevelInfo)
+
 	handler := slog.NewJSONHandler(combinedWriter, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: levelVar,
 	})
 	slogL := slog.New(handler)
 
@@ -70,6 +74,7 @@ func NewWithRotation(filePath string, enableConsole bool, maxSizeMB int, maxBack
 		logWriter:     writer,
 		filePath:      filePath,
 		enableConsole: enableConsole,
+		levelVar:      levelVar,
 		slogLogger:    slogL,
 	}, nil
 }
@@ -173,4 +178,30 @@ func (l *Logger) Debug(msg string, args ...any) {
 // Slog returns the underlying *slog.Logger.
 func (l *Logger) Slog() *slog.Logger {
 	return l.slogLogger
+}
+
+// SetDebug dynamically toggles between slog.LevelDebug and slog.LevelInfo.
+func (l *Logger) SetDebug(debug bool) {
+	if l.levelVar != nil {
+		if debug {
+			l.levelVar.Set(slog.LevelDebug)
+		} else {
+			l.levelVar.Set(slog.LevelInfo)
+		}
+	}
+}
+
+// Level returns the current active log level.
+func (l *Logger) Level() slog.Level {
+	if l.levelVar != nil {
+		return l.levelVar.Level()
+	}
+	return slog.LevelInfo
+}
+
+// SetAsDefault sets this logger instance as the global default for the slog package.
+func (l *Logger) SetAsDefault() {
+	if l.slogLogger != nil {
+		slog.SetDefault(l.slogLogger)
+	}
 }
