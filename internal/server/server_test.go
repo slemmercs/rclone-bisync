@@ -1527,4 +1527,3 @@ func TestHTTPAccessLogLevel(t *testing.T) {
 		t.Fatalf("expected /api/config to be logged at Info, got %+v", configRecord)
 	}
 }
-

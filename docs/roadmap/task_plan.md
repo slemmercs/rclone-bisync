@@ -13,9 +13,9 @@ Enforce defensive defaults (`max-delete: 0`, `lock_explorer_remote: true`), quie
   - **Scope**: `internal/server/server.go`, `internal/server/server_test.go`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [ ] Task 3: Bisync Log Pagination Wiring in UI
+- [x] Task 3: Bisync Log Pagination Wiring in UI
   - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/logs.js`
-  - **Verification**: `go test -count=1 ./internal/server/...`
+  - **Verification**: `go test -count=1 ./internal/server/... && ./scripts/check.sh loc 400`
 
 - [ ] Task 4: Strict RC API Mocking in Test Suites
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `internal/services/review_service_test.go`
@@ -34,5 +34,6 @@ Enforce defensive defaults (`max-delete: 0`, `lock_explorer_remote: true`), quie
 - 2026-10-31: Initialized plan from implementation_plan.md to address telemetry logging noise, log pagination, test port isolation, duplicate profile selectors, defensive defaults, and audit ledger reset.
 - 2026-10-31: Completed Task 1: Enforced `max_delete: 0` and `lock_explorer_remote: true` across `DefaultGlobalDefaults()`, profile builder, and frontend settings/profiles modules. Fixed builder and handler conditions (`< 0`) to treat `0` as an explicit defensive deletion threshold. Verified with `go test -count=1 ./internal/config/... ./internal/profiles/... ./internal/server/...`.
 - 2026-10-31: Completed Task 2: Demoted routine HTTP polling endpoints (`/api/telemetry`, `/api/health`, `/api/profiles/summary`, `/api/logs/*`) to `slog.Debug` level in server middleware. Formatted `http_access` lines in `utils.js` as `METHOD PATH → STATUS (Xms)` and restricted the Daemon modal button in `pattern_timeline_ledger.html` to correlated records possessing `run_id` or `job_id`. Verified with `go test -count=1 ./internal/server/...`.
+- 2026-10-31: Completed Task 3: Wired `fetchBisyncLogs(1)` into `initDashboard()` and `switchTab('telemetry')` in `dashboard/frontend/app.js` to enable 50-line bisync pagination on load and navigation, compacting helper delegates to maintain <400 LOC audit limit. Verified with `go test -count=1 ./internal/server/...` and `./scripts/check.sh loc 400`.
 
 

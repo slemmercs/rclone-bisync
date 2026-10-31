@@ -315,26 +315,18 @@ document.addEventListener("alpine:init", () => {
             };
         },
 
-        normalizeStatus(status) {
-            return normalizeStatus(status);
-        },
-
-        getStatusBadgeClass(status) {
-            return getStatusBadgeClass(status);
-        },
+        normalizeStatus(status) { return normalizeStatus(status); },
+        getStatusBadgeClass(status) { return getStatusBadgeClass(status); },
 
         // Lifecycle & Navigation
         async initDashboard() {
             initPerformanceChart();
             this.initPolling();
-            if (!this.isPollingPaused) {
-                await this.poll();
-            }
-            if (typeof this.fetchProfiles === "function") {
-                this.fetchProfiles();
-            }
+            if (!this.isPollingPaused) await this.poll();
+            if (typeof this.fetchProfiles === "function") this.fetchProfiles();
             this.fetchRemotes(false);
             this.fetchReviewSession(false);
+            if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1);
             if (this.currentTab === "remotes") this.fetchRemotes(true);
             else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") this.initExplorer();
             else if (this.currentTab === "audit" && typeof this.initAudit === "function") this.initAudit();
@@ -366,17 +358,10 @@ document.addEventListener("alpine:init", () => {
         switchTab(tab) {
             this.currentTab = tab;
             try { localStorage.setItem("bisync_active_tab", tab); } catch (_) {}
-            if (tab === "remotes") {
-                this.fetchRemotes(true);
-            } else if (tab === "explorer") {
-                if (typeof this.initExplorer === "function") {
-                    this.initExplorer();
-                }
-            } else if (tab === "audit") {
-                if (typeof this.initAudit === "function") {
-                    this.initAudit();
-                }
-            }
+            if (tab === "telemetry" && typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1);
+            else if (tab === "remotes") this.fetchRemotes(true);
+            else if (tab === "explorer" && typeof this.initExplorer === "function") this.initExplorer();
+            else if (tab === "audit" && typeof this.initAudit === "function") this.initAudit();
         },
     },
         window.FleetModule,
