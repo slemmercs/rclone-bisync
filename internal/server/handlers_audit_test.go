@@ -314,4 +314,3 @@ func TestRemoteDedupe_ListModeLogs(t *testing.T) {
 		t.Fatalf("expected 0 DEDUPE_EXECUTED records for list mode, got %d", total)
 	}
 }
-

@@ -21,7 +21,7 @@ Isolate correlated logs by `run_id` so that viewing deduplication logs (or speci
   - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`, `dashboard/frontend/js/remotes.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [ ] Task 5: Full Pre-Flight Quality Gate & Release Readiness Validation
+- [x] Task 5: Full Pre-Flight Quality Gate & Release Readiness Validation
   - **Scope**: Full test suite and linting
   - **Verification**: `./scripts/check.sh all`
 
@@ -32,3 +32,4 @@ Isolate correlated logs by `run_id` so that viewing deduplication logs (or speci
 - 2026-10-31: Completed Task 2: Implemented `FilterLogsByRunID` and `GetRunTimeWindow` in `LogService` with secret masking and unit test coverage in `log_service_runid_test.go`.
 - 2026-10-31: Completed Task 3: Wired `run_id` correlation in `handleDaemonLogs` to route `dedupe-` runs to `bisync.log` via `FilterLogsByRunID`, resolve sync run windows, and prevent falling back to unrelated daemon tails. Added unit tests in `server_test.go`.
 - 2026-10-31: Completed Task 4: Polished `modal_daemon.html` and `remotes.js` to dynamically adapt header titles, remote path context, and run ID footers for deduplication runs; verified LOC <= 400.
+- 2026-10-31: Completed Task 5: Ran full pre-flight verification `./scripts/check.sh all` (all 6 stages passed, 100%), recompiled production binary `./bisync-hub` and `bin/bisync-hub`. Feature complete and release-ready.
