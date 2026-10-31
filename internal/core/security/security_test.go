@@ -1,8 +1,11 @@
 package security
 
 import (
+	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
+	"time"
 )
 
 type CredentialContainer struct {
@@ -156,5 +159,175 @@ func TestRedactStructWithRawMessage(t *testing.T) {
 	t.Logf("Marshaled: %s", string(b))
 	if string(b) != `{"details":{"file":"doc.pdf"}}` {
 		t.Errorf("expected JSON object, got: %s", string(b))
+	}
+}
+
+func TestActorContext(t *testing.T) {
+	// Nil context fallback
+	var nilCtx context.Context
+	if act := ActorFromContext(nilCtx, "fallback-user"); act != "fallback-user" {
+		t.Errorf("expected fallback-user, got %s", act)
+	}
+
+	// Empty context fallback
+	ctx := context.Background()
+	if act := ActorFromContext(ctx, "default"); act != "default" {
+		t.Errorf("expected default, got %s", act)
+	}
+
+	// Empty actor in context fallback
+	ctxEmpty := ContextWithActor(ctx, "")
+	if act := ActorFromContext(ctxEmpty, "default"); act != "default" {
+		t.Errorf("expected default, got %s", act)
+	}
+
+	// Valid actor in context
+	ctxActor := ContextWithActor(ctx, "operator-1")
+	if act := ActorFromContext(ctxActor, "default"); act != "operator-1" {
+		t.Errorf("expected operator-1, got %s", act)
+	}
+}
+
+func TestIsSensitiveKeyNamePrefixSuffix(t *testing.T) {
+	// Prefix ignore cases
+	if IsSensitiveKeyName("has_password") {
+		t.Errorf("expected has_password to not be sensitive")
+	}
+	if IsSensitiveKeyName("is_authenticated") {
+		t.Errorf("expected is_authenticated to not be sensitive")
+	}
+
+	// Suffix ignore cases
+	if IsSensitiveKeyName("token_required") {
+		t.Errorf("expected token_required to not be sensitive")
+	}
+	if IsSensitiveKeyName("pass_status") {
+		t.Errorf("expected pass_status to not be sensitive")
+	}
+	if IsSensitiveKeyName("key_count") {
+		t.Errorf("expected key_count to not be sensitive")
+	}
+	if IsSensitiveKeyName("auth_msg") {
+		t.Errorf("expected auth_msg to not be sensitive")
+	}
+	if IsSensitiveKeyName("secret_message") {
+		t.Errorf("expected secret_message to not be sensitive")
+	}
+
+	// Positive cases
+	if !IsSensitiveKeyName("secret_key") {
+		t.Errorf("expected secret_key to be sensitive")
+	}
+	if !IsSensitiveKeyName("webhooks") {
+		t.Errorf("expected webhooks to be sensitive")
+	}
+	if !IsSensitiveKeyName("private_token") {
+		t.Errorf("expected private_token to be sensitive")
+	}
+
+	// Non-sensitive
+	if IsSensitiveKeyName("endpoint") {
+		t.Errorf("expected endpoint to not be sensitive")
+	}
+}
+
+func TestIsRedactableValue(t *testing.T) {
+	var invalidVal reflect.Value
+	if isRedactableValue(invalidVal) {
+		t.Errorf("expected invalid reflect.Value to return false")
+	}
+
+	strVal := reflect.ValueOf("test")
+	if !isRedactableValue(strVal) {
+		t.Errorf("expected string to return true")
+	}
+
+	intVal := reflect.ValueOf(123)
+	if isRedactableValue(intVal) {
+		t.Errorf("expected int to return false")
+	}
+}
+
+func TestRedactSecretsPointersAndNils(t *testing.T) {
+	// Direct nil
+	if res := RedactSecrets(nil); res != nil {
+		t.Errorf("expected nil for nil input, got %v", res)
+	}
+
+	// Nil pointer
+	var nilPtr *string
+	if res := RedactSecrets(nilPtr); res != nil {
+		t.Errorf("expected nil for nil pointer, got %v", res)
+	}
+
+	// Pointer to sensitive string
+	secStr := "ghp_123456789012345678901234567890123456"
+	if res := RedactSecrets(&secStr); res != RedactedString {
+		t.Errorf("expected %s, got %v", RedactedString, res)
+	}
+
+	// Map with pointers and nil pointers
+	type Inner struct {
+		SecretKey string `json:"secret_key"`
+	}
+	var nilInner *Inner
+	validInner := &Inner{SecretKey: "classified"}
+	nestedMap := map[string]interface{}{
+		"nil_inner":   nilInner,
+		"valid_inner": validInner,
+		"num":         99,
+	}
+	redMap := RedactSecrets(nestedMap).(map[string]interface{})
+	if redMap["nil_inner"] != nil {
+		t.Errorf("expected nil for nil_inner, got %v", redMap["nil_inner"])
+	}
+	innerRes := redMap["valid_inner"].(map[string]interface{})
+	if innerRes["secret_key"] != RedactedString {
+		t.Errorf("expected secret_key redacted, got %v", innerRes["secret_key"])
+	}
+}
+
+func TestRedactSecretsTimeAndStructUnexported(t *testing.T) {
+	now := time.Now()
+	// Direct time.Time
+	if res := RedactSecrets(now); res != now {
+		t.Errorf("expected direct time.Time preserved, got %v", res)
+	}
+
+	// Struct with unexported fields, empty password, non-redactable sensitive key
+	type ConfigItem struct {
+		unexported string
+		Password   string    `json:"password"`
+		PassCount  int       `json:"pass_count_int"`
+		Timestamp  time.Time `json:"timestamp"`
+		SkipMe     string    `json:"-"`
+	}
+
+	item := ConfigItem{
+		unexported: "private",
+		Password:   "", // empty password should not be replaced with ********
+		PassCount:  10,
+		Timestamp:  now,
+		SkipMe:     "skipped",
+	}
+
+	res := RedactSecrets(item).(map[string]interface{})
+	if _, ok := res["unexported"]; ok {
+		t.Errorf("expected unexported field to be omitted")
+	}
+	if res["password"] != "" {
+		t.Errorf("expected empty password preserved, got %v", res["password"])
+	}
+	if res["timestamp"] != now {
+		t.Errorf("expected timestamp preserved, got %v", res["timestamp"])
+	}
+}
+
+func TestRedactSecretsInvalidRawMessage(t *testing.T) {
+	// json.RawMessage that is not valid JSON
+	invalidRaw := json.RawMessage(`{not-valid-json`)
+	res := RedactSecrets(invalidRaw)
+	if _, ok := res.(json.RawMessage); !ok {
+		t.Errorf("expected fallback to raw message interface, got %T", res)
 	}
 }

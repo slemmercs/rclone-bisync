@@ -119,6 +119,15 @@ type ErrorResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
+// NewErrorResponse creates a uniform ErrorResponse envelope ensuring both Status, Msg, and Error fields are set.
+func NewErrorResponse(msg string) ErrorResponse {
+	return ErrorResponse{
+		Status: "error",
+		Msg:    msg,
+		Error:  msg,
+	}
+}
+
 type PendingDeletionsResponse struct {
 	HasDeletions bool          `json:"has_deletions"`
 	TotalCount   int           `json:"total_count"`

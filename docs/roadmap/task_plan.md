@@ -1,28 +1,50 @@
-# Task Plan: De-Noise Unified Ledger & Sync Milestones
+# Task Plan: Technical Debt Remediation & Quality Hardening
 
 ## Goal
-Eliminate UI noise and duplicate milestone lines so that sync and dry-run executions present a single, clean, reassuring milestone entry in the dashboard Unified Ledger.
+Remediate key technical debt items: clean up workspace binaries, modularize near-ceiling files (`profiles.js`, `review.js`, `log_service.go`), strengthen test coverage in `internal/core/security` and `internal/engine/runner` above 80%, and verify full repository quality gates.
 
 ## Tasks
 
-- [x] Task 1: Backend Log De-Noising & Milestones
-  - **Scope**: `internal/core/client/monitor.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`, `internal/server/server.go`, `internal/server/server_test.go`
-  - **Verification**: `go test -count=1 ./internal/core/client/... ./internal/engine/runner/... ./internal/server/...` and `./scripts/check.sh loc 400`
+- [x] Task 1: Workspace Hygiene & Local Artifact Cleanliness
+  - **Scope**: Root directory binaries (`bisync-hub`, `bisync-hub-new`)
+  - **Verification**: `ls bisync-hub bisync-hub-new 2>&1` (verify absent) and `git status` clean
 
-- [x] Task 2: Frontend Ledger De-Noising & UI Signal Isolation
-  - **Scope**: `dashboard/frontend/js/logs.js`
-  - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh loc 400`
+- [x] Task 2: Frontend High-LOC Module Decomposition (`profiles.js` & `review.js`)
+  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/profiles_modal.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/js/review_actions.js`, `dashboard/frontend/index.html`
+  - **Verification**: `./scripts/check.sh loc 400` and `go test -count=1 ./tests/e2e/...`
 
-- [x] Task 3: Full Quality Gate Verification & Release Preparation
+- [x] Task 3: Backend High-LOC Module Decomposition (`log_service.go`)
+  - **Scope**: `internal/services/log_service.go`, `internal/services/log_parser.go`
+  - **Verification**: `./scripts/check.sh loc 400` and `go test -count=1 ./internal/services/...`
+
+- [x] Task 4: Security & Redaction Test Coverage Hardening (>80%)
+  - **Scope**: `internal/core/security/redact_test.go`
+  - **Verification**: `go test -cover ./internal/core/security/...` (verify >80%)
+
+- [x] Task 5: Engine Runner Test Coverage Hardening (>80%)
+  - **Scope**: `internal/engine/runner/runner_test.go`
+  - **Verification**: `go test -cover ./internal/engine/runner/...` (verify >80%)
+
+- [x] Task 6: Schema Uniformity for Error Responses
+  - **Scope**: `internal/models/api.go`, `internal/server/server.go`
+  - **Verification**: `go test -count=1 ./internal/server/...`
+
+- [x] Task 7: Full Quality Gate Verification & Release
   - **Scope**: Full repository quality gate verification
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-31: Initialized plan from implementation_plan.md to de-noise the Unified Ledger, demote routine job polling and HTTP access to debug, and eliminate duplicate sync completion logs.
-- 2026-10-31: Completed Task 1: Demoted job polling milestones and successful HTTP access (status < 400) to slog.LevelDebug, eliminated duplicate log.Printf calls in runner_handlers.go, added contextual sync mode prefixes (Dry run, Resync, Sync), and added test coverage. All tests passed and LOC verified.
-- 2026-10-31: Completed Task 2: Filtered out http_access records across all unified ledger views in dashboard/frontend/js/logs.js, isolating execution telemetry to operational sync and audit records. E2E tests and LOC audit passed cleanly.
-- 2026-10-31: Completed Task 3: Full quality gate passed with 6/6 stages passing clean (tests, static analysis, loc checks, vet, lint). Removed unused profilePrefix helper and formatted test sources.
+- 2026-10-31: Initialized technical debt remediation plan from implementation_plan.md covering LOC ceilings, test coverage gaps, and workspace cleanliness.
+- 2026-10-31: Completed Task 1: Cleaned up root workspace binary artifacts (bisync-hub, bisync-hub-new), eliminating index bloat and search scanner interference.
+- 2026-10-31: Completed Task 2: Modularized profiles.js (down to 154 LOC with profiles_modal.js at 256 LOC) and review.js (down to 196 LOC with review_actions.js at 205 LOC). Headless Chrome E2E test and LOC checks passed.
+- 2026-10-31: Completed Task 3: Decomposed log_service.go (down to 246 LOC) by extracting parsing helpers into log_parser.go (152 LOC). All services tests and LOC checks passed.
+- 2026-10-31: Completed Task 4: Hardened security package test coverage to 96.3% (up from 76.9%), covering actor contexts, prefix/suffix filters, unexported struct fields, and pointers.
+- 2026-10-31: Completed Task 5: Hardened runner package test coverage to 86.6% (up from 74.2%), adding runner_failure_test.go covering review session persistence, rate limiting, and debug flag propagation.
+- 2026-10-31: Completed Task 6: Enforced schema uniformity with models.NewErrorResponse and server.writeJSONError, ensuring both status, msg, and error fields are populated across API error envelopes.
+- 2026-10-31: Completed Task 7: Passed full quality gate (all 6 checks: fmt, vet, loc 400, test, lint, leaks). All unit tests and headless Chrome E2E tests verified. Ready for PR and release.
+
+
 
 
 

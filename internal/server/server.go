@@ -186,38 +186,26 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hasValidAPIKey := s.validateAPIKey(r)
 	if isMutating && strings.HasPrefix(r.URL.Path, "/api/") {
 		if s.Config != nil && s.Config.DashboardAPIKey != "" && !hasValidAPIKey {
-			writeJSON(sw, http.StatusUnauthorized, models.ErrorResponse{
-				Status: "error",
-				Msg:    "Unauthorized: Invalid or missing API key.",
-			})
+			writeJSONError(sw, http.StatusUnauthorized, "Unauthorized: Invalid or missing API key.")
 			return
 		}
 
 		// CSRF & Security middleware (required for non-API-key requests)
 		if !hasValidAPIKey {
 			if r.Header.Get("X-Dashboard-Request") != "1" {
-				writeJSON(sw, http.StatusForbidden, models.ErrorResponse{
-					Status: "error",
-					Msg:    "Security policy violation: Missing required X-Dashboard-Request header.",
-				})
+				writeJSONError(sw, http.StatusForbidden, "Security policy violation: Missing required X-Dashboard-Request header.")
 				return
 			}
 
 			origin := r.Header.Get("Origin")
 			if origin != "" && !isAllowedOrigin(origin) {
-				writeJSON(sw, http.StatusForbidden, models.ErrorResponse{
-					Status: "error",
-					Msg:    fmt.Sprintf("Security policy violation: Untrusted request origin '%s'.", origin),
-				})
+				writeJSONError(sw, http.StatusForbidden, fmt.Sprintf("Security policy violation: Untrusted request origin '%s'.", origin))
 				return
 			}
 
 			referer := r.Header.Get("Referer")
 			if referer != "" && !isAllowedOrigin(referer) {
-				writeJSON(sw, http.StatusForbidden, models.ErrorResponse{
-					Status: "error",
-					Msg:    "Security policy violation: Untrusted request referer.",
-				})
+				writeJSONError(sw, http.StatusForbidden, "Security policy violation: Untrusted request referer.")
 				return
 			}
 		}
@@ -263,6 +251,10 @@ func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.WriteHeader(statusCode)
 	redacted := security.RedactSecrets(data)
 	_ = json.NewEncoder(w).Encode(redacted)
+}
+
+func writeJSONError(w http.ResponseWriter, statusCode int, msg string) {
+	writeJSON(w, statusCode, models.NewErrorResponse(msg))
 }
 
 func (s *Server) routes() {

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
-	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 func (s *Server) resolveProfileFilterID(query string) string {
@@ -86,10 +85,7 @@ func (s *Server) handleAuditRecords(w http.ResponseWriter, r *http.Request) {
 
 	records, total, err := s.AuditService.Query(filter)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, models.ErrorResponse{
-			Status: "error",
-			Error:  fmt.Sprintf("Failed to query audit records: %v", err),
-		})
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to query audit records: %v", err))
 		return
 	}
 
@@ -120,10 +116,7 @@ func (s *Server) handleAuditVerify(w http.ResponseWriter, r *http.Request) {
 
 	res, err := s.AuditService.Verify()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, models.ErrorResponse{
-			Status: "error",
-			Error:  fmt.Sprintf("Ledger verification check failed: %v", err),
-		})
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Ledger verification check failed: %v", err))
 		return
 	}
 
@@ -182,19 +175,13 @@ func (s *Server) handleAuditReset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.AuditService == nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"status": "error",
-			"error":  "Audit service is not available",
-		})
+		writeJSONError(w, http.StatusOK, "Audit service is not available")
 		return
 	}
 
 	backup, err := s.AuditService.Reset()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, models.ErrorResponse{
-			Status: "error",
-			Error:  fmt.Sprintf("Failed to reset audit ledger: %v", err),
-		})
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to reset audit ledger: %v", err))
 		return
 	}
 
