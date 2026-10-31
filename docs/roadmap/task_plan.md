@@ -25,7 +25,7 @@ Enforce defensive defaults (`max-delete: 0`, `lock_explorer_remote: true`), quie
   - **Scope**: `dashboard/frontend/partials/view_audit.html`, `internal/services/audit_service.go`, `internal/server/handlers_audit.go`, `internal/server/handlers_audit_test.go`, `dashboard/frontend/js/audit.js`, `internal/server/server.go`, `internal/app/container.go`, `internal/services/sync_service.go`
   - **Verification**: `go test -count=1 ./internal/audit/... ./internal/services/... ./internal/server/...` and `./scripts/check.sh loc 400`
 
-- [ ] Task 6: Pre-Flight Verification & Quality Gate
+- [x] Task 6: Pre-Flight Verification & Quality Gate
   - **Scope**: Entire repository
   - **Verification**: `./scripts/check.sh all`
 
@@ -37,5 +37,6 @@ Enforce defensive defaults (`max-delete: 0`, `lock_explorer_remote: true`), quie
 - 2026-10-31: Completed Task 3: Wired `fetchBisyncLogs(1)` into `initDashboard()` and `switchTab('telemetry')` in `dashboard/frontend/app.js` to enable 50-line bisync pagination on load and navigation, compacting helper delegates to maintain <400 LOC audit limit. Verified with `go test -count=1 ./internal/server/...` and `./scripts/check.sh loc 400`.
 - 2026-10-31: Completed Task 4: Replaced unauthenticated live `http://127.0.0.1:5572` references in `tests/e2e/dashboard_smoke_test.go`, `internal/services/review_service_test.go`, and `internal/remoteauth/service_test.go` with isolated `httptest.NewServer` mock instances. Verified with `go test -count=1 ./internal/services/... ./internal/remoteauth/... ./tests/e2e/...`.
 - 2026-10-31: Completed Task 5: Deduplicated profile options in `view_audit.html`, built `POST /api/audit/reset` endpoint with timestamped forensic backup rotation (`audit.db.bak.<timestamp>`), clean WAL/SHM teardown, fresh SQLite initialization with `GENESIS_CHECKPOINT` event, and wired confirmation modal in `audit.js` and `view_audit.html`. Verified with `go test -count=1 ./internal/audit/... ./internal/services/... ./internal/server/...` and `./scripts/check.sh loc 400`.
+- 2026-10-31: Completed Task 6: Successfully ran full pre-flight quality verification gate across the entire repository with all 6 stages passing cleanly (`./scripts/check.sh all`).
 
 
