@@ -11,10 +11,11 @@ import (
 
 // Config represents runtime settings for rclone-bisync.
 type Config struct {
-	BaseDir    string
-	LocalPath  string
-	RemotePath string
-	ProfileID  string
+	BaseDir     string
+	LocalPath   string
+	RemotePath  string
+	ProfileID   string
+	ProfileName string
 
 	LogFile               string
 	LockFile              string

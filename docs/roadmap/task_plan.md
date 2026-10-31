@@ -21,7 +21,7 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
   - **Scope**: `internal/core/notifier/notifier.go`, `icons/favicon.svg`, `internal/core/notifier/notifier_test.go`
   - **Verification**: `go test -count=1 ./internal/core/notifier/...`
 
-- [ ] Task 5: Implement Multi-Profile Attribution in Desktop Notifications
+- [x] Task 5: Implement Multi-Profile Attribution in Desktop Notifications
   - **Scope**: `internal/config/config.go`, `internal/app/container.go`, `internal/engine/runner/runner.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
   - **Verification**: `go test -count=1 ./internal/engine/runner/... && go test -count=1 ./internal/app/...`
 
@@ -36,6 +36,8 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
 - 2026-10-31: Completed Task 2: Created Master Specifications Registry in `docs/design/README.md` and added metadata headers with governing ADR cross-links across all design specifications.
 - 2026-10-31: Completed Task 3: Refreshed root `README.md` with modern user-centric narrative ("Review. Decide. Sync.") and removed `README_v2.md`.
 - 2026-10-31: Completed Task 4: Added prioritized `favicon.svg` candidate resolution in `internal/core/notifier/notifier.go` with unit test validation.
+- 2026-10-31: Completed Task 5: Added `ProfileName` propagation in `Config` and implemented `[<ProfileName>]` desktop notification title attribution across all runner notification dispatches.
+
 
 
 

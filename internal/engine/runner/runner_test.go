@@ -389,3 +389,30 @@ func TestSyncRunner_AuditExecuted_And_Aborted(t *testing.T) {
 		t.Fatalf("expected valid ledger chain with 2 blocks, got valid=%v, count=%d, err=%v", valid, count, err)
 	}
 }
+
+func TestSyncRunner_NotificationTitle(t *testing.T) {
+	// Scenario 1: Default/empty profile configuration
+	r1 := &SyncRunner{Config: &config.Config{}}
+	if got := r1.notificationTitle("Sync Successful"); got != "Sync Successful" {
+		t.Fatalf("expected 'Sync Successful', got '%s'", got)
+	}
+
+	// Scenario 2: ProfileID only
+	r2 := &SyncRunner{Config: &config.Config{ProfileID: "documents"}}
+	if got := r2.notificationTitle("Sync Successful"); got != "[documents] Sync Successful" {
+		t.Fatalf("expected '[documents] Sync Successful', got '%s'", got)
+	}
+
+	// Scenario 3: ProfileName takes precedence over ProfileID
+	r3 := &SyncRunner{Config: &config.Config{ProfileID: "prof-123", ProfileName: "Work Docs"}}
+	if got := r3.notificationTitle("Sync Aborted"); got != "[Work Docs] Sync Aborted" {
+		t.Fatalf("expected '[Work Docs] Sync Aborted', got '%s'", got)
+	}
+
+	// Scenario 4: "default" profile name/ID should not be prefixed
+	r4 := &SyncRunner{Config: &config.Config{ProfileID: "default", ProfileName: "default"}}
+	if got := r4.notificationTitle("Sync Failure"); got != "Sync Failure" {
+		t.Fatalf("expected 'Sync Failure', got '%s'", got)
+	}
+}
+

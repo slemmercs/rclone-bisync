@@ -63,7 +63,7 @@ func (r *SyncRunner) handleSyncSuccess(
 	}
 
 	if !noNotify {
-		_ = r.Notifier.SendDesktop("Rclone Bisync Successful", fmt.Sprintf("Synced %d files in %.1fs", monitorRes.FilesSynced, duration), "normal")
+		_ = r.Notifier.SendDesktop(r.notificationTitle("Rclone Bisync Successful"), fmt.Sprintf("Synced %d files in %.1fs", monitorRes.FilesSynced, duration), "normal")
 	}
 
 	// Option 2: Emit SYNC_EXECUTED only when actual state mutations occurred (FilesSynced > 0).
@@ -206,7 +206,7 @@ func (r *SyncRunner) handleSyncFailure(
 		if errType == "CHECK_ACCESS_FAILED" || errType == "TOO_MANY_DELETES" || errType == "PERMISSION" {
 			urgency = "critical"
 		}
-		_ = r.Notifier.SendDesktop(fmt.Sprintf("Sync Failure - %s", errType), monitorRes.ErrorMessage, urgency)
+		_ = r.Notifier.SendDesktop(r.notificationTitle(fmt.Sprintf("Sync Failure - %s", errType)), monitorRes.ErrorMessage, urgency)
 		notificationState.LastErrorType = errType
 		notificationState.LastErrorTimestamp = float64(time.Now().Unix())
 		_ = state.WriteNotificationState(r.Config.NotificationStateFile, notificationState)
