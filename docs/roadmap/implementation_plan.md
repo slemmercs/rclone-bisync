@@ -1,37 +1,46 @@
-# Implementation Plan: Architecture Decision Records Review & Registration
+# Implementation Plan: Design Specs Consolidation, README Modernization, and Notification Polish
 
 ## Proposed Changes
 
-Review all features implemented across releases `v1.0.0-beta.1` through `v1.0.0-beta.12`, reconcile architectural decisions with existing records, update `ADR-004` to reflect execution log decoupling, and author comprehensive missing ADRs (`ADR-006` through `ADR-010`) adhering strictly to the `ADR-000-Template.md` standard.
+Streamline documentation by restructuring `docs/design/`, cross-referencing all design specifications with controlling Architecture Decision Records (ADR-001 through ADR-010), consolidating UI design system micro-specs, refreshing root `README.md` with the user-centric narrative from `README_v2.md`, and enhancing desktop notifications to display the high-contrast `favicon.svg` and prefix multi-profile scheduled runs with `[<ProfileName>]`.
 
-### Affected Components & Documentation
+### Affected Components & Packages
 
-- `docs/architecture/adr/ADR-004-Immutable-Audit-Ledger.md`:
-  - Update with Decoupled Log Streaming & Bounded Schema section.
-  - Document correlation pattern using `run_id` (`dedupe-<timestamp>` / `sync-<timestamp>`) linking structured SQLite ledger records to rotating append-only log streams (`bisync.log`).
-- `docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md`:
-  - Document Canary token verification (`RCLONE_TEST`), automated deletion thresholds (`MaxDeletePercentage`, `MaxDeleteCount`), local filesystem jail (`filepath.Rel` path confinement), and advisory POSIX process file locking (`syscall.Flock`).
-- `docs/architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md`:
-  - Document the deterministic 3-tier precedence hierarchy (Global Defaults -> Profile Overrides -> Interactive Runtime Flags), security validation / flag allowlisting, and cloud provider presets (`gdrive`, `onedrive`, `dropbox`, `s3`).
-- `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`:
-  - Document Write-Ahead Log (WAL) session engine (`review_execution.go`, WAL state store), staged resolution actions, pre-mutation backup snapshots, crash-resilient replay/resume, and atomic commit/rollback.
-- `docs/architecture/adr/ADR-009-Remote-Deduplication-With-Provider-Safeguards.md`:
-  - Document remote MD5 hash deduplication architecture, provider-specific safeguards (OneDrive unique item name per folder, auto-injecting `--exclude "Personal Vault/**"`, auto-defaulting to `--by-hash`), process isolation locks, and automated baseline listing cache rebuilds to prevent `TOO_MANY_DELETES` trips.
-- `docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`:
-  - Document zero-build CSS variable design token architecture (`design-tokens.css`), slide-over entity inspector drawer pattern, adaptive tab-aware polling coordinator (`polling.js`) with 10ms first-load acceleration, and client-side inline log folding.
-- `docs/architecture/adr/README.md`:
-  - Update Registry of Decisions table to catalog ADR-000 through ADR-010 with accurate dates, domains, and statuses.
+- `docs/design/`:
+  - `bisync-hub-design-system-specification.md`: Consolidate `components.md`, `layouts.md`, `patterns.md`, and `status-language.md`.
+  - Remove redundant micro-spec files: `components.md`, `layouts.md`, `patterns.md`, `status-language.md`.
+  - Add ADR metadata headers and status badges to design specifications.
+  - `docs/design/README.md`: Create master specification registry cross-linking specifications to controlling ADRs and system domains.
+- Root Documentation:
+  - `README.md`: Overwrite with user-focused product narrative ("Review. Decide. Sync."), safety pillars, and quickstart commands based on `README_v2.md`.
+  - `README_v2.md`: Remove temporary proposal file.
+- Desktop Notifications:
+  - `icons/favicon.svg`: Copy/symlink the brand favicon badge into `icons/` for desktop integration.
+  - `internal/core/notifier/notifier.go`: Update `resolveIcon()` candidates to prioritize `favicon.svg`.
+  - `internal/config/config.go`: Add `ProfileName` string field to `Config`.
+  - `internal/app/container.go`: Propagate `p.Name` to `profCfg.ProfileName`.
+  - `internal/engine/runner/runner.go` & `internal/engine/runner/runner_handlers.go`: Add `notificationTitle(base string) string` helper to prefix notification titles with `[<ProfileName>]`.
+  - Unit tests in `internal/core/notifier/` and `internal/engine/runner/`.
 
 ### Technical Strategy & Data Flow
 
-- Adhere strictly to the standard template established in `docs/architecture/adr/ADR-000-Template.md` (Context, Decision, Rationale, Consequences [Positive/Negative], Related Principles, Related ADRs, Metadata).
-- Reference corresponding core principles: `PRODUCT_PRINCIPLES.md`, `ENGINEERING_PRINCIPLES.md`, `SECURITY_PRINCIPLES.md`, and `ARCHITECTURE_PRINCIPLES.md`.
-- Maintain consistent sequential numbering (`ADR-006` through `ADR-010`).
+- **Design Registry**: Map each specification to its controlling ADR (ADR-001 through ADR-010) to clearly delineate architectural rationale (ADRs) from UX/flow/schema details (Design Specs).
+- **Notification Resolution**: `resolveIcon()` checks `icons/favicon.svg` and `dashboard/frontend/favicon.svg` before falling back to system generic icons.
+- **Profile Attribution**: `SyncRunner` extracts `r.Config.ProfileName` (or falls back to `ProfileID`) and formats desktop notification titles as `[<ProfileName>] <Action Title>` so parallel background runs across multiple profiles can be immediately distinguished.
+
+### Safety & Error Handling
+
+- Notification title formatting gracefully handles empty profile names and `"default"` without emitting redundant brackets.
+- Missing icon files safely fall back to the system icon name `sync-synchronizing`.
+- Zero impact on sync execution logic or advisory locking.
 
 ## Verification Plan
 
-- Validate all markdown cross-links, formatting, and file references.
-- Run `./scripts/check.sh all` to guarantee zero regressions or lint errors.
+- `go test -count=1 ./internal/core/notifier/...`
+- `go test -count=1 ./internal/engine/runner/...`
+- `go test -count=1 ./internal/app/...`
+- `./scripts/check.sh all`
+
 
 - Count badges: dynamically calculate `daemonLogs.filter(e => e.level === 'error').length`, etc.
 
