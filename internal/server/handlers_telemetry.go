@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
@@ -46,7 +47,7 @@ func (s *Server) handleRawDaemonLog(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDaemonLogs(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	runID := q.Get("run_id")
+	runID := strings.TrimSpace(q.Get("run_id"))
 	jobIDStr := q.Get("job_id")
 	jobID := 0
 	if jobIDStr != "" {
@@ -88,6 +89,51 @@ func (s *Server) handleDaemonLogs(w http.ResponseWriter, r *http.Request) {
 			}
 			limit = parsed
 		}
+	}
+
+	// 1. Deduplication runs: query bisync.log directly for run_id
+	if runID != "" && strings.HasPrefix(runID, "dedupe-") {
+		if s.LogService != nil {
+			logs, err := s.LogService.FilterLogsByRunID(s.Config.LogFile, runID, limit)
+			if err != nil {
+				writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
+					RunID: runID,
+					JobID: jobID,
+					Error: err.Error(),
+				})
+				return
+			}
+			writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
+				RunID:      runID,
+				JobID:      jobID,
+				Count:      len(logs),
+				Logs:       logs,
+				Correlated: true,
+			})
+			return
+		}
+	}
+
+	// 2. Correlated sync run without explicit timestamps: resolve window from bisync.log
+	if runID != "" && startTime.IsZero() && s.LogService != nil {
+		if st, et, found := s.LogService.GetRunTimeWindow(s.Config.LogFile, runID); found {
+			startTime = st
+			endTime = et
+		}
+	}
+
+	// 3. If a specific run_id was requested but no time window could be resolved:
+	// do NOT fall back to unfiltered tail of all previous daemon runs.
+	if runID != "" && startTime.IsZero() && s.LogService != nil {
+		directLogs, _ := s.LogService.FilterLogsByRunID(s.Config.LogFile, runID, limit)
+		writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
+			RunID:      runID,
+			JobID:      jobID,
+			Count:      len(directLogs),
+			Logs:       directLogs,
+			Correlated: true,
+		})
+		return
 	}
 
 	daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")

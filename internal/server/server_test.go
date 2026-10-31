@@ -315,6 +315,46 @@ func TestLogDownloadEndpoints(t *testing.T) {
 	if !corrResp.Correlated || corrResp.RunID != "sync_123" || corrResp.JobID != 99 || corrResp.Count != 2 {
 		t.Fatalf("unexpected correlated response: %+v", corrResp)
 	}
+
+	// 5. GET /api/logs/daemon with run_id=dedupe-... (correlated dedupe log from bisync.log)
+	bisyncLog = filepath.Join(tmpDir, "bisync.log")
+	dedupeRunID := "dedupe-987654321"
+	dedupeLines := []string{
+		fmt.Sprintf(`{"time":"%s","level":"info","type":"dedupe","msg":"[gdrive] Deduplication started","run_id":"%s","origin":"dedupe"}`, now.Format(time.RFC3339), dedupeRunID),
+		fmt.Sprintf(`{"time":"%s","level":"notice","type":"dedupe","msg":"[gdrive] file.txt: 1 removed","run_id":"%s","origin":"dedupe"}`, now.Add(1*time.Second).Format(time.RFC3339), dedupeRunID),
+	}
+	_ = os.WriteFile(bisyncLog, []byte(strings.Join(dedupeLines, "\n")+"\n"), 0644)
+	cfg.LogFile = bisyncLog
+
+	req, _ = http.NewRequest("GET", "/api/logs/daemon?run_id="+dedupeRunID, nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for dedupe correlated logs, got: %d", rec.Code)
+	}
+	var dedupeResp models.DaemonLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &dedupeResp); err != nil {
+		t.Fatalf("failed to decode dedupe logs response: %v", err)
+	}
+	if !dedupeResp.Correlated || dedupeResp.RunID != dedupeRunID || dedupeResp.Count != 2 {
+		t.Fatalf("unexpected dedupe logs response: %+v", dedupeResp)
+	}
+
+	// 6. GET /api/logs/daemon with unknown run_id without window returns 0 lines (not unfiltered tail)
+	req, _ = http.NewRequest("GET", "/api/logs/daemon?run_id=sync_unknown_nonexistent", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got: %d", rec.Code)
+	}
+	var unkResp models.DaemonLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &unkResp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if unkResp.Count != 0 {
+		t.Fatalf("expected 0 lines for unknown run_id, got %d", unkResp.Count)
+	}
+
 }
 
 func TestServerAdditionalBranches(t *testing.T) {
