@@ -505,4 +505,3 @@ func TestSyncRunner_ActionLabeling(t *testing.T) {
 		t.Fatalf("expected sync message, got: %s", string(data))
 	}
 }
-
