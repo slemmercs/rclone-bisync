@@ -9,7 +9,7 @@ Isolate correlated logs by `run_id` so that viewing deduplication logs (or speci
   - **Scope**: `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [ ] Task 2: Implement `FilterLogsByRunID` in `LogService`
+- [x] Task 2: Implement `FilterLogsByRunID` in `LogService`
   - **Scope**: `internal/services/log_service.go`, `internal/services/log_service_test.go`
   - **Verification**: `go test -count=1 ./internal/services/...`
 
@@ -29,3 +29,4 @@ Isolate correlated logs by `run_id` so that viewing deduplication logs (or speci
 
 - 2026-10-31: Initialized plan from implementation_plan.md for Deduplication Correlated Log Isolation.
 - 2026-10-31: Completed Task 1: Enabled guaranteed structured deduplication log stream recording in `handlers_auth.go` across all execution modes (including `list` preview mode) and added unit tests in `handlers_audit_test.go`.
+- 2026-10-31: Completed Task 2: Implemented `FilterLogsByRunID` and `GetRunTimeWindow` in `LogService` with secret masking and unit test coverage in `log_service_runid_test.go`.
