@@ -250,46 +250,64 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 
 	runID := fmt.Sprintf("dedupe-%d", time.Now().Unix())
 
+	profileID := remoteClean
+	if s.ProfileService != nil {
+		for _, p := range s.ProfileService.List(true) {
+			if strings.EqualFold(p.Remote, remoteClean) || strings.EqualFold(p.Remote, remoteClean+":") {
+				profileID = p.ID
+				break
+			}
+		}
+	}
+
+	lines := strings.Split(out, "\n")
+	var collisionsCount, deletedCount int
+	var recordedLines int
+
+	for _, line := range lines {
+		l := strings.TrimSpace(line)
+		if l == "" {
+			continue
+		}
+		if strings.Contains(strings.ToLower(l), "duplicate") {
+			collisionsCount++
+		}
+		if strings.Contains(strings.ToLower(l), "deleted") {
+			deletedCount++
+		}
+		if s.AuditService != nil && s.AuditService.Logger != nil {
+			lvl := "notice"
+			if strings.Contains(strings.ToLower(l), "error") || strings.Contains(strings.ToLower(l), "failed") {
+				lvl = "error"
+			}
+			_ = s.AuditService.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:   time.Now().Format(time.RFC3339),
+				Level:  lvl,
+				Type:   "dedupe",
+				Msg:    fmt.Sprintf("[%s] %s", profileID, l),
+				RunID:  runID,
+				Origin: "dedupe",
+			})
+			recordedLines++
+		}
+	}
+
+	if recordedLines == 0 && s.AuditService != nil && s.AuditService.Logger != nil {
+		summary := fmt.Sprintf("[%s] Deduplication (%s) complete: No duplicate collisions found.", profileID, mode)
+		if strings.TrimSpace(out) != "" {
+			summary = fmt.Sprintf("[%s] %s", profileID, strings.TrimSpace(out))
+		}
+		_ = s.AuditService.Logger.RecordSyncRun(models.BisyncLogEntry{
+			Time:   time.Now().Format(time.RFC3339),
+			Level:  "notice",
+			Type:   "dedupe",
+			Msg:    summary,
+			RunID:  runID,
+			Origin: "dedupe",
+		})
+	}
+
 	if s.AuditService != nil && mode != "list" {
-		profileID := remoteClean
-		if s.ProfileService != nil {
-			for _, p := range s.ProfileService.List(true) {
-				if strings.EqualFold(p.Remote, remoteClean) || strings.EqualFold(p.Remote, remoteClean+":") {
-					profileID = p.ID
-					break
-				}
-			}
-		}
-
-		lines := strings.Split(out, "\n")
-		var collisionsCount, deletedCount int
-		for _, line := range lines {
-			l := strings.TrimSpace(line)
-			if l == "" {
-				continue
-			}
-			if strings.Contains(strings.ToLower(l), "duplicate") {
-				collisionsCount++
-			}
-			if strings.Contains(strings.ToLower(l), "deleted") {
-				deletedCount++
-			}
-			if s.AuditService.Logger != nil {
-				lvl := "notice"
-				if strings.Contains(strings.ToLower(l), "error") || strings.Contains(strings.ToLower(l), "failed") {
-					lvl = "error"
-				}
-				_ = s.AuditService.Logger.RecordSyncRun(models.BisyncLogEntry{
-					Time:   time.Now().Format(time.RFC3339),
-					Level:  lvl,
-					Type:   "dedupe",
-					Msg:    fmt.Sprintf("[%s] %s", profileID, l),
-					RunID:  runID,
-					Origin: "dedupe",
-				})
-			}
-		}
-
 		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, "USER", map[string]any{
 			"run_id":     runID,
 			"remote":     remoteClean,
