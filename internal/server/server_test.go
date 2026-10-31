@@ -1494,17 +1494,23 @@ func TestHTTPAccessLogLevel(t *testing.T) {
 	cfg := &config.Config{BaseDir: t.TempDir()}
 	srv := NewServer(cfg, nil, embed.FS{})
 
-	// 1. Routine polling endpoint -> Debug level
+	// 1. Routine read-only endpoint -> Debug level
 	req := httptest.NewRequest("GET", "/api/telemetry", nil)
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 
-	// 2. Standard non-polling endpoint -> Info level
+	// 2. Read-only API query -> Debug level
 	req2 := httptest.NewRequest("GET", "/api/config", nil)
 	rec2 := httptest.NewRecorder()
 	srv.ServeHTTP(rec2, req2)
 
-	var telemetryRecord, configRecord *slog.Record
+	// 3. Mutating request -> Info level
+	req3 := httptest.NewRequest("POST", "/api/review/dismiss", strings.NewReader(`{}`))
+	req3.Header.Set("X-Dashboard-Request", "1")
+	rec3 := httptest.NewRecorder()
+	srv.ServeHTTP(rec3, req3)
+
+	var telemetryRecord, configRecord, mutateRecord *slog.Record
 	for i := range capturer.records {
 		r := &capturer.records[i]
 		if r.Message == "http_access" {
@@ -1515,6 +1521,9 @@ func TestHTTPAccessLogLevel(t *testing.T) {
 				if a.Key == "path" && a.Value.String() == "/api/config" {
 					configRecord = r
 				}
+				if a.Key == "path" && a.Value.String() == "/api/review/dismiss" {
+					mutateRecord = r
+				}
 				return true
 			})
 		}
@@ -1523,7 +1532,10 @@ func TestHTTPAccessLogLevel(t *testing.T) {
 	if telemetryRecord == nil || telemetryRecord.Level != slog.LevelDebug {
 		t.Fatalf("expected /api/telemetry to be logged at Debug, got %+v", telemetryRecord)
 	}
-	if configRecord == nil || configRecord.Level != slog.LevelInfo {
-		t.Fatalf("expected /api/config to be logged at Info, got %+v", configRecord)
+	if configRecord == nil || configRecord.Level != slog.LevelDebug {
+		t.Fatalf("expected /api/config to be logged at Debug, got %+v", configRecord)
+	}
+	if mutateRecord == nil || mutateRecord.Level != slog.LevelInfo {
+		t.Fatalf("expected /api/review/dismiss to be logged at Info, got %+v", mutateRecord)
 	}
 }

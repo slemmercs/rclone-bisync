@@ -85,9 +85,10 @@ window.LogsModule = {
     },
 
     get filteredBisyncLogs() {
-        const logs = this.parsedBisyncLogs;
+        let logs = this.parsedBisyncLogs;
+        logs = logs.filter(l => !l.is_read_only_access);
         if (this.telemetryLogFilter === "sync") {
-            return logs.filter(l => l.type !== "audit");
+            return logs.filter(l => l.type !== "audit" && l.type !== "http_access");
         }
         if (this.telemetryLogFilter === "audit") {
             return logs.filter(l => l.type === "audit");
