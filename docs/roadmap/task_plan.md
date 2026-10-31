@@ -17,7 +17,7 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
   - **Scope**: `internal/services/log_service.go`, `internal/services/log_parser.go`
   - **Verification**: `./scripts/check.sh loc 400` and `go test -count=1 ./internal/services/...`
 
-- [ ] Task 4: Security & Redaction Test Coverage Hardening (>80%)
+- [x] Task 4: Security & Redaction Test Coverage Hardening (>80%)
   - **Scope**: `internal/core/security/redact_test.go`
   - **Verification**: `go test -cover ./internal/core/security/...` (verify >80%)
 
@@ -39,6 +39,8 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
 - 2026-10-31: Completed Task 1: Cleaned up root workspace binary artifacts (bisync-hub, bisync-hub-new), eliminating index bloat and search scanner interference.
 - 2026-10-31: Completed Task 2: Modularized profiles.js (down to 154 LOC with profiles_modal.js at 256 LOC) and review.js (down to 196 LOC with review_actions.js at 205 LOC). Headless Chrome E2E test and LOC checks passed.
 - 2026-10-31: Completed Task 3: Decomposed log_service.go (down to 246 LOC) by extracting parsing helpers into log_parser.go (152 LOC). All services tests and LOC checks passed.
+- 2026-10-31: Completed Task 4: Hardened security package test coverage to 96.3% (up from 76.9%), covering actor contexts, prefix/suffix filters, unexported struct fields, and pointers.
+
 
 
 
