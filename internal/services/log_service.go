@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 )
 
 // LogService provides high-performance log parsing, filtering, and cross-correlation.
@@ -21,6 +23,25 @@ func NewLogService() *LogService {
 
 type timeExtractor struct {
 	Time string `json:"time"`
+}
+
+type runIDMatch struct {
+	RunID     string `json:"run_id"`
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
+	Time      string `json:"time"`
+	Details   struct {
+		RunID     string `json:"run_id"`
+		StartTime string `json:"start_time"`
+		EndTime   string `json:"end_time"`
+	} `json:"details"`
+}
+
+func appendWithLimit(list *[]string, item string, limit int) {
+	*list = append(*list, item)
+	if len(*list) > limit {
+		*list = (*list)[1:]
+	}
 }
 
 const maxDaemonLogLineBytes = 32 * 1024 * 1024 // 32MB safety ceiling
@@ -83,6 +104,119 @@ func (s *LogService) FilterDaemonLogs(logPath string, startTime, endTime time.Ti
 	return matchedLines, nil
 }
 
+// FilterLogsByRunID reads the given log file (e.g. bisync.log) and returns all lines matching the given runID.
+// Returned lines are in chronological order with credentials masked.
+func (s *LogService) FilterLogsByRunID(logPath string, runID string, limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	if limit > 2000 {
+		limit = 2000
+	}
+	cleanRunID := strings.TrimSpace(runID)
+	if cleanRunID == "" {
+		return []string{}, nil
+	}
+
+	// #nosec G304 - reading configured log file
+	file, err := os.Open(filepath.Clean(logPath))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("failed to open log %q: %w", logPath, err)
+	}
+	defer file.Close()
+
+	reader := bufio.NewReaderSize(file, 64*1024)
+	var matchedLines []string
+
+	for {
+		lineBytes, err := reader.ReadBytes('\n')
+		if len(lineBytes) > maxDaemonLogLineBytes {
+			return matchedLines, fmt.Errorf("line in %q exceeds maximum limit of 32MB", logPath)
+		}
+		if len(lineBytes) > 0 {
+			line := strings.TrimSpace(string(lineBytes))
+			if line != "" && strings.Contains(line, cleanRunID) {
+				var rie runIDMatch
+				if jsonErr := json.Unmarshal([]byte(line), &rie); jsonErr == nil {
+					if rie.RunID == cleanRunID || rie.Details.RunID == cleanRunID {
+						appendWithLimit(&matchedLines, logger.MaskLine(line), limit)
+					}
+				}
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return matchedLines, fmt.Errorf("error reading log %q: %w", logPath, err)
+		}
+	}
+
+	return matchedLines, nil
+}
+
+// GetRunTimeWindow scans logPath for an entry matching runID that contains start_time and/or end_time.
+func (s *LogService) GetRunTimeWindow(logPath string, runID string) (time.Time, time.Time, bool) {
+	cleanRunID := strings.TrimSpace(runID)
+	if cleanRunID == "" {
+		return time.Time{}, time.Time{}, false
+	}
+
+	// #nosec G304 - reading configured log file
+	file, err := os.Open(filepath.Clean(logPath))
+	if err != nil {
+		return time.Time{}, time.Time{}, false
+	}
+	defer file.Close()
+
+	reader := bufio.NewReaderSize(file, 64*1024)
+	var startTime, endTime time.Time
+	var found bool
+
+	for {
+		lineBytes, err := reader.ReadBytes('\n')
+		if len(lineBytes) > 0 {
+			line := strings.TrimSpace(string(lineBytes))
+			if line != "" && strings.Contains(line, cleanRunID) {
+				var entry runIDMatch
+				if jsonErr := json.Unmarshal([]byte(line), &entry); jsonErr == nil {
+					if entry.RunID == cleanRunID || entry.Details.RunID == cleanRunID {
+						found = true
+						startStr := entry.StartTime
+						if startStr == "" {
+							startStr = entry.Details.StartTime
+						}
+						endStr := entry.EndTime
+						if endStr == "" {
+							endStr = entry.Details.EndTime
+						}
+
+						if t, ok := parseFlexibleTime(startStr); ok {
+							startTime = t
+						}
+						if t, ok := parseFlexibleTime(endStr); ok {
+							endTime = t
+						}
+						if startTime.IsZero() {
+							if t, ok := parseFlexibleTime(entry.Time); ok {
+								startTime = t
+							}
+						}
+					}
+				}
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	return startTime, endTime, found
+}
+
 func (s *LogService) filterLine(line string, useWindow bool, windowStart, windowEnd time.Time, limit int, matchedLines *[]string) {
 	wrapTime, wrapOk := parseLogTime(line)
 	// Optimization: if this is a wrapper line with a timestamp before windowStart,
@@ -96,10 +230,7 @@ func (s *LogService) filterLine(line string, useWindow bool, windowStart, window
 	if isWrapper && len(subEntries) > 0 {
 		for _, subEntry := range subEntries {
 			if !useWindow {
-				*matchedLines = append(*matchedLines, subEntry)
-				if len(*matchedLines) > limit {
-					*matchedLines = (*matchedLines)[1:]
-				}
+				appendWithLimit(matchedLines, subEntry, limit)
 				continue
 			}
 
@@ -108,30 +239,21 @@ func (s *LogService) filterLine(line string, useWindow bool, windowStart, window
 				// Fall back to outer wrapper line timestamp if subEntry has no time
 				if wrapOk && (wrapTime.Equal(windowStart) || wrapTime.After(windowStart)) &&
 					(wrapTime.Equal(windowEnd) || wrapTime.Before(windowEnd)) {
-					*matchedLines = append(*matchedLines, subEntry)
-					if len(*matchedLines) > limit {
-						*matchedLines = (*matchedLines)[1:]
-					}
+					appendWithLimit(matchedLines, subEntry, limit)
 				}
 				continue
 			}
 
 			if (subTime.Equal(windowStart) || subTime.After(windowStart)) &&
 				(subTime.Equal(windowEnd) || subTime.Before(windowEnd)) {
-				*matchedLines = append(*matchedLines, subEntry)
-				if len(*matchedLines) > limit {
-					*matchedLines = (*matchedLines)[1:]
-				}
+				appendWithLimit(matchedLines, subEntry, limit)
 			}
 		}
 		return
 	}
 
 	if !useWindow {
-		*matchedLines = append(*matchedLines, line)
-		if len(*matchedLines) > limit {
-			*matchedLines = (*matchedLines)[1:]
-		}
+		appendWithLimit(matchedLines, line, limit)
 		return
 	}
 
@@ -141,10 +263,7 @@ func (s *LogService) filterLine(line string, useWindow bool, windowStart, window
 
 	if (wrapTime.Equal(windowStart) || wrapTime.After(windowStart)) &&
 		(wrapTime.Equal(windowEnd) || wrapTime.Before(windowEnd)) {
-		*matchedLines = append(*matchedLines, line)
-		if len(*matchedLines) > limit {
-			*matchedLines = (*matchedLines)[1:]
-		}
+		appendWithLimit(matchedLines, line, limit)
 	}
 }
 
@@ -226,23 +345,30 @@ func extractTimeFast(line string) string {
 	return prefix[start : start+end]
 }
 
+func parseFlexibleTime(s string) (time.Time, bool) {
+	if s == "" {
+		return time.Time{}, false
+	}
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return t, true
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, true
+	}
+	return time.Time{}, false
+}
+
 // parseLogTime attempts to extract and parse the timestamp from a JSON or legacy log line.
 func parseLogTime(line string) (time.Time, bool) {
 	if strings.HasPrefix(line, "{") {
 		if fastTime := extractTimeFast(line); fastTime != "" {
-			if t, err := time.Parse(time.RFC3339Nano, fastTime); err == nil {
-				return t, true
-			}
-			if t, err := time.Parse(time.RFC3339, fastTime); err == nil {
+			if t, ok := parseFlexibleTime(fastTime); ok {
 				return t, true
 			}
 		}
 		var te timeExtractor
-		if err := json.Unmarshal([]byte(line), &te); err == nil && te.Time != "" {
-			if t, err := time.Parse(time.RFC3339Nano, te.Time); err == nil {
-				return t, true
-			}
-			if t, err := time.Parse(time.RFC3339, te.Time); err == nil {
+		if err := json.Unmarshal([]byte(line), &te); err == nil {
+			if t, ok := parseFlexibleTime(te.Time); ok {
 				return t, true
 			}
 		}

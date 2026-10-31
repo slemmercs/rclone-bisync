@@ -277,3 +277,40 @@ func TestHandleRemoteDedupe_AuditLogging(t *testing.T) {
 		t.Errorf("expected response RunID to start with dedupe-, got %s", resp.RunID)
 	}
 }
+
+func TestRemoteDedupe_ListModeLogs(t *testing.T) {
+	srv, auditSvc := setupTestServerWithAudit(t)
+	defer auditSvc.Close()
+
+	payload, _ := json.Marshal(map[string]any{
+		"remote":  "gdrive",
+		"path":    "documents",
+		"mode":    "list",
+		"by_hash": true,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/remotes/dedupe", strings.NewReader(string(payload)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got: %d", w.Code)
+	}
+
+	var resp models.DedupeResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if !strings.HasPrefix(resp.RunID, "dedupe-") {
+		t.Errorf("expected response RunID to start with dedupe-, got %s", resp.RunID)
+	}
+
+	// Verify no ActionDedupeExecuted audit record for list preview mode
+	records, total, err := auditSvc.Query(audit.Filter{Action: audit.ActionDedupeExecuted})
+	if err != nil {
+		t.Fatalf("failed to query audit records: %v", err)
+	}
+	if total != 0 || len(records) != 0 {
+		t.Fatalf("expected 0 DEDUPE_EXECUTED records for list mode, got %d", total)
+	}
+}
