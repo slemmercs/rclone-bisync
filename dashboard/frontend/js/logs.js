@@ -34,7 +34,8 @@ function clusterLogEntries(entries, foldEnabled, expandedMap) {
     for (let i = 0; i < entries.length; i++) {
         const item = entries[i];
         const norm = normalizeLogMessage(item.msg || "");
-        const key = (item.level || "") + "::" + (item.type || "") + "::" + norm;
+        const prof = item.profile_id || item.profile_name || "";
+        const key = (item.level || "") + "::" + (item.type || "") + "::" + prof + "::" + norm;
 
         if (currentCluster && currentCluster.key === key && norm.length > 5) {
             currentCluster.count++;
@@ -71,6 +72,7 @@ window.LogsModule = {
     bisyncPaginatedLogs: [],
     bisyncLogLoading: false,
     foldRepetitive: true,
+    telemetryProfileFilter: "all",
     expandedClusters: {},
 
     get parsedBisyncLogs() {
@@ -87,6 +89,23 @@ window.LogsModule = {
     get filteredBisyncLogs() {
         let logs = this.parsedBisyncLogs;
         logs = logs.filter(l => !l.is_read_only_access);
+        if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") {
+            const selected = (this.telemetryProfileFilter || "").toLowerCase().trim();
+            const profObj = (this.profilesData?.list || []).find(p => (p.id || "").toLowerCase() === selected || (p.name || "").toLowerCase() === selected);
+            const targetId = (profObj?.id || selected).toLowerCase();
+            const targetName = (profObj?.name || "").toLowerCase();
+
+            logs = logs.filter(l => {
+                const pid = (l.profile_id || "").toLowerCase().trim();
+                const pname = (l.profile_name || "").toLowerCase().trim();
+                const msg = (l.msg || "").toLowerCase();
+                if (pid && (pid === targetId || pid === targetName)) return true;
+                if (pname && (pname === targetId || pname === targetName)) return true;
+                if (targetName && msg.includes(`[${targetName}]`)) return true;
+                if (targetId && msg.includes(`[${targetId}]`)) return true;
+                return false;
+            });
+        }
         if (this.telemetryLogFilter === "sync") {
             return logs.filter(l => l.type !== "audit" && l.type !== "http_access");
         }
@@ -141,8 +160,8 @@ window.LogsModule = {
         return { total: logs.length, errors, warnings, info };
     },
 
-    async fetchBisyncLogs(page = 1) {
-        this.bisyncLogLoading = true;
+    async fetchBisyncLogs(page = 1, silent = false) {
+        if (!silent) this.bisyncLogLoading = true;
         try {
             const data = await window.API.get(`/api/logs/bisync?page=${page}&limit=${this.bisyncLogLimit}`);
             this.bisyncPaginatedLogs = (data.logs || []).map(parseJsonLogLine).filter(Boolean);
@@ -152,7 +171,7 @@ window.LogsModule = {
         } catch (err) {
             console.error("Failed to fetch paginated bisync logs:", err);
         } finally {
-            this.bisyncLogLoading = false;
+            if (!silent) this.bisyncLogLoading = false;
         }
     },
 

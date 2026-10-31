@@ -123,6 +123,13 @@ window.PollingModule = {
                 this.fetchProfiles();
             }
 
+            // Real-time bisync log update: refresh page 1 silently upon sync completion or during active polling
+            if (typeof this.fetchBisyncLogs === "function") {
+                if (syncJustFinished || (this.bisyncLogPage === 1 && (!this.currentTab || this.currentTab === "telemetry"))) {
+                    this.fetchBisyncLogs(1, true);
+                }
+            }
+
             this.wasSyncing = isSyncing;
         } catch (err) {
             console.error("Telemetry poll failed:", err);

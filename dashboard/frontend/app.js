@@ -348,6 +348,7 @@ document.addEventListener("alpine:init", () => {
                     this.showToast(data.msg || `Action "${actionStr}" completed successfully.`, "success");
                 }
                 await this.poll();
+                if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1, true);
             } catch (err) {
                 this.showToast("Action failed: " + err.message, "error");
             } finally {

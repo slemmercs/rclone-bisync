@@ -76,6 +76,15 @@ function parseJsonLogLine(rawLine) {
             }
         }
 
+        let profileId = parsed.profile_id || null;
+        let profileName = parsed.profile_name || null;
+        if (!profileId && cleanMsg.startsWith("[")) {
+            const profMatch = cleanMsg.match(/^\[([^\]]+)\]/);
+            if (profMatch && !["INFO", "WARN", "ERROR", "DEBUG", "NOTICE"].includes(profMatch[1].toUpperCase())) {
+                profileName = profMatch[1];
+            }
+        }
+
         return {
             time: timeStr,
             level: level.toUpperCase().padEnd(7),
@@ -85,7 +94,8 @@ function parseJsonLogLine(rawLine) {
             is_http_access: isHttpAccess,
             is_read_only_access: isReadOnlyAccess,
             seq_id: parsed.seq_id || null,
-            profile_id: parsed.profile_id || null,
+            profile_id: profileId,
+            profile_name: profileName,
             action: parsed.action || null,
             actor: parsed.actor || null,
             hash: parsed.hash || null,
