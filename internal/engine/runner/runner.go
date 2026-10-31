@@ -112,7 +112,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
-		r.recordAuditAborted(runID, origin, "LOCK_CONTENTION", "Another sync process is already running or lock acquisition failed", resync, force, dryRun)
+		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
 		return false
 	}
 	defer r.LockMgr.Release()
@@ -134,7 +134,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
-		r.recordAuditAborted(runID, origin, "RATE_LIMIT_BACKOFF", "Rate limit backoff is active (use --force to override)", resync, force, dryRun)
+		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
 		return false
 	}
 
@@ -165,7 +165,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
-		r.recordAuditAborted(runID, origin, "CANARY_GUARD", err.Error(), resync, force, dryRun)
+		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
 		if !noNotify {
 			_ = r.Notifier.SendDesktop(r.notificationTitle("Sync Aborted - Canary Safety Guard"), err.Error(), "critical")
 		}
@@ -191,7 +191,7 @@ func (r *SyncRunner) Run(
 				EndTime:     time.Now().Format(time.RFC3339),
 			})
 		}
-		r.recordAuditAborted(runID, origin, errType, errStr, resync, force, dryRun)
+		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
 		if !noNotify && r.Notifier.ShouldNotifyError(errType, notificationState.LastErrorType, notificationState.LastErrorTimestamp) {
 			_ = r.Notifier.SendDesktop(r.notificationTitle(fmt.Sprintf("Sync Dispatch Error - %s", errType)), errStr, "critical")
 		}

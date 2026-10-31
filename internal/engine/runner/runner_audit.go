@@ -30,27 +30,3 @@ func (r *SyncRunner) recordAuditExecuted(runID string, jobID int, origin string,
 	})
 }
 
-func (r *SyncRunner) recordAuditAborted(runID string, origin string, errType string, errMsg string, resync, force, dryRun bool) {
-	if r.Audit == nil {
-		return
-	}
-	profileID := "default"
-	if r.Config != nil && r.Config.ProfileID != "" {
-		profileID = r.Config.ProfileID
-	} else if r.Config != nil && r.Config.RemotePath != "" {
-		profileID = r.Config.RemotePath
-	}
-	actor := "SYSTEM"
-	if origin == "dashboard" || origin == "cli" {
-		actor = "USER"
-	}
-	_, _ = r.Audit.RecordEvent(profileID, audit.ActionSyncAborted, actor, map[string]any{
-		"run_id":     runID,
-		"origin":     origin,
-		"error_type": errType,
-		"error":      errMsg,
-		"resync":     resync,
-		"force":      force,
-		"dry_run":    dryRun,
-	})
-}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/services"
@@ -314,3 +315,45 @@ func TestRemoteDedupe_ListModeLogs(t *testing.T) {
 		t.Fatalf("expected 0 DEDUPE_EXECUTED records for list mode, got %d", total)
 	}
 }
+func TestRemoteDedupe_ZeroDeletedNoAudit(t *testing.T) {
+	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"result": "No duplicate files found\n",
+		})
+	}))
+	defer mockRC.Close()
+
+	srv, auditSvc := setupTestServerWithAudit(t)
+	defer auditSvc.Close()
+
+	rcClient := client.NewRcloneClient(mockRC.URL, "", "")
+	srv.SyncService = &services.SyncService{
+		Client: rcClient,
+	}
+
+	payload, _ := json.Marshal(map[string]any{
+		"remote":  "gdrive",
+		"path":    "documents",
+		"mode":    "oldest",
+		"by_hash": false,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/remotes/dedupe", strings.NewReader(string(payload)))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got: %d", w.Code)
+	}
+
+	// Verify no ActionDedupeExecuted audit record when deletedCount == 0
+	records, total, err := auditSvc.Query(audit.Filter{Action: audit.ActionDedupeExecuted})
+	if err != nil {
+		t.Fatalf("failed to query audit records: %v", err)
+	}
+	if total != 0 || len(records) != 0 {
+		t.Fatalf("expected 0 DEDUPE_EXECUTED records when 0 files deleted, got %d", total)
+	}
+}
+

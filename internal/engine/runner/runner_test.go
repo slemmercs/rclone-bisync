@@ -371,22 +371,22 @@ func TestSyncRunner_AuditExecuted_And_Aborted(t *testing.T) {
 	}
 	_ = lm.Release()
 
-	// Assert 3: Audit DB now has 2 records, 2nd is SYNC_ABORTED
+	// Assert 3: Audit DB retains only the 1 mutating record; non-mutating aborts are NOT logged to audit.db
 	records2, total2, err := audit.QueryRecords(db, audit.Filter{})
 	if err != nil {
 		t.Fatalf("failed to query audit records: %v", err)
 	}
-	if total2 != 2 {
-		t.Fatalf("expected 2 audit records, got: %d", total2)
+	if total2 != 1 {
+		t.Fatalf("expected audit records count to remain 1 after aborted non-mutating run, got: %d", total2)
 	}
-	if records2[0].Action != audit.ActionSyncAborted {
-		t.Errorf("expected Action %s, got: %s", audit.ActionSyncAborted, records2[0].Action)
+	if records2[0].Action != audit.ActionSyncExecuted {
+		t.Errorf("expected Action %s, got: %s", audit.ActionSyncExecuted, records2[0].Action)
 	}
 
-	// Assert 4: Ledger SHA-256 chain integrity verified
+	// Assert 4: Ledger SHA-256 chain integrity verified with 1 block
 	valid, count, err := audit.VerifyLedger(db)
-	if err != nil || !valid || count != 2 {
-		t.Fatalf("expected valid ledger chain with 2 blocks, got valid=%v, count=%d, err=%v", valid, count, err)
+	if err != nil || !valid || count != 1 {
+		t.Fatalf("expected valid ledger chain with 1 block, got valid=%v, count=%d, err=%v", valid, count, err)
 	}
 }
 

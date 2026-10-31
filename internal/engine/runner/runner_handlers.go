@@ -90,8 +90,6 @@ func (r *SyncRunner) handleSyncFailure(
 		errType = classifier.ClassifyError(monitorRes.ErrorMessage)
 	}
 
-	r.recordAuditAborted(runID, origin, errType, monitorRes.ErrorMessage, resync, force, dryRun)
-
 	log.Printf("Sync failed [%s]: %s", errType, monitorRes.ErrorMessage)
 	if r.Logger != nil {
 		_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{

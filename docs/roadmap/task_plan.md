@@ -1,35 +1,28 @@
-# Task Plan: Deduplication Correlated Log Isolation
+# Task Plan: Audit Ledger Noise Elimination, Unified JSON Logging (`bisync-hub-log.json`), and Proxy-Aware Security
 
 ## Goal
-Isolate correlated logs by `run_id` so that viewing deduplication logs (or specific run logs) displays strictly the corresponding operation log lines, eliminating user overwhelm caused by falling back to the entire unrelated daemon log tail.
+Enforce mutation-only invariant on the SQLite Audit Ledger (`audit.db`) by dropping spammy `SYNC_ABORTED` entries and non-mutating preview dedupe records, unify application logging into a rotating `bisync-hub-log.json` with dynamic debug level switching, and harden dashboard security via `umask 0077`, reverse proxy user attribution (`X-Forwarded-User`), and optional `DASHBOARD_API_KEY`.
 
 ## Tasks
 
-- [x] Task 1: Deduplication Execution Logging in `handlers_auth.go`
-  - **Scope**: `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
+- [x] Task 1: Audit Ledger De-Spamming & Mutation-Only Gating
+  - **Scope**: `internal/engine/runner/runner.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_audit.go`, `internal/server/handlers_auth.go`, unit tests in `runner_test.go` and `handlers_audit_test.go`
+  - **Verification**: `go test -count=1 ./internal/engine/runner/... ./internal/server/...`
+
+- [ ] Task 2: Unified JSON Logging (`bisync-hub-log.json`) & Dynamic Debug Mode
+  - **Scope**: `internal/config/config.go`, `internal/core/logger/logger.go`, `internal/app/container.go`, `internal/engine/runner/...`, `internal/engine/monitor/...`, `internal/engine/scheduler/...`, `main.go`
+  - **Verification**: `go test -count=1 ./internal/core/logger/... ./internal/config/... ./internal/engine/...`
+
+- [ ] Task 3: Dashboard Security: POSIX Umask, Reverse Proxy Attribution & Optional API Key
+  - **Scope**: `main.go`, `internal/server/server.go`, `internal/server/middleware.go`, `internal/config/config.go`, `internal/server/server_test.go`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [x] Task 2: Implement `FilterLogsByRunID` in `LogService`
-  - **Scope**: `internal/services/log_service.go`, `internal/services/log_service_test.go`
-  - **Verification**: `go test -count=1 ./internal/services/...`
-
-- [x] Task 3: Correlate `run_id` in `handleDaemonLogs`
-  - **Scope**: `internal/server/handlers_telemetry.go`, `internal/server/server_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...`
-
-- [x] Task 4: UI Modal Polish & Contextual Wiring
-  - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`, `dashboard/frontend/js/remotes.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 5: Full Pre-Flight Quality Gate & Release Readiness Validation
-  - **Scope**: Full test suite and linting
+- [ ] Task 4: Full Pre-Flight Quality Gate & Release Readiness Validation
+  - **Scope**: Entire repository test suite, linters, templates, and LOC budgets
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-31: Initialized plan from implementation_plan.md for Deduplication Correlated Log Isolation.
-- 2026-10-31: Completed Task 1: Enabled guaranteed structured deduplication log stream recording in `handlers_auth.go` across all execution modes (including `list` preview mode) and added unit tests in `handlers_audit_test.go`.
-- 2026-10-31: Completed Task 2: Implemented `FilterLogsByRunID` and `GetRunTimeWindow` in `LogService` with secret masking and unit test coverage in `log_service_runid_test.go`.
-- 2026-10-31: Completed Task 3: Wired `run_id` correlation in `handleDaemonLogs` to route `dedupe-` runs to `bisync.log` via `FilterLogsByRunID`, resolve sync run windows, and prevent falling back to unrelated daemon tails. Added unit tests in `server_test.go`.
-- 2026-10-31: Completed Task 4: Polished `modal_daemon.html` and `remotes.js` to dynamically adapt header titles, remote path context, and run ID footers for deduplication runs; verified LOC <= 400.
-- 2026-10-31: Completed Task 5: Ran full pre-flight verification `./scripts/check.sh all` (all 6 stages passed, 100%), recompiled production binary `./bisync-hub` and `bin/bisync-hub`. Feature complete and release-ready.
+- 2026-10-31: Initialized plan from implementation_plan.md for Audit Ledger Noise Elimination, Unified JSON Logging, and Proxy-Aware Security.
+- 2026-10-31: Completed Task 1: Eliminated `SYNC_ABORTED` entries and gated `DEDUPE_EXECUTED` to `deleted > 0` in `handlers_auth.go`, enforcing the mutation-only invariant on `audit.db` while preserving execution logs in `bisync.log`. Verified via `runner_test.go` and `handlers_audit_test.go`.
+
