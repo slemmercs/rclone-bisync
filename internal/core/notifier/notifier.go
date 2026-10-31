@@ -56,6 +56,11 @@ func NewDispatcher(appName, webhookURL string, webhookTimeoutSec int, smartNotif
 func (d *Dispatcher) resolveIcon() string {
 	home, _ := os.UserHomeDir()
 	candidates := []string{
+		filepath.Join(home, "rclone-bisync", "icons", "favicon.svg"),
+		filepath.Join(home, "rclone-bisync", "dashboard", "frontend", "favicon.svg"),
+		"icons/favicon.svg",
+		"dashboard/frontend/favicon.svg",
+		"favicon.svg",
 		filepath.Join(home, "rclone-bisync", "icons", "cloud-sync-light.svg"),
 		filepath.Join(home, "rclone-bisync", "dashboard", "frontend", "cloud-sync-light.svg"),
 		"icons/cloud-sync-light.svg",

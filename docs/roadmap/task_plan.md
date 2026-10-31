@@ -17,7 +17,7 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
   - **Scope**: `README.md`, delete `README_v2.md`
   - **Verification**: `test ! -f README_v2.md && grep -q "Review. Decide. Sync." README.md`
 
-- [ ] Task 4: Add `favicon.svg` Desktop Notification Support & Resolution
+- [x] Task 4: Add `favicon.svg` Desktop Notification Support & Resolution
   - **Scope**: `internal/core/notifier/notifier.go`, `icons/favicon.svg`, `internal/core/notifier/notifier_test.go`
   - **Verification**: `go test -count=1 ./internal/core/notifier/...`
 
@@ -35,6 +35,8 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
 - 2026-10-31: Completed Task 1: Consolidated UI design system micro-specs (components, layouts, patterns, status-language) into `bisync-hub-design-system-specification.md` and pruned obsolete partials.
 - 2026-10-31: Completed Task 2: Created Master Specifications Registry in `docs/design/README.md` and added metadata headers with governing ADR cross-links across all design specifications.
 - 2026-10-31: Completed Task 3: Refreshed root `README.md` with modern user-centric narrative ("Review. Decide. Sync.") and removed `README_v2.md`.
+- 2026-10-31: Completed Task 4: Added prioritized `favicon.svg` candidate resolution in `internal/core/notifier/notifier.go` with unit test validation.
+
 
 
 

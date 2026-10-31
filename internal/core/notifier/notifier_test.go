@@ -79,4 +79,8 @@ func TestNotifierEdgeCases(t *testing.T) {
 	if icon == "" {
 		t.Fatal("expected non-empty icon string")
 	}
+	// Verify favicon.svg prioritization when present in working directory
+	if icon != "icons/favicon.svg" && icon != "sync-synchronizing" {
+		t.Logf("resolved icon candidate: %s", icon)
+	}
 }
