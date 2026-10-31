@@ -13,7 +13,7 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
   - **Scope**: `docs/design/README.md`, metadata headers in `docs/design/*.md`
   - **Verification**: `test -f docs/design/README.md && ./scripts/check.sh all`
 
-- [ ] Task 3: Refresh Root `README.md` with User-Centric Value Proposition & Remove `README_v2.md`
+- [x] Task 3: Refresh Root `README.md` with User-Centric Value Proposition & Remove `README_v2.md`
   - **Scope**: `README.md`, delete `README_v2.md`
   - **Verification**: `test ! -f README_v2.md && grep -q "Review. Decide. Sync." README.md`
 
@@ -34,6 +34,8 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
 - 2026-10-31: Initialized plan from implementation_plan.md.
 - 2026-10-31: Completed Task 1: Consolidated UI design system micro-specs (components, layouts, patterns, status-language) into `bisync-hub-design-system-specification.md` and pruned obsolete partials.
 - 2026-10-31: Completed Task 2: Created Master Specifications Registry in `docs/design/README.md` and added metadata headers with governing ADR cross-links across all design specifications.
+- 2026-10-31: Completed Task 3: Refreshed root `README.md` with modern user-centric narrative ("Review. Decide. Sync.") and removed `README_v2.md`.
+
 
 
 

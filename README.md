@@ -2,453 +2,185 @@
 
 > Review. Decide. Sync.
 
-**Bisync Hub is a safety-first operational platform for Rclone Bisync.**
+**Bisync Hub adds conflict analysis, deletion review, recovery workflows, and safety controls to Rclone Bisync.**
 
 ![Sync Review and Resolution](site/assets/images/screenshots/bisync-hub_sync-review-resolution.png)
 
-Most synchronization tools focus on executing sync jobs.
+Rclone Bisync is one of the most powerful synchronization engines available, but understanding conflicts, mass deletion proposals, and recovery scenarios can quickly become challenging.
 
-Bisync Hub focuses on helping users understand synchronization outcomes before data changes occur.
+Bisync Hub helps users understand synchronization outcomes **before** changes are applied.
 
-Instead of relying on logs, terminal output, and recovery procedures after something goes wrong, Bisync Hub aims to provide visibility, review workflows, and guided decision-making before synchronization is executed.
+Instead of relying on raw logs, terminal output, and post-incident investigation, Bisync Hub provides visibility, human-in-the-loop review workflows, and guided decision support around the synchronization process.
 
-Bisync Hub provides automated, bidirectional synchronization between your local machine and cloud storage using the **Rclone Remote Control (RC) API**, paired with a single-binary native Go operational dashboard and synchronization orchestrator.
+Built as a self-contained Go application, Bisync Hub integrates directly with the Rclone Remote Control (RC) API and is accessible through a local web cockpit:
 
-The project focuses on making Rclone Bisync easier to understand, operate, and recover when synchronization becomes complex.
-
-For more screenshots check [here](site/assets/images/screenshots)
+**http://localhost:8080**
 
 ---
 
 # Why Bisync Hub?
 
-Rclone is one of the most powerful file synchronization tools available.
-
-However, when synchronization becomes complex, users are often left answering difficult questions:
+When synchronization becomes complex, users are often left asking:
 
 - Why is this file in conflict?
-- Why is Bisync trying to delete these files?
-- What changed since the previous sync?
+- Why are these files being deleted?
+- What changed since the last sync?
 - Is it safe to continue?
-- How do I recover from a failed synchronization?
+- How do I recover safely without data loss?
 
-Bisync Hub exists to answer those questions.
+Most tools help execute a synchronization.
 
-Instead of exposing users to raw logs and force flags, Bisync Hub aims to provide operational visibility, safety controls, and synchronization intelligence.
+**Bisync Hub helps users understand and control a synchronization.**
 
 ---
 
 # How Bisync Hub Differs
 
-Bisync Hub is inspired by the Rclone ecosystem and benefits from lessons learned across existing synchronization tools and automation projects.
-
-While many projects help users run, schedule, or automate synchronizations, Bisync Hub focuses on helping users understand synchronization outcomes before changes occur.
-
-## Comparison at a Glance
-
-| Capability | Sync Scripts | Bisync Managers | File Managers | Bisync Hub |
-|------------|-------------|----------------|---------------|------------|
-| Run Rclone Bisync | ✅ | ✅ | ✅ | ✅ |
+| Capability | Automation Scripts | Bisync Managers | File Managers | Bisync Hub |
+|:---|:---:|:---:|:---:|:---:|
 | Scheduled Synchronization | ✅ | ✅ | ⚠️ | ✅ |
-| Systemd Integration | ✅ | ✅ | ❌ | ✅ |
-| Operational Dashboard | ❌ | ⚠️ | ✅ | ✅ |
-| Real-Time Telemetry | ❌ | ⚠️ | ⚠️ | ✅ |
-| Authentication Health Monitoring | ❌ | ❌ | ❌ | ✅ |
-| Synchronization Visibility | ⚠️ | ⚠️ | ❌ | ✅ |
-| Conflict Review Experience | ❌ | ❌ | ⚠️ | ✅ |
-| Deletion Review Workflow | ❌ | ❌ | ❌ | ✅ |
-| Guided Recovery Workflows | ❌ | ❌ | ❌ | ✅ |
-| Per-File Sync Decisions | ❌ | ❌ | ❌ | ✅ |
-| Rollback-Oriented Design | ❌ | ❌ | ❌ | ✅ |
+| Real-Time Engine Telemetry | ⚠️ | ⚠️ | ❌ | ✅ |
+| Fleet Health Overview | ❌ | ⚠️ | ❌ | ✅ |
+| Conflict Analysis & Heuristics | ❌ | ❌ | ⚠️ | ✅ |
+| Interactive Deletion Review | ❌ | ❌ | ❌ | ✅ |
+| Per-File Resolution Decisions | ❌ | ❌ | ❌ | ✅ |
+| WAL Crash-Resilient Rollback | ❌ | ❌ | ❌ | ✅ |
 | Cryptographic Audit Ledger | ❌ | ❌ | ❌ | ✅ |
-
-## Existing Approaches
-
-### Synchronization Automation
-
-Many synchronization projects focus on:
-
-- Running scheduled synchronizations
-- Managing system timers
-- Applying recommended safety flags
-- Capturing logs and errors
-
-These tools make synchronization easier to automate.
-
-### Synchronization Management
-
-Some projects expand automation with:
-
-- Multiple synchronization profiles
-- Scheduling
-- Background daemons
-- Configuration management
-- Tray integration
-
-These tools make synchronization easier to operate.
-
-### File Management
-
-Many graphical Rclone frontends focus on:
-
-- Browsing files
-- Managing cloud storage
-- Copying and moving data
-- Exploring remotes
-
-These tools make storage easier to navigate.
-
-## The Bisync Hub Approach
-
-Bisync Hub focuses on a different question:
-
-> How can users understand the impact of a synchronization before data changes occur?
-
-The project is being built around the concept of **synchronization intelligence**, not simply synchronization execution.
-
-Future workflows are intended to help answer questions such as:
-
-- Why is this file in conflict?
-- Why is a deletion being proposed?
-- What changed since the previous sync?
-- What will happen if synchronization proceeds?
-- Which files require user attention?
-- How can a failed synchronization be recovered safely?
-
-Most synchronization tools help execute a sync.
-
-**Bisync Hub aims to help users understand a sync.**
-
----
-
-# Not Another File Manager
-
-Many Rclone-based tools focus on:
-
-- File browsing
-- File transfers
-- Cloud storage management
-- Remote administration
-
-Bisync Hub focuses on a different problem:
-
-**Synchronization Intelligence**
-
-The goal is not simply to execute a synchronization.
-
-The goal is to help users understand, review, and control synchronization outcomes.
-
-The integrated file explorer exists to provide synchronization context, not to become a full-featured cloud file manager.
+| Local Filesystem Jail Confinement | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
 # Core Principles
 
-## Visibility Before Action
-
-Users should understand what will happen before synchronization runs.
-
-## Safety Before Automation
-
-Automation should not come at the cost of accidental data loss.
-
-## Recovery Before Rebuild
-
-When synchronization fails, recovery should be guided and understandable.
-
-## Operational Clarity
-
-Synchronization state, remote health, conflicts, and risks should be visible without reading log files.
+- **Visibility Before Action**: Understand exactly what will happen before mutations run.
+- **Safety Before Automation**: Automation should never come at the cost of accidental data loss.
+- **Recovery Before Rebuild**: When synchronization encounters conflicts, recovery is guided and reversible.
+- **Operational Clarity**: State, remote health, conflicts, and risks are visible without parsing raw log files.
 
 ---
 
-# Current Capabilities
+# Key Capabilities
 
-- Real-time synchronization telemetry and speed velocity charts
-- Browser-based operational dashboard with 4 core views
-- Embedded single-page application UI (zero-dependency, compiled-in)
-- Native Go single-binary deployment with sub-30MB footprint
-- Multi-profile workload management with isolated background schedulers and POSIX lock confinement (`/tmp/rclone-bisync-<id>.lock`)
-- 3-tier operational flags architecture (`Execution Override > Profile Override > Global Default > Hardcoded Fallback`) with POSIX shell tokenizer and prohibited flags security blocklist
-- Hybrid Fleet Overview dashboard with aggregate health summary banner and interactive profile tile grid
-- Contextual profile workspace with global header profile switcher dropdown and breadcrumb navigation
-- Visual 3-tier flags editor with live inheritance badges and client-side security validation
-- Integrated dual-pane local and remote file explorer
-- OAuth connection health monitoring and guided renewal modals
-- Authentication recovery workflows for Google Drive and OneDrive
-- Canary validation (`RCLONE_TEST`) and filesystem jail confinement
-- Interactive sync review modal with per-file triage and heuristic recommendations
-- Multi-analyzer heuristic conflict engine (size divergence, binary signatures, cloud clock skew, edit velocity)
-- Atomic pre-mutation backups (`.review_backups/`) and automated post-review sync execution
-- Cryptographic Immutable Audit Ledger with trigger-enforced SQLite append-only storage
-- Verifiable SHA-256 hash chaining and in-browser cryptographic integrity verification
-- Compliance export to CSV and JSONL formats
-- In-process POSIX size-bounded log rotator with dual-stream audit logging (`bisync.log`)
-- High-performance Go CLI quality gate (`cmd/check`) with parallel check runners and true HTML attribute tokenization
-- Headless Chrome end-to-end smoke testing (`chromedp`)
-- Decoupled, single-responsibility Go service architecture with strict LOC budgets (<=400 LOC per file)
-- Synchronization orchestration and scheduling
-- Systemd integration with real-time journal log streaming
-- Safety-focused execution controls and circuit breakers
-- Remote health monitoring and structured diagnostics
+## 🛡️ Sync Review & Decision Support
+Understand proposed changes before they touch your files:
+- Interactive Write-Ahead Log (WAL) review engine ([ADR-008](docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md)).
+- Multi-analyzer heuristic conflict scoring (timestamps, size, content hash).
+- Pre-mutation backup staging (`.review_backups/`) and atomic commit/rollback.
+
+## ⚡ Operational Visibility & Fleet Management
+Monitor synchronization activity and workload health in real time:
+- Fleet overview grid with real-time health badges ([ADR-010](docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md)).
+- Multi-profile workload isolation with POSIX advisory locks ([ADR-001](docs/architecture/adr/ADR-001-Profiles-As-Primary-User-Object.md)).
+- Live transfer speed velocity, progress gauges, and correlated log stream folding.
+
+## 🔒 Safety Controls & Circuit Breakers
+Protect your data from unintended deletions or broken mounts:
+- Canary validation tokens (`RCLONE_TEST`) preventing sync on unmounted remotes ([ADR-006](docs/architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md)).
+- Configurable deletion threshold guardrails (`MaxDeletePercentage`, `MaxDeleteCount`).
+- Local filesystem jail confinement strictly restricting directory traversal.
+
+## 📜 Cryptographic Audit Ledger
+Maintain a verifiable, tamper-evident history of sync operations:
+- Append-only SQLite ledger with trigger-enforced immutability ([ADR-004](docs/architecture/adr/ADR-004-Immutable-Audit-Ledger.md)).
+- SHA-256 block hash chaining and browser-based cryptographic integrity verification.
+- Compliance audit exports to CSV and JSONL formats.
 
 ---
 
-# Future Vision
+# Screenshots
 
-## Review. Decide. Sync.
+### Synchronization Review & Conflict Resolution
+![Sync Review and Resolution](site/assets/images/screenshots/bisync-hub_sync-review-resolution.png)
 
-The long-term vision is to transform synchronization from a command into a reviewable workflow.
+### Engine Cockpit & Telemetry
+![Engine Telemetry](site/assets/images/screenshots/bisync-hub_engine-telemetry.png)
 
-```text
-Scan
- ↓
-Analyze
- ↓
-Review Changes
- ↓
-Review Conflicts
- ↓
-Review Deletions
- ↓
-Make Decisions
- ↓
-Execute Synchronization
- ↓
-Recover if Required
-```
+### Cryptographic Audit Ledger
+![Audit Ledger](site/assets/images/screenshots/bisync-hub_audit-ledger-v2.png)
 
-Rather than investigating problems after synchronization has completed, users should be able to understand and influence synchronization outcomes beforehand.
+### Cloud Storage Remotes & OAuth Management
+![Storage Remotes](site/assets/images/screenshots/bisync-hub_storage-remotes.png)
 
 ---
 
-# Planned Capabilities
+# Architecture & Design
 
-## Configuration Snapshot & Rollback Engine
+Bisync Hub follows a modular, local-first single-binary Go architecture:
 
-Provide server-side safety for global configuration and onboarding changes:
-
-- Automated backup snapshots, SHA-256 integrity checks, and schema validation before applying changes
-- One-click rollback API to restore previous known-good configurations
-- Guided visual setup wizard for initial Rclone RC remote pairing
-- 3-layer safety pipeline with snapshot backups, SHA-256 integrity verification, and schema checks
-- One-click rollback API to restore historical configurations
-
-## In-App User Guidance & Guided Recovery
-
-Enhance operational clarity and assisted recovery directly within the UI:
-
-- Inline contextual tooltips and policy banners explaining safety triggers in plain language
-- Slide-over reference manual for CLI commands, sync flags, and conflict recovery steps
-- Step-by-step diagnostic workflows for OAuth drops, permission errors, and service halts
-
-## Remote Mount Lifecycle Manager & Storage Pooling
-
-Turn fragile cloud connections into resilient, self-healing virtual storage endpoints:
-
-- Background daemon managing `rclone mount` lifecycles on Linux (FUSE) and Windows (WinFsp)
-- Multi-cloud storage pooling (`union` + `chunker` + `crypt`) over RC APIs
-- Automatic keepalive health probes and clean unmount handlers (`fusermount -u`)
+- **[Architecture Decision Records (ADRs)](docs/architecture/adr/README.md)**: Master registry capturing architectural invariants and trade-offs.
+- **[Design Specifications](docs/design/README.md)**: Comprehensive technical specs covering the UI design system, operational flags, review engine, and safety policies.
 
 ---
 
-# Core Components
+# Quickstart & Installation
 
-## 1. Rclone Daemon
-
-`rclone-daemon.service`
-
-Background controller exposing internal statistics and control APIs.
-
-## 2. Telemetry UI Backend
-
-`rclone-dashboard.service`
-
-Native Go web server running the embedded Alpine.js and Tailwind UI.
-
-Responsibilities:
-
-- Real-time telemetry
-- State aggregation
-- Log streaming
-- Dashboard APIs
-
-## 3. Synchronization Engine
-
-`bisync-gdrive.service`
-
-Native Go synchronization runner.
-
-Responsibilities:
-
-- Safe execution
-- Canary validation
-- Lock management
-- Synchronization orchestration
-
-## 4. OAuth Connection Manager
-
-Provides:
-
-- Authentication health monitoring
-- OAuth reconnect workflows
-- Credential validation
-- Audit history
-
-## 5. Systemd Timer
-
-`bisync-gdrive.timer`
-
-Automatically executes periodic synchronization cycles.
-
----
-
-# Installation
-
-The application compiles into a self-contained single-binary executable with no Python runtime dependencies.
-
-## Install
+The application compiles into a self-contained single binary with no external runtime dependencies.
 
 ```bash
+# Clone the repository
+git clone https://github.com/csaba/rclone-bisync.git
+cd rclone-bisync
+
+# Run the installer
 sudo bash deploy/install.sh
 ```
 
----
-
-# CLI Commands
+Launch the cockpit:
 
 ```bash
-# Launch dashboard
 ./bin/rclone-bisync dashboard
+```
 
-# Execute synchronization
-./bin/rclone-bisync sync
+Then open your browser at:
 
-# Force resync
-./bin/rclone-bisync sync --resync
-
-# Dry-run synchronization
-./bin/rclone-bisync sync --dry-run
-
-# Provision canary
-./bin/rclone-bisync canary
+```text
+http://localhost:8080
 ```
 
 ---
 
-# Accessing Bisync Hub
+# Development Quality Gate
 
-Preferred user experience:
+Every contribution must pass the comprehensive 6-stage automated quality gate:
 
-```text
-bisync-hub dashboard
-        ↓
-Browser Opens
-        ↓
-Bisync Hub Dashboard
-```
+- Formatting and syntax validation (`gofmt`, `go vet`)
+- Secret scanning (`betterleaks`)
+- Template AST validation
+- Full test suite execution with race detection
+- LOC ceiling enforcement (<=400 LOC per file)
+- Cross-platform build verification
 
-Future releases may provide:
-
-```text
-http://bisync.localhost
-```
-
-as a stable local endpoint while maintaining automatic port management internally.
-
----
-
-# Development
-
-Run the pre-flight quality gate before opening a pull request.
-
-Bisync Hub includes a high-performance Go-based quality engine (`cmd/check`) wrapped by `./scripts/check.sh`:
+Run the full validation suite:
 
 ```bash
-# Run all quality gate stages
 ./scripts/check.sh all
-
-# Or invoke the Go check engine directly
-go run ./cmd/check all
-
-# Run specific stages
-go run ./cmd/check fmt        # Code formatting (gofmt) & shell script validation
-go run ./cmd/check templates  # HTML attribute tokenization & Alpine boolean audits
-go run ./cmd/check loc 400    # Code metrics & per-file LOC budget enforcement
-go run ./cmd/check lint       # Linters (go vet, betterleaks, staticcheck, govulncheck)
-go run ./cmd/check test       # Unit tests with race detector & coverage validation (>80%)
-go run ./cmd/check build      # Compilation & cross-builds (linux/amd64, linux/arm64)
 ```
-
-The quality gate automatically validates:
-
-1. **Formatting & Syntax**: Strict Go source formatting and POSIX shell script syntax (`bash -n`)
-2. **Template Attributes**: Multi-line HTML attribute tokenization preventing Alpine.js boolean coercion bugs
-3. **Architecture & LOC**: Structural line-count audit ensuring Go files stay under ~400 LOC
-4. **Security & Linters**: Deep secret scanning via `betterleaks`, vulnerability checks via `govulncheck`, and `go vet`
-5. **Test Coverage**: Automated test execution verifying >80% statement coverage across all packages
-6. **Cross-Compilation**: Clean binary artifact generation across target architectures
-
----
-
-# Roadmap Priorities
-
-## Near-Term Strategic Priorities
-
-- **Priority 1: Multi-Profile Workspace Manager**: Independent synchronization profiles, isolated goroutine runners, dedicated POSIX lock and state isolation
-- **Priority 2: Visual Configuration & Setup Manager**: In-dashboard tuning of sync flags (`--buffer-size`, `--tpslimit`), guided remote onboarding wizard, 3-layer safety pipeline, and one-click rollback
-- **Priority 3: In-App User Guidance & Diagnostic Manual**: Contextual tooltips, plain-language safety banners, slide-over reference manual, and guided troubleshooting workflows
-- **Priority 4: Remote Mount Lifecycle Manager & Storage Pooling**: Programmatic FUSE/WinFsp mount management, keepalive probes, and multi-cloud virtual drive pooling (`union` + `chunker` + `crypt`)
-
-## Medium-Term
-
-- Multi-channel webhook alerts (Discord, Telegram, Healthchecks.io dead-man snitch pings)
-- Provider-specific optimizations (Google Drive change-polling, OneDrive 2-second timestamp window smoothing)
-- Guided assisted resynchronization and recovery checkpoints
-
-## Long-Term
-
-- Peer-to-peer state coordination across distributed branch nodes
-- Encrypted remote telemetry synchronization
-- Desktop application packaging via Wails
 
 ---
 
 # What Bisync Hub Is Not
 
 Bisync Hub is not:
-
 - A replacement for Rclone
-- A cloud storage provider
-- A hosted SaaS platform
+- A cloud storage provider or hosted SaaS platform
 - A generic cloud file manager
-- A competitor to storage providers
+- A competitor to storage platforms
 
-Bisync Hub exists to improve the operational experience surrounding Rclone Bisync.
+Bisync Hub complements Rclone Bisync by elevating the operational experience, safety, and recovery around file synchronization.
 
 ---
 
 # Transparency on AI-Assisted Development
 
-AI tools are used to accelerate:
+AI tools are used to accelerate implementation, testing, documentation, architecture reviews, and maintenance tasks. All project decisions, reviews, and releases remain under maintainer control.
 
-- Implementation
-- Testing
-- Documentation
-- Architecture reviews
-- Maintenance tasks
-
-All project decisions, reviews, and releases remain under maintainer control.
-
-For details, see: [AI DISCLOSURE](./AI_DISCLOSURE.md)
+For details, see [AI_DISCLOSURE.md](./AI_DISCLOSURE.md).
 
 ---
 
 # Acknowledgements
 
-Bisync Hub integrates with and depends on **Rclone**, the open-source cloud storage synchronization and file transfer tool created by Nick Craig-Wood and maintained by the Rclone community.
-
-Rclone is distributed under the MIT License.
+Bisync Hub integrates with and builds upon **Rclone**, the open-source cloud storage synchronization and file transfer tool created by Nick Craig-Wood and maintained by the Rclone community. Rclone is distributed under the MIT License.
 
 Bisync Hub is an independent project and is not affiliated with or endorsed by the Rclone project.
 
