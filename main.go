@@ -26,6 +26,9 @@ var frontendFS embed.FS
 var Version = "dev"
 
 func main() {
+	// Enforce restrictive POSIX umask 0077 so runtime files, sqlite ledgers, and logs are user-accessible only
+	syscall.Umask(0077)
+
 	envFile := flag.String("env-file", "", "Path to custom bisync.env configuration file")
 
 	// Subcommands:

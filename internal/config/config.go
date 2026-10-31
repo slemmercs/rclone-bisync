@@ -73,6 +73,7 @@ type Config struct {
 	RequireLocalPathExists  bool
 
 	DebugMode          bool
+	DashboardAPIKey    string
 	WebhookURL         string
 	WebhookTimeoutSec  int
 	WatchdogPingURL    string
@@ -329,6 +330,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		RequireLocalPathExists:  getEnvBool("REQUIRE_LOCAL_PATH_EXISTS", true),
 
 		DebugMode:          getEnvBool("DEBUG_MODE", false),
+		DashboardAPIKey:    getEnv("DASHBOARD_API_KEY", ""),
 		WebhookURL:         os.Getenv("WEBHOOK_URL"),
 		WebhookTimeoutSec:  getEnvInt("WEBHOOK_TIMEOUT", 5),
 		WatchdogPingURL:    os.Getenv("WATCHDOG_PING_URL"),

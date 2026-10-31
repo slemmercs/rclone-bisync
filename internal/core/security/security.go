@@ -1,12 +1,33 @@
 package security
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"regexp"
 	"strings"
 	"time"
 )
+
+type contextKey string
+
+const actorContextKey contextKey = "rclone_bisync_actor"
+
+// ContextWithActor returns a copy of parent context with actor identity attached.
+func ContextWithActor(ctx context.Context, actor string) context.Context {
+	return context.WithValue(ctx, actorContextKey, actor)
+}
+
+// ActorFromContext retrieves the actor identity from context, defaulting to fallback if unset.
+func ActorFromContext(ctx context.Context, fallback string) string {
+	if ctx == nil {
+		return fallback
+	}
+	if val, ok := ctx.Value(actorContextKey).(string); ok && val != "" {
+		return val
+	}
+	return fallback
+}
 
 // SensitiveKeywords identifies identifiers hinting at sensitive configuration values.
 var SensitiveKeywords = []string{

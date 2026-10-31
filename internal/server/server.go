@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -96,37 +98,127 @@ func NewServer(cfg *config.Config, syncService *services.SyncService, frontendFS
 	return NewServerWithContainer(container, frontendFS)
 }
 
+type statusRecordingWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (w *statusRecordingWriter) WriteHeader(code int) {
+	w.statusCode = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *statusRecordingWriter) Write(b []byte) (int, error) {
+	if w.statusCode == 0 {
+		w.statusCode = http.StatusOK
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *statusRecordingWriter) Status() int {
+	if w.statusCode == 0 {
+		return http.StatusOK
+	}
+	return w.statusCode
+}
+
+func (w *statusRecordingWriter) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (s *Server) resolveActor(r *http.Request) string {
+	if user := strings.TrimSpace(r.Header.Get("X-Forwarded-User")); user != "" {
+		return user
+	}
+	if user := strings.TrimSpace(r.Header.Get("Remote-User")); user != "" {
+		return user
+	}
+	if email := strings.TrimSpace(r.Header.Get("X-Forwarded-Email")); email != "" {
+		return email
+	}
+	return "USER"
+}
+
+func (s *Server) validateAPIKey(r *http.Request) bool {
+	if s.Config == nil || s.Config.DashboardAPIKey == "" {
+		return false
+	}
+	expectedKey := s.Config.DashboardAPIKey
+	if apiKey := strings.TrimSpace(r.Header.Get("X-API-Key")); apiKey != "" {
+		return apiKey == expectedKey
+	}
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+		token := strings.TrimSpace(authHeader[7:])
+		return token == expectedKey
+	}
+	return false
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// CSRF & Security middleware
-	if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch) && strings.HasPrefix(r.URL.Path, "/api/") {
-		if r.Header.Get("X-Dashboard-Request") != "1" {
-			writeJSON(w, http.StatusForbidden, models.ErrorResponse{
+	start := time.Now()
+	actor := s.resolveActor(r)
+	r = r.WithContext(security.ContextWithActor(r.Context(), actor))
+
+	sw := &statusRecordingWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
+	defer func() {
+		slog.Info("http_access",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", sw.Status(),
+			"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
+			"remote_addr", r.RemoteAddr,
+			"actor", actor,
+		)
+	}()
+
+	isMutating := r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch
+
+	// Optional API key authorization for mutating endpoints when DASHBOARD_API_KEY is configured
+	hasValidAPIKey := s.validateAPIKey(r)
+	if isMutating && strings.HasPrefix(r.URL.Path, "/api/") {
+		if s.Config != nil && s.Config.DashboardAPIKey != "" && !hasValidAPIKey {
+			writeJSON(sw, http.StatusUnauthorized, models.ErrorResponse{
 				Status: "error",
-				Msg:    "Security policy violation: Missing required X-Dashboard-Request header.",
+				Msg:    "Unauthorized: Invalid or missing API key.",
 			})
 			return
 		}
 
-		origin := r.Header.Get("Origin")
-		if origin != "" && !isAllowedOrigin(origin) {
-			writeJSON(w, http.StatusForbidden, models.ErrorResponse{
-				Status: "error",
-				Msg:    fmt.Sprintf("Security policy violation: Untrusted request origin '%s'.", origin),
-			})
-			return
-		}
+		// CSRF & Security middleware (required for non-API-key requests)
+		if !hasValidAPIKey {
+			if r.Header.Get("X-Dashboard-Request") != "1" {
+				writeJSON(sw, http.StatusForbidden, models.ErrorResponse{
+					Status: "error",
+					Msg:    "Security policy violation: Missing required X-Dashboard-Request header.",
+				})
+				return
+			}
 
-		referer := r.Header.Get("Referer")
-		if referer != "" && !isAllowedOrigin(referer) {
-			writeJSON(w, http.StatusForbidden, models.ErrorResponse{
-				Status: "error",
-				Msg:    "Security policy violation: Untrusted request referer.",
-			})
-			return
+			origin := r.Header.Get("Origin")
+			if origin != "" && !isAllowedOrigin(origin) {
+				writeJSON(sw, http.StatusForbidden, models.ErrorResponse{
+					Status: "error",
+					Msg:    fmt.Sprintf("Security policy violation: Untrusted request origin '%s'.", origin),
+				})
+				return
+			}
+
+			referer := r.Header.Get("Referer")
+			if referer != "" && !isAllowedOrigin(referer) {
+				writeJSON(sw, http.StatusForbidden, models.ErrorResponse{
+					Status: "error",
+					Msg:    "Security policy violation: Untrusted request referer.",
+				})
+				return
+			}
 		}
 	}
 
-	s.Mux.ServeHTTP(w, r)
+	s.Mux.ServeHTTP(sw, r)
 }
 
 func isAllowedOrigin(rawURL string) bool {
