@@ -1,27 +1,25 @@
-# Task Plan: Comprehensive HTTP Access Log Noise Demotion & Unified Ledger Filter
+# Task Plan: Profile-Scoped Logs, Unified Ledger Filtering & Real-Time Polling
 
 ## Goal
-Demote all successful read-only HTTP access requests (`GET`, `HEAD` with `status < 400`) to `slog.Debug`, and filter routine `http_access` records in the UI unified ledger so `bisync.log` displays only meaningful sync events, audit records, and operational mutations.
+Add profile names to sync execution log lines and JSON models, enable profile filtering and cluster isolation in the dashboard unified ledger, and fix real-time polling so logs appear immediately without requiring manual page reloads.
 
 ## Tasks
 
-- [x] Task 1: Demote all routine read-only HTTP access logs to `slog.Debug` in Server Middleware & Update Tests
-  - **Scope**: `internal/server/server.go`, `internal/server/server_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...` and `./scripts/check.sh loc 400`
+- [x] Task 1: Backend Model Enrichment & Profile Scoped Log Formatting
+  - **Scope**: `internal/models/api.go`, `internal/engine/runner/runner.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
+  - **Verification**: `go test -count=1 ./internal/engine/runner/...` and `./scripts/check.sh loc 400`
 
-- [x] Task 2: Filter routine read-only `http_access` logs in Frontend Unified Ledger View
-  - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/js/utils.js`
+- [ ] Task 2: Frontend Profile Filtering, Cluster Isolation & Real-Time Polling Fix
+  - **Scope**: `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/polling.js`, `dashboard/frontend/js/profiles_history.js`
   - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh loc 400`
 
-- [x] Task 3: Full Quality Gate Verification & Release
+- [ ] Task 3: Full Quality Gate Verification & Release
   - **Scope**: Entire repository
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-31: Initialized plan from implementation_plan.md to eliminate all static asset and read-only GET/HEAD request noise from `bisync.log`.
-- 2026-10-31: Completed Task 1: Demoted all successful read-only HTTP access requests (`GET`/`HEAD` with `status < 400`, including static assets, remotes, profiles, and queries) to `slog.Debug`, logging mutating requests at `slog.Info` and error status at `slog.Warn`. Updated `TestHTTPAccessLogLevel`. Compacted `internal/server/server.go` to 385 LOC (<400 budget). Verified with `go test -count=1 ./internal/server/...` and `./scripts/check.sh loc 400`.
-- 2026-10-31: Completed Task 2: Filtered routine read-only `http_access` lines in `filteredBisyncLogs` and `parseJsonLogLine` (`logs.js` and `utils.js`), guaranteeing that historical or debug access entries for static assets or GET queries never clutter the UI unified business ledger. Verified with `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh loc 400`.
-- 2026-10-31: Completed Task 3: Ran `./scripts/check.sh all` (all 6 gates passed), opened PR #51, squash-merged to `main`, and published release tag `v1.0.0-beta.16`.
+- 2026-10-31: Initialized plan from implementation_plan.md to add profile name scoping to logs, enable ledger profile filtering, and restore real-time polling.
+- 2026-10-31: Completed Task 1: Added ProfileID and ProfileName to BisyncLogEntry model, centralized profile label formatting in SyncRunner, prefixed console log.Printf and log Msg with [<ProfileName>] for custom profiles, and populated fields across all RecordSyncRun invocations. Verified with runner unit tests and loc check.
 
 
