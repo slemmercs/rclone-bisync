@@ -30,6 +30,8 @@ type OptionMapping struct {
 var CLIToRCMap = map[string]OptionMapping{
 	// Logging & console formatting
 	"--use-json-log": {TypeConfigBool, "LogJSON"},
+	"--verbose":      {TypeConfigBool, "Verbose"},
+	"-v":             {TypeConfigBool, "Verbose"},
 	"--color":        {TypeIgnore, "color"},
 
 	// Drive-specific options (passed as connection string options on path1)
@@ -120,7 +122,11 @@ func CompileBisyncPayload(
 			case TypeParamBool:
 				bisyncParams[mapping.TargetKey] = true
 			case TypeConfigBool:
-				engineConfig[mapping.TargetKey] = true
+				if mapping.TargetKey == "Verbose" {
+					engineConfig["Verbose"] = 1
+				} else {
+					engineConfig[mapping.TargetKey] = true
+				}
 			case TypeBackendBool:
 				backendOptions = append(backendOptions, fmt.Sprintf("%s=true", mapping.TargetKey))
 			case TypeBackendStr:

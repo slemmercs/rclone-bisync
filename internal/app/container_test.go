@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -198,3 +199,27 @@ func TestDefaultProfileExecutor(t *testing.T) {
 		t.Fatalf("expected executor to reject profile with prohibited flags")
 	}
 }
+func TestNewContainer_WithLoggerAndDebugMode(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "bisync-hub-log.json")
+
+	cfg := &config.Config{
+		BaseDir:   tmpDir,
+		LogFile:   logPath,
+		DebugMode: true,
+	}
+
+	c, err := NewContainer(cfg)
+	if err != nil {
+		t.Fatalf("failed to initialize container: %v", err)
+	}
+	defer c.Close()
+
+	if c.Logger == nil {
+		t.Fatal("expected container Logger to be initialized")
+	}
+	if c.Logger.Level() != slog.LevelDebug {
+		t.Fatalf("expected logger level Debug when DebugMode is true, got: %v", c.Logger.Level())
+	}
+}
+

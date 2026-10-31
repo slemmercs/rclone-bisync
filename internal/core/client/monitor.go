@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"time"
 )
@@ -30,12 +30,12 @@ func (c *RcloneClient) MonitorJob(
 	sleepDuration := initialSleep
 	consecutiveErrors := 0
 
-	log.Printf("Monitoring bisync job %d...", jobID)
+	slog.Info("Monitoring bisync job", "job_id", jobID)
 
 	for {
 		elapsed := time.Since(startTime)
 		if elapsed > timeout {
-			log.Printf("Job %d exceeded timeout (%v)", jobID, timeout)
+			slog.Error("Job exceeded timeout", "job_id", jobID, "timeout", timeout)
 			c.StopJob(ctx, jobID)
 			return MonitorJobResult{
 				Success:      false,
@@ -48,9 +48,9 @@ func (c *RcloneClient) MonitorJob(
 		status, err := c.GetJobStatus(ctx, jobID)
 		if err != nil {
 			consecutiveErrors++
-			log.Printf("Temporary error polling job %d (%d/%d): %v", jobID, consecutiveErrors, maxConsecutivePollErrors, err)
+			slog.Warn("Temporary error polling job", "job_id", jobID, "attempt", consecutiveErrors, "max", maxConsecutivePollErrors, "error", err)
 			if consecutiveErrors >= maxConsecutivePollErrors {
-				log.Printf("Job %d polling failed after %d consecutive errors.", jobID, consecutiveErrors)
+				slog.Error("Job polling failed after maximum consecutive errors", "job_id", jobID, "consecutive_errors", consecutiveErrors)
 				return MonitorJobResult{
 					Success:      false,
 					ErrorType:    "MONITOR_ERROR",
@@ -76,7 +76,7 @@ func (c *RcloneClient) MonitorJob(
 				}
 
 				if success {
-					log.Printf("Job %d completed successfully in %.1fs (%d file(s) transferred)", jobID, elapsed.Seconds(), filesSynced)
+					slog.Info("Job completed successfully", "job_id", jobID, "elapsed_sec", elapsed.Seconds(), "files_transferred", filesSynced)
 					return MonitorJobResult{
 						Success:     true,
 						FilesSynced: filesSynced,

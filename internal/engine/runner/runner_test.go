@@ -3,9 +3,11 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -415,3 +417,23 @@ func TestSyncRunner_NotificationTitle(t *testing.T) {
 		t.Fatalf("expected 'Sync Failure', got '%s'", got)
 	}
 }
+func TestSyncRunner_DebugModePropagation(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "debug_run.json")
+
+	cfg := &config.Config{
+		BaseDir:   tmpDir,
+		LogFile:   logPath,
+		DebugMode: true,
+		LockFile:  filepath.Join(tmpDir, "sync.lock"),
+	}
+
+	r := NewSyncRunner(cfg)
+	if r.Logger == nil {
+		t.Fatal("expected logger to not be nil")
+	}
+	if r.Logger.Level() != slog.LevelDebug {
+		t.Fatalf("expected logger level to be LevelDebug, got %v", r.Logger.Level())
+	}
+}
+

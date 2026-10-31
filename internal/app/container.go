@@ -20,6 +20,7 @@ import (
 type Container struct {
 	mu               sync.Mutex
 	Config           *config.Config
+	Logger           *logger.Logger
 	Client           *client.RcloneClient
 	SyncService      *services.SyncService
 	TelemetryService *services.TelemetryService
@@ -40,6 +41,13 @@ type Container struct {
 
 // Option configures a Container instance during initialization.
 type Option func(*Container)
+
+// WithLogger overrides the centralized application logger.
+func WithLogger(l *logger.Logger) Option {
+	return func(ctr *Container) {
+		ctr.Logger = l
+	}
+}
 
 // WithClient overrides the default Rclone RC client.
 func WithClient(c *client.RcloneClient) Option {
@@ -123,6 +131,20 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 		}
 	}
 
+	// 0. Initialize Centralized Application Logger
+	if c.Logger == nil && cfg.LogFile != "" {
+		l, err := logger.New(cfg.LogFile, true)
+		if err == nil {
+			c.Logger = l
+		}
+	}
+	if c.Logger != nil {
+		if cfg.DebugMode {
+			c.Logger.SetDebug(true)
+		}
+		c.Logger.SetAsDefault()
+	}
+
 	// 1. Unpack SyncService dependencies if passed as option
 	if c.SyncService != nil {
 		if c.Client == nil && c.SyncService.Client != nil {
@@ -179,11 +201,7 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 	// 4. Initialize Audit Service
 	if c.AuditService == nil && cfg.AuditDBPath != "" {
 		if db, err := audit.OpenDB(cfg.AuditDBPath); err == nil && db != nil {
-			var runLogger *logger.Logger
-			if cfg.LogFile != "" {
-				runLogger, _ = logger.New(cfg.LogFile, true)
-			}
-			c.AuditService = services.NewAuditService(db, runLogger)
+			c.AuditService = services.NewAuditService(db, c.Logger)
 		}
 	}
 	if c.ReviewService != nil && c.ReviewService.Audit == nil {
@@ -262,6 +280,12 @@ func (c *Container) Close() error {
 	if c.AuditService != nil {
 		if err := c.AuditService.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("audit service close: %w", err))
+		}
+	}
+
+	if c.Logger != nil {
+		if err := c.Logger.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("logger close: %w", err))
 		}
 	}
 

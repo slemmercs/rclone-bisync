@@ -9,7 +9,7 @@ Enforce mutation-only invariant on the SQLite Audit Ledger (`audit.db`) by dropp
   - **Scope**: `internal/engine/runner/runner.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_audit.go`, `internal/server/handlers_auth.go`, unit tests in `runner_test.go` and `handlers_audit_test.go`
   - **Verification**: `go test -count=1 ./internal/engine/runner/... ./internal/server/...`
 
-- [ ] Task 2: Unified JSON Logging (`bisync-hub-log.json`) & Dynamic Debug Mode
+- [x] Task 2: Unified JSON Logging (`bisync-hub-log.json`) & Dynamic Debug Mode
   - **Scope**: `internal/config/config.go`, `internal/core/logger/logger.go`, `internal/app/container.go`, `internal/engine/runner/...`, `internal/engine/monitor/...`, `internal/engine/scheduler/...`, `main.go`
   - **Verification**: `go test -count=1 ./internal/core/logger/... ./internal/config/... ./internal/engine/...`
 
@@ -25,4 +25,5 @@ Enforce mutation-only invariant on the SQLite Audit Ledger (`audit.db`) by dropp
 
 - 2026-10-31: Initialized plan from implementation_plan.md for Audit Ledger Noise Elimination, Unified JSON Logging, and Proxy-Aware Security.
 - 2026-10-31: Completed Task 1: Eliminated `SYNC_ABORTED` entries and gated `DEDUPE_EXECUTED` to `deleted > 0` in `handlers_auth.go`, enforcing the mutation-only invariant on `audit.db` while preserving execution logs in `bisync.log`. Verified via `runner_test.go` and `handlers_audit_test.go`.
+- 2026-10-31: Completed Task 2: Standardized default log file to rotating `bisync-hub-log.json`, added dynamic `slog.LevelVar` and debug mode toggling, injected centralized `*logger.Logger` into container and runner, mapped `--verbose` to rclone `_config`, and replaced bare `log.Printf` with structured `slog` across engine modules. Verified via unit tests.
 

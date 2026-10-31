@@ -273,7 +273,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		LocalPath:  localPathRaw,
 		RemotePath: getEnv("REMOTE_PATH", "gdrive:"),
 
-		LogFile:               filepath.Join(baseDir, "bisync.log"),
+		LogFile:               getEnv("LOG_FILE", filepath.Join(baseDir, "bisync-hub-log.json")),
 		LockFile:              filepath.Join(baseDir, "bisync_gdrive.lock"),
 		NotificationStateFile: filepath.Join(baseDir, "notification_state.json"),
 		MetricsFile:           filepath.Join(baseDir, "metrics.jsonl"),

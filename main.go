@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -43,9 +44,11 @@ func main() {
 			host := dashCmd.String("host", "127.0.0.1", "Dashboard host address")
 			port := dashCmd.Int("port", 8080, "Dashboard port")
 			dashEnv := dashCmd.String("env-file", "", "Path to custom bisync.env")
+			debug := dashCmd.Bool("debug", false, "Enable verbose debug logging")
+			dashCmd.BoolVar(debug, "d", false, "Enable verbose debug logging (shorthand)")
 			_ = dashCmd.Parse(os.Args[2:])
 
-			runDashboard(*host, *port, *dashEnv)
+			runDashboard(*host, *port, *dashEnv, *debug)
 			return
 
 		case "sync":
@@ -56,9 +59,11 @@ func main() {
 			noNotify := syncCmd.Bool("no-notify", false, "Suppress desktop notifications")
 			origin := syncCmd.String("origin", "cli", "Origin caller context (cli, timer, dashboard)")
 			syncEnv := syncCmd.String("env-file", "", "Path to custom bisync.env")
+			debug := syncCmd.Bool("debug", false, "Enable verbose debug logging")
+			syncCmd.BoolVar(debug, "d", false, "Enable verbose debug logging (shorthand)")
 			_ = syncCmd.Parse(os.Args[2:])
 
-			runSync(*resync, *force, *dryRun, *noNotify, *origin, *syncEnv)
+			runSync(*resync, *force, *dryRun, *noNotify, *origin, *syncEnv, *debug)
 			return
 
 		case "canary":
@@ -76,14 +81,19 @@ func main() {
 	// Default fallback to dashboard if no subcommand specified or flags given directly
 	host := flag.String("host", "127.0.0.1", "Dashboard host address")
 	port := flag.Int("port", 8080, "Dashboard port")
+	debug := flag.Bool("debug", false, "Enable verbose debug logging")
+	flag.BoolVar(debug, "d", false, "Enable verbose debug logging (shorthand)")
 	flag.Parse()
-	runDashboard(*host, *port, *envFile)
+	runDashboard(*host, *port, *envFile, *debug)
 }
 
-func runDashboard(host string, port int, envFile string) {
+func runDashboard(host string, port int, envFile string, debug bool) {
 	cfg, err := config.LoadConfig(envFile)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	if debug {
+		cfg.DebugMode = true
 	}
 
 	appContainer, err := app.NewContainer(cfg)
@@ -91,11 +101,11 @@ func runDashboard(host string, port int, envFile string) {
 		log.Fatalf("Failed to initialize application container: %v", err)
 	}
 	if err := appContainer.Start(context.Background()); err != nil {
-		log.Printf("Warning: failed to start background services: %v", err)
+		slog.Warn("failed to start background services", "error", err)
 	}
 	defer func() {
 		if err := appContainer.Close(); err != nil {
-			log.Printf("Error during container shutdown: %v", err)
+			slog.Error("error during container shutdown", "error", err)
 		}
 	}()
 
@@ -113,26 +123,29 @@ func runDashboard(host string, port int, envFile string) {
 	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("Bisync Hub dashboard running at http://%s", addr)
+		slog.Info("Bisync Hub dashboard running", "addr", fmt.Sprintf("http://%s", addr), "debug", cfg.DebugMode)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server failure: %v", err)
 		}
 	}()
 
 	<-stopSig
-	log.Println("Shutting down dashboard server gracefully...")
+	slog.Info("Shutting down dashboard server gracefully...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("HTTP server shutdown error: %v", err)
+		slog.Error("HTTP server shutdown error", "error", err)
 	}
-	log.Println("Dashboard server stopped.")
+	slog.Info("Dashboard server stopped.")
 }
 
-func runSync(resync, force, dryRun, noNotify bool, origin, envFile string) {
+func runSync(resync, force, dryRun, noNotify bool, origin, envFile string, debug bool) {
 	cfg, err := config.LoadConfig(envFile)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	if debug {
+		cfg.DebugMode = true
 	}
 
 	syncRunner := runner.NewSyncRunner(cfg)
