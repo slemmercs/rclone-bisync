@@ -54,6 +54,11 @@
                             <span x-text="auditData.verification.checking ? 'Verifying...' : 'Verify Now'"></span>
                         </button>
 
+                        <button @click="promptResetAuditLedger()"
+                                class="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-white rounded-xl text-xs font-medium border border-rose-800/60 transition-colors flex items-center gap-1.5 cursor-pointer">
+                            <span>Reset Ledger</span>
+                        </button>
+
                         <a href="/api/audit/export?format=jsonl" download class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium border border-slate-700/80 transition-colors">JSONL</a>
                         <a href="/api/audit/export?format=csv" download class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium border border-slate-700/80 transition-colors">CSV</a>
                     </div>
@@ -68,7 +73,6 @@
                         <template x-for="p in (profilesData?.list || [])" :key="p.id">
                             <option :value="p.id" x-text="p.name"></option>
                         </template>
-                        <option value="default">Default Profile</option>
                     </select>
 
                     <select x-model="auditData.filterAction" @change="applyAuditFilters()" class="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none">

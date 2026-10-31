@@ -313,6 +313,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/audit/records", s.handleAuditRecords)
 	s.Mux.HandleFunc("GET /api/audit/verify", s.handleAuditVerify)
 	s.Mux.HandleFunc("GET /api/audit/export", s.handleAuditExport)
+	s.Mux.HandleFunc("POST /api/audit/reset", s.handleAuditReset)
 
 	// Profile Manager Endpoints
 	s.Mux.HandleFunc("GET /api/profiles", s.handleListProfiles)

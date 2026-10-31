@@ -71,6 +71,7 @@ func NewSyncService(cfg *config.Config, rcClient *client.RcloneClient) *SyncServ
 				runLogger, _ = logger.New(cfg.LogFile, true)
 			}
 			auditSvc = NewAuditService(db, runLogger)
+			auditSvc.DBPath = dbPath
 		}
 	}
 	if reviewSvc != nil {

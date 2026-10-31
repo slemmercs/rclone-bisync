@@ -174,3 +174,33 @@ func (s *Server) handleAuditExport(w http.ResponseWriter, r *http.Request) {
 	// #nosec G705 - exported audit data is served as an attachment download with nosniff
 	_, _ = w.Write(data)
 }
+
+func (s *Server) handleAuditReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.AuditService == nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status": "error",
+			"error":  "Audit service is not available",
+		})
+		return
+	}
+
+	backup, err := s.AuditService.Reset()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, models.ErrorResponse{
+			Status: "error",
+			Error:  fmt.Sprintf("Failed to reset audit ledger: %v", err),
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":  "success",
+		"message": "Audit ledger reset successfully",
+		"backup":  backup,
+	})
+}

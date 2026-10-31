@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,6 +28,7 @@ func setupTestServerWithAudit(t *testing.T) (*Server, *services.AuditService) {
 	}
 
 	auditSvc := services.NewAuditService(db, nil)
+	auditSvc.DBPath = dbPath
 	cfg := &config.Config{
 		BaseDir:     tmpDir,
 		AuditDBPath: dbPath,
@@ -354,5 +356,78 @@ func TestRemoteDedupe_ZeroDeletedNoAudit(t *testing.T) {
 	}
 	if total != 0 || len(records) != 0 {
 		t.Fatalf("expected 0 DEDUPE_EXECUTED records when 0 files deleted, got %d", total)
+	}
+}
+
+func TestAuditReset(t *testing.T) {
+	srv, auditSvc := setupTestServerWithAudit(t)
+	defer auditSvc.Close()
+
+	// 1. Populate some records
+	_, _ = auditSvc.RecordEvent("gdrive", audit.ActionSyncExecuted, "SYSTEM", map[string]any{"ok": true})
+	_, _ = auditSvc.RecordEvent("gdrive", audit.ActionConflictResolved, "USER", map[string]any{"file": "test.txt"})
+
+	// Verify count is 2
+	_, totalBefore, err := auditSvc.Query(audit.Filter{})
+	if err != nil || totalBefore != 2 {
+		t.Fatalf("expected 2 records before reset, got %d (err: %v)", totalBefore, err)
+	}
+
+	// 2. Call POST /api/audit/reset
+	req := httptest.NewRequest(http.MethodPost, "/api/audit/reset", nil)
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got: %d (%s)", w.Code, w.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse json response: %v", err)
+	}
+	if resp["status"] != "success" {
+		t.Fatalf("expected success, got: %+v", resp)
+	}
+	backupName, ok := resp["backup"].(string)
+	if !ok || backupName == "" {
+		t.Fatalf("expected non-empty backup filename, got: %v", resp["backup"])
+	}
+
+	// Verify backup file exists
+	backupPath := filepath.Join(filepath.Dir(auditSvc.DBPath), backupName)
+	if _, err := os.Stat(backupPath); err != nil {
+		t.Fatalf("expected backup file to exist at %s: %v", backupPath, err)
+	}
+
+	// Verify reset DB has 1 Genesis checkpoint event
+	records, totalAfter, err := auditSvc.Query(audit.Filter{})
+	if err != nil || totalAfter != 1 {
+		t.Fatalf("expected 1 record after reset, got %d (err: %v)", totalAfter, err)
+	}
+	if records[0].Action != audit.ActionGenesisCheckpoint {
+		t.Fatalf("expected GENESIS_CHECKPOINT record, got: %s", records[0].Action)
+	}
+
+	// Verify cryptographic continuity of fresh ledger
+	ver, err := auditSvc.Verify()
+	if err != nil || !ver.Valid {
+		t.Fatalf("expected valid ledger after reset, valid: %v, err: %v", ver.Valid, err)
+	}
+
+	// 3. Test reset when audit service is nil
+	srv.AuditService = nil
+	reqNil := httptest.NewRequest(http.MethodPost, "/api/audit/reset", nil)
+	reqNil.Header.Set("X-Dashboard-Request", "1")
+	wNil := httptest.NewRecorder()
+	srv.ServeHTTP(wNil, reqNil)
+	if wNil.Code != http.StatusOK {
+		t.Fatalf("expected 200 for missing audit service, got: %d", wNil.Code)
+	}
+	var nilResp map[string]any
+	_ = json.Unmarshal(wNil.Body.Bytes(), &nilResp)
+	if nilResp["status"] != "error" {
+		t.Fatalf("expected error status, got: %+v", nilResp)
 	}
 }

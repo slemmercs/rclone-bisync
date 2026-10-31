@@ -202,6 +202,7 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 	if c.AuditService == nil && cfg.AuditDBPath != "" {
 		if db, err := audit.OpenDB(cfg.AuditDBPath); err == nil && db != nil {
 			c.AuditService = services.NewAuditService(db, c.Logger)
+			c.AuditService.DBPath = cfg.AuditDBPath
 		}
 	}
 	if c.ReviewService != nil && c.ReviewService.Audit == nil {
