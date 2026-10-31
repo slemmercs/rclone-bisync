@@ -88,7 +88,6 @@ func TestSyncRunner_DebugModePropagationDuringRun(t *testing.T) {
 	}
 }
 
-
 func TestSyncRunner_HandleSyncFailure_ReviewSessionAndExistingMerge(t *testing.T) {
 	tmpDir := t.TempDir()
 	logFile := filepath.Join(tmpDir, "bisync.log")

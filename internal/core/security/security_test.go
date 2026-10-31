@@ -164,7 +164,8 @@ func TestRedactStructWithRawMessage(t *testing.T) {
 
 func TestActorContext(t *testing.T) {
 	// Nil context fallback
-	if act := ActorFromContext(nil, "fallback-user"); act != "fallback-user" {
+	var nilCtx context.Context
+	if act := ActorFromContext(nilCtx, "fallback-user"); act != "fallback-user" {
 		t.Errorf("expected fallback-user, got %s", act)
 	}
 
@@ -330,4 +331,3 @@ func TestRedactSecretsInvalidRawMessage(t *testing.T) {
 		t.Errorf("expected fallback to raw message interface, got %T", res)
 	}
 }
-

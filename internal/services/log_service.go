@@ -243,4 +243,3 @@ func (s *LogService) filterLine(line string, useWindow bool, windowStart, window
 		appendWithLimit(matchedLines, line, limit)
 	}
 }
-
