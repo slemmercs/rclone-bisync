@@ -9,7 +9,7 @@ Retire redundant `bisync-gdrive.service` and `bisync-gdrive.timer`, upgrade `dep
   - **Scope**: `deploy/systemd/bisync-gdrive.service`, `deploy/systemd/bisync-gdrive.timer`, `deploy/install.sh`
   - **Verification**: `bash -n deploy/install.sh`
 
-- [ ] Task 2: Generalize Transient Unit Naming & Identifiers in `internal/services/sync_actions.go`
+- [x] Task 2: Generalize Transient Unit Naming & Identifiers in `internal/services/sync_actions.go`
   - **Scope**: `internal/services/sync_actions.go`, `internal/services/sync_service_test.go`
   - **Verification**: `go test -count=1 ./internal/services/...`
 
@@ -21,5 +21,6 @@ Retire redundant `bisync-gdrive.service` and `bisync-gdrive.timer`, upgrade `dep
 
 - 2026-10-31: Initialized plan from implementation_plan.md to retire legacy Google Drive systemd timer and align system deployment with multi-profile scheduler.
 - 2026-10-31: Completed Task 1: Deleted obsolete `bisync-gdrive.service` and `bisync-gdrive.timer` from `deploy/systemd/`. Updated `deploy/install.sh` to remove them from installation targets and added migration logic to stop, disable, and clean up lingering units on target systems. Verified with `bash -n`.
+- 2026-10-31: Completed Task 2: Generalized transient unit names from `bisync-gdrive-*` to `bisync-sync-*` and updated `SyslogIdentifier` to `bisync-hub` in `internal/services/sync_actions.go`. Retained legacy stop patterns in `stop_sync` for backward compatibility. Verified with `go test -count=1 ./internal/services/...`.
 
 
