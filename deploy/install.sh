@@ -62,8 +62,6 @@ REQUIRED_FILES=(
     "$REPO_ROOT/rc-secrets.env"
     "$REPO_ROOT/deploy/systemd/rclone-daemon.service"
     "$REPO_ROOT/deploy/systemd/rclone-dashboard.service"
-    "$REPO_ROOT/deploy/systemd/bisync-gdrive.service"
-    "$REPO_ROOT/deploy/systemd/bisync-gdrive.timer"
     "$REPO_ROOT/deploy/desktop/rclone-dashboard.desktop"
 )
 for f in "${REQUIRED_FILES[@]}"; do
@@ -110,10 +108,17 @@ chmod 644 "$RCLONE_DIR/bisync.env"
 # --- 4. Setup Systemd User Services ---
 echo "Configuring systemd user services..."
 sudo -u "$REAL_USER" mkdir -p "$SYSTEMD_USER_DIR"
+
+USER_ID=$(id -u "$REAL_USER")
+DBUS_ENV="XDG_RUNTIME_DIR=/run/user/$USER_ID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$USER_ID/bus"
+
+# Decommission obsolete single-remote timer and service if present
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user stop bisync-gdrive.timer bisync-gdrive.service 2>/dev/null || true
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user disable bisync-gdrive.timer bisync-gdrive.service 2>/dev/null || true
+rm -f "$SYSTEMD_USER_DIR/bisync-gdrive.service" "$SYSTEMD_USER_DIR/bisync-gdrive.timer"
+
 cp "$REPO_ROOT/deploy/systemd/rclone-daemon.service" \
    "$REPO_ROOT/deploy/systemd/rclone-dashboard.service" \
-   "$REPO_ROOT/deploy/systemd/bisync-gdrive.service" \
-   "$REPO_ROOT/deploy/systemd/bisync-gdrive.timer" \
    "$SYSTEMD_USER_DIR/"
 
 # Dynamically resolve system binaries for systemd units
@@ -136,20 +141,17 @@ chmod +x "$SHORTCUT_DIR/"rclone-*.desktop
 
 # --- 6. Enable, Reset, and Start Services ---
 echo "Activating automated services..."
-USER_ID=$(id -u "$REAL_USER")
-DBUS_ENV="XDG_RUNTIME_DIR=/run/user/$USER_ID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$USER_ID/bus"
 
 # Reload systemd and clear any existing failed states / start-rate limits
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user daemon-reload
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user reset-failed
 
-# Enable components
-sudo -u "$REAL_USER" $DBUS_ENV systemctl --user enable rclone-daemon.service rclone-dashboard.service bisync-gdrive.timer
+# Enable components (scheduler runs internally within dashboard service)
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user enable rclone-daemon.service rclone-dashboard.service
 
 # Restart services sequentially
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-daemon.service
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-dashboard.service
-sudo -u "$REAL_USER" $DBUS_ENV systemctl --user start bisync-gdrive.timer
 
 # Verify daemon status
 if sudo -u "$REAL_USER" $DBUS_ENV systemctl --user is-active --quiet rclone-daemon.service; then

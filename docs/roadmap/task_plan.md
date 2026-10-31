@@ -1,31 +1,25 @@
-# Task Plan: Audit Ledger Noise Elimination, Unified JSON Logging (`bisync-hub-log.json`), and Proxy-Aware Security
+# Task Plan: Decommission Legacy Google Drive Systemd Timer & Generalize Deployment
 
 ## Goal
-Enforce mutation-only invariant on the SQLite Audit Ledger (`audit.db`) by dropping spammy `SYNC_ABORTED` entries and non-mutating preview dedupe records, unify application logging into a rotating `bisync-hub-log.json` with dynamic debug level switching, and harden dashboard security via `umask 0077`, reverse proxy user attribution (`X-Forwarded-User`), and optional `DASHBOARD_API_KEY`.
+Retire redundant `bisync-gdrive.service` and `bisync-gdrive.timer`, upgrade `deploy/install.sh` with safe decommissioning of existing timer units, and generalize transient systemd units in `sync_actions.go`.
 
 ## Tasks
 
-- [x] Task 1: Audit Ledger De-Spamming & Mutation-Only Gating
-  - **Scope**: `internal/engine/runner/runner.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_audit.go`, `internal/server/handlers_auth.go`, unit tests in `runner_test.go` and `handlers_audit_test.go`
-  - **Verification**: `go test -count=1 ./internal/engine/runner/... ./internal/server/...`
+- [x] Task 1: Retire `deploy/systemd/bisync-gdrive.*` and Update `deploy/install.sh`
+  - **Scope**: `deploy/systemd/bisync-gdrive.service`, `deploy/systemd/bisync-gdrive.timer`, `deploy/install.sh`
+  - **Verification**: `bash -n deploy/install.sh`
 
-- [x] Task 2: Unified JSON Logging (`bisync-hub-log.json`) & Dynamic Debug Mode
-  - **Scope**: `internal/config/config.go`, `internal/core/logger/logger.go`, `internal/app/container.go`, `internal/engine/runner/...`, `internal/engine/monitor/...`, `internal/engine/scheduler/...`, `main.go`
-  - **Verification**: `go test -count=1 ./internal/core/logger/... ./internal/config/... ./internal/engine/...`
+- [ ] Task 2: Generalize Transient Unit Naming & Identifiers in `internal/services/sync_actions.go`
+  - **Scope**: `internal/services/sync_actions.go`, `internal/services/sync_service_test.go`
+  - **Verification**: `go test -count=1 ./internal/services/...`
 
-- [x] Task 3: Dashboard Security: POSIX Umask, Reverse Proxy Attribution & Optional API Key
-  - **Scope**: `main.go`, `internal/server/server.go`, `internal/config/config.go`, `internal/core/security/security.go`, `internal/services/review_execution.go`, `internal/server/server_test.go`
-  - **Verification**: `go test -count=1 ./internal/server/...`
-
-- [x] Task 4: Full Pre-Flight Quality Gate & Release Readiness Validation
+- [ ] Task 3: Quality Gate Verification & Pre-Flight Checks
   - **Scope**: Entire repository test suite, linters, templates, and LOC budgets
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-31: Initialized plan from implementation_plan.md for Audit Ledger Noise Elimination, Unified JSON Logging, and Proxy-Aware Security.
-- 2026-10-31: Completed Task 1: Eliminated `SYNC_ABORTED` entries and gated `DEDUPE_EXECUTED` to `deleted > 0` in `handlers_auth.go`, enforcing the mutation-only invariant on `audit.db` while preserving execution logs in `bisync.log`. Verified via `runner_test.go` and `handlers_audit_test.go`.
-- 2026-10-31: Completed Task 2: Standardized default log file to rotating `bisync-hub-log.json`, added dynamic `slog.LevelVar` and debug mode toggling, injected centralized `*logger.Logger` into container and runner, mapped `--verbose` to rclone `_config`, and replaced bare `log.Printf` with structured `slog` across engine modules. Verified via unit tests.
-- 2026-10-31: Completed Task 3: Enforced startup `syscall.Umask(0077)` for user-private filesystem assets, added reverse proxy user attribution (`X-Forwarded-User`, `Remote-User`, `X-Forwarded-Email`) across server handlers and review audit triggers, added optional `DASHBOARD_API_KEY` verification middleware for mutating endpoints (`X-API-Key` / `Bearer`), and wired structured HTTP access logging via `slog`. Verified via unit tests in `server_test.go`.
-- 2026-10-31: Completed Task 4: Formatted code and ran full 6-stage pre-flight quality gate (`./scripts/check.sh all`). All unit tests, integration tests, static analysis, secrets scan, and LOC audits passed cleanly.
+- 2026-10-31: Initialized plan from implementation_plan.md to retire legacy Google Drive systemd timer and align system deployment with multi-profile scheduler.
+- 2026-10-31: Completed Task 1: Deleted obsolete `bisync-gdrive.service` and `bisync-gdrive.timer` from `deploy/systemd/`. Updated `deploy/install.sh` to remove them from installation targets and added migration logic to stop, disable, and clean up lingering units on target systems. Verified with `bash -n`.
+
 
