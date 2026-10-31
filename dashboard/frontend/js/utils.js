@@ -40,10 +40,17 @@ function parseJsonLogLine(rawLine) {
 
         let structuredDetails = null;
         let cleanMsg = (parsed.msg || "").trim();
+        let isHttpAccess = false;
+        let isReadOnlyAccess = false;
 
         // Format HTTP access log records cleanly
-        if (cleanMsg === "http_access" && parsed.method && parsed.path) {
+        if ((cleanMsg === "http_access" || parsed.msg === "http_access") && parsed.method && parsed.path) {
+            isHttpAccess = true;
+            const method = String(parsed.method).toUpperCase();
             const status = parsed.status || 200;
+            if ((method === "GET" || method === "HEAD") && status < 400) {
+                isReadOnlyAccess = true;
+            }
             const dur = (parsed.duration_ms !== undefined && parsed.duration_ms !== null)
                 ? ` (${Number(parsed.duration_ms).toFixed(1)}ms)`
                 : "";
@@ -74,7 +81,9 @@ function parseJsonLogLine(rawLine) {
             level: level.toUpperCase().padEnd(7),
             levelClass: levelClass,
             msg: cleanMsg,
-            type: parsed.type || "sync",
+            type: isHttpAccess ? "http_access" : (parsed.type || "sync"),
+            is_http_access: isHttpAccess,
+            is_read_only_access: isReadOnlyAccess,
             seq_id: parsed.seq_id || null,
             profile_id: parsed.profile_id || null,
             action: parsed.action || null,
@@ -109,11 +118,16 @@ function parseJsonLogLine(rawLine) {
             else if (level === "notice") levelClass = "text-sky-400";
             else if (level === "info") levelClass = "text-emerald-400";
 
+            const legacyMsg = match[4].trim();
+            const isReadOnly = /^(GET|HEAD)\s+\S+\s+→\s+[123]\d{2}/.test(legacyMsg);
+
             return {
                 time: timeStr,
                 level: level.toUpperCase().padEnd(7),
                 levelClass: levelClass,
-                msg: match[4].trim(),
+                msg: legacyMsg,
+                type: isReadOnly ? "http_access" : "sync",
+                is_read_only_access: isReadOnly,
                 object: null,
                 origin: null,
                 run_id: null,
