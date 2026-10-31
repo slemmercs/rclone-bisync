@@ -56,7 +56,7 @@
                             <template x-if="cluster.entry.type === 'audit'">
                                 <button @click="switchTab('audit')" class="ds-btn ds-btn-secondary ds-btn-sm text-[10px]">Ledger →</button>
                             </template>
-                            <template x-if="cluster.entry.type !== 'audit'">
+                            <template x-if="cluster.entry.type !== 'audit' && (cluster.entry.run_id || cluster.entry.job_id)">
                                 <button @click="openDaemonModal(cluster.entry)" class="ds-btn ds-btn-ghost ds-btn-sm text-[10px] text-indigo-400 hover:text-white">Daemon</button>
                             </template>
                         </div>
@@ -96,7 +96,7 @@
                                         <template x-if="subEntry.type === 'audit'">
                                             <button @click="switchTab('audit')" class="text-purple-400 hover:text-white shrink-0 text-[9px]">Ledger →</button>
                                         </template>
-                                        <template x-if="subEntry.type !== 'audit'">
+                                        <template x-if="subEntry.type !== 'audit' && (subEntry.run_id || subEntry.job_id)">
                                             <button @click="openDaemonModal(subEntry)" class="text-indigo-400 hover:text-white shrink-0 text-[9px]">Daemon</button>
                                         </template>
                                     </div>

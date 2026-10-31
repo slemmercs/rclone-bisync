@@ -456,8 +456,8 @@ func TestProfiles_OperationalFlagsAndValidation(t *testing.T) {
 	if getResp.ResolvedFlags.ConflictResolve != "newer" {
 		t.Errorf("expected resolved ConflictResolve inherited 'newer', got %s", getResp.ResolvedFlags.ConflictResolve)
 	}
-	if getResp.GlobalDefaults.MaxDelete != 50 {
-		t.Errorf("expected GlobalDefaults MaxDelete 50, got %d", getResp.GlobalDefaults.MaxDelete)
+	if getResp.GlobalDefaults.MaxDelete != 0 {
+		t.Errorf("expected GlobalDefaults MaxDelete 0, got %d", getResp.GlobalDefaults.MaxDelete)
 	}
 
 	// 4. Rejection of prohibited custom flags on update

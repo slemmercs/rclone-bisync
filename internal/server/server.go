@@ -165,14 +165,31 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sw := &statusRecordingWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
 	defer func() {
-		slog.Info("http_access",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", sw.Status(),
-			"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
-			"remote_addr", r.RemoteAddr,
-			"actor", actor,
-		)
+		durMs := float64(time.Since(start).Microseconds()) / 1000.0
+		isPolling := r.Method == http.MethodGet && (r.URL.Path == "/api/telemetry" ||
+			r.URL.Path == "/api/health" ||
+			r.URL.Path == "/api/profiles/summary" ||
+			strings.HasPrefix(r.URL.Path, "/api/logs/"))
+
+		if isPolling && sw.Status() < 400 {
+			slog.Debug("http_access",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", sw.Status(),
+				"duration_ms", durMs,
+				"remote_addr", r.RemoteAddr,
+				"actor", actor,
+			)
+		} else {
+			slog.Info("http_access",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", sw.Status(),
+				"duration_ms", durMs,
+				"remote_addr", r.RemoteAddr,
+				"actor", actor,
+			)
+		}
 	}()
 
 	isMutating := r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch
@@ -296,6 +313,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/audit/records", s.handleAuditRecords)
 	s.Mux.HandleFunc("GET /api/audit/verify", s.handleAuditVerify)
 	s.Mux.HandleFunc("GET /api/audit/export", s.handleAuditExport)
+	s.Mux.HandleFunc("POST /api/audit/reset", s.handleAuditReset)
 
 	// Profile Manager Endpoints
 	s.Mux.HandleFunc("GET /api/profiles", s.handleListProfiles)

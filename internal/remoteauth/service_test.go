@@ -451,8 +451,14 @@ func TestReconnectRemote(t *testing.T) {
 
 func TestServiceConstructorAndLabels(t *testing.T) {
 	// Arrange
+	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer mockRC.Close()
+
 	cfg := &config.Config{
-		RCAPIURL: "http://127.0.0.1:5572",
+		RCAPIURL: mockRC.URL,
 		RCUser:   "admin",
 		RCPass:   "secret",
 	}

@@ -93,6 +93,37 @@ window.AuditModule = {
         }
     },
 
+    promptResetAuditLedger() {
+        if (typeof this.askConfirmation !== "function") return;
+        this.askConfirmation({
+            title: "Reset Immutable Audit Ledger",
+            message: "Are you sure you want to reset the audit ledger? The current ledger database will be preserved in a timestamped backup before a fresh genesis block is initialized.",
+            confirmText: "Reset Ledger",
+            confirmClass: "bg-rose-600 hover:bg-rose-500",
+            icon: "danger",
+            onConfirm: () => this.resetAuditLedger()
+        });
+    },
+
+    async resetAuditLedger() {
+        try {
+            const data = await window.API.post("/api/audit/reset");
+            if (data.status === "error") throw new Error(data.error || "Reset failed");
+            if (typeof this.showToast === "function") {
+                this.showToast(`Audit ledger reset. Backup archived to ${data.backup}`, "success");
+            }
+            this.auditData.page = 1;
+            await Promise.all([
+                this.fetchAuditRecords(),
+                this.verifyAuditLedger()
+            ]);
+        } catch (err) {
+            if (typeof this.showToast === "function") {
+                this.showToast(`Reset failed: ${err.message}`, "error");
+            }
+        }
+    },
+
     changeAuditPage(newPage) {
         if (newPage < 1 || newPage > this.auditData.totalPages) return;
         this.auditData.page = newPage;

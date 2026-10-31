@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1469,5 +1470,60 @@ func TestServer_DashboardAPIKey(t *testing.T) {
 	srv.ServeHTTP(postRec4, postReq4)
 	if postRec4.Code == http.StatusUnauthorized {
 		t.Fatal("expected valid Bearer token to pass authorization")
+	}
+}
+
+type logRecordCapturer struct {
+	records []slog.Record
+}
+
+func (c *logRecordCapturer) Enabled(context.Context, slog.Level) bool { return true }
+func (c *logRecordCapturer) Handle(_ context.Context, r slog.Record) error {
+	c.records = append(c.records, r)
+	return nil
+}
+func (c *logRecordCapturer) WithAttrs(attrs []slog.Attr) slog.Handler { return c }
+func (c *logRecordCapturer) WithGroup(name string) slog.Handler       { return c }
+
+func TestHTTPAccessLogLevel(t *testing.T) {
+	capturer := &logRecordCapturer{}
+	oldLogger := slog.Default()
+	slog.SetDefault(slog.New(capturer))
+	defer slog.SetDefault(oldLogger)
+
+	cfg := &config.Config{BaseDir: t.TempDir()}
+	srv := NewServer(cfg, nil, embed.FS{})
+
+	// 1. Routine polling endpoint -> Debug level
+	req := httptest.NewRequest("GET", "/api/telemetry", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	// 2. Standard non-polling endpoint -> Info level
+	req2 := httptest.NewRequest("GET", "/api/config", nil)
+	rec2 := httptest.NewRecorder()
+	srv.ServeHTTP(rec2, req2)
+
+	var telemetryRecord, configRecord *slog.Record
+	for i := range capturer.records {
+		r := &capturer.records[i]
+		if r.Message == "http_access" {
+			r.Attrs(func(a slog.Attr) bool {
+				if a.Key == "path" && a.Value.String() == "/api/telemetry" {
+					telemetryRecord = r
+				}
+				if a.Key == "path" && a.Value.String() == "/api/config" {
+					configRecord = r
+				}
+				return true
+			})
+		}
+	}
+
+	if telemetryRecord == nil || telemetryRecord.Level != slog.LevelDebug {
+		t.Fatalf("expected /api/telemetry to be logged at Debug, got %+v", telemetryRecord)
+	}
+	if configRecord == nil || configRecord.Level != slog.LevelInfo {
+		t.Fatalf("expected /api/config to be logged at Info, got %+v", configRecord)
 	}
 }

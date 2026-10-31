@@ -6,6 +6,8 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -29,6 +31,7 @@ type AuditService struct {
 	mu     sync.RWMutex
 	DB     *sql.DB
 	Logger *logger.Logger
+	DBPath string
 }
 
 // NewAuditService constructs an AuditService instance.
@@ -190,6 +193,55 @@ func (s *AuditService) Export(format string, filter audit.Filter) ([]byte, strin
 		}
 		return buf.Bytes(), "application/x-ndjson; charset=utf-8", "audit-ledger.jsonl", nil
 	}
+}
+
+// Reset closes the active database handle, creates a timestamped forensic backup (audit.db.bak.<timestamp>),
+// removes leftover WAL/SHM files, initializes a fresh SQLite audit database, applies schema migrations,
+// and logs a Genesis reset checkpoint event.
+func (s *AuditService) Reset() (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dbPath := s.DBPath
+	if dbPath == "" {
+		resolved, err := audit.ResolveDBPath("")
+		if err != nil {
+			return "", fmt.Errorf("audit database path is not configured: %w", err)
+		}
+		dbPath = resolved
+	}
+
+	if s.DB != nil {
+		_ = s.DB.Close()
+		s.DB = nil
+	}
+
+	timestamp := time.Now().UTC().Format("20060102150405")
+	backupPath := fmt.Sprintf("%s.bak.%s", dbPath, timestamp)
+
+	if _, err := os.Stat(dbPath); err == nil {
+		if err := os.Rename(dbPath, backupPath); err != nil {
+			return "", fmt.Errorf("failed to rotate audit database: %w", err)
+		}
+	}
+
+	_ = os.Remove(dbPath + "-wal")
+	_ = os.Remove(dbPath + "-shm")
+
+	newDB, err := audit.OpenDB(dbPath)
+	if err != nil {
+		return filepath.Base(backupPath), fmt.Errorf("failed to open fresh audit database: %w", err)
+	}
+	s.DB = newDB
+	s.DBPath = dbPath
+
+	_, _ = audit.Append(s.DB, "default", audit.ActionGenesisCheckpoint, "SYSTEM", map[string]any{
+		"event":  "LEDGER_RESET",
+		"backup": filepath.Base(backupPath),
+		"note":   "Audit ledger reset with forensic backup rotation",
+	})
+
+	return filepath.Base(backupPath), nil
 }
 
 // Close closes the underlying database handle.

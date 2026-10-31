@@ -34,8 +34,8 @@ func ResolveFlags(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if res.ConflictResolve == "" {
 		res.ConflictResolve = "newer"
 	}
-	if res.MaxDelete <= 0 {
-		res.MaxDelete = 50
+	if res.MaxDelete < 0 {
+		res.MaxDelete = 0
 	}
 	if res.CompareMode == "" {
 		res.CompareMode = "modtime"

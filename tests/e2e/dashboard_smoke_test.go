@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -65,12 +66,27 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 	repoRoot := findRepoRoot(t)
 	tempDir := t.TempDir()
 
+	mockRCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/config/listremotes":
+			_, _ = w.Write([]byte(`{"remotes":["testremote"]}`))
+		case "/core/stats":
+			_, _ = w.Write([]byte(`{"bytes":0,"checks":0,"deletes":0,"transfers":0}`))
+		case "/operations/about":
+			_, _ = w.Write([]byte(`{"total":1000000,"used":500000,"free":500000}`))
+		default:
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	defer mockRCServer.Close()
+
 	cfg := &config.Config{
 		LocalPath:   filepath.Join(tempDir, "local"),
 		RemotePath:  "testremote:",
 		BaseDir:     tempDir,
 		MetricsFile: filepath.Join(tempDir, "metrics.json"),
-		RCAPIURL:    "http://127.0.0.1:5572",
+		RCAPIURL:    mockRCServer.URL,
 	}
 	_ = os.MkdirAll(cfg.LocalPath, 0755)
 

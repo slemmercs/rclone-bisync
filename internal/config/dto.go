@@ -15,12 +15,12 @@ type GlobalDefaults struct {
 // DefaultGlobalDefaults returns the canonical default operational configuration.
 func DefaultGlobalDefaults() GlobalDefaults {
 	return GlobalDefaults{
-		MaxDelete:          50,
+		MaxDelete:          0,
 		CanaryValidation:   true,
 		ConflictResolve:    "newer",
 		CompareMode:        "size,modtime",
 		RemoveEmptyDirs:    true,
 		CreateEmptyDirs:    true,
-		LockExplorerRemote: false,
+		LockExplorerRemote: true,
 	}
 }
