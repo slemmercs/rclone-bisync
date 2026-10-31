@@ -346,10 +346,9 @@ window.RemotesModule = {
     viewDedupeLogs() {
         const runId = this.dedupeModal?.runId;
         if (!runId) return;
+        const meta = { run_id: runId, remote: this.dedupeModal.remote, path: this.dedupeModal.path, type: "dedupe" };
         this.closeDedupeModal();
-        if (typeof this.openDaemonModal === "function") {
-            this.openDaemonModal({ run_id: runId });
-        }
+        if (typeof this.openDaemonModal === "function") this.openDaemonModal(meta);
     },
 
     async runDedupe(isDryRun = false) {

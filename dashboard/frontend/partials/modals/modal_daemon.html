@@ -10,12 +10,12 @@
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Correlated Daemon Logs</h3>
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider" x-text="daemonModalRun?.type === 'dedupe' || (daemonModalRun?.run_id && daemonModalRun.run_id.startsWith('dedupe-')) ? 'Correlated Deduplication Logs' : 'Correlated Daemon Logs'">Correlated Daemon Logs</h3>
                             <span x-show="daemonModalRun?.run_id" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60" x-text="daemonModalRun?.run_id"></span>
                             <span x-show="daemonModalRun?.job_id" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60" x-text="'Job: #' + daemonModalRun?.job_id"></span>
                         </div>
                         <div class="text-xs text-slate-400 mt-0.5 flex items-center gap-3 font-mono">
-                            <span x-text="daemonModalRun ? `${daemonModalRun.duration_sec != null ? daemonModalRun.duration_sec.toFixed(1) + 's' : ''} • ${daemonModalRun.files_synced != null ? daemonModalRun.files_synced + ' transferred' : ''}` : 'Continuous stream'"></span>
+                            <span x-text="daemonModalRun?.remote ? (daemonModalRun.remote + ':' + (daemonModalRun.path || '')) : (daemonModalRun ? `${daemonModalRun.duration_sec != null ? daemonModalRun.duration_sec.toFixed(1) + 's' : ''} ${daemonModalRun.files_synced != null ? '• ' + daemonModalRun.files_synced + ' transferred' : ''}` : 'Continuous stream')"></span>
                             <span class="text-slate-600">|</span>
                             <span x-text="`${filteredDaemonModalLogs.length} line(s) loaded`"></span>
                         </div>
@@ -148,14 +148,15 @@
                     </div>
                 </template>
                 <div x-show="!daemonModalLoading && !daemonModalError && filteredDaemonModalLogs.length === 0" class="py-12 text-center space-y-2 font-mono">
-                    <div class="text-slate-500 text-xs">No daemon logs match the current filter or time window.</div>
+                    <div class="text-slate-500 text-xs" x-text="daemonModalRun?.run_id?.startsWith('dedupe-') ? 'No deduplication logs match current filter.' : 'No daemon logs match the current filter or time window.'"></div>
                     <button x-show="daemonModalLevelFilter !== 'all' || daemonModalSearch" @click="daemonModalLevelFilter = 'all'; daemonModalSearch = ''" class="text-[11px] text-indigo-400 hover:text-indigo-300 underline font-mono">Reset filters & search</button>
                 </div>
             </div>
 
             <!-- Modal Footer -->
             <div class="p-3 border-t border-slate-800 bg-slate-950/60 flex justify-between items-center text-xs text-slate-500">
-                <span x-show="daemonModalRun" class="font-mono text-[11px]" x-text="'Window: ' + (daemonModalRun?.start_time || '--') + ' → ' + (daemonModalRun?.end_time || '--')"></span>
+                <span x-show="daemonModalRun && (daemonModalRun?.start_time || daemonModalRun?.end_time)" class="font-mono text-[11px]" x-text="'Window: ' + (daemonModalRun?.start_time || '--') + ' → ' + (daemonModalRun?.end_time || '--')"></span>
+                <span x-show="daemonModalRun && !daemonModalRun?.start_time && !daemonModalRun?.end_time" class="font-mono text-[11px]" x-text="'Run: ' + (daemonModalRun?.run_id || '--')"></span>
                 <span x-show="!daemonModalRun" class="font-mono text-[11px]">Unfiltered recent tail</span>
                 <button @click="closeDaemonModal()" class="px-4 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-700 transition-colors">Close</button>
             </div>

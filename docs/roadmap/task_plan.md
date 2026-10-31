@@ -17,7 +17,7 @@ Isolate correlated logs by `run_id` so that viewing deduplication logs (or speci
   - **Scope**: `internal/server/handlers_telemetry.go`, `internal/server/server_test.go`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [ ] Task 4: UI Modal Polish & Contextual Wiring
+- [x] Task 4: UI Modal Polish & Contextual Wiring
   - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`, `dashboard/frontend/js/remotes.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
@@ -31,3 +31,4 @@ Isolate correlated logs by `run_id` so that viewing deduplication logs (or speci
 - 2026-10-31: Completed Task 1: Enabled guaranteed structured deduplication log stream recording in `handlers_auth.go` across all execution modes (including `list` preview mode) and added unit tests in `handlers_audit_test.go`.
 - 2026-10-31: Completed Task 2: Implemented `FilterLogsByRunID` and `GetRunTimeWindow` in `LogService` with secret masking and unit test coverage in `log_service_runid_test.go`.
 - 2026-10-31: Completed Task 3: Wired `run_id` correlation in `handleDaemonLogs` to route `dedupe-` runs to `bisync.log` via `FilterLogsByRunID`, resolve sync run windows, and prevent falling back to unrelated daemon tails. Added unit tests in `server_test.go`.
+- 2026-10-31: Completed Task 4: Polished `modal_daemon.html` and `remotes.js` to dynamically adapt header titles, remote path context, and run ID footers for deduplication runs; verified LOC <= 400.
