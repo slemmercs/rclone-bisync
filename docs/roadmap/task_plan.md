@@ -13,7 +13,7 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
   - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/profiles_modal.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/js/review_actions.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh loc 400` and `go test -count=1 ./tests/e2e/...`
 
-- [ ] Task 3: Backend High-LOC Module Decomposition (`log_service.go`)
+- [x] Task 3: Backend High-LOC Module Decomposition (`log_service.go`)
   - **Scope**: `internal/services/log_service.go`, `internal/services/log_parser.go`
   - **Verification**: `./scripts/check.sh loc 400` and `go test -count=1 ./internal/services/...`
 
@@ -38,6 +38,7 @@ Remediate key technical debt items: clean up workspace binaries, modularize near
 - 2026-10-31: Initialized technical debt remediation plan from implementation_plan.md covering LOC ceilings, test coverage gaps, and workspace cleanliness.
 - 2026-10-31: Completed Task 1: Cleaned up root workspace binary artifacts (bisync-hub, bisync-hub-new), eliminating index bloat and search scanner interference.
 - 2026-10-31: Completed Task 2: Modularized profiles.js (down to 154 LOC with profiles_modal.js at 256 LOC) and review.js (down to 196 LOC with review_actions.js at 205 LOC). Headless Chrome E2E test and LOC checks passed.
+- 2026-10-31: Completed Task 3: Decomposed log_service.go (down to 246 LOC) by extracting parsing helpers into log_parser.go (152 LOC). All services tests and LOC checks passed.
 
 
 
