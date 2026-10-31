@@ -9,7 +9,7 @@ Enforce defensive defaults (`max-delete: 0`, `lock_explorer_remote: true`), quie
   - **Scope**: `internal/config/dto.go`, `internal/config/dto_test.go`, `internal/profiles/builder.go`, `internal/profiles/builder_test.go`, `internal/server/handlers_profiles.go`, `internal/server/handlers_profiles_test.go`, `dashboard/frontend/js/settings.js`, `dashboard/frontend/js/profiles.js`
   - **Verification**: `go test -count=1 ./internal/config/... ./internal/profiles/... ./internal/server/...`
 
-- [ ] Task 2: HTTP Access Logging Refinement & UI Formatting
+- [x] Task 2: HTTP Access Logging Refinement & UI Formatting
   - **Scope**: `internal/server/server.go`, `internal/server/server_test.go`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
@@ -33,5 +33,6 @@ Enforce defensive defaults (`max-delete: 0`, `lock_explorer_remote: true`), quie
 
 - 2026-10-31: Initialized plan from implementation_plan.md to address telemetry logging noise, log pagination, test port isolation, duplicate profile selectors, defensive defaults, and audit ledger reset.
 - 2026-10-31: Completed Task 1: Enforced `max_delete: 0` and `lock_explorer_remote: true` across `DefaultGlobalDefaults()`, profile builder, and frontend settings/profiles modules. Fixed builder and handler conditions (`< 0`) to treat `0` as an explicit defensive deletion threshold. Verified with `go test -count=1 ./internal/config/... ./internal/profiles/... ./internal/server/...`.
+- 2026-10-31: Completed Task 2: Demoted routine HTTP polling endpoints (`/api/telemetry`, `/api/health`, `/api/profiles/summary`, `/api/logs/*`) to `slog.Debug` level in server middleware. Formatted `http_access` lines in `utils.js` as `METHOD PATH → STATUS (Xms)` and restricted the Daemon modal button in `pattern_timeline_ledger.html` to correlated records possessing `run_id` or `job_id`. Verified with `go test -count=1 ./internal/server/...`.
 
 

@@ -40,6 +40,16 @@ function parseJsonLogLine(rawLine) {
 
         let structuredDetails = null;
         let cleanMsg = (parsed.msg || "").trim();
+
+        // Format HTTP access log records cleanly
+        if (cleanMsg === "http_access" && parsed.method && parsed.path) {
+            const status = parsed.status || 200;
+            const dur = (parsed.duration_ms !== undefined && parsed.duration_ms !== null)
+                ? ` (${Number(parsed.duration_ms).toFixed(1)}ms)`
+                : "";
+            cleanMsg = `${parsed.method} ${parsed.path} → ${status}${dur}`;
+        }
+
         // Detect if msg contains embedded JSON (e.g. comparison settings or error payloads)
         if (cleanMsg.includes("{") && cleanMsg.includes("}")) {
             const jsonMatch = cleanMsg.match(/(\{[\s\S]*\})/);
