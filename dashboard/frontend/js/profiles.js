@@ -10,7 +10,7 @@ window.ProfilesModule = {
         activeId: localStorage.getItem("rclone_active_profile_id") || "default",
         homeDir: "",
         globalDefaults: {
-            max_delete: 50,
+            max_delete: 0,
             conflict_resolve: "path1",
             compare_mode: "size,modtime",
             dry_run: false,

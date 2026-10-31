@@ -8,8 +8,8 @@ import (
 func TestDefaultGlobalDefaults(t *testing.T) {
 	d := DefaultGlobalDefaults()
 
-	if d.MaxDelete != 50 {
-		t.Errorf("expected MaxDelete 50, got %d", d.MaxDelete)
+	if d.MaxDelete != 0 {
+		t.Errorf("expected MaxDelete 0, got %d", d.MaxDelete)
 	}
 	if !d.CanaryValidation {
 		t.Errorf("expected CanaryValidation true")
@@ -26,8 +26,8 @@ func TestDefaultGlobalDefaults(t *testing.T) {
 	if !d.CreateEmptyDirs {
 		t.Errorf("expected CreateEmptyDirs true")
 	}
-	if d.LockExplorerRemote {
-		t.Errorf("expected LockExplorerRemote false by default")
+	if !d.LockExplorerRemote {
+		t.Errorf("expected LockExplorerRemote true by default")
 	}
 
 	data, err := json.Marshal(d)

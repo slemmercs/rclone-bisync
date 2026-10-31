@@ -13,13 +13,13 @@ window.SettingsModule = {
         error: null,
         config: {
             global_defaults: {
-                max_delete: 50,
+                max_delete: 0,
                 conflict_resolve: "newer",
                 compare_mode: "modtime",
                 canary_validation: true,
                 remove_empty_dirs: true,
                 create_empty_dirs: true,
-                lock_explorer_remote: false
+                lock_explorer_remote: true
             },
             daemon: {
                 job_poll_initial_sleep_sec: 2,

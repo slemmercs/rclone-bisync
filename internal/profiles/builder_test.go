@@ -116,7 +116,7 @@ func TestBuildCLIArgs(t *testing.T) {
 
 		expected := []string{
 			"--conflict-resolve", "newer",
-			"--max-delete", "50",
+			"--max-delete", "0",
 			"--check-access", "--check-filename", "RCLONE_TEST",
 			"--compare", "size,modtime",
 			"--remove-empty-dirs",

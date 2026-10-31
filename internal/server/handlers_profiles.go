@@ -19,7 +19,7 @@ func (s *Server) getGlobalDefaults() config.GlobalDefaults {
 		return def
 	}
 	g := s.Config.GlobalDefaults
-	if g.MaxDelete <= 0 {
+	if g.MaxDelete < 0 {
 		g.MaxDelete = def.MaxDelete
 	}
 	if g.ConflictResolve == "" {
