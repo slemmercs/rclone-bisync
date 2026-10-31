@@ -1,5 +1,14 @@
 # Design Specification: Bisync Operational Flags & Custom Flag Escape Hatch
 
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Execution Engine & Configuration |
+| **Governing ADR** | [ADR-007: 3-Tier Cascading Operational Flags Hierarchy](../architecture/adr/ADR-007-Cascading-Operational-Flags-Hierarchy.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Security Principles](../architecture/SECURITY_PRINCIPLES.md) |
+
+---
+
 ## Executive Summary
 
 This design specification details the integration of `rclone bisync` CLI flags into **Bisync Hub**. Following the **Profile Manager** architecture (`profile-manager.md`), operational flags are strictly owned by Bisync Hub profiles—never by Rclone's remote connectivity layer (`rclone.conf`).

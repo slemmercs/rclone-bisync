@@ -9,7 +9,7 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
   - **Scope**: `docs/design/bisync-hub-design-system-specification.md`, remove `components.md`, `layouts.md`, `patterns.md`, `status-language.md`
   - **Verification**: `test ! -f docs/design/components.md && test -f docs/design/bisync-hub-design-system-specification.md`
 
-- [ ] Task 2: Create Master Specifications Registry in `docs/design/README.md` & Add ADR Cross-Links
+- [x] Task 2: Create Master Specifications Registry in `docs/design/README.md` & Add ADR Cross-Links
   - **Scope**: `docs/design/README.md`, metadata headers in `docs/design/*.md`
   - **Verification**: `test -f docs/design/README.md && ./scripts/check.sh all`
 
@@ -33,6 +33,8 @@ Consolidate UI design specifications in `docs/design/`, link them to controlling
 
 - 2026-10-31: Initialized plan from implementation_plan.md.
 - 2026-10-31: Completed Task 1: Consolidated UI design system micro-specs (components, layouts, patterns, status-language) into `bisync-hub-design-system-specification.md` and pruned obsolete partials.
+- 2026-10-31: Completed Task 2: Created Master Specifications Registry in `docs/design/README.md` and added metadata headers with governing ADR cross-links across all design specifications.
+
 
 
 

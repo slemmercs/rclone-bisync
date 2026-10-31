@@ -1,5 +1,14 @@
 # Design Specification: Audit Ledger Architecture & Dual-Context Workspace
 
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Security, Telemetry & Audit Workspace |
+| **Governing ADRs** | [ADR-004: Immutable Audit Ledger](../architecture/adr/ADR-004-Immutable-Audit-Ledger.md), [ADR-005: Local-First Architecture](../architecture/adr/ADR-005-Local-First-Architecture.md) |
+| **Core Principles** | [Security Principles](../architecture/SECURITY_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md) |
+
+---
+
 ## Executive Summary
 
 The **Audit Ledger** serves as the safety-first data transparency engine for **Bisync Hub**. It provides an immutable, auditable log of all file-level synchronization actions, safety barrier decisions, deletion approvals, and conflict resolutions.

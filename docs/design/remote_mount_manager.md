@@ -1,9 +1,11 @@
 # Design Specification: Remote Mount Manager & Pooled Storage Engine (`internal/mount`)
 
-**Document Status:** Draft / Strategic Feature Proposal  
-**Target Architecture:** Bisync Hub Architecture Alignment (Go Single-Binary)  
-**Scope:** Individual Remote Mounts (Stage A) & Pooled Multi-Cloud Storage Engine (Stage B)  
-**Primary API:** Rclone Remote Control (RC) API (`mount/mount`, `mount/unmount`, `mount/listmounts`, `config/create`)
+| Metadata | Details |
+|---|---|
+| **Status** | `Draft` / Strategic Proposal |
+| **Domain** | Remote Mounts, VFS Virtual File Systems & Storage Pooling |
+| **Governing ADR** | [ADR-002: Rclone Remote Control API As Source Of Truth](../architecture/adr/ADR-002-Rclone-As-Source-Of-Truth.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md) |
 
 ---
 

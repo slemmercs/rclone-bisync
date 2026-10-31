@@ -1,5 +1,14 @@
 # Design Specification: Hybrid Fleet Overview & Contextual Profile Workspace
 
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Frontend Architecture & Multi-Tenant Fleet UX |
+| **Governing ADRs** | [ADR-005: Local-First Architecture](../architecture/adr/ADR-005-Local-First-Architecture.md), [ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture](../architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md) |
+
+---
+
 ## Executive Summary
 
 As **Bisync Hub** evolves from a single-tenancy dashboard to a multi-workload management platform, the user interface must transition from a resource-centric view (focused strictly on daemon metrics) to a **workload-centric hierarchy**.

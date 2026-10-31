@@ -1,14 +1,15 @@
 # Design Specification: Heuristic Conflict Recommendation Engine
 
-**Feature Name**: Heuristic Conflict Recommendation Engine
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Safety, Decision Intelligence & Conflict Heuristics |
+| **Governing ADRs** | [ADR-003: Human-In-The-Loop Review Before Mutation](../architecture/adr/ADR-003-Human-In-The-Loop-Review.md), [ADR-008: WAL-Resilient Interactive Conflict Review](../architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md) |
 
-**Status**: Implemented (Phase 4 Extension - `feat/heuristic-conflict-engine`)
+---
 
-**Target Milestone**: Phase 4 Extension (Interactive Sync Review Decision Intelligence)
-
-**Package Path**: `internal/engine/heuristics`
-
-**Delivered Components**:
+## Delivered Components
 - Core Engine & Worker Pool: `internal/engine/heuristics/engine.go`
 - Pure-Go Analyzers: `internal/engine/heuristics/analyzers.go`, `analyzers_ext.go` (`TempLockAnalyzer`, `HashMatchAnalyzer`, `TruncationAnalyzer`, `ClockSkewAnalyzer`, `SizeDivergenceAnalyzer`, `TimestampRecencyAnalyzer`)
 - Service Integration: `internal/services/review_service.go` (`ApplyBatchRecommendations`, conflict enrichment)

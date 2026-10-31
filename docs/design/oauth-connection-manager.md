@@ -1,12 +1,13 @@
 # OAuth Connection Manager
 
-## Status
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Remote Authentication & Storage Lifecycle |
+| **Governing ADR** | [ADR-002: Rclone Remote Control API As Source Of Truth](../architecture/adr/ADR-002-Rclone-As-Source-Of-Truth.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Security Principles](../architecture/SECURITY_PRINCIPLES.md) |
 
-Implemented (OAuth Connection Manager)
-
-## Priority
-
-High
+---
 
 ## Goal
 

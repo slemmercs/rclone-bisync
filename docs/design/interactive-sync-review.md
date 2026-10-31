@@ -1,8 +1,13 @@
 # User Story: Interactive Sync Review & Resolution Workflow
 
-## Status
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Safety, WAL Crash Resilience & Interactive Review |
+| **Governing ADRs** | [ADR-003: Human-In-The-Loop Review Before Mutation](../architecture/adr/ADR-003-Human-In-The-Loop-Review.md), [ADR-008: WAL-Resilient Interactive Conflict Review](../architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Security Principles](../architecture/SECURITY_PRINCIPLES.md) |
 
-Implemented (Phase 4 - `feat/interactive-sync-review`)
+---
 
 ## Delivered Components
 

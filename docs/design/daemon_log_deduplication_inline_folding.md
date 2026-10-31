@@ -1,5 +1,14 @@
 # Daemon & Unified Log Inline Deduplication and Folding Specification
 
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Frontend & Telemetry Performance |
+| **Governing ADRs** | [ADR-004: Immutable Audit Ledger](../architecture/adr/ADR-004-Immutable-Audit-Ledger.md), [ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture](../architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md) |
+
+---
+
 ## 1. Problem Statement
 
 During deep synchronization runs, Rclone emits repetitive consecutive notice logs:

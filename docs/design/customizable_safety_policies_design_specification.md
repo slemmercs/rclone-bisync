@@ -1,14 +1,13 @@
 # Design Specification: Customizable Safety Policies
 
-**Feature Name**: Customizable Safety Policies (Custom Circuit Breakers, Deletion Guards, & Policy Guardrails)
+| Metadata | Details |
+|---|---|
+| **Status** | `Shipped` (v1.0.0-beta.12) |
+| **Domain** | Safety, Circuit Breakers & Policy Guardrails |
+| **Governing ADR** | [ADR-006: Multi-Layered Safety Circuit Breakers & Path Confinement](../architecture/adr/ADR-006-Multi-Layered-Safety-Circuit-Breakers.md) |
+| **Core Principles** | [Product Principles](../architecture/PRODUCT_PRINCIPLES.md), [Security Principles](../architecture/SECURITY_PRINCIPLES.md), [Architecture Principles](../architecture/ARCHITECTURE_PRINCIPLES.md) |
 
-**Status**: Draft / Proposed
-
-**Target Milestone**: Phase 5 (Configuration Management & 3-Layer Safety Pipeline)
-
-**Package Path**: `internal/engine/policies`
-
-**Dependencies**: `internal/config`, `internal/audit` (Immutable Audit Ledger), `internal/services/deletion_service.go`, `internal/engine/runner`, `internal/services/review_service.go`
+---
 
 ## 1. Executive Summary & Purpose
 
