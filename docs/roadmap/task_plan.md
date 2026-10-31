@@ -9,9 +9,9 @@ Eliminate UI noise and duplicate milestone lines so that sync and dry-run execut
   - **Scope**: `internal/core/client/monitor.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`, `internal/server/server.go`, `internal/server/server_test.go`
   - **Verification**: `go test -count=1 ./internal/core/client/... ./internal/engine/runner/... ./internal/server/...` and `./scripts/check.sh loc 400`
 
-- [ ] Task 2: Frontend Ledger De-Noising & UI Signal Isolation
+- [x] Task 2: Frontend Ledger De-Noising & UI Signal Isolation
   - **Scope**: `dashboard/frontend/js/logs.js`
-  - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check-loc.sh 400`
+  - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh loc 400`
 
 - [ ] Task 3: Full Quality Gate Verification & Release Preparation
   - **Scope**: Full repository quality gate verification
@@ -21,6 +21,8 @@ Eliminate UI noise and duplicate milestone lines so that sync and dry-run execut
 
 - 2026-10-31: Initialized plan from implementation_plan.md to de-noise the Unified Ledger, demote routine job polling and HTTP access to debug, and eliminate duplicate sync completion logs.
 - 2026-10-31: Completed Task 1: Demoted job polling milestones and successful HTTP access (status < 400) to slog.LevelDebug, eliminated duplicate log.Printf calls in runner_handlers.go, added contextual sync mode prefixes (Dry run, Resync, Sync), and added test coverage. All tests passed and LOC verified.
+- 2026-10-31: Completed Task 2: Filtered out http_access records across all unified ledger views in dashboard/frontend/js/logs.js, isolating execution telemetry to operational sync and audit records. E2E tests and LOC audit passed cleanly.
+
 
 
 
