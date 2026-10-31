@@ -166,30 +166,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		durMs := float64(time.Since(start).Microseconds()) / 1000.0
-		isPolling := r.Method == http.MethodGet && (r.URL.Path == "/api/telemetry" ||
-			r.URL.Path == "/api/health" ||
-			r.URL.Path == "/api/profiles/summary" ||
-			strings.HasPrefix(r.URL.Path, "/api/logs/"))
-
-		if isPolling && sw.Status() < 400 {
-			slog.Debug("http_access",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"status", sw.Status(),
-				"duration_ms", durMs,
-				"remote_addr", r.RemoteAddr,
-				"actor", actor,
-			)
-		} else {
-			slog.Info("http_access",
-				"method", r.Method,
-				"path", r.URL.Path,
-				"status", sw.Status(),
-				"duration_ms", durMs,
-				"remote_addr", r.RemoteAddr,
-				"actor", actor,
-			)
+		lvl := slog.LevelInfo
+		if (r.Method == http.MethodGet || r.Method == http.MethodHead) && sw.Status() < 400 {
+			lvl = slog.LevelDebug
+		} else if sw.Status() >= 400 {
+			lvl = slog.LevelWarn
 		}
+		slog.Log(r.Context(), lvl, "http_access",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", sw.Status(),
+			"duration_ms", durMs,
+			"remote_addr", r.RemoteAddr,
+			"actor", actor,
+		)
 	}()
 
 	isMutating := r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete || r.Method == http.MethodPatch
