@@ -10,10 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/lock"
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
+	"github.com/slemmercs/rclone-bisync/internal/core/state"
 )
 
 func TestSyncRunnerExecution(t *testing.T) {
@@ -462,3 +466,43 @@ func TestSyncRunner_DebugModePropagation(t *testing.T) {
 		t.Fatalf("expected logger level to be LevelDebug, got %v", r.Logger.Level())
 	}
 }
+
+func TestSyncRunner_ActionLabeling(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "action_run.json")
+
+	cfg := &config.Config{
+		BaseDir:     tmpDir,
+		LogFile:     logPath,
+		ProfileID:   "onedrive",
+		ProfileName: "OneDrive (Test)",
+	}
+
+	r := NewSyncRunner(cfg)
+
+	// 1. Dry run
+	r.handleSyncSuccess("run_dry", 1, "dashboard", time.Now(), 2.0, client.MonitorJobResult{Success: true, FilesSynced: 0}, false, false, true, true, state.NotificationState{})
+	data, _ := os.ReadFile(logPath)
+	if !strings.Contains(string(data), "[OneDrive (Test)] Dry run succeeded in 2.0s (0 file(s) transferred)") {
+		t.Fatalf("expected dry run message, got: %s", string(data))
+	}
+
+	// 2. Resync
+	_ = os.Remove(logPath)
+	r.Logger, _ = logger.New(logPath, false)
+	r.handleSyncSuccess("run_resync", 2, "dashboard", time.Now(), 5.0, client.MonitorJobResult{Success: true, FilesSynced: 3}, true, false, false, true, state.NotificationState{})
+	data, _ = os.ReadFile(logPath)
+	if !strings.Contains(string(data), "[OneDrive (Test)] Resync succeeded in 5.0s (3 file(s) transferred)") {
+		t.Fatalf("expected resync message, got: %s", string(data))
+	}
+
+	// 3. Normal Sync
+	_ = os.Remove(logPath)
+	r.Logger, _ = logger.New(logPath, false)
+	r.handleSyncSuccess("run_sync", 3, "dashboard", time.Now(), 1.5, client.MonitorJobResult{Success: true, FilesSynced: 1}, false, false, false, true, state.NotificationState{})
+	data, _ = os.ReadFile(logPath)
+	if !strings.Contains(string(data), "[OneDrive (Test)] Sync succeeded in 1.5s (1 file(s) transferred)") {
+		t.Fatalf("expected sync message, got: %s", string(data))
+	}
+}
+

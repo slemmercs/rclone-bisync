@@ -1,58 +1,56 @@
-# Implementation Plan: Profile-Scoped Logs, Unified Ledger Filtering & Real-Time Polling
+# Implementation Plan: De-Noise Unified Ledger & Sync Milestones
 
 ## Proposed Changes
 
-Add profile identification (`ProfileID` and `ProfileName`) to all sync run execution logs, prefix the log message with `[<ProfileName>]` in raw and JSON logs, enable profile-based filtering in the Unified Ledger UI, prevent different profiles from clustering together into the same folded group, and resolve the real-time polling regression so logs update immediately without requiring manual page reloads.
+Eliminate UI noise and redundant log emissions so that sync runs (such as dry-runs) present a single, clean, reassuring milestone entry in the dashboard Unified Ledger. Demote backend daemon job polling milestones and successful HTTP access records to `slog.LevelDebug`, eliminate duplicate `log.Printf` vs `RecordSyncRun` logging in `runner_handlers.go`, contextually label the sync mode (`Dry run`, `Resync`, `Sync`), and ensure the frontend Unified Ledger filters out internal HTTP access entries.
 
 ### Affected Components & Packages
 
-- `internal/models/api.go`:
-  - Add `ProfileID` and `ProfileName` fields to `BisyncLogEntry`.
-- `internal/engine/runner/runner.go` & `internal/engine/runner/runner_handlers.go`:
-  - Centralize `profileLabel()` and `formatLogMsg()` helper methods.
-  - Prefix console `log.Printf` output and `BisyncLogEntry.Msg` with `[<ProfileName>]` for non-default profiles.
-  - Populate `ProfileID` and `ProfileName` on all `RecordSyncRun` calls (success, fault, abort, canary guard).
+- `internal/core/client/monitor.go`:
+  - Demote `slog.Info("Monitoring bisync job", ...)` and `slog.Info("Job completed successfully", ...)` to `slog.Debug(...)`.
+- `internal/engine/runner/runner_handlers.go`:
+  - Remove duplicate `log.Printf` calls from `handleSyncSuccess` and `handleSyncFailure`.
+  - Contextually prefix milestone messages: `"Dry run succeeded..."` for dry-runs, `"Resync succeeded..."` for resyncs, and `"Sync succeeded..."` for standard runs.
 - `internal/engine/runner/runner_test.go`:
-  - Unit tests verifying profile prefixing and field enrichment in `RecordSyncRun`.
-- `dashboard/frontend/js/utils.js`:
-  - Extract `profile_id` and `profile_name` in `parseJsonLogLine`.
+  - Align test assertions with contextual mode prefixes.
+- `internal/server/server.go`:
+  - In `ServeHTTP`, demote all successful HTTP access logging (`status < 400`) to `slog.LevelDebug`, retaining `slog.LevelWarn` / `slog.LevelError` for errors (`status >= 400`).
+- `internal/server/server_test.go`:
+  - Update `TestHTTPAccessLogLevel` to test that successful mutating requests log at `slog.LevelDebug`.
 - `dashboard/frontend/js/logs.js`:
-  - Add `telemetryProfileFilter: "all"` state.
-  - Update `clusterLogEntries` key to incorporate profile identity, ensuring different profiles never fold into the same cluster.
-  - Filter by `telemetryProfileFilter` in `filteredBisyncLogs`.
-  - Add `silent` option to `fetchBisyncLogs(page, silent = false)` to refresh in background without UI spinner flicker.
-- `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`:
-  - Add profile filter `<select>` dropdown next to the `All | Sync | Audit` pills.
-- `dashboard/frontend/js/polling.js`:
-  - Automatically call `fetchBisyncLogs(1, true)` immediately when `syncJustFinished` and periodically during active polling on page 1 of telemetry tab.
-- `dashboard/frontend/js/profiles_history.js`:
-  - Refresh logs when triggering a profile sync.
+  - In `filteredBisyncLogs`, filter out `l.type === "http_access"` across Unified Ledger views.
 
 ### Technical Strategy & Data Flow
 
-1. **Backend Profile Scoping**:
-   - When `SyncRunner.Run()` executes, `r.Config.ProfileName` and `r.Config.ProfileID` are inspected.
-   - If a friendly name or custom ID is set, logs format as `[<ProfileName>] Sync succeeded in 5.0s (0 file(s) transferred)`.
-   - The JSON entry contains `"profile_id": "...", "profile_name": "..."`.
-2. **Frontend Filtering & Clustering**:
-   - `parseJsonLogLine` extracts `profile_id` and `profile_name`.
-   - `clusterLogEntries` uses `key = level + "::" + type + "::" + profile + "::" + norm`.
-   - `filteredBisyncLogs` filters by selected profile.
-3. **Real-Time Log Ingestion**:
-   - `poll()` in `polling.js` triggers `fetchBisyncLogs(1, true)` so log updates appear dynamically without reload.
+1. **Backend De-Noising**:
+   - `monitor.go` job polling steps log at `slog.LevelDebug`.
+   - `server.go` HTTP access middleware logs successful requests (`status < 400`) at `slog.LevelDebug`.
+   - `runner_handlers.go` logs sync outcomes once via `r.Logger.RecordSyncRun`.
+2. **Contextual Action Labeling**:
+   - `actionLabel` determines mode: `if dryRun { return "Dry run" } else if resync { return "Resync" } return "Sync"`.
+   - The user sees: `[OneDrive (Test)] Dry run succeeded in 2.0s (0 file(s) transferred)`.
+3. **Frontend Signal Isolation**:
+   - `filteredBisyncLogs` in `logs.js` filters out `http_access` records from the Unified Ledger, keeping HTTP server access logs strictly in diagnostic/daemon streams.
 
 ### Safety & Error Handling
 
-- Respect `<400` LOC limit on all modified Go and JS files.
-- Backward compatibility: older entries without profile fields default gracefully to clean display.
-- Default profile remains clean without redundant `[default]` noise.
+- Respect strict `<400` LOC limit across all modified Go and JS files.
+- Failed HTTP requests (`status >= 400`) and failed sync runs (`FAULT`, `ABORTED`) retain `WARN` / `ERROR` levels and visibility.
+- Tracing is preserved: running `--debug` still records all debug logs to `bisync.log`.
 
 ## Verification Plan
 
-- Unit tests: `go test -count=1 ./internal/engine/runner/...`
-- File size check: `./scripts/check.sh loc 400`
-- End-to-end smoke tests: `go test -count=1 ./tests/e2e/...`
-- Full quality check: `./scripts/check.sh all`
+- Unit tests:
+  - `go test -count=1 ./internal/core/client/...`
+  - `go test -count=1 ./internal/engine/runner/...`
+  - `go test -count=1 ./internal/server/...`
+- File size check:
+  - `./scripts/check-loc.sh 400`
+- End-to-end smoke test:
+  - `go test -count=1 ./tests/e2e/...`
+- Full quality check:
+  - `./scripts/check.sh all`
+
 
 
 

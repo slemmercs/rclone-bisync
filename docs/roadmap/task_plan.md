@@ -1,27 +1,27 @@
-# Task Plan: Profile-Scoped Logs, Unified Ledger Filtering & Real-Time Polling
+# Task Plan: De-Noise Unified Ledger & Sync Milestones
 
 ## Goal
-Add profile names to sync execution log lines and JSON models, enable profile filtering and cluster isolation in the dashboard unified ledger, and fix real-time polling so logs appear immediately without requiring manual page reloads.
+Eliminate UI noise and duplicate milestone lines so that sync and dry-run executions present a single, clean, reassuring milestone entry in the dashboard Unified Ledger.
 
 ## Tasks
 
-- [x] Task 1: Backend Model Enrichment & Profile Scoped Log Formatting
-  - **Scope**: `internal/models/api.go`, `internal/engine/runner/runner.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
-  - **Verification**: `go test -count=1 ./internal/engine/runner/...` and `./scripts/check.sh loc 400`
+- [x] Task 1: Backend Log De-Noising & Milestones
+  - **Scope**: `internal/core/client/monitor.go`, `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`, `internal/server/server.go`, `internal/server/server_test.go`
+  - **Verification**: `go test -count=1 ./internal/core/client/... ./internal/engine/runner/... ./internal/server/...` and `./scripts/check.sh loc 400`
 
-- [x] Task 2: Frontend Profile Filtering, Cluster Isolation & Real-Time Polling Fix
-  - **Scope**: `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/polling.js`, `dashboard/frontend/js/profiles_history.js`
-  - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh loc 400`
+- [ ] Task 2: Frontend Ledger De-Noising & UI Signal Isolation
+  - **Scope**: `dashboard/frontend/js/logs.js`
+  - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check-loc.sh 400`
 
-- [x] Task 3: Full Quality Gate Verification & Release
-  - **Scope**: Entire repository
+- [ ] Task 3: Full Quality Gate Verification & Release Preparation
+  - **Scope**: Full repository quality gate verification
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-31: Initialized plan from implementation_plan.md to add profile name scoping to logs, enable ledger profile filtering, and restore real-time polling.
-- 2026-10-31: Completed Task 1: Added ProfileID and ProfileName to BisyncLogEntry model, centralized profile label formatting in SyncRunner, prefixed console log.Printf and log Msg with [<ProfileName>] for custom profiles, and populated fields across all RecordSyncRun invocations. Verified with runner unit tests and loc check.
-- 2026-10-31: Completed Task 2: Extracted profile identification in parseJsonLogLine, isolated folded clusters by profile key, added profile dropdown filtering to the Unified Ledger view, and fixed real-time log polling via silent page 1 refreshes on sync finish and during background polling. Verified with e2e smoke tests and loc check.
-- 2026-10-31: Completed Task 3: Full quality gate passed with 6/6 stages passing clean (tests, loc checks, vet, lint). Ready for PR and release.
+- 2026-10-31: Initialized plan from implementation_plan.md to de-noise the Unified Ledger, demote routine job polling and HTTP access to debug, and eliminate duplicate sync completion logs.
+- 2026-10-31: Completed Task 1: Demoted job polling milestones and successful HTTP access (status < 400) to slog.LevelDebug, eliminated duplicate log.Printf calls in runner_handlers.go, added contextual sync mode prefixes (Dry run, Resync, Sync), and added test coverage. All tests passed and LOC verified.
+
+
 
 

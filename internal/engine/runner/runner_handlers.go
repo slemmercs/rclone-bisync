@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,7 +30,12 @@ func (r *SyncRunner) handleSyncSuccess(
 		profID = r.Config.ProfileID
 		profName = r.Config.ProfileName
 	}
-	log.Printf("%sSync succeeded in %.2fs (%d files synced)", r.profilePrefix(), duration, monitorRes.FilesSynced)
+	action := "Sync"
+	if dryRun {
+		action = "Dry run"
+	} else if resync {
+		action = "Resync"
+	}
 	if r.Logger != nil {
 		_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 			Time:        time.Now().Format(time.RFC3339),
@@ -39,7 +43,7 @@ func (r *SyncRunner) handleSyncSuccess(
 			Type:        "sync",
 			ProfileID:   profID,
 			ProfileName: profName,
-			Msg:         r.formatLogMsg(fmt.Sprintf("Sync succeeded in %.1fs (%d file(s) transferred)", duration, monitorRes.FilesSynced)),
+			Msg:         r.formatLogMsg(fmt.Sprintf("%s succeeded in %.1fs (%d file(s) transferred)", action, duration, monitorRes.FilesSynced)),
 			RunID:       runID,
 			JobID:       jobID,
 			Origin:      origin,
@@ -106,7 +110,6 @@ func (r *SyncRunner) handleSyncFailure(
 		profName = r.Config.ProfileName
 	}
 
-	log.Printf("%sSync failed [%s]: %s", r.profilePrefix(), errType, monitorRes.ErrorMessage)
 	if r.Logger != nil {
 		_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 			Time:        time.Now().Format(time.RFC3339),
