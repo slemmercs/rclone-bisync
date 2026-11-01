@@ -119,7 +119,5 @@ func (s *Server) ServeSSE(ctx context.Context, host string, port int) error {
 	}
 }
 
-// Stubs for tools and resources registration (implemented in tools_read.go, tools_write.go, resources.go).
-func (s *Server) registerReadTools()     {}
+// Stubs for tools registration (implemented in tools_write.go).
 func (s *Server) registerMutatingTools() {}
-func (s *Server) registerResources()     {}
