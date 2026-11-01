@@ -33,7 +33,7 @@ Implement a native Go Model Context Protocol (MCP) server directly inside the si
   - **Scope**: `internal/mcp/tools_read.go`, `internal/mcp/resources.go`, `internal/mcp/tools_read_test.go`
   - **Verification**: `go test -v -count=1 -run "TestReadTools|TestResources" ./internal/mcp/...`
 
-- [ ] Task 8: Mutating Tools Ergonomics, Safety & Audit Bounding
+- [x] Task 8: Mutating Tools Ergonomics, Safety & Audit Bounding
   - **Scope**: `internal/mcp/tools_write.go`, `internal/mcp/tools_write_test.go`
   - **Verification**: `go test -v -count=1 -run "TestWriteTools" ./internal/mcp/...` and `./scripts/check.sh all`
 
@@ -43,6 +43,8 @@ Implement a native Go Model Context Protocol (MCP) server directly inside the si
 - 2026-11-01: Completed Task 6: Hardened confirmation ticket manager with exact parameter fingerprint validation in ValidateTicket and ConsumeTicket, preventing confirmation token tampering or privilege escalation on trigger_sync, execute_review, and dedupe_by_hash.
 
 - 2026-11-01: Completed Task 7: Optimized read tools and resources for LLM token efficiency (compact non-indented JSON, slim default status with opt-in logs/config/metrics, dedicated bisync_get_logs tool with level filtering, paginated and projected explore_path, stripped hashes in sync history, and unresolved_only filtering in inspect_conflict_session). Raised internal/mcp coverage to 83.3%.
+- 2026-11-01: Completed Task 8: Normalized resolution decisions in `bisync_resolve_review`, added safe session-level dismissal, truncated dedupe responses for LLM token efficiency, bounded dedupe audit records per ADR-004 (omitting raw output from SQLite ledger and requiring deleted mutations), rebuilt single binary, and achieved 84.5% package test coverage.
+
 
 - 2026-11-01: Completed Task 1: Added github.com/mark3labs/mcp-go (v1.5.0, MIT) to go.mod, documented in THIRD_PARTY_LICENSES.md, and verified zero copyleft violations via ./scripts/check.sh licenses.
 - 2026-11-01: Completed Task 2: Implemented confirmation ticket engine (internal/mcp/confirmation.go) and MCP server scaffolding with dual transport (stdio and streamable SSE) in internal/mcp/server.go. Verified via internal/mcp unit tests and LOC check.

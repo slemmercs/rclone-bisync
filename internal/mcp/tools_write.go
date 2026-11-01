@@ -31,7 +31,7 @@ func (s *Server) registerMutatingTools() {
 			mcp.WithDescription("Stage or apply conflict resolution decisions on a review session"),
 			mcp.WithString("session_id", mcp.Description("Conflict review session ID (defaults to active session)")),
 			mcp.WithString("candidate_id", mcp.Description("Optional specific candidate file ID to stage decision for")),
-			mcp.WithString("decision", mcp.Required(), mcp.Description("Resolution decision: KEEP_LOCAL, KEEP_REMOTE, KEEP_BOTH, MANUAL, DISMISS")),
+			mcp.WithString("decision", mcp.Required(), mcp.Description("Resolution decision: 'keep-local', 'keep-remote', 'keep-both', 'accept-delete', 'restore-item', 'skip', or 'dismiss'")),
 			mcp.WithBoolean("execute", mcp.DefaultBool(false), mcp.Description("Apply and execute staged decisions to disk (requires confirmation)")),
 			mcp.WithString("confirmation_token", mcp.Description("Confirmation token required when execute=true")),
 		),
@@ -124,6 +124,29 @@ func (s *Server) handleTriggerSync(ctx context.Context, req mcp.CallToolRequest)
 	})
 }
 
+func normalizeDecision(d string) (models.ActionDecision, bool) {
+	clean := strings.ToLower(strings.TrimSpace(d))
+	clean = strings.ReplaceAll(clean, "_", "-")
+	switch clean {
+	case "keep-local":
+		return models.DecisionKeepLocal, true
+	case "keep-remote":
+		return models.DecisionKeepRemote, true
+	case "keep-both":
+		return models.DecisionKeepBoth, true
+	case "accept-delete":
+		return models.DecisionAcceptDelete, true
+	case "restore-item":
+		return models.DecisionRestoreItem, true
+	case "skip":
+		return models.DecisionSkip, true
+	case "dismiss":
+		return "dismiss", true
+	default:
+		return "", false
+	}
+}
+
 func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s.cfg.ReadOnly {
 		return mcp.NewToolResultError("operation rejected: MCP server is running in read-only mode"), nil
@@ -135,6 +158,11 @@ func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolReques
 	decision, err := req.RequireString("decision")
 	if err != nil {
 		return mcp.NewToolResultError("missing required parameter 'decision'"), nil
+	}
+
+	normDecision, ok := normalizeDecision(decision)
+	if !ok {
+		return mcp.NewToolResultError(fmt.Sprintf("invalid decision '%s': must be one of 'keep-local', 'keep-remote', 'keep-both', 'accept-delete', 'restore-item', 'skip', or 'dismiss'", decision)), nil
 	}
 
 	sessionID := req.GetString("session_id", "")
@@ -149,11 +177,23 @@ func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolReques
 		sessionID = active.ID
 	}
 
+	if normDecision == "dismiss" {
+		if err := s.container.ReviewService.DismissReviewSession(sessionID); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to dismiss review session: %v", err)), nil
+		}
+		return jsonResult(map[string]any{
+			"status":     "success",
+			"session_id": sessionID,
+			"decision":   "dismiss",
+			"message":    "Review session dismissed successfully without mutating files",
+		})
+	}
+
 	if execute {
 		if token == "" {
 			ticket := s.tickets.CreateTicket("execute_review", sessionID, map[string]string{
 				"session_id": sessionID,
-				"decision":   decision,
+				"decision":   string(normDecision),
 			})
 			return jsonResult(map[string]any{
 				"status":       "confirmation_required",
@@ -168,7 +208,7 @@ func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolReques
 
 		expectedParams := map[string]string{
 			"session_id": sessionID,
-			"decision":   decision,
+			"decision":   string(normDecision),
 		}
 		if _, err := s.tickets.ConsumeTicket(token, "execute_review", sessionID, expectedParams); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("invalid or expired confirmation token: %v", err)), nil
@@ -202,7 +242,7 @@ func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolReques
 		}
 	}
 
-	sess, err := s.container.ReviewService.StageCandidateDecisions(sessionID, candidateIDs, models.ActionDecision(decision))
+	sess, err := s.container.ReviewService.StageCandidateDecisions(sessionID, candidateIDs, normDecision)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to stage decision: %v", err)), nil
 	}
@@ -210,7 +250,7 @@ func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolReques
 	return jsonResult(map[string]any{
 		"status":     "success",
 		"session_id": sess.ID,
-		"decision":   decision,
+		"decision":   normDecision,
 		"staged":     len(candidateIDs),
 	})
 }
@@ -287,22 +327,50 @@ func (s *Server) handleDedupeByHash(ctx context.Context, req mcp.CallToolRequest
 		output = fmt.Sprintf("[SIMULATED] Deduplication completed for %s:%s (mode: %s, by_hash: %t)", remote, path, mode, byHash)
 	}
 
-	if s.container != nil && s.container.AuditService != nil {
+	lines := strings.Split(output, "\n")
+	var collisionsCount, deletedCount int
+	for _, line := range lines {
+		l := strings.TrimSpace(line)
+		if l == "" {
+			continue
+		}
+		if strings.Contains(strings.ToLower(l), "duplicate") {
+			collisionsCount++
+		}
+		if strings.Contains(strings.ToLower(l), "deleted") || strings.Contains(strings.ToLower(l), "removed") || strings.Contains(strings.ToLower(l), "renamed") {
+			deletedCount++
+		}
+	}
+
+	// Invariant (ADR-004): Audit ledger strictly records mutations (mode != "list" and deletedCount > 0).
+	// Bounded fields prevent database bloat; raw terminal output is omitted from audit.db.
+	if s.container != nil && s.container.AuditService != nil && mode != "list" && deletedCount > 0 {
 		_, _ = s.container.AuditService.RecordEvent(remote, audit.ActionDedupeExecuted, "mcp", map[string]any{
 			"remote":     remote,
 			"path":       path,
 			"mode":       mode,
 			"by_hash":    byHash,
-			"raw_output": output,
+			"collisions": collisionsCount,
+			"deleted":    deletedCount,
 		})
 	}
 
+	truncatedOutput := output
+	isTruncated := false
+	if len(truncatedOutput) > 2000 {
+		truncatedOutput = truncatedOutput[:2000] + "\n...[output truncated for LLM context]"
+		isTruncated = true
+	}
+
 	return jsonResult(map[string]any{
-		"status":  "success",
-		"remote":  remote,
-		"path":    path,
-		"mode":    mode,
-		"by_hash": byHash,
-		"output":  output,
+		"status":     "success",
+		"remote":     remote,
+		"path":       path,
+		"mode":       mode,
+		"by_hash":    byHash,
+		"collisions": collisionsCount,
+		"deleted":    deletedCount,
+		"output":     truncatedOutput,
+		"truncated":  isTruncated,
 	})
 }
