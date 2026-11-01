@@ -17,10 +17,13 @@ Understanding where Bisync Hub fits in your storage infrastructure:
 | **Cryptographic Audit Ledger** | ❌ Plain text logs | ❌ Local state | ❌ Stdout logs | ✅ **Immutable SHA-256 Ledger** |
 | **Zero External Runtime Deps** | ⚠️ Bash / Shell | ❌ Electron / Qt | ✅ Go binary | ✅ **Single Go Binary** |
 | **Embedded Web Dashboard** | ❌ None | ⚠️ Desktop only | ❌ RC webgui only | ✅ **Lightweight Embedded** |
-| **Webhook Alerts (Discord/Telegram)** | ⚠️ Manual curl | ❌ OS toasts only | ❌ None | ⏳ **Planned (Priority #4)** |
+| **Webhook Alerts (Discord/Slack)** | ⚠️ Manual curl | ❌ OS toasts only | ❌ None | ✅ **Built-in Webhooks** |
+| **Multi-Profile Fleet Hierarchy** | ❌ None | ⚠️ Basic profiles | ❌ None | ✅ **Fleet Command Deck** |
+| **Remote Hash Deduplication** | ❌ None | ❌ None | ⚠️ Manual CLI | ✅ **Safe Dry-Run & Lock** |
 | **Cloud Clock Skew Compensation** | ❌ None | ⚠️ Basic fuzzing | ⚠️ `--modify-window` | ✅ **Automatic Skew Matrix** |
 | **POSIX Advisory Flock Locks** | ⚠️ Fragile PID files | ❌ OS locks | ❌ None | ✅ **Race-Free POSIX Flock** |
 | **Path Traversal Jail Confinement** | ❌ None | ❌ None | ❌ None | ✅ **Enforced Local Jails** |
+| **Native AI Agent Protocol (MCP)** | ❌ None | ❌ None | ❌ None | ✅ **Zero-Dep stdio/SSE** |
 
 ---
 

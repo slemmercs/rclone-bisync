@@ -11,7 +11,38 @@ Bisync Hub features a zero-dependency, compiled-in Web Cockpit built with Alpine
 
 ---
 
-## 1. Operations & Telemetry Cockpit
+## 1. Hybrid Fleet Overview & Profile Management
+
+The Fleet Overview provides real-time workload orchestration across multiple sync profiles. Operators can track fleet health counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`), trigger dry-runs or sync cycles, and manage operational flag inheritance.
+
+<div class="screenshot-frame">
+  <img src="{{ '/assets/images/screenshots/bisync-hub_fleet-overview.png' | relative_url }}" alt="Bisync Hub Multi-Profile Fleet Overview" />
+  <div class="caption">
+    <span class="title">Hybrid Fleet Overview</span>
+    <span>Aggregate health status counters, interactive profile cards, and fleet-wide quick actions</span>
+  </div>
+</div>
+
+<div class="screenshot-grid">
+  <div class="screenshot-frame">
+    <img src="{{ '/assets/images/screenshots/bisync-hub_profile-manager.png' | relative_url }}" alt="Bisync Hub Profile Manager" />
+    <div class="caption">
+      <span class="title">Profile Manager</span>
+      <span>Add, edit, archive, and configure independent sync workloads</span>
+    </div>
+  </div>
+  <div class="screenshot-frame">
+    <img src="{{ '/assets/images/screenshots/bisync-hub_profile-settings.png' | relative_url }}" alt="Bisync Hub Profile Settings & Flags" />
+    <div class="caption">
+      <span class="title">Operational Flags</span>
+      <span>3-tier flag overrides, provider presets, and security blocklist validation</span>
+    </div>
+  </div>
+</div>
+
+---
+
+## 2. Operations & Telemetry Cockpit
 
 The primary operations cockpit provides real-time visibility into the health of synchronization pairs, active transfer speeds, cumulative data transferred, and engine status indicators.
 
@@ -25,7 +56,7 @@ The primary operations cockpit provides real-time visibility into the health of 
 
 ---
 
-## 2. Interactive Sync Review & Safety Barrier
+## 3. Interactive Sync Review & Safety Barrier
 
 When unexpected deletion spikes or non-trivial conflicts exceed configured thresholds, Bisync Hub halts execution and requires human-in-the-loop sign-off before destructive changes touch replicas.
 
@@ -66,7 +97,7 @@ Upon clicking "Apply Resolutions & Sync", the system stages atomic backups of al
 The correlated daemon log modal allows operators to follow live execution across journal logs and engine streams, confirming safe convergence:
 
 <div class="screenshot-frame">
-  <img src="{{ '/assets/images/screenshots/bisync-hub_unified-ledger.png' | relative_url }}" alt="Correlated Multi-Stream Daemon Logs" />
+  <img src="{{ '/assets/images/screenshots/bisync-hub_correlated-daemon-log.png' | relative_url }}" alt="Correlated Multi-Stream Daemon Logs" />
   <div class="caption">
     <span class="title">4. Correlated Multi-Stream Diagnostics</span>
     <span>Correlated execution output confirming clean sync convergence and barrier dismissal</span>
@@ -75,7 +106,7 @@ The correlated daemon log modal allows operators to follow live execution across
 
 ---
 
-## 3. Cryptographic Immutable Audit Ledger
+## 4. Cryptographic Immutable Audit Ledger
 
 A mathematically verifiable, SHA-256 hash-chained compliance ledger tracking sync events, operator resolutions, and file mutations. Backed by pure-Go SQLite with schema triggers enforcing append-only immutability.
 
@@ -83,7 +114,7 @@ A mathematically verifiable, SHA-256 hash-chained compliance ledger tracking syn
 Operators can inspect the full chronological ledger, run live cryptographic verification, filter by action or actor, and export to CSV or JSONL:
 
 <div class="screenshot-frame">
-  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-ledger-v2.png' | relative_url }}" alt="Unified Cryptographic Audit Ledger" />
+  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-ledger.png' | relative_url }}" alt="Unified Cryptographic Audit Ledger" />
   <div class="caption">
     <span class="title">Unified Cryptographic Audit Ledger</span>
     <span>Live SHA-256 hash-chain verification, action/actor filtering, pagination, and CSV/JSONL compliance export</span>
@@ -103,7 +134,7 @@ Every ledger block links cryptographically to its predecessor (`H_n = SHA256(H_{
 
 ---
 
-## 4. Storage Remotes & OAuth Management
+## 5. Storage Remotes & OAuth Management
 
 Manage cloud endpoints and local storage directories from a centralized interface. The panel displays reachability status, authentication health, and latency diagnostics.
 
@@ -138,7 +169,7 @@ Configure and renew OAuth2 credentials for major cloud storage backends with cle
 
 ---
 
-## 5. Dual-Pane File Explorer
+## 6. Dual-Pane File Explorer
 
 Inspect directory trees, file sizes, and modification timestamps across both synchronization roots side-by-side without leaving the browser or invoking CLI commands.
 
@@ -152,7 +183,7 @@ Inspect directory trees, file sizes, and modification timestamps across both syn
 
 ---
 
-## 6. Live Execution & Correlated Daemon Diagnostics
+## 7. Live Execution & Correlated Daemon Diagnostics
 
 Comprehensive diagnostics allowing operators to inspect live Rclone engine outputs and systemd daemon execution logs without SSH session requirements.
 

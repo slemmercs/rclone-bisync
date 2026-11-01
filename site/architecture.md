@@ -52,4 +52,11 @@ Bisync Hub's GitHub Actions pipelines are deployed 100% on cloud-hosted ephemera
 To catch regressions early during local development, Bisync Hub includes a dedicated native Go audit engine (`cmd/check`) executing check stages in parallel:
 - **True HTML Tokenization**: Multi-line attribute tokenization preventing Alpine.js boolean attribute coercion bugs (`:disabled`, `:readonly`).
 - **Architectural LOC Budgets**: Single-pass line-count enforcement ensuring services remain modular and stay under ~400 LOC.
+- **Copyleft License Auditing**: Native dependency license validator (`cmd/check/licenses.go`) enforcing permissive-only licensing (MIT, Apache-2.0, BSD) across all Go modules.
 - **Coverage Assurance**: Pre-commit validation enforcing >80% statement coverage across all packages (currently at 88.3%).
+
+### 6. MCP Confirmation Tickets & Parameter Fingerprinting
+To safely allow autonomous AI agents (Claude, Cursor, Cline) to interact with synchronization workloads without risking accidental mass deletions or unexpected resyncs, the Model Context Protocol engine implements cryptographic ticket gating:
+- **Parameter Fingerprinting**: Every issued ticket binds to the exact parameter hash (`SHA256(canonical(params))`). Re-submitting a ticket with altered flags (e.g. escalating from dry-run to force resync) immediately rejects execution.
+- **5-Minute Non-Renewable TTL**: Confirmation tickets expire automatically after 300 seconds.
+- **Read-Only Process Isolation**: When started with `--read-only`, mutating tools are strictly disabled at the registration level.

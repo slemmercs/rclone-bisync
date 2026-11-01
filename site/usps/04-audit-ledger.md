@@ -73,7 +73,7 @@ All sensitive credentials—including `RC_PASS`, OAuth refresh tokens, webhook U
 The dedicated Audit Ledger interface displays continuous sequence IDs, timestamps, profile targets, actions, and actors. Operators can run live cryptographic verification directly in the browser and export compliance records to CSV or JSONL:
 
 <div class="screenshot-frame">
-  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-ledger-v2.png' | relative_url }}" alt="Unified Cryptographic Audit Ledger" />
+  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-ledger.png' | relative_url }}" alt="Unified Cryptographic Audit Ledger" />
   <div class="caption">
     <span class="title">1. Unified Audit Ledger Interface</span>
     <span>Live SHA-256 chain verification, action/actor filters, and compliance export</span>

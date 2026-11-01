@@ -47,6 +47,7 @@ Most tools help execute a synchronization.
 | WAL Crash-Resilient Rollback | ❌ | ❌ | ❌ | ✅ |
 | Cryptographic Audit Ledger | ❌ | ❌ | ❌ | ✅ |
 | Local Filesystem Jail Confinement | ❌ | ❌ | ❌ | ✅ |
+| Native AI Agent Protocol (MCP) | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
@@ -85,18 +86,30 @@ Maintain a verifiable, tamper-evident history of sync operations:
 - SHA-256 block hash chaining and browser-based cryptographic integrity verification.
 - Compliance audit exports to CSV and JSONL formats.
 
+## 🤖 Native Model Context Protocol (MCP) Server
+Integrate Bisync Hub into AI agent workflows (Claude Desktop, Cursor, Cline):
+- Single-binary dual transport supporting standard I/O (`stdio`) and streaming HTTP (`sse`).
+- 10 operational tools and 5 dynamic resources with token-optimized JSON payloads.
+- Cryptographic confirmation ticket engine with exact parameter fingerprinting for high blast-radius mutations.
+
 ---
 
 # Screenshots
 
+### Multi-Profile Fleet Overview
+![Fleet Overview](site/assets/images/screenshots/bisync-hub_fleet-overview.png)
+
 ### Synchronization Review & Conflict Resolution
 ![Sync Review and Resolution](site/assets/images/screenshots/bisync-hub_sync-review-resolution.png)
+
+### Profile Workload Settings & Provider Configuration
+![Profile Settings](site/assets/images/screenshots/bisync-hub_profile-settings.png)
 
 ### Engine Cockpit & Telemetry
 ![Engine Telemetry](site/assets/images/screenshots/bisync-hub_engine-telemetry.png)
 
 ### Cryptographic Audit Ledger
-![Audit Ledger](site/assets/images/screenshots/bisync-hub_audit-ledger-v2.png)
+![Audit Ledger](site/assets/images/screenshots/bisync-hub_audit-ledger.png)
 
 ### Cloud Storage Remotes & OAuth Management
 ![Storage Remotes](site/assets/images/screenshots/bisync-hub_storage-remotes.png)
@@ -125,13 +138,23 @@ cd rclone-bisync
 sudo bash deploy/install.sh
 ```
 
-Launch the cockpit:
+Launch the cockpit web interface:
 
 ```bash
 ./bin/rclone-bisync dashboard
 ```
 
-Then open your browser at:
+Or run the native Model Context Protocol (MCP) server for AI agents:
+
+```bash
+# Run over standard input/output (stdio) for local agents
+./bin/rclone-bisync mcp
+
+# Or run over HTTP Server-Sent Events (SSE) for distributed setups
+./bin/rclone-bisync mcp --transport sse --port 8081
+```
+
+Access the cockpit in your browser at:
 
 ```text
 http://localhost:8080
@@ -141,14 +164,15 @@ http://localhost:8080
 
 # Development Quality Gate
 
-Every contribution must pass the comprehensive 6-stage automated quality gate:
+Every contribution must pass the comprehensive 7-stage automated quality gate:
 
 - Formatting and syntax validation (`gofmt`, `go vet`)
+- Open source & copyleft license compliance (`cmd/check licenses`)
 - Secret scanning (`betterleaks`)
-- Template AST validation
-- Full test suite execution with race detection
-- LOC ceiling enforcement (<=400 LOC per file)
-- Cross-platform build verification
+- Template AST validation (`cmd/check templates`)
+- Full test suite execution with race detection (`go test -race`)
+- LOC ceiling enforcement (<=400 LOC per file) (`./scripts/check-loc.sh 400`)
+- End-to-end and cross-platform build verification
 
 Run the full validation suite:
 

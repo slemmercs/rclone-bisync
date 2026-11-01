@@ -58,6 +58,11 @@ Raw `rclone bisync` provides raw power across 40+ storage providers, but in prod
     <h3>Cryptographic Audit Ledger</h3>
     <p>Tamper-evident audit trail with SHA-256 hash chains, trigger-enforced append-only tables, and POSIX advisory locking.</p>
   </div>
+  <div class="feature-card">
+    <span class="badge-online">● Available Now</span>
+    <h3>Native AI Agent Protocol (MCP)</h3>
+    <p>Zero-dependency Model Context Protocol server over stdio and SSE with token-optimized tools and confirmation safety tickets.</p>
+  </div>
 </div>
 
 ---
@@ -71,12 +76,21 @@ Explore the deep technical architecture powering Bisync Hub:
 3. **[Customizable Safety Policies & Circuit Breakers]({% link usps/03-safety-policies.md %})** <span class="badge-online">Available</span>: Pre-execution canaries, max-delete ratios, and rate-limit backoff handling.
 4. **[Cryptographic Immutable Audit Ledger]({% link usps/04-audit-ledger.md %})** <span class="badge-online">Available</span>: SQLite triggers and SHA-256 hash chains providing tamper-proof sync accountability.
 5. **[Zero-Dependency Single Binary Distribution]({% link usps/05-single-binary.md %})** <span class="badge-online">Available</span>: Native Go executable with embedded Web UI, zero Python/pip/npm runtime requirements.
+6. **[Native Model Context Protocol (MCP) Server]({% link usps/06-mcp-agent-server.md %})** <span class="badge-online">Available</span>: Pure-Go stdio/SSE agent integration with parameter-fingerprinted confirmation tickets.
 
 ---
 
 ## Embedded Dashboard Tour
 
 Bisync Hub includes a rich, compiled-in Web Cockpit requiring zero external dependencies:
+
+<div class="screenshot-frame">
+  <img src="{{ '/assets/images/screenshots/bisync-hub_fleet-overview.png' | relative_url }}" alt="Bisync Hub Multi-Profile Fleet Overview" />
+  <div class="caption">
+    <span class="title">Fleet Overview</span>
+    <span>Multi-workload orchestration, real-time status counters & quick actions</span>
+  </div>
+</div>
 
 <div class="screenshot-grid">
   <div class="screenshot-frame">

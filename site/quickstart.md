@@ -24,12 +24,12 @@ Alternatively, download the target binary directly from GitHub Releases:
 
 ```bash
 # Example for Linux x86_64
-curl -LO https://github.com/slemmercs/rclone-bisync/releases/latest/download/rclone-bisync-linux-amd64
-chmod +x rclone-bisync-linux-amd64
-sudo mv rclone-bisync-linux-amd64 /usr/local/bin/rclone-bisync
+curl -LO https://github.com/slemmercs/rclone-bisync/releases/latest/download/bisync-hub-linux-amd64
+chmod +x bisync-hub-linux-amd64
+sudo mv bisync-hub-linux-amd64 /usr/local/bin/bisync-hub
 
-# Optional: create friendly symlink
-sudo ln -sf /usr/local/bin/rclone-bisync /usr/local/bin/bisync-hub
+# Optional: create legacy symlink
+sudo ln -sf /usr/local/bin/bisync-hub /usr/local/bin/rclone-bisync
 ```
 
 ---
@@ -126,4 +126,35 @@ Enable and start the service:
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now bisync-hub
+```
+
+---
+
+## 5. Integrating with AI Agents (MCP)
+
+Connect Claude Desktop, Cursor, or Cline directly to Bisync Hub via Model Context Protocol:
+
+```bash
+# Verify the MCP server works locally
+bisync-hub mcp --debug
+```
+
+Add Bisync Hub to your Cline settings (`~/.cline/data/settings/cline_mcp_settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "rclone-bisync": {
+      "command": "/usr/local/bin/bisync-hub",
+      "args": ["mcp"],
+      "disabled": false
+    }
+  }
+}
+```
+
+Or run over streaming HTTP for distributed setups:
+
+```bash
+bisync-hub mcp --transport sse --port 8081
 ```

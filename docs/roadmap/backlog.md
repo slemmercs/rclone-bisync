@@ -123,27 +123,45 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
   - **Historical Deletion Scraper Bug Fix**: Remedied `deletion_service.go` to require an active circuit breaker abort without subsequent sync success, preventing historical completed deletions from surfacing as pending.
   - **Remote Hash Deduplication (`rclone dedupe --by-hash`)**: Safe consolidation of cloud file collisions (`modal_dedupe.html`, `/api/remotes/dedupe`) with dry-run preview, process lock isolation, and automated baseline cache resync.
 
+* **[COMPLETED] Unified Logging, Profile-Scoped Execution Ledger & Telemetry De-Noising [COMPLETED - PR #49–#53 (v1.0.0-beta.14–beta.18)]**
+  - Unified operational logging combining sync milestones, systemd daemon journal traces, and trigger origins (`CLI`, `CRON`, `UI`).
+  - Demoted routine polling requests (`/api/status`, `/api/telemetry`) to DEBUG level to eliminate UI ledger noise.
+  - Profile-scoped log isolation, reversed timeline ordering (newest on top), and real-time polling updates.
+
+* **[COMPLETED] Pre-MCP Technical Debt Remediation & Strict Sub-400 LOC Enforcement [COMPLETED - PR #54 (v1.0.0-beta.19)]**
+  - Modularized frontend scripts (`profiles.js` down to 154 LOC via `profiles_modal.js`, `review.js` down to 196 LOC via `review_actions.js`).
+  - Decomposed `log_service.go` into `log_parser.go` and streamlined `server.go` to 375 LOC.
+  - Enforced single-pass architectural LOC audit (`./scripts/check-loc.sh 400`).
+
+* **[COMPLETED] Typed Service Contracts & Automated Copyleft License Guard [COMPLETED - PR #55 (v1.0.0-beta.20)]**
+  - Introduced explicit Go model contracts (`models.DeleteItemRequest`, `models.CreateCanaryRequest`, `models.CanaryItemResponse`).
+  - Uplifted `internal/remoteauth` test coverage to 92.3%.
+  - Added native Go copyleft license check stage (`cmd/check/licenses.go`) and documented dependencies in `THIRD_PARTY_LICENSES.md`.
+
+* **[COMPLETED] Native Model Context Protocol (MCP) Server (`rclone-bisync mcp`) [COMPLETED - PR #56 (v1.0.0-beta.20)]**
+  - Built-in dual transport (`stdio` and `sse` over HTTP on `--port 8081`).
+  - 10 structured read/write tools and 5 dynamic resources.
+  - Cryptographic confirmation ticket engine with exact SHA-256 parameter fingerprint validation.
+  - Token-optimized default status payload (195 characters, ~98.5% reduction) and 2,000-character context truncation on dedupe scans.
+  - Maintained 84.5% statement test coverage across `internal/mcp`.
+
 ---
 
 ### Active Near-Term Backlog (Sequenced Priorities)
 
-#### 0. Bisync Hub Model Context Protocol (MCP) Server (`bisync-hub mcp`) [ESTIMATE: 6-8h | 5 SP] - ACTIVE PRIORITY
-Direct integration of Bisync Hub into AI agent workflows (Claude Desktop, Cursor, Cline) via the official Model Context Protocol (JSON-RPC over stdio and SSE):
-* **Single-Binary Zero-Dependency Engine**: Built directly into the Go distribution (`cmd/mcp`, `internal/mcp`); zero external Node.js/Python runtime requirements.
-* **Agent Operational Tools**:
-  - `bisync_get_health`: Queries daemon latency, active profiles, and circuit breaker trip states (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`).
-  - `bisync_trigger_sync`: Dispatches dry-run, normal sync, or force resync for specified profile workloads.
-  - `bisync_review_queue`: Fetches pending sync review sessions, conflict items, and heuristic risk scores.
-  - `bisync_resolve_review`: Stages decisions (`keep_local`, `keep_remote`, `delete`, `merge`) and triggers safe resolution execution with automated backups.
-  - `bisync_dedupe_by_hash`: Triggers remote MD5 checksum deduplication and baseline cache resync.
-  - `bisync_audit_inspect`: Inspects and cryptographically verifies immutable audit ledger blocks.
-* **Agent Read-Only Resources**:
-  - `bisync://telemetry`: Real-time streaming metrics, active transfers, and daemon operational health.
-  - `bisync://profiles`: Complete profile workload definitions, schedules, and effective operational flags.
-  - `bisync://audit`: Cryptographically chained compliance event log.
+#### 1. Tier 1 Curated Options & Guided `+ Add Flag` Row Builder [ESTIMATE: 3-5h | 3 SP] - ACTIVE PRIORITY
+Reclassifies provider options closer to Rclone standards, separates Tier 1 and Tier 2 user experiences, and replaces free-form text input with a guided, interactive flag builder:
+* **Tier 1 Providers (`drive`, `onedrive`, `dropbox`, `s3`)**:
+  - Keep curated, high-impact bisync toggles (e.g., for Google Drive: `Send Deletions to Trash`, `Skip Google Docs`, `Skip Shortcuts`, `Shared With Me`).
+  - Fix default checkbox state persistence bug and ensure explicit boolean serialization (e.g., `--drive-use-trash=false`).
+* **Tier 2 Providers (WebDAV, Nextcloud, SFTP, Generic)**:
+  - Present an ultra-lean configuration profile with zero redundant UI boxes, directing advanced parameters to the flag builder.
+* **Interactive `[ + Add Flag ]` Row Builder**:
+  - Replace raw text input (`--fast-list --checkers 16`) with dynamic row-by-row additions (`[Flag Dropdown] [Value Input] [✕ Remove]`).
+  - Provider-aware autocomplete (`<datalist>`) suggesting valid backend flags (`--drive-*`, `--onedrive-*`, etc.) and general tuning flags (`--fast-list`, `--transfers`, `--bwlimit`, `--tpslimit`) with inline tooltips.
+  - Real-time POSIX tokenizer and security blocklist validation per row.
 
-
-#### 1. Configuration & Setup Manager (Rollback & Snapshot Engine) [ESTIMATE: 5-7h | 4 SP]
+#### 2. Configuration & Setup Manager (Rollback & Snapshot Engine) [ESTIMATE: 5-7h | 4 SP]
 Provides server-side configuration safety for global environments:
 * **3-Layer Safety Pipeline**: Automated snapshot backups, SHA-256 integrity checks, and JSON/env schema validation before applying global configuration changes.
 * **One-Click Rollback API**: Restore historical configuration snapshots on failed verification or operator rollback request.
