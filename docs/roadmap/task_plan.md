@@ -17,7 +17,7 @@ Implement remaining technical debt items: enforce type safety for `DeleteItem` a
   - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/utils.js`
   - **Verification**: `go test -v ./tests/e2e/...`
 
-- [ ] Task 4: Frontend Modularization & LOC Ceilings (remotes.js & app.js)
+- [x] Task 4: Frontend Modularization & LOC Ceilings (remotes.js & app.js)
   - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/js/remotes_modals.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh loc 400` and `go test -v ./tests/e2e/...`
 
@@ -31,6 +31,7 @@ Implement remaining technical debt items: enforce type safety for `DeleteItem` a
 - 2026-11-01: Completed Task 1: Standardized DeleteItem and CreateCanary to return typed models (models.DeleteResponse and models.CanaryResponse). Updated ExplorerService, CanaryService, SyncService, CLI canary provisioner, and test suite. Verified via unit and E2E tests.
 - 2026-11-01: Completed Task 2: Hardened remoteauth package statement coverage to 92.0% (up from 79.3%), adding service_cache_test.go covering GetAuthStatus, caching, InvalidateAuthCache, DefaultCommandRunner, and nil client checks.
 - 2026-11-01: Completed Task 3: Added caller origin badging in Unified Ledger (CLI, CRON, UI, MCP) in pattern_timeline_ledger.html and utils.js with getOriginBadge resolver. Verified via headless Chrome E2E tests.
+- 2026-11-01: Completed Task 4: Modularized remotes.js (down to 203 LOC) by extracting remotes_modals.js (212 LOC) and cleaning up app.js (down to 351 LOC). Verified via check-loc and headless Chrome E2E smoke tests.
 
 
 
