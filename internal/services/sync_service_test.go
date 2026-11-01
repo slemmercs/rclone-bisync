@@ -67,7 +67,7 @@ func TestCanaryCreationLocal(t *testing.T) {
 	svc := NewSyncService(cfg, nil)
 
 	res, err := svc.CreateCanary(context.Background(), "local", "")
-	if err != nil || res["status"] != "success" {
+	if err != nil || res.Status != "success" {
 		t.Fatalf("expected success creating canary, got: %v, err: %v", res, err)
 	}
 
@@ -90,7 +90,7 @@ func TestDeleteCanaryProtection(t *testing.T) {
 	svc := NewSyncService(cfg, nil)
 
 	res, _ := svc.DeleteItem(context.Background(), "local", "RCLONE_TEST", false)
-	if res["status"] != "error" || res["error"] != "Canary test file (RCLONE_TEST) cannot be deleted" {
+	if res.Status != "error" || res.Error != "Canary test file (RCLONE_TEST) cannot be deleted" {
 		t.Fatalf("expected canary deletion rejection, got: %v", res)
 	}
 }
@@ -295,25 +295,25 @@ func TestDeleteItemFull(t *testing.T) {
 
 	// 1. Delete root or empty path
 	resRoot, _ := svc.DeleteItem(context.Background(), "local", "", false)
-	if resRoot["status"] != "error" {
+	if resRoot.Status != "error" {
 		t.Fatalf("expected error deleting root, got: %v", resRoot)
 	}
 
 	// 2. Delete non-existent file
 	resMissing, _ := svc.DeleteItem(context.Background(), "local", "missing.txt", false)
-	if resMissing["status"] != "error" {
+	if resMissing.Status != "error" {
 		t.Fatalf("expected error deleting missing target, got: %v", resMissing)
 	}
 
 	// 3. Delete existing local file
 	resFile, err := svc.DeleteItem(context.Background(), "local", "to_delete.txt", false)
-	if err != nil || resFile["status"] != "success" {
+	if err != nil || resFile.Status != "success" {
 		t.Fatalf("expected success deleting file, got: %v, err: %v", resFile, err)
 	}
 
 	// 4. Delete existing local directory
 	resDir, err := svc.DeleteItem(context.Background(), "local", "subdir", true)
-	if err != nil || resDir["status"] != "success" {
+	if err != nil || resDir.Status != "success" {
 		t.Fatalf("expected success deleting dir, got: %v, err: %v", resDir, err)
 	}
 }
@@ -425,7 +425,7 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 
 	// 1. Create remote canary
 	resCanary, err := svc.CreateCanary(ctx, "gdrive", "sub")
-	if err != nil || resCanary["status"] != "success" {
+	if err != nil || resCanary.Status != "success" {
 		t.Fatalf("expected remote canary creation to succeed: %v, %v", resCanary, err)
 	}
 
@@ -442,11 +442,11 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 
 	// 3. Remote DeleteItem (file & purge dir)
 	resDelFile, err := svc.DeleteItem(ctx, "gdrive", "old.pdf", false)
-	if err != nil || resDelFile["status"] != "success" {
+	if err != nil || resDelFile.Status != "success" {
 		t.Fatalf("expected remote DeleteItem success: %v", resDelFile)
 	}
 	resPurge, err := svc.DeleteItem(ctx, "gdrive", "old_dir", true)
-	if err != nil || resPurge["status"] != "success" {
+	if err != nil || resPurge.Status != "success" {
 		t.Fatalf("expected remote Purge success: %v", resPurge)
 	}
 
@@ -506,14 +506,14 @@ func TestSyncServiceAdditionalBranches(t *testing.T) {
 
 	// 10. CreateCanary traversal forbidden
 	resBadCanary, _ := svc.CreateCanary(ctx, "local", "../../../etc")
-	if resBadCanary["status"] != "error" {
+	if resBadCanary.Status != "error" {
 		t.Fatalf("expected error on canary traversal: %v", resBadCanary)
 	}
 
 	// 11. Local canary touch/creation
 	_ = os.WriteFile(filepath.Join(tmpDir, "RCLONE_TEST"), []byte("ok"), 0644)
 	resCanaryExists, _ := svc.CreateCanary(ctx, "local", "")
-	if resCanaryExists["status"] != "success" {
+	if resCanaryExists.Status != "success" {
 		t.Fatalf("expected canary creation success, got: %v", resCanaryExists)
 	}
 

@@ -176,8 +176,8 @@ func runCanary(remote, path, envFile string) {
 	if err != nil {
 		log.Fatalf("Failed to provision canary: %v", err)
 	}
-	if status, ok := res["status"].(string); ok && status == "error" {
-		log.Fatalf("Error provisioning canary: %v", res["error"])
+	if res.Status == "error" {
+		log.Fatalf("Error provisioning canary: %v", res.Error)
 	}
 	fmt.Printf("Successfully provisioned RCLONE_TEST canary on [%s] %s\n", remote, path)
 }

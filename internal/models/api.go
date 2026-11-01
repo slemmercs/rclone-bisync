@@ -74,6 +74,7 @@ type DeleteResponse struct {
 	Msg    string `json:"msg,omitempty"`
 	Remote string `json:"remote,omitempty"`
 	Path   string `json:"path,omitempty"`
+	Fs     string `json:"fs,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 

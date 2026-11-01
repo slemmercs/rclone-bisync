@@ -141,7 +141,7 @@ func (s *SyncService) BrowsePath(ctx context.Context, remote, path string) clien
 }
 
 // CreateCanary provisions an RCLONE_TEST canary file on target local or remote filesystem.
-func (s *SyncService) CreateCanary(ctx context.Context, remote, path string) (map[string]interface{}, error) {
+func (s *SyncService) CreateCanary(ctx context.Context, remote, path string) (models.CanaryResponse, error) {
 	return s.Canary.CreateCanary(ctx, remote, path)
 }
 
@@ -151,7 +151,7 @@ func (s *SyncService) CopyItem(ctx context.Context, srcRemote, srcPath, dstRemot
 }
 
 // DeleteItem removes a file or directory, safeguarding RCLONE_TEST canary and enforcing path jail.
-func (s *SyncService) DeleteItem(ctx context.Context, remote, path string, isDir bool) (map[string]interface{}, error) {
+func (s *SyncService) DeleteItem(ctx context.Context, remote, path string, isDir bool) (models.DeleteResponse, error) {
 	return s.Explorer.DeleteItem(ctx, remote, path, isDir)
 }
 

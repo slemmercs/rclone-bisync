@@ -51,7 +51,7 @@ func TestCanaryService_LocalCanaryLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res["status"] != "error" {
+	if res.Status != "error" {
 		t.Fatalf("expected traversal error, got: %v", res)
 	}
 
@@ -60,7 +60,7 @@ func TestCanaryService_LocalCanaryLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res["status"] != "error" {
+	if res.Status != "error" {
 		t.Fatalf("expected missing dir error, got: %v", res)
 	}
 
@@ -69,7 +69,7 @@ func TestCanaryService_LocalCanaryLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res["status"] != "success" {
+	if res.Status != "success" {
 		t.Fatalf("expected success, got: %v", res)
 	}
 
@@ -111,7 +111,7 @@ func TestCanaryService_RemoteCanaryLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res["status"] != "success" {
+	if res.Status != "success" {
 		t.Fatalf("expected remote creation success, got: %v", res)
 	}
 
@@ -126,7 +126,7 @@ func TestCanaryService_RemoteCanaryLifecycle(t *testing.T) {
 		t.Fatal("expected false when rcClient is nil")
 	}
 	resNil, _ := svcNilClient.CreateCanary(ctx, "gdrive", "documents")
-	if resNil["status"] != "error" {
+	if resNil.Status != "error" {
 		t.Fatalf("expected error when rcClient is nil, got: %v", resNil)
 	}
 }
@@ -233,7 +233,7 @@ func TestCanaryService_DirectoryTrapAndRemoteErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error return: %v", err)
 	}
-	if res["status"] != "error" {
+	if res.Status != "error" {
 		t.Fatalf("expected error status on remote server failure, got: %v", res)
 	}
 
@@ -255,7 +255,7 @@ func TestCanaryService_DirectoryTrapAndRemoteErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error return: %v", err)
 	}
-	if resRoot["status"] != "success" {
+	if resRoot.Status != "success" {
 		t.Fatalf("expected success creating root remote canary, got: %v", resRoot)
 	}
 }
@@ -277,7 +277,7 @@ func TestCanaryService_TildeAndFallbackAndPermissions(t *testing.T) {
 
 		// Create canary with tilde path
 		res, err := svcTilde.CreateCanary(ctx, "local", "")
-		if err != nil || res["status"] != "success" {
+		if err != nil || res.Status != "success" {
 			t.Fatalf("expected success with tilde path, got: %v, err: %v", res, err)
 		}
 
@@ -306,7 +306,7 @@ func TestCanaryService_TildeAndFallbackAndPermissions(t *testing.T) {
 	}
 	svcRO := NewCanaryService(cfgRO, nil)
 	resRO, _ := svcRO.CreateCanary(ctx, "local", "readonly")
-	if resRO["status"] != "error" {
+	if resRO.Status != "error" {
 		t.Fatalf("expected error on readonly dir, got: %v", resRO)
 	}
 }
