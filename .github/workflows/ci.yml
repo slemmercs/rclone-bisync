@@ -10,6 +10,7 @@ on:
       - "**/*.html"
       - "go.mod"
       - "go.sum"
+      - "THIRD_PARTY_LICENSES.md"
       - "scripts/*.sh"
       - ".github/workflows/ci.yml"
 
@@ -22,6 +23,7 @@ on:
       - "**/*.html"
       - "go.mod"
       - "go.sum"
+      - "THIRD_PARTY_LICENSES.md"
       - "scripts/*.sh"
       - ".github/workflows/ci.yml"
 
@@ -126,6 +128,29 @@ jobs:
         run: |
           chmod +x scripts/check.sh
           ./scripts/check.sh loc
+
+  licenses:
+    name: License Compliance & Copyleft Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+          cache: true
+
+      - name: Run License Audit
+        run: |
+          chmod +x scripts/check.sh
+          ./scripts/check.sh licenses
 
   test:
     name: Unit Tests & Coverage
