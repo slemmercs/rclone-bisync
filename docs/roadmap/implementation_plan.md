@@ -1,45 +1,57 @@
-# Implementation Plan: Type Safety, Quality Hardening & Automated License Audit
+# Implementation Plan: Bisync Hub Model Context Protocol (MCP) Server
 
 ## Proposed Changes
 
-Address remaining technical debt items before the MCP server integration sprint:
-1. Enforce strict type contracts on service boundaries (`ExplorerService.DeleteItem` and `CanaryService.CreateCanary`) replacing loose `map[string]interface{}` with explicit DTOs in `internal/models`.
-2. Strengthen test coverage for `internal/remoteauth` to push coverage well above the 80% threshold.
-3. Enhance visual caller origin identification in the Unified Ledger (`CLI`, `CRON`, `UI`, `MCP`).
-4. Modularize near-ceiling frontend scripts (`remotes.js` and `app.js`) to stay strictly below the 400 LOC ceiling.
-5. Implement an automated License Compliance & Copyleft Guard in `cmd/check` that verifies licenses, prevents copyleft (GPL/LGPL/AGPL/SSPL) pollution, verifies parity with `THIRD_PARTY_LICENSES.md`, and supports automated generation/updating.
+Implement a native Go Model Context Protocol (MCP) server directly inside the `rclone-bisync` binary (`rclone-bisync mcp`), integrating AI agent workflows (Claude Desktop, Cursor, Cline, Ollama) with Bisync Hub.
 
 ### Affected Components & Packages
 
-- `internal/models/api.go`: Add `DeleteResponse` and `CanaryResponse` models.
-- `internal/services/explorer_ops.go`: Update `DeleteItem` return signature to `(models.DeleteResponse, error)`.
-- `internal/services/canary_service.go`: Update `CreateCanary` return signature to `(models.CanaryResponse, error)`.
-- `internal/services/sync_service.go` & `internal/server/handlers_*.go`: Update callers to consume typed responses.
-- `internal/remoteauth/service_test.go`: Add unit tests for `GetAuthStatus`, `GetAuthStatusCached`, and cache invalidation.
-- `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`: Render visual badges for origin (`CLI`, `CRON`, `UI`, `MCP`).
-- `dashboard/frontend/js/remotes.js` & `dashboard/frontend/js/remotes_modals.js`: Modularize modals out of `remotes.js`.
-- `cmd/check/licenses.go` & `cmd/check/main.go`: Add `licenses` stage to Quality Gate engine.
-- `THIRD_PARTY_LICENSES.md`: Update documentation to include all compiled Go backend dependencies.
+- `go.mod` & `THIRD_PARTY_LICENSES.md`:
+  - Add `github.com/mark3labs/mcp-go` (MIT license) as direct dependency.
+  - Document license and terms in `THIRD_PARTY_LICENSES.md`.
+- `internal/mcp/`:
+  - `server.go`: Core MCP server creation, tool/resource registry, transport dispatch (`stdio` or `sse`).
+  - `confirmation.go`: High-risk mutation ticket engine (TTL-backed confirmation token generator and validator).
+  - `tools_read.go`: Read-only MCP tools (`bisync_get_health`, `bisync_list_profiles`, `bisync_review_queue`, `bisync_audit_inspect`).
+  - `tools_write.go`: Mutating MCP tools (`bisync_trigger_sync`, `bisync_resolve_review`, `bisync_dedupe_by_hash`) with read-only guards and confirmation gating.
+  - `resources.go`: Read-only MCP resources (`bisync://telemetry`, `bisync://profiles`, `bisync://audit`).
+  - `server_test.go` & `tools_test.go`: Comprehensive unit tests covering tool invocations, resources, confirmation tickets, and read-only protections.
+- `main.go`:
+  - Add `case "mcp":` CLI subcommand with `--read-only`, `--require-confirmation`, `--transport`, `--host`, `--port`, `--env-file`, and `--debug` flags.
+  - Add `runMCP(...)` runner function managing container lifecycle and MCP transport execution.
 
 ### Technical Strategy & Data Flow
 
-- Service methods return explicit Go structs defined in `internal/models`.
-- HTTP handlers use `json.Marshal(typedResponse)` rather than arbitrary map literals.
-- Quality Gate license auditor queries `go list -deps .` and inspects module cache files for copyleft indicators (`GPL`, `AGPL`, `LGPL`, `SSPL`, `EUPL`) and matches against allowlist (`MIT`, `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `CC0`, `Unlicense`).
-- Modals logic extracted cleanly without changing Alpine.js reactive state scopes.
+1. **Protocol Engine**:
+   - Utilize `github.com/mark3labs/mcp-go` (MIT, zero external runtime dependencies) targeting latest MCP specification.
+   - Dual transport: default to standard I/O (`stdio`) for local agent CLI sessions, support streamable HTTP / Server-Sent Events (`sse`) for networked installations.
+
+2. **Caller Context & Telemetry Tracking**:
+   - All operations initiated via MCP specify execution origin as `"mcp"`.
+   - The Unified Ledger timeline and telemetry will log and render the violet `"MCP"` badge.
+
+3. **Read-Only / Read-Write Operational Modes**:
+   - Flag `--read-only` enforces strict read-only operation: mutating tools return error `server is operating in read-only mode`.
+
+4. **Confirmation Tickets for Destructive Operations**:
+   - Flag `--require-confirmation` (enabled by default for mutating actions or configurable):
+   - Operations with high blast radius (such as `resync=true`, `force=true`, `bisync_dedupe_by_hash`, `bisync_resolve_review` delete actions) generate a unique cryptographic token (TTL: 5m) with action fingerprint.
+   - The agent is instructed to present the confirmation ticket in a follow-up call to confirm intent.
 
 ### Safety & Error Handling
 
-- All path traversal checks and canary protections remain intact.
-- Quality gate blocks any dependency introducing copyleft licensing or undocumented modules.
+- Respect existing canary files (`RCLONE_TEST`) and circuit breaker limits (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`).
+- Sanitize sensitive credentials (passwords, tokens, secret keys) via `security.RedactSecrets` before returning JSON outputs in MCP tools or resources.
+- Strict path confinement and read-only mode guarantees.
 
 ## Verification Plan
 
-- `go test -v ./internal/services/... ./internal/server/...`
-- `go test -v -cover ./internal/remoteauth/...`
-- `./scripts/check.sh loc 400`
+- `go test -v -count=1 ./internal/mcp/...`
 - `./scripts/check.sh licenses`
+- `./scripts/check.sh loc 400`
 - `./scripts/check.sh all`
+- CLI test: `rclone-bisync mcp --help`
+
 
 
 

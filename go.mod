@@ -3,6 +3,7 @@ module github.com/slemmercs/rclone-bisync
 go 1.26.10
 
 require (
+	github.com/mark3labs/mcp-go v1.5.0
 	github.com/pressly/goose/v3 v3.29.0
 	golang.org/x/sys v0.49.0
 	modernc.org/sqlite v1.61.0
@@ -14,6 +15,7 @@ require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260213210345-44df1a37e875 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/mark3labs/mcp-go v1.5.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
