@@ -76,8 +76,8 @@ func (s *Server) handleResourceStatus(ctx context.Context, req mcp.ReadResourceR
 	if s.container.ProfileService != nil {
 		isSyncing = s.container.ProfileService.IsAnySyncing()
 	}
-	payload := s.container.TelemetryService.GetTelemetryPayload(ctx, isSyncing, 10)
-	return jsonResourceContents(req.Params.URI, payload)
+	payload := s.container.TelemetryService.GetTelemetryPayload(ctx, isSyncing, 0)
+	return jsonResourceContents(req.Params.URI, buildCompactStatus(payload, false, false, false))
 }
 
 func (s *Server) handleResourceProfileByID(_ context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
@@ -144,7 +144,7 @@ func (s *Server) handleResourceConflictSession(ctx context.Context, req mcp.Read
 }
 
 func jsonResourceContents(uri string, data any) ([]mcp.ResourceContents, error) {
-	b, err := json.MarshalIndent(data, "", "  ")
+	b, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode resource content: %w", err)
 	}
