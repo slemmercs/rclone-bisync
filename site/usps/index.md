@@ -39,4 +39,6 @@ Bisync Hub was engineered from first principles to turn unpredictable bidirectio
    Maintain verifiable SQLite-backed records of every sync action, decision, and error.
 5. **[Zero-Dependency Single Binary Distribution]({% link usps/05-single-binary.md %})** <span class="badge-online">Available</span>
    Deploy anywhere with a single Go binary and an embedded Alpine.js/Tailwind web dashboard.
+6. **[Native Model Context Protocol (MCP) Server]({% link usps/06-mcp-agent-server.md %})** <span class="badge-online">Available</span>
+   Integrate AI agents (Claude, Cursor, Cline) via pure-Go stdio/SSE tools with parameter-fingerprinted confirmation tickets.
 

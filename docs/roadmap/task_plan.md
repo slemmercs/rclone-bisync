@@ -1,56 +1,35 @@
-# Task Plan: Bisync Hub Model Context Protocol (MCP) Server
+# Task Plan: Documentation, Roadmap, and GitHub Pages Showcase (`v1.0.0-beta.20`)
 
 ## Goal
-Implement a native Go Model Context Protocol (MCP) server directly inside the single `rclone-bisync` binary, exposing read-only inspection tools/resources, safely gated mutation tools with confirmation tickets, dual stdio/SSE transports, and CLI subcommand integration.
+Update all project documentation, roadmaps, backlog records, root README, and GitHub Pages site with the delivered milestones through `v1.0.0-beta.20` (including native MCP server, unified logging ledger, and quality hardening), integrate 3 new screenshots and 7 refreshed screenshots, and prepare the roadmap for the Tier 1 Curated Options & `+ Add Flag` row builder.
 
 ## Tasks
 
-- [x] Task 1: Dependency Integration & License Compliance Guard
-  - **Scope**: `go.mod`, `go.sum`, `THIRD_PARTY_LICENSES.md`
-  - **Verification**: `./scripts/check.sh licenses`
+- [x] Task 1: Update Roadmap & Backlog Records
+  - **Scope**: `docs/roadmap/ROADMAP.md`, `docs/roadmap/backlog.md`
+  - **Verification**: Markdown links validation and git diff inspection
 
-- [x] Task 2: Confirmation Ticket Engine & MCP Server Scaffold
-  - **Scope**: `internal/mcp/confirmation.go`, `internal/mcp/server.go`, `internal/mcp/confirmation_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/mcp/...`
+- [x] Task 2: Update Root Repository README & Screenshots
+  - **Scope**: `README.md`
+  - **Verification**: Markdown links validation and git diff inspection
 
-- [x] Task 3: Read-Only MCP Tools & Resources
-  - **Scope**: `internal/mcp/tools_read.go`, `internal/mcp/resources.go`, `internal/mcp/tools_read_test.go`
-  - **Verification**: `go test -v -count=1 -run "TestReadTools|TestResources" ./internal/mcp/...`
+- [x] Task 3: Create GitHub Pages MCP Pillar 6 & Update Core Site Architecture Pages
+  - **Scope**: `site/usps/06-mcp-agent-server.md`, `site/usps/index.md`, `site/index.md`, `site/roadmap.md`, `site/architecture.md`, `site/quickstart.md`, `site/comparison.md`
+  - **Verification**: Verify front matter and relative links across `site/`
 
-- [x] Task 4: Mutating MCP Tools with Read-Only Guard & Confirmation
-  - **Scope**: `internal/mcp/tools_write.go`, `internal/mcp/tools_write_test.go`
-  - **Verification**: `go test -v -count=1 -run "TestWriteTools|TestConfirmationFlow" ./internal/mcp/...`
+- [x] Task 4: Update UI Gallery & USP Pages with New & Refreshed Screenshots
+  - **Scope**: `site/gallery.md`, `site/usps/04-audit-ledger.md`
+  - **Verification**: Verify image references exist and render cleanly
 
-- [x] Task 5: CLI Subcommand `rclone-bisync mcp` & Quality Gate Validation
-  - **Scope**: `main.go`, `internal/mcp/server_test.go`, documentation updates
-  - **Verification**: `go test -count=1 ./...` and `./scripts/check.sh all`
-
-- [x] Task 6: Confirmation Parameter Fingerprint Hardening
-  - **Scope**: `internal/mcp/confirmation.go`, `internal/mcp/confirmation_test.go`, `internal/mcp/tools_write.go`
-  - **Verification**: `go test -v -count=1 ./internal/mcp/...`
-
-- [x] Task 7: Read Tools & Resources LLM Token Optimization
-  - **Scope**: `internal/mcp/tools_read.go`, `internal/mcp/resources.go`, `internal/mcp/tools_read_test.go`
-  - **Verification**: `go test -v -count=1 -run "TestReadTools|TestResources" ./internal/mcp/...`
-
-- [x] Task 8: Mutating Tools Ergonomics, Safety & Audit Bounding
-  - **Scope**: `internal/mcp/tools_write.go`, `internal/mcp/tools_write_test.go`
-  - **Verification**: `go test -v -count=1 -run "TestWriteTools" ./internal/mcp/...` and `./scripts/check.sh all`
+- [x] Task 5: Quality Gate & Full Pre-Commit Verification
+  - **Scope**: `./scripts/check.sh all`
+  - **Verification**: Complete 7-stage check suite passing 100%
 
 ## Status Updates
 
-- 2026-11-01: Initialized task plan for Model Context Protocol (MCP) server implementation on branch feat/mcp-server.
-- 2026-11-01: Completed Task 6: Hardened confirmation ticket manager with exact parameter fingerprint validation in ValidateTicket and ConsumeTicket, preventing confirmation token tampering or privilege escalation on trigger_sync, execute_review, and dedupe_by_hash.
+- 2026-11-01: Initialized documentation, roadmap, and screenshot showcase plan on branch `docs/v1-beta-20-and-screenshots`.
+- 2026-11-01: Completed all 5 tasks: ROADMAP/backlog/README alignment to v1.0.0-beta.20, MCP Pillar 6 creation, core site documentation updates, screenshot refresh in gallery and USPS, and full 7-stage quality gate passed (15.16s).
 
-- 2026-11-01: Completed Task 7: Optimized read tools and resources for LLM token efficiency (compact non-indented JSON, slim default status with opt-in logs/config/metrics, dedicated bisync_get_logs tool with level filtering, paginated and projected explore_path, stripped hashes in sync history, and unresolved_only filtering in inspect_conflict_session). Raised internal/mcp coverage to 83.3%.
-- 2026-11-01: Completed Task 8: Normalized resolution decisions in `bisync_resolve_review`, added safe session-level dismissal, truncated dedupe responses for LLM token efficiency, bounded dedupe audit records per ADR-004 (omitting raw output from SQLite ledger and requiring deleted mutations), rebuilt single binary, and achieved 84.5% package test coverage.
-
-
-- 2026-11-01: Completed Task 1: Added github.com/mark3labs/mcp-go (v1.5.0, MIT) to go.mod, documented in THIRD_PARTY_LICENSES.md, and verified zero copyleft violations via ./scripts/check.sh licenses.
-- 2026-11-01: Completed Task 2: Implemented confirmation ticket engine (internal/mcp/confirmation.go) and MCP server scaffolding with dual transport (stdio and streamable SSE) in internal/mcp/server.go. Verified via internal/mcp unit tests and LOC check.
-- 2026-11-01: Completed Task 3: Implemented 6 read-only MCP inspection tools (bisync_list_profiles, bisync_get_status, bisync_list_remotes, bisync_get_sync_history, bisync_inspect_conflict_session, bisync_explore_path with jail confinement) and 5 MCP resources (bisync://profiles, bisync://status, bisync://profile/{id}, bisync://history/{id}, bisync://conflicts/{session_id}). Verified via comprehensive unit tests in internal/mcp/tools_read_test.go and LOC check.
-- 2026-11-01: Completed Task 4: Implemented mutating MCP tools (bisync_trigger_sync, bisync_resolve_review, bisync_dedupe_by_hash) with strict --read-only guard and TTL confirmation ticket verification for destructive/high blast-radius actions. Verified via unit tests in internal/mcp/tools_write_test.go and LOC check.
-- 2026-11-01: Completed Task 5: Wired `mcp` CLI subcommand in main.go supporting stdio and SSE transports, --read-only and --require-confirmation flags, updated THIRD_PARTY_LICENSES.md, and validated all 7 stages of quality gate (formatting, licenses, templates, LOC, vet, tests, e2e).
 
 
 

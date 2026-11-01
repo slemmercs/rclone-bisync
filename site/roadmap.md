@@ -15,23 +15,24 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • Interactive Review & Deletion Diff Modal                  │
   │  • 4-Analyzer Heuristic Conflict Confidence Engine           │
   │  • Cryptographic Immutable Audit Ledger (SQLite + SHA-256)   │
-  │  • Go CLI Quality Engine (cmd/check) & E2E Testing Suite     │
+  │  • Go CLI Quality Engine (cmd/check) & License Guard         │
   │  • Decoupled Service Architecture (Strictly <400 LOC)        │
   │  • Zero-Dependency Single Go Binary Distribution             │
   │  • Embedded Alpine.js / Tailwind CSS Management Cockpit      │
   │  • POSIX Advisory Locking & Local Path Confinement Jails     │
-  │  • Real-Time Telemetry & Sync Status Reporting               │
   │  • Hybrid Fleet Overview & Multi-Profile Workspace (`beta.10`)│
-  │  • 3-Tier Operational Flags & Provider Presets (`beta.10`)   │
+  │  • Remote MD5 Hash Deduplication (`beta.12`)                 │
+  │  • Unified Logging Ledger & Telemetry De-Noising (`beta.18`) │
+  │  • Native Model Context Protocol (MCP) Server (`beta.20`)    │
   └──────────────────────────────┬───────────────────────────────┘
                                  │
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
   │             NEAR-TERM STRATEGIC PRIORITIES                   │
-  │  1. In-Dashboard Configuration & Setup Manager (Rollback API)│
-  │  2. In-App User Guidance & Interactive Diagnostic Manual     │
-  │  3. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
-  │  4. Rclone RC Framework Hardening & Unix Socket IPC          │
+  │  1. Tier 1 Curated Options & Guided + Add Flag Row Builder   │
+  │  2. In-Dashboard Configuration & Setup Manager (Rollback API)│
+  │  3. In-App User Guidance & Interactive Diagnostic Manual     │
+  │  4. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
   └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,19 +83,27 @@ The following core modules are implemented, tested, and included in current bina
 - **3-Tier Operational Flags Architecture**: Fine-grained flag inheritance model (`Execution Override > Profile Override > Global Default > Hardcoded Fallback`).
 - **POSIX Shell Argument Tokenizer & Security Blocklist**: Safe tokenizer with hard blocklist preventing command injection and unauthorized override of daemon flags (`--config`, `--rc`, `--use-mmap`, `--log-file`, `--json`).
 
+### 8. Hybrid Fleet Overview & Remote Hash Deduplication (`beta.10`–`beta.12`)
+- **Fleet-Wide Command Deck**: Centralized dashboard presenting real-time counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`), interactive profile cards, and global fleet settings.
+- **Remote MD5 Checksum Deduplication**: Safe interactive remote file deduplication (`oldest`, `newest`, `list`) with process locking and automated baseline cache resync preventing `TOO_MANY_DELETES` trips.
+
+### 9. Native Model Context Protocol (MCP) Server (`beta.20`)
+- **Zero-Dependency Dual Transport**: Native pure-Go MCP server operating over `stdio` for local agents and streaming `sse` over HTTP on `--port 8081`.
+- **Confirmation Ticket Engine**: Two-step confirmation loop with cryptographic parameter fingerprinting for destructive actions (`trigger_sync` with `resync`/`force`, `resolve_review`, `dedupe_by_hash`).
+- **Token-Optimized Operations**: High-signal default status (195 characters, ~98.5% token reduction), windowed explorer pagination, level-filtered log inspection, and bounded SQLite ledger records.
+
 ---
 
 ## 🟡 Near-Term Strategic Priorities (In Development)
 
-The following capabilities represent our immediate development milestones following public launch:
+The following capabilities represent our immediate development milestones:
 
-### Priority 1: Hybrid Fleet Overview & Contextual Profile Workspace
-- **Objective**: Deliver a workload-centric dashboard hierarchy supporting fleet-wide visibility and profile-scoped management.
+### Priority 1: Tier 1 Curated Options & Guided `+ Add Flag` Row Builder
+- **Objective**: Align provider options with Rclone backend standards, separate Tier 1 and Tier 2 user experiences, and replace free-form text input with a guided, interactive flag builder.
 - **Architecture**:
-  - **Level 1 Fleet View**: Central command dashboard with aggregate health summary counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`), interactive tile grid, and instant quick-actions (`Sync Now`, `Dry Run`, `Settings`).
-  - **Level 2 Scoped Workspace**: Context-aware workspace with global header profile switcher dropdown and breadcrumb navigation.
-  - **Visual 3-Tier Flags Editor**: Interactive parameter controls with live inheritance badges (`Inherited from Global` vs `Profile Override`) and client-side security blocklist validation.
-  - Refer to [Hybrid Fleet Overview & Contextual Workspace Specification](https://github.com/slemmercs/rclone-bisync/blob/main/docs/design/hybrid_fleet_overview_contextual_profile_workspace.md).
+  - **Tier 1 Providers (`drive`, `onedrive`, `dropbox`, `s3`)**: Curated bisync-critical toggles (Trash deletions, Skip Docs, Shortcuts, Shared With Me) with explicit boolean serialization.
+  - **Tier 2 Providers**: Ultra-lean profile configuration directing advanced parameters to the row builder.
+  - **Dynamic `[ + Add Flag ]` Builder**: Interactive row-by-row additions with provider-aware flag autocompletion, real-time POSIX tokenizer, and security blocklist validation.
 
 ### Priority 2: In-Dashboard Configuration & Setup Manager
 - **Objective**: Provide safe visual editing of sync flags, intervals, and remote setup.
