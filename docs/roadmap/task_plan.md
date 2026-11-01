@@ -21,7 +21,7 @@ Implement remaining technical debt items: enforce type safety for `DeleteItem` a
   - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/js/remotes_modals.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh loc 400` and `go test -v ./tests/e2e/...`
 
-- [ ] Task 5: Automated Quality Gate License Audit & THIRD_PARTY_LICENSES.md
+- [x] Task 5: Automated Quality Gate License Audit & THIRD_PARTY_LICENSES.md
   - **Scope**: `cmd/check/licenses.go`, `cmd/check/main.go`, `THIRD_PARTY_LICENSES.md`
   - **Verification**: `./scripts/check.sh licenses` and `./scripts/check.sh all`
 
@@ -32,6 +32,7 @@ Implement remaining technical debt items: enforce type safety for `DeleteItem` a
 - 2026-11-01: Completed Task 2: Hardened remoteauth package statement coverage to 92.0% (up from 79.3%), adding service_cache_test.go covering GetAuthStatus, caching, InvalidateAuthCache, DefaultCommandRunner, and nil client checks.
 - 2026-11-01: Completed Task 3: Added caller origin badging in Unified Ledger (CLI, CRON, UI, MCP) in pattern_timeline_ledger.html and utils.js with getOriginBadge resolver. Verified via headless Chrome E2E tests.
 - 2026-11-01: Completed Task 4: Modularized remotes.js (down to 203 LOC) by extracting remotes_modals.js (212 LOC) and cleaning up app.js (down to 351 LOC). Verified via check-loc and headless Chrome E2E smoke tests.
+- 2026-11-01: Completed Task 5: Implemented native Go license compliance and copyleft guard in cmd/check/licenses.go, verified all 34 direct/indirect dependencies, and updated THIRD_PARTY_LICENSES.md. Verified via ./scripts/check.sh licenses and ./scripts/check.sh all (all 7 quality stages passed).
 
 
 
