@@ -18,6 +18,8 @@ var (
 	ErrActionMismatch = errors.New("confirmation ticket action mismatch")
 	// ErrTargetMismatch is returned when the ticket was generated for a different target.
 	ErrTargetMismatch = errors.New("confirmation ticket target mismatch")
+	// ErrParamsMismatch is returned when the ticket was generated for different parameters.
+	ErrParamsMismatch = errors.New("confirmation ticket parameters mismatch")
 )
 
 // Ticket represents a cryptographically verified confirmation token for destructive operations.
@@ -77,7 +79,7 @@ func (tm *TicketManager) CreateTicket(action, target string, params map[string]s
 }
 
 // ValidateTicket checks whether a ticket is valid without consuming it.
-func (tm *TicketManager) ValidateTicket(ticketID, action, target string) (*Ticket, error) {
+func (tm *TicketManager) ValidateTicket(ticketID, action, target string, expectedParams ...map[string]string) (*Ticket, error) {
 	tm.mu.RLock()
 	defer tm.mu.RUnlock()
 
@@ -98,12 +100,20 @@ func (tm *TicketManager) ValidateTicket(ticketID, action, target string) (*Ticke
 		return nil, ErrTargetMismatch
 	}
 
+	if len(expectedParams) > 0 && expectedParams[0] != nil {
+		for k, expectedVal := range expectedParams[0] {
+			if ticket.Params == nil || ticket.Params[k] != expectedVal {
+				return nil, ErrParamsMismatch
+			}
+		}
+	}
+
 	res := ticket
 	return &res, nil
 }
 
 // ConsumeTicket validates and atomically removes a ticket upon authorized execution.
-func (tm *TicketManager) ConsumeTicket(ticketID, action, target string) (*Ticket, error) {
+func (tm *TicketManager) ConsumeTicket(ticketID, action, target string, expectedParams ...map[string]string) (*Ticket, error) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
@@ -123,6 +133,14 @@ func (tm *TicketManager) ConsumeTicket(ticketID, action, target string) (*Ticket
 
 	if ticket.Target != target {
 		return nil, ErrTargetMismatch
+	}
+
+	if len(expectedParams) > 0 && expectedParams[0] != nil {
+		for k, expectedVal := range expectedParams[0] {
+			if ticket.Params == nil || ticket.Params[k] != expectedVal {
+				return nil, ErrParamsMismatch
+			}
+		}
 	}
 
 	delete(tm.tickets, ticketID)

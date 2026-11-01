@@ -90,7 +90,11 @@ func (s *Server) handleTriggerSync(ctx context.Context, req mcp.CallToolRequest)
 			})
 		}
 
-		if _, err := s.tickets.ConsumeTicket(token, "trigger_sync", profileID); err != nil {
+		expectedParams := map[string]string{
+			"resync": fmt.Sprintf("%t", resync),
+			"force":  fmt.Sprintf("%t", force),
+		}
+		if _, err := s.tickets.ConsumeTicket(token, "trigger_sync", profileID, expectedParams); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("invalid or expired confirmation token: %v", err)), nil
 		}
 	}
@@ -162,7 +166,11 @@ func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolReques
 			})
 		}
 
-		if _, err := s.tickets.ConsumeTicket(token, "execute_review", sessionID); err != nil {
+		expectedParams := map[string]string{
+			"session_id": sessionID,
+			"decision":   decision,
+		}
+		if _, err := s.tickets.ConsumeTicket(token, "execute_review", sessionID, expectedParams); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("invalid or expired confirmation token: %v", err)), nil
 		}
 
@@ -248,7 +256,13 @@ func (s *Server) handleDedupeByHash(ctx context.Context, req mcp.CallToolRequest
 			})
 		}
 
-		if _, err := s.tickets.ConsumeTicket(token, "dedupe", remote); err != nil {
+		expectedParams := map[string]string{
+			"remote":  remote,
+			"path":    path,
+			"mode":    mode,
+			"by_hash": fmt.Sprintf("%t", byHash),
+		}
+		if _, err := s.tickets.ConsumeTicket(token, "dedupe", remote, expectedParams); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("invalid or expired confirmation token: %v", err)), nil
 		}
 	}

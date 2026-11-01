@@ -19,6 +19,12 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
+func callMCP(req func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error), args map[string]any) (*mcp.CallToolResult, error) {
+	return req(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: args},
+	})
+}
+
 func TestWriteTools_ReadOnlyGuard(t *testing.T) {
 	srv, err := NewServer(nil, ServerConfig{
 		Version:  "v1.0.0-test",
@@ -28,45 +34,22 @@ func TestWriteTools_ReadOnlyGuard(t *testing.T) {
 		t.Fatalf("failed to create server: %v", err)
 	}
 
-	ctx := context.Background()
-
 	// 1. bisync_trigger_sync blocked
-	res, err := srv.handleTriggerSync(ctx, mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Arguments: map[string]any{"profile_id": "test-prof"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
-		t.Errorf("expected read-only rejection for trigger_sync, got: %v", res)
+	res, err := callMCP(srv.handleTriggerSync, map[string]any{"profile_id": "test-prof"})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
+		t.Errorf("expected read-only rejection for trigger_sync, got: %v, err: %v", res, err)
 	}
 
 	// 2. bisync_resolve_review blocked
-	res, err = srv.handleResolveReview(ctx, mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Arguments: map[string]any{"decision": "KEEP_LOCAL"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
-		t.Errorf("expected read-only rejection for resolve_review, got: %v", res)
+	res, err = callMCP(srv.handleResolveReview, map[string]any{"decision": "KEEP_LOCAL"})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
+		t.Errorf("expected read-only rejection for resolve_review, got: %v, err: %v", res, err)
 	}
 
 	// 3. bisync_dedupe_by_hash blocked
-	res, err = srv.handleDedupeByHash(ctx, mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Arguments: map[string]any{"remote": "gdrive:"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
-		t.Errorf("expected read-only rejection for dedupe_by_hash, got: %v", res)
+	res, err = callMCP(srv.handleDedupeByHash, map[string]any{"remote": "gdrive:"})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
+		t.Errorf("expected read-only rejection for dedupe_by_hash, got: %v, err: %v", res, err)
 	}
 }
 

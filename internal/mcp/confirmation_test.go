@@ -46,6 +46,18 @@ func TestTicketManager_CreateAndValidate(t *testing.T) {
 		t.Errorf("expected ErrTargetMismatch, got %v", err)
 	}
 
+	// Parameter fingerprint match
+	_, err = tm.ValidateTicket(ticket.ID, "trigger_sync", "profile-photos", map[string]string{"resync": "true"})
+	if err != nil {
+		t.Errorf("expected parameter validation match, got: %v", err)
+	}
+
+	// Parameter fingerprint mismatch
+	_, err = tm.ValidateTicket(ticket.ID, "trigger_sync", "profile-photos", map[string]string{"resync": "false"})
+	if !errors.Is(err, ErrParamsMismatch) {
+		t.Errorf("expected ErrParamsMismatch, got %v", err)
+	}
+
 	// Non-existent ticket
 	_, err = tm.ValidateTicket("non-existent-id", "trigger_sync", "profile-photos")
 	if !errors.Is(err, ErrTicketNotFound) {
@@ -57,6 +69,13 @@ func TestTicketManager_Consume(t *testing.T) {
 	tm := NewTicketManager(1 * time.Minute)
 
 	ticket := tm.CreateTicket("resolve_review", "sess-123", nil)
+
+	// Parameter mismatch on consume
+	tParams := tm.CreateTicket("trigger_sync", "prof-1", map[string]string{"mode": "oldest"})
+	_, err := tm.ConsumeTicket(tParams.ID, "trigger_sync", "prof-1", map[string]string{"mode": "newest"})
+	if !errors.Is(err, ErrParamsMismatch) {
+		t.Errorf("expected ErrParamsMismatch on consume, got %v", err)
+	}
 
 	// Consume ticket
 	consumed, err := tm.ConsumeTicket(ticket.ID, "resolve_review", "sess-123")

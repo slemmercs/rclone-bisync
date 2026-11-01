@@ -44,6 +44,22 @@ Implement a native Go Model Context Protocol (MCP) server directly inside the `r
 - Sanitize sensitive credentials (passwords, tokens, secret keys) via `security.RedactSecrets` before returning JSON outputs in MCP tools or resources.
 - Strict path confinement and read-only mode guarantees.
 
+
+### LLM Token Efficiency & Ergonomics Optimizations
+
+1. **Parameter Fingerprint Validation**:
+   - `ValidateTicket` and `ConsumeTicket` strictly enforce parameter equality (`params map[string]string`) so tokens cannot be reused with altered flags (e.g., escalating from dry-run to force resync).
+
+2. **Status Primitives vs. Monolithic Telemetry**:
+   - `bisync_get_status` returns concise, high-signal primitives by default. Verbose Rclone logs, historical metrics, and runtime configs are opt-in via `include_logs` and `include_config`.
+
+3. **Paginated & Projected Explorations**:
+   - `bisync_explore_path` implements `limit`, `offset`, and filename `filter`, projecting only essential fields (`name`, `path`, `is_dir`, `size`, `mod_time`) with summary counts (`total_items`, `returned_items`, `has_more`).
+
+4. **Bounded Dedupe & Review Engine Alignment**:
+   - `bisync_dedupe_by_hash` defaults to safe mode `"list"`, truncates CLI terminal outputs for LLM presentation, and complies with ADR-004 by omitting raw terminal output from SQLite audit payloads.
+   - `bisync_resolve_review` aligns parameter schema with actual domain decisions (`keep-local`, `keep-remote`, `keep-both`, `restore-item`, `accept-delete`, `skip`, `dismiss`).
+
 ## Verification Plan
 
 - `go test -v -count=1 ./internal/mcp/...`
