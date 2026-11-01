@@ -20,33 +20,6 @@ document.addEventListener("alpine:init", () => {
             } catch (_) {}
             return "fleet";
         })(),
-        remotesData: {
-            remotes: [],
-            summary: {},
-            count: 0,
-            showAll: false,
-            loading: false,
-            error: null,
-            last_checked: null,
-            authSummary: { total_remotes: 0, oauth_remotes: 0, connected: 0, migration_required: 0, authorization_required: 0, configuration_required: 0, errors: 0 },
-            reconnecting: {},
-            validating: {},
-            validated: {}
-        },
-        migrationModal: {
-            show: false,
-            remote: "",
-            type: "",
-            typeLabel: "",
-            clientId: "",
-            clientSecret: "",
-            showSecret: false,
-            loading: false,
-            error: null,
-            success: null
-        },
-        reconnectModal: { show: false, remote: "", loading: false, authUrl: null, msg: null, error: null },
-        dedupeModal: { show: false, remote: "", path: "", mode: "oldest", executing: false, output: "" },
         entityDrawer: {
             open: false,
             title: "",
@@ -68,11 +41,6 @@ document.addEventListener("alpine:init", () => {
                 }
             }
             this.entityDrawer.data = rec;
-        },
-        auditModal: {
-            show: false,
-            loading: false,
-            events: []
         },
         telemetry: {
             daemon_health: { status: "evaluating", response_time_ms: 0 },
@@ -370,6 +338,7 @@ document.addEventListener("alpine:init", () => {
         window.ProfilesModalModule,
         window.ProfilesHistoryModule,
         window.RemotesModule,
+        window.RemotesModalsModule,
         window.ExplorerModule,
         window.ExplorerActionsModule,
         window.ReviewModule,

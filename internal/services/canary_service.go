@@ -11,6 +11,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // CanaryFilename is the standardized name of the safety canary file.
@@ -127,7 +128,7 @@ func (c *CanaryService) CanaryExists(ctx context.Context, remote, path string, l
 }
 
 // CreateCanary provisions an RCLONE_TEST canary file on target local or remote filesystem.
-func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, localBase ...string) (map[string]interface{}, error) {
+func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, localBase ...string) (models.CanaryResponse, error) {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	remoteClean := strings.TrimSpace(remote)
 
@@ -144,36 +145,36 @@ func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, l
 
 		baseDir, targetDir, ok := isLocalPathJailed(rawBase, cleanPath)
 		if !ok {
-			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
+			return models.CanaryResponse{Status: "error", Error: "Directory traversal forbidden", Remote: "local", Path: cleanPath}, nil
 		}
 		cleanBase := filepath.Clean(baseDir)
 		basePrefix := cleanBase + string(filepath.Separator)
 		if targetDir != cleanBase && !strings.HasPrefix(targetDir, basePrefix) {
-			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
+			return models.CanaryResponse{Status: "error", Error: "Directory traversal forbidden", Remote: "local", Path: cleanPath}, nil
 		}
 
 		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Target directory does not exist: %s", cleanPath), "remote": "local", "path": cleanPath}, nil
+			return models.CanaryResponse{Status: "error", Error: fmt.Sprintf("Target directory does not exist: %s", cleanPath), Remote: "local", Path: cleanPath}, nil
 		}
 
 		canaryFile := filepath.Join(targetDir, CanaryFilename)
 		if !strings.HasPrefix(canaryFile, basePrefix) {
-			return map[string]interface{}{"status": "error", "error": "Directory traversal forbidden", "remote": "local", "path": cleanPath}, nil
+			return models.CanaryResponse{Status: "error", Error: "Directory traversal forbidden", Remote: "local", Path: cleanPath}, nil
 		}
 		// #nosec G304 - canaryFile is strictly confined within safe root
 		f, err := os.OpenFile(canaryFile, os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to create canary file: %v", err), "remote": "local", "path": cleanPath}, nil
+			return models.CanaryResponse{Status: "error", Error: fmt.Sprintf("Failed to create canary file: %v", err), Remote: "local", Path: cleanPath}, nil
 		}
 		_ = f.Close()
 		now := time.Now()
 		_ = os.Chtimes(canaryFile, now, now)
 
-		return map[string]interface{}{
-			"status": "success",
-			"msg":    fmt.Sprintf("Canary created successfully at %s/RCLONE_TEST", cleanPath),
-			"remote": "local",
-			"path":   cleanPath,
+		return models.CanaryResponse{
+			Status: "success",
+			Msg:    fmt.Sprintf("Canary created successfully at %s/RCLONE_TEST", cleanPath),
+			Remote: "local",
+			Path:   cleanPath,
 		}, nil
 	}
 
@@ -183,7 +184,7 @@ func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, l
 	}
 
 	if c.Client == nil {
-		return map[string]interface{}{"status": "error", "error": "Rclone client unavailable", "remote": remoteClean, "path": cleanPath}, nil
+		return models.CanaryResponse{Status: "error", Error: "Rclone client unavailable", Remote: remoteClean, Path: cleanPath}, nil
 	}
 
 	ok, err := c.Client.TouchFile(ctx, remoteClean, canaryRemotePath)
@@ -192,13 +193,13 @@ func (c *CanaryService) CreateCanary(ctx context.Context, remote, path string, l
 		if err != nil {
 			errStr = err.Error()
 		}
-		return map[string]interface{}{"status": "error", "error": errStr, "remote": remoteClean, "path": cleanPath}, nil
+		return models.CanaryResponse{Status: "error", Error: errStr, Remote: remoteClean, Path: cleanPath}, nil
 	}
 
-	return map[string]interface{}{
-		"status": "success",
-		"msg":    fmt.Sprintf("Canary created successfully at %s:%s", remoteClean, canaryRemotePath),
-		"remote": remoteClean,
-		"path":   cleanPath,
+	return models.CanaryResponse{
+		Status: "success",
+		Msg:    fmt.Sprintf("Canary created successfully at %s:%s", remoteClean, canaryRemotePath),
+		Remote: remoteClean,
+		Path:   cleanPath,
 	}, nil
 }

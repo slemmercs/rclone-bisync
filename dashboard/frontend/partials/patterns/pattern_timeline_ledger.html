@@ -54,6 +54,9 @@
                         <div class="flex items-center gap-2 min-w-0 flex-1">
                             <span class="text-slate-500 shrink-0 tabular-nums text-[10px]" x-text="cluster.entry.time"></span>
                             <span class="px-1.5 py-0.2 rounded font-bold uppercase shrink-0 text-[9px]" :class="cluster.entry.levelClass" x-text="cluster.entry.level"></span>
+                            <template x-if="cluster.entry.origin_badge">
+                                <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border shrink-0 font-semibold tracking-wider" :class="cluster.entry.origin_badge.class" x-text="cluster.entry.origin_badge.label" :title="'Triggered via ' + cluster.entry.origin_badge.label"></span>
+                            </template>
                             <template x-if="cluster.entry.profile_name && !cluster.entry.msg.startsWith('[')">
                                 <span class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 font-mono text-[9px] border border-indigo-800/50 shrink-0" x-text="'[' + cluster.entry.profile_name + ']'"></span>
                             </template>
@@ -86,6 +89,9 @@
                                 <svg class="w-3 h-3 text-indigo-400 transition-transform shrink-0" :class="cluster.expanded ? 'rotate-90' : ''" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                                 <span class="text-slate-500 shrink-0 tabular-nums text-[10px]" x-text="cluster.entry.time"></span>
                                 <span class="px-1.5 py-0.2 rounded font-bold uppercase shrink-0 text-[9px]" :class="cluster.entry.levelClass" x-text="cluster.entry.level"></span>
+                                <template x-if="cluster.entry.origin_badge">
+                                    <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border shrink-0 font-semibold tracking-wider" :class="cluster.entry.origin_badge.class" x-text="cluster.entry.origin_badge.label" :title="'Triggered via ' + cluster.entry.origin_badge.label"></span>
+                                </template>
                                 <span class="text-slate-200 truncate font-semibold" x-text="cluster.entry.msg"></span>
                             </div>
                             <div class="flex items-center gap-2 shrink-0">
@@ -100,6 +106,9 @@
                                 <div class="py-0.5 px-2 flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-900 last:border-0">
                                     <div class="flex items-center gap-2 min-w-0 truncate">
                                         <span class="text-slate-600 tabular-nums shrink-0" x-text="subEntry.time"></span>
+                                        <template x-if="subEntry.origin_badge">
+                                            <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border shrink-0 font-semibold tracking-wider" :class="subEntry.origin_badge.class" x-text="subEntry.origin_badge.label" :title="'Triggered via ' + subEntry.origin_badge.label"></span>
+                                        </template>
                                         <template x-if="subEntry.object">
                                             <span class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 font-mono text-[9px] border border-indigo-800/50 truncate max-w-[280px] shrink-0" :title="subEntry.object" x-text="subEntry.object"></span>
                                         </template>

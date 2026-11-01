@@ -144,15 +144,15 @@ func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, sr
 }
 
 // DeleteItem removes a file or directory, safeguarding RCLONE_TEST canary and enforcing path jail.
-func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, isDir bool, localBase ...string) (map[string]interface{}, error) {
+func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, isDir bool, localBase ...string) (models.DeleteResponse, error) {
 	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
 	if cleanPath == "" {
-		return map[string]interface{}{"status": "error", "error": "Root directory cannot be deleted"}, nil
+		return models.DeleteResponse{Status: "error", Error: "Root directory cannot be deleted"}, nil
 	}
 
 	// Canary protection
 	if filepath.Base(cleanPath) == "RCLONE_TEST" {
-		return map[string]interface{}{"status": "error", "error": "Canary test file (RCLONE_TEST) cannot be deleted"}, nil
+		return models.DeleteResponse{Status: "error", Error: "Canary test file (RCLONE_TEST) cannot be deleted"}, nil
 	}
 
 	remoteClean := strings.TrimSpace(remote)
@@ -171,16 +171,16 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 
 		baseDir, target, ok := isLocalPathJailed(rawBase, cleanPath)
 		if !ok || target == baseDir {
-			return map[string]interface{}{"status": "error", "error": "Path traversal or root deletion forbidden"}, nil
+			return models.DeleteResponse{Status: "error", Error: "Path traversal or root deletion forbidden"}, nil
 		}
 		cleanBase := filepath.Clean(baseDir)
 		basePrefix := cleanBase + string(filepath.Separator)
 		if target == cleanBase || !strings.HasPrefix(target, basePrefix) {
-			return map[string]interface{}{"status": "error", "error": "Path traversal or root deletion forbidden"}, nil
+			return models.DeleteResponse{Status: "error", Error: "Path traversal or root deletion forbidden"}, nil
 		}
 
 		if _, err := os.Stat(target); os.IsNotExist(err) {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Target does not exist: %s", cleanPath)}, nil
+			return models.DeleteResponse{Status: "error", Error: fmt.Sprintf("Target does not exist: %s", cleanPath)}, nil
 		}
 
 		if isDir {
@@ -201,45 +201,45 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 				})
 			}
 			if canaryBlocked {
-				return map[string]interface{}{"status": "error", "error": "Directory contains canary test file (RCLONE_TEST) and cannot be deleted"}, nil
+				return models.DeleteResponse{Status: "error", Error: "Directory contains canary test file (RCLONE_TEST) and cannot be deleted"}, nil
 			}
 
 			if err := os.RemoveAll(target); err != nil {
-				return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to delete local directory: %v", err)}, nil
+				return models.DeleteResponse{Status: "error", Error: fmt.Sprintf("Failed to delete local directory: %v", err)}, nil
 			}
 		} else {
 			if err := os.Remove(target); err != nil {
-				return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Failed to delete local file: %v", err)}, nil
+				return models.DeleteResponse{Status: "error", Error: fmt.Sprintf("Failed to delete local file: %v", err)}, nil
 			}
 		}
 
-		return map[string]interface{}{
-			"status": "success",
-			"msg":    fmt.Sprintf("Deleted %s", cleanPath),
-			"remote": "local",
-			"path":   cleanPath,
+		return models.DeleteResponse{
+			Status: "success",
+			Msg:    fmt.Sprintf("Deleted %s", cleanPath),
+			Remote: "local",
+			Path:   cleanPath,
 		}, nil
 	}
 
 	if e.Client == nil {
-		return map[string]interface{}{"status": "error", "error": "client not configured"}, nil
+		return models.DeleteResponse{Status: "error", Error: "client not configured"}, nil
 	}
 
 	remoteName := strings.TrimRight(remoteClean, ":") + ":"
 	if isDir {
 		if e.Canary != nil && e.Canary.CanaryInDir(ctx, remoteClean, cleanPath) {
-			return map[string]interface{}{"status": "error", "error": "Directory contains canary test file (RCLONE_TEST) and cannot be deleted"}, nil
+			return models.DeleteResponse{Status: "error", Error: "Directory contains canary test file (RCLONE_TEST) and cannot be deleted"}, nil
 		}
 		ok, err := e.Client.PurgeDir(ctx, remoteName, cleanPath)
 		if err != nil || !ok {
-			return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Purge failed: %v", err)}, nil
+			return models.DeleteResponse{Status: "error", Error: fmt.Sprintf("Purge failed: %v", err)}, nil
 		}
-		return map[string]interface{}{"status": "success", "fs": remoteName, "remote": cleanPath}, nil
+		return models.DeleteResponse{Status: "success", Fs: remoteName, Remote: cleanPath, Path: cleanPath}, nil
 	}
 
 	ok, err := e.Client.DeleteFile(ctx, remoteName, cleanPath)
 	if err != nil || !ok {
-		return map[string]interface{}{"status": "error", "error": fmt.Sprintf("Delete file failed: %v", err)}, nil
+		return models.DeleteResponse{Status: "error", Error: fmt.Sprintf("Delete file failed: %v", err)}, nil
 	}
-	return map[string]interface{}{"status": "success", "fs": remoteName, "remote": cleanPath}, nil
+	return models.DeleteResponse{Status: "success", Fs: remoteName, Remote: cleanPath, Path: cleanPath}, nil
 }

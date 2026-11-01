@@ -261,13 +261,13 @@ func TestExplorerService_DeleteItem(t *testing.T) {
 
 	// 1. Root or empty path deletion forbidden
 	resRoot, _ := expSvc.DeleteItem(context.Background(), "local", "", false)
-	if resRoot["status"] != "error" || resRoot["error"] != "Root directory cannot be deleted" {
+	if resRoot.Status != "error" || resRoot.Error != "Root directory cannot be deleted" {
 		t.Fatalf("expected root deletion error, got: %v", resRoot)
 	}
 
 	// 2. Canary file protected
 	resCanary, _ := expSvc.DeleteItem(context.Background(), "local", "RCLONE_TEST", false)
-	if resCanary["status"] != "error" || resCanary["error"] != "Canary test file (RCLONE_TEST) cannot be deleted" {
+	if resCanary.Status != "error" || resCanary.Error != "Canary test file (RCLONE_TEST) cannot be deleted" {
 		t.Fatalf("expected canary deletion error, got: %v", resCanary)
 	}
 
@@ -276,7 +276,7 @@ func TestExplorerService_DeleteItem(t *testing.T) {
 	_ = os.MkdirAll(canaryDir, 0755)
 	_ = os.WriteFile(filepath.Join(canaryDir, "RCLONE_TEST"), []byte("canary"), 0644)
 	resCanaryDir, _ := expSvc.DeleteItem(context.Background(), "local", "canary_dir", true)
-	if resCanaryDir["status"] != "error" || resCanaryDir["error"] != "Directory contains canary test file (RCLONE_TEST) and cannot be deleted" {
+	if resCanaryDir.Status != "error" || resCanaryDir.Error != "Directory contains canary test file (RCLONE_TEST) and cannot be deleted" {
 		t.Fatalf("expected canary directory deletion error, got: %v", resCanaryDir)
 	}
 	if _, err := os.Stat(canaryDir); err != nil {
@@ -285,50 +285,50 @@ func TestExplorerService_DeleteItem(t *testing.T) {
 
 	// 2c. Remote directory containing canary file protected (H-3 remote)
 	resRemoteCanaryDir, _ := expSvc.DeleteItem(context.Background(), "gdrive", "canary_remote_dir", true)
-	if resRemoteCanaryDir["status"] != "error" || resRemoteCanaryDir["error"] != "Directory contains canary test file (RCLONE_TEST) and cannot be deleted" {
+	if resRemoteCanaryDir.Status != "error" || resRemoteCanaryDir.Error != "Directory contains canary test file (RCLONE_TEST) and cannot be deleted" {
 		t.Fatalf("expected remote canary directory deletion error, got: %v", resRemoteCanaryDir)
 	}
 
 	// 3. Traversal or root deletion forbidden
 	resTrav, _ := expSvc.DeleteItem(context.Background(), "local", "../../", false)
-	if resTrav["status"] != "error" {
+	if resTrav.Status != "error" {
 		t.Fatalf("expected traversal forbidden, got: %v", resTrav)
 	}
 
 	// 4. Missing target
 	resMissing, _ := expSvc.DeleteItem(context.Background(), "local", "not_there.txt", false)
-	if resMissing["status"] != "error" {
+	if resMissing.Status != "error" {
 		t.Fatalf("expected missing target error, got: %v", resMissing)
 	}
 
 	// 5. Successful local file deletion
 	resFile, err := expSvc.DeleteItem(context.Background(), "local", "del.txt", false)
-	if err != nil || resFile["status"] != "success" {
+	if err != nil || resFile.Status != "success" {
 		t.Fatalf("expected file delete success, got: %v, err: %v", resFile, err)
 	}
 
 	// 6. Successful local directory deletion
 	resDir, err := expSvc.DeleteItem(context.Background(), "local", "deldir", true)
-	if err != nil || resDir["status"] != "success" {
+	if err != nil || resDir.Status != "success" {
 		t.Fatalf("expected dir delete success, got: %v, err: %v", resDir, err)
 	}
 
 	// 7. Remote file deletion
 	resRemFile, err := expSvc.DeleteItem(context.Background(), "gdrive", "remote.txt", false)
-	if err != nil || resRemFile["status"] != "success" {
+	if err != nil || resRemFile.Status != "success" {
 		t.Fatalf("expected remote file delete success, got: %v, err: %v", resRemFile, err)
 	}
 
 	// 8. Remote dir purge
 	resRemPurge, err := expSvc.DeleteItem(context.Background(), "gdrive", "remotedir", true)
-	if err != nil || resRemPurge["status"] != "success" {
+	if err != nil || resRemPurge.Status != "success" {
 		t.Fatalf("expected remote dir purge success, got: %v, err: %v", resRemPurge, err)
 	}
 
 	// 9. Nil client error handling
 	expNil := NewExplorerService(cfg, nil, nil)
 	resNil, _ := expNil.DeleteItem(context.Background(), "gdrive", "test.txt", false)
-	if resNil["status"] != "error" || resNil["error"] != "client not configured" {
+	if resNil.Status != "error" || resNil.Error != "client not configured" {
 		t.Fatalf("expected client not configured, got: %v", resNil)
 	}
 }
@@ -523,13 +523,13 @@ func TestExplorerService_DeleteItem_Extended(t *testing.T) {
 
 	// 1. Refuse deleting local directory containing canary when Canary is nil
 	resCanaryWalk, _ := expNoCanary.DeleteItem(context.Background(), "local", "with_canary", true)
-	if resCanaryWalk["status"] != "error" || !strings.Contains(resCanaryWalk["error"].(string), "contains canary test file") {
+	if resCanaryWalk.Status != "error" || !strings.Contains(resCanaryWalk.Error, "contains canary test file") {
 		t.Fatalf("expected canary protection walk error, got: %v", resCanaryWalk)
 	}
 
 	// 2. Allow deleting local directory without canary when Canary is nil
 	resCleanWalk, err := expNoCanary.DeleteItem(context.Background(), "local", "without_canary", true)
-	if err != nil || resCleanWalk["status"] != "success" {
+	if err != nil || resCleanWalk.Status != "success" {
 		t.Fatalf("expected clean dir deletion success, got: %v, err: %v", resCleanWalk, err)
 	}
 
@@ -538,7 +538,7 @@ func TestExplorerService_DeleteItem_Extended(t *testing.T) {
 	_ = os.MkdirAll(nonEmptyDir, 0755)
 	_ = os.WriteFile(filepath.Join(nonEmptyDir, "item.txt"), []byte("item"), 0644)
 	resFileErr, _ := expNoCanary.DeleteItem(context.Background(), "local", "non_empty", false)
-	if resFileErr["status"] != "error" || !strings.Contains(resFileErr["error"].(string), "Failed to delete local file") {
+	if resFileErr.Status != "error" || !strings.Contains(resFileErr.Error, "Failed to delete local file") {
 		t.Fatalf("expected file remove failure on directory, got: %v", resFileErr)
 	}
 
@@ -554,7 +554,7 @@ func TestExplorerService_DeleteItem_Extended(t *testing.T) {
 
 	// Purge failure
 	resPurgeErr, _ := failExp.DeleteItem(context.Background(), "gdrive", "remote_folder", true)
-	if resPurgeErr["status"] != "error" || !strings.Contains(resPurgeErr["error"].(string), "Purge failed") {
+	if resPurgeErr.Status != "error" || !strings.Contains(resPurgeErr.Error, "Purge failed") {
 		t.Fatalf("expected purge failure, got: %v", resPurgeErr)
 	}
 	// 5. Nil config fallback in DeleteItem
@@ -571,13 +571,13 @@ func TestExplorerService_DeleteItem_Extended(t *testing.T) {
 
 	expRO := NewExplorerService(&config.Config{LocalPath: roParent}, nil, nil)
 	resROErr, _ := expRO.DeleteItem(context.Background(), "local", "child", true)
-	if resROErr["status"] != "error" || !strings.Contains(resROErr["error"].(string), "Failed to delete local directory") {
+	if resROErr.Status != "error" || !strings.Contains(resROErr.Error, "Failed to delete local directory") {
 		t.Fatalf("expected remove directory failure on read-only parent, got: %v", resROErr)
 	}
 
 	// Delete file failure
 	resDelErr, _ := failExp.DeleteItem(context.Background(), "gdrive", "remote_file.txt", false)
-	if resDelErr["status"] != "error" || !strings.Contains(resDelErr["error"].(string), "Delete file failed") {
+	if resDelErr.Status != "error" || !strings.Contains(resDelErr.Error, "Delete file failed") {
 		t.Fatalf("expected delete file failure, got: %v", resDelErr)
 	}
 }

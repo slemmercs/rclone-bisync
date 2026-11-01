@@ -174,6 +174,10 @@ func main() {
 		results = append(results, runStage("Lines of Code Audit", cfg.Verbose, func() error {
 			return checkLOC(repoRoot, cfg.LocThreshold, cfg.Verbose)
 		}))
+	case "licenses", "license":
+		results = append(results, runStage("License Compliance & Copyleft Guard", cfg.Verbose, func() error {
+			return checkLicenses(repoRoot, cfg.Verbose)
+		}))
 	case "lint", "vet", "security", "gosec":
 		results = append(results, runStage("Static Analysis & Security", cfg.Verbose, func() error {
 			return runLintAndSecurity(cfg)
@@ -189,7 +193,7 @@ func main() {
 	case "all":
 		results = runAllStages(cfg, repoRoot)
 	default:
-		fmt.Printf("Unknown stage '%s'. Available stages: all, fmt, lint, templates, loc [limit], test, build\n", cfg.Stage)
+		fmt.Printf("Unknown stage '%s'. Available stages: all, fmt, lint, templates, loc [limit], licenses, test, build\n", cfg.Stage)
 		os.Exit(1)
 	}
 
@@ -234,11 +238,11 @@ func runStage(name string, verbose bool, fn func() error) CheckResult {
 }
 
 func runAllStages(cfg Config, repoRoot string) []CheckResult {
-	results := make([]CheckResult, 6)
+	results := make([]CheckResult, 7)
 	var wg sync.WaitGroup
 
 	// Run fast static scans in parallel
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		defer wg.Done()
 		results[0] = runStage("Go Formatting & Shell Check", cfg.Verbose, func() error {
@@ -257,16 +261,22 @@ func runAllStages(cfg Config, repoRoot string) []CheckResult {
 			return checkLOC(repoRoot, cfg.LocThreshold, cfg.Verbose)
 		})
 	}()
+	go func() {
+		defer wg.Done()
+		results[3] = runStage("License Compliance & Copyleft Guard", cfg.Verbose, func() error {
+			return checkLicenses(repoRoot, cfg.Verbose)
+		})
+	}()
 	wg.Wait()
 
 	// Heavy / build operations run sequentially to prevent resource exhaustion
-	results[3] = runStage("Static Analysis & Security", cfg.Verbose, func() error {
+	results[4] = runStage("Static Analysis & Security", cfg.Verbose, func() error {
 		return runLintAndSecurity(cfg)
 	})
-	results[4] = runStage("Unit Tests & Coverage", cfg.Verbose, func() error {
+	results[5] = runStage("Unit Tests & Coverage", cfg.Verbose, func() error {
 		return runTests(cfg)
 	})
-	results[5] = runStage("Build Verification", cfg.Verbose, func() error {
+	results[6] = runStage("Build Verification", cfg.Verbose, func() error {
 		return runBuilds(cfg)
 	})
 
@@ -285,6 +295,7 @@ Stages:
   lint               Run static analysis, linters, and secret scans
   templates          Audit Alpine.js templates for unsafe dotted boolean bindings
   loc [limit]        Audit line-of-code thresholds across Go, JS, and HTML files
+  licenses           Verify third-party license compliance and copyleft guard
   test               Run test suite with coverage enforcement
   build              Verify native and cross-compilation builds
 

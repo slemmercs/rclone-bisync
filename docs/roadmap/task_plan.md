@@ -1,48 +1,39 @@
-# Task Plan: Technical Debt Remediation & Quality Hardening
+# Task Plan: Type Safety, Quality Hardening & Automated License Audit
 
 ## Goal
-Remediate key technical debt items: clean up workspace binaries, modularize near-ceiling files (`profiles.js`, `review.js`, `log_service.go`), strengthen test coverage in `internal/core/security` and `internal/engine/runner` above 80%, and verify full repository quality gates.
+Implement remaining technical debt items: enforce type safety for `DeleteItem` and `CreateCanary`, harden `remoteauth` coverage (>80%), add visual caller origin badging in the Unified Ledger, modularize `remotes.js` and `app.js` (<400 LOC), and establish an automated License Compliance & Copyleft Guard.
 
 ## Tasks
 
-- [x] Task 1: Workspace Hygiene & Local Artifact Cleanliness
-  - **Scope**: Root directory binaries (`bisync-hub`, `bisync-hub-new`)
-  - **Verification**: `ls bisync-hub bisync-hub-new 2>&1` (verify absent) and `git status` clean
+- [x] Task 1: Type Safety & Contract Governance for Delete and Canary Services
+  - **Scope**: `internal/models/api.go`, `internal/services/explorer_ops.go`, `internal/services/canary_service.go`, `internal/services/sync_service.go`, `internal/server/handlers_explorer.go`, `internal/server/server.go`
+  - **Verification**: `go test -v ./internal/services/... ./internal/server/...`
 
-- [x] Task 2: Frontend High-LOC Module Decomposition (`profiles.js` & `review.js`)
-  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/profiles_modal.js`, `dashboard/frontend/js/review.js`, `dashboard/frontend/js/review_actions.js`, `dashboard/frontend/index.html`
-  - **Verification**: `./scripts/check.sh loc 400` and `go test -count=1 ./tests/e2e/...`
+- [x] Task 2: RemoteAuth Test Coverage Hardening (>80%)
+  - **Scope**: `internal/remoteauth/service_test.go`
+  - **Verification**: `go test -v -cover ./internal/remoteauth/...`
 
-- [x] Task 3: Backend High-LOC Module Decomposition (`log_service.go`)
-  - **Scope**: `internal/services/log_service.go`, `internal/services/log_parser.go`
-  - **Verification**: `./scripts/check.sh loc 400` and `go test -count=1 ./internal/services/...`
+- [x] Task 3: Caller Origin Badging in Unified Ledger (CLI, CRON, UI, MCP)
+  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/utils.js`
+  - **Verification**: `go test -v ./tests/e2e/...`
 
-- [x] Task 4: Security & Redaction Test Coverage Hardening (>80%)
-  - **Scope**: `internal/core/security/redact_test.go`
-  - **Verification**: `go test -cover ./internal/core/security/...` (verify >80%)
+- [x] Task 4: Frontend Modularization & LOC Ceilings (remotes.js & app.js)
+  - **Scope**: `dashboard/frontend/js/remotes.js`, `dashboard/frontend/js/remotes_modals.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh loc 400` and `go test -v ./tests/e2e/...`
 
-- [x] Task 5: Engine Runner Test Coverage Hardening (>80%)
-  - **Scope**: `internal/engine/runner/runner_test.go`
-  - **Verification**: `go test -cover ./internal/engine/runner/...` (verify >80%)
-
-- [x] Task 6: Schema Uniformity for Error Responses
-  - **Scope**: `internal/models/api.go`, `internal/server/server.go`
-  - **Verification**: `go test -count=1 ./internal/server/...`
-
-- [x] Task 7: Full Quality Gate Verification & Release
-  - **Scope**: Full repository quality gate verification
-  - **Verification**: `./scripts/check.sh all`
+- [x] Task 5: Automated Quality Gate License Audit & THIRD_PARTY_LICENSES.md
+  - **Scope**: `cmd/check/licenses.go`, `cmd/check/main.go`, `THIRD_PARTY_LICENSES.md`
+  - **Verification**: `./scripts/check.sh licenses` and `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-10-31: Initialized technical debt remediation plan from implementation_plan.md covering LOC ceilings, test coverage gaps, and workspace cleanliness.
-- 2026-10-31: Completed Task 1: Cleaned up root workspace binary artifacts (bisync-hub, bisync-hub-new), eliminating index bloat and search scanner interference.
-- 2026-10-31: Completed Task 2: Modularized profiles.js (down to 154 LOC with profiles_modal.js at 256 LOC) and review.js (down to 196 LOC with review_actions.js at 205 LOC). Headless Chrome E2E test and LOC checks passed.
-- 2026-10-31: Completed Task 3: Decomposed log_service.go (down to 246 LOC) by extracting parsing helpers into log_parser.go (152 LOC). All services tests and LOC checks passed.
-- 2026-10-31: Completed Task 4: Hardened security package test coverage to 96.3% (up from 76.9%), covering actor contexts, prefix/suffix filters, unexported struct fields, and pointers.
-- 2026-10-31: Completed Task 5: Hardened runner package test coverage to 86.6% (up from 74.2%), adding runner_failure_test.go covering review session persistence, rate limiting, and debug flag propagation.
-- 2026-10-31: Completed Task 6: Enforced schema uniformity with models.NewErrorResponse and server.writeJSONError, ensuring both status, msg, and error fields are populated across API error envelopes.
-- 2026-10-31: Completed Task 7: Passed full quality gate (all 6 checks: fmt, vet, loc 400, test, lint, leaks). All unit tests and headless Chrome E2E tests verified. Ready for PR and release.
+- 2026-11-01: Initialized task plan from implementation_plan.md on branch refactor/type-safety-and-license-guard.
+- 2026-11-01: Completed Task 1: Standardized DeleteItem and CreateCanary to return typed models (models.DeleteResponse and models.CanaryResponse). Updated ExplorerService, CanaryService, SyncService, CLI canary provisioner, and test suite. Verified via unit and E2E tests.
+- 2026-11-01: Completed Task 2: Hardened remoteauth package statement coverage to 92.0% (up from 79.3%), adding service_cache_test.go covering GetAuthStatus, caching, InvalidateAuthCache, DefaultCommandRunner, and nil client checks.
+- 2026-11-01: Completed Task 3: Added caller origin badging in Unified Ledger (CLI, CRON, UI, MCP) in pattern_timeline_ledger.html and utils.js with getOriginBadge resolver. Verified via headless Chrome E2E tests.
+- 2026-11-01: Completed Task 4: Modularized remotes.js (down to 203 LOC) by extracting remotes_modals.js (212 LOC) and cleaning up app.js (down to 351 LOC). Verified via check-loc and headless Chrome E2E smoke tests.
+- 2026-11-01: Completed Task 5: Implemented native Go license compliance and copyleft guard in cmd/check/licenses.go, verified all 34 direct/indirect dependencies, and updated THIRD_PARTY_LICENSES.md. Verified via ./scripts/check.sh licenses and ./scripts/check.sh all (all 7 quality stages passed).
+
 
 
 
