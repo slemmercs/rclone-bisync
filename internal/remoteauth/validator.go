@@ -38,6 +38,15 @@ func isAuthError(msg string) bool {
 // This is used for background health checks and dashboard status polling.
 func (s *RemoteAuthService) probeRemote(ctx context.Context, remoteName string) (models.ValidateResponse, error) {
 	cleanName := strings.TrimRight(remoteName, ":")
+	if s.Client == nil {
+		return models.ValidateResponse{
+			Status: models.AuthStatusError,
+			Remote: cleanName,
+			Valid:  false,
+			Msg:    "Rclone client is not available",
+			Error:  "client not configured",
+		}, fmt.Errorf("rclone client not configured")
+	}
 
 	// 1. First probe via operations/about
 	about := s.Client.GetRemoteAbout(ctx, cleanName)

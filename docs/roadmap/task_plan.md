@@ -9,7 +9,7 @@ Implement remaining technical debt items: enforce type safety for `DeleteItem` a
   - **Scope**: `internal/models/api.go`, `internal/services/explorer_ops.go`, `internal/services/canary_service.go`, `internal/services/sync_service.go`, `internal/server/handlers_explorer.go`, `internal/server/server.go`
   - **Verification**: `go test -v ./internal/services/... ./internal/server/...`
 
-- [ ] Task 2: RemoteAuth Test Coverage Hardening (>80%)
+- [x] Task 2: RemoteAuth Test Coverage Hardening (>80%)
   - **Scope**: `internal/remoteauth/service_test.go`
   - **Verification**: `go test -v -cover ./internal/remoteauth/...`
 
@@ -29,6 +29,7 @@ Implement remaining technical debt items: enforce type safety for `DeleteItem` a
 
 - 2026-11-01: Initialized task plan from implementation_plan.md on branch refactor/type-safety-and-license-guard.
 - 2026-11-01: Completed Task 1: Standardized DeleteItem and CreateCanary to return typed models (models.DeleteResponse and models.CanaryResponse). Updated ExplorerService, CanaryService, SyncService, CLI canary provisioner, and test suite. Verified via unit and E2E tests.
+- 2026-11-01: Completed Task 2: Hardened remoteauth package statement coverage to 92.0% (up from 79.3%), adding service_cache_test.go covering GetAuthStatus, caching, InvalidateAuthCache, DefaultCommandRunner, and nil client checks.
 
 
 
