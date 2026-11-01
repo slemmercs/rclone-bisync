@@ -13,7 +13,7 @@ Implement remaining technical debt items: enforce type safety for `DeleteItem` a
   - **Scope**: `internal/remoteauth/service_test.go`
   - **Verification**: `go test -v -cover ./internal/remoteauth/...`
 
-- [ ] Task 3: Caller Origin Badging in Unified Ledger (CLI, CRON, UI, MCP)
+- [x] Task 3: Caller Origin Badging in Unified Ledger (CLI, CRON, UI, MCP)
   - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/utils.js`
   - **Verification**: `go test -v ./tests/e2e/...`
 
@@ -30,6 +30,7 @@ Implement remaining technical debt items: enforce type safety for `DeleteItem` a
 - 2026-11-01: Initialized task plan from implementation_plan.md on branch refactor/type-safety-and-license-guard.
 - 2026-11-01: Completed Task 1: Standardized DeleteItem and CreateCanary to return typed models (models.DeleteResponse and models.CanaryResponse). Updated ExplorerService, CanaryService, SyncService, CLI canary provisioner, and test suite. Verified via unit and E2E tests.
 - 2026-11-01: Completed Task 2: Hardened remoteauth package statement coverage to 92.0% (up from 79.3%), adding service_cache_test.go covering GetAuthStatus, caching, InvalidateAuthCache, DefaultCommandRunner, and nil client checks.
+- 2026-11-01: Completed Task 3: Added caller origin badging in Unified Ledger (CLI, CRON, UI, MCP) in pattern_timeline_ledger.html and utils.js with getOriginBadge resolver. Verified via headless Chrome E2E tests.
 
 
 

@@ -14,6 +14,25 @@ function escapeHtml(str) {
         .replace(/'/g, "&#39;");
 }
 
+// Resolves visual badge metadata for execution caller origins (CLI, CRON, UI, MCP)
+function getOriginBadge(origin) {
+    if (!origin) return null;
+    const o = String(origin).trim().toLowerCase();
+    if (o === "cli") {
+        return { label: "CLI", class: "bg-sky-950/80 text-sky-400 border-sky-800/50" };
+    }
+    if (o === "cron" || o === "timer" || o === "scheduler") {
+        return { label: "CRON", class: "bg-amber-950/80 text-amber-400 border-amber-800/50" };
+    }
+    if (o === "ui" || o === "dashboard" || o === "web") {
+        return { label: "UI", class: "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" };
+    }
+    if (o === "mcp") {
+        return { label: "MCP", class: "bg-violet-950/80 text-violet-400 border-violet-800/50" };
+    }
+    return { label: o.toUpperCase(), class: "bg-slate-900 text-slate-300 border-slate-800" };
+}
+
 // Unified parser for Rclone and Bisync JSON log lines with legacy fallback
 function parseJsonLogLine(rawLine) {
     if (typeof rawLine !== "string") return null;
@@ -105,6 +124,7 @@ function parseJsonLogLine(rawLine) {
             source: parsed.source || null,
             details: parsed.details || structuredDetails,
             origin: parsed.origin || null,
+            origin_badge: getOriginBadge(parsed.origin),
             run_id: parsed.run_id || null,
             job_id: parsed.job_id || null,
             status: parsed.status || null,
@@ -140,6 +160,7 @@ function parseJsonLogLine(rawLine) {
                 is_read_only_access: isReadOnly,
                 object: null,
                 origin: null,
+                origin_badge: null,
                 run_id: null,
                 isJson: false
             };
@@ -157,6 +178,7 @@ function parseJsonLogLine(rawLine) {
             msg: rawLine,
             object: null,
             origin: null,
+            origin_badge: null,
             run_id: null,
             isJson: false
         };
