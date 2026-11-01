@@ -16,6 +16,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/engine/runner"
+	"github.com/slemmercs/rclone-bisync/internal/mcp"
 	"github.com/slemmercs/rclone-bisync/internal/server"
 )
 
@@ -77,6 +78,21 @@ func main() {
 			_ = canaryCmd.Parse(os.Args[2:])
 
 			runCanary(*remote, *path, *canaryEnv)
+			return
+
+		case "mcp":
+			mcpCmd := flag.NewFlagSet("mcp", flag.ExitOnError)
+			transport := mcpCmd.String("transport", "stdio", "Transport protocol: 'stdio' or 'sse'")
+			host := mcpCmd.String("host", "127.0.0.1", "Host address for SSE transport")
+			port := mcpCmd.Int("port", 8081, "Port for SSE transport")
+			readOnly := mcpCmd.Bool("read-only", false, "Run in read-only inspection mode (disallow mutations)")
+			requireConfirmation := mcpCmd.Bool("require-confirmation", true, "Require TTL tickets for high-blast-radius operations")
+			mcpEnv := mcpCmd.String("env-file", "", "Path to custom bisync.env")
+			debug := mcpCmd.Bool("debug", false, "Enable verbose debug logging")
+			mcpCmd.BoolVar(debug, "d", false, "Enable verbose debug logging (shorthand)")
+			_ = mcpCmd.Parse(os.Args[2:])
+
+			runMCP(*transport, *host, *port, *readOnly, *requireConfirmation, *mcpEnv, *debug)
 			return
 		}
 	}
@@ -180,4 +196,51 @@ func runCanary(remote, path, envFile string) {
 		log.Fatalf("Error provisioning canary: %v", res.Error)
 	}
 	fmt.Printf("Successfully provisioned RCLONE_TEST canary on [%s] %s\n", remote, path)
+}
+
+func runMCP(transport, host string, port int, readOnly, requireConfirmation bool, envFile string, debug bool) {
+	cfg, err := config.LoadConfig(envFile)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	if debug {
+		cfg.DebugMode = true
+	}
+
+	appContainer, err := app.NewContainer(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize application container: %v", err)
+	}
+	if err := appContainer.Start(context.Background()); err != nil {
+		slog.Warn("failed to start background services", "error", err)
+	}
+	defer func() {
+		_ = appContainer.Close()
+	}()
+
+	mcpSrv, err := mcp.NewServer(appContainer, mcp.ServerConfig{
+		Version:             Version,
+		ReadOnly:            readOnly,
+		RequireConfirmation: requireConfirmation,
+		Transport:           transport,
+		Host:                host,
+		Port:                port,
+	})
+	if err != nil {
+		log.Fatalf("Failed to initialize MCP server: %v", err)
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	if transport == "sse" {
+		slog.Info("Starting Bisync Hub MCP server (SSE)", "host", host, "port", port, "read_only", readOnly)
+		if err := mcpSrv.ServeSSE(ctx, host, port); err != nil {
+			log.Fatalf("MCP SSE server error: %v", err)
+		}
+	} else {
+		if err := mcpSrv.ServeStdio(ctx); err != nil {
+			log.Fatalf("MCP stdio server error: %v", err)
+		}
+	}
 }
