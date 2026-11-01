@@ -2,6 +2,9 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +12,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -171,6 +176,55 @@ func TestReadTools_WithServices(t *testing.T) {
 	if !res.IsError {
 		t.Error("expected error for path traversal")
 	}
+
+	// 5. bisync_inspect_conflict_session
+	reviewSvc := services.NewReviewService(cfg, nil)
+	ctr.ReviewService = reviewSvc
+	res, err = srv.handleInspectConflictSession(ctx, mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.IsError {
+		t.Errorf("unexpected error in inspect_conflict_session: %v", res)
+	}
+
+	// 6. bisync_get_sync_history without audit service
+	res, err = srv.handleGetSyncHistory(ctx, mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.IsError {
+		t.Errorf("unexpected error in get_sync_history: %v", res)
+	}
+	res, err = srv.handleGetSyncHistory(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{"limit": 500},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.IsError {
+		t.Errorf("unexpected error in get_sync_history with custom limit: %v", res)
+	}
+
+	// 7. bisync_list_remotes with mock RC server
+	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"remotes": []string{"gdrive", "onedrive"},
+		})
+	}))
+	defer mockRC.Close()
+	ctr.Client = client.NewRcloneClient(mockRC.URL, "", "")
+	ctr.TelemetryService = services.NewTelemetryService(cfg, ctr.Client)
+	res, err = srv.handleListRemotes(ctx, mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.IsError {
+		t.Errorf("unexpected error in list_remotes: %v", res)
+	}
 }
 
 func TestResources_Read(t *testing.T) {
@@ -260,4 +314,23 @@ func TestResources_Read(t *testing.T) {
 	if len(contents) == 0 {
 		t.Fatal("expected contents for history by ID")
 	}
+
+	// 5. bisync://conflicts/{session_id}
+	activeReviewFile := filepath.Join(tempDir, "active_review.json")
+	cfg.ActiveReviewFile = activeReviewFile
+	reviewSess := &models.ReviewSession{ID: "sess-res-1", Status: models.ReviewStatusReviewing}
+	sessData, _ := json.Marshal(reviewSess)
+	_ = os.WriteFile(activeReviewFile, sessData, 0600)
+	ctr.ReviewService = services.NewReviewService(cfg, nil)
+
+	contents, err = srv.handleResourceConflictSession(ctx, mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "bisync://conflicts/sess-res-1"},
+	})
+	if err != nil {
+		t.Fatalf("failed to read bisync://conflicts/sess-res-1: %v", err)
+	}
+	if len(contents) == 0 {
+		t.Fatal("expected contents for conflict session resource")
+	}
+
 }

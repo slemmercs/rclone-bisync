@@ -3,6 +3,9 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,7 +13,10 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 func TestWriteTools_ReadOnlyGuard(t *testing.T) {
@@ -251,6 +257,145 @@ func TestWriteTools_DedupeConfirmation(t *testing.T) {
 			Arguments: map[string]any{
 				"remote":             "gdrive",
 				"mode":               "oldest",
+				"confirmation_token": ticketResp.Token,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error with valid token: %v", res)
+	}
+}
+
+func TestWriteTools_ResolveReviewConfirmation(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		BaseDir:          tempDir,
+		ActiveReviewFile: filepath.Join(tempDir, "review.json"),
+	}
+
+	sess := &models.ReviewSession{
+		ID:     "session-test-mcp",
+		Status: models.ReviewStatusReviewing,
+		Conflicts: []models.ConflictCandidate{
+			{ID: "cand-1", Path: "file1.txt", Name: "file1.txt"},
+		},
+	}
+	sessBytes, err := json.Marshal(sess)
+	if err != nil {
+		t.Fatalf("failed to marshal session: %v", err)
+	}
+	if err := os.WriteFile(cfg.ActiveReviewFile, sessBytes, 0600); err != nil {
+		t.Fatalf("failed to write review file: %v", err)
+	}
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	}))
+	defer mockServer.Close()
+	rcClient := client.NewRcloneClient(mockServer.URL, "", "")
+
+	reviewSvc := services.NewReviewService(cfg, rcClient)
+	ctr := &app.Container{
+		Config:        cfg,
+		Client:        rcClient,
+		ReviewService: reviewSvc,
+	}
+
+	srv, err := NewServer(ctr, ServerConfig{Version: "v1.0.0-test"})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// 1. Missing decision parameter
+	res, err := srv.handleResolveReview(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error on missing decision")
+	}
+
+	// 2. Stage decisions without execute (should NOT require confirmation)
+	res, err = srv.handleResolveReview(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"session_id": "session-test-mcp",
+				"decision":   "KEEP_LOCAL",
+				"execute":    false,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error on staging: %v", res)
+	}
+
+	// 3. Execute without confirmation token
+	res, err = srv.handleResolveReview(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"session_id": "session-test-mcp",
+				"decision":   "KEEP_LOCAL",
+				"execute":    true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error response: %v", res)
+	}
+
+	text := res.Content[0].(mcp.TextContent).Text
+	var ticketResp struct {
+		Status string `json:"status"`
+		Token  string `json:"token"`
+	}
+	if err := json.Unmarshal([]byte(text), &ticketResp); err != nil {
+		t.Fatalf("failed to parse ticket response: %v", err)
+	}
+	if ticketResp.Status != "confirmation_required" || ticketResp.Token == "" {
+		t.Fatalf("expected confirmation_required with token, got: %s", text)
+	}
+
+	// 4. Execute with invalid confirmation token
+	res, err = srv.handleResolveReview(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"session_id":         "session-test-mcp",
+				"decision":           "KEEP_LOCAL",
+				"execute":            true,
+				"confirmation_token": "bad-token",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error on invalid token")
+	}
+
+	// 5. Execute with valid confirmation token
+	res, err = srv.handleResolveReview(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"session_id":         "session-test-mcp",
+				"decision":           "KEEP_LOCAL",
+				"execute":            true,
 				"confirmation_token": ticketResp.Token,
 			},
 		},

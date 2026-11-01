@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 )
@@ -59,9 +60,16 @@ func TestNewServer_DefaultConfig(t *testing.T) {
 }
 
 func TestServer_ServeSSE_GracefulShutdown(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to get free port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
 	srv, err := NewServer(nil, ServerConfig{
 		Host: "127.0.0.1",
-		Port: 29876,
+		Port: port,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -71,7 +79,7 @@ func TestServer_ServeSSE_GracefulShutdown(t *testing.T) {
 	errCh := make(chan error, 1)
 
 	go func() {
-		errCh <- srv.ServeSSE(ctx, "127.0.0.1", 29876)
+		errCh <- srv.ServeSSE(ctx, "", 0)
 	}()
 
 	// Allow server to bind and listen

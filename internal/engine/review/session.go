@@ -88,11 +88,14 @@ func Transition(session *models.ReviewSession, target models.ReviewSessionStatus
 
 // NormalizeDecision maps UI aliases to standard canonical decisions.
 func NormalizeDecision(d models.ActionDecision) models.ActionDecision {
-	switch strings.ToLower(string(d)) {
+	val := strings.ToLower(strings.ReplaceAll(string(d), "_", "-"))
+	switch val {
 	case "restore-local", "restore-remote", "preserve", "restore":
 		return models.DecisionRestoreItem
 	case "skip", "ignore":
 		return models.DecisionSkip
+	case "keep-local", "keep-remote", "keep-both", "accept-delete", "restore-item":
+		return models.ActionDecision(val)
 	default:
 		return d
 	}
