@@ -118,5 +118,3 @@ func (s *Server) ServeSSE(ctx context.Context, host string, port int) error {
 		return err
 	}
 }
-
-

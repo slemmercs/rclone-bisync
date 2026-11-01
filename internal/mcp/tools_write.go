@@ -120,7 +120,6 @@ func (s *Server) handleTriggerSync(ctx context.Context, req mcp.CallToolRequest)
 	})
 }
 
-
 func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s.cfg.ReadOnly {
 		return mcp.NewToolResultError("operation rejected: MCP server is running in read-only mode"), nil
