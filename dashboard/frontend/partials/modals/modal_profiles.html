@@ -173,33 +173,33 @@
             </div>
 
 
-            <!-- Operational Flags & Safety Policies (3-Tier Hierarchy) -->
+            <!-- Operational Flags & Safety Policies -->
             <div class="border-t border-slate-800/80 pt-3 space-y-3 font-sans">
                 <div class="flex items-center justify-between">
                     <div>
                         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200">Operational Flags &amp; Inheritance</h4>
                         <div class="text-[10px] text-slate-400">Profile overrides supersede global configuration defaults</div>
                     </div>
-                    <span class="text-[9px] px-2 py-0.5 rounded font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 uppercase">3-Tier Hierarchy</span>
                 </div>
 
-                <!-- Tier 1: Execution Controls -->
+                <!-- Execution Safety -->
                 <div class="bg-slate-950/60 border border-slate-800/70 rounded-xl p-3 space-y-2.5">
                     <div class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                        <span>Tier 1: Execution Safety</span>
+                        <span>Execution Safety</span>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <!-- Max Delete Percentage -->
+                        <!-- Max Delete (Count or Percentage) -->
                         <div>
                             <div class="flex items-center justify-between mb-1">
-                                <label class="text-xs font-semibold text-slate-300">Max Delete (%)</label>
+                                <label class="text-xs font-semibold text-slate-300">Max Delete (Count or %)</label>
                                 <div class="flex items-center gap-1">
-                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('max_delete') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('max_delete') ? 'Override' : 'Inherited (' + (profilesData.globalDefaults?.max_delete ?? 50) + '%)'"></span>
+                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase" :class="isFlagOverridden('max_delete') ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'" x-text="isFlagOverridden('max_delete') ? 'Override' : 'Inherited (' + formatMaxDelete(profilesData.globalDefaults?.max_delete) + ')'"></span>
                                     <button type="button" x-show="isFlagOverridden('max_delete')" @click="resetFlagOverride('max_delete')" class="text-[9px] text-indigo-400 hover:text-indigo-300 underline">Reset</button>
                                 </div>
                             </div>
-                            <input type="number" :value="profileModal.editing.flags ? profileModal.editing.flags.max_delete : null" @input="setFlagOverride('max_delete', $event.target.value === '' ? null : parseInt($event.target.value, 10))" :placeholder="'Default: ' + (profilesData.globalDefaults?.max_delete ?? 50) + '%'" min="0" max="100" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                            <input type="text" :value="profileModal.editing.flags ? (profileModal.editing.flags.max_delete ?? '') : ''" @input="setMaxDeleteOverride($event.target.value)" placeholder="e.g. 10 or 10%" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                            <div class="text-[10px] text-slate-500 mt-0.5">Absolute count (e.g. 10) or percentage ratio (e.g. 10%) before halting.</div>
                         </div>
 
                         <!-- Conflict Resolution -->
@@ -224,10 +224,10 @@
                     </div>
                 </div>
 
-                <!-- Tier 2: Settings & Compare -->
+                <!-- Profile Settings -->
                 <div class="bg-slate-950/60 border border-slate-800/70 rounded-xl p-3 space-y-2.5">
                     <div class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-                        <span>Tier 2: Profile Settings</span>
+                        <span>Profile Settings</span>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

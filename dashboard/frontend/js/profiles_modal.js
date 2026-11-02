@@ -253,6 +253,21 @@ window.ProfilesModalModule = {
         this.setProviderOption(key, isChecked ? "true" : "false");
     },
 
+    setMaxDeleteOverride(val) {
+        const trimmed = (val || "").trim();
+        if (!trimmed) {
+            this.setFlagOverride("max_delete", null);
+            return;
+        }
+        this.setFlagOverride("max_delete", trimmed);
+    },
+
+    formatMaxDelete(val) {
+        if (val === null || val === undefined) return "0";
+        const s = String(val).trim();
+        return s || "0";
+    },
+
     getActiveProfileRemoteType() {
         if (!this.activeProfile?.remote) return "generic";
         const rName = this.activeProfile.remote.replace(/:$/, "").trim();

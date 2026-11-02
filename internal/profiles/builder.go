@@ -13,7 +13,7 @@ import (
 func ResolveFlags(p *Profile, globals config.GlobalDefaults, overrides *ExecutionOverrides) ResolvedFlags {
 	res := ResolvedFlags{
 		ConflictResolve:  globals.ConflictResolve,
-		MaxDelete:        globals.MaxDelete,
+		MaxDelete:        MaxDeleteValue(strconv.Itoa(globals.MaxDelete)),
 		CanaryValidation: globals.CanaryValidation,
 		CompareMode:      globals.CompareMode,
 		RemoveEmptyDirs:  globals.RemoveEmptyDirs,
@@ -34,8 +34,8 @@ func ResolveFlags(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if res.ConflictResolve == "" {
 		res.ConflictResolve = "newer"
 	}
-	if res.MaxDelete < 0 {
-		res.MaxDelete = 0
+	if res.MaxDelete == "" {
+		res.MaxDelete = "0"
 	}
 	if res.CompareMode == "" {
 		res.CompareMode = "modtime"
@@ -45,7 +45,7 @@ func ResolveFlags(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if p.Flags.ConflictResolve != nil && *p.Flags.ConflictResolve != "" {
 		res.ConflictResolve = *p.Flags.ConflictResolve
 	}
-	if p.Flags.MaxDelete != nil {
+	if p.Flags.MaxDelete != nil && *p.Flags.MaxDelete != "" {
 		res.MaxDelete = *p.Flags.MaxDelete
 	}
 	if p.Flags.CanaryValidation != nil {
@@ -84,7 +84,7 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 
 	var args []string
 
-	// Tier 1: Execution Controls & Safety Thresholds
+	// Execution Controls & Safety Thresholds
 	if effective.DryRun {
 		args = append(args, "--dry-run")
 	}
@@ -97,11 +97,11 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if effective.ConflictResolve != "" {
 		args = append(args, "--conflict-resolve", effective.ConflictResolve)
 	}
-	if effective.MaxDelete >= 0 {
-		args = append(args, "--max-delete", strconv.Itoa(effective.MaxDelete))
+	if effective.MaxDelete != "" {
+		args = append(args, "--max-delete", string(effective.MaxDelete))
 	}
 
-	// Tier 2: Profile Settings
+	// Profile Settings
 	if effective.CanaryValidation {
 		args = append(args, "--check-access", "--check-filename", "RCLONE_TEST")
 	}
@@ -123,7 +123,7 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 		args = append(args, "--create-empty-src-dirs")
 	}
 
-	// Provider Options (Tier 1 Provider Settings)
+	// Provider Options (Provider-Specific Settings)
 	if providerArgs := buildProviderCLIArgs(effective.ProviderOptions); len(providerArgs) > 0 {
 		args = append(args, providerArgs...)
 	}
