@@ -13,7 +13,7 @@ Implement Active Strategic Priority #1: Reclassify provider options, fix boolean
   - **Scope**: `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check-loc.sh 400` and `go test -count=1 ./cmd/check/...`
 
-- [ ] Task 3: Profile Modal State Integration & Checkbox Persistence Fix
+- [x] Task 3: Profile Modal State Integration & Checkbox Persistence Fix
   - **Scope**: `dashboard/frontend/js/profiles_modal.js`
   - **Verification**: Verify row state reactivity and `./scripts/check-loc.sh 400`
 
@@ -30,6 +30,7 @@ Implement Active Strategic Priority #1: Reclassify provider options, fix boolean
 - 2026-11-01: Initialized implementation plan and task plan for Active Strategic Priority #1 (Profile Redesign & Guided Flag Builder).
 - 2026-11-02: Completed Task 1 (Backend boolean serialization, explicit `=false` provider flags, `--drive-shared-with-me`, and RC compiler `=value` parser support). Passed all unit tests.
 - 2026-11-02: Completed Task 2 (Modular Frontend Flags Builder module `flags_builder.js` with curated catalog, token parser, row serializer, and live CLI preview; registered in `index.html` and `app.js`). Passed all 7 quality gates.
+- 2026-11-02: Completed Task 3 (Profile Modal State Integration & Checkbox Persistence Fix in `profiles_modal.js` with `getProviderBoolOption` / `setProviderBoolOption`, `initFlagsBuilder` on open, and `syncFlagsToCustomFlags` on save). Passed all 7 quality gates including headless Chrome E2E.
 
 
 

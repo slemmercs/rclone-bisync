@@ -74,13 +74,26 @@ window.FlagsBuilderModule = {
         this.syncFlagsToCustomFlags();
     },
 
+    onFlagValueInput(index, val) {
+        const row = this.customFlagRows[index];
+        if (!row) return;
+        row.value = val;
+        this.syncFlagsToCustomFlags();
+    },
+
+    onFlagCustomNameInput(index, name) {
+        const row = this.customFlagRows[index];
+        if (!row) return;
+        row.flag = name;
+        this.syncFlagsToCustomFlags();
+    },
+
     syncFlagsToCustomFlags() {
         const serialized = this.serializeFlagsRows(this.customFlagRows);
         if (this.profileModal && this.profileModal.editing && this.profileModal.editing.flags) {
             this.profileModal.editing.flags.custom_flags = serialized || null;
         }
-    }
-,
+    },
 
     parseCustomFlags(raw) {
         if (!raw || typeof raw !== "string" || !raw.trim()) return [];
@@ -152,8 +165,7 @@ window.FlagsBuilderModule = {
             }
         }
         return parts.join(" ");
-    }
-,
+    },
 
     generateCLIPreview() {
         const p = this.profileModal?.editing;
