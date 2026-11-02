@@ -295,6 +295,7 @@ document.addEventListener("alpine:init", () => {
             this.fetchRemotes(false);
             this.fetchReviewSession(false);
             if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1);
+            if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             if (this.currentTab === "remotes") this.fetchRemotes(true);
             else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") this.initExplorer();
             else if (this.currentTab === "audit" && typeof this.initAudit === "function") this.initAudit();

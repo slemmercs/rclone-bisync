@@ -157,8 +157,9 @@ window.FlagsBuilderModule = {
                 const val = (r.value || "").trim();
                 if (val === "") {
                     parts.push(flag);
-                } else if (val.includes(" ") || val.includes('"')) {
-                    parts.push(`${flag} "${val.replace(/"/g, '\\"')}"`);
+                } else if (val.includes(" ") || val.includes('"') || val.includes("\\")) {
+                    const escaped = val.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+                    parts.push(`${flag} "${escaped}"`);
                 } else {
                     parts.push(`${flag} ${val}`);
                 }

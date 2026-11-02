@@ -123,6 +123,10 @@ window.PollingModule = {
                 this.fetchProfiles();
             }
 
+            if (syncJustFinished && typeof this.fetchAuditRecords === "function") {
+                this.fetchAuditRecords();
+            }
+
             // Real-time bisync log update: refresh page 1 silently upon sync completion or during active polling
             if (typeof this.fetchBisyncLogs === "function") {
                 if (syncJustFinished || (this.bisyncLogPage === 1 && (!this.currentTab || this.currentTab === "telemetry"))) {
