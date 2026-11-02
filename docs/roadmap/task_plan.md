@@ -17,7 +17,7 @@ Implement Active Strategic Priority #1: Reclassify provider options, fix boolean
   - **Scope**: `dashboard/frontend/js/profiles_modal.js`
   - **Verification**: Verify row state reactivity and `./scripts/check-loc.sh 400`
 
-- [ ] Task 4: Provider Options & Guided Flag Builder UI Overhaul
+- [x] Task 4: Provider Options & Guided Flag Builder UI Overhaul
   - **Scope**: `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/partials/modals/modal_profiles.html`
   - **Verification**: `./scripts/check.sh all` (HTML tokenizer, linters, tests)
 
@@ -31,6 +31,7 @@ Implement Active Strategic Priority #1: Reclassify provider options, fix boolean
 - 2026-11-02: Completed Task 1 (Backend boolean serialization, explicit `=false` provider flags, `--drive-shared-with-me`, and RC compiler `=value` parser support). Passed all unit tests.
 - 2026-11-02: Completed Task 2 (Modular Frontend Flags Builder module `flags_builder.js` with curated catalog, token parser, row serializer, and live CLI preview; registered in `index.html` and `app.js`). Passed all 7 quality gates.
 - 2026-11-02: Completed Task 3 (Profile Modal State Integration & Checkbox Persistence Fix in `profiles_modal.js` with `getProviderBoolOption` / `setProviderBoolOption`, `initFlagsBuilder` on open, and `syncFlagsToCustomFlags` on save). Passed all 7 quality gates including headless Chrome E2E.
+- 2026-11-02: Completed Task 4 (Provider Options & Guided Flag Builder UI Overhaul in `modal_provider_options.html` with Tier 1/Tier 2 remote classification, boolean checkbox persistence, dynamic `+ Add Flag` row builder with autocomplete, quick-add pills, delete actions, prohibited flags warning, and real-time synthesized CLI preview card). Passed all 7 quality gates.
 
 
 
