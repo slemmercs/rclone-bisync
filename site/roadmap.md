@@ -24,15 +24,16 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • Remote MD5 Hash Deduplication (`beta.12`)                 │
   │  • Unified Logging Ledger & Telemetry De-Noising (`beta.18`) │
   │  • Native Model Context Protocol (MCP) Server (`beta.20`)    │
+  │  • Tier 1 Curated Options & Flags Builder (`beta.21`)        │
   └──────────────────────────────┬───────────────────────────────┘
                                  │
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
   │             NEAR-TERM STRATEGIC PRIORITIES                   │
-  │  1. Tier 1 Curated Options & Guided + Add Flag Row Builder   │
-  │  2. In-Dashboard Configuration & Setup Manager (Rollback API)│
-  │  3. In-App User Guidance & Interactive Diagnostic Manual     │
-  │  4. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
+  │  1. In-Dashboard Configuration & Setup Manager (Rollback API)│
+  │  2. In-App User Guidance & Interactive Diagnostic Manual     │
+  │  3. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
+  │  4. Local Inter-Process Communication (IPC) via Unix Sockets │
   └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -92,20 +93,20 @@ The following core modules are implemented, tested, and included in current bina
 - **Confirmation Ticket Engine**: Two-step confirmation loop with cryptographic parameter fingerprinting for destructive actions (`trigger_sync` with `resync`/`force`, `resolve_review`, `dedupe_by_hash`).
 - **Token-Optimized Operations**: High-signal default status (195 characters, ~98.5% token reduction), windowed explorer pagination, level-filtered log inspection, and bounded SQLite ledger records.
 
+### 10. Tier 1 Curated Options, Guided Flags Builder & Audit Sync (`beta.21`)
+- **Curated Cloud Provider Toggles**: Curated high-impact bisync options for Google Drive (`--drive-shared-with-me`, `--drive-skip-gdocs`, `--drive-use-trash`), OneDrive, S3, and Dropbox with clean lean fallbacks for other remotes.
+- **Explicit Boolean Serialization & Compiler Support**: Properly emits `=false` when unchecking boolean options and parses `=value` arguments into typed parameters in the CLI-to-RC compiler.
+- **Guided `+ Add Flag` Builder (`flags_builder.js`)**: Interactive row-by-row builder with autocomplete datalist, type-aware value inputs, validation tooltips, POSIX command-line tokenizer, and live generated `rclone bisync` command preview.
+- **Dual Count/Percentage `MaxDeleteValue`**: Type-safe model supporting both count thresholds (e.g., `42`) and percentages (e.g., `10%`), serialized seamlessly with backwards compatibility.
+- **Audit Ledger Counter Sync & Security Remediation**: Instant ledger counter synchronization on load and polling, and resolved CodeQL quote sanitization escaping.
+
 ---
 
 ## 🟡 Near-Term Strategic Priorities (In Development)
 
 The following capabilities represent our immediate development milestones:
 
-### Priority 1: Tier 1 Curated Options & Guided `+ Add Flag` Row Builder
-- **Objective**: Align provider options with Rclone backend standards, separate Tier 1 and Tier 2 user experiences, and replace free-form text input with a guided, interactive flag builder.
-- **Architecture**:
-  - **Tier 1 Providers (`drive`, `onedrive`, `dropbox`, `s3`)**: Curated bisync-critical toggles (Trash deletions, Skip Docs, Shortcuts, Shared With Me) with explicit boolean serialization.
-  - **Tier 2 Providers**: Ultra-lean profile configuration directing advanced parameters to the row builder.
-  - **Dynamic `[ + Add Flag ]` Builder**: Interactive row-by-row additions with provider-aware flag autocompletion, real-time POSIX tokenizer, and security blocklist validation.
-
-### Priority 2: In-Dashboard Configuration & Setup Manager
+### Priority 1: In-Dashboard Configuration & Setup Manager
 - **Objective**: Provide safe visual editing of sync flags, intervals, and remote setup.
 - **Architecture**:
   - **Visual Flag Editor**: Adjust `--buffer-size`, `--tpslimit`, conflict strategies, and webhook endpoints safely from the UI.

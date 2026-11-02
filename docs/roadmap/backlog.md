@@ -145,23 +145,18 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
   - Token-optimized default status payload (195 characters, ~98.5% reduction) and 2,000-character context truncation on dedupe scans.
   - Maintained 84.5% statement test coverage across `internal/mcp`.
 
+* **[COMPLETED] Tier 1 Curated Options, Guided `+ Add Flag` Row Builder & Audit Sync [COMPLETED - PR #59 (v1.0.0-beta.21)]**
+  - Curated high-impact bisync toggles for Google Drive (`--drive-shared-with-me`), OneDrive, S3, and Dropbox.
+  - Explicit boolean serialization (`--drive-use-trash=false`) and compiler `=value` argument support.
+  - Modular `flags_builder.js` (<400 LOC) with catalog, tokenizer, row-by-row builder, and live preview.
+  - Dual count/percentage `MaxDeleteValue` type with JSON backwards compatibility.
+  - CodeQL #23 sanitization fix and instant audit ledger tab counter synchronization.
+
 ---
 
 ### Active Near-Term Backlog (Sequenced Priorities)
 
-#### 1. Tier 1 Curated Options & Guided `+ Add Flag` Row Builder [ESTIMATE: 3-5h | 3 SP] - ACTIVE PRIORITY
-Reclassifies provider options closer to Rclone standards, separates Tier 1 and Tier 2 user experiences, and replaces free-form text input with a guided, interactive flag builder:
-* **Tier 1 Providers (`drive`, `onedrive`, `dropbox`, `s3`)**:
-  - Keep curated, high-impact bisync toggles (e.g., for Google Drive: `Send Deletions to Trash`, `Skip Google Docs`, `Skip Shortcuts`, `Shared With Me`).
-  - Fix default checkbox state persistence bug and ensure explicit boolean serialization (e.g., `--drive-use-trash=false`).
-* **Tier 2 Providers (WebDAV, Nextcloud, SFTP, Generic)**:
-  - Present an ultra-lean configuration profile with zero redundant UI boxes, directing advanced parameters to the flag builder.
-* **Interactive `[ + Add Flag ]` Row Builder**:
-  - Replace raw text input (`--fast-list --checkers 16`) with dynamic row-by-row additions (`[Flag Dropdown] [Value Input] [✕ Remove]`).
-  - Provider-aware autocomplete (`<datalist>`) suggesting valid backend flags (`--drive-*`, `--onedrive-*`, etc.) and general tuning flags (`--fast-list`, `--transfers`, `--bwlimit`, `--tpslimit`) with inline tooltips.
-  - Real-time POSIX tokenizer and security blocklist validation per row.
-
-#### 2. Configuration & Setup Manager (Rollback & Snapshot Engine) [ESTIMATE: 5-7h | 4 SP]
+#### 1. Configuration & Setup Manager (Rollback & Snapshot Engine) [ESTIMATE: 5-7h | 4 SP] - ACTIVE PRIORITY
 Provides server-side configuration safety for global environments:
 * **3-Layer Safety Pipeline**: Automated snapshot backups, SHA-256 integrity checks, and JSON/env schema validation before applying global configuration changes.
 * **One-Click Rollback API**: Restore historical configuration snapshots on failed verification or operator rollback request.

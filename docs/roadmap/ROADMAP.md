@@ -51,8 +51,8 @@ Roadmap items are not commitments and may change based on project needs.
 | **Technical Debt Remediation & Strict Sub-400 LOC Modularization** | **Delivered** | PR #54 (`v1.0.0-beta.19`) |
 | **Typed Service Contracts & Copyleft License Guard** | **Delivered** | PR #55 (`v1.0.0-beta.20`) |
 | **Native Model Context Protocol (MCP) Server (`rclone-bisync mcp`)** | **Delivered** | PR #56 (`v1.0.0-beta.20`) |
-| **Tier 1 Curated Options & Guided `+ Add Flag` Row Builder** | **Active Priority (#1)** | Provider Reclassification & Interactive Builder |
-| **Configuration Snapshot & Rollback Engine** | Planned | Safety Pipeline & Config Snapshot API |
+| **Tier 1 Curated Options, Guided Flags Builder & Audit Ledger Sync** | **Delivered** | PR #59 (`v1.0.0-beta.21`) |
+| **Configuration Snapshot & Rollback Engine** | **Active Priority (#1)** | Safety Pipeline & Config Snapshot API |
 | **In-App User Guidance, Info & Help Documents** | Planned | Contextual Assistance & Manual |
 | Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
 | Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
@@ -102,17 +102,22 @@ Integrates Bisync Hub directly into AI agent workflows (Claude Desktop, Cursor, 
 
 ---
 
-### Active Strategic Priority (#1): Tier 1 Curated Options & Guided `+ Add Flag` Row Builder
+### Delivered Milestone: Tier 1 Curated Options, Guided Flags Builder & Audit Ledger Sync (`v1.0.0-beta.21`)
 
-Reclassifies provider options to align closely with Rclone standards, separates Tier 1 and Tier 2 user experiences, and replaces free-form text input with a guided, interactive flag builder:
-- **Tier 1 Providers (`drive`, `onedrive`, `dropbox`, `s3`)**:
-  - Retain curated, first-class bisync-critical toggles (e.g. for Google Drive: `Send Deletions to Trash`, `Skip Google Docs`, `Skip Shortcuts`, `Shared With Me`).
-  - Resolve default checkbox state persistence bug and ensure explicit boolean serialization (e.g. `--drive-use-trash=false`).
-- **Tier 2 Providers (WebDAV, Nextcloud, SFTP, Generic)**:
-  - Present an ultra-lean configuration profile with zero redundant UI boxes, directing advanced parameters to the flag builder.
-- **Interactive `[ + Add Flag ]` Row Builder**:
-  - Replace raw text input (`--fast-list --checkers 16`) with dynamic row-by-row additions (`[Flag Dropdown] [Value Input] [✕ Remove]`).
-  - Provider-aware autocomplete (`<datalist>`) suggesting valid backend flags (`--drive-*`, `--onedrive-*`, etc.) and general tuning flags (`--fast-list`, `--transfers`, `--bwlimit`, `--tpslimit`) with inline tooltips.
+Streamlines profile operational flag management, guarantees boolean argument persistence, provides an interactive flag builder with real-time command preview, and fixes audit ledger counter synchronization:
+- **Tier 1 Curated Provider Options**: Curated high-impact toggles for Google Drive (`--drive-shared-with-me`, `--drive-skip-gdocs`, `--drive-use-trash`), OneDrive, S3, and Dropbox, with clean lean fallbacks for other providers.
+- **Explicit Boolean Serialization & Compiler Support**: Correctly serializes unchecked boolean overrides (e.g., `--drive-use-trash=false`) and enhances CLI-to-RC compiler to parse `=value` arguments into typed parameters.
+- **Guided `+ Add Flag` Builder (`flags_builder.js`)**: Interactive row-by-row builder with autocomplete datalist, type-aware value inputs, validation tooltips, POSIX command-line tokenizer, and live generated `rclone bisync` command preview.
+- **Dual Count/Percentage `MaxDeleteValue`**: Type-safe model supporting both count thresholds (e.g., `42`) and percentages (e.g., `10%`), serialized seamlessly with backwards compatibility.
+- **Audit Ledger Counter Sync & CodeQL Remediation**: Initialized audit records on boot so navigation tab badges show total event count immediately, stabilized profile filtering, and fixed quote sanitization escaping (CodeQL #23).
+
+---
+
+### Active Strategic Priority (#1): Configuration Snapshot & Rollback Engine
+
+Provides server-side configuration safety for global environments:
+- **Atomic Configuration Snapshots**: Snapshot profile state before applying structural edits or sync actions.
+- **Visual Rollback**: Compare active vs. previous profile revisions with diff visualization and one-click restoration.
   - Real-time POSIX tokenizer and security blocklist validation per row.
 
 ---
