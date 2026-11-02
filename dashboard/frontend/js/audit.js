@@ -8,6 +8,7 @@ window.AuditModule = {
     auditData: {
         records: [],
         total: 0,
+        globalTotal: 0,
         page: 1,
         limit: 50,
         totalPages: 1,
@@ -29,9 +30,6 @@ window.AuditModule = {
     },
 
     async initAudit() {
-        if (this.activeProfile && this.activeProfile.id && !this.auditData.filterProfile) {
-            this.auditData.filterProfile = this.activeProfile.id;
-        }
         await Promise.all([
             this.fetchAuditRecords(),
             this.verifyAuditLedger()
@@ -55,6 +53,10 @@ window.AuditModule = {
 
             this.auditData.records = data.records || [];
             this.auditData.total = data.total || 0;
+            const isUnfiltered = !this.auditData.filterAction && !this.auditData.filterProfile && !this.auditData.filterActor;
+            if (isUnfiltered) {
+                this.auditData.globalTotal = this.auditData.total;
+            }
             this.auditData.totalPages = Math.max(1, Math.ceil(this.auditData.total / this.auditData.limit));
         } catch (err) {
             this.auditData.error = err.message;

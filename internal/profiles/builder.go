@@ -13,7 +13,7 @@ import (
 func ResolveFlags(p *Profile, globals config.GlobalDefaults, overrides *ExecutionOverrides) ResolvedFlags {
 	res := ResolvedFlags{
 		ConflictResolve:  globals.ConflictResolve,
-		MaxDelete:        globals.MaxDelete,
+		MaxDelete:        MaxDeleteValue(strconv.Itoa(globals.MaxDelete)),
 		CanaryValidation: globals.CanaryValidation,
 		CompareMode:      globals.CompareMode,
 		RemoveEmptyDirs:  globals.RemoveEmptyDirs,
@@ -34,8 +34,8 @@ func ResolveFlags(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if res.ConflictResolve == "" {
 		res.ConflictResolve = "newer"
 	}
-	if res.MaxDelete < 0 {
-		res.MaxDelete = 0
+	if res.MaxDelete == "" {
+		res.MaxDelete = "0"
 	}
 	if res.CompareMode == "" {
 		res.CompareMode = "modtime"
@@ -45,7 +45,7 @@ func ResolveFlags(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if p.Flags.ConflictResolve != nil && *p.Flags.ConflictResolve != "" {
 		res.ConflictResolve = *p.Flags.ConflictResolve
 	}
-	if p.Flags.MaxDelete != nil {
+	if p.Flags.MaxDelete != nil && *p.Flags.MaxDelete != "" {
 		res.MaxDelete = *p.Flags.MaxDelete
 	}
 	if p.Flags.CanaryValidation != nil {
@@ -84,7 +84,7 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 
 	var args []string
 
-	// Tier 1: Execution Controls & Safety Thresholds
+	// Execution Controls & Safety Thresholds
 	if effective.DryRun {
 		args = append(args, "--dry-run")
 	}
@@ -97,11 +97,11 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if effective.ConflictResolve != "" {
 		args = append(args, "--conflict-resolve", effective.ConflictResolve)
 	}
-	if effective.MaxDelete >= 0 {
-		args = append(args, "--max-delete", strconv.Itoa(effective.MaxDelete))
+	if effective.MaxDelete != "" {
+		args = append(args, "--max-delete", string(effective.MaxDelete))
 	}
 
-	// Tier 2: Profile Settings
+	// Profile Settings
 	if effective.CanaryValidation {
 		args = append(args, "--check-access", "--check-filename", "RCLONE_TEST")
 	}
@@ -123,7 +123,7 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 		args = append(args, "--create-empty-src-dirs")
 	}
 
-	// Provider Options (Tier 1 Provider Settings)
+	// Provider Options (Provider-Specific Settings)
 	if providerArgs := buildProviderCLIArgs(effective.ProviderOptions); len(providerArgs) > 0 {
 		args = append(args, providerArgs...)
 	}
@@ -140,6 +140,19 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	return args, nil
 }
 
+// appendBoolProviderArg appends a boolean provider flag, emitting flagName for true/1
+// and flagName=false for false/0.
+func appendBoolProviderArg(args []string, flagName string, val string) []string {
+	v := strings.ToLower(strings.TrimSpace(val))
+	if v == "true" || v == "1" {
+		return append(args, flagName)
+	}
+	if v == "false" || v == "0" {
+		return append(args, flagName+"=false")
+	}
+	return args
+}
+
 // buildProviderCLIArgs translates typed ProviderOptions into command-line arguments.
 func buildProviderCLIArgs(providerOpts map[string]string) []string {
 	if len(providerOpts) == 0 {
@@ -148,17 +161,20 @@ func buildProviderCLIArgs(providerOpts map[string]string) []string {
 	var args []string
 
 	// Google Drive
-	if v, ok := providerOpts["drive_skip_shortcuts"]; ok && (v == "true" || v == "1") {
-		args = append(args, "--drive-skip-shortcuts")
+	if v, ok := providerOpts["drive_skip_shortcuts"]; ok {
+		args = appendBoolProviderArg(args, "--drive-skip-shortcuts", v)
 	}
-	if v, ok := providerOpts["drive_use_trash"]; ok && (v == "true" || v == "1") {
-		args = append(args, "--drive-use-trash")
+	if v, ok := providerOpts["drive_use_trash"]; ok {
+		args = appendBoolProviderArg(args, "--drive-use-trash", v)
 	}
-	if v, ok := providerOpts["drive_skip_gdocs"]; ok && (v == "true" || v == "1") {
-		args = append(args, "--drive-skip-gdocs")
+	if v, ok := providerOpts["drive_skip_gdocs"]; ok {
+		args = appendBoolProviderArg(args, "--drive-skip-gdocs", v)
 	}
-	if v, ok := providerOpts["drive_acknowledge_abuse"]; ok && (v == "true" || v == "1") {
-		args = append(args, "--drive-acknowledge-abuse")
+	if v, ok := providerOpts["drive_shared_with_me"]; ok {
+		args = appendBoolProviderArg(args, "--drive-shared-with-me", v)
+	}
+	if v, ok := providerOpts["drive_acknowledge_abuse"]; ok {
+		args = appendBoolProviderArg(args, "--drive-acknowledge-abuse", v)
 	}
 	if v, ok := providerOpts["drive_export_formats"]; ok && strings.TrimSpace(v) != "" {
 		args = append(args, "--drive-export-formats", strings.TrimSpace(v))
@@ -168,8 +184,8 @@ func buildProviderCLIArgs(providerOpts map[string]string) []string {
 	}
 
 	// Microsoft OneDrive
-	if v, ok := providerOpts["onedrive_no_versions"]; ok && (v == "true" || v == "1") {
-		args = append(args, "--onedrive-no-versions")
+	if v, ok := providerOpts["onedrive_no_versions"]; ok {
+		args = appendBoolProviderArg(args, "--onedrive-no-versions", v)
 	}
 	if v, ok := providerOpts["onedrive_chunk_size"]; ok && strings.TrimSpace(v) != "" {
 		args = append(args, "--onedrive-chunk-size", strings.TrimSpace(v))

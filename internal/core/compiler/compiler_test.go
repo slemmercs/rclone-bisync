@@ -147,6 +147,21 @@ func TestCompileTier1ProviderOptions(t *testing.T) {
 	if pathDB != "dropbox,chunk_size=48M:" {
 		t.Fatalf("expected dropbox,chunk_size=48M:, got: %s", pathDB)
 	}
+
+	// Test Google Drive with explicit false and shared-with-me
+	driveArgs := []string{
+		"--drive-use-trash=false",
+		"--drive-shared-with-me",
+		"--drive-skip-gdocs",
+	}
+	payloadDrive, err := CompileBisyncPayload(driveArgs, "/tmp/local", "gdrive:backup", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error compiling Google Drive: %v", err)
+	}
+	pathDrive, _ := payloadDrive["path1"].(string)
+	if !strings.Contains(pathDrive, "use_trash=false") || !strings.Contains(pathDrive, "shared_with_me=true") || !strings.Contains(pathDrive, "skip_gdocs=true") {
+		t.Fatalf("missing drive options in path1: %s", pathDrive)
+	}
 }
 
 func TestCompileExcludeRules(t *testing.T) {

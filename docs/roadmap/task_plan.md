@@ -1,34 +1,39 @@
-# Task Plan: Documentation, Roadmap, and GitHub Pages Showcase (`v1.0.0-beta.20`)
+# Task Plan: Profile Configuration Redesign & Guided Flag Builder
 
 ## Goal
-Update all project documentation, roadmaps, backlog records, root README, and GitHub Pages site with the delivered milestones through `v1.0.0-beta.20` (including native MCP server, unified logging ledger, and quality hardening), integrate 3 new screenshots and 7 refreshed screenshots, and prepare the roadmap for the Tier 1 Curated Options & `+ Add Flag` row builder.
+Implement Active Strategic Priority #1: Reclassify provider options, fix boolean checkbox persistence bugs in profile settings, deliver the interactive `+ Add Flag` row builder with real-time CLI preview, and ensure all JS/Go modules remain strictly below 400 LOC.
 
 ## Tasks
 
-- [x] Task 1: Update Roadmap & Backlog Records
-  - **Scope**: `docs/roadmap/ROADMAP.md`, `docs/roadmap/backlog.md`
-  - **Verification**: Markdown links validation and git diff inspection
+- [x] Task 1: Backend Boolean Serialization & Provider Flags Enhancement
+  - **Scope**: `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/profiles/...`
 
-- [x] Task 2: Update Root Repository README & Screenshots
-  - **Scope**: `README.md`
-  - **Verification**: Markdown links validation and git diff inspection
+- [x] Task 2: Modular Frontend Flags Builder Module
+  - **Scope**: `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/index.html`
+  - **Verification**: `./scripts/check-loc.sh 400` and `go test -count=1 ./cmd/check/...`
 
-- [x] Task 3: Create GitHub Pages MCP Pillar 6 & Update Core Site Architecture Pages
-  - **Scope**: `site/usps/06-mcp-agent-server.md`, `site/usps/index.md`, `site/index.md`, `site/roadmap.md`, `site/architecture.md`, `site/quickstart.md`, `site/comparison.md`
-  - **Verification**: Verify front matter and relative links across `site/`
+- [x] Task 3: Profile Modal State Integration & Checkbox Persistence Fix
+  - **Scope**: `dashboard/frontend/js/profiles_modal.js`
+  - **Verification**: Verify row state reactivity and `./scripts/check-loc.sh 400`
 
-- [x] Task 4: Update UI Gallery & USP Pages with New & Refreshed Screenshots
-  - **Scope**: `site/gallery.md`, `site/usps/04-audit-ledger.md`
-  - **Verification**: Verify image references exist and render cleanly
+- [x] Task 4: Provider Options & Guided Flag Builder UI Overhaul
+  - **Scope**: `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/partials/modals/modal_profiles.html`
+  - **Verification**: `./scripts/check.sh all` (HTML tokenizer, linters, tests)
 
-- [x] Task 5: Quality Gate & Full Pre-Commit Verification
-  - **Scope**: `./scripts/check.sh all`
-  - **Verification**: Complete 7-stage check suite passing 100%
+- [x] Task 5: End-to-End Verification & Full Quality Gate
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `./scripts/check.sh all`
+  - **Verification**: Complete 7-stage quality check suite passing 100%
 
 ## Status Updates
 
-- 2026-11-01: Initialized documentation, roadmap, and screenshot showcase plan on branch `docs/v1-beta-20-and-screenshots`.
-- 2026-11-01: Completed all 5 tasks: ROADMAP/backlog/README alignment to v1.0.0-beta.20, MCP Pillar 6 creation, core site documentation updates, screenshot refresh in gallery and USPS, and full 7-stage quality gate passed (15.16s).
+- 2026-11-01: Initialized implementation plan and task plan for Active Strategic Priority #1 (Profile Redesign & Guided Flag Builder).
+- 2026-11-02: Completed Task 1 (Backend boolean serialization, explicit `=false` provider flags, `--drive-shared-with-me`, and RC compiler `=value` parser support). Passed all unit tests.
+- 2026-11-02: Completed Task 2 (Modular Frontend Flags Builder module `flags_builder.js` with curated catalog, token parser, row serializer, and live CLI preview; registered in `index.html` and `app.js`). Passed all 7 quality gates.
+- 2026-11-02: Completed Task 3 (Profile Modal State Integration & Checkbox Persistence Fix in `profiles_modal.js` with `getProviderBoolOption` / `setProviderBoolOption`, `initFlagsBuilder` on open, and `syncFlagsToCustomFlags` on save). Passed all 7 quality gates including headless Chrome E2E.
+- 2026-11-02: Completed Task 4 (Provider Options & Guided Flag Builder UI Overhaul in `modal_provider_options.html` with Tier 1/Tier 2 remote classification, boolean checkbox persistence, dynamic `+ Add Flag` row builder with autocomplete, quick-add pills, delete actions, prohibited flags warning, and real-time synthesized CLI preview card). Passed all 7 quality gates.
+- 2026-11-02: Completed Task 5 (Full End-to-End Verification & Quality Assurance: verified all 7 quality stages passing 100%, Go unit tests across all internal packages >80% coverage, LOC check strictly conforming to <400 LOC ceiling across all files, and pre-commit checks passing). Feature branch fully verified.
+
 
 
 

@@ -24,7 +24,7 @@ func TestResolveFlags_Inheritance(t *testing.T) {
 		}
 		res := ResolveFlags(p, globals, nil)
 
-		if res.MaxDelete != 50 || !res.CanaryValidation || res.ConflictResolve != "newer" || res.CompareMode != "modtime" {
+		if res.MaxDelete != "50" || !res.CanaryValidation || res.ConflictResolve != "newer" || res.CompareMode != "modtime" {
 			t.Errorf("expected inherited values, got: %+v", res)
 		}
 		if res.DryRun || res.Resync || res.Force {
@@ -33,7 +33,7 @@ func TestResolveFlags_Inheritance(t *testing.T) {
 	})
 
 	t.Run("applies profile overrides selectively", func(t *testing.T) {
-		maxDel := 15
+		maxDel := MaxDeleteValue("15")
 		cmpMode := "checksum"
 		canary := false
 		remEmpty := false
@@ -52,8 +52,8 @@ func TestResolveFlags_Inheritance(t *testing.T) {
 
 		res := ResolveFlags(p, globals, nil)
 
-		if res.MaxDelete != 15 {
-			t.Errorf("expected MaxDelete 15, got %d", res.MaxDelete)
+		if res.MaxDelete != "15" {
+			t.Errorf("expected MaxDelete 15, got %s", res.MaxDelete)
 		}
 		if res.CompareMode != "checksum" {
 			t.Errorf("expected CompareMode 'checksum', got %s", res.CompareMode)
@@ -129,7 +129,7 @@ func TestBuildCLIArgs(t *testing.T) {
 	})
 
 	t.Run("builds arguments with overrides, excludes, and custom flags", func(t *testing.T) {
-		maxDel := 20
+		maxDel := MaxDeleteValue("20")
 		cmp := "checksum"
 		canary := true
 		dry := true
@@ -266,8 +266,39 @@ func TestBuildCLIArgs(t *testing.T) {
 		}
 	})
 
+	t.Run("compiles explicit false and shared-with-me provider options", func(t *testing.T) {
+		pDrive := &Profile{
+			ID: "prof_gdrive_explicit",
+			Flags: ProfileFlags{
+				ProviderOptions: map[string]string{
+					"drive_use_trash":      "false",
+					"drive_shared_with_me": "true",
+					"drive_skip_shortcuts": "false",
+					"onedrive_no_versions": "0",
+				},
+			},
+		}
+		args, err := BuildCLIArgs(pDrive, globals, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		argsStr := strings.Join(args, " ")
+		if !strings.Contains(argsStr, "--drive-use-trash=false") {
+			t.Errorf("missing --drive-use-trash=false in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--drive-shared-with-me") {
+			t.Errorf("missing --drive-shared-with-me in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--drive-skip-shortcuts=false") {
+			t.Errorf("missing --drive-skip-shortcuts=false in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--onedrive-no-versions=false") {
+			t.Errorf("missing --onedrive-no-versions=false in args: %v", args)
+		}
+	})
+
 	t.Run("supports max_delete 0 and 3-way compare mode", func(t *testing.T) {
-		maxDelZero := 0
+		maxDelZero := MaxDeleteValue("0")
 		cmp3Way := "size,modtime,checksum"
 		p := &Profile{
 			ID: "prof_zero_del",
@@ -286,6 +317,29 @@ func TestBuildCLIArgs(t *testing.T) {
 		}
 		if !strings.Contains(argsStr, "--compare size,modtime,checksum") {
 			t.Errorf("expected --compare size,modtime,checksum in args, got: %s", argsStr)
+		}
+	})
+
+	t.Run("resolves percentage MaxDelete string properly", func(t *testing.T) {
+		pct := MaxDeleteValue("15%")
+		globals := config.GlobalDefaults{MaxDelete: 50}
+		p := &Profile{
+			ID: "prof_pct",
+			Flags: ProfileFlags{
+				MaxDelete: &pct,
+			},
+		}
+		res := ResolveFlags(p, globals, nil)
+		if res.MaxDelete != "15%" {
+			t.Errorf("expected MaxDelete 15%%, got %s", res.MaxDelete)
+		}
+		args, err := BuildCLIArgs(p, globals, nil)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		argsStr := strings.Join(args, " ")
+		if !strings.Contains(argsStr, "--max-delete 15%") {
+			t.Errorf("expected --max-delete 15%% in args, got: %s", argsStr)
 		}
 	})
 }

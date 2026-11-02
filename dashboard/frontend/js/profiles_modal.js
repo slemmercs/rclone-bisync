@@ -57,6 +57,9 @@ window.ProfilesModalModule = {
         this.profileModal.excludePatternsInput = ".git/**, *.tmp, .DS_Store";
         this.profileModal.tab = "edit";
         this.profileModal.show = true;
+        if (typeof this.initFlagsBuilder === "function") {
+            this.initFlagsBuilder("");
+        }
         if (typeof this.fetchRemotes === "function" && (!this.remotesData || !this.remotesData.remotes || this.remotesData.remotes.length === 0)) {
             this.fetchRemotes(false);
         }
@@ -95,12 +98,18 @@ window.ProfilesModalModule = {
         this.profileModal.excludePatternsInput = patterns.join(", ");
         this.profileModal.tab = "edit";
         this.profileModal.show = true;
+        if (typeof this.initFlagsBuilder === "function") {
+            this.initFlagsBuilder(this.profileModal.editing.flags.custom_flags || "");
+        }
         if (typeof this.fetchRemotes === "function" && (!this.remotesData || !this.remotesData.remotes || this.remotesData.remotes.length === 0)) {
             this.fetchRemotes(false);
         }
     },
 
     async saveProfileForm() {
+        if (typeof this.syncFlagsToCustomFlags === "function") {
+            this.syncFlagsToCustomFlags();
+        }
         const p = this.profileModal.editing;
         if (!p) return;
         if (this.profileModal.isNew && (!p.id || !p.id.trim())) {
@@ -212,16 +221,16 @@ window.ProfilesModalModule = {
     },
 
     getProviderOption(key, defVal = "") {
-        if (!this.profileModal?.editing?.flags) return defVal;
-        if (!this.profileModal.editing.flags.provider_options) {
-            this.profileModal.editing.flags.provider_options = {};
-        }
+        if (!this.profileModal?.editing?.flags?.provider_options) return defVal;
         const val = this.profileModal.editing.flags.provider_options[key];
-        return (val !== undefined && val !== null) ? val : defVal;
+        return (val !== undefined && val !== null) ? String(val) : defVal;
     },
 
     setProviderOption(key, val) {
-        if (!this.profileModal?.editing?.flags) return;
+        if (!this.profileModal?.editing) return;
+        if (!this.profileModal.editing.flags) {
+            this.profileModal.editing.flags = {};
+        }
         if (!this.profileModal.editing.flags.provider_options) {
             this.profileModal.editing.flags.provider_options = {};
         }
@@ -230,6 +239,33 @@ window.ProfilesModalModule = {
         } else {
             this.profileModal.editing.flags.provider_options[key] = String(val);
         }
+    },
+
+    getProviderBoolOption(key, defVal = false) {
+        if (!this.profileModal?.editing?.flags?.provider_options) return Boolean(defVal);
+        const val = this.profileModal.editing.flags.provider_options[key];
+        if (val === undefined || val === null || val === "") return Boolean(defVal);
+        const s = String(val).trim().toLowerCase();
+        return s === "true" || s === "1";
+    },
+
+    setProviderBoolOption(key, isChecked) {
+        this.setProviderOption(key, isChecked ? "true" : "false");
+    },
+
+    setMaxDeleteOverride(val) {
+        const trimmed = (val || "").trim();
+        if (!trimmed) {
+            this.setFlagOverride("max_delete", null);
+            return;
+        }
+        this.setFlagOverride("max_delete", trimmed);
+    },
+
+    formatMaxDelete(val) {
+        if (val === null || val === undefined) return "0";
+        const s = String(val).trim();
+        return s || "0";
     },
 
     getActiveProfileRemoteType() {

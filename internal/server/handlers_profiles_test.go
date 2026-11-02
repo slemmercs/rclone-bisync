@@ -444,8 +444,8 @@ func TestProfiles_OperationalFlagsAndValidation(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &getResp); err != nil {
 		t.Fatalf("failed to decode get profile response: %v", err)
 	}
-	if getResp.ResolvedFlags.MaxDelete != 25 {
-		t.Errorf("expected resolved MaxDelete 25, got %d", getResp.ResolvedFlags.MaxDelete)
+	if getResp.ResolvedFlags.MaxDelete != "25" {
+		t.Errorf("expected resolved MaxDelete 25, got %s", getResp.ResolvedFlags.MaxDelete)
 	}
 	if getResp.ResolvedFlags.CompareMode != "checksum" {
 		t.Errorf("expected resolved CompareMode 'checksum', got %s", getResp.ResolvedFlags.CompareMode)

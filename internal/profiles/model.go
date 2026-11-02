@@ -2,9 +2,11 @@ package profiles
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -60,11 +62,47 @@ type SafetySettings struct {
 	CanaryValidation   bool    `json:"canary_validation"`
 }
 
+// MaxDeleteValue represents a max-delete threshold as either an absolute file count (e.g. "10")
+// or a percentage ratio (e.g. "10%").
+type MaxDeleteValue string
+
+func (m *MaxDeleteValue) UnmarshalJSON(data []byte) error {
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "null" || trimmed == `""` || trimmed == "" {
+		*m = ""
+		return nil
+	}
+	if strings.HasPrefix(trimmed, `"`) && strings.HasSuffix(trimmed, `"`) {
+		*m = MaxDeleteValue(strings.Trim(trimmed, `"`))
+		return nil
+	}
+	*m = MaxDeleteValue(trimmed)
+	return nil
+}
+
+func (m MaxDeleteValue) MarshalJSON() ([]byte, error) {
+	s := string(m)
+	if s == "" {
+		return []byte("null"), nil
+	}
+	if strings.HasSuffix(s, "%") {
+		return json.Marshal(s)
+	}
+	if n, err := strconv.Atoi(s); err == nil {
+		return json.Marshal(n)
+	}
+	return json.Marshal(s)
+}
+
+func (m MaxDeleteValue) String() string {
+	return string(m)
+}
+
 // ProfileFlags defines profile-level operational flag overrides.
 // Pointer fields represent explicit overrides; nil indicates inheritance from GlobalDefaults.
 type ProfileFlags struct {
 	ConflictResolve  *string           `json:"conflict_resolve,omitempty"`
-	MaxDelete        *int              `json:"max_delete,omitempty"`
+	MaxDelete        *MaxDeleteValue   `json:"max_delete,omitempty"`
 	CanaryValidation *bool             `json:"canary_validation,omitempty"`
 	CompareMode      *string           `json:"compare_mode,omitempty"`
 	RemoveEmptyDirs  *bool             `json:"remove_empty_dirs,omitempty"`
@@ -80,7 +118,7 @@ type ResolvedFlags struct {
 	Resync           bool              `json:"resync"`
 	Force            bool              `json:"force"`
 	ConflictResolve  string            `json:"conflict_resolve"`
-	MaxDelete        int               `json:"max_delete"`
+	MaxDelete        MaxDeleteValue    `json:"max_delete"`
 	CanaryValidation bool              `json:"canary_validation"`
 	CompareMode      string            `json:"compare_mode"`
 	RemoveEmptyDirs  bool              `json:"remove_empty_dirs"`
