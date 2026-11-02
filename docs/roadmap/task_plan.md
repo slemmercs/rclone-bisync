@@ -9,7 +9,7 @@ Implement Active Strategic Priority #1: Reclassify provider options, fix boolean
   - **Scope**: `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
   - **Verification**: `go test -v -count=1 ./internal/profiles/...`
 
-- [ ] Task 2: Modular Frontend Flags Builder Module
+- [x] Task 2: Modular Frontend Flags Builder Module
   - **Scope**: `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check-loc.sh 400` and `go test -count=1 ./cmd/check/...`
 
@@ -29,6 +29,7 @@ Implement Active Strategic Priority #1: Reclassify provider options, fix boolean
 
 - 2026-11-01: Initialized implementation plan and task plan for Active Strategic Priority #1 (Profile Redesign & Guided Flag Builder).
 - 2026-11-02: Completed Task 1 (Backend boolean serialization, explicit `=false` provider flags, `--drive-shared-with-me`, and RC compiler `=value` parser support). Passed all unit tests.
+- 2026-11-02: Completed Task 2 (Modular Frontend Flags Builder module `flags_builder.js` with curated catalog, token parser, row serializer, and live CLI preview; registered in `index.html` and `app.js`). Passed all 7 quality gates.
 
 
 

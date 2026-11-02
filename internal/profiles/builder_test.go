@@ -297,7 +297,6 @@ func TestBuildCLIArgs(t *testing.T) {
 		}
 	})
 
-
 	t.Run("supports max_delete 0 and 3-way compare mode", func(t *testing.T) {
 		maxDelZero := 0
 		cmp3Way := "size,modtime,checksum"

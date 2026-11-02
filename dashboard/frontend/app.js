@@ -336,6 +336,7 @@ document.addEventListener("alpine:init", () => {
         window.FleetModule,
         window.ProfilesModule,
         window.ProfilesModalModule,
+        window.FlagsBuilderModule,
         window.ProfilesHistoryModule,
         window.RemotesModule,
         window.RemotesModalsModule,
