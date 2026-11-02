@@ -673,7 +673,7 @@
   },"96": {
     "doc": "Roadmap",
     "title": "Project Roadmap &amp; Capabilities",
-    "content": "Bisync Hub is developed using disciplined, test-driven micro-iterations with strict zero-regression quality gates (&gt;80% test coverage target). ┌──────────────────────────────────────────────────────────────┐ │ SHIPPED &amp; AVAILABLE │ │ • Interactive Review &amp; Deletion Diff Modal │ │ • 4-Analyzer Heuristic Conflict Confidence Engine │ │ • Cryptographic Immutable Audit Ledger (SQLite + SHA-256) │ │ • Go CLI Quality Engine (cmd/check) &amp; License Guard │ │ • Decoupled Service Architecture (Strictly &lt;400 LOC) │ │ • Zero-Dependency Single Go Binary Distribution │ │ • Embedded Alpine.js / Tailwind CSS Management Cockpit │ │ • POSIX Advisory Locking &amp; Local Path Confinement Jails │ │ • Hybrid Fleet Overview &amp; Multi-Profile Workspace (`beta.10`)│ │ • Remote MD5 Hash Deduplication (`beta.12`) │ │ • Unified Logging Ledger &amp; Telemetry De-Noising (`beta.18`) │ │ • Native Model Context Protocol (MCP) Server (`beta.20`) │ └──────────────────────────────┬───────────────────────────────┘ │ ▼ ┌──────────────────────────────────────────────────────────────┐ │ NEAR-TERM STRATEGIC PRIORITIES │ │ 1. Tier 1 Curated Options &amp; Guided + Add Flag Row Builder │ │ 2. In-Dashboard Configuration &amp; Setup Manager (Rollback API)│ │ 3. In-App User Guidance &amp; Interactive Diagnostic Manual │ │ 4. Remote Mount Lifecycle Manager &amp; Pooled Storage Engine │ └──────────────────────────────────────────────────────────────┘ . ",
+    "content": "Bisync Hub is developed using disciplined, test-driven micro-iterations with strict zero-regression quality gates (&gt;80% test coverage target). ┌──────────────────────────────────────────────────────────────┐ │ SHIPPED &amp; AVAILABLE │ │ • Interactive Review &amp; Deletion Diff Modal │ │ • 4-Analyzer Heuristic Conflict Confidence Engine │ │ • Cryptographic Immutable Audit Ledger (SQLite + SHA-256) │ │ • Go CLI Quality Engine (cmd/check) &amp; License Guard │ │ • Decoupled Service Architecture (Strictly &lt;400 LOC) │ │ • Zero-Dependency Single Go Binary Distribution │ │ • Embedded Alpine.js / Tailwind CSS Management Cockpit │ │ • POSIX Advisory Locking &amp; Local Path Confinement Jails │ │ • Hybrid Fleet Overview &amp; Multi-Profile Workspace (`beta.10`)│ │ • Remote MD5 Hash Deduplication (`beta.12`) │ │ • Unified Logging Ledger &amp; Telemetry De-Noising (`beta.18`) │ │ • Native Model Context Protocol (MCP) Server (`beta.20`) │ │ • Tier 1 Curated Options &amp; Flags Builder (`beta.21`) │ └──────────────────────────────┬───────────────────────────────┘ │ ▼ ┌──────────────────────────────────────────────────────────────┐ │ NEAR-TERM STRATEGIC PRIORITIES │ │ 1. In-Dashboard Configuration &amp; Setup Manager (Rollback API)│ │ 2. In-App User Guidance &amp; Interactive Diagnostic Manual │ │ 3. Remote Mount Lifecycle Manager &amp; Pooled Storage Engine │ │ 4. Local Inter-Process Communication (IPC) via Unix Sockets │ └──────────────────────────────────────────────────────────────┘ . ",
     "url": "/rclone-bisync/roadmap.html#project-roadmap--capabilities",
     
     "relUrl": "/roadmap.html#project-roadmap--capabilities"
@@ -749,25 +749,25 @@
     "relUrl": "/roadmap.html#9-native-model-context-protocol-mcp-server-beta20"
   },"107": {
     "doc": "Roadmap",
+    "title": "10. Tier 1 Curated Options, Guided Flags Builder &amp; Audit Sync (beta.21)",
+    "content": ". | Curated Cloud Provider Toggles: Curated high-impact bisync options for Google Drive (--drive-shared-with-me, --drive-skip-gdocs, --drive-use-trash), OneDrive, S3, and Dropbox with clean lean fallbacks for other remotes. | Explicit Boolean Serialization &amp; Compiler Support: Properly emits =false when unchecking boolean options and parses =value arguments into typed parameters in the CLI-to-RC compiler. | Guided + Add Flag Builder (flags_builder.js): Interactive row-by-row builder with autocomplete datalist, type-aware value inputs, validation tooltips, POSIX command-line tokenizer, and live generated rclone bisync command preview. | Dual Count/Percentage MaxDeleteValue: Type-safe model supporting both count thresholds (e.g., 42) and percentages (e.g., 10%), serialized seamlessly with backwards compatibility. | Audit Ledger Counter Sync &amp; Security Remediation: Instant ledger counter synchronization on load and polling, and resolved CodeQL quote sanitization escaping. | . ",
+    "url": "/rclone-bisync/roadmap.html#10-tier-1-curated-options-guided-flags-builder--audit-sync-beta21",
+    
+    "relUrl": "/roadmap.html#10-tier-1-curated-options-guided-flags-builder--audit-sync-beta21"
+  },"108": {
+    "doc": "Roadmap",
     "title": "🟡 Near-Term Strategic Priorities (In Development)",
     "content": "The following capabilities represent our immediate development milestones: . ",
     "url": "/rclone-bisync/roadmap.html#-near-term-strategic-priorities-in-development",
     
     "relUrl": "/roadmap.html#-near-term-strategic-priorities-in-development"
-  },"108": {
-    "doc": "Roadmap",
-    "title": "Priority 1: Tier 1 Curated Options &amp; Guided + Add Flag Row Builder",
-    "content": ". | Objective: Align provider options with Rclone backend standards, separate Tier 1 and Tier 2 user experiences, and replace free-form text input with a guided, interactive flag builder. | Architecture: . | Tier 1 Providers (drive, onedrive, dropbox, s3): Curated bisync-critical toggles (Trash deletions, Skip Docs, Shortcuts, Shared With Me) with explicit boolean serialization. | Tier 2 Providers: Ultra-lean profile configuration directing advanced parameters to the row builder. | Dynamic [ + Add Flag ] Builder: Interactive row-by-row additions with provider-aware flag autocompletion, real-time POSIX tokenizer, and security blocklist validation. | . | . ",
-    "url": "/rclone-bisync/roadmap.html#priority-1-tier-1-curated-options--guided--add-flag-row-builder",
-    
-    "relUrl": "/roadmap.html#priority-1-tier-1-curated-options--guided--add-flag-row-builder"
   },"109": {
     "doc": "Roadmap",
-    "title": "Priority 2: In-Dashboard Configuration &amp; Setup Manager",
+    "title": "Priority 1: In-Dashboard Configuration &amp; Setup Manager",
     "content": ". | Objective: Provide safe visual editing of sync flags, intervals, and remote setup. | Architecture: . | Visual Flag Editor: Adjust --buffer-size, --tpslimit, conflict strategies, and webhook endpoints safely from the UI. | Setup &amp; Onboarding Wizard: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration. | 3-Layer Safety Pipeline: Automated backup snapshots, SHA-256 integrity match, and schema validation before applying changes. | One-Click Rollback API: Restore historical configurations immediately if a change fails verification. | . | . ",
-    "url": "/rclone-bisync/roadmap.html#priority-2-in-dashboard-configuration--setup-manager",
+    "url": "/rclone-bisync/roadmap.html#priority-1-in-dashboard-configuration--setup-manager",
     
-    "relUrl": "/roadmap.html#priority-2-in-dashboard-configuration--setup-manager"
+    "relUrl": "/roadmap.html#priority-1-in-dashboard-configuration--setup-manager"
   },"110": {
     "doc": "Roadmap",
     "title": "Priority 3: In-App User Guidance &amp; Diagnostic Manual",
