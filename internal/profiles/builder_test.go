@@ -266,6 +266,38 @@ func TestBuildCLIArgs(t *testing.T) {
 		}
 	})
 
+	t.Run("compiles explicit false and shared-with-me provider options", func(t *testing.T) {
+		pDrive := &Profile{
+			ID: "prof_gdrive_explicit",
+			Flags: ProfileFlags{
+				ProviderOptions: map[string]string{
+					"drive_use_trash":      "false",
+					"drive_shared_with_me": "true",
+					"drive_skip_shortcuts": "false",
+					"onedrive_no_versions": "0",
+				},
+			},
+		}
+		args, err := BuildCLIArgs(pDrive, globals, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		argsStr := strings.Join(args, " ")
+		if !strings.Contains(argsStr, "--drive-use-trash=false") {
+			t.Errorf("missing --drive-use-trash=false in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--drive-shared-with-me") {
+			t.Errorf("missing --drive-shared-with-me in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--drive-skip-shortcuts=false") {
+			t.Errorf("missing --drive-skip-shortcuts=false in args: %v", args)
+		}
+		if !strings.Contains(argsStr, "--onedrive-no-versions=false") {
+			t.Errorf("missing --onedrive-no-versions=false in args: %v", args)
+		}
+	})
+
+
 	t.Run("supports max_delete 0 and 3-way compare mode", func(t *testing.T) {
 		maxDelZero := 0
 		cmp3Way := "size,modtime,checksum"

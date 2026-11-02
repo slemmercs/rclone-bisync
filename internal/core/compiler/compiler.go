@@ -39,6 +39,7 @@ var CLIToRCMap = map[string]OptionMapping{
 	"--drive-import-formats":    {TypeBackendStr, "import_formats"},
 	"--drive-skip-gdocs":        {TypeBackendBool, "skip_gdocs"},
 	"--drive-use-trash":         {TypeBackendBool, "use_trash"},
+	"--drive-shared-with-me":    {TypeBackendBool, "shared_with_me"},
 	"--drive-acknowledge-abuse": {TypeBackendBool, "acknowledge_abuse"},
 	"--drive-skip-shortcuts":    {TypeBackendBool, "skip_shortcuts"},
 
@@ -113,63 +114,105 @@ func CompileBisyncPayload(
 			i++
 			continue
 		}
-		if mapping, found := CLIToRCMap[arg]; found {
+		flagName := arg
+		flagVal := ""
+		hasEqual := false
+		if cutFlag, cutVal, ok := strings.Cut(arg, "="); ok {
+			flagName = cutFlag
+			flagVal = cutVal
+			hasEqual = true
+		}
+
+		if mapping, found := CLIToRCMap[flagName]; found {
 			switch mapping.Type {
 			case TypeIgnore:
-				if i+1 < len(argsList) && !strings.HasPrefix(argsList[i+1], "-") {
+				if !hasEqual && i+1 < len(argsList) && !strings.HasPrefix(argsList[i+1], "-") {
 					i++
 				}
 			case TypeParamBool:
-				bisyncParams[mapping.TargetKey] = true
-			case TypeConfigBool:
-				if mapping.TargetKey == "Verbose" {
-					engineConfig["Verbose"] = 1
+				if hasEqual {
+					bisyncParams[mapping.TargetKey] = (flagVal == "true" || flagVal == "1")
 				} else {
-					engineConfig[mapping.TargetKey] = true
+					bisyncParams[mapping.TargetKey] = true
+				}
+			case TypeConfigBool:
+				valBool := true
+				if hasEqual {
+					valBool = (flagVal == "true" || flagVal == "1")
+				}
+				if mapping.TargetKey == "Verbose" {
+					if valBool {
+						engineConfig["Verbose"] = 1
+					} else {
+						engineConfig["Verbose"] = 0
+					}
+				} else {
+					engineConfig[mapping.TargetKey] = valBool
 				}
 			case TypeBackendBool:
-				backendOptions = append(backendOptions, fmt.Sprintf("%s=true", mapping.TargetKey))
+				valStr := "true"
+				if hasEqual {
+					valStr = strings.ToLower(strings.TrimSpace(flagVal))
+				}
+				backendOptions = append(backendOptions, fmt.Sprintf("%s=%s", mapping.TargetKey, valStr))
 			case TypeBackendStr:
-				i++
-				if i < len(argsList) {
-					val := argsList[i]
-					if strings.Contains(val, ",") || strings.Contains(val, " ") {
-						backendOptions = append(backendOptions, fmt.Sprintf("%s=\"%s\"", mapping.TargetKey, val))
-					} else {
-						backendOptions = append(backendOptions, fmt.Sprintf("%s=%s", mapping.TargetKey, val))
+				val := flagVal
+				if !hasEqual {
+					i++
+					if i < len(argsList) {
+						val = argsList[i]
 					}
+				}
+				if strings.Contains(val, ",") || strings.Contains(val, " ") {
+					backendOptions = append(backendOptions, fmt.Sprintf("%s=\"%s\"", mapping.TargetKey, val))
+				} else {
+					backendOptions = append(backendOptions, fmt.Sprintf("%s=%s", mapping.TargetKey, val))
 				}
 			case TypeParam:
-				i++
-				if i < len(argsList) {
-					bisyncParams[mapping.TargetKey] = argsList[i]
-				}
-			case TypeConfigStr:
-				i++
-				if i < len(argsList) {
-					engineConfig[mapping.TargetKey] = argsList[i]
-				}
-			case TypeConfigInt:
-				i++
-				if i < len(argsList) {
-					if intVal, err := strconv.Atoi(argsList[i]); err == nil {
-						engineConfig[mapping.TargetKey] = intVal
-					} else {
-						engineConfig[mapping.TargetKey] = argsList[i]
+				val := flagVal
+				if !hasEqual {
+					i++
+					if i < len(argsList) {
+						val = argsList[i]
 					}
+				}
+				bisyncParams[mapping.TargetKey] = val
+			case TypeConfigStr:
+				val := flagVal
+				if !hasEqual {
+					i++
+					if i < len(argsList) {
+						val = argsList[i]
+					}
+				}
+				engineConfig[mapping.TargetKey] = val
+			case TypeConfigInt:
+				valStr := flagVal
+				if !hasEqual {
+					i++
+					if i < len(argsList) {
+						valStr = argsList[i]
+					}
+				}
+				if intVal, err := strconv.Atoi(valStr); err == nil {
+					engineConfig[mapping.TargetKey] = intVal
+				} else {
+					engineConfig[mapping.TargetKey] = valStr
 				}
 			case TypeConfigFloat:
-				i++
-				if i < len(argsList) {
-					if fVal, err := strconv.ParseFloat(argsList[i], 64); err == nil {
-						engineConfig[mapping.TargetKey] = fVal
-					} else {
-						engineConfig[mapping.TargetKey] = argsList[i]
+				valStr := flagVal
+				if !hasEqual {
+					i++
+					if i < len(argsList) {
+						valStr = argsList[i]
 					}
+				}
+				if fVal, err := strconv.ParseFloat(valStr, 64); err == nil {
+					engineConfig[mapping.TargetKey] = fVal
 				}
 			}
 		} else {
-			if strings.HasPrefix(arg, "-") && i+1 < len(argsList) && !strings.HasPrefix(argsList[i+1], "-") {
+			if !hasEqual && strings.HasPrefix(arg, "-") && i+1 < len(argsList) && !strings.HasPrefix(argsList[i+1], "-") {
 				i++
 			}
 		}
