@@ -673,7 +673,7 @@
   },"96": {
     "doc": "Roadmap",
     "title": "Project Roadmap &amp; Capabilities",
-    "content": "Bisync Hub is developed using disciplined, test-driven micro-iterations with strict zero-regression quality gates (&gt;80% test coverage target). ┌──────────────────────────────────────────────────────────────┐ │ SHIPPED &amp; AVAILABLE │ │ • Interactive Review &amp; Deletion Diff Modal │ │ • 4-Analyzer Heuristic Conflict Confidence Engine │ │ • Cryptographic Immutable Audit Ledger (SQLite + SHA-256) │ │ • Go CLI Quality Engine (cmd/check) &amp; License Guard │ │ • Decoupled Service Architecture (Strictly &lt;400 LOC) │ │ • Zero-Dependency Single Go Binary Distribution │ │ • Embedded Alpine.js / Tailwind CSS Management Cockpit │ │ • POSIX Advisory Locking &amp; Local Path Confinement Jails │ │ • Hybrid Fleet Overview &amp; Multi-Profile Workspace (`beta.10`)│ │ • Remote MD5 Hash Deduplication (`beta.12`) │ │ • Unified Logging Ledger &amp; Telemetry De-Noising (`beta.18`) │ │ • Native Model Context Protocol (MCP) Server (`beta.20`) │ │ • Tier 1 Curated Options &amp; Flags Builder (`beta.21`) │ └──────────────────────────────┬───────────────────────────────┘ │ ▼ ┌──────────────────────────────────────────────────────────────┐ │ NEAR-TERM STRATEGIC PRIORITIES │ │ 1. In-Dashboard Configuration &amp; Setup Manager (Rollback API)│ │ 2. In-App User Guidance &amp; Interactive Diagnostic Manual │ │ 3. Remote Mount Lifecycle Manager &amp; Pooled Storage Engine │ │ 4. Local Inter-Process Communication (IPC) via Unix Sockets │ └──────────────────────────────────────────────────────────────┘ . ",
+    "content": "Bisync Hub is developed using disciplined, test-driven micro-iterations with strict zero-regression quality gates (&gt;80% test coverage target). ┌──────────────────────────────────────────────────────────────┐ │ SHIPPED &amp; AVAILABLE │ │ • Interactive Review &amp; Deletion Diff Modal │ │ • 4-Analyzer Heuristic Conflict Confidence Engine │ │ • Cryptographic Immutable Audit Ledger (SQLite + SHA-256) │ │ • Go CLI Quality Engine (cmd/check) &amp; License Guard │ │ • Decoupled Service Architecture (Strictly &lt;400 LOC) │ │ • Zero-Dependency Single Go Binary Distribution │ │ • Embedded Alpine.js / Tailwind CSS Management Cockpit │ │ • POSIX Advisory Locking &amp; Local Path Confinement Jails │ │ • Hybrid Fleet Overview &amp; Multi-Profile Workspace (`beta.10`)│ │ • Remote MD5 Hash Deduplication (`beta.12`) │ │ • Unified Logging Ledger &amp; Telemetry De-Noising (`beta.18`) │ │ • Native Model Context Protocol (MCP) Server (`beta.20`) │ │ • Tier 1 Curated Options &amp; Flags Builder (`beta.21`) │ │ • RC Argument Compilation &amp; Rename Tracking (`beta.22`) │ └──────────────────────────────┬───────────────────────────────┘ │ ▼ ┌──────────────────────────────────────────────────────────────┐ │ NEAR-TERM STRATEGIC PRIORITIES │ │ 1. In-Dashboard Configuration &amp; Setup Manager (Rollback API)│ │ 2. In-App User Guidance &amp; Interactive Diagnostic Manual │ │ 3. Remote Mount Lifecycle Manager &amp; Pooled Storage Engine │ │ 4. Local Inter-Process Communication (IPC) via Unix Sockets │ └──────────────────────────────────────────────────────────────┘ . ",
     "url": "/rclone-bisync/roadmap.html#project-roadmap--capabilities",
     
     "relUrl": "/roadmap.html#project-roadmap--capabilities"
@@ -756,40 +756,47 @@
     "relUrl": "/roadmap.html#10-tier-1-curated-options-guided-flags-builder--audit-sync-beta21"
   },"108": {
     "doc": "Roadmap",
+    "title": "11. RC Argument Compilation, Rename Tracking &amp; Review Invalidation (beta.22)",
+    "content": ". | Rclone RC Parameter Compilation: Strips % from --max-delete and compiles typed values into both root payload and _config[\"MaxDelete\"] (fs.ConfigInfo.MaxDelete). | Rename Tracking Configuration: Remaps --track-renames (_config[\"TrackRenames\"]) and --track-renames-strategy (_config[\"TrackRenamesStrategy\"]). | Review Barrier Cache Invalidation: Guarantees in-memory review session cache (s.session = nil) clears immediately upon session file deletion or dismissal. | DOM Parsing Safety: Direct &lt;option&gt; elements in provider flags builder dropdown preventing browser parsing stripping. | End-to-End Headless Verification: Automated Chromium test suite checking dropdown preservation and multi-tab cockpit navigation. | . ",
+    "url": "/rclone-bisync/roadmap.html#11-rc-argument-compilation-rename-tracking--review-invalidation-beta22",
+    
+    "relUrl": "/roadmap.html#11-rc-argument-compilation-rename-tracking--review-invalidation-beta22"
+  },"109": {
+    "doc": "Roadmap",
     "title": "🟡 Near-Term Strategic Priorities (In Development)",
     "content": "The following capabilities represent our immediate development milestones: . ",
     "url": "/rclone-bisync/roadmap.html#-near-term-strategic-priorities-in-development",
     
     "relUrl": "/roadmap.html#-near-term-strategic-priorities-in-development"
-  },"109": {
+  },"110": {
     "doc": "Roadmap",
     "title": "Priority 1: In-Dashboard Configuration &amp; Setup Manager",
     "content": ". | Objective: Provide safe visual editing of sync flags, intervals, and remote setup. | Architecture: . | Visual Flag Editor: Adjust --buffer-size, --tpslimit, conflict strategies, and webhook endpoints safely from the UI. | Setup &amp; Onboarding Wizard: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration. | 3-Layer Safety Pipeline: Automated backup snapshots, SHA-256 integrity match, and schema validation before applying changes. | One-Click Rollback API: Restore historical configurations immediately if a change fails verification. | . | . ",
     "url": "/rclone-bisync/roadmap.html#priority-1-in-dashboard-configuration--setup-manager",
     
     "relUrl": "/roadmap.html#priority-1-in-dashboard-configuration--setup-manager"
-  },"110": {
+  },"111": {
     "doc": "Roadmap",
     "title": "Priority 3: In-App User Guidance &amp; Diagnostic Manual",
     "content": ". | Objective: Enhance operational clarity and assisted recovery directly within the UI. | Architecture: . | Contextual Tooltips &amp; Policy Explanations: Inline tooltips and modal banners explaining safety triggers (TOO_MANY_DELETES, MANDATORY_SUBDIR, heuristic risk scores) in plain language. | In-Dashboard Reference Manual: A dedicated slide-over panel summarizing CLI commands, Rclone flags, and step-by-step conflict recovery workflows. | Interactive Diagnostics: Integrated troubleshooting guides for resolving OAuth token drops, path permissions issues, and systemd service status. | . | . ",
     "url": "/rclone-bisync/roadmap.html#priority-3-in-app-user-guidance--diagnostic-manual",
     
     "relUrl": "/roadmap.html#priority-3-in-app-user-guidance--diagnostic-manual"
-  },"111": {
+  },"112": {
     "doc": "Roadmap",
     "title": "Priority 4: Remote Mount Lifecycle Manager &amp; Storage Pooling (internal/mount)",
     "content": ". | Objective: Turn fragile OS FUSE mounts into resilient, self-healing virtual storage endpoints. | Architecture: . | Stage A (Remote Mount Manager): Pure-Go daemon managing rclone mount subprocess lifecycles on Linux (FUSE) and Windows (WinFsp) with keepalive probes and clean unmount handlers (fusermount -u). | Stage B (Pooled Storage Engine): Provision stacked multi-cloud topologies (union + chunker + crypt) over RC /config/create. | Refer to Remote Mount Manager Design Specification. | . | . Google Drive OAuth Client ID, Secret &amp; scope setup OneDrive OAuth Personal &amp; Business Graph API setup . ",
     "url": "/rclone-bisync/roadmap.html#priority-4-remote-mount-lifecycle-manager--storage-pooling-internalmount",
     
     "relUrl": "/roadmap.html#priority-4-remote-mount-lifecycle-manager--storage-pooling-internalmount"
-  },"112": {
+  },"113": {
     "doc": "Roadmap",
     "title": "🔮 Future Vision &amp; Research",
     "content": ". | Peer-to-Peer State Coordination: Multi-node cluster coordination for organizations synchronizing across distributed branch offices. | Encrypted Remote Telemetry: Zero-knowledge telemetry syncing enabling multi-device sync status monitoring without exposing file metadata. | . ",
     "url": "/rclone-bisync/roadmap.html#-future-vision--research",
     
     "relUrl": "/roadmap.html#-future-vision--research"
-  },"113": {
+  },"114": {
     "doc": "Roadmap",
     "title": "Roadmap",
     "content": " ",
