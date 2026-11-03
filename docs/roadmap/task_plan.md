@@ -17,13 +17,18 @@ Fix Rclone RC argument compilation for profile flags (`--track-renames`, `--trac
   - **Scope**: `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/js/flags_builder.js`, `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `go test -v -count=1 ./tests/e2e/...` and `./scripts/check.sh all`
 
-- [ ] Task 4: Daemon Deployment & Live Sync Verification
+- [x] Task 4: Daemon Deployment & Live Sync Verification
   - **Scope**: Build binary, update user profile flags if needed, restart dashboard service, live dry-run sync
   - **Verification**: Verify clean sync execution with `rclone rc` and dashboard API
 
 ## Status Updates
 
 - 2026-11-03: Initialized plan from implementation_plan.md on branch fix/rc-flags-compilation-and-review-cache.
+- 2026-11-03: Completed all 4 tasks:
+  - Task 1: Compiled `--max-delete` (stripping `%` and setting in both payload and `_config.MaxDelete`), mapped `--track-renames` (`_config.TrackRenames`) and `--track-renames-strategy` (`_config.TrackRenamesStrategy`).
+  - Task 2: Resolved stale review session cache invalidation when session files are deleted or dismissed.
+  - Task 3: Fixed `<select>` DOM template stripping in flags builder, expanded catalog with rename tracking flags, verified with Chromium headless E2E test.
+  - Task 4: Deployed binary to user daemon, validated live Google Drive dry-run sync succeeding with status SUCCESS in 46.3s.
 
 
 
