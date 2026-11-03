@@ -14,6 +14,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/core/lock"
 	"github.com/slemmercs/rclone-bisync/internal/core/security"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -321,7 +322,32 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 		"transfer_stats":     transferStats,
 		"has_review":         hasReview,
 		"review_pending":     hasReview,
+		"mcp_status":         t.GetMCPStatus(),
 	}
+}
+
+// GetMCPStatus inspects the MCP server state file and returns its active status.
+func (t *TelemetryService) GetMCPStatus() *models.MCPStatus {
+	offline := &models.MCPStatus{Status: "offline"}
+	if t.Config == nil || t.Config.MCPStatusFile == "" {
+		return offline
+	}
+	data, err := os.ReadFile(t.Config.MCPStatusFile)
+	if err != nil {
+		return offline
+	}
+	var status models.MCPStatus
+	if err := json.Unmarshal(data, &status); err != nil {
+		return offline
+	}
+	if status.PID > 0 && !lock.CheckPIDExists(status.PID) {
+		_ = os.Remove(t.Config.MCPStatusFile)
+		return offline
+	}
+	if status.Status == "" {
+		status.Status = "active"
+	}
+	return &status
 }
 
 func toUpperSnakeCase(s string) string {

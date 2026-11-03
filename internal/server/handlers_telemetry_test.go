@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -164,5 +166,94 @@ func TestHandleTelemetry_ProfileSyncIntegration(t *testing.T) {
 	}
 	if execStatus, ok := postPayload["execution_status"].(string); !ok || execStatus != "IDLE" {
 		t.Errorf("expected execution_status = IDLE after completion, got %v", postPayload["execution_status"])
+	}
+}
+
+func TestMCPStatusEndpoint(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		BaseDir:       tmpDir,
+		MCPStatusFile: filepath.Join(tmpDir, "mcp_status.json"),
+	}
+
+	telSvc := services.NewTelemetryService(cfg, nil)
+	srv := NewServer(cfg, nil, embed.FS{})
+	srv.TelemetryService = telSvc
+
+	// 1. Initial State: Offline
+	req1 := httptest.NewRequest("GET", "/api/mcp/status", nil)
+	rec1 := httptest.NewRecorder()
+	srv.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec1.Code)
+	}
+	var resp1 models.MCPStatus
+	if err := json.Unmarshal(rec1.Body.Bytes(), &resp1); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp1.Status != "offline" {
+		t.Errorf("expected offline, got %s", resp1.Status)
+	}
+
+	// 2. Active MCP server with current PID
+	activeStatus := models.MCPStatus{
+		Status:    "active",
+		Transport: "sse",
+		ReadOnly:  false,
+		Host:      "127.0.0.1",
+		Port:      8081,
+		PID:       os.Getpid(),
+		StartedAt: time.Now().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(activeStatus)
+	if err := os.WriteFile(cfg.MCPStatusFile, data, 0644); err != nil {
+		t.Fatalf("failed to write mcp_status.json: %v", err)
+	}
+
+	req2 := httptest.NewRequest("GET", "/api/mcp/status", nil)
+	rec2 := httptest.NewRecorder()
+	srv.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec2.Code)
+	}
+	var resp2 models.MCPStatus
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp2.Status != "active" || resp2.Transport != "sse" || resp2.Port != 8081 {
+		t.Errorf("unexpected active status response: %+v", resp2)
+	}
+
+	// 3. /api/telemetry should include mcp_status
+	req3 := httptest.NewRequest("GET", "/api/telemetry?limit=0", nil)
+	rec3 := httptest.NewRecorder()
+	srv.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rec3.Code)
+	}
+	var telResp map[string]interface{}
+	if err := json.Unmarshal(rec3.Body.Bytes(), &telResp); err != nil {
+		t.Fatalf("failed to decode telemetry: %v", err)
+	}
+	mcpMap, ok := telResp["mcp_status"].(map[string]interface{})
+	if !ok || mcpMap["status"] != "active" {
+		t.Errorf("expected active mcp_status in telemetry payload, got: %v", telResp["mcp_status"])
+	}
+
+	// 4. Stale PID should be detected and marked offline
+	staleStatus := models.MCPStatus{
+		Status: "active",
+		PID:    99999999,
+	}
+	staleData, _ := json.Marshal(staleStatus)
+	_ = os.WriteFile(cfg.MCPStatusFile, staleData, 0644)
+
+	req4 := httptest.NewRequest("GET", "/api/mcp/status", nil)
+	rec4 := httptest.NewRecorder()
+	srv.ServeHTTP(rec4, req4)
+	var resp4 models.MCPStatus
+	_ = json.Unmarshal(rec4.Body.Bytes(), &resp4)
+	if resp4.Status != "offline" {
+		t.Errorf("expected stale PID to resolve to offline, got %s", resp4.Status)
 	}
 }

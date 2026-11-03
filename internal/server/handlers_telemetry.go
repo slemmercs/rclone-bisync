@@ -24,6 +24,14 @@ func (s *Server) handleDaemonHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleMCPStatus(w http.ResponseWriter, _ *http.Request) {
+	if s.TelemetryService == nil {
+		writeJSON(w, http.StatusOK, models.MCPStatus{Status: "offline"})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.TelemetryService.GetMCPStatus())
+}
+
 func (s *Server) handleRawBisyncLog(w http.ResponseWriter, r *http.Request) {
 	if _, err := os.Stat(s.Config.LogFile); os.IsNotExist(err) {
 		writeJSON(w, http.StatusOK, models.ErrorResponse{Status: "error", Error: "Log file not found"})

@@ -28,6 +28,7 @@ type Config struct {
 	ActiveReviewFile      string
 	ReviewBackupsDir      string
 	ReviewBackupTTLHours  float64
+	MCPStatusFile         string
 	AuditDBPath           string
 	ProfilesFile          string
 	ProfilesHistoryFile   string
@@ -285,6 +286,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		ActiveReviewFile:      filepath.Join(baseDir, "active_review_session.json"),
 		ReviewBackupsDir:      filepath.Join(baseDir, "review_backups"),
 		ReviewBackupTTLHours:  getEnvFloat("REVIEW_BACKUP_TTL_HOURS", 48.0),
+		MCPStatusFile:         filepath.Join(baseDir, "mcp_status.json"),
 		AuditDBPath:           getEnv("AUDIT_DB_PATH", filepath.Join(baseDir, "audit.db")),
 		ProfilesFile:          getEnv("PROFILES_FILE", filepath.Join(baseDir, "profiles.json")),
 		ProfilesHistoryFile:   getEnv("PROFILES_HISTORY_FILE", filepath.Join(baseDir, "profiles_history.json")),

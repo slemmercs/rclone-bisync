@@ -259,6 +259,7 @@ func writeJSONError(w http.ResponseWriter, statusCode int, msg string) {
 
 func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/health", s.handleDaemonHealth)
+	s.Mux.HandleFunc("GET /api/mcp/status", s.handleMCPStatus)
 	s.Mux.HandleFunc("GET /api/logs/bisync/raw", s.handleRawBisyncLog)
 	s.Mux.HandleFunc("GET /api/logs/bisync", s.handleBisyncLogs)
 	s.Mux.HandleFunc("GET /api/logs/daemon/raw", s.handleRawDaemonLog)

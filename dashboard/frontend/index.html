@@ -88,6 +88,16 @@
                         <svg class="w-3.5 h-3.5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                         <span class="hidden sm:inline">Settings</span>
                     </button>
+                    <!-- MCP Server Status Pill -->
+                    <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-mono text-xs border transition-colors cursor-default"
+                         :class="mcpStatusClass"
+                         :title="isMcpActive ? ('Model Context Protocol: Active (' + (telemetry.mcp_status?.transport || 'stdio').toUpperCase() + ') - ' + (telemetry.mcp_status?.read_only ? 'Read-Only' : 'Read/Write')) : 'Model Context Protocol: Offline (Run: bisync-hub mcp)'">
+                        <span class="relative flex h-2 w-2">
+                            <span x-show="isMcpActive" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2" :class="isMcpActive ? 'bg-violet-400' : 'bg-slate-600'"></span>
+                        </span>
+                        <span class="font-bold tracking-wider" x-text="mcpStatusText"></span>
+                    </div>
                     <div @click="openDaemonModal(null)" class="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-3 py-1.5 rounded-xl font-mono text-xs cursor-pointer transition-colors" title="Click to view live daemon stream and correlated logs">
                         <span class="relative flex h-2 w-2">
                             <span :class="telemetry.daemon_health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-rose-400'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"></span>

@@ -21,7 +21,7 @@ Resolve CodeQL alert #24 (`go/path-injection`) by implementing strict session ID
   - **Scope**: `internal/mcp/tools_read.go`, `internal/mcp/server.go`, `internal/mcp/tools_read_test.go`
   - **Verification**: `go test -v -count=1 ./internal/mcp/... -run "TestValidateFlags"`
 
-- [ ] Task 5: Dashboard Header MCP Server Status Indicator
+- [x] Task 5: Dashboard Header MCP Server Status Indicator
   - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/polling.js`
   - **Verification**: `./scripts/check.sh all`
 
@@ -50,4 +50,10 @@ Resolve CodeQL alert #24 (`go/path-injection`) by implementing strict session ID
   - Added `total_count` and `has_more` metadata to `bisync_explore_path` pagination responses.
   - Created `internal/mcp/tools_read_compiler.go` maintaining file sizes under 400 LOC.
   - Added unit tests `TestCompileFlagsToParams` and `TestValidateFlags` and verified with `./scripts/check.sh all`.
+- 2026-11-03: Completed Task 5:
+  - Added `mcp_status.json` lifecycle management to `internal/mcp/server.go` across stdio and sse transports with PID liveness verification.
+  - Added `MCPStatus` struct to `internal/models/api.go` and integrated it into `/api/telemetry` and `GET /api/mcp/status`.
+  - Added header MCP status indicator pill to `dashboard/frontend/index.html` with real-time reactive state in `dashboard/frontend/app.js`.
+  - Added headless Chrome e2e assertion and unit tests in `internal/server/handlers_telemetry_test.go`.
+  - Verified with all 7 checks in `./scripts/check.sh all`.
 
