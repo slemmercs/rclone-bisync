@@ -9,7 +9,7 @@ Provide full operational visibility and configuration control for the native Mod
   - **Scope**: `internal/config/config.go`, `internal/config/config_test.go`, `main.go`
   - **Verification**: `go test -v -count=1 ./internal/config/... -run "TestLoadConfig_MCPReadOnly"` and `./scripts/check.sh all`
 
-- [ ] Task 2: Interactive MCP Inspector Modal (`modal_mcp.html`) & Header Integration
+- [x] Task 2: Interactive MCP Inspector Modal (`modal_mcp.html`) & Header Integration
   - **Scope**: `dashboard/frontend/partials/modals/modal_mcp.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh all`
 
@@ -21,5 +21,11 @@ Provide full operational visibility and configuration control for the native Mod
   - Updated `runMCP` in `main.go` so `cfg.MCPReadOnly` sets default server read-only mode alongside `--read-only` flag.
   - Added unit test `TestLoadConfig_MCPReadOnly` in `internal/config/config_test.go`.
   - Verified with `go test` and all 7 stages of `./scripts/check.sh all`.
+- 2026-11-03: Completed Task 2:
+  - Created `dashboard/frontend/partials/modals/modal_mcp.html` with tabs for server status, client integration snippet (Claude Desktop / Cline / Cursor), and an interactive 11-tool catalog.
+  - Created `dashboard/frontend/js/mcp.js` exposing `window.McpModule` with clipboard copy helpers and endpoint URL builders.
+  - Transformed header MCP status pill in `dashboard/frontend/index.html` into an interactive button opening the MCP inspector modal.
+  - Added headless Chrome smoke test assertion `TestDashboard_HeadlessChromeSmoke/MCPModalInteraction`.
+  - Verified with all 7 quality gate checks in `./scripts/check.sh all`.
 
 
