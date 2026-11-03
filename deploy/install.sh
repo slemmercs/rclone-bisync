@@ -62,6 +62,7 @@ REQUIRED_FILES=(
     "$REPO_ROOT/rc-secrets.env"
     "$REPO_ROOT/deploy/systemd/rclone-daemon.service"
     "$REPO_ROOT/deploy/systemd/rclone-dashboard.service"
+    "$REPO_ROOT/deploy/systemd/rclone-mcp.service"
     "$REPO_ROOT/deploy/desktop/rclone-dashboard.desktop"
 )
 for f in "${REQUIRED_FILES[@]}"; do
@@ -119,6 +120,7 @@ rm -f "$SYSTEMD_USER_DIR/bisync-gdrive.service" "$SYSTEMD_USER_DIR/bisync-gdrive
 
 cp "$REPO_ROOT/deploy/systemd/rclone-daemon.service" \
    "$REPO_ROOT/deploy/systemd/rclone-dashboard.service" \
+   "$REPO_ROOT/deploy/systemd/rclone-mcp.service" \
    "$SYSTEMD_USER_DIR/"
 
 # Dynamically resolve system binaries for systemd units
@@ -147,11 +149,12 @@ sudo -u "$REAL_USER" $DBUS_ENV systemctl --user daemon-reload
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user reset-failed
 
 # Enable components (scheduler runs internally within dashboard service)
-sudo -u "$REAL_USER" $DBUS_ENV systemctl --user enable rclone-daemon.service rclone-dashboard.service
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user enable rclone-daemon.service rclone-dashboard.service rclone-mcp.service
 
 # Restart services sequentially
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-daemon.service
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-dashboard.service
+sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-mcp.service
 
 # Verify daemon status
 if sudo -u "$REAL_USER" $DBUS_ENV systemctl --user is-active --quiet rclone-daemon.service; then

@@ -1,0 +1,19 @@
+[Unit]
+Description=Bisync Hub - Native Model Context Protocol (MCP) Server for AI Agents
+After=network.target rclone-daemon.service
+Requires=rclone-daemon.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/rclone-bisync
+ExecStart=%h/rclone-bisync/bin/rclone-bisync mcp --transport sse --host 127.0.0.1 --port 8081
+Restart=always
+RestartSec=5s
+
+# Resource constraints
+MemoryMax=512M
+CPUQuota=50%
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
