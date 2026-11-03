@@ -16,6 +16,8 @@ import (
 type RemoteClient interface {
 	CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error)
 	DeleteFile(ctx context.Context, fs, remote string) (bool, error)
+	Mkdir(ctx context.Context, fs, remote string) (bool, error)
+	PurgeDir(ctx context.Context, fs, remote string) (bool, error)
 }
 
 const (
