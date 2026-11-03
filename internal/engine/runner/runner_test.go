@@ -237,6 +237,9 @@ func TestSyncRunnerCompilerErrorAndTriggerError(t *testing.T) {
 	if success := r.Run(context.Background(), false, false, false, "cli", "", false); success {
 		t.Fatal("expected failure on dispatch error")
 	}
+	if ok, err := r.RunWithError(context.Background(), false, false, false, "cli", "", false); ok || err == nil || !strings.Contains(err.Error(), "sync dispatch failed") {
+		t.Fatalf("expected dispatch error from RunWithError, got ok=%v, err=%v", ok, err)
+	}
 
 	// 3. Compiler canary missing error branch
 	cfgCompilerErr := &config.Config{
@@ -248,6 +251,9 @@ func TestSyncRunnerCompilerErrorAndTriggerError(t *testing.T) {
 	rCompilerErr := NewSyncRunner(cfgCompilerErr)
 	if success := rCompilerErr.Run(context.Background(), false, false, false, "cli", "", false); success {
 		t.Fatal("expected failure on missing canary check-access error")
+	}
+	if ok, err := rCompilerErr.RunWithError(context.Background(), false, false, false, "cli", "", false); ok || err == nil || !strings.Contains(err.Error(), "configuration/canary check failed") {
+		t.Fatalf("expected canary check error from RunWithError, got ok=%v, err=%v", ok, err)
 	}
 
 }
