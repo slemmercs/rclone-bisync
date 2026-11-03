@@ -56,13 +56,13 @@ var CLIToRCMap = map[string]OptionMapping{
 	"--dropbox-chunk-size": {TypeBackendStr, "chunk_size"},
 
 	// Bisync parameters
-	"--check-access":           {TypeParamBool, "checkAccess"},
-	"--check-first":            {TypeParamBool, "checkFirst"},
-	"--max-delete":             {TypeParamMaxDelete, "maxDelete"},
-	"--remove-empty-dirs":      {TypeParamBool, "removeEmptyDirs"},
-	"--resilient":              {TypeParamBool, "resilient"},
-	"--recover":                {TypeParamBool, "recover"},
-	"--compare":                {TypeParam, "compare"},
+	"--check-access":      {TypeParamBool, "checkAccess"},
+	"--check-first":       {TypeParamBool, "checkFirst"},
+	"--max-delete":        {TypeParamMaxDelete, "maxDelete"},
+	"--remove-empty-dirs": {TypeParamBool, "removeEmptyDirs"},
+	"--resilient":         {TypeParamBool, "resilient"},
+	"--recover":           {TypeParamBool, "recover"},
+	"--compare":           {TypeParam, "compare"},
 
 	// Conflict handling
 	"--conflict-resolve": {TypeParam, "conflictResolve"},

@@ -698,7 +698,6 @@ func TestReviewService_FileDeletionClearsInMemoryCache(t *testing.T) {
 	}
 }
 
-
 func TestReviewService_NewWithWALReconciliation(t *testing.T) {
 	cfg, tmpDir := createTestConfig(t)
 	sess := review.NewSession("CONFLICT", "err", nil, nil)

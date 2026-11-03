@@ -289,4 +289,3 @@ func TestCompileBisyncParams_TrackRenamesAndStrategy(t *testing.T) {
 		t.Fatalf("expected TrackRenamesStrategy: 'hash' in _config, got: %v", cfg2["TrackRenamesStrategy"])
 	}
 }
-
