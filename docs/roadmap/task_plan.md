@@ -13,7 +13,7 @@ Resolve CodeQL alert #24 (`go/path-injection`) by implementing strict session ID
   - **Scope**: `internal/mcp/tools_write.go`, `internal/mcp/tools_write_test.go`
   - **Verification**: `go test -v -count=1 ./internal/mcp/... -run "TestTriggerSync"`
 
-- [ ] Task 3: Profile and Run ID Scoped Log Filtering in MCP (`bisync_get_logs`)
+- [x] Task 3: Profile and Run ID Scoped Log Filtering in MCP (`bisync_get_logs`)
   - **Scope**: `internal/mcp/tools_read.go`, `internal/mcp/tools_read_test.go`
   - **Verification**: `go test -v -count=1 ./internal/mcp/... -run "TestGetLogs"`
 
@@ -39,4 +39,9 @@ Resolve CodeQL alert #24 (`go/path-injection`) by implementing strict session ID
   - Propagated detailed abort diagnostics through `DefaultProfileExecutor` and `Scheduler`.
   - Enhanced MCP `bisync_trigger_sync` to return exact error reasons (e.g. `TOO_MANY_DELETES`, canary missing, lock contention) and automatically append active review barrier guidance.
   - Added unit test `TestWriteTools_TriggerSyncDiagnostics` in `internal/mcp/tools_write_test.go` and verified with `./scripts/check.sh all`.
+- 2026-11-03: Completed Task 3:
+  - Added `profile_id` and `run_id` filter parameters to MCP `bisync_get_logs`.
+  - Implemented structured JSON and plain-text fallback matching for log levels, profile IDs, and execution run IDs.
+  - Decomposed `internal/mcp/tools_read.go` into cohesive `tools_read_explorer.go` to strictly satisfy <400 LOC limits.
+  - Added unit tests in `internal/mcp/tools_read_opt_test.go` and verified with all 7 quality gate checks in `./scripts/check.sh all`.
 

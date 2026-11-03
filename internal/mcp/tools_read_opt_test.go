@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -137,5 +138,93 @@ func TestReadTools_TokenOptimizations(t *testing.T) {
 	_ = json.Unmarshal([]byte(resFiltered.Content[0].(mcp.TextContent).Text), &filteredData)
 	if filteredData["total_items"].(float64) != 1 {
 		t.Errorf("expected 1 item matching 'beta', got %v", filteredData["total_items"])
+	}
+}
+
+func TestReadTools_GetLogs_Filtering(t *testing.T) {
+	tempDir := t.TempDir()
+	logFile := filepath.Join(tempDir, "bisync_filter.log")
+
+	lines := []string{
+		`{"time":"2026-11-03T20:00:00Z","level":"info","profile_id":"gdrive","run_id":"run-1","msg":"sync started"}`,
+		`{"time":"2026-11-03T20:00:05Z","level":"error","profile_id":"gdrive","run_id":"run-1","msg":"too many deletes"}`,
+		`{"time":"2026-11-03T20:01:00Z","level":"info","profile_id":"onedrive","run_id":"run-2","msg":"sync clean"}`,
+		`{"time":"2026-11-03T20:02:00Z","level":"warn","profile_id":"gdrive","run_id":"run-3","msg":"rate limit"}`,
+		`Plain text fallback log line for gdrive run-4 with error`,
+	}
+	content := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile(logFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write log file: %v", err)
+	}
+
+	cfg := &config.Config{LocalPath: tempDir, LogFile: logFile}
+	ctr := &app.Container{
+		Config:           cfg,
+		TelemetryService: services.NewTelemetryService(cfg, nil),
+	}
+
+	srv, err := NewServer(ctr, ServerConfig{Version: "v1.0.0-test"})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	ctx := context.Background()
+
+	// 1. Profile ID filter
+	resProf, err := srv.handleGetLogs(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"profile_id": "gdrive"}},
+	})
+	if err != nil || resProf.IsError {
+		t.Fatalf("unexpected profile filter error: %v", err)
+	}
+	var profData map[string]any
+	_ = json.Unmarshal([]byte(resProf.Content[0].(mcp.TextContent).Text), &profData)
+	if profData["profile_id"] != "gdrive" {
+		t.Errorf("expected response to reflect profile_id 'gdrive', got %v", profData["profile_id"])
+	}
+	logsProf := profData["logs"].([]any)
+	if len(logsProf) != 4 {
+		t.Fatalf("expected 4 logs matching profile 'gdrive', got %d: %v", len(logsProf), logsProf)
+	}
+
+	// 2. Run ID filter
+	resRun, err := srv.handleGetLogs(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"run_id": "run-2"}},
+	})
+	if err != nil || resRun.IsError {
+		t.Fatalf("unexpected run_id filter error: %v", err)
+	}
+	var runData map[string]any
+	_ = json.Unmarshal([]byte(resRun.Content[0].(mcp.TextContent).Text), &runData)
+	logsRun := runData["logs"].([]any)
+	if len(logsRun) != 1 {
+		t.Fatalf("expected 1 log matching run-2, got %d", len(logsRun))
+	}
+
+	// 3. Combined Profile ID + Level filter
+	resCombined, err := srv.handleGetLogs(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"profile_id": "gdrive", "level": "ERROR"}},
+	})
+	if err != nil || resCombined.IsError {
+		t.Fatalf("unexpected combined filter error: %v", err)
+	}
+	var combData map[string]any
+	_ = json.Unmarshal([]byte(resCombined.Content[0].(mcp.TextContent).Text), &combData)
+	logsComb := combData["logs"].([]any)
+	if len(logsComb) != 2 {
+		t.Fatalf("expected 2 error logs for gdrive (1 json + 1 plain text), got %d", len(logsComb))
+	}
+
+	// 4. Limit parameter
+	resLimit, err := srv.handleGetLogs(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"profile_id": "gdrive", "limit": 2}},
+	})
+	if err != nil || resLimit.IsError {
+		t.Fatalf("unexpected limit error: %v", err)
+	}
+	var limitData map[string]any
+	_ = json.Unmarshal([]byte(resLimit.Content[0].(mcp.TextContent).Text), &limitData)
+	logsLimit := limitData["logs"].([]any)
+	if len(logsLimit) != 2 {
+		t.Fatalf("expected 2 logs due to limit=2, got %d", len(logsLimit))
 	}
 }
