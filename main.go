@@ -218,9 +218,11 @@ func runMCP(transport, host string, port int, readOnly, requireConfirmation bool
 		_ = appContainer.Close()
 	}()
 
+	effectiveReadOnly := readOnly || cfg.MCPReadOnly
+
 	mcpSrv, err := mcp.NewServer(appContainer, mcp.ServerConfig{
 		Version:             Version,
-		ReadOnly:            readOnly,
+		ReadOnly:            effectiveReadOnly,
 		RequireConfirmation: requireConfirmation,
 		Transport:           transport,
 		Host:                host,
@@ -234,7 +236,7 @@ func runMCP(transport, host string, port int, readOnly, requireConfirmation bool
 	defer cancel()
 
 	if transport == "sse" {
-		slog.Info("Starting Bisync Hub MCP server (SSE)", "host", host, "port", port, "read_only", readOnly)
+		slog.Info("Starting Bisync Hub MCP server (SSE)", "host", host, "port", port, "read_only", effectiveReadOnly)
 		if err := mcpSrv.ServeSSE(ctx, host, port); err != nil {
 			log.Fatalf("MCP SSE server error: %v", err)
 		}

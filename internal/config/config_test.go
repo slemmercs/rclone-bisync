@@ -177,3 +177,29 @@ func TestConfigHelpersAndEnvExpansion(t *testing.T) {
 		t.Fatalf("unexpected FilesToCleanup: %v", cfg.FilesToCleanup)
 	}
 }
+func TestLoadConfig_MCPReadOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.Setenv("RC_PASS", "testpass")
+	defer os.Unsetenv("RC_PASS")
+
+	// 1. Default should be false
+	cfg1, err := LoadConfig(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if cfg1.MCPReadOnly {
+		t.Errorf("expected MCPReadOnly default false, got true")
+	}
+
+	// 2. Set MCP_READ_ONLY=true
+	os.Setenv("MCP_READ_ONLY", "true")
+	defer os.Unsetenv("MCP_READ_ONLY")
+
+	cfg2, err := LoadConfig(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if !cfg2.MCPReadOnly {
+		t.Errorf("expected MCPReadOnly true, got false")
+	}
+}
