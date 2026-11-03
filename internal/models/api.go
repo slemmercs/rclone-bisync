@@ -161,6 +161,18 @@ type TelemetryPayload struct {
 	TransferStats     *TransferStats           `json:"transfer_stats"`
 	HasReview         bool                     `json:"has_review"`
 	ReviewPending     bool                     `json:"review_pending"`
+	MCPStatus         *MCPStatus               `json:"mcp_status,omitempty"`
+}
+
+// MCPStatus represents the operational status of the Model Context Protocol server.
+type MCPStatus struct {
+	Status    string `json:"status"`              // "active" or "offline"
+	Transport string `json:"transport,omitempty"` // "stdio" or "sse"
+	ReadOnly  bool   `json:"read_only"`           // true if mutations are disallowed
+	Host      string `json:"host,omitempty"`      // host address if sse transport
+	Port      int    `json:"port,omitempty"`      // port if sse transport
+	PID       int    `json:"pid,omitempty"`       // process ID
+	StartedAt string `json:"started_at,omitempty"`
 }
 
 type BisyncLogEntry struct {

@@ -226,6 +226,27 @@ document.addEventListener("alpine:init", () => {
             return typeof lat === "number" ? lat.toFixed(2) : "--";
         },
 
+        get mcpStatusText() {
+            const m = this.telemetry?.mcp_status;
+            if (m && m.status === "active") {
+                const mode = m.read_only ? "read-only" : "read/write";
+                return `MCP: ACTIVE [${mode}]`;
+            }
+            return "MCP: OFFLINE";
+        },
+
+        get mcpStatusClass() {
+            const m = this.telemetry?.mcp_status;
+            if (m && m.status === "active") {
+                return "border-violet-800/60 bg-violet-950/40 text-violet-300";
+            }
+            return "border-slate-800 bg-slate-900/60 text-slate-500";
+        },
+
+        get isMcpActive() {
+            return Boolean(this.telemetry?.mcp_status?.status === "active");
+        },
+
         get executionStatusText() {
             if (this.isEngineSyncing()) return "SYNC IN PROGRESS";
             const notif = this.telemetry.notification_state || {};

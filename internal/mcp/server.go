@@ -2,13 +2,17 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/slemmercs/rclone-bisync/internal/app"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // ServerConfig configures the MCP server operational parameters.
@@ -79,6 +83,8 @@ func (s *Server) TicketManager() *TicketManager {
 
 // ServeStdio starts serving MCP over standard input/output streams.
 func (s *Server) ServeStdio(_ context.Context) error {
+	s.writeStatusFile("stdio", "", 0)
+	defer s.removeStatusFile()
 	return server.ServeStdio(s.mcpServer)
 }
 
@@ -90,6 +96,9 @@ func (s *Server) ServeSSE(ctx context.Context, host string, port int) error {
 	if port == 0 {
 		port = s.cfg.Port
 	}
+
+	s.writeStatusFile("sse", host, port)
+	defer s.removeStatusFile()
 
 	addr := fmt.Sprintf("%s:%d", host, port)
 	streamSrv := server.NewStreamableHTTPServer(s.mcpServer)
@@ -116,5 +125,36 @@ func (s *Server) ServeSSE(ctx context.Context, host string, port int) error {
 		return nil
 	case err := <-errChan:
 		return err
+	}
+}
+
+func (s *Server) writeStatusFile(transport, host string, port int) {
+	if s.container == nil || s.container.Config == nil || s.container.Config.MCPStatusFile == "" {
+		return
+	}
+	status := models.MCPStatus{
+		Status:    "active",
+		Transport: transport,
+		ReadOnly:  s.cfg.ReadOnly,
+		Host:      host,
+		Port:      port,
+		PID:       os.Getpid(),
+		StartedAt: time.Now().Format(time.RFC3339),
+	}
+	data, err := json.MarshalIndent(status, "", "  ")
+	if err != nil {
+		return
+	}
+	targetFile := s.container.Config.MCPStatusFile
+	_ = os.MkdirAll(filepath.Dir(targetFile), 0750)
+	tmpFile := fmt.Sprintf("%s.tmp.%d", targetFile, os.Getpid())
+	if err := os.WriteFile(tmpFile, data, 0600); err == nil {
+		_ = os.Rename(tmpFile, targetFile)
+	}
+}
+
+func (s *Server) removeStatusFile() {
+	if s.container != nil && s.container.Config != nil && s.container.Config.MCPStatusFile != "" {
+		_ = os.Remove(s.container.Config.MCPStatusFile)
 	}
 }

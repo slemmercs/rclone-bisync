@@ -124,6 +124,18 @@ Hardens CLI-to-RC argument compilation, rename tracking flags, in-memory review 
 
 ---
 
+### Delivered Milestone: Security Hardening (CodeQL #24) & MCP Agent Server Cockpit (`v1.0.0-beta.23`)
+
+Eliminates CodeQL #24 path injection, hardens agent diagnostics, adds scoped log filtering, flag compilation tool, and dashboard header MCP status indicators:
+- **Security Hardening (CodeQL Alert #24)**: Strict session ID format validation (`review.IsValidSessionID`), path traversal guards, containment enforcement in rollback staging, and HTTP 400 rejection across API endpoints.
+- **Explicit MCP Abort Diagnostics**: Integrated classified sync failure causes (`TOO_MANY_DELETES`, canary missing, lock contention) into MCP `bisync_trigger_sync` responses with active review barrier guidance.
+- **Scoped MCP Log Filtering**: Added `profile_id` and `run_id` filter parameters to `bisync_get_logs` with JSON and plain-text fallback matching.
+- **Flag Compiler Validation Tool (`bisync_validate_flags`)**: Read-only MCP tool exposing `compiler.CompileFlagsToParams` to test flag parsing, backend options, and `_config` dictionaries without executing sync.
+- **Explorer Pagination Metadata**: Added `total_count` and `has_more` to `bisync_explore_path` pagination responses.
+- **Dashboard Header MCP Status Pill**: Live pulsing header indicator (`MCP: ACTIVE [read/write]`) tracking runtime MCP server lifecycle and PID liveness.
+
+---
+
 ### Active Strategic Priority (#1): Configuration Snapshot & Rollback Engine
 
 Provides server-side configuration safety for global environments:

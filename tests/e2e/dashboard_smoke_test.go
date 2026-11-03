@@ -195,6 +195,18 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		t.Errorf("header navigation buttons should exist and never be disabled")
 	}
 
+	// Verify MCP status pill in header
+	mcpPillText, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
+		const el = document.querySelector('#app-header [x-text="mcpStatusText"]');
+		return el ? el.textContent.trim() : '';
+	})()`))
+	if err != nil {
+		t.Fatalf("failed evaluating MCP status pill: %v", err)
+	}
+	if !strings.HasPrefix(mcpPillText, "MCP:") {
+		t.Errorf("expected MCP status pill to start with 'MCP:', got %q", mcpPillText)
+	}
+
 	// 2. Audit each cockpit tab
 	tabs := []struct {
 		name       string

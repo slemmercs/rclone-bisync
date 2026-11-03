@@ -159,6 +159,14 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
   - Fixed Chromium DOM parser stripping `<template x-for>` inside `<select>` by rendering standard `<option>` tags.
   - Added headless Chromium E2E regression tests validating select options preservation.
 
+* **[COMPLETED] Security Hardening (CodeQL #24) & MCP Agent Server Cockpit [COMPLETED - (v1.0.0-beta.23)]**
+  - Remediated CodeQL alert #24 (`go/path-injection`) via `review.IsValidSessionID` character validation, traversal sequence guards, containment checks, and HTTP 400 rejection across all review endpoints.
+  - Returned explicit classified failure causes (`TOO_MANY_DELETES`, canary missing, lock contention) in `bisync_trigger_sync` responses with barrier recovery guidance.
+  - Added `profile_id` and `run_id` filter parameters to `bisync_get_logs` with JSON and plain-text fallback matching.
+  - Implemented `compiler.CompileFlagsToParams` and exposed read-only MCP tool `bisync_validate_flags`.
+  - Added `total_count` and `has_more` metadata to `bisync_explore_path` pagination responses.
+  - Added live header MCP status indicator pill (`MCP: ACTIVE [read/write]`) with runtime lifecycle state file and PID liveness validation.
+
 ---
 
 ### Active Near-Term Backlog (Sequenced Priorities)
