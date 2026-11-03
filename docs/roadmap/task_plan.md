@@ -13,7 +13,7 @@ Fix Rclone RC argument compilation for profile flags (`--track-renames`, `--trac
   - **Scope**: `internal/services/review_execution.go`, `internal/services/review_service_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestReview"`
 
-- [ ] Task 3: Flags Builder Select DOM Fix, Curated Catalog Expansion & E2E Tests
+- [x] Task 3: Flags Builder Select DOM Fix, Curated Catalog Expansion & E2E Tests
   - **Scope**: `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/js/flags_builder.js`, `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `go test -v -count=1 ./tests/e2e/...` and `./scripts/check.sh all`
 

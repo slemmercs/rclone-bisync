@@ -122,6 +122,7 @@
     <!-- Quick Add Pills -->
     <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
         <span class="text-[10px] text-slate-400 font-medium">Quick add:</span>
+        <button type="button" @click="addFlagRow('--track-renames')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --track-renames</button>
         <button type="button" @click="addFlagRow('--fast-list')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --fast-list</button>
         <button type="button" @click="addFlagRow('--checkers')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --checkers</button>
         <button type="button" @click="addFlagRow('--transfers')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --transfers</button>
@@ -141,9 +142,24 @@
             <div class="p-2 bg-slate-900/70 border border-slate-800 rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <div class="sm:w-1/3">
                     <select :value="row.isCustom ? 'custom' : row.flag" @change="onFlagSelectChange(idx, $event.target.value)" class="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-                        <template x-for="cat in flagsCatalog" :key="cat.flag">
-                            <option :value="cat.flag" x-text="cat.label"></option>
-                        </template>
+                        <option value="--track-renames">--track-renames</option>
+                        <option value="--track-renames-strategy">--track-renames-strategy</option>
+                        <option value="--fast-list">--fast-list</option>
+                        <option value="--drive-shared-with-me">--drive-shared-with-me</option>
+                        <option value="--checksum">--checksum</option>
+                        <option value="--ignore-checksum">--ignore-checksum</option>
+                        <option value="--size-only">--size-only</option>
+                        <option value="--resilient">--resilient</option>
+                        <option value="--recover">--recover</option>
+                        <option value="--checkers">--checkers</option>
+                        <option value="--transfers">--transfers</option>
+                        <option value="--bwlimit">--bwlimit</option>
+                        <option value="--tpslimit">--tpslimit</option>
+                        <option value="--tpslimit-burst">--tpslimit-burst</option>
+                        <option value="--buffer-size">--buffer-size</option>
+                        <option value="--retries">--retries</option>
+                        <option value="--retries-sleep">--retries-sleep</option>
+                        <option value="--low-level-retries">--low-level-retries</option>
                         <option value="custom">Custom flag (--...)</option>
                     </select>
                 </div>

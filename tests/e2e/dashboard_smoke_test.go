@@ -357,7 +357,86 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](closeScript))
 	})
 
-	// 4. Check for any runtime JavaScript console errors or exceptions
+	// 5. Test Flags Builder Select Options (ensure browser doesn't strip <option> tags)
+	t.Run("FlagsBuilderSelectOptionsNotStripped", func(t *testing.T) {
+		openScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.startNewProfile();
+			app.addFlagRow('--track-renames');
+			return true;
+		})()`
+		opened, err := chromedp.Run(ctx, chromedp.Evaluate[bool](openScript))
+		if err != nil || !opened {
+			t.Fatalf("failed opening create profile modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		script := `(() => {
+			const selects = document.querySelectorAll('select');
+			let flagSelect = null;
+			for (const s of selects) {
+				if (s.querySelector('option[value="--track-renames"]')) {
+					flagSelect = s;
+					break;
+				}
+			}
+			if (!flagSelect) {
+				return { error: "flag select element with --track-renames not found", count: 0 };
+			}
+			const options = Array.from(flagSelect.options).map(o => o.value);
+			return {
+				error: null,
+				count: options.length,
+				hasTrackRenames: options.includes('--track-renames'),
+				hasTrackRenamesStrategy: options.includes('--track-renames-strategy'),
+				hasCustom: options.includes('custom'),
+				options: options
+			};
+		})()`
+
+		type SelectCheckResult struct {
+			Error                   *string  `json:"error"`
+			Count                   int      `json:"count"`
+			HasTrackRenames         bool     `json:"hasTrackRenames"`
+			HasTrackRenamesStrategy bool     `json:"hasTrackRenamesStrategy"`
+			HasCustom               bool     `json:"hasCustom"`
+			Options                 []string `json:"options"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[SelectCheckResult](script))
+		if err != nil {
+			t.Fatalf("failed evaluating flag builder select: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("flag builder check failed: %s", *res.Error)
+		}
+		if res.Count < 10 {
+			t.Errorf("expected at least 10 options in flag select, got %d (options: %v)", res.Count, res.Options)
+		}
+		if !res.HasTrackRenames {
+			t.Errorf("expected --track-renames in flag select options")
+		}
+		if !res.HasTrackRenamesStrategy {
+			t.Errorf("expected --track-renames-strategy in flag select options")
+		}
+		if !res.HasCustom {
+			t.Errorf("expected 'custom' in flag select options")
+		}
+
+		// Close modal
+		closeModalScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (app && typeof app.closeProfilesModal === 'function') {
+				app.closeProfilesModal();
+				return true;
+			}
+			return false;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](closeModalScript))
+	})
+
+	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
 	defer mu.Unlock()
 

@@ -5,6 +5,8 @@
  */
 
 const RCLONE_FLAGS_CATALOG = [
+    { flag: "--track-renames", label: "--track-renames", desc: "Track file renames and moves between runs", isBool: true },
+    { flag: "--track-renames-strategy", label: "--track-renames-strategy", desc: "Rename tracking strategy (hash, modtime, or leaf)", isBool: false, placeholder: "modtime,leaf" },
     { flag: "--fast-list", label: "--fast-list", desc: "Use recursive list (faster scanning, uses more RAM)", isBool: true },
     { flag: "--drive-shared-with-me", label: "--drive-shared-with-me", desc: "Sync Google Drive items shared with you", isBool: true },
     { flag: "--checksum", label: "--checksum", desc: "Skip based on checksum comparison instead of modtime", isBool: true },
