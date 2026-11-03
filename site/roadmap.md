@@ -25,6 +25,7 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • Unified Logging Ledger & Telemetry De-Noising (`beta.18`) │
   │  • Native Model Context Protocol (MCP) Server (`beta.20`)    │
   │  • Tier 1 Curated Options & Flags Builder (`beta.21`)        │
+  │  • RC Argument Compilation & Rename Tracking (`beta.22`)     │
   └──────────────────────────────┬───────────────────────────────┘
                                  │
                                  ▼
@@ -99,6 +100,13 @@ The following core modules are implemented, tested, and included in current bina
 - **Guided `+ Add Flag` Builder (`flags_builder.js`)**: Interactive row-by-row builder with autocomplete datalist, type-aware value inputs, validation tooltips, POSIX command-line tokenizer, and live generated `rclone bisync` command preview.
 - **Dual Count/Percentage `MaxDeleteValue`**: Type-safe model supporting both count thresholds (e.g., `42`) and percentages (e.g., `10%`), serialized seamlessly with backwards compatibility.
 - **Audit Ledger Counter Sync & Security Remediation**: Instant ledger counter synchronization on load and polling, and resolved CodeQL quote sanitization escaping.
+
+### 11. RC Argument Compilation, Rename Tracking & Review Invalidation (`beta.22`)
+- **Rclone RC Parameter Compilation**: Strips `%` from `--max-delete` and compiles typed values into both root payload and `_config["MaxDelete"]` (`fs.ConfigInfo.MaxDelete`).
+- **Rename Tracking Configuration**: Remaps `--track-renames` (`_config["TrackRenames"]`) and `--track-renames-strategy` (`_config["TrackRenamesStrategy"]`).
+- **Review Barrier Cache Invalidation**: Guarantees in-memory review session cache (`s.session = nil`) clears immediately upon session file deletion or dismissal.
+- **DOM Parsing Safety**: Direct `<option>` elements in provider flags builder dropdown preventing browser parsing stripping.
+- **End-to-End Headless Verification**: Automated Chromium test suite checking dropdown preservation and multi-tab cockpit navigation.
 
 ---
 

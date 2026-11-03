@@ -52,6 +52,7 @@ Roadmap items are not commitments and may change based on project needs.
 | **Typed Service Contracts & Copyleft License Guard** | **Delivered** | PR #55 (`v1.0.0-beta.20`) |
 | **Native Model Context Protocol (MCP) Server (`rclone-bisync mcp`)** | **Delivered** | PR #56 (`v1.0.0-beta.20`) |
 | **Tier 1 Curated Options, Guided Flags Builder & Audit Ledger Sync** | **Delivered** | PR #59 (`v1.0.0-beta.21`) |
+| **RC Argument Compiler, Rename Tracking & Review Cache Invalidation** | **Delivered** | `v1.0.0-beta.22` |
 | **Configuration Snapshot & Rollback Engine** | **Active Priority (#1)** | Safety Pipeline & Config Snapshot API |
 | **In-App User Guidance, Info & Help Documents** | Planned | Contextual Assistance & Manual |
 | Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
@@ -110,6 +111,16 @@ Streamlines profile operational flag management, guarantees boolean argument per
 - **Guided `+ Add Flag` Builder (`flags_builder.js`)**: Interactive row-by-row builder with autocomplete datalist, type-aware value inputs, validation tooltips, POSIX command-line tokenizer, and live generated `rclone bisync` command preview.
 - **Dual Count/Percentage `MaxDeleteValue`**: Type-safe model supporting both count thresholds (e.g., `42`) and percentages (e.g., `10%`), serialized seamlessly with backwards compatibility.
 - **Audit Ledger Counter Sync & CodeQL Remediation**: Initialized audit records on boot so navigation tab badges show total event count immediately, stabilized profile filtering, and fixed quote sanitization escaping (CodeQL #23).
+
+---
+
+### Delivered Milestone: RC Argument Compilation, Rename Tracking & Review Cache Invalidation (`v1.0.0-beta.22`)
+
+Hardens CLI-to-RC argument compilation, rename tracking flags, in-memory review barrier synchronization, and dropdown rendering:
+- **Rclone RC Parameter Compilation & Config Remapping**: Added `TypeParamMaxDelete` stripping `%` and emitting integer `maxDelete` at top-level AND setting `_config["MaxDelete"]` (`fs.ConfigInfo.MaxDelete`). Remapped `--track-renames` (`TypeConfigBool` -> `_config["TrackRenames"]`) and `--track-renames-strategy` (`TypeConfigStr` -> `_config["TrackRenamesStrategy"]`).
+- **Review Session In-Memory Cache Invalidation**: Eliminated stale in-memory review barriers by auto-clearing `s.session = nil` when `active_review_session.json` is missing on disk or dismissed/resolved.
+- **Flags Builder `<select>` DOM Parser Fix**: Replaced `<template x-for>` inside `<select>` with standard `<option>` tags, preventing Chromium/WebKit parser stripping and restoring dropdown options. Expanded curated catalog with `--track-renames` and `--track-renames-strategy`.
+- **Headless Chromium E2E Testing**: Added automated E2E test verifying flags builder `<select>` retains catalog options.
 
 ---
 

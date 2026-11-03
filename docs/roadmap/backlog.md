@@ -152,6 +152,13 @@ Targeted and achieved statement coverage >80% across all Go packages and resolve
   - Dual count/percentage `MaxDeleteValue` type with JSON backwards compatibility.
   - CodeQL #23 sanitization fix and instant audit ledger tab counter synchronization.
 
+* **[COMPLETED] RC Argument Compilation, Rename Tracking & Review Cache Invalidation [COMPLETED - (v1.0.0-beta.22)]**
+  - Compiled `--max-delete` by stripping `%` and populating both root parameters and `_config["MaxDelete"]` (`fs.ConfigInfo.MaxDelete`).
+  - Remapped `--track-renames` (`_config["TrackRenames"]`) and `--track-renames-strategy` (`_config["TrackRenamesStrategy"]`).
+  - Auto-invalidated stale in-memory review session cache (`s.session = nil`) when session file is absent on disk or dismissed.
+  - Fixed Chromium DOM parser stripping `<template x-for>` inside `<select>` by rendering standard `<option>` tags.
+  - Added headless Chromium E2E regression tests validating select options preservation.
+
 ---
 
 ### Active Near-Term Backlog (Sequenced Priorities)
