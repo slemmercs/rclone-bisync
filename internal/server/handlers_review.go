@@ -3,9 +3,21 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
+
+func isSafeSessionID(id string) bool {
+	if id == "" {
+		return true
+	}
+	if strings.Contains(id, "/") || strings.Contains(id, "\\") || strings.Contains(id, "..") {
+		return false
+	}
+	return review.IsValidSessionID(id)
+}
 
 func (s *Server) handleReviewSession(w http.ResponseWriter, r *http.Request) {
 	if s.ReviewService == nil {
@@ -40,6 +52,10 @@ func (s *Server) handleReviewAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionID := req.SessionID
+	if !isSafeSessionID(sessionID) {
+		writeJSON(w, http.StatusBadRequest, models.StageDecisionResponse{Status: "error", Error: "Invalid session ID format"})
+		return
+	}
 	if sessionID == "" {
 		active, err := s.ReviewService.GetActiveSession(r.Context())
 		if err != nil || active == nil {
@@ -76,6 +92,10 @@ func (s *Server) handleReviewExecute(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
 	sessionID := req.SessionID
+	if !isSafeSessionID(sessionID) {
+		writeJSON(w, http.StatusBadRequest, models.ExecuteReviewResponse{Status: "error", Error: "Invalid session ID format"})
+		return
+	}
 	if sessionID == "" {
 		active, err := s.ReviewService.GetActiveSession(r.Context())
 		if err != nil || active == nil {
@@ -120,6 +140,10 @@ func (s *Server) handleReviewRollback(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
 	sessionID := req.SessionID
+	if !isSafeSessionID(sessionID) {
+		writeJSON(w, http.StatusBadRequest, models.RollbackReviewResponse{Status: "error", Error: "Invalid session ID format"})
+		return
+	}
 	if sessionID == "" {
 		active, err := s.ReviewService.GetActiveSession(r.Context())
 		if err != nil || active == nil {
@@ -159,6 +183,10 @@ func (s *Server) handleReviewDismiss(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
 	sessionID := req.SessionID
+	if !isSafeSessionID(sessionID) {
+		writeJSON(w, http.StatusBadRequest, models.ActionResponse{Status: "error", Error: "Invalid session ID format"})
+		return
+	}
 	if sessionID == "" {
 		active, err := s.ReviewService.GetActiveSession(r.Context())
 		if err != nil || active == nil {
@@ -186,6 +214,10 @@ func (s *Server) handleReviewActionBatch(w http.ResponseWriter, r *http.Request)
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
 	sessionID := req.SessionID
+	if !isSafeSessionID(sessionID) {
+		writeJSON(w, http.StatusBadRequest, models.BatchReviewActionResponse{Status: "error", Error: "Invalid session ID format"})
+		return
+	}
 	if sessionID == "" {
 		active, err := s.ReviewService.GetActiveSession(r.Context())
 		if err != nil || active == nil {

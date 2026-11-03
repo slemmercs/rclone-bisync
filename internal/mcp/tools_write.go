@@ -9,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 )
@@ -166,6 +167,9 @@ func (s *Server) handleResolveReview(ctx context.Context, req mcp.CallToolReques
 	}
 
 	sessionID := req.GetString("session_id", "")
+	if sessionID != "" && (!review.IsValidSessionID(sessionID) || strings.Contains(sessionID, "/") || strings.Contains(sessionID, "\\") || strings.Contains(sessionID, "..")) {
+		return mcp.NewToolResultError("invalid session_id format"), nil
+	}
 	execute := req.GetBool("execute", false)
 	token := req.GetString("confirmation_token", "")
 
