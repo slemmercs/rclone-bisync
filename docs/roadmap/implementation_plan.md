@@ -1,40 +1,49 @@
-# Implementation Plan: MCP Inspector Modal & Environment Read-Only Configuration
+# Implementation Plan: Resolution Executor Directory Handling in Review Sessions
 
 ## Proposed Changes
 
-Provide complete end-to-end operational visibility and configuration control for the native Model Context Protocol (MCP) server.
+Fix the HTTP 500 error encountered when restoring or accepting deletions on review sessions containing directory candidates (such as `rev-0b6b9ffb861c7e84`).
 
-1. **Environment Configuration for MCP Read-Only Mode (`MCP_READ_ONLY`)**:
-   - Allow operators to enforce read-only safety mode directly in `bisync.env` without altering systemd unit files or CLI arguments.
-   - Command-line flag `--read-only` remains an override (`*readOnly || cfg.MCPReadOnly`).
+### Root Cause
+During sync conflict reviews (e.g. `TOO_MANY_DELETES`), deletion candidates can represent directories (`cand.IsDir == true`).
+When executing resolutions:
+1. `DecisionRestoreItem` called `e.Client.CopyFile` (`operations/copyfile`) on directories. Rclone's RC server rejected this with `HTTP 500: {"error": "is a directory not a file", "status": 500}`.
+2. `LocalBackup` attempted to create a file hardlink and copy data on directories using `os.OpenFile(..., O_WRONLY)`, which fails with `EISDIR`.
+3. `DecisionAcceptDelete` used `os.Remove` which fails on non-empty directories, and `DeleteFile` (`operations/deletefile`) on remote directories which fails in Rclone RC.
 
-2. **Dashboard MCP Inspector Modal (`modal_mcp.html`)**:
-   - Transform the header status pill (`MCP: ACTIVE [read/write]`) into an interactive element with cursor feedback and click handler (`openMcpModal()`).
-   - Create a dedicated modal displaying:
-     - Real-time connection status, transport (`sse` / `stdio`), host, port, process ID (PID), and uptime.
-     - Security mode badge (`Read/Write` with dynamic confirmation tokens vs `Read-Only`).
-     - Interactive catalog of all 11 MCP tools partitioned into Inspection and Mutating tools with live permission tags.
-     - 1-click copyable AI assistant integration configuration snippet (for Claude Desktop, Cline, Cursor, Windsurf).
-     - Configuration guide explaining how to toggle `MCP_READ_ONLY` in `bisync.env` or systemd.
+### Solution Architecture
+1. **Core Client Enhancement (`internal/core/client/fs_ops.go`)**:
+   - Add `Mkdir(ctx context.Context, fs, remote string) (bool, error)` calling Rclone RC `/operations/mkdir`.
+2. **Review Engine RemoteClient Interface (`internal/engine/review/backup.go`)**:
+   - Add `Mkdir(ctx context.Context, fs, remote string) (bool, error)` and `PurgeDir(ctx context.Context, fs, remote string) (bool, error)` to `RemoteClient`.
+3. **Local Directory Backup & Restore (`internal/engine/review/backup.go`)**:
+   - In `LocalBackup`, check `fi.IsDir()`: create backup directory via `os.MkdirAll(destPath, 0700)` and return without attempting file copy/hardlinks.
+   - In `RestoreLocalBackup`, check `fi.IsDir()`: recreate directory via `os.MkdirAll(targetPath, 0755)`.
+4. **Directory-Aware Resolution Execution (`internal/engine/review/executor.go`)**:
+   - For `DecisionRestoreItem`:
+     - If directory: call `e.Client.Mkdir` on remote or `os.MkdirAll` on local.
+     - If file: call `e.Client.CopyFile`.
+   - For `DecisionAcceptDelete`:
+     - If directory: call `os.RemoveAll` on local or `e.Client.PurgeDir` on remote.
+     - If file: call `os.Remove` on local or `e.Client.DeleteFile` on remote.
 
 ### Affected Components & Packages
 
-- `internal/config/config.go`: Add `MCPReadOnly bool` to `Config` struct, loaded via `getEnvBool("MCP_READ_ONLY", false)`.
-- `internal/config/config_test.go`: Add test asserting `MCP_READ_ONLY` parsing.
-- `main.go`: Update `runMCP` call in `mcp` CLI subcommand to incorporate `cfg.MCPReadOnly`.
-- `dashboard/frontend/partials/modals/modal_mcp.html`: New modal partial with design-system styling.
-- `dashboard/frontend/index.html`: Include `{{ template "modal_mcp" . }}` and make the header MCP pill clickable.
-- `dashboard/frontend/app.js`: Add `showMcpModal`, `openMcpModal()`, `closeMcpModal()`, `copyMcpConfig()`, and `copyMcpEndpoint()` state helpers.
+- `internal/core/client/fs_ops.go`: Add `Mkdir` method.
+- `internal/engine/review/backup.go`: Expand `RemoteClient` interface and handle directory in `LocalBackup`/`RestoreLocalBackup`.
+- `internal/engine/review/executor.go`: Branch on `isDir` in `executeDeletion`.
+- `internal/engine/review/executor_test.go`: Add unit tests for directory restore and deletion decisions.
+- `internal/services/review_service_test.go`: Update mock client to implement `Mkdir`.
 
 ### Safety & Error Handling
 
-- Read-only protection: If `cfg.MCPReadOnly` is true or `--read-only` flag is given, mutating tools (`bisync_trigger_sync`, `bisync_resolve_review`, `bisync_dedupe_by_hash`) are rejected with an explicit security error.
-- Dynamic confirmation tickets: High blast-radius mutating tools require a cryptographically verified `confirmation_token` with 5-minute TTL.
-- Zero-leak safety: No environment secrets or tokens are rendered in the MCP modal; only the local loopback SSE endpoint is displayed.
+- Jail confinement: All paths remain strictly verified via `ResolveSafePath` before any filesystem operations.
+- Canary files: Canary files (`RCLONE_TEST`) remain forbidden from modification or deletion.
 
 ## Verification Plan
 
-- `go test -v -count=1 ./internal/config/... -run TestLoadConfig_MCPReadOnly`
-- `./scripts/check.sh all` (all 7 quality gates including HTML scanner, Go vet, linter, tests, and LOC budgets)
-- Browser manual inspection / verification of modal rendering and clipboard copy actions.
+- `go test -v -count=1 ./internal/engine/review/... -run "TestExecutor_Directory"`
+- `go test -v -count=1 ./internal/core/client/... -run "TestClientMkdir"`
+- `./scripts/check.sh all`
+
 

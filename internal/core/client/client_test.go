@@ -269,6 +269,23 @@ func TestCopyFileAndDir(t *testing.T) {
 	}
 }
 
+func TestClientMkdir(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/operations/mkdir" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	if ok, err := c.Mkdir(context.Background(), "gdrive:", "folder"); err != nil || !ok {
+		t.Fatalf("expected Mkdir to succeed: %v", err)
+	}
+}
+
 func TestNormalizeFs(t *testing.T) {
 	tests := []struct {
 		input    string

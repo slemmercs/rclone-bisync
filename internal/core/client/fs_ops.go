@@ -266,3 +266,20 @@ func (c *RcloneClient) PurgeDir(ctx context.Context, fs, remote string) (bool, e
 	}
 	return true, nil
 }
+
+// Mkdir calls /operations/mkdir to create a directory on a remote.
+func (c *RcloneClient) Mkdir(ctx context.Context, fs, remote string) (bool, error) {
+	cleanFs := NormalizeFs(fs)
+	payload := map[string]string{
+		"fs":     cleanFs,
+		"remote": strings.Trim(remote, "/"),
+	}
+	resp, body, err := c.post(ctx, "operations/mkdir", payload, 20*time.Second)
+	if err != nil {
+		return false, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("mkdir failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+	return true, nil
+}

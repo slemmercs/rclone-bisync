@@ -126,6 +126,11 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 		return err
 	}
 
+	isDir := cand.IsDir
+	if fi, statErr := os.Stat(fullLocal); statErr == nil && fi.IsDir() {
+		isDir = true
+	}
+
 	switch cand.Decision {
 	case models.DecisionAcceptDelete:
 		if cand.Source == models.SideRemote {
@@ -138,27 +143,47 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 				e.logWAL(session.ID, actionID, "BACKUP_COMPLETED", cand.Path, cand.Decision, "")
 
 				e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-				if err := os.Remove(fullLocal); err != nil {
-					e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, err.Error())
-					return err
+				var rmErr error
+				if isDir {
+					rmErr = os.RemoveAll(fullLocal)
+				} else {
+					rmErr = os.Remove(fullLocal)
+				}
+				if rmErr != nil {
+					e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, rmErr.Error())
+					return rmErr
 				}
 				e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
 			}
 		} else {
 			if e.Client != nil {
-				backupPath, bErr := RemoteBackup(ctx, e.Client, e.RemoteName, cand.Path, session.ID)
-				if bErr == nil {
-					action.BackupPath = backupPath
-					e.logWAL(session.ID, actionID, "BACKUP_COMPLETED", cand.Path, cand.Decision, "")
+				if !isDir {
+					backupPath, bErr := RemoteBackup(ctx, e.Client, e.RemoteName, cand.Path, session.ID)
+					if bErr == nil {
+						action.BackupPath = backupPath
+						e.logWAL(session.ID, actionID, "BACKUP_COMPLETED", cand.Path, cand.Decision, "")
+					}
 				}
 				e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-				if ok, err := e.Client.DeleteFile(ctx, e.RemoteFs(), cand.Path); err != nil || !ok {
-					if err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(strings.ToLower(err.Error()), "not found")) {
-						e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "already absent on remote")
-					} else {
-						errMsg := fmt.Sprintf("remote delete failed: %v", err)
-						e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
-						return errors.New(errMsg)
+				if isDir {
+					if ok, err := e.Client.PurgeDir(ctx, e.RemoteFs(), cand.Path); err != nil || !ok {
+						if err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(strings.ToLower(err.Error()), "not found")) {
+							e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "already absent on remote")
+						} else {
+							errMsg := fmt.Sprintf("remote purge failed: %v", err)
+							e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
+							return errors.New(errMsg)
+						}
+					}
+				} else {
+					if ok, err := e.Client.DeleteFile(ctx, e.RemoteFs(), cand.Path); err != nil || !ok {
+						if err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(strings.ToLower(err.Error()), "not found")) {
+							e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "already absent on remote")
+						} else {
+							errMsg := fmt.Sprintf("remote delete failed: %v", err)
+							e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
+							return errors.New(errMsg)
+						}
 					}
 				}
 				e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
@@ -167,24 +192,47 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 
 	case models.DecisionRestoreItem:
 		if cand.Source == models.SideRemote {
-			if e.Client != nil {
-				e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-				if ok, err := e.Client.CopyFile(ctx, e.LocalRoot, cand.Path, e.RemoteFs(), cand.Path); err != nil || !ok {
-					errMsg := fmt.Sprintf("restore copy to remote failed: %v", err)
-					e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
-					return errors.New(errMsg)
+			if isDir {
+				if e.Client != nil {
+					e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
+					if ok, err := e.Client.Mkdir(ctx, e.RemoteFs(), cand.Path); err != nil || !ok {
+						errMsg := fmt.Sprintf("restore mkdir on remote failed: %v", err)
+						e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
+						return errors.New(errMsg)
+					}
+					e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
 				}
-				e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
+			} else {
+				if e.Client != nil {
+					e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
+					if ok, err := e.Client.CopyFile(ctx, e.LocalRoot, cand.Path, e.RemoteFs(), cand.Path); err != nil || !ok {
+						errMsg := fmt.Sprintf("restore copy to remote failed: %v", err)
+						e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
+						return errors.New(errMsg)
+					}
+					e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
+				}
 			}
 		} else {
-			if e.Client != nil {
+			if isDir {
 				e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-				if ok, err := e.Client.CopyFile(ctx, e.RemoteFs(), cand.Path, e.LocalRoot, cand.Path); err != nil || !ok {
-					errMsg := fmt.Sprintf("restore copy from remote failed: %v", err)
+				// #nosec G301 - restored local directory permissions
+				if err := os.MkdirAll(fullLocal, 0750); err != nil {
+					errMsg := fmt.Sprintf("restore mkdir on local failed: %v", err)
 					e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
 					return errors.New(errMsg)
 				}
 				e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
+			} else {
+				if e.Client != nil {
+					e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
+					if ok, err := e.Client.CopyFile(ctx, e.RemoteFs(), cand.Path, e.LocalRoot, cand.Path); err != nil || !ok {
+						errMsg := fmt.Sprintf("restore copy from remote failed: %v", err)
+						e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
+						return errors.New(errMsg)
+					}
+					e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
+				}
 			}
 		}
 	}

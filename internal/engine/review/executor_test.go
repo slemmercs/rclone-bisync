@@ -572,3 +572,116 @@ func TestExecutor_TrailingSpaceDirectoryAndResumeCompleted(t *testing.T) {
 		t.Fatalf("expected 2 total completed actions, got %d", len(sess.Actions))
 	}
 }
+
+func TestExecutor_Directory(t *testing.T) {
+	tmpDir := t.TempDir()
+	localRoot := filepath.Join(tmpDir, "local")
+	backupDir := filepath.Join(tmpDir, "backups")
+	walPath := filepath.Join(tmpDir, "review.wal")
+
+	// 1. Directory restore to remote (source: remote -> local dir uploaded via Mkdir)
+	localDir := filepath.Join(localRoot, "Alfi", "SubDir")
+	if err := os.MkdirAll(localDir, 0755); err != nil {
+		t.Fatalf("failed to create local dir: %v", err)
+	}
+
+	var remoteMkdirs []string
+	var remotePurges []string
+	var copyFileCalled bool
+	var deleteFileCalled bool
+
+	mockClient := &mockRemoteClient{
+		copyFileFunc: func(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
+			copyFileCalled = true
+			return true, nil
+		},
+		deleteFileFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+			deleteFileCalled = true
+			return true, nil
+		},
+		mkdirFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+			remoteMkdirs = append(remoteMkdirs, remote)
+			return true, nil
+		},
+		purgeDirFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+			remotePurges = append(remotePurges, remote)
+			return true, nil
+		},
+	}
+
+	exec := NewResolutionExecutor(localRoot, "gdrive", backupDir, walPath, mockClient)
+
+	sess := NewSession("TOO_MANY_DELETES", "Review", []models.DeletionCandidate{
+		{
+			ID:       "del-dir-remote-restore",
+			Path:     "Alfi",
+			IsDir:    true,
+			Source:   models.SideRemote,
+			Decision: models.DecisionRestoreItem,
+			Resolved: true,
+		},
+		{
+			ID:       "del-dir-local-restore",
+			Path:     "RemoteOnlyDir",
+			IsDir:    true,
+			Source:   models.SideLocal,
+			Decision: models.DecisionRestoreItem,
+			Resolved: true,
+		},
+		{
+			ID:       "del-dir-remote-delete",
+			Path:     "ToDeleteLocalDir",
+			IsDir:    true,
+			Source:   models.SideRemote,
+			Decision: models.DecisionAcceptDelete,
+			Resolved: true,
+		},
+		{
+			ID:       "del-dir-local-delete",
+			Path:     "ToDeleteRemoteDir",
+			IsDir:    true,
+			Source:   models.SideLocal,
+			Decision: models.DecisionAcceptDelete,
+			Resolved: true,
+		},
+	}, nil)
+
+	// Create ToDeleteLocalDir with a nested file
+	toDeleteDir := filepath.Join(localRoot, "ToDeleteLocalDir")
+	_ = os.MkdirAll(toDeleteDir, 0755)
+	_ = os.WriteFile(filepath.Join(toDeleteDir, "nested.txt"), []byte("nested"), 0644)
+
+	if err := exec.ExecuteSession(context.Background(), sess); err != nil {
+		t.Fatalf("ExecuteSession failed on directory candidates: %v", err)
+	}
+
+	// Assertions:
+	// 1. CopyFile and DeleteFile should NOT be called for directory operations
+	if copyFileCalled {
+		t.Errorf("expected CopyFile NOT to be called on directory candidates")
+	}
+	if deleteFileCalled {
+		t.Errorf("expected DeleteFile NOT to be called on directory candidates")
+	}
+
+	// 2. Mkdir called for remote restore
+	if len(remoteMkdirs) != 1 || remoteMkdirs[0] != "Alfi" {
+		t.Errorf("expected Mkdir to be called for 'Alfi', got %v", remoteMkdirs)
+	}
+
+	// 3. Local dir recreated for local restore
+	remoteOnlyLocal := filepath.Join(localRoot, "RemoteOnlyDir")
+	if fi, err := os.Stat(remoteOnlyLocal); err != nil || !fi.IsDir() {
+		t.Errorf("expected local directory 'RemoteOnlyDir' to be created, stat error: %v", err)
+	}
+
+	// 4. Local dir removed on accept delete
+	if _, err := os.Stat(toDeleteDir); !os.IsNotExist(err) {
+		t.Errorf("expected 'ToDeleteLocalDir' to be removed from local disk")
+	}
+
+	// 5. PurgeDir called for remote deletion
+	if len(remotePurges) != 1 || remotePurges[0] != "ToDeleteRemoteDir" {
+		t.Errorf("expected PurgeDir to be called for 'ToDeleteRemoteDir', got %v", remotePurges)
+	}
+}

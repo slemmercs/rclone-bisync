@@ -11,6 +11,8 @@ import (
 type mockRemoteClient struct {
 	copyFileFunc   func(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error)
 	deleteFileFunc func(ctx context.Context, fs, remote string) (bool, error)
+	mkdirFunc      func(ctx context.Context, fs, remote string) (bool, error)
+	purgeDirFunc   func(ctx context.Context, fs, remote string) (bool, error)
 }
 
 func (m *mockRemoteClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
@@ -23,6 +25,20 @@ func (m *mockRemoteClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs
 func (m *mockRemoteClient) DeleteFile(ctx context.Context, fs, remote string) (bool, error) {
 	if m.deleteFileFunc != nil {
 		return m.deleteFileFunc(ctx, fs, remote)
+	}
+	return true, nil
+}
+
+func (m *mockRemoteClient) Mkdir(ctx context.Context, fs, remote string) (bool, error) {
+	if m.mkdirFunc != nil {
+		return m.mkdirFunc(ctx, fs, remote)
+	}
+	return true, nil
+}
+
+func (m *mockRemoteClient) PurgeDir(ctx context.Context, fs, remote string) (bool, error) {
+	if m.purgeDirFunc != nil {
+		return m.purgeDirFunc(ctx, fs, remote)
 	}
 	return true, nil
 }

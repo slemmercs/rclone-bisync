@@ -16,6 +16,8 @@ import (
 type RemoteClient interface {
 	CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error)
 	DeleteFile(ctx context.Context, fs, remote string) (bool, error)
+	Mkdir(ctx context.Context, fs, remote string) (bool, error)
+	PurgeDir(ctx context.Context, fs, remote string) (bool, error)
 }
 
 const (
@@ -94,6 +96,13 @@ func LocalBackup(srcPath, backupDir, sessionID, relPath string) (string, error) 
 	destPath := filepath.Join(sessionBackupDir, filepath.Clean(relPath))
 	destDir := filepath.Dir(destPath)
 
+	if fi.IsDir() {
+		if err := os.MkdirAll(destPath, 0700); err != nil {
+			return "", fmt.Errorf("failed to create backup directory %s: %w", destPath, err)
+		}
+		return destPath, nil
+	}
+
 	if err := os.MkdirAll(destDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create backup directory %s: %w", destDir, err)
 	}
@@ -167,6 +176,11 @@ func RestoreLocalBackup(backupPath, targetPath string) error {
 	fi, err := os.Stat(backupPath)
 	if err != nil {
 		return fmt.Errorf("backup file missing: %w", err)
+	}
+
+	if fi.IsDir() {
+		// #nosec G301 - restored directory permissions
+		return os.MkdirAll(targetPath, 0750)
 	}
 
 	targetDir := filepath.Dir(targetPath)
