@@ -20,6 +20,7 @@ const (
 	TypeConfigStr
 	TypeConfigInt
 	TypeConfigFloat
+	TypeParamMaxDelete
 )
 
 type OptionMapping struct {
@@ -55,13 +56,13 @@ var CLIToRCMap = map[string]OptionMapping{
 	"--dropbox-chunk-size": {TypeBackendStr, "chunk_size"},
 
 	// Bisync parameters
-	"--check-access":      {TypeParamBool, "checkAccess"},
-	"--check-first":       {TypeParamBool, "checkFirst"},
-	"--track-renames":     {TypeParamBool, "trackRenames"},
-	"--remove-empty-dirs": {TypeParamBool, "removeEmptyDirs"},
-	"--resilient":         {TypeParamBool, "resilient"},
-	"--recover":           {TypeParamBool, "recover"},
-	"--compare":           {TypeParam, "compare"},
+	"--check-access":           {TypeParamBool, "checkAccess"},
+	"--check-first":            {TypeParamBool, "checkFirst"},
+	"--max-delete":             {TypeParamMaxDelete, "maxDelete"},
+	"--remove-empty-dirs":      {TypeParamBool, "removeEmptyDirs"},
+	"--resilient":              {TypeParamBool, "resilient"},
+	"--recover":                {TypeParamBool, "recover"},
+	"--compare":                {TypeParam, "compare"},
 
 	// Conflict handling
 	"--conflict-resolve": {TypeParam, "conflictResolve"},
@@ -71,13 +72,15 @@ var CLIToRCMap = map[string]OptionMapping{
 	"--filters-file": {TypeParam, "filtersFile"},
 
 	// Global Engine Config (under _config)
-	"--fast-list":         {TypeConfigBool, "UseListR"},
-	"--buffer-size":       {TypeConfigStr, "BufferSize"},
-	"--retries":           {TypeConfigInt, "Retries"},
-	"--retries-sleep":     {TypeConfigStr, "RetriesSleep"},
-	"--low-level-retries": {TypeConfigInt, "LowLevelRetries"},
-	"--tpslimit":          {TypeConfigFloat, "TPSLimit"},
-	"--tpslimit-burst":    {TypeConfigInt, "TPSLimitBurst"},
+	"--track-renames":          {TypeConfigBool, "TrackRenames"},
+	"--track-renames-strategy": {TypeConfigStr, "TrackRenamesStrategy"},
+	"--fast-list":              {TypeConfigBool, "UseListR"},
+	"--buffer-size":            {TypeConfigStr, "BufferSize"},
+	"--retries":                {TypeConfigInt, "Retries"},
+	"--retries-sleep":          {TypeConfigStr, "RetriesSleep"},
+	"--low-level-retries":      {TypeConfigInt, "LowLevelRetries"},
+	"--tpslimit":               {TypeConfigFloat, "TPSLimit"},
+	"--tpslimit-burst":         {TypeConfigInt, "TPSLimitBurst"},
 }
 
 // CompileBisyncPayload translates CLI arguments into /sync/bisync parameters.
@@ -177,6 +180,18 @@ func CompileBisyncPayload(
 					}
 				}
 				bisyncParams[mapping.TargetKey] = val
+			case TypeParamMaxDelete:
+				valStr := flagVal
+				if !hasEqual {
+					i++
+					if i < len(argsList) {
+						valStr = argsList[i]
+					}
+				}
+				valStr = strings.TrimSuffix(strings.TrimSpace(valStr), "%")
+				if intVal, err := strconv.Atoi(valStr); err == nil {
+					bisyncParams[mapping.TargetKey] = intVal
+				}
 			case TypeConfigStr:
 				val := flagVal
 				if !hasEqual {

@@ -1,87 +1,47 @@
-# Implementation Plan: Profile Configuration Redesign & Guided Flag Builder
+# Implementation Plan: RC Argument Compilation, Rename Tracking Flags & Review Session Cache Fix
 
 ## Proposed Changes
 
-Redesign the Profile Configuration and Operational Flags experience in Bisync Hub (Active Strategic Priority #1). This replaces the unguided single-string escape hatch with an interactive, type-safe `+ Add Flag` row builder, fixes checkbox persistence and boolean serialization bugs for cloud providers, reclassifies provider configurations into distinct Tier 1 (curated) and Tier 2 (lean) interfaces, and provides a real-time synthesized CLI invocation preview.
-
----
+Fix Rclone RC argument compilation for profile flags (specifically `--track-renames`, `--track-renames-strategy`, and `--max-delete` percent vs count), resolve ghost barrier review sessions after file deletion, and fix the HTML `<select>` catalog options rendering bug in the profile flags builder.
 
 ### Affected Components & Packages
 
-1. **Backend Flag Generation (`internal/profiles/`)**:
-   - `builder.go`:
-     - Fix boolean provider options serialization to emit explicit flags when disabled or enabled (e.g., `--drive-use-trash=false` when unchecked vs `--drive-use-trash` when checked).
-     - Add curated support for `--drive-shared-with-me` (`drive_shared_with_me`).
-     - Support explicit boolean serialization for OneDrive, Dropbox, and S3 flags.
-   - `builder_test.go`:
-     - Unit tests for explicit boolean flag generation (`"true"`, `"false"`, unset).
-     - Tests for `--drive-shared-with-me`, `--drive-use-trash=false`, and combined arguments.
-   - `validator.go`:
-     - Validate both space-separated and equal-sign arguments (`--flag=value`) consistently.
-
-2. **Frontend Architecture & Modules (`dashboard/frontend/js/`)**:
-   - `flags_builder.js` (NEW):
-     - Catalog of standard Rclone bisync flags (`--fast-list`, `--checkers`, `--transfers`, `--bwlimit`, `--tpslimit`, `--drive-shared-with-me`, `--checksum`, `--ignore-checksum`, `--size-only`, `--resilient`, `--recover`, etc.).
-     - Parser: parses `custom_flags` string into structured row models `[{ id, flag, value, isBool, isCustom }]`.
-     - Serializer: converts row models into sanitized POSIX-compliant CLI flag strings.
-     - Live Preview generator: computes complete synthesized `rclone bisync <path1> <path2> [args...]` preview.
-   - `profiles_modal.js`:
-     - Integrate `flags_builder.js` for row management, parsing, and serialization.
-     - Fix checkbox state persistence in `getProviderOption` / `setProviderOption`.
-   - `index.html`:
-     - Register `<script src="/js/flags_builder.js"></script>`.
-
-3. **Dashboard Modals & Templates (`dashboard/frontend/partials/modals/`)**:
-   - `modal_provider_options.html`:
-     - Redesign Tier 1 UI: Curated toggles for Google Drive, OneDrive, S3, Dropbox with robust boolean checkboxes.
-     - Redesign Tier 2 UI: Lean context notice for generic remotes (WebDAV, SFTP, Nextcloud, etc.).
-     - Replace raw custom flags textarea with interactive `+ Add Flag` row builder:
-       - Row controls: Flag dropdown, adaptive toggle/value input, delete button.
-       - Quick add action: `+ Add Flag` button.
-       - Real-time CLI preview card.
-       - Inline prohibited flags validation warnings.
-   - `modal_profiles.html`:
-     - Streamlined layout, visual hierarchy, and section badges adhering to the design system.
-
----
+- `internal/core/compiler/compiler.go`:
+  - Add `TypeParamMaxDelete` to handle both percentage values (`"5%"`) and numeric counts (`"5"` or `50`). Strip `%` and parse as integer `intVal`, populating `bisyncParams["maxDelete"] = intVal`.
+  - Reclassify `--track-renames` from `TypeParamBool` to `TypeConfigBool` with target `"TrackRenames"` in `_config`.
+  - Add `--track-renames-strategy` as `TypeConfigStr` with target `"TrackRenamesStrategy"` in `_config`.
+- `internal/core/compiler/compiler_test.go`:
+  - Unit tests validating `--max-delete 5%`, `--max-delete=10`, `--track-renames`, and `--track-renames-strategy modtime,leaf` compilation.
+- `internal/services/review_execution.go`:
+  - Clear in-memory session cache (`s.session = nil`) when session file on disk does not exist (`os.IsNotExist(err)`).
+- `internal/services/review_service_test.go`:
+  - Regression test verifying that deleting the session file on disk clears `GetActiveSession()` to `nil`.
+- `dashboard/frontend/partials/modals/modal_provider_options.html`:
+  - Replace `<template x-for>` inside `<select>` with standard `<option>` tags to prevent Chromium HTML parser from stripping catalog options.
+- `dashboard/frontend/js/flags_builder.js`:
+  - Add `--track-renames` (`isBool: true`) and `--track-renames-strategy` (`isBool: false`, placeholder `modtime,leaf`) to `RCLONE_FLAGS_CATALOG`.
+- `tests/e2e/dashboard_smoke_test.go`:
+  - E2E test verifying that profile modal dropdown renders all curated flags and enables boolean switch without stripping.
 
 ### Technical Strategy & Data Flow
 
-#### 1. Explicit Boolean Flag Serialization (Backend)
-Rclone commands interpret `--flag` as enabling the flag, but when an option defaults to `true` (like `--drive-use-trash`), disabling it requires `--drive-use-trash=false`.
-- If `providerOpts["drive_use_trash"] == "false"`, serialize `--drive-use-trash=false`.
-- If `providerOpts["drive_use_trash"] == "true"` or `"1"`, serialize `--drive-use-trash`.
-- If unset, omit (rely on rclone default or explicit configuration).
-
-#### 2. Interactive Flag Builder Catalog & Data Flow (Frontend)
-- Pre-populated popular rclone flags with types (`boolean` vs `value`) and units.
-- Opening `modal_profiles.html` parses `custom_flags` string into structured rows via `FlagsBuilder.parseCustomFlags(...)`.
-- Mutating rows updates `custom_flags` and recomputes the CLI preview in real time.
-- Validates rows against prohibited flags blocklist in real time.
-
-#### 3. Strict LOC & Modular Governance
-- Keep `flags_builder.js` (<200 LOC) and `profiles_modal.js` (<300 LOC) strictly below the 400 LOC ceiling.
-- Verify with `./scripts/check-loc.sh 400`.
-
----
+- **MaxDelete**: Bisync RC endpoint expects `maxDelete: int` representing count or percent number. CLI flags `--max-delete 5%` or `--max-delete=5%` have trailing `%` stripped and converted to integer before sending in JSON payload.
+- **_config vs params**: Rclone 1.68+ bisync handles global config options (`TrackRenames`, `TrackRenamesStrategy`) in `_config` dictionary (`fs.ConfigInfo`).
+- **Session Cache**: `ensureSessionLoadedLocked()` checks file existence; if missing, `s.session = nil` ensures API returns `null` rather than a deleted ghost session.
 
 ### Safety & Error Handling
 
-- **Prohibited Flags Enforcement**: Disallows restricted flags (`--config`, `-c`, `--rc`, `--use-mmap`, `--log-file`, `--json`) and highlights invalid rows.
-- **Shell Injection Protection**: The builder handles POSIX escaping without arbitrary shell interpolation.
-- **Backward Compatibility**: Existing profiles with string `custom_flags` seamlessly parse into rows; unknown flags map to `Custom...` without loss of user configuration.
-
----
+- **Backward Compatibility**: Existing profiles continue working without migration.
+- **Fail-Safe Compilation**: Invalid integer formats in `--max-delete` fallback gracefully without crashing.
+- **POSIX Advisory Locking**: Review service preserves existing lock isolation during session loads.
 
 ## Verification Plan
 
-### Automated Unit & Integration Tests
-- `go test -v -count=1 ./internal/profiles/...` to verify `BuildCLIArgs`, explicit boolean flags, `--drive-use-trash=false`, and `--drive-shared-with-me`.
-- `go test -count=1 ./cmd/check/...` and `./scripts/check.sh all` to verify all quality gates pass including LOC limits, HTML tokenizer, and license checks.
+- `go test -v -count=1 ./internal/core/compiler/...`
+- `go test -v -count=1 ./internal/services/... -run "TestReview"`
+- `go test -v -count=1 ./tests/e2e/...`
+- Full check suite: `./scripts/check.sh all`
 
-### Frontend & End-to-End Tests
-- Verify modal rendering, row additions/removals, flag selection, and CLI preview in browser.
-- Run headless Chrome E2E suite: `go test -v -count=1 ./tests/e2e/...`.
 
 
 

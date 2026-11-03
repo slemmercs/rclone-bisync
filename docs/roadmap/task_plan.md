@@ -1,38 +1,30 @@
-# Task Plan: Profile Configuration Redesign & Guided Flag Builder
+# Task Plan: RC Argument Compilation, Rename Tracking Flags & Review Session Cache Fix
 
 ## Goal
-Implement Active Strategic Priority #1: Reclassify provider options, fix boolean checkbox persistence bugs in profile settings, deliver the interactive `+ Add Flag` row builder with real-time CLI preview, and ensure all JS/Go modules remain strictly below 400 LOC.
+Fix Rclone RC argument compilation for profile flags (`--track-renames`, `--track-renames-strategy`, and `--max-delete`), invalidate stale in-memory review session cache, fix browser DOM select parsing in the flags builder UI, and add regression tests.
 
 ## Tasks
 
-- [x] Task 1: Backend Boolean Serialization & Provider Flags Enhancement
-  - **Scope**: `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/profiles/...`
+- [x] Task 1: RC Argument Compiler Fixes & Unit Tests
+  - **Scope**: `internal/core/compiler/compiler.go`, `internal/core/compiler/compiler_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/core/compiler/...`
 
-- [x] Task 2: Modular Frontend Flags Builder Module
-  - **Scope**: `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/index.html`
-  - **Verification**: `./scripts/check-loc.sh 400` and `go test -count=1 ./cmd/check/...`
+- [ ] Task 2: Review Service In-Memory Cache Invalidation & Unit Tests
+  - **Scope**: `internal/services/review_execution.go`, `internal/services/review_service_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestReview"`
 
-- [x] Task 3: Profile Modal State Integration & Checkbox Persistence Fix
-  - **Scope**: `dashboard/frontend/js/profiles_modal.js`
-  - **Verification**: Verify row state reactivity and `./scripts/check-loc.sh 400`
+- [ ] Task 3: Flags Builder Select DOM Fix, Curated Catalog Expansion & E2E Tests
+  - **Scope**: `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/js/flags_builder.js`, `tests/e2e/dashboard_smoke_test.go`
+  - **Verification**: `go test -v -count=1 ./tests/e2e/...` and `./scripts/check.sh all`
 
-- [x] Task 4: Provider Options & Guided Flag Builder UI Overhaul
-  - **Scope**: `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/partials/modals/modal_profiles.html`
-  - **Verification**: `./scripts/check.sh all` (HTML tokenizer, linters, tests)
-
-- [x] Task 5: End-to-End Verification & Full Quality Gate
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `./scripts/check.sh all`
-  - **Verification**: Complete 7-stage quality check suite passing 100%
+- [ ] Task 4: Daemon Deployment & Live Sync Verification
+  - **Scope**: Build binary, update user profile flags if needed, restart dashboard service, live dry-run sync
+  - **Verification**: Verify clean sync execution with `rclone rc` and dashboard API
 
 ## Status Updates
 
-- 2026-11-01: Initialized implementation plan and task plan for Active Strategic Priority #1 (Profile Redesign & Guided Flag Builder).
-- 2026-11-02: Completed Task 1 (Backend boolean serialization, explicit `=false` provider flags, `--drive-shared-with-me`, and RC compiler `=value` parser support). Passed all unit tests.
-- 2026-11-02: Completed Task 2 (Modular Frontend Flags Builder module `flags_builder.js` with curated catalog, token parser, row serializer, and live CLI preview; registered in `index.html` and `app.js`). Passed all 7 quality gates.
-- 2026-11-02: Completed Task 3 (Profile Modal State Integration & Checkbox Persistence Fix in `profiles_modal.js` with `getProviderBoolOption` / `setProviderBoolOption`, `initFlagsBuilder` on open, and `syncFlagsToCustomFlags` on save). Passed all 7 quality gates including headless Chrome E2E.
-- 2026-11-02: Completed Task 4 (Provider Options & Guided Flag Builder UI Overhaul in `modal_provider_options.html` with Tier 1/Tier 2 remote classification, boolean checkbox persistence, dynamic `+ Add Flag` row builder with autocomplete, quick-add pills, delete actions, prohibited flags warning, and real-time synthesized CLI preview card). Passed all 7 quality gates.
-- 2026-11-02: Completed Task 5 (Full End-to-End Verification & Quality Assurance: verified all 7 quality stages passing 100%, Go unit tests across all internal packages >80% coverage, LOC check strictly conforming to <400 LOC ceiling across all files, and pre-commit checks passing). Feature branch fully verified.
+- 2026-11-03: Initialized plan from implementation_plan.md on branch fix/rc-flags-compilation-and-review-cache.
+
 
 
 

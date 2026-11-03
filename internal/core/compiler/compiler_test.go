@@ -218,3 +218,75 @@ func TestCompileVerboseFlags(t *testing.T) {
 		t.Fatalf("expected Verbose: 1 in _config, got: %v", cfg2)
 	}
 }
+
+func TestCompileBisyncParams_MaxDelete(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		expected int
+	}{
+		{"percent space", []string{"--max-delete", "5%"}, 5},
+		{"percent equal", []string{"--max-delete=15%"}, 15},
+		{"count space", []string{"--max-delete", "50"}, 50},
+		{"count equal", []string{"--max-delete=0"}, 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, err := CompileBisyncPayload(tc.args, "/tmp/local", "gdrive:", false, false, false)
+			if err != nil {
+				t.Fatalf("unexpected compile error: %v", err)
+			}
+			maxDel, ok := payload["maxDelete"].(int)
+			if !ok {
+				t.Fatalf("expected int maxDelete in payload, got %T (%v)", payload["maxDelete"], payload["maxDelete"])
+			}
+			if maxDel != tc.expected {
+				t.Fatalf("expected maxDelete %d, got %d", tc.expected, maxDel)
+			}
+		})
+	}
+}
+
+func TestCompileBisyncParams_TrackRenamesAndStrategy(t *testing.T) {
+	// Test --track-renames and --track-renames-strategy space-separated
+	args1 := []string{
+		"--track-renames",
+		"--track-renames-strategy", "modtime,leaf",
+	}
+	payload1, err := CompileBisyncPayload(args1, "/tmp/local", "gdrive:", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg1, ok := payload1["_config"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("missing _config in payload")
+	}
+	if cfg1["TrackRenames"] != true {
+		t.Fatalf("expected TrackRenames: true in _config, got: %v", cfg1["TrackRenames"])
+	}
+	if cfg1["TrackRenamesStrategy"] != "modtime,leaf" {
+		t.Fatalf("expected TrackRenamesStrategy: 'modtime,leaf' in _config, got: %v", cfg1["TrackRenamesStrategy"])
+	}
+
+	// Test --track-renames=false and --track-renames-strategy=hash
+	args2 := []string{
+		"--track-renames=false",
+		"--track-renames-strategy=hash",
+	}
+	payload2, err := CompileBisyncPayload(args2, "/tmp/local", "gdrive:", false, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg2, ok := payload2["_config"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("missing _config in payload")
+	}
+	if cfg2["TrackRenames"] != false {
+		t.Fatalf("expected TrackRenames: false in _config, got: %v", cfg2["TrackRenames"])
+	}
+	if cfg2["TrackRenamesStrategy"] != "hash" {
+		t.Fatalf("expected TrackRenamesStrategy: 'hash' in _config, got: %v", cfg2["TrackRenamesStrategy"])
+	}
+}
+
