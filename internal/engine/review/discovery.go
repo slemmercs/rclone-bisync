@@ -201,6 +201,14 @@ func buildDeletionCandidate(path string, source models.CandidateSide, targetActi
 			cand.IsDir = fi.IsDir()
 			cand.Size = fi.Size()
 			cand.ModTime = fi.ModTime().UTC().Format(time.RFC3339)
+		} else if os.IsNotExist(err) {
+			if fi, trailErr := os.Stat(fullPath + " "); trailErr == nil {
+				cand.Path = path + " "
+				cand.Name = filepath.Base(cand.Path)
+				cand.IsDir = fi.IsDir()
+				cand.Size = fi.Size()
+				cand.ModTime = fi.ModTime().UTC().Format(time.RFC3339)
+			}
 		}
 	}
 
