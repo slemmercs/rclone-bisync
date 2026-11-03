@@ -9,7 +9,7 @@ Fix Rclone RC argument compilation for profile flags (`--track-renames`, `--trac
   - **Scope**: `internal/core/compiler/compiler.go`, `internal/core/compiler/compiler_test.go`
   - **Verification**: `go test -v -count=1 ./internal/core/compiler/...`
 
-- [ ] Task 2: Review Service In-Memory Cache Invalidation & Unit Tests
+- [x] Task 2: Review Service In-Memory Cache Invalidation & Unit Tests
   - **Scope**: `internal/services/review_execution.go`, `internal/services/review_service_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestReview"`
 

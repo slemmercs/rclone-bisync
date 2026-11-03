@@ -293,6 +293,7 @@ func TestReviewService_ApplyBatchRecommendations(t *testing.T) {
 
 	svc.mu.Lock()
 	svc.session = sess
+	_ = review.SaveActiveSession(cfg.ActiveReviewFile, sess)
 	svc.mu.Unlock()
 
 	// Apply batch with minConfidence 0.70 and maxRisk LOW
@@ -353,6 +354,7 @@ func TestReviewService_DeletionRecommendations(t *testing.T) {
 
 	svc.mu.Lock()
 	svc.session = sess
+	_ = review.SaveActiveSession(cfg.ActiveReviewFile, sess)
 	svc.mu.Unlock()
 
 	active, err := svc.GetActiveSession(context.Background())
@@ -530,6 +532,7 @@ func TestReviewService_RollbackAndAudit(t *testing.T) {
 
 	// Re-assign session to simulate rollback on that session
 	svc.session = applied
+	_ = review.SaveActiveSession(cfg.ActiveReviewFile, applied)
 	rolledBack, err := svc.RollbackReviewSession(ctx, applied.ID)
 	if err != nil {
 		t.Fatalf("failed to rollback session: %v", err)
@@ -638,6 +641,63 @@ func TestReviewService_BatchAndStagingEdgeCases(t *testing.T) {
 		t.Fatalf("expected audit event for dismiss, got %d records, err: %v", len(records), err)
 	}
 }
+
+func TestReviewService_FileDeletionClearsInMemoryCache(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	rcClient := client.NewRcloneClient(server.URL, "", "")
+	svc := NewReviewService(cfg, rcClient)
+
+	// Setup active session
+	localFile := filepath.Join(cfg.LocalPath, "cache_test.txt")
+	_ = os.WriteFile(localFile, []byte("content"), 0644)
+	_ = os.WriteFile(cfg.PendingDeletionsFile, []byte(`{"aborted_at":123456,"has_deletions":true,"files":["cache_test.txt"],"error":"Too many deletes"}`), 0644)
+	_ = os.WriteFile(cfg.LogFile, []byte("ERROR : File was deleted - cache_test.txt: Safety abort: too many deletes"), 0644)
+
+	sess, err := svc.GetActiveSession(context.Background())
+	if err != nil || sess == nil {
+		t.Fatalf("failed to get active session: %v", err)
+	}
+
+	if !svc.HasBlockingReview() {
+		t.Fatal("expected HasBlockingReview to be true")
+	}
+
+	// Now delete session file and pending deletions file on disk
+	_ = os.Remove(cfg.ActiveReviewFile)
+	_ = os.Remove(cfg.PendingDeletionsFile)
+
+	// Verify that HasBlockingReview returns false and in-memory cache is invalidated
+	if svc.HasBlockingReview() {
+		t.Fatal("expected HasBlockingReview to be false after disk session file was deleted")
+	}
+
+	active, err := svc.GetActiveSession(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if active != nil {
+		t.Fatalf("expected nil active session after deletion, got: %+v", active)
+	}
+
+	// Verify ClearSession explicitly
+	svc.session = sess
+	_ = review.SaveActiveSession(cfg.ActiveReviewFile, sess)
+	svc.ClearSession()
+	if svc.HasBlockingReview() {
+		t.Fatal("expected no blocking review after ClearSession")
+	}
+	if _, err := os.Stat(cfg.ActiveReviewFile); !os.IsNotExist(err) {
+		t.Fatal("expected active review file to be removed after ClearSession")
+	}
+}
+
 
 func TestReviewService_NewWithWALReconciliation(t *testing.T) {
 	cfg, tmpDir := createTestConfig(t)

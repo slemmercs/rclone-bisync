@@ -106,14 +106,7 @@ func (s *ReviewService) HasBlockingReview() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.session == nil {
-		sessionFile := s.sessionFilePath()
-		if sessionFile != "" {
-			if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
-				s.session = sess
-			}
-		}
-	}
+	s.ensureSessionLoadedLocked()
 
 	if s.session == nil {
 		return false
@@ -161,6 +154,17 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 	}
 
 	return nil, nil
+}
+
+// ClearSession resets the in-memory active session cache and removes any active session file on disk.
+func (s *ReviewService) ClearSession() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.session = nil
+	if sessionFile := s.sessionFilePath(); sessionFile != "" {
+		_ = os.Remove(sessionFile)
+	}
 }
 
 // DiscoverSession forces a candidate discovery pass and creates an active review session.

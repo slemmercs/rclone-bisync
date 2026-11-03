@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -116,9 +117,15 @@ func (s *ReviewService) ensureSessionLoadedLocked() {
 	if sessionFile == "" {
 		return
 	}
-	if sess, err := review.LoadActiveSession(sessionFile); err == nil && sess != nil {
-		if s.session == nil || s.session.ID != sess.ID || sess.UpdatedAt.After(s.session.UpdatedAt) {
-			s.session = sess
+	sess, err := review.LoadActiveSession(sessionFile)
+	if err == nil {
+		if sess != nil {
+			if s.session == nil || s.session.ID != sess.ID || sess.UpdatedAt.After(s.session.UpdatedAt) {
+				s.session = sess
+			}
+		} else {
+			// Session file does not exist on disk, clear any cached active session
+			s.session = nil
 		}
 	}
 }
@@ -257,6 +264,15 @@ func (s *ReviewService) RollbackReviewSession(ctx context.Context, sessionID str
 	defer s.mu.Unlock()
 
 	s.ensureSessionLoadedLocked()
+	if s.session == nil || s.session.ID != sessionID {
+		// Attempt to load from review archives if session was already applied/archived
+		if reviewDir := s.reviewDirPath(); reviewDir != "" && sessionID != "" {
+			archivePath := filepath.Join(reviewDir, fmt.Sprintf("%s.json", sessionID))
+			if archSess, err := review.LoadActiveSession(archivePath); err == nil && archSess != nil {
+				s.session = archSess
+			}
+		}
+	}
 	if s.session == nil || s.session.ID != sessionID {
 		return nil, fmt.Errorf("review session %s not found or inactive", sessionID)
 	}
