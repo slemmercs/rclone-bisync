@@ -34,9 +34,11 @@ func (s *Server) registerReadTools() {
 
 	s.mcpServer.AddTool(
 		mcp.NewTool("bisync_get_logs",
-			mcp.WithDescription("Retrieve recent bisync execution logs with tail limit and optional severity level filtering"),
+			mcp.WithDescription("Retrieve recent bisync execution logs with tail limit, severity level, profile, and run ID filtering"),
 			mcp.WithNumber("limit", mcp.DefaultNumber(20), mcp.Description("Number of recent log entries to retrieve (max 100)")),
 			mcp.WithString("level", mcp.Description("Optional severity filter (e.g. ERROR, NOTICE, INFO, DEBUG)")),
+			mcp.WithString("profile_id", mcp.Description("Optional profile ID filter to scope log output to a specific profile")),
+			mcp.WithString("run_id", mcp.Description("Optional run ID filter to inspect logs for a specific sync execution")),
 		),
 		s.handleGetLogs,
 	)
@@ -147,13 +149,54 @@ func (s *Server) handleGetLogs(_ context.Context, req mcp.CallToolRequest) (*mcp
 		limit = 20
 	}
 	level := strings.ToUpper(strings.TrimSpace(req.GetString("level", "")))
+	profileID := strings.TrimSpace(req.GetString("profile_id", ""))
+	runID := strings.TrimSpace(req.GetString("run_id", ""))
 
-	rawLogs := s.container.TelemetryService.GetCachedBisyncLogs(100)
+	fetchLimit := 100
+	if level != "" || profileID != "" || runID != "" {
+		fetchLimit = 500
+	}
+
+	rawLogs := s.container.TelemetryService.GetCachedBisyncLogs(fetchLimit)
 	var filtered []string
 	for _, line := range rawLogs {
-		if level != "" && !strings.Contains(strings.ToUpper(line), level) {
-			continue
+		var entry struct {
+			Level     string `json:"level"`
+			ProfileID string `json:"profile_id"`
+			RunID     string `json:"run_id"`
 		}
+		isJSON := json.Unmarshal([]byte(line), &entry) == nil
+
+		if level != "" {
+			if isJSON && entry.Level != "" {
+				if !strings.Contains(strings.ToUpper(entry.Level), level) {
+					continue
+				}
+			} else if !strings.Contains(strings.ToUpper(line), level) {
+				continue
+			}
+		}
+
+		if profileID != "" {
+			if isJSON && entry.ProfileID != "" {
+				if !strings.EqualFold(entry.ProfileID, profileID) {
+					continue
+				}
+			} else if !strings.Contains(line, profileID) {
+				continue
+			}
+		}
+
+		if runID != "" {
+			if isJSON && entry.RunID != "" {
+				if !strings.EqualFold(entry.RunID, runID) {
+					continue
+				}
+			} else if !strings.Contains(line, runID) {
+				continue
+			}
+		}
+
 		filtered = append(filtered, line)
 		if len(filtered) >= limit {
 			break
@@ -162,11 +205,18 @@ func (s *Server) handleGetLogs(_ context.Context, req mcp.CallToolRequest) (*mcp
 	if filtered == nil {
 		filtered = []string{}
 	}
-	return jsonResult(map[string]any{
+	resp := map[string]any{
 		"total": len(filtered),
 		"level": level,
 		"logs":  filtered,
-	})
+	}
+	if profileID != "" {
+		resp["profile_id"] = profileID
+	}
+	if runID != "" {
+		resp["run_id"] = runID
+	}
+	return jsonResult(resp)
 }
 
 func (s *Server) handleListRemotes(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -283,97 +333,6 @@ func (s *Server) handleInspectConflictSession(ctx context.Context, req mcp.CallT
 	return jsonResult(map[string]any{
 		"active":  true,
 		"session": resSession,
-	})
-}
-
-func (s *Server) handleExplorePath(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if s.container == nil || s.container.ExplorerService == nil {
-		return mcp.NewToolResultError("ExplorerService unavailable"), nil
-	}
-	remote, err := req.RequireString("remote")
-	if err != nil {
-		return mcp.NewToolResultError("missing required parameter 'remote'"), nil
-	}
-	relPath := req.GetString("path", "")
-	profileID := req.GetString("profile_id", "")
-	limit := req.GetInt("limit", 50)
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-	offset := req.GetInt("offset", 0)
-	if offset < 0 {
-		offset = 0
-	}
-	filterStr := strings.ToLower(strings.TrimSpace(req.GetString("filter", "")))
-
-	var localBase string
-	if s.container.ProfileService != nil && profileID != "" {
-		if p, err := s.container.ProfileService.Get(profileID); err == nil && p != nil && p.LocalPath != "" {
-			localBase = p.LocalPath
-		}
-	}
-	if localBase == "" && s.container.Config != nil {
-		localBase = s.container.Config.LocalPath
-	}
-
-	listing := s.container.ExplorerService.BrowsePath(ctx, remote, relPath, localBase)
-	if listing.Error != "" {
-		return mcp.NewToolResultError(fmt.Sprintf("explore path failed: %s", listing.Error)), nil
-	}
-
-	var matchedItems []map[string]any
-	for _, rawItem := range listing.Items {
-		name, _ := rawItem["Name"].(string)
-		itemPath, _ := rawItem["Path"].(string)
-		if filterStr != "" && !strings.Contains(strings.ToLower(name), filterStr) && !strings.Contains(strings.ToLower(itemPath), filterStr) {
-			continue
-		}
-		isDir, _ := rawItem["IsDir"].(bool)
-		var size int64
-		switch v := rawItem["Size"].(type) {
-		case float64:
-			size = int64(v)
-		case int64:
-			size = v
-		case int:
-			size = int64(v)
-		}
-		modTime, _ := rawItem["ModTime"].(string)
-
-		item := map[string]any{
-			"name":   name,
-			"path":   itemPath,
-			"is_dir": isDir,
-		}
-		if size > 0 {
-			item["size"] = size
-		}
-		if modTime != "" {
-			item["mod_time"] = modTime
-		}
-		matchedItems = append(matchedItems, item)
-	}
-
-	totalItems := len(matchedItems)
-	pagedItems := []map[string]any{}
-	if offset < totalItems {
-		end := offset + limit
-		if end > totalItems {
-			end = totalItems
-		}
-		pagedItems = matchedItems[offset:end]
-	}
-
-	return jsonResult(map[string]any{
-		"remote":         listing.Remote,
-		"path":           listing.Path,
-		"has_canary":     listing.HasCanary,
-		"total_items":    totalItems,
-		"returned_items": len(pagedItems),
-		"offset":         offset,
-		"limit":          limit,
-		"has_more":       offset+len(pagedItems) < totalItems,
-		"items":          pagedItems,
 	})
 }
 
