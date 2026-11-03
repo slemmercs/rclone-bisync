@@ -53,6 +53,7 @@ Roadmap items are not commitments and may change based on project needs.
 | **Native Model Context Protocol (MCP) Server (`rclone-bisync mcp`)** | **Delivered** | PR #56 (`v1.0.0-beta.20`) |
 | **Tier 1 Curated Options, Guided Flags Builder & Audit Ledger Sync** | **Delivered** | PR #59 (`v1.0.0-beta.21`) |
 | **RC Argument Compiler, Rename Tracking & Review Cache Invalidation** | **Delivered** | `v1.0.0-beta.22` |
+| **Security Hardening (CodeQL #24) & MCP Inspector Modal** | **Delivered** | `v1.0.0-beta.23` |
 | **Configuration Snapshot & Rollback Engine** | **Active Priority (#1)** | Safety Pipeline & Config Snapshot API |
 | **In-App User Guidance, Info & Help Documents** | Planned | Contextual Assistance & Manual |
 | Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
@@ -124,15 +125,17 @@ Hardens CLI-to-RC argument compilation, rename tracking flags, in-memory review 
 
 ---
 
-### Delivered Milestone: Security Hardening (CodeQL #24) & MCP Agent Server Cockpit (`v1.0.0-beta.23`)
+### Delivered Milestone: Security Hardening (CodeQL #24) & MCP Inspector Modal (`v1.0.0-beta.23`)
 
-Eliminates CodeQL #24 path injection, hardens agent diagnostics, adds scoped log filtering, flag compilation tool, and dashboard header MCP status indicators:
+Eliminates CodeQL #24 path injection, hardens agent diagnostics, adds scoped log filtering, flag compilation tool, configurable `MCP_READ_ONLY` mode, and interactive dashboard header MCP inspector modal:
 - **Security Hardening (CodeQL Alert #24)**: Strict session ID format validation (`review.IsValidSessionID`), path traversal guards, containment enforcement in rollback staging, and HTTP 400 rejection across API endpoints.
+- **Configurable MCP Read-Only Mode (`MCP_READ_ONLY`)**: Added `MCP_READ_ONLY` setting in `bisync.env` and `--read-only` flag fallback for deterministic read-only safety without systemd modifications.
+- **Interactive MCP Inspector Modal (`modal_mcp.html`)**: Transformed header status pill into an interactive modal with live connection metrics, endpoint copy button, client integration snippets (Claude Desktop / Cline / Cursor), and an 11-tool catalog with dynamic permission badges.
 - **Explicit MCP Abort Diagnostics**: Integrated classified sync failure causes (`TOO_MANY_DELETES`, canary missing, lock contention) into MCP `bisync_trigger_sync` responses with active review barrier guidance.
 - **Scoped MCP Log Filtering**: Added `profile_id` and `run_id` filter parameters to `bisync_get_logs` with JSON and plain-text fallback matching.
 - **Flag Compiler Validation Tool (`bisync_validate_flags`)**: Read-only MCP tool exposing `compiler.CompileFlagsToParams` to test flag parsing, backend options, and `_config` dictionaries without executing sync.
 - **Explorer Pagination Metadata**: Added `total_count` and `has_more` to `bisync_explore_path` pagination responses.
-- **Dashboard Header MCP Status Pill**: Live pulsing header indicator (`MCP: ACTIVE [read/write]`) tracking runtime MCP server lifecycle and PID liveness.
+- **Always-On Systemd Service (`rclone-mcp.service`)**: Deployed systemd user unit for resilient, background SSE protocol serving.
 
 ---
 

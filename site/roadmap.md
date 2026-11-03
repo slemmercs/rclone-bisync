@@ -26,6 +26,7 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • Native Model Context Protocol (MCP) Server (`beta.20`)    │
   │  • Tier 1 Curated Options & Flags Builder (`beta.21`)        │
   │  • RC Argument Compilation & Rename Tracking (`beta.22`)     │
+  │  • Security Hardening & MCP Inspector Cockpit (`beta.23`)    │
   └──────────────────────────────┬───────────────────────────────┘
                                  │
                                  ▼
@@ -108,13 +109,15 @@ The following core modules are implemented, tested, and included in current bina
 - **DOM Parsing Safety**: Direct `<option>` elements in provider flags builder dropdown preventing browser parsing stripping.
 - **End-to-End Headless Verification**: Automated Chromium test suite checking dropdown preservation and multi-tab cockpit navigation.
 
-### 12. Security Hardening (CodeQL #24) & MCP Agent Server Cockpit (`beta.23`)
+### 12. Security Hardening (CodeQL #24) & MCP Inspector Cockpit (`beta.23`)
 - **CodeQL #24 Path Injection Remediation**: Strict character validation (`^[a-zA-Z0-9_-]+$`), directory containment checks, and HTTP 400 rejection for review session identifiers.
+- **Configurable MCP Read-Only Mode (`MCP_READ_ONLY`)**: Direct environment variable configuration in `bisync.env` and `--read-only` CLI override.
+- **Interactive MCP Inspector Modal**: Clickable dashboard header pill opening real-time connection status, 1-click client configuration snippets (Claude Desktop, Cline, Cursor), and complete 11-tool catalog.
 - **Explicit MCP Abort Diagnostics**: Structured classified sync failure causes (`TOO_MANY_DELETES`, canary missing, lock contention) returned directly in tool calls with review barrier recovery guidance.
 - **Profile & Run-Scoped Log Filtering**: Multi-profile log scoping and single-run trace isolation in `bisync_get_logs`.
 - **Compiler Flag Validation Tool**: Read-only `bisync_validate_flags` tool previewing compiled RC parameters and `_config` dictionaries without executing sync.
 - **Explorer Pagination Metadata**: Added `total_count` and `has_more` indicators to `bisync_explore_path`.
-- **Dashboard Header MCP Indicator**: Reactive top-header status pill (`MCP: ACTIVE [read/write]`) fed by server state and PID liveness.
+- **Always-On Systemd Service (`rclone-mcp.service`)**: Daemonized user service for continuous MCP availability across agent workflows.
 
 ---
 
