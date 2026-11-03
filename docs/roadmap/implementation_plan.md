@@ -1,41 +1,40 @@
-# Implementation Plan: Safe Session Path Confinement (CodeQL #24) & MCP Server Hardening
+# Implementation Plan: MCP Inspector Modal & Environment Read-Only Configuration
 
 ## Proposed Changes
 
-Address security alert CodeQL #24 (`go/path-injection`) by strictly validating session identifiers and enforcing filesystem jail confinement in review session handling, and outline the upcoming MCP server enhancements based on the agent evaluation review.
+Provide complete end-to-end operational visibility and configuration control for the native Model Context Protocol (MCP) server.
 
-### Part 1: Safe Review Session ID Validation & Path Confinement (CodeQL Alert #24)
+1. **Environment Configuration for MCP Read-Only Mode (`MCP_READ_ONLY`)**:
+   - Allow operators to enforce read-only safety mode directly in `bisync.env` without altering systemd unit files or CLI arguments.
+   - Command-line flag `--read-only` remains an override (`*readOnly || cfg.MCPReadOnly`).
 
-#### Affected Components & Packages
-- `internal/engine/review/session.go`:
-  - Add `IsValidSessionID(id string) bool` enforcing alphanumeric, hyphen, and underscore characters (`^[a-zA-Z0-9_-]+$`) and forbidding path separators (`/`, `\`) or traversal tokens (`..`).
-- `internal/engine/review/journal.go`:
-  - In `LoadActiveSession(activeFilePath string)`, validate that `filepath.Clean(activeFilePath)` contains no `..` traversal sequences before opening.
-- `internal/server/handlers_review.go`:
-  - Sanitize and validate `sessionID` across all review HTTP handlers (`handleReviewRollback`, `handleReviewDismiss`, `handleReviewExecute`, `handleReviewAction`, `handleReviewActionBatch`), rejecting any input containing `/`, `\`, or `..` with HTTP 400 Bad Request.
-- `internal/services/review_execution.go`:
-  - In `RollbackReviewSession(ctx, sessionID)`, validate `IsValidSessionID(sessionID)`, use `filepath.Base(sessionID)`, and verify relative directory containment with `filepath.Rel(cleanReviewDir, archivePath)` ensuring `!strings.HasPrefix(rel, "..")`.
-- `internal/mcp/resources.go`, `internal/mcp/tools_read.go`, `internal/mcp/tools_write.go`:
-  - Guard `sessionID` lookups against directory traversal using `review.IsValidSessionID(sessionID)`.
+2. **Dashboard MCP Inspector Modal (`modal_mcp.html`)**:
+   - Transform the header status pill (`MCP: ACTIVE [read/write]`) into an interactive element with cursor feedback and click handler (`openMcpModal()`).
+   - Create a dedicated modal displaying:
+     - Real-time connection status, transport (`sse` / `stdio`), host, port, process ID (PID), and uptime.
+     - Security mode badge (`Read/Write` with dynamic confirmation tokens vs `Read-Only`).
+     - Interactive catalog of all 11 MCP tools partitioned into Inspection and Mutating tools with live permission tags.
+     - 1-click copyable AI assistant integration configuration snippet (for Claude Desktop, Cline, Cursor, Windsurf).
+     - Configuration guide explaining how to toggle `MCP_READ_ONLY` in `bisync.env` or systemd.
 
-### Part 2: Native MCP Server Hardening & DX Improvements (Next Milestone)
+### Affected Components & Packages
 
-#### Proposed Capabilities
-1. **Diagnostic Error Excerpts on Aborts (`bisync_trigger_sync`)**:
-   - Parse and return the last stderr error line or reason (e.g. `too many deletes (>0%)`, canary missing) in the tool response so AI agents do not need secondary log round-trips.
-2. **Profile & Run ID Scoped Log Filtering (`bisync_get_logs`)**:
-   - Add optional `profile_id` and `run_id` filter arguments to isolate traces on multi-profile systems.
-3. **Compiler Flag Validation Tool (`bisync_validate_flags`)**:
-   - New read-only MCP tool exposing `compiler.CompileFlagsToParams` to test flag parsing and `_config` dictionaries without executing sync.
-4. **Explorer Pagination Metadata (`bisync_explore_path`)**:
-   - Include `total_count` and `has_more: bool` in explorer responses to avoid speculative pagination queries.
-5. **Dashboard Header MCP Status Indicator**:
-   - Top header status pill (`MCP: ACTIVE [read/write]`) fed by the SSE connection manager or daemon state.
+- `internal/config/config.go`: Add `MCPReadOnly bool` to `Config` struct, loaded via `getEnvBool("MCP_READ_ONLY", false)`.
+- `internal/config/config_test.go`: Add test asserting `MCP_READ_ONLY` parsing.
+- `main.go`: Update `runMCP` call in `mcp` CLI subcommand to incorporate `cfg.MCPReadOnly`.
+- `dashboard/frontend/partials/modals/modal_mcp.html`: New modal partial with design-system styling.
+- `dashboard/frontend/index.html`: Include `{{ template "modal_mcp" . }}` and make the header MCP pill clickable.
+- `dashboard/frontend/app.js`: Add `showMcpModal`, `openMcpModal()`, `closeMcpModal()`, `copyMcpConfig()`, and `copyMcpEndpoint()` state helpers.
+
+### Safety & Error Handling
+
+- Read-only protection: If `cfg.MCPReadOnly` is true or `--read-only` flag is given, mutating tools (`bisync_trigger_sync`, `bisync_resolve_review`, `bisync_dedupe_by_hash`) are rejected with an explicit security error.
+- Dynamic confirmation tickets: High blast-radius mutating tools require a cryptographically verified `confirmation_token` with 5-minute TTL.
+- Zero-leak safety: No environment secrets or tokens are rendered in the MCP modal; only the local loopback SSE endpoint is displayed.
 
 ## Verification Plan
 
-- `go test -v -count=1 ./internal/engine/review/... -run "TestSession|TestJournal"`
-- `go test -v -count=1 ./internal/services/... -run "TestReview"`
-- `go test -v -count=1 ./internal/server/... -run "TestReview"`
-- `./scripts/check.sh all`
+- `go test -v -count=1 ./internal/config/... -run TestLoadConfig_MCPReadOnly`
+- `./scripts/check.sh all` (all 7 quality gates including HTML scanner, Go vet, linter, tests, and LOC budgets)
+- Browser manual inspection / verification of modal rendering and clipboard copy actions.
 

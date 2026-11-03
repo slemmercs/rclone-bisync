@@ -448,6 +448,45 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](closeModalScript))
 	})
 
+	// 6. Test MCP Modal Interaction & Tool Inspection
+	t.Run("MCPModalInteraction", func(t *testing.T) {
+		openScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app || typeof app.openMcpModal !== 'function') return false;
+			app.openMcpModal('overview');
+			return app.showMcpModal;
+		})()`
+		opened, err := chromedp.Run(ctx, chromedp.Evaluate[bool](openScript))
+		if err != nil || !opened {
+			t.Fatalf("failed opening MCP modal: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+
+		// Switch to tools tab and verify
+		switchToolsScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return '';
+			app.mcpModalTab = 'tools';
+			return app.mcpModalTab;
+		})()`
+		tab, err := chromedp.Run(ctx, chromedp.Evaluate[string](switchToolsScript))
+		if err != nil || tab != "tools" {
+			t.Fatalf("failed switching to MCP tools tab: %v", err)
+		}
+
+		// Close MCP modal
+		closeScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app || typeof app.closeMcpModal !== 'function') return false;
+			app.closeMcpModal();
+			return !app.showMcpModal;
+		})()`
+		closed, err := chromedp.Run(ctx, chromedp.Evaluate[bool](closeScript))
+		if err != nil || !closed {
+			t.Fatalf("failed closing MCP modal: %v", err)
+		}
+	})
+
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
 	defer mu.Unlock()
