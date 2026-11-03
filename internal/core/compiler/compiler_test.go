@@ -244,6 +244,14 @@ func TestCompileBisyncParams_MaxDelete(t *testing.T) {
 			if maxDel != tc.expected {
 				t.Fatalf("expected maxDelete %d, got %d", tc.expected, maxDel)
 			}
+			cfg, ok := payload["_config"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected _config map in payload, got %T", payload["_config"])
+			}
+			cfgMaxDel, ok := cfg["MaxDelete"].(int)
+			if !ok || cfgMaxDel != tc.expected {
+				t.Fatalf("expected _config.MaxDelete %d, got %v", tc.expected, cfg["MaxDelete"])
+			}
 		})
 	}
 }

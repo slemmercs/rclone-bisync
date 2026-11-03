@@ -191,6 +191,7 @@ func CompileBisyncPayload(
 				valStr = strings.TrimSuffix(strings.TrimSpace(valStr), "%")
 				if intVal, err := strconv.Atoi(valStr); err == nil {
 					bisyncParams[mapping.TargetKey] = intVal
+					engineConfig["MaxDelete"] = intVal
 				}
 			case TypeConfigStr:
 				val := flagVal
