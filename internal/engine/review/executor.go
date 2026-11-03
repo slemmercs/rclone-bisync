@@ -118,12 +118,23 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 		Status:   "pending",
 	}
 
+	actualPath := cand.Path
 	fullLocal, err := ResolveSafePath(e.LocalRoot, cand.Path)
 	if err != nil {
 		action.Status = "failed"
 		action.Error = err.Error()
 		session.Actions = append(session.Actions, action)
 		return err
+	}
+
+	// Reconcile trailing-space directory/file if trimmed during discovery
+	if _, statErr := os.Stat(fullLocal); statErr != nil && os.IsNotExist(statErr) {
+		if _, trailErr := os.Stat(fullLocal + " "); trailErr == nil {
+			if safeTrail, safeErr := ResolveSafePath(e.LocalRoot, cand.Path+" "); safeErr == nil {
+				actualPath = cand.Path + " "
+				fullLocal = safeTrail
+			}
+		}
 	}
 
 	isDir := cand.IsDir
@@ -194,44 +205,54 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 		if cand.Source == models.SideRemote {
 			if isDir {
 				if e.Client != nil {
-					e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-					if ok, err := e.Client.Mkdir(ctx, e.RemoteFs(), cand.Path); err != nil || !ok {
+					e.logWAL(session.ID, actionID, "MUTATION_STARTED", actualPath, cand.Decision, "")
+					if ok, err := e.Client.Mkdir(ctx, e.RemoteFs(), actualPath); err != nil || !ok {
 						errMsg := fmt.Sprintf("restore mkdir on remote failed: %v", err)
-						e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
+						e.logWAL(session.ID, actionID, "MUTATION_FAILED", actualPath, cand.Decision, errMsg)
 						return errors.New(errMsg)
 					}
-					e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
+					e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", actualPath, cand.Decision, "")
 				}
 			} else {
 				if e.Client != nil {
-					e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-					if ok, err := e.Client.CopyFile(ctx, e.LocalRoot, cand.Path, e.RemoteFs(), cand.Path); err != nil || !ok {
-						errMsg := fmt.Sprintf("restore copy to remote failed: %v", err)
-						e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
-						return errors.New(errMsg)
+					e.logWAL(session.ID, actionID, "MUTATION_STARTED", actualPath, cand.Decision, "")
+					if ok, err := e.Client.CopyFile(ctx, e.LocalRoot, actualPath, e.RemoteFs(), actualPath); err != nil || !ok {
+						if err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(strings.ToLower(err.Error()), "not found")) {
+							e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", actualPath, cand.Decision, "already absent on local disk")
+						} else {
+							errMsg := fmt.Sprintf("restore copy to remote failed: %v", err)
+							e.logWAL(session.ID, actionID, "MUTATION_FAILED", actualPath, cand.Decision, errMsg)
+							return errors.New(errMsg)
+						}
+					} else {
+						e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", actualPath, cand.Decision, "")
 					}
-					e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
 				}
 			}
 		} else {
 			if isDir {
-				e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
+				e.logWAL(session.ID, actionID, "MUTATION_STARTED", actualPath, cand.Decision, "")
 				// #nosec G301 - restored local directory permissions
 				if err := os.MkdirAll(fullLocal, 0750); err != nil {
 					errMsg := fmt.Sprintf("restore mkdir on local failed: %v", err)
-					e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
+					e.logWAL(session.ID, actionID, "MUTATION_FAILED", actualPath, cand.Decision, errMsg)
 					return errors.New(errMsg)
 				}
-				e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
+				e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", actualPath, cand.Decision, "")
 			} else {
 				if e.Client != nil {
-					e.logWAL(session.ID, actionID, "MUTATION_STARTED", cand.Path, cand.Decision, "")
-					if ok, err := e.Client.CopyFile(ctx, e.RemoteFs(), cand.Path, e.LocalRoot, cand.Path); err != nil || !ok {
-						errMsg := fmt.Sprintf("restore copy from remote failed: %v", err)
-						e.logWAL(session.ID, actionID, "MUTATION_FAILED", cand.Path, cand.Decision, errMsg)
-						return errors.New(errMsg)
+					e.logWAL(session.ID, actionID, "MUTATION_STARTED", actualPath, cand.Decision, "")
+					if ok, err := e.Client.CopyFile(ctx, e.RemoteFs(), actualPath, e.LocalRoot, actualPath); err != nil || !ok {
+						if err != nil && (strings.Contains(err.Error(), "404") || strings.Contains(strings.ToLower(err.Error()), "not found")) {
+							e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", actualPath, cand.Decision, "already absent on remote")
+						} else {
+							errMsg := fmt.Sprintf("restore copy from remote failed: %v", err)
+							e.logWAL(session.ID, actionID, "MUTATION_FAILED", actualPath, cand.Decision, errMsg)
+							return errors.New(errMsg)
+						}
+					} else {
+						e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", actualPath, cand.Decision, "")
 					}
-					e.logWAL(session.ID, actionID, "MUTATION_COMPLETED", cand.Path, cand.Decision, "")
 				}
 			}
 		}
