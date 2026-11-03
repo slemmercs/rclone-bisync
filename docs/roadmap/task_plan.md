@@ -17,9 +17,9 @@ Resolve CodeQL alert #24 (`go/path-injection`) by implementing strict session ID
   - **Scope**: `internal/mcp/tools_read.go`, `internal/mcp/tools_read_test.go`
   - **Verification**: `go test -v -count=1 ./internal/mcp/... -run "TestGetLogs"`
 
-- [ ] Task 4: Flag Compiler Validation Tool (`bisync_validate_flags`) & Explorer Pagination Metadata
+- [x] Task 4: Flag Compiler Validation Tool (`bisync_validate_flags`) & Explorer Pagination Metadata
   - **Scope**: `internal/mcp/tools_read.go`, `internal/mcp/server.go`, `internal/mcp/tools_read_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/mcp/...`
+  - **Verification**: `go test -v -count=1 ./internal/mcp/... -run "TestValidateFlags"`
 
 - [ ] Task 5: Dashboard Header MCP Server Status Indicator
   - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/app.js`, `dashboard/frontend/js/polling.js`
@@ -44,4 +44,10 @@ Resolve CodeQL alert #24 (`go/path-injection`) by implementing strict session ID
   - Implemented structured JSON and plain-text fallback matching for log levels, profile IDs, and execution run IDs.
   - Decomposed `internal/mcp/tools_read.go` into cohesive `tools_read_explorer.go` to strictly satisfy <400 LOC limits.
   - Added unit tests in `internal/mcp/tools_read_opt_test.go` and verified with all 7 quality gate checks in `./scripts/check.sh all`.
+- 2026-11-03: Completed Task 4:
+  - Implemented `compiler.CompileFlagsToParams` returning structured `FlagCompilationResult` (params, config, filter, backend options, unrecognized flags, errors).
+  - Added read-only MCP tool `bisync_validate_flags` supporting string or array flags and profile ID resolution.
+  - Added `total_count` and `has_more` metadata to `bisync_explore_path` pagination responses.
+  - Created `internal/mcp/tools_read_compiler.go` maintaining file sizes under 400 LOC.
+  - Added unit tests `TestCompileFlagsToParams` and `TestValidateFlags` and verified with `./scripts/check.sh all`.
 
