@@ -297,3 +297,70 @@ func TestCompileBisyncParams_TrackRenamesAndStrategy(t *testing.T) {
 		t.Fatalf("expected TrackRenamesStrategy: 'hash' in _config, got: %v", cfg2["TrackRenamesStrategy"])
 	}
 }
+
+func TestCompileFlagsToParams(t *testing.T) {
+	// 1. Valid flags compilation
+	args := []string{
+		"--max-delete", "15%",
+		"--track-renames",
+		"--track-renames-strategy=modtime",
+		"--check-access",
+		"--dry-run",
+		"--exclude", "*.bak",
+		"--exclude", "*.tmp",
+		"--buffer-size", "32M",
+		"--retries", "3",
+		"--tpslimit", "12.5",
+		"--unknown-custom-flag", "value",
+	}
+
+	res, err := CompileFlagsToParams(args)
+	if err != nil {
+		t.Fatalf("unexpected compile error: %v", err)
+	}
+	if !res.Valid {
+		t.Fatalf("expected result to be valid, got errors: %v", res.Errors)
+	}
+	if res.Params["maxDelete"] != 15 {
+		t.Errorf("expected maxDelete 15, got %v", res.Params["maxDelete"])
+	}
+	if res.Params["dryRun"] != true {
+		t.Errorf("expected dryRun true, got %v", res.Params["dryRun"])
+	}
+	if res.Config["MaxDelete"] != 15 {
+		t.Errorf("expected config MaxDelete 15, got %v", res.Config["MaxDelete"])
+	}
+	if res.Config["TrackRenames"] != true {
+		t.Errorf("expected config TrackRenames true, got %v", res.Config["TrackRenames"])
+	}
+	if res.Config["Retries"] != 3 {
+		t.Errorf("expected config Retries 3, got %v", res.Config["Retries"])
+	}
+	if res.Config["TPSLimit"] != 12.5 {
+		t.Errorf("expected config TPSLimit 12.5, got %v", res.Config["TPSLimit"])
+	}
+	if len(res.UnrecognizedFlags) != 1 || res.UnrecognizedFlags[0] != "--unknown-custom-flag" {
+		t.Errorf("expected unrecognized flags [--unknown-custom-flag], got %v", res.UnrecognizedFlags)
+	}
+	rules, ok := res.Filter["ExcludeRule"].([]string)
+	if !ok || len(rules) != 2 {
+		t.Fatalf("expected 2 exclude rules, got %v", res.Filter)
+	}
+
+	// 2. Invalid integer/float reporting
+	invalidArgs := []string{
+		"--max-delete", "invalid%",
+		"--retries", "notanint",
+		"--tpslimit", "notafloat",
+	}
+	resInv, errInv := CompileFlagsToParams(invalidArgs)
+	if errInv == nil {
+		t.Fatal("expected error for invalid flags")
+	}
+	if resInv.Valid {
+		t.Fatal("expected valid=false for invalid flags")
+	}
+	if len(resInv.Errors) != 3 {
+		t.Fatalf("expected 3 errors, got %d: %v", len(resInv.Errors), resInv.Errors)
+	}
+}

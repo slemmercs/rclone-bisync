@@ -130,14 +130,23 @@ func TestReadTools_TokenOptimizations(t *testing.T) {
 	if pagedData["returned_items"].(float64) != 1 {
 		t.Errorf("expected 1 returned item, got %v", pagedData["returned_items"])
 	}
+	if pagedData["total_count"].(float64) != pagedData["total_items"].(float64) || pagedData["total_count"].(float64) < 2 {
+		t.Errorf("expected total_count to match total_items (>=2), got %v vs %v", pagedData["total_count"], pagedData["total_items"])
+	}
+	if pagedData["has_more"] != true {
+		t.Errorf("expected has_more true, got %v", pagedData["has_more"])
+	}
 
 	resFiltered, _ := srv.handleExplorePath(ctx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{Arguments: map[string]any{"remote": "local", "filter": "beta"}},
 	})
 	var filteredData map[string]any
 	_ = json.Unmarshal([]byte(resFiltered.Content[0].(mcp.TextContent).Text), &filteredData)
-	if filteredData["total_items"].(float64) != 1 {
-		t.Errorf("expected 1 item matching 'beta', got %v", filteredData["total_items"])
+	if filteredData["total_count"].(float64) != 1 || filteredData["total_items"].(float64) != 1 {
+		t.Errorf("expected 1 item matching 'beta', got total_count=%v, total_items=%v", filteredData["total_count"], filteredData["total_items"])
+	}
+	if filteredData["has_more"] != false {
+		t.Errorf("expected has_more false for filtered single item, got %v", filteredData["has_more"])
 	}
 }
 

@@ -82,6 +82,15 @@ func (s *Server) registerReadTools() {
 		),
 		s.handleExplorePath,
 	)
+
+	s.mcpServer.AddTool(
+		mcp.NewTool("bisync_validate_flags",
+			mcp.WithDescription("Validate CLI flags and preview compiled Rclone bisync parameters and engine config"),
+			mcp.WithString("flags", mcp.Description("CLI flags to compile and validate (space-separated string or array)")),
+			mcp.WithString("profile_id", mcp.Description("Optional profile ID to compile and validate its effective configured flags")),
+		),
+		s.handleValidateFlags,
+	)
 }
 
 func (s *Server) handleListProfiles(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

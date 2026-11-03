@@ -340,5 +340,125 @@ func TestResources_Read(t *testing.T) {
 	if len(contents) == 0 {
 		t.Fatal("expected contents for conflict session resource")
 	}
+}
 
+func TestValidateFlags(t *testing.T) {
+	tempDir := t.TempDir()
+	profilesFile := filepath.Join(tempDir, "profiles.json")
+	store, err := profiles.NewStore(profilesFile, "")
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	maxDel := profiles.MaxDeleteValue("25%")
+	cmp := "modtime"
+	prof := &profiles.Profile{
+		ID:        "prof-val",
+		Name:      "Validation Profile",
+		LocalPath: tempDir,
+		Remote:    "gdrive:backups",
+		Flags: profiles.ProfileFlags{
+			MaxDelete:   &maxDel,
+			CompareMode: &cmp,
+			CustomFlags: "--track-renames",
+		},
+	}
+	_ = store.Save(prof, "test")
+
+	cfg := &config.Config{LocalPath: tempDir}
+	ctr := &app.Container{
+		Config:         cfg,
+		ProfileService: profiles.NewService(store, nil, nil),
+	}
+	srv, err := NewServer(ctr, ServerConfig{Version: "v1.0.0-test"})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	ctx := context.Background()
+
+	// 1. Missing arguments
+	resEmpty, _ := srv.handleValidateFlags(ctx, mcp.CallToolRequest{})
+	if !resEmpty.IsError {
+		t.Error("expected error for empty arguments in validate_flags")
+	}
+
+	// 2. Space-separated string flags
+	resStr, err := srv.handleValidateFlags(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"flags": "--max-delete 10% --track-renames --dry-run"}},
+	})
+	if err != nil || resStr.IsError {
+		t.Fatalf("unexpected error for string flags: %v", err)
+	}
+	var dataStr map[string]any
+	_ = json.Unmarshal([]byte(resStr.Content[0].(mcp.TextContent).Text), &dataStr)
+	if dataStr["valid"] != true {
+		t.Errorf("expected valid=true, got %v", dataStr["valid"])
+	}
+	paramsStr := dataStr["params"].(map[string]any)
+	if paramsStr["maxDelete"].(float64) != 10 {
+		t.Errorf("expected maxDelete 10, got %v", paramsStr["maxDelete"])
+	}
+	if paramsStr["dryRun"] != true {
+		t.Errorf("expected dryRun true, got %v", paramsStr["dryRun"])
+	}
+	cfgStr := dataStr["config"].(map[string]any)
+	if cfgStr["TrackRenames"] != true {
+		t.Errorf("expected TrackRenames true, got %v", cfgStr["TrackRenames"])
+	}
+
+	// 3. Array of flag strings
+	resArr, err := srv.handleValidateFlags(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"flags": []any{"--buffer-size", "64M", "--retries", "5"}}},
+	})
+	if err != nil || resArr.IsError {
+		t.Fatalf("unexpected error for array flags: %v", err)
+	}
+	var dataArr map[string]any
+	_ = json.Unmarshal([]byte(resArr.Content[0].(mcp.TextContent).Text), &dataArr)
+	cfgArr := dataArr["config"].(map[string]any)
+	if cfgArr["BufferSize"] != "64M" || cfgArr["Retries"].(float64) != 5 {
+		t.Errorf("unexpected config in array flags: %v", cfgArr)
+	}
+
+	// 4. Invalid flags (bad integer/float)
+	resInv, err := srv.handleValidateFlags(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"flags": "--max-delete badpct --retries notanumber"}},
+	})
+	if err != nil || resInv.IsError {
+		t.Fatalf("unexpected tool failure for invalid flags: %v", err)
+	}
+	var dataInv map[string]any
+	_ = json.Unmarshal([]byte(resInv.Content[0].(mcp.TextContent).Text), &dataInv)
+	if dataInv["valid"] != false {
+		t.Errorf("expected valid=false for invalid flags, got %v", dataInv["valid"])
+	}
+	errs := dataInv["errors"].([]any)
+	if len(errs) != 2 {
+		t.Errorf("expected 2 errors, got %d", len(errs))
+	}
+
+	// 5. Valid profile_id
+	resProf, err := srv.handleValidateFlags(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"profile_id": "prof-val"}},
+	})
+	if err != nil || resProf.IsError {
+		t.Fatalf("unexpected error for profile_id: %v", err)
+	}
+	var dataProf map[string]any
+	_ = json.Unmarshal([]byte(resProf.Content[0].(mcp.TextContent).Text), &dataProf)
+	if dataProf["valid"] != true {
+		t.Errorf("expected profile flags to be valid, got errors: %v", dataProf["errors"])
+	}
+	profParams := dataProf["params"].(map[string]any)
+	if profParams["maxDelete"].(float64) != 25 {
+		t.Errorf("expected maxDelete 25 from profile, got %v", profParams["maxDelete"])
+	}
+
+	// 6. Non-existent profile_id
+	resBadProf, _ := srv.handleValidateFlags(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"profile_id": "prof-does-not-exist"}},
+	})
+	if !resBadProf.IsError {
+		t.Error("expected error for non-existent profile_id")
+	}
 }

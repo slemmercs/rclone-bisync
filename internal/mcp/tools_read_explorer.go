@@ -90,6 +90,7 @@ func (s *Server) handleExplorePath(ctx context.Context, req mcp.CallToolRequest)
 		"remote":         listing.Remote,
 		"path":           listing.Path,
 		"has_canary":     listing.HasCanary,
+		"total_count":    totalItems,
 		"total_items":    totalItems,
 		"returned_items": len(pagedItems),
 		"offset":         offset,
