@@ -112,7 +112,13 @@ func (s *Server) handleTriggerSync(ctx context.Context, req mcp.CallToolRequest)
 	}
 
 	if err := s.container.ProfileService.TriggerSyncWithOptions(ctx, profileID, opts); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("sync execution failed: %v", err)), nil
+		errMsg := fmt.Sprintf("sync execution failed: %v", err)
+		if s.container.ReviewService != nil {
+			if sess, sessErr := s.container.ReviewService.GetActiveSession(ctx); sessErr == nil && sess != nil {
+				errMsg += fmt.Sprintf("\n[Review Barrier Active]: Conflict/deletion review session '%s' created (%d deletions, %d conflicts). Use bisync_inspect_conflict_session and bisync_resolve_review to inspect and resolve.", sess.ID, len(sess.Deletions), len(sess.Conflicts))
+			}
+		}
+		return mcp.NewToolResultError(errMsg), nil
 	}
 
 	return jsonResult(map[string]any{

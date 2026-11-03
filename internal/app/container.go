@@ -107,8 +107,11 @@ func DefaultProfileExecutor(cfg *config.Config) profiles.SyncExecutor {
 				origin = "scheduler"
 			}
 		}
-		success := syncRunner.Run(ctx, opts.Resync, opts.Force, opts.DryRun, origin, "", false)
+		success, err := syncRunner.RunWithError(ctx, opts.Resync, opts.Force, opts.DryRun, origin, "", false)
 		if !success {
+			if err != nil {
+				return fmt.Errorf("profile %s: %w", p.ID, err)
+			}
 			return fmt.Errorf("sync failed for profile %s", p.ID)
 		}
 		return nil

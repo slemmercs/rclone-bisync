@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/services"
@@ -179,6 +181,79 @@ func TestWriteTools_TriggerSyncConfirmation(t *testing.T) {
 	}
 	if !executedSync {
 		t.Error("expected sync executor to be invoked")
+	}
+}
+
+func TestWriteTools_TriggerSyncDiagnostics(t *testing.T) {
+	tempDir := t.TempDir()
+	store, err := profiles.NewStore(filepath.Join(tempDir, "profiles.json"), "")
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	activeReviewFile := filepath.Join(tempDir, "active_review.json")
+	cfg := &config.Config{
+		ActiveReviewFile: activeReviewFile,
+	}
+
+	execSyncError := fmt.Errorf("profile prof-fail: sync execution failed [TOO_MANY_DELETES]: Safety abort: too many deletes (>0%%)")
+	executor := func(ctx context.Context, p *profiles.Profile, opts profiles.SyncOptions) error {
+		// Simulate review session creation on failure
+		sess := review.NewSession("TOO_MANY_DELETES", "Safety abort: too many deletes", []models.DeletionCandidate{
+			{ID: "del-1", Path: "file.txt", Source: models.SideLocal},
+		}, nil)
+		_ = review.SaveActiveSession(activeReviewFile, sess)
+		return execSyncError
+	}
+
+	scheduler := profiles.NewScheduler(store, executor)
+	profSvc := profiles.NewService(store, nil, scheduler)
+	reviewSvc := services.NewReviewService(cfg, nil)
+
+	p := &profiles.Profile{
+		ID:        "prof-fail",
+		Name:      "Fail Profile",
+		LocalPath: tempDir,
+		Remote:    "local",
+		Enabled:   true,
+	}
+	_ = store.Save(p, "test")
+	ctx := context.Background()
+	_ = scheduler.Start(ctx)
+
+	ctr := &app.Container{
+		ProfileService: profSvc,
+		ReviewService:  reviewSvc,
+	}
+
+	srv, err := NewServer(ctr, ServerConfig{Version: "v1.0.0-test"})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	res, err := srv.handleTriggerSync(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"profile_id": "prof-fail",
+				"dry_run":    true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatalf("expected error result from failed sync, got: %v", res)
+	}
+	errText := res.Content[0].(mcp.TextContent).Text
+	if !strings.Contains(errText, "TOO_MANY_DELETES") {
+		t.Errorf("expected error to contain TOO_MANY_DELETES, got: %s", errText)
+	}
+	if !strings.Contains(errText, "Safety abort: too many deletes") {
+		t.Errorf("expected error to contain abort reason, got: %s", errText)
+	}
+	if !strings.Contains(errText, "Review Barrier Active") {
+		t.Errorf("expected error to note active review barrier, got: %s", errText)
 	}
 }
 

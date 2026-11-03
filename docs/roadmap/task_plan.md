@@ -9,7 +9,7 @@ Resolve CodeQL alert #24 (`go/path-injection`) by implementing strict session ID
   - **Scope**: `internal/engine/review/session.go`, `internal/engine/review/session_test.go`, `internal/engine/review/journal.go`, `internal/engine/review/journal_test.go`, `internal/server/handlers_review.go`, `internal/services/review_execution.go`, `internal/services/review_service_test.go`, `internal/mcp/resources.go`, `internal/mcp/tools_read.go`, `internal/mcp/tools_write.go`
   - **Verification**: `go test -v -count=1 ./internal/engine/review/... ./internal/services/... ./internal/server/... ./internal/mcp/...` and `./scripts/check.sh all`
 
-- [ ] Task 2: Diagnostic Error Excerpts in MCP Sync Trigger (`bisync_trigger_sync`)
+- [x] Task 2: Diagnostic Error Excerpts in MCP Sync Trigger (`bisync_trigger_sync`)
   - **Scope**: `internal/mcp/tools_write.go`, `internal/mcp/tools_write_test.go`
   - **Verification**: `go test -v -count=1 ./internal/mcp/... -run "TestTriggerSync"`
 
@@ -34,4 +34,9 @@ Resolve CodeQL alert #24 (`go/path-injection`) by implementing strict session ID
   - Added request sanitization and HTTP 400 rejection for traversal payloads across all review API handlers.
   - Guarded MCP conflict resources and tools against directory traversal.
   - Verified with comprehensive unit regression tests and passed full `./scripts/check.sh all` gate.
+- 2026-11-03: Completed Task 2:
+  - Implemented `SyncRunner.RunWithError` returning explicit, classified error reasons upon failure.
+  - Propagated detailed abort diagnostics through `DefaultProfileExecutor` and `Scheduler`.
+  - Enhanced MCP `bisync_trigger_sync` to return exact error reasons (e.g. `TOO_MANY_DELETES`, canary missing, lock contention) and automatically append active review barrier guidance.
+  - Added unit test `TestWriteTools_TriggerSyncDiagnostics` in `internal/mcp/tools_write_test.go` and verified with `./scripts/check.sh all`.
 

@@ -88,6 +88,20 @@ func (r *SyncRunner) Run(
 	runID string,
 	noNotify bool,
 ) bool {
+	ok, _ := r.RunWithError(ctx, resync, force, dryRun, origin, runID, noNotify)
+	return ok
+}
+
+// RunWithError executes the full synchronization cycle and returns detailed error diagnostics upon failure.
+func (r *SyncRunner) RunWithError(
+	ctx context.Context,
+	resync bool,
+	force bool,
+	dryRun bool,
+	origin string,
+	runID string,
+	noNotify bool,
+) (bool, error) {
 	if runID == "" {
 		var randBytes [2]byte
 		_, _ = rand.Read(randBytes[:])
@@ -124,7 +138,7 @@ func (r *SyncRunner) Run(
 			})
 		}
 		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
-		return false
+		return false, fmt.Errorf("lock acquisition failed: another sync process is already running")
 	}
 	defer r.LockMgr.Release()
 
@@ -148,7 +162,7 @@ func (r *SyncRunner) Run(
 			})
 		}
 		// Non-mutating aborts are recorded in execution logs, skipping immutable audit ledger.
-		return false
+		return false, fmt.Errorf("rate limit backoff is active (use --force to override)")
 	}
 
 	notificationState := state.LoadNotificationState(r.Config.NotificationStateFile)
@@ -203,7 +217,7 @@ func (r *SyncRunner) Run(
 		if !noNotify {
 			_ = r.Notifier.SendDesktop(r.notificationTitle("Sync Aborted - Canary Safety Guard"), err.Error(), "critical")
 		}
-		return false
+		return false, fmt.Errorf("configuration/canary check failed: %w", err)
 	}
 
 	jobID, err := r.Client.TriggerBisync(ctx, params, fmt.Sprintf("bisync-%s", runID))
@@ -231,7 +245,7 @@ func (r *SyncRunner) Run(
 		if !noNotify && r.Notifier.ShouldNotifyError(errType, notificationState.LastErrorType, notificationState.LastErrorTimestamp) {
 			_ = r.Notifier.SendDesktop(r.notificationTitle(fmt.Sprintf("Sync Dispatch Error - %s", errType)), errStr, "critical")
 		}
-		return false
+		return false, fmt.Errorf("sync dispatch failed [%s]: %s", errType, errStr)
 	}
 
 	monitorRes := r.Client.MonitorJob(
@@ -247,10 +261,15 @@ func (r *SyncRunner) Run(
 	duration := time.Since(startTime).Seconds()
 
 	if monitorRes.Success {
-		return r.handleSyncSuccess(runID, jobID, origin, startTime, duration, monitorRes, resync, force, dryRun, noNotify, notificationState)
+		return r.handleSyncSuccess(runID, jobID, origin, startTime, duration, monitorRes, resync, force, dryRun, noNotify, notificationState), nil
 	}
 
-	return r.handleSyncFailure(runID, jobID, origin, startTime, duration, monitorRes, resync, force, dryRun, noNotify, notificationState)
+	r.handleSyncFailure(runID, jobID, origin, startTime, duration, monitorRes, resync, force, dryRun, noNotify, notificationState)
+	errType := monitorRes.ErrorType
+	if errType == "" && monitorRes.ErrorMessage != "" {
+		errType = classifier.ClassifyError(monitorRes.ErrorMessage)
+	}
+	return false, fmt.Errorf("sync execution failed [%s]: %s", errType, monitorRes.ErrorMessage)
 }
 
 // profileLabel returns the friendly ProfileName if available, else ProfileID if not "default", else "".
