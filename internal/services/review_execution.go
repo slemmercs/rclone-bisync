@@ -267,9 +267,16 @@ func (s *ReviewService) RollbackReviewSession(ctx context.Context, sessionID str
 	if s.session == nil || s.session.ID != sessionID {
 		// Attempt to load from review archives if session was already applied/archived
 		if reviewDir := s.reviewDirPath(); reviewDir != "" && sessionID != "" {
-			archivePath := filepath.Join(reviewDir, fmt.Sprintf("%s.json", sessionID))
-			if archSess, err := review.LoadActiveSession(archivePath); err == nil && archSess != nil {
-				s.session = archSess
+			if !review.IsValidSessionID(sessionID) || strings.Contains(sessionID, "/") || strings.Contains(sessionID, "\\") || strings.Contains(sessionID, "..") {
+				return nil, fmt.Errorf("invalid review session ID: %s", sessionID)
+			}
+			cleanReviewDir := filepath.Clean(reviewDir)
+			archivePath := filepath.Join(cleanReviewDir, filepath.Base(sessionID)+".json")
+			rel, err := filepath.Rel(cleanReviewDir, archivePath)
+			if err == nil && !strings.HasPrefix(rel, "..") && !strings.Contains(rel, "/") && !strings.Contains(rel, "\\") {
+				if archSess, err := review.LoadActiveSession(archivePath); err == nil && archSess != nil {
+					s.session = archSess
+				}
 			}
 		}
 	}

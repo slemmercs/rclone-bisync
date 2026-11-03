@@ -188,6 +188,14 @@ func TestReadTools_WithServices(t *testing.T) {
 		t.Errorf("unexpected error in inspect_conflict_session: %v", res)
 	}
 
+	// Traversal session ID rejection
+	res, err = srv.handleInspectConflictSession(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Arguments: map[string]any{"session_id": "../../etc/passwd"}},
+	})
+	if err != nil || !res.IsError {
+		t.Fatalf("expected error on path traversal session_id in inspect_conflict_session, got: %v", res)
+	}
+
 	// 6. bisync_get_sync_history without audit service
 	res, err = srv.handleGetSyncHistory(ctx, mcp.CallToolRequest{})
 	if err != nil {

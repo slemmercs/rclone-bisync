@@ -308,6 +308,19 @@ func TestWriteTools_ResolveReviewConfirmation(t *testing.T) {
 		t.Fatal("expected error on missing decision")
 	}
 
+	// 1b. Traversal session ID rejection
+	res, err = srv.handleResolveReview(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"session_id": "../../etc/passwd",
+				"decision":   "keep-local",
+			},
+		},
+	})
+	if err != nil || !res.IsError {
+		t.Fatalf("expected error on path traversal session_id in resolve_review, got: %v", res)
+	}
+
 	// 2. Stage decisions without execute (should NOT require confirmation)
 	res, err = srv.handleResolveReview(ctx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{

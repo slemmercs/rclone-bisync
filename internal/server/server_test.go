@@ -1187,6 +1187,32 @@ func TestReviewEndpoints_ExtendedErrorsAndEdgeCases(t *testing.T) {
 	if rollSuccessResp.Status != "success" || rollSuccessResp.Restored != 1 {
 		t.Fatalf("expected successful rollback with 1 restored, got: %+v", rollSuccessResp)
 	}
+	// Path injection / traversal rejection tests (CodeQL #24)
+	traversalPayloads := []string{
+		`{"session_id":"../../etc/passwd"}`,
+		`{"session_id":"../escape"}`,
+		`{"session_id":"/root/secret"}`,
+		`{"session_id":"session\\traversal"}`,
+	}
+	reviewEndpoints := []string{
+		"/api/review/rollback",
+		"/api/review/dismiss",
+		"/api/review/execute",
+		"/api/review/action",
+		"/api/review/action-batch",
+	}
+
+	for _, ep := range reviewEndpoints {
+		for _, payload := range traversalPayloads {
+			req, _ = http.NewRequest("POST", ep, bytes.NewBuffer([]byte(payload)))
+			req.Header.Set("X-Dashboard-Request", "1")
+			rec = httptest.NewRecorder()
+			srv.ServeHTTP(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected HTTP 400 for %s with payload %s, got %d", ep, payload, rec.Code)
+			}
+		}
+	}
 
 }
 func TestServer_RootHandler_TemplateAssembly(t *testing.T) {

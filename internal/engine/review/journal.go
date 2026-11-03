@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
@@ -69,8 +70,13 @@ func LoadActiveSession(activeFilePath string) (*models.ReviewSession, error) {
 		return nil, nil
 	}
 
+	cleanPath := filepath.Clean(activeFilePath)
+	if strings.Contains(cleanPath, "..") {
+		return nil, fmt.Errorf("invalid review session path: directory traversal not allowed")
+	}
+
 	// #nosec G304 - reading verified active review session file
-	data, err := os.ReadFile(filepath.Clean(activeFilePath))
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

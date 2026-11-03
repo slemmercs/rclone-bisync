@@ -8,6 +8,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/slemmercs/rclone-bisync/internal/audit"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 )
 
@@ -128,6 +129,9 @@ func (s *Server) handleResourceHistoryByID(_ context.Context, req mcp.ReadResour
 
 func (s *Server) handleResourceConflictSession(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 	sessionID := strings.TrimPrefix(req.Params.URI, "bisync://conflicts/")
+	if sessionID != "" && (!review.IsValidSessionID(sessionID) || strings.Contains(sessionID, "/") || strings.Contains(sessionID, "\\") || strings.Contains(sessionID, "..")) {
+		return nil, fmt.Errorf("invalid conflict session ID format: %s", sessionID)
+	}
 	if s.container == nil || s.container.ReviewService == nil {
 		return nil, fmt.Errorf("ReviewService is not initialized")
 	}

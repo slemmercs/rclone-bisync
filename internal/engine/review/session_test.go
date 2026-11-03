@@ -56,6 +56,32 @@ func TestSessionFSM_Transitions(t *testing.T) {
 	}
 }
 
+func TestIsValidSessionID(t *testing.T) {
+	cases := []struct {
+		id    string
+		valid bool
+	}{
+		{"rev-1234567890", true},
+		{"rev-a1b2c3d4e5", true},
+		{"sess-1", true},
+		{"valid_session_123", true},
+		{"", false},
+		{"../etc/passwd", false},
+		{"foo/bar", false},
+		{"foo\\bar", false},
+		{"rev-123..", false},
+		{"rev with space", false},
+		{"rev$123", false},
+		{"rev;rm -rf", false},
+	}
+
+	for _, tc := range cases {
+		if got := IsValidSessionID(tc.id); got != tc.valid {
+			t.Errorf("IsValidSessionID(%q) = %v; expected %v", tc.id, got, tc.valid)
+		}
+	}
+}
+
 func TestSessionFSM_FailureAndRollback(t *testing.T) {
 	sess := NewSession("ERROR", "Review", nil, nil)
 	_ = Transition(sess, models.ReviewStatusReviewing)

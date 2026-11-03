@@ -19,6 +19,23 @@ func GenerateSessionID() string {
 	return "rev-" + hex.EncodeToString(b)
 }
 
+// IsValidSessionID validates that a session ID consists only of alphanumeric characters, hyphens, and underscores,
+// with no path traversal characters or directory separators.
+func IsValidSessionID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	if strings.Contains(id, "/") || strings.Contains(id, "\\") || strings.Contains(id, "..") {
+		return false
+	}
+	for _, r := range id {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 // NewSession initializes a new ReviewSession in CREATED state.
 func NewSession(originError, message string, deletions []models.DeletionCandidate, conflicts []models.ConflictCandidate) *models.ReviewSession {
 	now := time.Now().UTC()

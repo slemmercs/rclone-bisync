@@ -506,6 +506,13 @@ func TestReviewService_RollbackAndAudit(t *testing.T) {
 	if _, err := svc.RollbackReviewSession(ctx, "nonexistent-session"); err == nil {
 		t.Fatal("expected error on nonexistent session rollback")
 	}
+	// Traversal attempt in RollbackReviewSession
+	if _, err := svc.RollbackReviewSession(ctx, "../../../etc/passwd"); err == nil {
+		t.Fatal("expected error on path traversal session ID rollback")
+	}
+	if _, err := svc.RollbackReviewSession(ctx, "session/traversal"); err == nil {
+		t.Fatal("expected error on slash session ID rollback")
+	}
 
 	// 2. Set up local file and pending deletion to create a discovered session
 	localFile := filepath.Join(cfg.LocalPath, "item_to_delete.txt")

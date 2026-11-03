@@ -8,6 +8,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/slemmercs/rclone-bisync/internal/audit"
+	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 )
@@ -242,6 +243,9 @@ func (s *Server) handleInspectConflictSession(ctx context.Context, req mcp.CallT
 		return jsonResult(map[string]any{"active": false, "message": "ReviewService unavailable"})
 	}
 	sessionID := req.GetString("session_id", "")
+	if sessionID != "" && (!review.IsValidSessionID(sessionID) || strings.Contains(sessionID, "/") || strings.Contains(sessionID, "\\") || strings.Contains(sessionID, "..")) {
+		return mcp.NewToolResultError("invalid session_id format"), nil
+	}
 	unresolvedOnly := req.GetBool("unresolved_only", false)
 
 	active, err := s.container.ReviewService.GetActiveSession(ctx)
