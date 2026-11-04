@@ -13,7 +13,7 @@ Consolidate the MCP SSE server into the primary dashboard daemon to eliminate du
   - **Scope**: `main.go`, `internal/config/config.go`
   - **Verification**: `go test -count=1 ./internal/config/... ./internal/server/...`
 
-- [ ] Task 3: Consolidate Systemd Services & Update Install Script
+- [x] Task 3: Consolidate Systemd Services & Update Install Script
   - **Scope**: `deploy/install.sh`, `deploy/systemd/rclone-mcp.service`, `dashboard/frontend/partials/modals/modal_mcp.html`
   - **Verification**: `./scripts/check.sh all`
 
@@ -31,6 +31,12 @@ Consolidate the MCP SSE server into the primary dashboard daemon to eliminate du
   - Synchronized graceful shutdown of both dashboard HTTP and MCP SSE servers via `signal.NotifyContext`.
   - Removed `appContainer.Start()` from standalone `runMCP` to prevent any background scheduler loops from running in stdio or external CLI mode.
   - Verified with `go test -count=1 ./internal/config/... ./internal/server/... ./internal/mcp/...` and `go build .`.
+- 2026-11-04: Completed Task 3:
+  - Deleted obsolete `deploy/systemd/rclone-mcp.service`.
+  - Updated `deploy/install.sh` to stop, disable, and clean up any existing `rclone-mcp.service` from user systemd directories and manage exactly two services: `rclone-daemon.service` and `rclone-dashboard.service`.
+  - Updated `modal_mcp.html` to point service restarts to `rclone-dashboard.service`.
+  - Streamlined `internal/profiles/store.go` to adhere to LOC guidelines (395 lines).
+  - All 7 stages of `./scripts/check.sh all` passed cleanly.
 
 
 

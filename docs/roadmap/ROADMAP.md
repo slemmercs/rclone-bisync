@@ -135,7 +135,7 @@ Eliminates CodeQL #24 path injection, hardens agent diagnostics, adds scoped log
 - **Scoped MCP Log Filtering**: Added `profile_id` and `run_id` filter parameters to `bisync_get_logs` with JSON and plain-text fallback matching.
 - **Flag Compiler Validation Tool (`bisync_validate_flags`)**: Read-only MCP tool exposing `compiler.CompileFlagsToParams` to test flag parsing, backend options, and `_config` dictionaries without executing sync.
 - **Explorer Pagination Metadata**: Added `total_count` and `has_more` to `bisync_explore_path` pagination responses.
-- **Always-On Systemd Service (`rclone-mcp.service`)**: Deployed systemd user unit for resilient, background SSE protocol serving.
+- **Unified Background Serving**: Embedded the native MCP SSE server directly into the dashboard daemon service, consolidating systemd units and eliminating duplicate schedulers and multi-daemon file races.
 
 ---
 

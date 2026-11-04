@@ -248,4 +248,3 @@ func TestLoadConfig_MCPDefaultsAndOverrides(t *testing.T) {
 		t.Errorf("expected MCPPort 9090, got %d", cfg2.MCPPort)
 	}
 }
-

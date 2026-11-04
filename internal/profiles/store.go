@@ -48,11 +48,9 @@ func NewStore(storePath, historyPath string) (*Store, error) {
 }
 
 func (s *Store) withFileLock(fn func() error) error {
-	dir := filepath.Dir(s.lockPath)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(s.lockPath), 0750); err != nil {
 		return fmt.Errorf("failed to create directory for profile lock: %w", err)
 	}
-
 	lockFile, err := os.OpenFile(s.lockPath, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to open profile lock file: %w", err)
@@ -62,9 +60,7 @@ func (s *Store) withFileLock(fn func() error) error {
 	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("failed to acquire profile file lock: %w", err)
 	}
-	defer func() {
-		_ = syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
-	}()
+	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
 
 	return fn()
 }
@@ -87,25 +83,19 @@ func (s *Store) loadLocked() error {
 		if err := json.Unmarshal(data, &list); err != nil {
 			return err
 		}
-		newProfiles := make(map[string]*Profile, len(list))
+		s.profiles = make(map[string]*Profile, len(list))
 		for _, p := range list {
-			newProfiles[p.ID] = p
+			s.profiles[p.ID] = p
 		}
-		s.profiles = newProfiles
 		s.lastModTime = fi.ModTime()
 	}
 
-	if _, err := os.Stat(s.historyPath); err == nil {
-		data, err := os.ReadFile(s.historyPath)
-		if err != nil {
-			return err
-		}
+	if data, err := os.ReadFile(s.historyPath); err == nil {
 		var hist map[string][]ProfileVersion
 		if err := json.Unmarshal(data, &hist); err == nil {
 			s.history = hist
 		}
 	}
-
 	return nil
 }
 
@@ -126,11 +116,8 @@ func (s *Store) reloadIfModifiedLocked() error {
 // List returns all profiles, optionally filtering out archived ones.
 func (s *Store) List(includeArchived bool) []*Profile {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	_ = s.reloadIfModifiedLocked()
-	s.mu.Unlock()
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 
 	var result []*Profile
 	for _, p := range s.profiles {
@@ -152,11 +139,8 @@ func (s *Store) List(includeArchived bool) []*Profile {
 // Get retrieves a profile by ID.
 func (s *Store) Get(id string) (*Profile, error) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	_ = s.reloadIfModifiedLocked()
-	s.mu.Unlock()
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 
 	p, exists := s.profiles[id]
 	if !exists {

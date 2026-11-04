@@ -314,4 +314,3 @@ func TestStore_MultiProcessSynchronizationAndNoSettingsClobber(t *testing.T) {
 		t.Errorf("expected LastDurationSec 12.5, got %f", reloaded.State.LastDurationSec)
 	}
 }
-
