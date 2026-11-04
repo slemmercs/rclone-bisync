@@ -90,7 +90,6 @@ func TestSortWorkItems(t *testing.T) {
 	}
 }
 
-
 func TestExecuteWithRetry(t *testing.T) {
 	cfg := QueueConfig{
 		MaxRetries:     2,

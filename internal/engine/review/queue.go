@@ -353,5 +353,3 @@ func (q *ReviewQueue) Process(
 	}
 	return summary
 }
-
-

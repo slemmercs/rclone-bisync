@@ -13,7 +13,7 @@ Resolve MCP client connection issues (SSE timeout and setting alias alignment) a
   - **Scope**: `internal/engine/review/queue.go`, `internal/engine/review/queue_test.go`
   - **Verification**: `go test -v -count=1 ./internal/engine/review/... -run "TestReviewQueue.*"`
 
-- [ ] Task 3: Integrate Queue with Resolution Executor & Session Reporting
+- [x] Task 3: Integrate Queue with Resolution Executor & Session Reporting
   - **Scope**: `internal/engine/review/executor.go`, `internal/engine/review/executor_test.go`
   - **Verification**: `./scripts/check.sh all`
 
@@ -31,6 +31,12 @@ Resolve MCP client connection issues (SSE timeout and setting alias alignment) a
   - Implemented `ExecuteWithRetry` with exponential backoff on transient errors and instant success on idempotent 404/409 errors.
   - Implemented `ReviewQueue.Process` with per-candidate error isolation and `BatchSummary` generation.
   - Added unit test coverage in `internal/engine/review/queue_test.go` (100% pass).
+- 2026-11-04: Completed Task 3:
+  - Integrated `ReviewQueue` into `ResolutionExecutor.ExecuteSession` in `internal/engine/review/executor.go`.
+  - Added atomic in-place action recording and per-item error isolation.
+  - Added `TestExecutor_QueueTopologicalOrderAndErrorIsolation` to verify parent dirs are restored before files.
+  - Verified all 7 quality gate checks pass via `./scripts/check.sh all`.
+
 
 
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -683,5 +684,77 @@ func TestExecutor_Directory(t *testing.T) {
 	// 5. PurgeDir called for remote deletion
 	if len(remotePurges) != 1 || remotePurges[0] != "ToDeleteRemoteDir" {
 		t.Errorf("expected PurgeDir to be called for 'ToDeleteRemoteDir', got %v", remotePurges)
+	}
+}
+
+func TestExecutor_QueueTopologicalOrderAndErrorIsolation(t *testing.T) {
+	tmpDir := t.TempDir()
+	localRoot := filepath.Join(tmpDir, "local")
+	_ = os.MkdirAll(localRoot, 0755)
+
+	var ops []string
+	client := &mockRemoteClient{
+		mkdirFunc: func(ctx context.Context, fs, dir string) (bool, error) {
+			ops = append(ops, "mkdir:"+dir)
+			return true, nil
+		},
+		copyFileFunc: func(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
+			ops = append(ops, "copy:"+srcRemote)
+			return true, nil
+		},
+	}
+
+	exec := NewResolutionExecutor(localRoot, "gdrive", tmpDir, "", client)
+	exec.QueueConfig = &QueueConfig{
+		MaxRetries:     1,
+		InitialBackoff: 1 * time.Millisecond,
+		MaxBackoff:     2 * time.Millisecond,
+	}
+
+	// Staged in inverted order: nested file before parent directories
+	sess := NewSession("TOO_MANY_DELETES", "Topological test", []models.DeletionCandidate{
+		{
+			ID:       "file",
+			Path:     "root/sub/nested.txt",
+			IsDir:    false,
+			Source:   models.SideRemote,
+			Decision: models.DecisionRestoreItem,
+			Resolved: true,
+		},
+		{
+			ID:       "root",
+			Path:     "root",
+			IsDir:    true,
+			Source:   models.SideRemote,
+			Decision: models.DecisionRestoreItem,
+			Resolved: true,
+		},
+		{
+			ID:       "sub",
+			Path:     "root/sub",
+			IsDir:    true,
+			Source:   models.SideRemote,
+			Decision: models.DecisionRestoreItem,
+			Resolved: true,
+		},
+	}, nil)
+
+	// Create local nested file so copy to remote succeeds
+	_ = os.MkdirAll(filepath.Join(localRoot, "root/sub"), 0755)
+	_ = os.WriteFile(filepath.Join(localRoot, "root/sub/nested.txt"), []byte("nested content"), 0644)
+
+	if err := exec.ExecuteSession(context.Background(), sess); err != nil {
+		t.Fatalf("ExecuteSession failed: %v", err)
+	}
+
+	// Verify topological ordering: root mkdir -> sub mkdir -> nested file copy
+	expectedOps := []string{"mkdir:root", "mkdir:root/sub", "copy:root/sub/nested.txt"}
+	if len(ops) != len(expectedOps) {
+		t.Fatalf("expected ops %v, got %v", expectedOps, ops)
+	}
+	for i, exp := range expectedOps {
+		if ops[i] != exp {
+			t.Errorf("at position %d: expected %s, got %s", i, exp, ops[i])
+		}
 	}
 }
