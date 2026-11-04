@@ -21,7 +21,7 @@ Implement architectural review recommendations: document November 4, 2026 audit 
   - **Scope**: `internal/services/telemetry_service.go`, `internal/core/client/client.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestTelemetry"`
 
-- [ ] Task 5: Real Local Rclone Sandbox Integration Test Suite
+- [x] Task 5: Real Local Rclone Sandbox Integration Test Suite
   - **Scope**: `tests/integration/rclone_sandbox_test.go`
   - **Verification**: `go test -v -count=1 ./tests/integration/...`
 
@@ -60,6 +60,12 @@ Implement architectural review recommendations: document November 4, 2026 audit 
   - Modularized watchdog implementation into `internal/services/telemetry_watchdog.go` maintaining strictly bounded files (<400 LOC).
   - Verification passed (`go test -v -count=1 ./internal/services/... -run "TestTelemetry"`).
 
+
+- 2026-11-04: Completed Task 5:
+  - Created Tier 4 Real Local Rclone Sandbox Integration Test Suite in `tests/integration/rclone_sandbox_test.go`.
+  - Implemented dynamic-port `rclone rcd` harness using `t.TempDir()`, isolated cache, and `--config /dev/null`.
+  - Validated live daemon health checks, real core stats, file/directory lifecycle (`Mkdir`, `TouchFile`, `ListDirectory`, `Canary`, `CopyFile`, `DeleteFile`, `PurgeDir`), and full two-way `sync/bisync` with job monitoring.
+  - Verification passed (`go test -v -count=1 ./tests/integration/...`).
 
 
 
