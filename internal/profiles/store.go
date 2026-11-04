@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -16,8 +17,10 @@ type Store struct {
 	mu          sync.RWMutex
 	storePath   string
 	historyPath string
+	lockPath    string
 	profiles    map[string]*Profile
 	history     map[string][]ProfileVersion
+	lastModTime time.Time
 }
 
 // NewStore initializes a profile store from disk.
@@ -32,6 +35,7 @@ func NewStore(storePath, historyPath string) (*Store, error) {
 	s := &Store{
 		storePath:   storePath,
 		historyPath: historyPath,
+		lockPath:    storePath + ".flock",
 		profiles:    make(map[string]*Profile),
 		history:     make(map[string][]ProfileVersion),
 	}
@@ -43,11 +47,38 @@ func NewStore(storePath, historyPath string) (*Store, error) {
 	return s, nil
 }
 
-func (s *Store) load() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Store) withFileLock(fn func() error) error {
+	dir := filepath.Dir(s.lockPath)
+	if err := os.MkdirAll(dir, 0750); err != nil {
+		return fmt.Errorf("failed to create directory for profile lock: %w", err)
+	}
 
-	if _, err := os.Stat(s.storePath); err == nil {
+	lockFile, err := os.OpenFile(s.lockPath, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to open profile lock file: %w", err)
+	}
+	defer lockFile.Close()
+
+	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("failed to acquire profile file lock: %w", err)
+	}
+	defer func() {
+		_ = syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
+	}()
+
+	return fn()
+}
+
+func (s *Store) load() error {
+	return s.withFileLock(func() error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.loadLocked()
+	})
+}
+
+func (s *Store) loadLocked() error {
+	if fi, err := os.Stat(s.storePath); err == nil {
 		data, err := os.ReadFile(s.storePath)
 		if err != nil {
 			return err
@@ -56,9 +87,12 @@ func (s *Store) load() error {
 		if err := json.Unmarshal(data, &list); err != nil {
 			return err
 		}
+		newProfiles := make(map[string]*Profile, len(list))
 		for _, p := range list {
-			s.profiles[p.ID] = p
+			newProfiles[p.ID] = p
 		}
+		s.profiles = newProfiles
+		s.lastModTime = fi.ModTime()
 	}
 
 	if _, err := os.Stat(s.historyPath); err == nil {
@@ -75,8 +109,26 @@ func (s *Store) load() error {
 	return nil
 }
 
+func (s *Store) reloadIfModifiedLocked() error {
+	fi, err := os.Stat(s.storePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if fi.ModTime().After(s.lastModTime) {
+		return s.loadLocked()
+	}
+	return nil
+}
+
 // List returns all profiles, optionally filtering out archived ones.
 func (s *Store) List(includeArchived bool) []*Profile {
+	s.mu.Lock()
+	_ = s.reloadIfModifiedLocked()
+	s.mu.Unlock()
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -99,6 +151,10 @@ func (s *Store) List(includeArchived bool) []*Profile {
 
 // Get retrieves a profile by ID.
 func (s *Store) Get(id string) (*Profile, error) {
+	s.mu.Lock()
+	_ = s.reloadIfModifiedLocked()
+	s.mu.Unlock()
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -116,77 +172,93 @@ func (s *Store) Save(p *Profile, reason string) error {
 		return err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return s.withFileLock(func() error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
-	now := time.Now().UTC()
-	existing, exists := s.profiles[p.ID]
-	if !exists {
-		p.Version = 1
-		p.CreatedAt = now
-		p.UpdatedAt = now
-		if p.State.Status == "" {
-			p.State.Status = StatusHealthy
+		_ = s.reloadIfModifiedLocked()
+
+		now := time.Now().UTC()
+		existing, exists := s.profiles[p.ID]
+		if !exists {
+			p.Version = 1
+			p.CreatedAt = now
+			p.UpdatedAt = now
+			if p.State.Status == "" {
+				p.State.Status = StatusHealthy
+			}
+		} else {
+			p.Version = existing.Version + 1
+			p.CreatedAt = existing.CreatedAt
+			p.UpdatedAt = now
 		}
-	} else {
-		p.Version = existing.Version + 1
-		p.CreatedAt = existing.CreatedAt
-		p.UpdatedAt = now
-	}
 
-	action := "UPDATED"
-	if !exists {
-		action = "CREATED"
-	}
-	if strings.HasPrefix(reason, "Cloned from") {
-		action = "CLONED"
-	}
-	if strings.HasPrefix(reason, "Rollback") {
-		action = "ROLLED_BACK"
-	}
+		action := "UPDATED"
+		if !exists {
+			action = "CREATED"
+		}
+		if strings.HasPrefix(reason, "Cloned from") {
+			action = "CLONED"
+		}
+		if strings.HasPrefix(reason, "Rollback") {
+			action = "ROLLED_BACK"
+		}
 
-	snapshot := ProfileVersion{
-		Version:   p.Version,
-		ProfileID: p.ID,
-		Action:    action,
-		Timestamp: now,
-		Reason:    reason,
-		Snapshot:  *p,
-	}
-	s.history[p.ID] = append(s.history[p.ID], snapshot)
+		snapshot := ProfileVersion{
+			Version:   p.Version,
+			ProfileID: p.ID,
+			Action:    action,
+			Timestamp: now,
+			Reason:    reason,
+			Snapshot:  *p,
+		}
+		s.history[p.ID] = append(s.history[p.ID], snapshot)
 
-	copyP := *p
-	s.profiles[p.ID] = &copyP
+		copyP := *p
+		s.profiles[p.ID] = &copyP
 
-	return s.persistLocked()
+		return s.persistLocked()
+	})
 }
 
 // UpdateState updates dynamic operational state without bumping configuration version.
+// It acquires a POSIX file lock, reloads on-disk configuration if changed, updates
+// strictly the operational state fields, and writes atomically to protect user settings.
 func (s *Store) UpdateState(id string, state OperationalState) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return s.withFileLock(func() error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
-	p, exists := s.profiles[id]
-	if !exists {
-		return ErrProfileNotFound
-	}
-	p.State = state
-	p.UpdatedAt = time.Now().UTC()
+		if err := s.reloadIfModifiedLocked(); err != nil {
+			return fmt.Errorf("failed to check profiles disk state: %w", err)
+		}
 
-	return s.persistLocked()
+		p, exists := s.profiles[id]
+		if !exists {
+			return ErrProfileNotFound
+		}
+		p.State = state
+		p.UpdatedAt = time.Now().UTC()
+
+		return s.persistLocked()
+	})
 }
 
 // Delete removes a profile from memory and disk.
 func (s *Store) Delete(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return s.withFileLock(func() error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
-	if _, exists := s.profiles[id]; !exists {
-		return ErrProfileNotFound
-	}
+		_ = s.reloadIfModifiedLocked()
 
-	delete(s.profiles, id)
-	return s.persistLocked()
+		if _, exists := s.profiles[id]; !exists {
+			return ErrProfileNotFound
+		}
+
+		delete(s.profiles, id)
+		return s.persistLocked()
+	})
 }
 
 // GetHistory returns the version history for a profile.
@@ -210,49 +282,58 @@ func (s *Store) GetHistory(id string) ([]ProfileVersion, error) {
 
 // Rollback restores a profile configuration to an earlier version.
 func (s *Store) Rollback(id string, targetVersion int) (*Profile, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	var ret Profile
+	err := s.withFileLock(func() error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
-	p, exists := s.profiles[id]
-	if !exists {
-		return nil, ErrProfileNotFound
-	}
+		_ = s.reloadIfModifiedLocked()
 
-	var targetSnapshot *Profile
-	for _, v := range s.history[id] {
-		if v.Version == targetVersion {
-			snap := v.Snapshot
-			targetSnapshot = &snap
-			break
+		p, exists := s.profiles[id]
+		if !exists {
+			return ErrProfileNotFound
 		}
-	}
-	if targetSnapshot == nil {
-		return nil, ErrVersionNotFound
-	}
 
-	now := time.Now().UTC()
-	newVersion := p.Version + 1
+		var targetSnapshot *Profile
+		for _, v := range s.history[id] {
+			if v.Version == targetVersion {
+				snap := v.Snapshot
+				targetSnapshot = &snap
+				break
+			}
+		}
+		if targetSnapshot == nil {
+			return ErrVersionNotFound
+		}
 
-	restored := *targetSnapshot
-	restored.Version = newVersion
-	restored.UpdatedAt = now
-	restored.State = p.State
+		now := time.Now().UTC()
+		newVersion := p.Version + 1
 
-	snapshot := ProfileVersion{
-		Version:   newVersion,
-		ProfileID: id,
-		Timestamp: now,
-		Reason:    fmt.Sprintf("Rollback to version %d", targetVersion),
-		Snapshot:  restored,
-	}
-	s.history[id] = append(s.history[id], snapshot)
-	s.profiles[id] = &restored
+		restored := *targetSnapshot
+		restored.Version = newVersion
+		restored.UpdatedAt = now
+		restored.State = p.State
 
-	if err := s.persistLocked(); err != nil {
+		snapshot := ProfileVersion{
+			Version:   newVersion,
+			ProfileID: id,
+			Timestamp: now,
+			Reason:    fmt.Sprintf("Rollback to version %d", targetVersion),
+			Snapshot:  restored,
+		}
+		s.history[id] = append(s.history[id], snapshot)
+		s.profiles[id] = &restored
+
+		if err := s.persistLocked(); err != nil {
+			return err
+		}
+
+		ret = restored
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	ret := restored
 	return &ret, nil
 }
 
@@ -302,6 +383,10 @@ func (s *Store) persistLocked() error {
 	}
 	if err := atomicWriteJSON(s.storePath, list); err != nil {
 		return fmt.Errorf("failed to persist profiles: %w", err)
+	}
+
+	if fi, err := os.Stat(s.storePath); err == nil {
+		s.lastModTime = fi.ModTime()
 	}
 
 	if err := atomicWriteJSON(s.historyPath, s.history); err != nil {

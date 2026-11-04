@@ -245,3 +245,73 @@ func TestStore_List_DeterministicSorting(t *testing.T) {
 		}
 	}
 }
+
+func TestStore_MultiProcessSynchronizationAndNoSettingsClobber(t *testing.T) {
+	tmpDir := t.TempDir()
+	storePath := filepath.Join(tmpDir, "profiles.json")
+	historyPath := filepath.Join(tmpDir, "history.json")
+
+	// Process A (e.g. Dashboard)
+	storeA, err := NewStore(storePath, historyPath)
+	if err != nil {
+		t.Fatalf("failed to init storeA: %v", err)
+	}
+
+	boot, err := storeA.BootstrapDefault("/tmp/data", "gdrive:")
+	if err != nil || boot == nil {
+		t.Fatalf("failed to bootstrap: %v", err)
+	}
+
+	// Process B (e.g. MCP Server or background worker) boots and loads store
+	storeB, err := NewStore(storePath, historyPath)
+	if err != nil {
+		t.Fatalf("failed to init storeB: %v", err)
+	}
+
+	// User modifies profile in Process A (Dashboard): changes schedule, review mode, and exclude patterns
+	profA, err := storeA.Get("default")
+	if err != nil {
+		t.Fatalf("failed to get profile from storeA: %v", err)
+	}
+	profA.Schedule = "45m"
+	profA.ReviewMode = ReviewAll
+	profA.ExcludePatterns = []string{"*.tmp", "node_modules/**"}
+	if err := storeA.Save(profA, "User customized options via web UI"); err != nil {
+		t.Fatalf("failed to save in storeA: %v", err)
+	}
+
+	// Ensure filesystem timestamp granularity has passed
+	time.Sleep(10 * time.Millisecond)
+
+	// Meanwhile, Process B updates operational state (e.g. sync completed)
+	now := time.Now().UTC()
+	err = storeB.UpdateState("default", OperationalState{
+		Status:              StatusHealthy,
+		LastSync:            &now,
+		ConsecutiveFailures: 0,
+		LastDurationSec:     12.5,
+	})
+	if err != nil {
+		t.Fatalf("failed to update state in storeB: %v", err)
+	}
+
+	// Verify that Process B's UpdateState did NOT clobber the user's customized options!
+	reloaded, err := storeB.Get("default")
+	if err != nil {
+		t.Fatalf("failed to get profile after state update: %v", err)
+	}
+
+	if reloaded.Schedule != "45m" {
+		t.Errorf("expected schedule '45m' to be preserved, got '%s'", reloaded.Schedule)
+	}
+	if reloaded.ReviewMode != ReviewAll {
+		t.Errorf("expected review mode '%s' to be preserved, got '%s'", ReviewAll, reloaded.ReviewMode)
+	}
+	if len(reloaded.ExcludePatterns) != 2 || reloaded.ExcludePatterns[0] != "*.tmp" {
+		t.Errorf("expected exclude patterns to be preserved, got %v", reloaded.ExcludePatterns)
+	}
+	if reloaded.State.LastDurationSec != 12.5 {
+		t.Errorf("expected LastDurationSec 12.5, got %f", reloaded.State.LastDurationSec)
+	}
+}
+
