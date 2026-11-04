@@ -9,7 +9,7 @@ Implement architectural review recommendations: document November 4, 2026 audit 
   - **Scope**: `docs/architecture/code-review.md`, `docs/roadmap/ROADMAP.md`
   - **Verification**: `test -f docs/architecture/code-review.md && ./scripts/check.sh loc`
 
-- [ ] Task 2: POSIX Advisory File Locking on Review Session & WAL
+- [x] Task 2: POSIX Advisory File Locking on Review Session & WAL
   - **Scope**: `internal/engine/review/journal.go`, `internal/services/review_service.go`, `internal/engine/review/journal_test.go`
   - **Verification**: `go test -v -count=1 ./internal/engine/review/... ./internal/services/... -run "TestJournal|TestReview"`
 
@@ -37,6 +37,11 @@ Implement architectural review recommendations: document November 4, 2026 audit 
   - Formulated the 5-tier testing architecture (Unit -> Subprocess Concurrency -> Real Local Rclone Sandbox -> Stateful Chaos/Saga -> E2E Chrome).
   - Aligned short, medium, and long-term roadmap priorities in `docs/roadmap/ROADMAP.md` and `docs/architecture/code-review.md`.
   - Verification passed (`test -f docs/architecture/code-review.md && ./scripts/check.sh loc`).
+- 2026-11-04: Completed Task 2:
+  - Added POSIX advisory file locking (`syscall.Flock`) to review session and WAL disk operations (`SaveActiveSession`, `LoadActiveSession`, `ArchiveSession`, `AppendWAL`, `ReadWAL`, `DismissActiveSessionFile`, `RemoveWAL`).
+  - Integrated `DismissActiveSessionFile` and `RemoveWAL` into `ReviewService.ClearSession`, `ExecuteSession`, and `DismissSession`.
+  - Added concurrency unit test `TestJournal_POSIXFlockConcurrency` verifying race-free concurrent session and WAL operations across 20 workers.
+  - Verification passed (`go test -v -count=1 ./internal/engine/review/... ./internal/services/... -run "TestJournal|TestReview"`).
 
 
 

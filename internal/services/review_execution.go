@@ -226,7 +226,7 @@ func (s *ReviewService) ApplyReviewSession(ctx context.Context, sessionID string
 	}
 	walFile := s.walFilePath()
 	if walFile != "" {
-		_ = os.Remove(walFile)
+		_ = review.RemoveWAL(walFile)
 	}
 
 	if s.Audit != nil && s.session != nil {
@@ -335,7 +335,7 @@ func (s *ReviewService) DismissReviewSession(sessionID string) error {
 
 	walFile := s.walFilePath()
 	if walFile != "" {
-		_ = os.Remove(walFile)
+		_ = review.RemoveWAL(walFile)
 	}
 
 	if s.Audit != nil && s.session != nil {
