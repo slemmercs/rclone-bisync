@@ -14,11 +14,12 @@ import (
 
 // ResolutionExecutor coordinates executing staged review decisions via reversible operations.
 type ResolutionExecutor struct {
-	LocalRoot  string
-	RemoteName string
-	BackupDir  string
-	Client     RemoteClient
-	WALPath    string
+	LocalRoot   string
+	RemoteName  string
+	BackupDir   string
+	Client      RemoteClient
+	WALPath     string
+	QueueConfig *QueueConfig
 }
 
 // NewResolutionExecutor creates a new configured executor instance.
@@ -35,6 +36,16 @@ func NewResolutionExecutor(localRoot, remoteName, backupDir, walPath string, cli
 // RemoteFs returns a properly formatted rclone fs string (supporting cloud remotes and local paths).
 func (e *ResolutionExecutor) RemoteFs() string {
 	return FormatRemoteFs(e.RemoteName)
+}
+
+func recordAction(session *models.ReviewSession, action models.ResolutionAction) {
+	for i := range session.Actions {
+		if session.Actions[i].ID == action.ID || session.Actions[i].ItemPath == action.ItemPath {
+			session.Actions[i] = action
+			return
+		}
+	}
+	session.Actions = append(session.Actions, action)
 }
 
 // ExecuteSession executes all staged decisions for candidates in the session.
@@ -61,34 +72,31 @@ func (e *ResolutionExecutor) ExecuteSession(ctx context.Context, session *models
 	}
 	session.Actions = make([]models.ResolutionAction, 0)
 
-	// Execute staged deletions
-	for _, cand := range session.Deletions {
-		if !cand.Resolved || cand.Decision == "" || cand.Decision == models.DecisionSkip {
+	allWorkItems := BuildWorkItems(session.Deletions, session.Conflicts)
+	pendingItems := make([]WorkItem, 0, len(allWorkItems))
+
+	for _, item := range allWorkItems {
+		if prev, ok := completedActions[item.Path]; ok && prev.Type == item.Decision {
+			recordAction(session, prev)
 			continue
 		}
-		if prev, ok := completedActions[cand.Path]; ok && prev.Type == cand.Decision {
-			session.Actions = append(session.Actions, prev)
-			continue
-		}
-		if err := e.executeDeletion(ctx, session, cand); err != nil {
-			_ = Transition(session, models.ReviewStatusFailed)
-			return fmt.Errorf("failed executing deletion decision for %s: %w", cand.Path, err)
-		}
+		pendingItems = append(pendingItems, item)
 	}
 
-	// Execute staged conflicts
-	for _, cand := range session.Conflicts {
-		if !cand.Resolved || cand.Decision == "" || cand.Decision == models.DecisionSkip {
-			continue
+	queue := NewReviewQueue(e.QueueConfig)
+	summary := queue.Process(ctx, pendingItems, func(opCtx context.Context, item WorkItem) error {
+		if item.Kind == WorkItemKindDeletion && item.Deletion != nil {
+			return e.executeDeletion(opCtx, session, *item.Deletion)
 		}
-		if prev, ok := completedActions[cand.Path]; ok && prev.Type == cand.Decision {
-			session.Actions = append(session.Actions, prev)
-			continue
+		if item.Kind == WorkItemKindConflict && item.Conflict != nil {
+			return e.executeConflict(opCtx, session, *item.Conflict)
 		}
-		if err := e.executeConflict(ctx, session, cand); err != nil {
-			_ = Transition(session, models.ReviewStatusFailed)
-			return fmt.Errorf("failed executing conflict decision for %s: %w", cand.Path, err)
-		}
+		return nil
+	})
+
+	if summary.HasErrors() {
+		_ = Transition(session, models.ReviewStatusFailed)
+		return fmt.Errorf("session execution finished with %d error(s): %s", summary.Failed, summary.FormatSummary())
 	}
 
 	return Transition(session, models.ReviewStatusReady)
@@ -109,22 +117,32 @@ func (e *ResolutionExecutor) logWAL(sessionID, actionID, step, itemPath string, 
 	})
 }
 
-func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *models.ReviewSession, cand models.DeletionCandidate) error {
+func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *models.ReviewSession, cand models.DeletionCandidate) (err error) {
 	actionID := fmt.Sprintf("act-del-%d", len(session.Actions)+1)
 	action := models.ResolutionAction{
 		ID:       actionID,
 		Type:     cand.Decision,
 		ItemPath: cand.Path,
+		IsDir:    cand.IsDir,
 		Status:   "pending",
 	}
 
+	defer func() {
+		if err != nil && ClassifyError(err) != ErrorClassIdempotent {
+			action.Status = "failed"
+			action.Error = err.Error()
+			recordAction(session, action)
+		} else {
+			action.Status = "completed"
+			action.Error = ""
+			recordAction(session, action)
+		}
+	}()
+
 	actualPath := cand.Path
-	fullLocal, err := ResolveSafePath(e.LocalRoot, cand.Path)
-	if err != nil {
-		action.Status = "failed"
-		action.Error = err.Error()
-		session.Actions = append(session.Actions, action)
-		return err
+	fullLocal, rErr := ResolveSafePath(e.LocalRoot, cand.Path)
+	if rErr != nil {
+		return rErr
 	}
 
 	// Reconcile trailing-space directory/file if trimmed during discovery
@@ -258,12 +276,10 @@ func (e *ResolutionExecutor) executeDeletion(ctx context.Context, session *model
 		}
 	}
 
-	action.Status = "completed"
-	session.Actions = append(session.Actions, action)
 	return nil
 }
 
-func (e *ResolutionExecutor) executeConflict(ctx context.Context, session *models.ReviewSession, cand models.ConflictCandidate) error {
+func (e *ResolutionExecutor) executeConflict(ctx context.Context, session *models.ReviewSession, cand models.ConflictCandidate) (err error) {
 	actionID := fmt.Sprintf("act-conf-%d", len(session.Actions)+1)
 	action := models.ResolutionAction{
 		ID:       actionID,
@@ -272,12 +288,21 @@ func (e *ResolutionExecutor) executeConflict(ctx context.Context, session *model
 		Status:   "pending",
 	}
 
-	fullLocal, err := ResolveSafePath(e.LocalRoot, cand.Path)
-	if err != nil {
-		action.Status = "failed"
-		action.Error = err.Error()
-		session.Actions = append(session.Actions, action)
-		return err
+	defer func() {
+		if err != nil && ClassifyError(err) != ErrorClassIdempotent {
+			action.Status = "failed"
+			action.Error = err.Error()
+			recordAction(session, action)
+		} else {
+			action.Status = "completed"
+			action.Error = ""
+			recordAction(session, action)
+		}
+	}()
+
+	fullLocal, rErr := ResolveSafePath(e.LocalRoot, cand.Path)
+	if rErr != nil {
+		return rErr
 	}
 
 	baseName := filepath.Base(fullLocal)
@@ -340,7 +365,5 @@ func (e *ResolutionExecutor) executeConflict(ctx context.Context, session *model
 		}
 	}
 
-	action.Status = "completed"
-	session.Actions = append(session.Actions, action)
 	return nil
 }

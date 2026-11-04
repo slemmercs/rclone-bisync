@@ -101,11 +101,11 @@ func (s *Server) ServeSSE(ctx context.Context, host string, port int) error {
 	defer s.removeStatusFile()
 
 	addr := fmt.Sprintf("%s:%d", host, port)
-	streamSrv := server.NewStreamableHTTPServer(s.mcpServer)
+	sseSrv := server.NewSSEServer(s.mcpServer)
 
 	httpServer := &http.Server{
 		Addr:              addr,
-		Handler:           streamSrv,
+		Handler:           sseSrv,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -121,6 +121,7 @@ func (s *Server) ServeSSE(ctx context.Context, host string, port int) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		_ = sseSrv.Shutdown(shutdownCtx)
 		_ = httpServer.Shutdown(shutdownCtx)
 		return nil
 	case err := <-errChan:
