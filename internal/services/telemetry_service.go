@@ -41,57 +41,18 @@ type TelemetryService struct {
 	fileCache       map[string]FileCacheItem
 	liveHealthCache LiveHealthCache
 	remotesCache    RemotesCacheItem
+	lastHealthyTime time.Time
+	gracePeriod     time.Duration
 }
 
 // NewTelemetryService creates a new TelemetryService instance.
 func NewTelemetryService(cfg *config.Config, rcClient *client.RcloneClient) *TelemetryService {
 	return &TelemetryService{
-		Config:    cfg,
-		Client:    rcClient,
-		fileCache: make(map[string]FileCacheItem),
+		Config:      cfg,
+		Client:      rcClient,
+		fileCache:   make(map[string]FileCacheItem),
+		gracePeriod: 15 * time.Second,
 	}
-}
-
-// GetDaemonHealth retrieves daemon health with caching.
-func (t *TelemetryService) GetDaemonHealth(ctx context.Context) map[string]interface{} {
-	now := float64(time.Now().Unix())
-
-	t.lockMu.Lock()
-	if t.liveHealthCache.Data != nil && (now-t.liveHealthCache.Time) <= 5 {
-		data := t.liveHealthCache.Data
-		t.lockMu.Unlock()
-		return data
-	}
-	t.lockMu.Unlock()
-
-	if t.Client == nil {
-		return map[string]interface{}{
-			"status":           "offline",
-			"response_time_ms": 0.0,
-			"last_check":       now,
-		}
-	}
-
-	healthy, latency, _ := t.Client.CheckHealth(ctx, 1, 0)
-	statusStr := "offline"
-	if healthy {
-		statusStr = "healthy"
-	} else {
-		latency = 0.0
-	}
-
-	health := map[string]interface{}{
-		"status":           statusStr,
-		"response_time_ms": latency,
-		"last_check":       now,
-	}
-
-	t.lockMu.Lock()
-	t.liveHealthCache.Time = now
-	t.liveHealthCache.Data = health
-	t.lockMu.Unlock()
-
-	return health
 }
 
 // GetTransferStats queries core/stats from Rclone RC.

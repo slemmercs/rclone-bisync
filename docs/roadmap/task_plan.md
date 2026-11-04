@@ -17,7 +17,7 @@ Implement architectural review recommendations: document November 4, 2026 audit 
   - **Scope**: `internal/server/handlers_config.go`, `internal/server/handlers_telemetry.go`, `internal/models/api.go`
   - **Verification**: `go test -v -count=1 ./internal/server/...`
 
-- [ ] Task 4: Implement Daemon Watchdog & Auto-Reconnect Grace Period
+- [x] Task 4: Implement Daemon Watchdog & Auto-Reconnect Grace Period
   - **Scope**: `internal/services/telemetry_service.go`, `internal/core/client/client.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestTelemetry"`
 
@@ -52,6 +52,13 @@ Implement architectural review recommendations: document November 4, 2026 audit 
 
 
 
+
+- 2026-11-04: Completed Task 4:
+  - Added auto-reconnect grace period (`ReconnectGracePeriod`) and progressive retry backoff on transient connection drops in `RcloneClient`.
+  - Added `WaitForHealthy` to `RcloneClient` and `WaitForDaemon` watchdog in `TelemetryService`.
+  - Added reconnecting state (`status: "reconnecting"`) within grace period before declaring daemon offline in `TelemetryService.GetDaemonHealth`.
+  - Modularized watchdog implementation into `internal/services/telemetry_watchdog.go` maintaining strictly bounded files (<400 LOC).
+  - Verification passed (`go test -v -count=1 ./internal/services/... -run "TestTelemetry"`).
 
 
 
