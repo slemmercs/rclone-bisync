@@ -28,6 +28,10 @@ Implement architectural review recommendations: document November 4, 2026 audit 
 - [x] Task 6: Full Pre-Flight Validation & Quality Gate
   - **Scope**: Full repository
   - **Verification**: `./scripts/check.sh all`
+- [x] Task 7: Real Local Rclone Sandbox Regression Tests (Trailing Whitespace, Idempotent 404, Mixed Directory/File Review Execution)
+  - **Scope**: `tests/integration/rclone_sandbox_edgecases_test.go`
+  - **Verification**: `go test -v -count=1 ./tests/integration/... -run "TestRcloneSandbox_"`
+
 
 ## Status Updates
 
@@ -72,6 +76,13 @@ Implement architectural review recommendations: document November 4, 2026 audit 
   - All 7 stages (gofmt, shellcheck, loc under 400 lines, go vet, staticcheck/gosec, unit/integration test coverage, cross-platform build) passed cleanly in 15.686s.
   - All tasks in task plan are now complete.
 
+
+- 2026-11-04: Completed Task 7:
+  - Added Tier 4 regression tests in `tests/integration/rclone_sandbox_edgecases_test.go` targeting recent bug clusters.
+  - Verified trailing-space directory reconciliation on disk (`Alpha `) with real Rclone review execution (`TestRcloneSandbox_TrailingSpaceDirectoryReconciliation`).
+  - Verified idempotent 404/not-found handling when deleting absent files/directories against real Rclone RC (`TestRcloneSandbox_Idempotent404Handling`).
+  - Verified mixed directory and file restoration without HTTP 500 (`TestRcloneSandbox_MixedDirectoryAndFileReviewExecution`).
+  - All 6 sandbox tests passed cleanly in 1.4s. Full quality gate passed in 14.3s.
 
 
 
