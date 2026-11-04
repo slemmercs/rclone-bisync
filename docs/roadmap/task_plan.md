@@ -13,7 +13,7 @@ Implement architectural review recommendations: document November 4, 2026 audit 
   - **Scope**: `internal/engine/review/journal.go`, `internal/services/review_service.go`, `internal/engine/review/journal_test.go`
   - **Verification**: `go test -v -count=1 ./internal/engine/review/... ./internal/services/... -run "TestJournal|TestReview"`
 
-- [ ] Task 3: Standardize REST API Schemas with Concrete Models
+- [x] Task 3: Standardize REST API Schemas with Concrete Models
   - **Scope**: `internal/server/handlers_config.go`, `internal/server/handlers_telemetry.go`, `internal/models/api.go`
   - **Verification**: `go test -v -count=1 ./internal/server/...`
 
@@ -42,6 +42,12 @@ Implement architectural review recommendations: document November 4, 2026 audit 
   - Integrated `DismissActiveSessionFile` and `RemoveWAL` into `ReviewService.ClearSession`, `ExecuteSession`, and `DismissSession`.
   - Added concurrency unit test `TestJournal_POSIXFlockConcurrency` verifying race-free concurrent session and WAL operations across 20 workers.
   - Verification passed (`go test -v -count=1 ./internal/engine/review/... ./internal/services/... -run "TestJournal|TestReview"`).
+- 2026-11-04: Completed Task 3:
+  - Centralized REST API models in `internal/models/api.go` (`GlobalDefaults`, `ConfigDaemonSettings`, `ConfigNotificationSettings`, `GlobalConfigResponse`, `UpdateConfigRequest`, `TelemetryResponse`).
+  - Aliased `config.GlobalDefaults = models.GlobalDefaults` to retain 100% backward compatibility without cyclic dependencies.
+  - Replaced unstructured map returns in `internal/server/handlers_telemetry.go` with typed `models.TelemetryResponse`.
+  - Added schema validation tests in `internal/models/api_test.go`.
+  - Verification passed (`go test -v -count=1 ./internal/server/...`).
 
 
 

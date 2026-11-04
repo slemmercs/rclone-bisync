@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -181,8 +182,12 @@ func (s *Server) handleTelemetry(w http.ResponseWriter, r *http.Request) {
 	if !isSyncing && s.ProfileService != nil {
 		isSyncing = s.ProfileService.IsAnySyncing()
 	}
-	payload := s.TelemetryService.GetTelemetryPayload(r.Context(), isSyncing, limit)
-	writeJSON(w, http.StatusOK, payload)
+	rawPayload := s.TelemetryService.GetTelemetryPayload(r.Context(), isSyncing, limit)
+	var resp models.TelemetryResponse
+	if data, err := json.Marshal(rawPayload); err == nil {
+		_ = json.Unmarshal(data, &resp)
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleBisyncLogs(w http.ResponseWriter, r *http.Request) {

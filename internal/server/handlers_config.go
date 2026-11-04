@@ -5,35 +5,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
-type ConfigDaemonSettings struct {
-	JobPollInitialSleepSec  float64 `json:"job_poll_initial_sleep_sec"`
-	JobPollMaxSleepSec      float64 `json:"job_poll_max_sleep_sec"`
-	JobTimeoutSeconds       int     `json:"job_timeout_seconds"`
-	LockStaleTimeoutSeconds int     `json:"lock_stale_timeout_seconds"`
-	RateLimitBackoffHours   float64 `json:"rate_limit_backoff_hours"`
-}
-
-type ConfigNotificationSettings struct {
-	WebhookURL      string `json:"webhook_url"`
-	WatchdogPingURL string `json:"watchdog_ping_url"`
-}
-
-type GlobalConfigResponse struct {
-	Status         string                     `json:"status"`
-	GlobalDefaults config.GlobalDefaults      `json:"global_defaults"`
-	Daemon         ConfigDaemonSettings       `json:"daemon"`
-	Notifications  ConfigNotificationSettings `json:"notifications"`
-}
-
-type UpdateConfigRequest struct {
-	GlobalDefaults *config.GlobalDefaults      `json:"global_defaults,omitempty"`
-	Daemon         *ConfigDaemonSettings       `json:"daemon,omitempty"`
-	Notifications  *ConfigNotificationSettings `json:"notifications,omitempty"`
-}
+// Config type aliases pointing to models for backward compatibility.
+type ConfigDaemonSettings = models.ConfigDaemonSettings
+type ConfigNotificationSettings = models.ConfigNotificationSettings
+type GlobalConfigResponse = models.GlobalConfigResponse
+type UpdateConfigRequest = models.UpdateConfigRequest
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	globals := s.getGlobalDefaults()
