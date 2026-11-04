@@ -1,33 +1,45 @@
-# Implementation Plan: Consolidate MCP into Dashboard & Secure Profile Store
+# Implementation Plan: Architecture Hardening & Real Rclone Local Sandbox Suite
 
 ## Proposed Changes
 
-### 1. Profile Store POSIX Advisory Locking & Safe In-Place Updates (`internal/profiles/store.go`)
-- Wrap file read/write operations on `profiles.json` with POSIX advisory locking (`syscall.Flock`) on a dedicated lock file (`profiles.json.flock`).
-- In `Store.UpdateState`, perform in-place operational state updating without blindly overwriting configuration fields (`schedule`, `review_mode`, `exclude_patterns`, `flags`) if disk contents have diverged.
-- Check file modification timestamp (`mtime`) on disk to detect changes and reload before mutations.
+Address testing blind spots, race conditions, and schema drift uncovered during recent feature development (Phases 4 & 5, MCP server). Transition from purely synthetic unit-test mocks to a multi-tiered testing model featuring real local Rclone sandbox testing.
 
-### 2. Embedded MCP SSE Server within Dashboard (`main.go`, `internal/config/config.go`)
-- Add `MCPEnabled` (default: `true`) and `MCPPort` (default: `8081`) to `config.Config` and CLI flags in `dashboard`.
-- In `main.go:runDashboard`, launch the MCP SSE server concurrently as a managed background listener sharing the same `appContainer` as the Web UI.
-- Handle unified graceful shutdown: when `SIGTERM` / `SIGINT` is received, both the Dashboard HTTP server (`:8080`) and the MCP SSE server (`:8081`) terminate gracefully without orphan processes.
-- Strip `appContainer.Start()` from standalone `runMCP` so external CLI or stdio invocations of `rclone-bisync mcp` never spawn background scheduler loops.
+### Affected Components & Packages
 
-### 3. Service Consolidation & Cleanup (`deploy/install.sh`, `deploy/systemd/`)
-- Retire `deploy/systemd/rclone-mcp.service`.
-- In `deploy/install.sh`, stop, disable, and clean up any existing `rclone-mcp.service` on the user system.
-- Manage exactly two systemd services:
-  1. `rclone-daemon.service` (upstream Rclone RC engine)
-  2. `rclone-dashboard.service` (dashboard web UI + embedded MCP)
-- Update UI modal (`dashboard/frontend/partials/modals/modal_mcp.html`) to reference `rclone-dashboard.service`.
+- `docs/architecture/code-review.md`: Comprehensive periodic review documenting November 4, 2026 audit, bug root causes, and 5-tier testing strategy.
+- `internal/engine/review/journal.go`: Wrap active review session and WAL disk operations in POSIX advisory file locking (`syscall.Flock`).
+- `internal/services/review_service.go`: Synchronize review session discovery and dismissal with advisory file lock.
+- `internal/server/handlers_config.go`, `internal/server/handlers_telemetry.go`, `internal/models/api.go`: Standardize API responses to explicit Go structs (`models.ActionResponse`, etc.).
+- `internal/services/telemetry_service.go`, `internal/core/client/client.go`: Upstream RC daemon health watchdog with auto-reconnect backoff.
+- `tests/integration/rclone_sandbox_test.go`: Ephemeral local Rclone integration sandbox using `t.TempDir()`, fake source/dest folders, and dynamic-port `rclone rcd --config /dev/null`.
+
+### Technical Strategy & Data Flow
+
+1. **Advisory POSIX File Locking for Review Sessions**:
+   - Create `active_review_session.json.flock`.
+   - Use `syscall.Flock(fd, syscall.LOCK_EX)` during writes (`SaveActiveSession`, `AppendWAL`) and `syscall.Flock(fd, syscall.LOCK_SH)` during reads (`LoadActiveSession`).
+   - Prevents race conditions with external CLI commands or scripts reading/writing session files simultaneously.
+
+2. **Schema Governance**:
+   - Replace any remaining untyped `map[string]any` returns in `server` handlers with typed models.
+
+3. **Real Local Rclone Integration Sandbox**:
+   - Safe, isolated test harness that spawns a real `rclone rcd` child process on `127.0.0.1:0` with `--config /dev/null`.
+   - Uses `t.TempDir()` subdirectories as source and destination. User Google Drive and profile configurations are strictly untouched.
+   - Tests directory vs. file semantics, trailing whitespace, and RC parameter mapping directly against the real Rclone engine.
+
+### Safety & Error Handling
+
+- **Canary & Jail Protection**: Sandbox strictly confines all disk mutations inside Go's `t.TempDir()`.
+- **Zero Cloud Impact**: Tests pass `--config /dev/null` to guarantee no external cloud remotes are loaded or contacted.
+- **Process Cleanup**: Ephemeral `rclone rcd` processes are guaranteed terminated via `t.Cleanup()`.
 
 ## Verification Plan
 
-- Unit tests:
-  - `go test -count=1 ./internal/profiles/...`
-  - `go test -count=1 ./internal/server/...`
-  - `go test -count=1 ./internal/mcp/...`
-- Quality gate pre-flight check:
-  - `./scripts/check.sh all`
+- `test -f docs/architecture/code-review.md`
+- `go test -v -count=1 ./internal/engine/review/... ./internal/services/...`
+- `go test -v -count=1 ./internal/server/...`
+- `go test -v -count=1 ./tests/integration/...`
+- `./scripts/check.sh all`
 
 
