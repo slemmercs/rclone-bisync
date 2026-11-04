@@ -55,11 +55,11 @@ Roadmap items are not commitments and may change based on project needs.
 | **RC Argument Compiler, Rename Tracking & Review Cache Invalidation** | **Delivered** | `v1.0.0-beta.22` |
 | **Security Hardening (CodeQL #24) & MCP Inspector Modal** | **Delivered** | `v1.0.0-beta.23` |
 | **Embedded MCP Server Consolidation & Profile Store Protection** | **Delivered** | PR #70 (`v1.0.0-beta.27`) |
-| **Architecture Hardening & Real Rclone Sandbox Suite** | **Active Sprint** | Tests & Concurrency Hardening |
-| **Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)** | **Near-Term Priority 1** | "On Change" Schedule Mode |
+| **Architecture Hardening & Real Rclone Sandbox Suite** | **Delivered** | PR #70 (`v1.0.0-beta.27`) |
+| **Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)** | **Active Strategic Priority** | "On Change" Schedule Mode |
 | **Configuration Snapshot & Rollback Engine** | **Near-Term Priority 2** | Safety Pipeline & Config Snapshot API |
 | **Homelab Reverse Proxy Security Hardening & Prometheus `/metrics`** | **Near-Term Priority 3** | Auth, Headers & Metrics |
-| Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
+| **In-App User Guidance & Interactive Diagnostic Manual** | **Near-Term Priority 4** | Help Documents & Contextual Guidance |
 | Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
 | Local Inter-Process Communication (IPC) via Unix Sockets | Planned | Infrastructure Hardening |
 | Auto-Generated Cryptographic Credentials Engine | Planned | Infrastructure Hardening |
@@ -142,12 +142,24 @@ Eliminates CodeQL #24 path injection, hardens agent diagnostics, adds scoped log
 
 ---
 
-### Active Strategic Priority (#1): Configuration Snapshot & Rollback Engine
+### Delivered Milestone: Architecture Hardening, Real Rclone Sandbox Suite & Embedded MCP (`v1.0.0-beta.27`)
 
-Provides server-side configuration safety for global environments:
-- **Atomic Configuration Snapshots**: Snapshot profile state before applying structural edits or sync actions.
-- **Visual Rollback**: Compare active vs. previous profile revisions with diff visualization and one-click restoration.
-  - Real-time POSIX tokenizer and security blocklist validation per row.
+Eliminates concurrency race conditions, introduces Tier 4 real local Rclone integration testing, standardizes API schemas, and consolidates background service architectures:
+- **POSIX Advisory File Locking**: Implemented race-free POSIX advisory locking (`syscall.Flock`) on active review session (`active_review_session.json.flock`) and write-ahead log (`review.wal.flock`), ensuring mutual exclusion between CLI commands, external scripts, and daemon workers.
+- **Tier 4 Real Local Rclone Sandbox Integration Suite**: Ephemeral integration testing harness (`tests/integration/rclone_sandbox_test.go`, `tests/integration/rclone_sandbox_edgecases_test.go`) executing real `rclone rcd` binaries on dynamic loopback ports with `--config /dev/null`, verifying trailing whitespace resilience, 404 idempotent deletions, and mixed directory/file conflict reviews without touching cloud remotes.
+- **Typed REST Schema Governance**: Replaced loose maps with concrete Go models in `internal/models/api.go` (`GlobalDefaults`, `ConfigDaemonSettings`, `GlobalConfigResponse`, `TelemetryResponse`) providing schema contracts across endpoints.
+- **Daemon Health Watchdog & Auto-Reconnect**: Background telemetry watchdog with exponential reconnect backoff and connection grace periods surviving transient RC daemon restarts.
+- **Embedded MCP Server Consolidation**: Embedded native Model Context Protocol SSE server on port 8081 directly inside `rclone-dashboard.service`, eliminating separate daemon units, duplicate schedulers, and multi-process lock contention.
+
+---
+
+### Active Strategic Priority (#1): Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)
+
+Replaces and augments interval polling with real-time event-driven synchronization for local directories:
+- **"On Change" Schedule Mode**: Real-time bisync trigger option alongside interval schedules in profile settings.
+- **Debounced Burst Aggregation**: Configurable quiet-period aggregation window (10–30s) collapsing high-frequency mutations (git branch switching, build outputs, bulk file copies) into a single atomic bisync pass.
+- **Recursive Directory Watching & Local Jail Confinement**: Automatic recursive watch registration confined strictly within the profile's local root path, ignoring noisy directories (`.git/`, `.cache/`, temporary files).
+- **Descriptor Exhaustion Fallback**: Proactive monitoring of system inotify limits (`/proc/sys/fs/inotify/max_user_watches`) with graceful degradation to periodic polling if OS watch limits are reached.
 
 ---
 
@@ -155,11 +167,21 @@ Provides server-side configuration safety for global environments:
 
 Provides server-side configuration safety for global environments:
 - **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying new settings.
-- **One-Click Rollback API**: Restore historical configurations immediately if a change fails verification.
+- **Atomic Configuration Snapshots**: Snapshot profile state before applying structural edits or sync actions, archived in `config_snapshots/` with timestamped revisions.
+- **One-Click Rollback API & Visual Diff**: Visual comparison of active configuration against historical snapshots with one-click restoration to instantly revert breaking changes.
 
 ---
 
-### Near-Term Priority 3: In-App User Guidance, Info & Help Documents
+### Near-Term Priority 3: Homelab Reverse Proxy Security Hardening & Prometheus `/metrics`
+
+Hardens production and self-hosted homelab deployments:
+- **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
+- **Authentication Integration**: Optional HTTP basic authentication or forward-auth middleware support for secure exposure behind reverse proxies (Traefik, Caddy, Nginx).
+- **Prometheus Metrics Exporter**: Native `/metrics` endpoint exposing sync durations, cumulative transferred bytes, lock wait times, error counters, and daemon health for Grafana monitoring.
+
+---
+
+### Near-Term Priority 4: In-App User Guidance, Info & Help Documents
 
 Enhances dashboard accessibility for non-technical operators and new users:
 - **Contextual Tooltips & Policy Explanations**: Embeds inline tooltips and modal banners across `partials/view_*.html` explaining safety mechanisms (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
@@ -168,7 +190,9 @@ Enhances dashboard accessibility for non-technical operators and new users:
 
 ---
 
-### Near-Term Priority 4: Remote Mount Lifecycle Manager & Pooled Storage Engine
+## Secondary & Infrastructure Priorities
+
+### Remote Mount Lifecycle Manager & Pooled Storage Engine
 
 Programmatic management of VFS virtual drive mounts and multi-cloud storage pooling (`internal/mount`):
 - **Stage A (Remote Mount Manager)**: Mount, inspect, configure, and unmount individual remotes to local paths via Rclone RC `/mount/*` endpoints. Keepalive probes with automatic reconnect on transient network drops.
@@ -177,19 +201,12 @@ Programmatic management of VFS virtual drive mounts and multi-cloud storage pool
 
 ---
 
-## Secondary & Infrastructure Priorities
-
 ### Rclone Remote Control (RC) Framework Hardening
 
 Improves connectivity resiliency between Bisync Hub and the background Rclone `rcd` daemon:
 - Automated HTTP connection pooling and exponential backoff retry logic with jitter for HTTP 429 throttling.
 - Dynamic RC API version compatibility checks and health probes.
 - Proactive connection health monitoring across local Unix sockets and TCP loopbacks.
-
-Programmatic management of VFS virtual drive mounts and multi-cloud storage pooling:
-- **Stage A (Remote Mount Manager)**: Mount, inspect, configure, and unmount individual remotes to local paths via Rclone RC `/mount/*` endpoints.
-- **Stage B (Pooled Storage Engine)**: Provision stacked multi-cloud topologies (`union` + `chunker` + `crypt`) over RC `/config/create`. Combines disparate storage tiers into a single encrypted virtual drive guarded by Bisync Hub's safety probes.
-- Refer to [`docs/design/remote_mount_manager_design_specification.md`](../design/remote_mount_manager_design_specification.md).
 
 ---
 

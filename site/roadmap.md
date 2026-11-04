@@ -27,15 +27,16 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • Tier 1 Curated Options & Flags Builder (`beta.21`)        │
   │  • RC Argument Compilation & Rename Tracking (`beta.22`)     │
   │  • Security Hardening & MCP Inspector Cockpit (`beta.23`)    │
+  │  • Sandbox Integration Suite & POSIX Journal Locks (`beta.27`)│
   └──────────────────────────────┬───────────────────────────────┘
                                  │
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
   │             NEAR-TERM STRATEGIC PRIORITIES                   │
-  │  1. In-Dashboard Configuration & Setup Manager (Rollback API)│
-  │  2. In-App User Guidance & Interactive Diagnostic Manual     │
-  │  3. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
-  │  4. Local Inter-Process Communication (IPC) via Unix Sockets │
+  │  1. Event-Driven Local Filesystem Sync (fsnotify Watcher)    │
+  │  2. In-Dashboard Configuration Snapshot & Rollback API       │
+  │  3. Homelab Reverse Proxy Hardening & Prometheus /metrics    │
+  │  4. In-App User Guidance & Interactive Diagnostic Manual     │
   └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -119,21 +120,43 @@ The following core modules are implemented, tested, and included in current bina
 - **Explorer Pagination Metadata**: Added `total_count` and `has_more` indicators to `bisync_explore_path`.
 - **Unified Background Serving**: Embedded the native MCP SSE server directly into the dashboard daemon service, consolidating systemd units and eliminating duplicate schedulers and multi-daemon file races.
 
+### 13. Architecture Hardening, Real Rclone Sandbox Suite & Embedded MCP (`beta.27`)
+- **POSIX Advisory File Locking**: Race-free `syscall.Flock` concurrency protection across review sessions (`active_review_session.json.flock`) and write-ahead log (`review.wal.flock`).
+- **Tier 4 Real Local Rclone Sandbox**: Ephemeral dynamic-port integration tests against real `rclone rcd` instances with `--config /dev/null`, verifying trailing whitespace, 404 idempotency, and mixed directory/file conflict reviews.
+- **REST Schema Governance**: Standardized typed Go struct models (`internal/models/api.go`) across all configuration and telemetry endpoints.
+- **Daemon Health Watchdog**: Resilient background watchdog with exponential backoff surviving transient background RC daemon restarts.
+- **Embedded MCP SSE Server**: Unified single-process architecture embedding the MCP server on `:8081` inside `rclone-dashboard.service`.
+
 ---
 
 ## 🟡 Near-Term Strategic Priorities (In Development)
 
 The following capabilities represent our immediate development milestones:
 
-### Priority 1: In-Dashboard Configuration & Setup Manager
-- **Objective**: Provide safe visual editing of sync flags, intervals, and remote setup.
+### Priority 1: Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)
+- **Objective**: Trigger near-instantaneous synchronization upon local filesystem modifications.
+- **Architecture**:
+  - **"On Change" Schedule Mode**: Real-time event-driven bisync trigger option alongside interval schedules in profile settings.
+  - **Debounced Burst Aggregation**: Configurable quiet-period aggregation window (10–30s) collapsing high-frequency mutations (git branch switching, build outputs, bulk file copies) into a single atomic bisync pass.
+  - **Recursive Directory Watching & Local Jail Confinement**: Automatic recursive watch registration confined strictly within the profile's local root path, ignoring noisy directories (`.git/`, `.cache/`, temporary files).
+  - **Descriptor Exhaustion Fallback**: Proactive monitoring of system inotify limits (`/proc/sys/fs/inotify/max_user_watches`) with graceful degradation to periodic polling if OS watch limits are reached.
+
+### Priority 2: In-Dashboard Configuration Snapshot & Rollback Engine
+- **Objective**: Provide server-side configuration safety and instant rollback for global and profile settings.
 - **Architecture**:
   - **Visual Flag Editor**: Adjust `--buffer-size`, `--tpslimit`, conflict strategies, and webhook endpoints safely from the UI.
-  - **Setup & Onboarding Wizard**: Guided visual setup wizard for initial Rclone RC remote pairing and environment configuration.
-  - **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and schema validation before applying changes.
-  - **One-Click Rollback API**: Restore historical configurations immediately if a change fails verification.
+  - **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying changes.
+  - **Atomic Configuration Snapshots**: Snapshot profile state before applying structural edits or sync actions, archived in `config_snapshots/` with timestamped revisions.
+  - **One-Click Rollback API**: Visual comparison of active configuration against historical snapshots with one-click restoration to instantly revert breaking changes.
 
-### Priority 3: In-App User Guidance & Diagnostic Manual
+### Priority 3: Homelab Reverse Proxy Security Hardening & Prometheus `/metrics`
+- **Objective**: Harden production homelab exposure behind reverse proxies with telemetry scrape support.
+- **Architecture**:
+  - **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
+  - **Authentication Integration**: Optional HTTP basic authentication or forward-auth middleware support for secure exposure behind reverse proxies (Traefik, Caddy, Nginx).
+  - **Prometheus Metrics Exporter**: Native `/metrics` endpoint exposing sync durations, cumulative transferred bytes, lock wait times, error counters, and daemon health for Grafana monitoring.
+
+### Priority 4: In-App User Guidance & Diagnostic Manual
 - **Objective**: Enhance operational clarity and assisted recovery directly within the UI.
 - **Architecture**:
   - **Contextual Tooltips & Policy Explanations**: Inline tooltips and modal banners explaining safety triggers (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
