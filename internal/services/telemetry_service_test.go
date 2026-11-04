@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
@@ -306,5 +307,74 @@ func TestTelemetryService_Direct(t *testing.T) {
 	remotesCached, err := telSvc.GetRemotesSummaryCached(context.Background(), false)
 	if err != nil || remotesCached.Count != 1 {
 		t.Fatalf("expected cached remotes summary, got %+v, err: %v", remotesCached, err)
+	}
+}
+
+func TestTelemetryService_ReconnectGracePeriodAndWatchdog(t *testing.T) {
+	isAlive := true
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isAlive {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		if r.URL.Path == "/core/stats" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"bytes": 100}`))
+		}
+	}))
+	defer srv.Close()
+
+	rcClient := client.NewRcloneClient(srv.URL, "user", "pass")
+	rcClient.MaxRetries = 0
+	rcClient.BaseDelay = 1 * time.Millisecond
+	cfg := &config.Config{}
+	telSvc := NewTelemetryService(cfg, rcClient)
+
+	// Configure a 400ms grace period for fast, reliable testing
+	telSvc.SetReconnectGracePeriod(400 * time.Millisecond)
+
+	// 1. Initial probe: daemon is healthy
+	h1 := telSvc.GetDaemonHealth(context.Background())
+	if h1["status"] != "healthy" {
+		t.Fatalf("expected healthy, got %v", h1["status"])
+	}
+	if !telSvc.InReconnectGracePeriod() {
+		t.Fatal("expected InReconnectGracePeriod to be true after being healthy")
+	}
+
+	// 2. Kill daemon
+	isAlive = false
+	telSvc.ResetDaemonHealthCache()
+
+	// 3. Immediate probe: within 400ms grace period -> status must be "reconnecting"
+	h2 := telSvc.GetDaemonHealth(context.Background())
+	if h2["status"] != "reconnecting" {
+		t.Fatalf("expected reconnecting within grace period, got %v", h2["status"])
+	}
+
+	// 4. Wait for grace period to expire
+	time.Sleep(450 * time.Millisecond)
+	telSvc.ResetDaemonHealthCache()
+
+	// 5. Post-grace probe: status must be "offline"
+	h3 := telSvc.GetDaemonHealth(context.Background())
+	if h3["status"] != "offline" {
+		t.Fatalf("expected offline after grace period expired, got %v", h3["status"])
+	}
+
+	// 6. Test WaitForDaemon: bring daemon back to life asynchronously
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		isAlive = true
+	}()
+
+	recovered := telSvc.WaitForDaemon(context.Background(), 2*time.Second)
+	if !recovered {
+		t.Fatal("expected WaitForDaemon to recover successfully")
+	}
+
+	h4 := telSvc.GetDaemonHealth(context.Background())
+	if h4["status"] != "healthy" {
+		t.Fatalf("expected healthy after recovery, got %v", h4["status"])
 	}
 }

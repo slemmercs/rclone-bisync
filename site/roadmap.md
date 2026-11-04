@@ -117,7 +117,7 @@ The following core modules are implemented, tested, and included in current bina
 - **Profile & Run-Scoped Log Filtering**: Multi-profile log scoping and single-run trace isolation in `bisync_get_logs`.
 - **Compiler Flag Validation Tool**: Read-only `bisync_validate_flags` tool previewing compiled RC parameters and `_config` dictionaries without executing sync.
 - **Explorer Pagination Metadata**: Added `total_count` and `has_more` indicators to `bisync_explore_path`.
-- **Always-On Systemd Service (`rclone-mcp.service`)**: Daemonized user service for continuous MCP availability across agent workflows.
+- **Unified Background Serving**: Embedded the native MCP SSE server directly into the dashboard daemon service, consolidating systemd units and eliminating duplicate schedulers and multi-daemon file races.
 
 ---
 

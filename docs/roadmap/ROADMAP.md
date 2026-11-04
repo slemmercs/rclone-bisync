@@ -54,8 +54,11 @@ Roadmap items are not commitments and may change based on project needs.
 | **Tier 1 Curated Options, Guided Flags Builder & Audit Ledger Sync** | **Delivered** | PR #59 (`v1.0.0-beta.21`) |
 | **RC Argument Compiler, Rename Tracking & Review Cache Invalidation** | **Delivered** | `v1.0.0-beta.22` |
 | **Security Hardening (CodeQL #24) & MCP Inspector Modal** | **Delivered** | `v1.0.0-beta.23` |
-| **Configuration Snapshot & Rollback Engine** | **Active Priority (#1)** | Safety Pipeline & Config Snapshot API |
-| **In-App User Guidance, Info & Help Documents** | Planned | Contextual Assistance & Manual |
+| **Embedded MCP Server Consolidation & Profile Store Protection** | **Delivered** | PR #70 (`v1.0.0-beta.27`) |
+| **Architecture Hardening & Real Rclone Sandbox Suite** | **Active Sprint** | Tests & Concurrency Hardening |
+| **Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)** | **Near-Term Priority 1** | "On Change" Schedule Mode |
+| **Configuration Snapshot & Rollback Engine** | **Near-Term Priority 2** | Safety Pipeline & Config Snapshot API |
+| **Homelab Reverse Proxy Security Hardening & Prometheus `/metrics`** | **Near-Term Priority 3** | Auth, Headers & Metrics |
 | Rclone RC Framework Hardening | Planned | Client Resiliency & Diagnostics |
 | Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
 | Local Inter-Process Communication (IPC) via Unix Sockets | Planned | Infrastructure Hardening |
@@ -135,7 +138,7 @@ Eliminates CodeQL #24 path injection, hardens agent diagnostics, adds scoped log
 - **Scoped MCP Log Filtering**: Added `profile_id` and `run_id` filter parameters to `bisync_get_logs` with JSON and plain-text fallback matching.
 - **Flag Compiler Validation Tool (`bisync_validate_flags`)**: Read-only MCP tool exposing `compiler.CompileFlagsToParams` to test flag parsing, backend options, and `_config` dictionaries without executing sync.
 - **Explorer Pagination Metadata**: Added `total_count` and `has_more` to `bisync_explore_path` pagination responses.
-- **Always-On Systemd Service (`rclone-mcp.service`)**: Deployed systemd user unit for resilient, background SSE protocol serving.
+- **Unified Background Serving**: Embedded the native MCP SSE server directly into the dashboard daemon service, consolidating systemd units and eliminating duplicate schedulers and multi-daemon file races.
 
 ---
 

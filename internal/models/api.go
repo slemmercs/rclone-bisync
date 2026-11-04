@@ -158,10 +158,55 @@ type TelemetryPayload struct {
 	DaemonLogs        []string                 `json:"daemon_logs"`
 	Config            map[string]interface{}   `json:"config"`
 	IsSyncing         bool                     `json:"is_syncing"`
-	TransferStats     *TransferStats           `json:"transfer_stats"`
+	ExecutionStatus   string                   `json:"execution_status"`
+	TransferStats     interface{}              `json:"transfer_stats"`
 	HasReview         bool                     `json:"has_review"`
 	ReviewPending     bool                     `json:"review_pending"`
 	MCPStatus         *MCPStatus               `json:"mcp_status,omitempty"`
+}
+
+// TelemetryResponse is the canonical API response for /api/telemetry.
+type TelemetryResponse = TelemetryPayload
+
+// GlobalDefaults represents baseline operational settings applied across all profiles.
+type GlobalDefaults struct {
+	MaxDelete          int    `json:"max_delete"`
+	CanaryValidation   bool   `json:"canary_validation"`
+	ConflictResolve    string `json:"conflict_resolve"`
+	CompareMode        string `json:"compare_mode"`
+	RemoveEmptyDirs    bool   `json:"remove_empty_dirs"`
+	CreateEmptyDirs    bool   `json:"create_empty_dirs"`
+	LockExplorerRemote bool   `json:"lock_explorer_remote"`
+}
+
+// ConfigDaemonSettings represents daemon scheduling, timeout, and backoff settings.
+type ConfigDaemonSettings struct {
+	JobPollInitialSleepSec  float64 `json:"job_poll_initial_sleep_sec"`
+	JobPollMaxSleepSec      float64 `json:"job_poll_max_sleep_sec"`
+	JobTimeoutSeconds       int     `json:"job_timeout_seconds"`
+	LockStaleTimeoutSeconds int     `json:"lock_stale_timeout_seconds"`
+	RateLimitBackoffHours   float64 `json:"rate_limit_backoff_hours"`
+}
+
+// ConfigNotificationSettings represents external alerting webhook endpoints.
+type ConfigNotificationSettings struct {
+	WebhookURL      string `json:"webhook_url"`
+	WatchdogPingURL string `json:"watchdog_ping_url"`
+}
+
+// GlobalConfigResponse is the canonical response for GET/PUT /api/config.
+type GlobalConfigResponse struct {
+	Status         string                     `json:"status"`
+	GlobalDefaults GlobalDefaults             `json:"global_defaults"`
+	Daemon         ConfigDaemonSettings       `json:"daemon"`
+	Notifications  ConfigNotificationSettings `json:"notifications"`
+}
+
+// UpdateConfigRequest represents the payload for PUT /api/config.
+type UpdateConfigRequest struct {
+	GlobalDefaults *GlobalDefaults             `json:"global_defaults,omitempty"`
+	Daemon         *ConfigDaemonSettings       `json:"daemon,omitempty"`
+	Notifications  *ConfigNotificationSettings `json:"notifications,omitempty"`
 }
 
 // MCPStatus represents the operational status of the Model Context Protocol server.

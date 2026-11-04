@@ -862,3 +862,43 @@ func TestPostWithRetry429And503(t *testing.T) {
 		t.Fatal("expected error on cancelled context, got nil")
 	}
 }
+
+func TestWaitForHealthyAndReconnectGrace(t *testing.T) {
+	isHealthy := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isHealthy {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"bytes": 500}`))
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	c.BaseDelay = 5 * time.Millisecond
+	c.SetReconnectGracePeriod(150 * time.Millisecond)
+
+	if c.ReconnectGracePeriod != 150*time.Millisecond {
+		t.Fatalf("expected 150ms reconnect grace period, got %v", c.ReconnectGracePeriod)
+	}
+
+	// 1. WaitForHealthy times out if never healthy
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	ok, err := c.WaitForHealthy(timeoutCtx, 50*time.Millisecond)
+	if ok || err == nil {
+		t.Fatal("expected WaitForHealthy to fail when server is unhealthy")
+	}
+
+	// 2. WaitForHealthy recovers when server becomes healthy
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		isHealthy = true
+	}()
+
+	ok, err = c.WaitForHealthy(context.Background(), 500*time.Millisecond)
+	if !ok || err != nil {
+		t.Fatalf("expected WaitForHealthy to succeed after server recovered, got %v, err: %v", ok, err)
+	}
+}

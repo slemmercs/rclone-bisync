@@ -16,12 +16,13 @@ import (
 
 // RcloneClient communicates with the Rclone Remote Control (RC) HTTP API.
 type RcloneClient struct {
-	APIURL     string
-	Username   string
-	Password   string
-	HTTPClient *http.Client
-	MaxRetries int
-	BaseDelay  time.Duration
+	APIURL               string
+	Username             string
+	Password             string
+	HTTPClient           *http.Client
+	MaxRetries           int
+	BaseDelay            time.Duration
+	ReconnectGracePeriod time.Duration
 }
 
 // NewRcloneClient constructs a new client with sensible connection pooling and retry defaults.
@@ -43,6 +44,11 @@ func NewRcloneClient(apiURL, username, password string) *RcloneClient {
 			Timeout:   60 * time.Second,
 		},
 	}
+}
+
+// SetReconnectGracePeriod sets the auto-reconnect backoff grace period for network dial failures.
+func (c *RcloneClient) SetReconnectGracePeriod(d time.Duration) {
+	c.ReconnectGracePeriod = d
 }
 
 func (c *RcloneClient) backoffWithJitter(attempt int, baseDelay time.Duration) time.Duration {
@@ -92,6 +98,7 @@ func (c *RcloneClient) post(ctx context.Context, endpoint string, payload interf
 	var lastResp *http.Response
 	var lastBytes []byte
 	var lastErr error
+	startTime := time.Now()
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if ctx.Err() != nil {
@@ -125,6 +132,19 @@ func (c *RcloneClient) post(ctx context.Context, endpoint string, payload interf
 			lastErr = err
 			if ctx.Err() != nil {
 				return nil, nil, ctx.Err()
+			}
+			// If ReconnectGracePeriod is active, retry connection drops until elapsed time exceeds grace period
+			if c.ReconnectGracePeriod > 0 && time.Since(startTime) < c.ReconnectGracePeriod {
+				sleepDur := c.backoffWithJitter(attempt, baseDelay)
+				select {
+				case <-ctx.Done():
+					return nil, nil, ctx.Err()
+				case <-time.After(sleepDur):
+				}
+				if attempt == maxAttempts-1 {
+					attempt--
+				}
+				continue
 			}
 			if attempt < maxAttempts-1 {
 				time.Sleep(c.backoffWithJitter(attempt, baseDelay))
@@ -199,6 +219,33 @@ func (c *RcloneClient) CheckHealth(ctx context.Context, retries int, retryDelay 
 	}
 
 	return false, 0.0, lastErr
+}
+
+// WaitForHealthy blocks until the daemon /core/stats responds with 200 OK or timeout expires.
+// Uses progressive backoff starting at 100ms up to 1s.
+func (c *RcloneClient) WaitForHealthy(ctx context.Context, timeout time.Duration) (bool, error) {
+	if timeout <= 0 {
+		timeout = 15 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	delay := 100 * time.Millisecond
+	for {
+		healthy, _, err := c.CheckHealth(ctx, 1, 0)
+		if healthy {
+			return true, nil
+		}
+		select {
+		case <-ctx.Done():
+			return false, fmt.Errorf("daemon did not become healthy within %v: %w", timeout, err)
+		case <-time.After(delay):
+			delay *= 2
+			if delay > 1*time.Second {
+				delay = 1 * time.Second
+			}
+		}
+	}
 }
 
 func (c *RcloneClient) GetCoreStats(ctx context.Context) ([]byte, error) {

@@ -163,7 +163,7 @@ func (s *ReviewService) ClearSession() {
 
 	s.session = nil
 	if sessionFile := s.sessionFilePath(); sessionFile != "" {
-		_ = os.Remove(sessionFile)
+		_ = review.DismissActiveSessionFile(sessionFile)
 	}
 }
 

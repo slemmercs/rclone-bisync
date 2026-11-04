@@ -1,24 +1,45 @@
-# Implementation Plan: MCP Transport Fix & Resilient Review Work Queue
+# Implementation Plan: Architecture Hardening & Real Rclone Local Sandbox Suite
 
 ## Proposed Changes
 
-### 1. MCP Transport & Settings Alignment
-- In `internal/mcp/server.go`, replace `server.NewStreamableHTTPServer` with standard `server.NewSSEServer(s.mcpServer)` to send standard SSE events (`event: endpoint\ndata: ...`) so SSE clients do not experience body timeout errors.
-- In `/home/csaba/.cline/data/settings/cline_mcp_settings.json`, align the server definitions so that both `bisync-hub-mcp` and `rclone-bisync` exist, pointing to the binary via stdio.
+Address testing blind spots, race conditions, and schema drift uncovered during recent feature development (Phases 4 & 5, MCP server). Transition from purely synthetic unit-test mocks to a multi-tiered testing model featuring real local Rclone sandbox testing.
 
-### 2. Resilient Review Queue (`internal/engine/review/queue.go`)
-- Introduce topological sorting:
-  - Restore: directories top-down (depth ascending) before files.
-  - Delete: files before directories bottom-up (depth descending).
-- Introduce error classification:
-  - Idempotent (404 on delete, 409 already exists on mkdir) -> marked completed.
-  - Retryable (429 rate limit, network timeout) -> exponential backoff up to 3 attempts.
-  - Fatal (path traversal, invalid payload) -> item marked failed, batch continues to completion.
-- Introduce `ReviewQueue` worker to process items with per-item WAL updates and generate a `BatchExecutionSummary`.
+### Affected Components & Packages
+
+- `docs/architecture/code-review.md`: Comprehensive periodic review documenting November 4, 2026 audit, bug root causes, and 5-tier testing strategy.
+- `internal/engine/review/journal.go`: Wrap active review session and WAL disk operations in POSIX advisory file locking (`syscall.Flock`).
+- `internal/services/review_service.go`: Synchronize review session discovery and dismissal with advisory file lock.
+- `internal/server/handlers_config.go`, `internal/server/handlers_telemetry.go`, `internal/models/api.go`: Standardize API responses to explicit Go structs (`models.ActionResponse`, etc.).
+- `internal/services/telemetry_service.go`, `internal/core/client/client.go`: Upstream RC daemon health watchdog with auto-reconnect backoff.
+- `tests/integration/rclone_sandbox_test.go`: Ephemeral local Rclone integration sandbox using `t.TempDir()`, fake source/dest folders, and dynamic-port `rclone rcd --config /dev/null`.
+
+### Technical Strategy & Data Flow
+
+1. **Advisory POSIX File Locking for Review Sessions**:
+   - Create `active_review_session.json.flock`.
+   - Use `syscall.Flock(fd, syscall.LOCK_EX)` during writes (`SaveActiveSession`, `AppendWAL`) and `syscall.Flock(fd, syscall.LOCK_SH)` during reads (`LoadActiveSession`).
+   - Prevents race conditions with external CLI commands or scripts reading/writing session files simultaneously.
+
+2. **Schema Governance**:
+   - Replace any remaining untyped `map[string]any` returns in `server` handlers with typed models.
+
+3. **Real Local Rclone Integration Sandbox**:
+   - Safe, isolated test harness that spawns a real `rclone rcd` child process on `127.0.0.1:0` with `--config /dev/null`.
+   - Uses `t.TempDir()` subdirectories as source and destination. User Google Drive and profile configurations are strictly untouched.
+   - Tests directory vs. file semantics, trailing whitespace, and RC parameter mapping directly against the real Rclone engine.
+
+### Safety & Error Handling
+
+- **Canary & Jail Protection**: Sandbox strictly confines all disk mutations inside Go's `t.TempDir()`.
+- **Zero Cloud Impact**: Tests pass `--config /dev/null` to guarantee no external cloud remotes are loaded or contacted.
+- **Process Cleanup**: Ephemeral `rclone rcd` processes are guaranteed terminated via `t.Cleanup()`.
 
 ## Verification Plan
-- Stdio & SSE MCP connection verification.
-- Unit tests: `go test -v -count=1 ./internal/engine/review/... -run "TestReviewQueue.*"`
-- Full test pass: `./scripts/check.sh all`
+
+- `test -f docs/architecture/code-review.md`
+- `go test -v -count=1 ./internal/engine/review/... ./internal/services/...`
+- `go test -v -count=1 ./internal/server/...`
+- `go test -v -count=1 ./tests/integration/...`
+- `./scripts/check.sh all`
 
 

@@ -203,3 +203,48 @@ func TestLoadConfig_MCPReadOnly(t *testing.T) {
 		t.Errorf("expected MCPReadOnly true, got false")
 	}
 }
+
+func TestLoadConfig_MCPDefaultsAndOverrides(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.Setenv("RC_PASS", "testpass")
+	defer os.Unsetenv("RC_PASS")
+
+	// 1. Defaults
+	cfg1, err := LoadConfig(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if !cfg1.MCPEnabled {
+		t.Errorf("expected MCPEnabled default true, got false")
+	}
+	if cfg1.MCPHost != "127.0.0.1" {
+		t.Errorf("expected MCPHost default 127.0.0.1, got %s", cfg1.MCPHost)
+	}
+	if cfg1.MCPPort != 8081 {
+		t.Errorf("expected MCPPort default 8081, got %d", cfg1.MCPPort)
+	}
+
+	// 2. Overrides via environment
+	os.Setenv("MCP_ENABLED", "false")
+	os.Setenv("MCP_HOST", "0.0.0.0")
+	os.Setenv("MCP_PORT", "9090")
+	defer func() {
+		os.Unsetenv("MCP_ENABLED")
+		os.Unsetenv("MCP_HOST")
+		os.Unsetenv("MCP_PORT")
+	}()
+
+	cfg2, err := LoadConfig(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if cfg2.MCPEnabled {
+		t.Errorf("expected MCPEnabled false, got true")
+	}
+	if cfg2.MCPHost != "0.0.0.0" {
+		t.Errorf("expected MCPHost 0.0.0.0, got %s", cfg2.MCPHost)
+	}
+	if cfg2.MCPPort != 9090 {
+		t.Errorf("expected MCPPort 9090, got %d", cfg2.MCPPort)
+	}
+}

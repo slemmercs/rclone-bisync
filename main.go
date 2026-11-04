@@ -47,12 +47,15 @@ func main() {
 			dashCmd := flag.NewFlagSet("dashboard", flag.ExitOnError)
 			host := dashCmd.String("host", "127.0.0.1", "Dashboard host address")
 			port := dashCmd.Int("port", 8080, "Dashboard port")
+			mcpEnabled := dashCmd.Bool("mcp", true, "Enable embedded MCP server")
+			mcpHost := dashCmd.String("mcp-host", "127.0.0.1", "Embedded MCP host address")
+			mcpPort := dashCmd.Int("mcp-port", 8081, "Embedded MCP port")
 			dashEnv := dashCmd.String("env-file", "", "Path to custom bisync.env")
 			debug := dashCmd.Bool("debug", false, "Enable verbose debug logging")
 			dashCmd.BoolVar(debug, "d", false, "Enable verbose debug logging (shorthand)")
 			_ = dashCmd.Parse(os.Args[2:])
 
-			runDashboard(*host, *port, *dashEnv, *debug)
+			runDashboard(*host, *port, *dashEnv, *debug, *mcpEnabled, *mcpHost, *mcpPort)
 			return
 
 		case "sync":
@@ -100,13 +103,16 @@ func main() {
 	// Default fallback to dashboard if no subcommand specified or flags given directly
 	host := flag.String("host", "127.0.0.1", "Dashboard host address")
 	port := flag.Int("port", 8080, "Dashboard port")
+	mcpEnabled := flag.Bool("mcp", true, "Enable embedded MCP server")
+	mcpHost := flag.String("mcp-host", "127.0.0.1", "Embedded MCP host address")
+	mcpPort := flag.Int("mcp-port", 8081, "Embedded MCP port")
 	debug := flag.Bool("debug", false, "Enable verbose debug logging")
 	flag.BoolVar(debug, "d", false, "Enable verbose debug logging (shorthand)")
 	flag.Parse()
-	runDashboard(*host, *port, *envFile, *debug)
+	runDashboard(*host, *port, *envFile, *debug, *mcpEnabled, *mcpHost, *mcpPort)
 }
 
-func runDashboard(host string, port int, envFile string, debug bool) {
+func runDashboard(host string, port int, envFile string, debug bool, mcpEnabled bool, mcpHost string, mcpPort int) {
 	cfg, err := config.LoadConfig(envFile)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
@@ -138,8 +144,46 @@ func runDashboard(host string, port int, envFile string, debug bool) {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	stopSig := make(chan os.Signal, 1)
-	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
+	stopCtx, stopCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopCancel()
+
+	// Launch embedded MCP SSE server if enabled
+	if mcpEnabled && cfg.MCPEnabled {
+		effectiveMCPHost := mcpHost
+		if effectiveMCPHost == "" {
+			effectiveMCPHost = cfg.MCPHost
+		}
+		if effectiveMCPHost == "" {
+			effectiveMCPHost = "127.0.0.1"
+		}
+
+		effectiveMCPPort := mcpPort
+		if effectiveMCPPort == 0 {
+			effectiveMCPPort = cfg.MCPPort
+		}
+		if effectiveMCPPort == 0 {
+			effectiveMCPPort = 8081
+		}
+
+		mcpSrv, err := mcp.NewServer(appContainer, mcp.ServerConfig{
+			Version:             Version,
+			ReadOnly:            cfg.MCPReadOnly,
+			RequireConfirmation: true,
+			Transport:           "sse",
+			Host:                effectiveMCPHost,
+			Port:                effectiveMCPPort,
+		})
+		if err != nil {
+			slog.Error("failed to initialize embedded MCP server", "error", err)
+		} else {
+			go func() {
+				slog.Info("Bisync Hub embedded MCP server (SSE) running", "host", effectiveMCPHost, "port", effectiveMCPPort, "read_only", cfg.MCPReadOnly)
+				if err := mcpSrv.ServeSSE(stopCtx, effectiveMCPHost, effectiveMCPPort); err != nil {
+					slog.Error("embedded MCP server error", "error", err)
+				}
+			}()
+		}
+	}
 
 	go func() {
 		slog.Info("Bisync Hub dashboard running", "addr", fmt.Sprintf("http://%s", addr), "debug", cfg.DebugMode)
@@ -148,7 +192,7 @@ func runDashboard(host string, port int, envFile string, debug bool) {
 		}
 	}()
 
-	<-stopSig
+	<-stopCtx.Done()
 	slog.Info("Shutting down dashboard server gracefully...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -211,9 +255,8 @@ func runMCP(transport, host string, port int, readOnly, requireConfirmation bool
 	if err != nil {
 		log.Fatalf("Failed to initialize application container: %v", err)
 	}
-	if err := appContainer.Start(context.Background()); err != nil {
-		slog.Warn("failed to start background services", "error", err)
-	}
+	// Note: We deliberately do not invoke appContainer.Start(ctx) in standalone MCP mode
+	// to ensure background profile schedulers run exclusively inside the dashboard service.
 	defer func() {
 		_ = appContainer.Close()
 	}()

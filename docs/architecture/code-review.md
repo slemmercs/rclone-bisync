@@ -1,280 +1,198 @@
 # Bisync Hub — Architectural Code Review & Quality Audit
 
-**Review Date**: October 23, 2026  
-**Toolchain**: Go 1.24+ | Native Single Binary | Alpine.js SPA  
+**Review Date**: November 4, 2026  
+**Toolchain**: Go 1.24+ | Native Single Binary | Alpine.js SPA | Embedded MCP SSE Server  
 **Audit Standard**: `.clinerules` Section 3 (Systematic Review, Quality Audit & Architecture Protocol)  
 
 ---
 
 ## 1. Executive Summary & Verdict
 
-### **Verdict**: `ADVISORY` (High-Quality Baseline with Targeted Safety & Schema Hardening Needed)
+### **Verdict**: `APPROVED WITH STRATEGIC TESTING ADVISORY`
+*(Production-Ready Baseline with Zero LOC Bloat, Embedded Single-Daemon Topology, and a Mandate for Higher-Order Testing Tiers)*
 
-Bisync Hub has achieved a robust transition to a native Go single-binary architecture with zero runtime Python/Node dependencies, embedded frontend distribution (`//go:embed`), an automated quality gate with **84.9% statement test coverage**, and strict separation of concerns across core primitives.
+Bisync Hub has achieved substantial architecture milestones across Phases 4 & 5:
+- **Phase 4 Interactive Sync Review Engine**: Full FSM state machine, candidate discovery, dual-provider backups, write-ahead journaling (WAL), and saga compensation rollback.
+- **Multi-Profile Workspace Manager**: Dynamic multi-profile routing, autonomous profile schedulers, 3-tier operational flags hierarchy, and version snapshot rollbacks.
+- **Native Model Context Protocol (MCP) Server**: 11 agentic tools, blast-radius TTL confirmation tickets, read-only vs. mutating access boundaries, and seamless embedding into the primary dashboard daemon.
+- **Zero LOC Bloat**: All monolithic files have been decomposed; all Go source files strictly adhere to sub-400 LOC limits (`internal/server/`, `internal/core/client/`, `internal/profiles/store.go`).
 
-While the core synchronization engine and frontend UI are well-engineered, this audit identified:
-1. A **stale lock timeout race condition** where live sync processes can be superseded after 1 hour (`internal/core/lock/lock.go`).
-2. A **symlink evaluation gap** in path confinement checks (`internal/services/explorer_service.go`).
-3. **Schema governance drift** where API routes emit untyped `map[string]interface{}` dictionaries rather than leveraging existing structs in `internal/models`.
-4. Monolithic bloat in `internal/server/server.go` (523 LOC) and `internal/core/client/client.go` (551 LOC).
+However, recent feature releases exposed **testing blind spots** where high statement test coverage (>85%) failed to prevent bugs in production:
+1. **Multi-process concurrency race**: Dual systemd daemons (`rclone-mcp.service` and `rclone-dashboard.service`) running duplicate schedulers and clobbering `profiles.json` due to lack of cross-process advisory file locking.
+2. **Filesystem semantic mismatch**: Rclone RC `/operations/copyfile` failing with HTTP 500 when executed on directories instead of files (`Mkdir`/`PurgeDir` required).
+3. **Path normalization divergence**: Trailing whitespace in directory names causing remote path normalization mismatches and 404s during restorations.
+4. **Mock Drift**: Over-reliance on synthetic in-memory HTTP mocks (`httptest.NewServer`) that verify client expectations rather than upstream Rclone filesystem realities.
 
 ---
 
 ## 2. Systematic Review Checklist Audit
 
-| Category | Checklist Item | Status | Findings / Notes |
+| Category | Checklist Item | Status | Evaluation |
 | :--- | :--- | :---: | :--- |
-| **Safety & Circuit Breakers** | Path traversal jails strictly enforced (`filepath.Rel`) | ⚠️ Partial | Lexical path jail is enforced via `filepath.Rel`, but filesystem symlinks pointing outside the sync folder are not resolved via `filepath.EvalSymlinks`. |
-| | Canary files (`RCLONE_TEST`) protected from deletion | ⚠️ Partial | Direct file deletion is blocked, but deleting a parent directory containing `RCLONE_TEST` via `RemoveAll` or `PurgeDir` is not prevented. |
-| | Lock files and PID checks are race-free (`flock`) | ⚠️ At Risk | If a sync run exceeds `LockStaleTimeoutSeconds` (3600s), `handleStaleLock` unlinks the active lockfile and acquires a new lock even while the original PID is alive. |
-| | Rate-limit backoff flag checks respected | ✅ Pass | `RATE_LIMIT` errors trigger backoff flag; sync skips unless `--force` is provided. |
-| **Architecture & Standards** | Domain logic separated into service layer (`internal/services`) | ✅ Pass | `ExplorerService`, `TelemetryService`, `DeletionService`, and `CanaryService` cleanly decouple domain logic from HTTP routing. |
-| | Atomic file writes used for state/telemetry (`.tmp.<pid>` + rename) | ✅ Pass | `state.WriteJSONAtomic` correctly uses `.tmp.<pid>` + `os.Rename`. |
-| | Sensitive keys redacted from logs and API payloads | ✅ Pass | `security.RedactSecrets` recursively scrubs nested maps/structs, and `writeJSON` automatically applies redaction on HTTP responses. |
-| **Frontend & Event Safety** | Click events isolated on draggable elements | ✅ Pass | Draggable rows have `draggable="true"`, with child buttons explicitly configured with `draggable="false"` and `@mousedown.stop`. |
-| | XSS safety maintained | ✅ Pass | `utils.js` escapes all user/config content via `escapeHtml()`; no unescaped `x-html` injections. |
-| | Chart.js outside Alpine reactive proxy | ✅ Pass | `performanceChart` is held in file-scoped closure variable outside Alpine reactivity. |
-| **Test & Verification** | Arrange-Act-Assert (AAA) pattern adhered to | ✅ Pass | Unit and integration test suites consistently follow AAA. |
-| | External RC API requests strictly mocked | ✅ Pass | All client and service unit tests use `httptest.NewServer` or fake runners. Zero live subprocesses executed during tests. |
-| | Pre-flight quality gate clean | ✅ Pass | `./scripts/check.sh` passes 8/8 checks with 84.9% test coverage. |
+| **Safety & Circuit Breakers** | Path traversal jails strictly enforced (`filepath.Rel` + `filepath.EvalSymlinks`) | ✅ Pass | `IsLocalPathJailed` in `ExplorerService` and review engine resolves canonical filesystem paths via `filepath.EvalSymlinks`. |
+| | Canary files (`RCLONE_TEST`) protected from deletion | ✅ Pass | Canary detection blocks both direct file deletion and directory purge operations on canary folders. |
+| | Advisory POSIX locking race-free (`flock`) | ✅ Pass | `profiles.Store` uses exclusive OS `syscall.Flock` on `profiles.json.flock`; `lock.Manager` prevents stale lock stealing on active PIDs. |
+| | Rate-limit backoff flag checks respected | ✅ Pass | Rate limit backoff markers prevent rapid retry storms against cloud APIs. |
+| **Architecture & Standards** | Domain logic separated into service layer (`internal/services/`) | ✅ Pass | Clean decoupling: HTTP routing delegates to `ProfileService`, `ReviewService`, `ExplorerService`, `TelemetryService`. |
+| | Single-process daemon topology | ✅ Pass | MCP SSE server embedded directly into dashboard daemon; duplicate scheduler loops eliminated. |
+| | Atomic file writes used for state/telemetry (`.tmp.<pid>` + `os.Rename`) | ✅ Pass | All disk persistence (state, profiles, active session, WAL) adheres to POSIX atomic replace. |
+| | Deep recursive secret redaction | ✅ Pass | `security.RedactSecrets` scrubs nested structures prior to logging, audit storage, and API emission. |
+| **Frontend & Event Safety** | Click events isolated on draggable elements | ✅ Pass | Draggable rows have child buttons isolated with `draggable="false"` and `@mousedown.stop`. |
+| | DOM/HTML parser compliance | ✅ Pass | Alpine templates validated by `cmd/check` AST scanner; static `<option>` tags used inside `<select>`. |
+| | External libraries unproxied | ✅ Pass | Chart.js instances stored outside Alpine reactive proxy to avoid recursive update storms. |
+| **Test & Verification** | AAA pattern adhered to in unit tests | ✅ Pass | Clean Arrange-Act-Assert structure across all 50+ test files. |
+| | Test coverage >80% | ✅ Pass | **85.5% average statement coverage** across all packages. |
+| | Pre-flight quality gate clean | ✅ Pass | `./scripts/check.sh all` passes all 7 checks in ~16s. |
 
 
 ---
 
-## 3. App Strengths
+## 3. Higher-Order Testing Strategy: Beyond Unit Tests
 
-1. **Native Single-Binary Distribution with Zero Runtime Dependencies**:
-   - Compiles down to a ~17MB self-contained executable with embedded frontend SPA (`//go:embed dashboard/frontend/*`).
-   - Zero dependency on Python virtual environments (`.venv`), Node.js, npm, or system pip libraries.
-2. **Deep Defense-in-Depth Secret Sanitization**:
-   - `internal/core/security/security.go` provides recursive reflection-based redaction across nested maps, slices, arrays, and structs.
-   - Centralized HTTP response writing (`server.go:writeJSON`) automatically routes all outgoing API payloads through `security.RedactSecrets`.
-3. **Comprehensive Automated Test Suite & Quality Gate**:
-   - Automated quality gate `./scripts/check.sh` enforces formatting, Go module tidiness, `go vet`, cross-platform compilation (`linux/amd64`, `linux/arm64`), and statement test coverage >80% (currently **84.9%**).
-   - Clean RC mock isolation using `httptest.NewServer` throughout `client_test.go`, `service_test.go`, and `server_test.go`.
-4. **Resilient Frontend Architecture**:
-   - Zero-build Alpine.js + Tailwind CSS architecture.
-   - Modular script structure (`charts.js`, `explorer.js`, `remotes.js`, `utils.js`, `app.js`).
-   - Drag-and-drop and button events properly decoupled via `draggable="false"` and `@mousedown.stop`.
-5. **Decoupled Service Architecture**:
-   - Prior refactoring (PR #18) separated the monolithic `SyncService` into dedicated single-concern services: `ExplorerService`, `TelemetryService`, `DeletionService`, and `CanaryService`.
+To permanently eliminate mock drift and concurrency regressions, the project establishes a **5-Tier Testing Pyramid**:
 
----
+```
+                  ┌───────────────────────────────┐
+                  │ Tier 5: E2E User Journey & UI │ (Headless Chrome + Live Backend)
+                  └───────────────┬───────────────┘
+                                  │
+                  ┌───────────────┴───────────────┐
+                  │ Tier 4: Real Rclone Sandbox   │ (t.TempDir() + Real rclone rcd)
+                  └───────────────┬───────────────┘
+                                  │
+                  ┌───────────────┴───────────────┐
+                  │ Tier 3: Stateful Chaos / Saga │ (Interrupted WAL recovery)
+                  └───────────────┬───────────────┘
+                                  │
+                  ┌───────────────┴───────────────┐
+                  │ Tier 2: Multi-Process Races   │ (Subprocess os.Exec + flock)
+                  └───────────────┬───────────────┘
+                                  │
+                  ┌───────────────┴───────────────┐
+                  │ Tier 1: Fast Unit Tests       │ (In-memory AAA business logic)
+                  └───────────────────────────────┘
+```
 
-## 4. App Weaknesses & Risks
+### Tier 1: Fast Unit Tests (In-Memory AAA)
+- **Role**: Pure algorithmic and data-structure correctness (heuristics scoring, flag compilation, DTO translation).
+- **Execution**: `go test -count=1 ./internal/...` (<5s).
 
-1. **Unilateral Lock Inode Invalidation on Long Runs (Race Condition)**:
-   - In `internal/core/lock/lock.go` (`handleStaleLock`), if a sync run takes longer than `LockStaleTimeoutSeconds` (1 hour) due to large transfers, `Acquire()` unlinks the lockfile and acquires a new lock on a new inode, even though the original process PID is active. This can trigger concurrent bisync runs, corrupting Rclone listings.
-2. **Lexical Jail vs. Symlink Jail Bypass**:
-   - `IsLocalPathJailed` uses `filepath.Rel(baseDir, targetDir)`. While this prevents string-based traversal like `../../etc`, it does not resolve filesystem symlinks via `filepath.EvalSymlinks`. A symlink within `~/gdrive` pointing to `/` or `~/.ssh` will pass lexical validation and allow file browsing/deletion outside the jail.
-3. **Incomplete Parent-Level Canary Deletion Guard**:
-   - `ExplorerService.DeleteItem` blocks deleting files named `RCLONE_TEST`. However, calling `DeleteItem(..., isDir: true)` on a directory containing `RCLONE_TEST` will recursively delete the directory and the canary with it.
-4. **Homelab / Remote Web Access Blocked by Hardcoded Origin Whitelist**:
-   - CSRF origin checking in `server.go` (`isAllowedOrigin`) strictly allows only `localhost` and `127.0.0.1`. If deployed on a homelab server bound to `0.0.0.0:8080` or accessed via a LAN IP (e.g. `192.168.1.50`), all HTTP POST requests fail with HTTP 403.
-5. **Missing Graceful Server Shutdown**:
-   - In `main.go`, `runDashboard` intercepts `SIGINT`/`SIGTERM` but immediately prints a log line and exits without calling `httpServer.Shutdown(ctx)`, abruptly aborting active transfers or OAuth reconnect flows.
+### Tier 2: Multi-Process Subprocess Concurrency Tests
+- **Role**: Exercise true OS-level advisory locking (`flock`), disk reloads on `mtime` drift, and atomic renames across multiple concurrent operating system processes.
+- **Pattern**: `TestStore_MultiProcessSynchronizationAndNoSettingsClobber` spawns separate sub-processes hammering the same JSON file simultaneously.
 
----
+### Tier 3: Stateful Chaos & Saga Compensation
+- **Role**: Validates failure handling and transaction rollback in multi-step operations (Interactive Review).
+- **Execution**: Simulates I/O or network interruptions mid-execution, verifying that compensating rollback actions restore disk state and WAL recovery leaves the database consistent.
 
-## 5. Findings by Severity
+### Tier 4: Real Local Rclone Sandbox Integration Suite
+- **Role**: Complete elimination of mock drift without touching cloud credentials or live profiles.
+- **Mechanics**:
+  - Spawns `rclone rcd --rc-addr 127.0.0.1:0 --rc-no-auth --config /dev/null` on a dynamic localhost port.
+  - Syncs exclusively between two temporary directories in `t.TempDir()`.
+  - Exercises directory candidates, trailing whitespace, special characters, and verifies that real upstream Rclone accepts compiled RC parameters without error.
 
-### 🔴 High (Safety / Security / Regression)
-
-* **Finding H-1: Lock Inode Unlinking while PID is Running**
-  - **Location**: `internal/core/lock/lock.go:103-111`
-  - **Issue**: In `handleStaleLock`, if `lockAge > lm.StaleTimeoutSeconds`, `os.Remove(lm.LockFilePath)` is executed even when `CheckPIDExists(oldPID)` returned `true`.
-  - **Risk**: Concurrent bisync execution during long initial synchronizations or multi-gigabyte transfers, causing Rclone listing corruption.
-  - **Remediation**: Guard lock removal behind dead PID verification:
-    ```go
-    if CheckPIDExists(oldPID) {
-        // Active PID is still running; never remove lock regardless of elapsed age
-        _ = lm.closeHandle()
-        return false, nil
-    }
-    // Only remove if PID is not running or stale timeout exceeded on a dead process
-    ```
-
-* **Finding H-2: Symlink Path Confinement Bypass in Explorer**
-  - **Location**: `internal/services/explorer_service.go:37-55`
-  - **Issue**: `IsLocalPathJailed` relies on lexical evaluation without resolving real targets via `filepath.EvalSymlinks`.
-  - **Risk**: If a symlink in the local directory points to sensitive files outside the base directory, users can browse, copy, or delete them.
-  - **Remediation**: Resolve the target's real path:
-    ```go
-    realBase, err := filepath.EvalSymlinks(baseDir)
-    if err != nil { return "", "", false }
-    realTarget, err := filepath.EvalSymlinks(targetDir)
-    if err == nil {
-        rel, err := filepath.Rel(realBase, realTarget)
-        if err != nil || strings.HasPrefix(rel, "..") { return baseDir, targetDir, false }
-    }
-    ```
-
-### 🟡 Medium (Reliability / Edge Case / Architecture)
-
-* **Finding M-1: Schema Governance Drift — Untyped Loose Maps in REST Endpoints**
-  - **Location**: `internal/server/server.go` & `internal/services/telemetry_service.go`
-  - **Violation**: `.clinerules` Rule 3.4.2 ("Web API endpoints must never return untyped loose maps without structure").
-  - **Issue**: Handlers for `/api/telemetry`, `/api/action`, `/api/remotes`, and `/api/browse/copy` return `map[string]interface{}` despite concrete structs (`models.TelemetryPayload`, `models.ActionResponse`, `models.RemotesResponse`, `models.CopyResponse`) existing in `internal/models/api.go`.
-  - **Remediation**: Refactor service and handler return types to concrete Go structs.
-
-* **Finding M-2: Homelab LAN Access Blocked by Restrictive Origin Whitelist**
-  - **Location**: `internal/server/server.go:115-125` (`isAllowedOrigin`)
-  - **Issue**: Rejects any request where origin is not `localhost` or `127.0.0.1`.
-  - **Risk**: Breaks accessibility in homelab server and NAS setups (violating the "Local-First / Homelab" architecture principle).
-  - **Remediation**: Allow origin to match the configured server host address (`s.Config.Host`) and incoming `r.Host`.
-
-* **Finding M-3: Missing HTTP Graceful Shutdown Drain**
-  - **Location**: `main.go:100-102`
-  - **Issue**: Dashboard server exits on signal without calling `httpServer.Shutdown(ctx)`.
-  - **Remediation**: Add `ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)` and invoke `httpServer.Shutdown(ctx)`.
-
-* **Finding M-4: Duplicate Sanitization Logic in TelemetryService**
-  - **Location**: `internal/services/telemetry_service.go:252-284, 351-376`
-  - **Issue**: `GetRuntimeConfig` defines custom `toUpperSnakeCase` and `isKeySensitive` helpers instead of reusing `security.RedactSecrets(t.Config)`.
-  - **Remediation**: Replace custom redaction loop with `security.RedactSecrets`.
-
-### 🟢 Low (Polish / Dead Code / Maintainability)
-
-* **Finding L-1: Global Environment Mutation in `config.LoadEnvFile`**
-  - **Location**: `internal/config/config.go:100`
-  - **Issue**: Uses `os.Setenv` to load files, mutating global process environment state.
-  - **Remediation**: Return a `map[string]string` dictionary and apply to `Config` struct directly.
-
-* **Finding L-2: Redundant Forwarding Methods on `SyncService`**
-  - **Location**: `internal/services/sync_service.go:320-373`
-  - **Issue**: After PR #18, `Server` now holds references to `ExplorerService`, `TelemetryService`, etc. directly. The 10+ wrapper methods on `SyncService` (`BrowsePath`, `CreateCanary`, etc.) are legacy facades.
-
+### Tier 5: Headless Chrome End-to-End User Journeys
+- **Role**: Catches DOM parsing bugs, Alpine.js hydration failures, and interactive UI regressions.
+- **Execution**: `tests/e2e/dashboard_smoke_test.go` running headless browser automation against live embedded server endpoints.
 
 ---
 
-## 6. Technical Debt Analysis
+## 4. Architectural Findings by Severity
 
-1. **Dual Schema Definitions**:
-   `state.PendingDeletionsData` and `models.PendingDeletionsResponse` represent the same domain concept with slightly diverging field types (`[]string` vs `[]interface{}`).
-2. **Redundant Log Unwrapping in Multiple Modules**:
-   Log parsing and JSON unmarshaling of nested Rclone logs is duplicated between `internal/services/log_service.go`, `internal/services/sync_service.go`, and frontend `dashboard/frontend/js/utils.js`.
-3. **Hardcoded Command Subprocess Calls**:
-   `sync_service.go` invokes systemd via `exec.Command("systemctl", "--user", ...)` without an injectable interface or mock runner (unlike `remoteauth.CommandRunner`, which is cleanly injected).
+### 🔴 High (Safety / Architecture / Reliability)
+* **Finding H-1: High Mock Drift Risk in Synchronization & Review Execution**
+  - **Issue**: 100% of Rclone API interactions were tested against artificial `httptest.NewServer` stubs. Real filesystem semantics (directory operations, trailing spaces, actual Rclone RC parameter acceptance) were not exercised.
+  - **Remediation**: Implement Tier 4 Real Local Rclone Sandbox Integration Suite (`tests/integration/rclone_sandbox_test.go`).
 
----
+### 🟡 Medium (Edge Cases & Concurrency)
+* **Finding M-1: Missing POSIX Advisory Locking on Review Session Disk Files**
+  - **Issue**: `active_review_session.json` and `review.wal` rely on atomic rename for writes, but lack `syscall.Flock`. External CLI commands or scripts reading/writing the session concurrently with the daemon could experience partial reads or overwrite races.
+  - **Remediation**: Wrap `SaveActiveSession`, `LoadActiveSession`, and WAL operations in advisory file locks on `active_review_session.json.flock`.
 
-## 7. Architecture Fit for Current App & Future Roadmap
+* **Finding M-2: Transient RC Server Disconnects Trip Immediate Workload Aborts**
+  - **Issue**: If `rclone-daemon.service` is briefly restarted, scheduled syncs fail immediately with network dial errors.
+  - **Remediation**: Introduce a 10–15 second reconnect backoff grace period in `TelemetryService`.
 
-### Current Application Fit: **Excellent (9/10)**
-The single-binary Go model with embedded static assets, POSIX locking, and direct RC API integration aligns with the principles in `docs/architecture/ARCHITECTURE_PRINCIPLES.md`.
-
-### Fit for Future Roadmap Features:
-
-#### 1. Phase 4: Interactive Sync Review & Deletion Diff Visualizer
-- **Current State**: `state.PendingDeletionsData` exists, and `DeletionService` parses `TOO_MANY_DELETES` logs.
-- **Fit Evaluation**: **Ready**. The plan to introduce `internal/models/review.go` and `internal/services/review_service.go` fits naturally into the existing domain service architecture. The Dual-Pane Explorer already supports file manipulation endpoints (`/api/browse/copy`, `/api/browse/delete`).
-- **Prerequisite**: Fix Finding H-1 (lock stability) before implementing review session journals.
-
-#### 2. Phase 5: Multi-Profile Synchronization Hub
-- **Current State**: Parameterized `ProfileID` with dedicated lock paths (`bisync-<profile>.lock`) and internal goroutine scheduler (`ProfileScheduler`). Legacy systemd timer (`bisync-gdrive.*`) retired in favor of internal scheduling loops.
-- **Fit Evaluation**: **Completed**. Services support multi-profile execution with isolated flock boundaries.
-- **Architectural Adjustment**: Profile manager parameterizes `SyncRunner` and `SyncService` with dynamic `ProfileID` instances.
-
-#### 3. Phase 6: Local IPC via Unix Sockets
-- **Current State**: `client.RcloneClient` connects via standard HTTP TCP (`http://localhost:5572`).
-- **Fit Evaluation**: **High Alignment**. `http.Transport` in `client.go` can be easily configured with `DialContext` connecting to `unix:///run/user/$UID/rclone.sock` without breaking API contracts.
-
-#### 4. Phase 7: Desktop Application Packaging (Wails)
-- **Current State**: Standard Go HTTP server serving embedded static assets via `http.ServeMux`.
-- **Fit Evaluation**: **High Alignment**. The frontend is already zero-build vanilla JS/Alpine; Wails can directly bind Go service structs to JavaScript window context.
+### 🟢 Low (Polish & Maintainability)
+* **Finding L-1: Schema Governance Consistency in Legacy REST Handlers**
+  - **Issue**: Several endpoints in `handlers_config.go` and `handlers_telemetry.go` construct ad-hoc response structs rather than referencing centralized types in `internal/models`.
+  - **Remediation**: Standardize remaining endpoints on `models.ActionResponse` and concrete schema models.
 
 ---
 
-## 8. Modularization Assessment: Is Modularization Needed?
+## 5. Strategic Roadmap Alignment
 
-Yes. Two key components exceed the recommended ~400–500 LOC threshold and show signs of mixed responsibilities:
+Following the November 4, 2026 review and operator decisions, priorities are categorized into:
 
-### 1. `internal/server/server.go` (523 LOC)
-- **Current Issue**: Houses routing, CSRF middleware, SPA static embedding, and 18 handler methods across 5 unrelated domains (auth, sync, telemetry, logs, file explorer).
-- **Recommendation**: Split `server.go` into cohesive handler files:
-  - `server.go` (~120 LOC): Server struct, constructor, middleware, route registry.
-  - `handlers_telemetry.go` (~90 LOC): Health, telemetry, metrics, log endpoints.
-  - `handlers_explorer.go` (~110 LOC): Browse, canary, copy, delete endpoints.
-  - `handlers_auth.go` (~120 LOC): Remotes, OAuth reconnect, validate, credentials.
-  - `handlers_sync.go` (~80 LOC): Sync actions and pending deletion reviews.
+### Short-Term (Immediate Sprint):
+1. **Real Local Rclone Sandbox Integration Suite (`tests/integration/`)**: Spawns real ephemeral `rclone rcd` with `--config /dev/null` in `t.TempDir()`. Zero cloud touch, complete elimination of mock drift.
+2. **POSIX Advisory File Locking on Review Session & WAL**: Protect `active_review_session.json` and `review.wal` with `syscall.Flock` on `active_review_session.json.flock`.
+3. **REST API Response Schema Standardization**: Eliminate loose untyped maps across all remaining endpoints, migrating to `internal/models/api.go`.
+4. **Upstream Daemon Watchdog & Auto-Reconnect Grace Period**: Backoff reconnection retry before failing workloads on brief daemon restarts.
 
-### 2. `internal/core/client/client.go` (551 LOC)
-- **Current Issue**: Combines raw HTTP transport, job polling, remote configuration, file system operations, and OAuth lifecycle.
-- **Recommendation**: Decompose into domain files under `internal/core/client/`:
-  - `client.go` (~130 LOC): Struct, transport, HTTP `post()`, `CheckHealth`.
-  - `jobs.go` (~90 LOC): `TriggerBisync`, `GetJobStatus`, `StopJob`, `ListJobs`.
-  - `remotes.go` (~150 LOC): `ListRemotes`, `GetRemoteConfig`, `GetRemoteAbout`, `UpdateRemoteConfig`, OAuth status/stop.
-  - `fs_ops.go` (~180 LOC): `ListDirectory`, `CopyFile`, `CopyDir`, `DeleteFile`, `PurgeDir`, `TouchFile`.
+### Medium-Term (Targeted Priorities):
+- **A. Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)**: Optional "On Change" schedule mode with 30-second debounce. Syncs immediately when files change while eliminating wasted empty polling cycles.
+- **B. Server-Side Configuration Snapshot & Rollback Engine**: Versioned immutable snapshots in `config_snapshots/` with 1-click restore.
+- **C. Homelab Reverse Proxy Security Hardening & Prometheus `/metrics`**: Bearer/Basic auth (`DASHBOARD_AUTH_TOKEN`), trusted proxy headers (`X-Forwarded-*`), and `/healthz` + `/metrics` for Grafana monitoring.
 
+### Long-Term Backlog:
+- Visual Text/Markdown Diffing in Review Modal (deferred).
+- Complex enterprise mesh topologies and autonomous loops are deprioritized as out-of-scope for the core homelab/power user audience.
 
 ---
 
-## 9. Verification Evidence
+## 6. Modularization & Technical Debt Status
 
-Executing `./scripts/check.sh` on the working tree:
+All previous modularization recommendations have been fully achieved:
+- `internal/server/`: Split into `server.go`, `routes.go`, `handlers_auth.go`, `handlers_config.go`, `handlers_explorer.go`, `handlers_profiles.go`, `handlers_review.go`, `handlers_sync.go`, `handlers_telemetry.go`. (All <350 LOC).
+- `internal/core/client/`: Split into `client.go`, `fs_ops.go`, `jobs.go`, `remotes.go`. (All <250 LOC).
+- `internal/profiles/store.go`: Streamlined to 395 LOC with POSIX flock and atomic updates.
+- Total files exceeding 400 LOC in production Go code: **0**.
+
+---
+
+## 7. Verification Evidence
+
+Executing `./scripts/check.sh all` on the working tree:
 
 ```
 ====================================================
               Repository Quality Gate
 ====================================================
-[1/8] Validating required tooling...
-Required tooling available.
-
-Runner Platform: linux/amd64
-
-[2/8] Verifying Go modules...
+[1/7] Verifying Go modules...
 all modules verified
 Go modules verified.
 
-[3/8] Validating shell scripts...
+[2/7] Validating shell scripts...
   ✓ deploy/install.sh
+  ✓ scripts/check-loc.sh
   ✓ scripts/check.sh
   ✓ scripts/update-tools.sh
 Shell validation passed.
 
-[4/8] Checking Go formatting...
+[3/7] Checking Go formatting...
 Go formatting check passed.
 
-[5/8] Running go vet...
+[4/7] Running go vet...
 Go vet passed.
 
-[6/8] Running unit tests with coverage...
-Unit tests passed across all 15 packages.
-Coverage : 84.9%
+[5/7] Running unit tests with coverage...
+Unit tests passed across all packages.
+Coverage : 85.5%
 Required : 80.0%
 Coverage threshold met.
 
-[7/8] Verifying native build...
-Native build passed.
+[6/7] Verifying static analysis (staticcheck & gosec)...
+Staticcheck passed.
+Gosec passed.
 
-[8/8] Verifying cross-platform builds...
-Building linux/amd64...
-linux/amd64 build passed.
-Building linux/arm64...
-linux/arm64 build passed.
-
-Validating executable...
-CLI validation passed.
+[7/7] Verifying line counts (sub-400 LOC limit)...
+All production Go files are under 400 lines.
 
 ====================================================
-Quality Gate Passed (Coverage: 84.9%)
+Quality Gate Passed (Coverage: 85.5%)
 ====================================================
 ```
 
----
-
-## 10. Recommended Next Steps
-
-To align with `.clinerules` prior to proceeding with Phase 4 (`task_plan.md`):
-
-1. **Remediate High-Priority Findings**:
-   - Fix lock timeout handling in `internal/core/lock/lock.go` so running processes are never unlocked prematurely (Finding H-1).
-   - Integrate `filepath.EvalSymlinks` into `internal/services/explorer_service.go` (Finding H-2).
-2. **Execute Server & Client Modularization**:
-   - Decompose `internal/server/server.go` into domain handler files.
-   - Decompose `internal/core/client/client.go` into `jobs.go`, `remotes.go`, `fs_ops.go`.
-3. **Harmonize API Schema Contracts**:
-   - Update REST endpoints to return concrete Go structs from `internal/models` rather than loose maps.
-4. **Resume Phase 4 Implementation**:
-   - Advance with Task 1 in `docs/roadmap/task_plan.md` (Review Domain Models & Contract Schemas).
 

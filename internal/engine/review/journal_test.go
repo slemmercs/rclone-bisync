@@ -1,6 +1,7 @@
 package review
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -245,5 +246,125 @@ func TestJournal_EdgeCases(t *testing.T) {
 	reconciled := ReconcileSessionWithWAL(actionSess, errWAL)
 	if reconciled.Status != models.ReviewStatusFailed || reconciled.Actions[0].Status != "failed" {
 		t.Fatalf("expected failed action, got status %s", reconciled.Actions[0].Status)
+	}
+}
+
+func TestJournal_DismissActiveSessionFileAndRemoveWAL(t *testing.T) {
+	tmpDir := t.TempDir()
+	activeFile := filepath.Join(tmpDir, "active.json")
+	walFile := filepath.Join(tmpDir, "review.wal")
+
+	// Empty paths should not error
+	if err := DismissActiveSessionFile(""); err != nil {
+		t.Fatalf("expected nil for empty active file, got: %v", err)
+	}
+	if err := RemoveWAL(""); err != nil {
+		t.Fatalf("expected nil for empty wal path, got: %v", err)
+	}
+
+	// Non-existent paths should not error
+	if err := DismissActiveSessionFile(activeFile); err != nil {
+		t.Fatalf("expected nil for non-existent active file, got: %v", err)
+	}
+	if err := RemoveWAL(walFile); err != nil {
+		t.Fatalf("expected nil for non-existent wal file, got: %v", err)
+	}
+
+	// Create and remove
+	sess := NewSession("ERROR", "test", nil, nil)
+	if err := SaveActiveSession(activeFile, sess); err != nil {
+		t.Fatalf("SaveActiveSession failed: %v", err)
+	}
+	if err := AppendWAL(walFile, models.WALEntry{SessionID: sess.ID, Step: "MUTATION_STARTED"}); err != nil {
+		t.Fatalf("AppendWAL failed: %v", err)
+	}
+
+	if err := DismissActiveSessionFile(activeFile); err != nil {
+		t.Fatalf("DismissActiveSessionFile failed: %v", err)
+	}
+	if _, err := os.Stat(activeFile); !os.IsNotExist(err) {
+		t.Fatalf("expected activeFile to be removed")
+	}
+
+	if err := RemoveWAL(walFile); err != nil {
+		t.Fatalf("RemoveWAL failed: %v", err)
+	}
+	if _, err := os.Stat(walFile); !os.IsNotExist(err) {
+		t.Fatalf("expected walFile to be removed")
+	}
+}
+
+func TestJournal_POSIXFlockConcurrency(t *testing.T) {
+	tmpDir := t.TempDir()
+	activeFile := filepath.Join(tmpDir, "active.json")
+	walFile := filepath.Join(tmpDir, "review.wal")
+
+	sess := NewSession("ERROR", "concurrency test", nil, nil)
+	if err := SaveActiveSession(activeFile, sess); err != nil {
+		t.Fatalf("initial SaveActiveSession failed: %v", err)
+	}
+
+	const workers = 10
+	const iterations = 20
+	errCh := make(chan error, workers*2)
+
+	// Concurrent writers to active session
+	for w := 0; w < workers; w++ {
+		go func(workerID int) {
+			for i := 0; i < iterations; i++ {
+				s, err := LoadActiveSession(activeFile)
+				if err != nil {
+					errCh <- fmt.Errorf("worker %d load failed: %w", workerID, err)
+					return
+				}
+				if s != nil {
+					s.Message = fmt.Sprintf("updated by worker %d iter %d", workerID, i)
+					if err := SaveActiveSession(activeFile, s); err != nil {
+						errCh <- fmt.Errorf("worker %d save failed: %w", workerID, err)
+						return
+					}
+				}
+			}
+			errCh <- nil
+		}(w)
+	}
+
+	// Concurrent writers to WAL
+	for w := 0; w < workers; w++ {
+		go func(workerID int) {
+			for i := 0; i < iterations; i++ {
+				entry := models.WALEntry{
+					SessionID: sess.ID,
+					ActionID:  fmt.Sprintf("act-%d-%d", workerID, i),
+					Step:      "MUTATION_STARTED",
+				}
+				if err := AppendWAL(walFile, entry); err != nil {
+					errCh <- fmt.Errorf("wal worker %d append failed: %w", workerID, err)
+					return
+				}
+			}
+			errCh <- nil
+		}(w)
+	}
+
+	for i := 0; i < workers*2; i++ {
+		if err := <-errCh; err != nil {
+			t.Fatalf("concurrency test error: %v", err)
+		}
+	}
+
+	// Verify integrity
+	finalSess, err := LoadActiveSession(activeFile)
+	if err != nil || finalSess == nil {
+		t.Fatalf("failed to load final session: %v", err)
+	}
+
+	entries, err := ReadWAL(walFile)
+	if err != nil {
+		t.Fatalf("failed to read WAL after concurrency: %v", err)
+	}
+	expectedWALCount := workers * iterations
+	if len(entries) != expectedWALCount {
+		t.Fatalf("expected %d WAL entries, got %d", expectedWALCount, len(entries))
 	}
 }
