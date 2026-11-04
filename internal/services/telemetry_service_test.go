@@ -378,4 +378,3 @@ func TestTelemetryService_ReconnectGracePeriodAndWatchdog(t *testing.T) {
 		t.Fatalf("expected healthy after recovery, got %v", h4["status"])
 	}
 }
-

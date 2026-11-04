@@ -902,4 +902,3 @@ func TestWaitForHealthyAndReconnectGrace(t *testing.T) {
 		t.Fatalf("expected WaitForHealthy to succeed after server recovered, got %v, err: %v", ok, err)
 	}
 }
-

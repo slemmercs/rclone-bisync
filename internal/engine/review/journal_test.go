@@ -368,4 +368,3 @@ func TestJournal_POSIXFlockConcurrency(t *testing.T) {
 		t.Fatalf("expected %d WAL entries, got %d", expectedWALCount, len(entries))
 	}
 }
-

@@ -84,4 +84,3 @@ func TestTelemetryAndConfigSchemas(t *testing.T) {
 		t.Fatalf("unexpected GlobalConfigResponse JSON: %+v", cfgMap)
 	}
 }
-
