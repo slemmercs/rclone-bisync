@@ -33,10 +33,10 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
   │             NEAR-TERM STRATEGIC PRIORITIES                   │
-  │  1. Event-Driven Local Filesystem Sync (fsnotify Watcher)    │
+  │  1. In-App User Guidance & Interactive Diagnostic Manual     │
   │  2. In-Dashboard Configuration Snapshot & Rollback API       │
-  │  3. Homelab Reverse Proxy Hardening & Prometheus /metrics    │
-  │  4. In-App User Guidance & Interactive Diagnostic Manual     │
+  │  3. Homelab Reverse Proxy Hardening & OpenTelemetry (OTel)   │
+  │  4. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
   └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -133,13 +133,12 @@ The following core modules are implemented, tested, and included in current bina
 
 The following capabilities represent our immediate development milestones:
 
-### Priority 1: Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)
-- **Objective**: Trigger near-instantaneous synchronization upon local filesystem modifications.
+### Priority 1: In-App User Guidance & Diagnostic Manual
+- **Objective**: Enhance operational clarity and assisted recovery directly within the UI.
 - **Architecture**:
-  - **"On Change" Schedule Mode**: Real-time event-driven bisync trigger option alongside interval schedules in profile settings.
-  - **Debounced Burst Aggregation**: Configurable quiet-period aggregation window (10–30s) collapsing high-frequency mutations (git branch switching, build outputs, bulk file copies) into a single atomic bisync pass.
-  - **Recursive Directory Watching & Local Jail Confinement**: Automatic recursive watch registration confined strictly within the profile's local root path, ignoring noisy directories (`.git/`, `.cache/`, temporary files).
-  - **Descriptor Exhaustion Fallback**: Proactive monitoring of system inotify limits (`/proc/sys/fs/inotify/max_user_watches`) with graceful degradation to periodic polling if OS watch limits are reached.
+  - **Contextual Tooltips & Policy Explanations**: Inline tooltips and modal banners explaining safety triggers (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
+  - **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags, and step-by-step conflict recovery workflows.
+  - **Interactive Diagnostics**: Integrated troubleshooting guides for resolving OAuth token drops, path permissions issues, and systemd service status.
 
 ### Priority 2: In-Dashboard Configuration Snapshot & Rollback Engine
 - **Objective**: Provide server-side configuration safety and instant rollback for global and profile settings.
@@ -149,19 +148,12 @@ The following capabilities represent our immediate development milestones:
   - **Atomic Configuration Snapshots**: Snapshot profile state before applying structural edits or sync actions, archived in `config_snapshots/` with timestamped revisions.
   - **One-Click Rollback API**: Visual comparison of active configuration against historical snapshots with one-click restoration to instantly revert breaking changes.
 
-### Priority 3: Homelab Reverse Proxy Security Hardening & Prometheus `/metrics`
-- **Objective**: Harden production homelab exposure behind reverse proxies with telemetry scrape support.
+### Priority 3: Homelab Reverse Proxy Security Hardening & OpenTelemetry (OTel)
+- **Objective**: Harden production homelab exposure behind reverse proxies with standards-based telemetry and trace support.
 - **Architecture**:
   - **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
   - **Authentication Integration**: Optional HTTP basic authentication or forward-auth middleware support for secure exposure behind reverse proxies (Traefik, Caddy, Nginx).
-  - **Prometheus Metrics Exporter**: Native `/metrics` endpoint exposing sync durations, cumulative transferred bytes, lock wait times, error counters, and daemon health for Grafana monitoring.
-
-### Priority 4: In-App User Guidance & Diagnostic Manual
-- **Objective**: Enhance operational clarity and assisted recovery directly within the UI.
-- **Architecture**:
-  - **Contextual Tooltips & Policy Explanations**: Inline tooltips and modal banners explaining safety triggers (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
-  - **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags, and step-by-step conflict recovery workflows.
-  - **Interactive Diagnostics**: Integrated troubleshooting guides for resolving OAuth token drops, path permissions issues, and systemd service status.
+  - **OpenTelemetry Observability (OTel/OTLP)**: Native OpenTelemetry metrics and traces instrumentation exposing sync execution durations, cumulative transferred bytes, lock contention wait times, error counters, and daemon health via standard OTLP exporters.
 
 ### Priority 4: Remote Mount Lifecycle Manager & Storage Pooling (`internal/mount`)
 - **Objective**: Turn fragile OS FUSE mounts into resilient, self-healing virtual storage endpoints.

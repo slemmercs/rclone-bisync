@@ -56,10 +56,9 @@ Roadmap items are not commitments and may change based on project needs.
 | **Security Hardening (CodeQL #24) & MCP Inspector Modal** | **Delivered** | `v1.0.0-beta.23` |
 | **Embedded MCP Server Consolidation & Profile Store Protection** | **Delivered** | PR #70 (`v1.0.0-beta.27`) |
 | **Architecture Hardening & Real Rclone Sandbox Suite** | **Delivered** | PR #70 (`v1.0.0-beta.27`) |
-| **Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)** | **Active Strategic Priority** | "On Change" Schedule Mode |
+| **In-App User Guidance & Interactive Diagnostic Manual** | **Active Strategic Priority** | Help Documents & Contextual Guidance |
 | **Configuration Snapshot & Rollback Engine** | **Near-Term Priority 2** | Safety Pipeline & Config Snapshot API |
-| **Homelab Reverse Proxy Security Hardening & Prometheus `/metrics`** | **Near-Term Priority 3** | Auth, Headers & Metrics |
-| **In-App User Guidance & Interactive Diagnostic Manual** | **Near-Term Priority 4** | Help Documents & Contextual Guidance |
+| **Homelab Reverse Proxy Hardening & OpenTelemetry Observability** | **Near-Term Priority 3** | Auth, Headers & OTel Metrics/Traces |
 | Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
 | Local Inter-Process Communication (IPC) via Unix Sockets | Planned | Infrastructure Hardening |
 | Auto-Generated Cryptographic Credentials Engine | Planned | Infrastructure Hardening |
@@ -153,13 +152,12 @@ Eliminates concurrency race conditions, introduces Tier 4 real local Rclone inte
 
 ---
 
-### Active Strategic Priority (#1): Event-Driven Local Filesystem Sync (`fsnotify` Debounced Watcher)
+### Active Strategic Priority (#1): In-App User Guidance, Info & Help Documents
 
-Replaces and augments interval polling with real-time event-driven synchronization for local directories:
-- **"On Change" Schedule Mode**: Real-time bisync trigger option alongside interval schedules in profile settings.
-- **Debounced Burst Aggregation**: Configurable quiet-period aggregation window (10–30s) collapsing high-frequency mutations (git branch switching, build outputs, bulk file copies) into a single atomic bisync pass.
-- **Recursive Directory Watching & Local Jail Confinement**: Automatic recursive watch registration confined strictly within the profile's local root path, ignoring noisy directories (`.git/`, `.cache/`, temporary files).
-- **Descriptor Exhaustion Fallback**: Proactive monitoring of system inotify limits (`/proc/sys/fs/inotify/max_user_watches`) with graceful degradation to periodic polling if OS watch limits are reached.
+Enhances dashboard accessibility for non-technical operators and new users:
+- **Contextual Tooltips & Policy Explanations**: Embeds inline tooltips and modal banners across `partials/view_*.html` explaining safety mechanisms (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
+- **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags (`--buffer-size`, `--tpslimit`), and step-by-step conflict recovery workflows.
+- **Interactive Diagnostics & Troubleshooting**: Embedded help documents for resolving OAuth token drops, path permissions issues, and systemd service status.
 
 ---
 
@@ -172,21 +170,12 @@ Provides server-side configuration safety for global environments:
 
 ---
 
-### Near-Term Priority 3: Homelab Reverse Proxy Security Hardening & Prometheus `/metrics`
+### Near-Term Priority 3: Homelab Reverse Proxy Security Hardening & OpenTelemetry Observability
 
-Hardens production and self-hosted homelab deployments:
+Hardens production and self-hosted homelab deployments with standards-based observability:
 - **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
 - **Authentication Integration**: Optional HTTP basic authentication or forward-auth middleware support for secure exposure behind reverse proxies (Traefik, Caddy, Nginx).
-- **Prometheus Metrics Exporter**: Native `/metrics` endpoint exposing sync durations, cumulative transferred bytes, lock wait times, error counters, and daemon health for Grafana monitoring.
-
----
-
-### Near-Term Priority 4: In-App User Guidance, Info & Help Documents
-
-Enhances dashboard accessibility for non-technical operators and new users:
-- **Contextual Tooltips & Policy Explanations**: Embeds inline tooltips and modal banners across `partials/view_*.html` explaining safety mechanisms (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
-- **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags (`--buffer-size`, `--tpslimit`), and step-by-step conflict recovery workflows.
-- **Interactive Diagnostics & Troubleshooting**: Embedded help documents for resolving OAuth token drops, path permissions issues, and systemd service status.
+- **OpenTelemetry Observability (OTel/OTLP)**: Native OpenTelemetry metrics and traces instrumentation exposing sync execution durations, cumulative transferred bytes, lock contention wait times, error counters, and daemon health via standard OTLP exporters (e.g. OTLP gRPC/HTTP to OpenTelemetry Collector, Prometheus OTel receiver, or Grafana Tempo/Mimir).
 
 ---
 
