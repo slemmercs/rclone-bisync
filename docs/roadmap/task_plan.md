@@ -9,7 +9,7 @@ Consolidate the MCP SSE server into the primary dashboard daemon to eliminate du
   - **Scope**: `internal/profiles/store.go`, `internal/profiles/store_test.go`
   - **Verification**: `go test -v -count=1 ./internal/profiles/...`
 
-- [ ] Task 2: Embed MCP SSE Server in Dashboard & Strip Scheduler from Standalone MCP
+- [x] Task 2: Embed MCP SSE Server in Dashboard & Strip Scheduler from Standalone MCP
   - **Scope**: `main.go`, `internal/config/config.go`
   - **Verification**: `go test -count=1 ./internal/config/... ./internal/server/...`
 
@@ -25,6 +25,13 @@ Consolidate the MCP SSE server into the primary dashboard daemon to eliminate du
   - Implemented `reloadIfModifiedLocked()` comparing file `mtime` so stores dynamically reload on disk mutations.
   - Secured `UpdateState` to reload latest on-disk options and update only dynamic telemetry (`LastSync`, `Status`, `ConsecutiveFailures`, `LastDurationSec`) without clobbering user configuration (`Schedule`, `ReviewMode`, `ExcludePatterns`, `Flags`).
   - Added multi-process test `TestStore_MultiProcessSynchronizationAndNoSettingsClobber` verifying non-destructive concurrency. All profile tests pass.
+- 2026-11-04: Completed Task 2:
+  - Added `MCPEnabled`, `MCPHost`, and `MCPPort` to `config.Config` and environment parser (`MCP_ENABLED`, `MCP_HOST`, `MCP_PORT`).
+  - Embedded MCP SSE server directly into `runDashboard`, sharing the existing application container and lifecycle.
+  - Synchronized graceful shutdown of both dashboard HTTP and MCP SSE servers via `signal.NotifyContext`.
+  - Removed `appContainer.Start()` from standalone `runMCP` to prevent any background scheduler loops from running in stdio or external CLI mode.
+  - Verified with `go test -count=1 ./internal/config/... ./internal/server/... ./internal/mcp/...` and `go build .`.
+
 
 
 

@@ -75,6 +75,9 @@ type Config struct {
 
 	DebugMode          bool
 	MCPReadOnly        bool
+	MCPEnabled         bool
+	MCPHost            string
+	MCPPort            int
 	DashboardAPIKey    string
 	WebhookURL         string
 	WebhookTimeoutSec  int
@@ -334,6 +337,9 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 
 		DebugMode:          getEnvBool("DEBUG_MODE", false),
 		MCPReadOnly:        getEnvBool("MCP_READ_ONLY", false),
+		MCPEnabled:         getEnvBool("MCP_ENABLED", true),
+		MCPHost:            getEnv("MCP_HOST", "127.0.0.1"),
+		MCPPort:            getEnvInt("MCP_PORT", 8081),
 		DashboardAPIKey:    getEnv("DASHBOARD_API_KEY", ""),
 		WebhookURL:         os.Getenv("WEBHOOK_URL"),
 		WebhookTimeoutSec:  getEnvInt("WEBHOOK_TIMEOUT", 5),
