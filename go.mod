@@ -3,7 +3,7 @@ module github.com/slemmercs/rclone-bisync
 go 1.26.10
 
 require (
-	github.com/chromedp/chromedp v0.21.0
+	github.com/chromedp/chromedp v0.21.1
 	github.com/mark3labs/mcp-go v1.5.0
 	github.com/pressly/goose/v3 v3.29.0
 	golang.org/x/sys v0.49.0
@@ -11,7 +11,7 @@ require (
 )
 
 require (
-	github.com/chromedp/cdproto v0.157.8 // indirect
+	github.com/chromedp/cdproto v0.159.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260213210345-44df1a37e875 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
