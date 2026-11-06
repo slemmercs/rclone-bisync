@@ -1130,6 +1130,104 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 		}
 	})
 
+	// Sub-test 9: Declarative Provider Options Engine Parity
+	t.Run("DeclarativeProviderOptionsEngineParity", func(t *testing.T) {
+		declarativeScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// Verify schema presence
+			const schemaLen = Array.isArray(window.PROVIDER_OPTIONS_SCHEMA) ? window.PROVIDER_OPTIONS_SCHEMA.length : 0;
+
+			// Test onedrive
+			app.startNewProfile();
+			app.profileModal.editing.remote = "my-onedrive:";
+			const isOneDriveTier1 = app.isTier1Provider();
+			const odBoolOpts = app.getProviderBoolOptionsList().map(o => o.key);
+			const odNonBoolOpts = app.getProviderNonBoolOptionsList().map(o => o.key);
+
+			// Test drive
+			app.profileModal.editing.remote = "my-gdrive:";
+			const isDriveTier1 = app.isTier1Provider();
+			const driveBoolOpts = app.getProviderBoolOptionsList().map(o => o.key);
+			const driveNonBoolOpts = app.getProviderNonBoolOptionsList().map(o => o.key);
+
+			// Test s3
+			app.profileModal.editing.remote = "my-s3:";
+			const isS3Tier1 = app.isTier1Provider();
+			const s3NonBoolOpts = app.getProviderNonBoolOptionsList().map(o => o.key);
+
+			// Test generic remote
+			app.profileModal.editing.remote = "sftp-backup:";
+			const isGenericTier1 = app.isTier1Provider();
+
+			// Test command synthesis with provider options
+			app.profileModal.editing.remote = "work-onedrive:";
+			app.setProviderOption('onedrive_delta', 'true');
+			app.setProviderOption('onedrive_chunk_size', '20M');
+			const synthesized = app.generateCLIPreview();
+
+			// Cleanup
+			if (typeof app.closeProfilesModal === 'function') {
+				app.closeProfilesModal();
+			}
+
+			return {
+				schemaLen,
+				isOneDriveTier1,
+				hasOneDriveDeltaBool: odBoolOpts.includes('onedrive_delta'),
+				hasOneDriveChunkNonBool: odNonBoolOpts.includes('onedrive_chunk_size'),
+				isDriveTier1,
+				hasDriveSkipShortcutsBool: driveBoolOpts.includes('drive_skip_shortcuts'),
+				hasDriveExportNonBool: driveNonBoolOpts.includes('drive_export_formats'),
+				isS3Tier1,
+				hasS3StorageClassNonBool: s3NonBoolOpts.includes('s3_storage_class'),
+				isGenericTier1,
+				synthesizedHasDelta: synthesized.includes('--onedrive-delta'),
+				synthesizedHasChunk: synthesized.includes('--onedrive-chunk-size 20M')
+			};
+		})()`
+
+		type DeclarativeResult struct {
+			SchemaLen                int    `json:"schemaLen"`
+			IsOneDriveTier1          bool   `json:"isOneDriveTier1"`
+			HasOneDriveDeltaBool     bool   `json:"hasOneDriveDeltaBool"`
+			HasOneDriveChunkNonBool  bool   `json:"hasOneDriveChunkNonBool"`
+			IsDriveTier1             bool   `json:"isDriveTier1"`
+			HasDriveSkipShortcutsBool bool  `json:"hasDriveSkipShortcutsBool"`
+			HasDriveExportNonBool    bool   `json:"hasDriveExportNonBool"`
+			IsS3Tier1                bool   `json:"isS3Tier1"`
+			HasS3StorageClassNonBool bool   `json:"hasS3StorageClassNonBool"`
+			IsGenericTier1           bool   `json:"isGenericTier1"`
+			SynthesizedHasDelta      bool   `json:"synthesizedHasDelta"`
+			SynthesizedHasChunk      bool   `json:"synthesizedHasChunk"`
+		}
+
+		dRes, err := chromedp.Run(ctx, chromedp.Evaluate[DeclarativeResult](declarativeScript))
+		if err != nil {
+			t.Fatalf("failed evaluating declarative provider options: %v", err)
+		}
+
+		if dRes.SchemaLen == 0 {
+			t.Errorf("expected non-empty PROVIDER_OPTIONS_SCHEMA")
+		}
+		if !dRes.IsOneDriveTier1 || !dRes.HasOneDriveDeltaBool || !dRes.HasOneDriveChunkNonBool {
+			t.Errorf("onedrive declarative options mismatch: %+v", dRes)
+		}
+		if !dRes.IsDriveTier1 || !dRes.HasDriveSkipShortcutsBool || !dRes.HasDriveExportNonBool {
+			t.Errorf("drive declarative options mismatch: %+v", dRes)
+		}
+		if !dRes.IsS3Tier1 || !dRes.HasS3StorageClassNonBool {
+			t.Errorf("s3 declarative options mismatch: %+v", dRes)
+		}
+		if dRes.IsGenericTier1 {
+			t.Errorf("expected sftp-backup to not be a Tier 1 provider")
+		}
+		if !dRes.SynthesizedHasDelta || !dRes.SynthesizedHasChunk {
+			t.Errorf("synthesized bisync command missing provider flags: %+v", dRes)
+		}
+	})
+
 	mu.Lock()
 	defer mu.Unlock()
 	var significantErrors []string

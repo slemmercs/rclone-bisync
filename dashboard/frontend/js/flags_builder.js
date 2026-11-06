@@ -231,31 +231,23 @@ window.FlagsBuilderModule = {
         }
 
         const po = flags.provider_options || {};
-        const addBool = (key, flagName) => {
-            const v = String(po[key] || "").trim().toLowerCase();
-            if (v === "true" || v === "1") parts.push(flagName);
-            else if (v === "false" || v === "0") parts.push(`${flagName}=false`);
-        };
-        addBool("drive_skip_shortcuts", "--drive-skip-shortcuts");
-        addBool("drive_use_trash", "--drive-use-trash");
-        addBool("drive_skip_gdocs", "--drive-skip-gdocs");
-        addBool("drive_shared_with_me", "--drive-shared-with-me");
-        addBool("drive_acknowledge_abuse", "--drive-acknowledge-abuse");
-        if (po.drive_export_formats && po.drive_export_formats.trim()) parts.push("--drive-export-formats", po.drive_export_formats.trim());
-        if (po.drive_import_formats && po.drive_import_formats.trim()) parts.push("--drive-import-formats", po.drive_import_formats.trim());
         const editingType = typeof this.getEditingRemoteType === "function" ? this.getEditingRemoteType() : "";
-        if (editingType === "onedrive") {
-            const noVers = po.onedrive_no_versions !== undefined ? String(po.onedrive_no_versions).trim().toLowerCase() : "true";
-            if (noVers === "true" || noVers === "1") parts.push("--onedrive-no-versions");
-            else if (noVers === "false" || noVers === "0") parts.push("--onedrive-no-versions=false");
-        } else {
-            addBool("onedrive_no_versions", "--onedrive-no-versions");
+        const schema = (typeof PROVIDER_OPTIONS_SCHEMA !== "undefined") ? PROVIDER_OPTIONS_SCHEMA : [];
+        for (const opt of schema) {
+            let v = po[opt.key];
+            if (v === undefined && opt.provider === editingType && opt.default === "true") {
+                v = "true";
+            }
+            if (v === undefined || v === null || v === "") continue;
+            if (opt.type === "bool") {
+                const s = String(v).trim().toLowerCase();
+                if (s === "true" || s === "1") parts.push(opt.flag);
+                else if (s === "false" || s === "0") parts.push(`${opt.flag}=false`);
+            } else {
+                const s = String(v).trim();
+                if (s) parts.push(opt.flag, s);
+            }
         }
-        addBool("onedrive_delta", "--onedrive-delta");
-        if (po.onedrive_chunk_size && po.onedrive_chunk_size.trim()) parts.push("--onedrive-chunk-size", po.onedrive_chunk_size.trim());
-        if (po.s3_chunk_size && po.s3_chunk_size.trim()) parts.push("--s3-chunk-size", po.s3_chunk_size.trim());
-        if (po.s3_storage_class && po.s3_storage_class.trim()) parts.push("--s3-storage-class", po.s3_storage_class.trim());
-        if (po.dropbox_chunk_size && po.dropbox_chunk_size.trim()) parts.push("--dropbox-chunk-size", po.dropbox_chunk_size.trim());
 
         if (flags.custom_flags && flags.custom_flags.trim()) {
             parts.push(flags.custom_flags.trim());

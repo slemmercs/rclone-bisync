@@ -359,6 +359,7 @@ document.addEventListener("alpine:init", () => {
         window.FleetModule,
         window.ProfilesModule,
         window.ProfilesModalModule,
+        window.ProviderOptionsModule,
         window.FlagsBuilderModule,
         window.ProfilesHistoryModule,
         window.RemotesModule,

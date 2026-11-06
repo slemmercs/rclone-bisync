@@ -11,93 +11,37 @@
         <span class="text-[10px] text-slate-500 font-mono" x-text="profileModal.editing?.remote ? profileModal.editing.remote : 'No Remote Selected'"></span>
     </div>
 
-    <!-- Tier 1: Google Drive Controls -->
-    <template x-if="getEditingRemoteType() === 'drive'">
+    <!-- Tier 1: Schema-Driven Target Provider Controls -->
+    <template x-if="isTier1Provider()">
         <div class="space-y-2.5 pt-1 border-t border-slate-900">
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                    <input type="checkbox" :checked="getProviderBoolOption('drive_skip_shortcuts', true)" @change="setProviderBoolOption('drive_skip_shortcuts', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
-                    <span class="text-[11px] text-slate-300 font-medium">Skip Shortcuts</span>
-                </label>
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                    <input type="checkbox" :checked="getProviderBoolOption('drive_use_trash', true)" @change="setProviderBoolOption('drive_use_trash', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
-                    <span class="text-[11px] text-slate-300 font-medium">Use Trash</span>
-                </label>
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                    <input type="checkbox" :checked="getProviderBoolOption('drive_shared_with_me', false)" @change="setProviderBoolOption('drive_shared_with_me', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
-                    <span class="text-[11px] text-slate-300 font-medium">Shared With Me</span>
-                </label>
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                    <input type="checkbox" :checked="getProviderBoolOption('drive_skip_gdocs', false)" @change="setProviderBoolOption('drive_skip_gdocs', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
-                    <span class="text-[11px] text-slate-300 font-medium">Skip GDocs</span>
-                </label>
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                    <input type="checkbox" :checked="getProviderBoolOption('drive_acknowledge_abuse', false)" @change="setProviderBoolOption('drive_acknowledge_abuse', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
-                    <span class="text-[11px] text-slate-300 font-medium">Ack Abuse</span>
-                </label>
+            <!-- Boolean Toggle Flags -->
+            <div x-show="getProviderBoolOptionsList().length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                <template x-for="item in getProviderBoolOptionsList()" :key="item.key">
+                    <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition" :title="item.desc">
+                        <input type="checkbox" :checked="isProviderOptionChecked(item)" @change="onProviderOptionToggle(item, $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
+                        <span class="text-[11px] text-slate-300 font-medium" x-text="item.label"></span>
+                    </label>
+                </template>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-400 mb-1">Export Formats</label>
-                    <input type="text" :value="getProviderOption('drive_export_formats', 'docx,xlsx,pptx')" @input="setProviderOption('drive_export_formats', $event.target.value)" placeholder="docx,xlsx,pptx" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-400 mb-1">Import Formats (Optional)</label>
-                    <input type="text" :value="getProviderOption('drive_import_formats', '')" @input="setProviderOption('drive_import_formats', $event.target.value)" placeholder="docx,xlsx,pptx" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-                </div>
-            </div>
-        </div>
-    </template>
 
-    <!-- Tier 1: OneDrive Controls -->
-    <template x-if="getEditingRemoteType() === 'onedrive'">
-        <div class="space-y-2.5 pt-1 border-t border-slate-900">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                    <input type="checkbox" :checked="getProviderBoolOption('onedrive_no_versions', true)" @change="setProviderBoolOption('onedrive_no_versions', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
-                    <span class="text-[11px] text-slate-300 font-medium">No Versions (Prevent duplicates)</span>
-                </label>
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                    <input type="checkbox" :checked="getProviderBoolOption('onedrive_delta', false)" @change="setProviderBoolOption('onedrive_delta', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
-                    <span class="text-[11px] text-slate-300 font-medium">Delta Enumeration (--onedrive-delta)</span>
-                </label>
+            <!-- Non-Boolean Value Options (Text & Select) -->
+            <div x-show="getProviderNonBoolOptionsList().length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <template x-for="item in getProviderNonBoolOptionsList()" :key="item.key">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-400 mb-1" x-text="item.label"></label>
+                        <template x-if="item.type === 'select'">
+                            <select :value="getProviderOptionValue(item)" @change="setProviderOptionValue(item, $event.target.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                                <template x-for="opt in item.options" :key="opt">
+                                    <option :value="opt" x-text="opt"></option>
+                                </template>
+                            </select>
+                        </template>
+                        <template x-if="item.type === 'text'">
+                            <input type="text" :value="getProviderOptionValue(item)" @input="setProviderOptionValue(item, $event.target.value)" :placeholder="item.placeholder || ''" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                        </template>
+                    </div>
+                </template>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-400 mb-1">Upload Chunk Size (Optional)</label>
-                    <input type="text" :value="getProviderOption('onedrive_chunk_size', '')" @input="setProviderOption('onedrive_chunk_size', $event.target.value)" placeholder="e.g. 10M, 50M (multiple of 320k)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-                </div>
-            </div>
-        </div>
-    </template>
-
-    <!-- Tier 1: S3 Controls -->
-    <template x-if="getEditingRemoteType() === 's3'">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-900">
-            <div>
-                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Storage Class</label>
-                <select :value="getProviderOption('s3_storage_class', 'STANDARD')" @change="setProviderOption('s3_storage_class', $event.target.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-                    <option value="STANDARD">STANDARD</option>
-                    <option value="STANDARD_IA">STANDARD_IA</option>
-                    <option value="ONEZONE_IA">ONEZONE_IA</option>
-                    <option value="INTELLIGENT_TIERING">INTELLIGENT_TIERING</option>
-                    <option value="GLACIER">GLACIER</option>
-                    <option value="DEEP_ARCHIVE">DEEP_ARCHIVE</option>
-                    <option value="GLACIER_IR">GLACIER_IR</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Part / Chunk Size</label>
-                <input type="text" :value="getProviderOption('s3_chunk_size', '16M')" @input="setProviderOption('s3_chunk_size', $event.target.value)" placeholder="16M" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-            </div>
-        </div>
-    </template>
-
-    <!-- Tier 1: Dropbox Controls -->
-    <template x-if="getEditingRemoteType() === 'dropbox'">
-        <div class="pt-1 border-t border-slate-900">
-            <label class="block text-[10px] font-semibold text-slate-400 mb-1">Upload Chunk Size</label>
-            <input type="text" :value="getProviderOption('dropbox_chunk_size', '48M')" @input="setProviderOption('dropbox_chunk_size', $event.target.value)" placeholder="48M" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
         </div>
     </template>
 
