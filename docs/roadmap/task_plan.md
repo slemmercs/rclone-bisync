@@ -9,7 +9,7 @@ Remove redundant quick-add pills and flag builder select options for flags alrea
   - **Scope**: `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/js/help-data-flags.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh all`
 
-- [ ] Task 2: Update E2E Headless Chrome Tests & Live Service Verification
+- [x] Task 2: Update E2E Headless Chrome Tests & Live Service Verification
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`, compilation & restart of `rclone-dashboard.service`
   - **Verification**: `go test -v -count=1 ./tests/e2e/... && ./scripts/check.sh all`
 
@@ -17,5 +17,6 @@ Remove redundant quick-add pills and flag builder select options for flags alrea
 
 - 2026-11-06: Initialized task plan based on user decision to remove dedicated provider options from Custom Flags & Quick Add.
 - 2026-11-06: Completed Task 1: Removed `--drive-shared-with-me`, `--onedrive-no-versions`, and `--onedrive-chunk-size` from `flags_builder.js` and `modal_provider_options.html`. Updated caveats in `help-data-flags.js`. Passed all 7 quality gates.
+- 2026-11-06: Completed Task 2: Verified automated headless Chrome E2E tests (`ProviderAwareFlagScopingAndDrawerIsolation`), rebuilt binary to `bin/rclone-bisync` and deployed to `/home/csaba/rclone-bisync/bin/rclone-bisync`, restarted `rclone-dashboard.service` (PID 341616). All 7 quality gates passed.
 
 
