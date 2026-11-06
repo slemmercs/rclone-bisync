@@ -43,6 +43,7 @@ window.HelpCatalog.flags = [
         backends: ["drive"],
         contexts: ["modal_profiles", "view_remotes"],
         description: "Instructs Google Drive backend to list and sync files shared with the user rather than root 'My Drive'.",
+        caveat: "Configured directly via the 'Shared With Me' toggle in Target Provider Options when editing a Google Drive profile.",
         example: "rclone bisync local: gdrive: --drive-shared-with-me",
         docUrl: "https://rclone.org/drive/#drive-shared-with-me"
     },
@@ -274,7 +275,7 @@ window.HelpCatalog.flags = [
         backends: ["onedrive"],
         contexts: ["modal_profiles", "view_remotes"],
         description: "Prevents OneDrive from creating unnecessary historical file versions on upload, saving cloud storage quota and preventing version buildup.",
-        caveat: "Essential for OneDrive sync pairs that update frequently to prevent quota exhaustion from hidden version histories.",
+        caveat: "Configured directly via the 'No Versions' toggle in Target Provider Options. Essential for OneDrive sync pairs that update frequently to prevent quota exhaustion.",
         example: "rclone bisync local: onedrive: --onedrive-no-versions",
         docUrl: "https://rclone.org/onedrive/#onedrive-no-versions"
     },
@@ -285,7 +286,7 @@ window.HelpCatalog.flags = [
         backends: ["onedrive"],
         contexts: ["modal_profiles", "view_remotes"],
         description: "Upload chunk size for large files (must be multiple of 320k, e.g. 10M, 50M, 100M). Larger chunks increase upload throughput on reliable connections.",
-        caveat: "Must be an exact multiple of 320k. Larger values consume more daemon RAM per transfer but significantly boost upload speeds.",
+        caveat: "Configured directly via the 'Upload Chunk Size' field in Target Provider Options. Must be an exact multiple of 320k.",
         example: "rclone bisync local: onedrive: --onedrive-chunk-size 10M",
         docUrl: "https://rclone.org/onedrive/#onedrive-chunk-size"
     },

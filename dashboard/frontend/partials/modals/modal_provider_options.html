@@ -128,15 +128,6 @@
         <button type="button" @click="addFlagRow('--transfers')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --transfers</button>
         <button type="button" @click="addFlagRow('--bwlimit')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --bwlimit</button>
         <button type="button" @click="addFlagRow('--resilient')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --resilient</button>
-        <template x-if="getEditingRemoteType() === 'onedrive'">
-            <button type="button" @click="addFlagRow('--onedrive-no-versions')" class="px-2 py-0.5 bg-sky-950/60 hover:bg-sky-900/60 border border-sky-800/60 hover:border-sky-700 rounded text-[10px] font-mono text-sky-300 transition">+ --onedrive-no-versions</button>
-        </template>
-        <template x-if="getEditingRemoteType() === 'onedrive'">
-            <button type="button" @click="addFlagRow('--onedrive-chunk-size')" class="px-2 py-0.5 bg-sky-950/60 hover:bg-sky-900/60 border border-sky-800/60 hover:border-sky-700 rounded text-[10px] font-mono text-sky-300 transition">+ --onedrive-chunk-size</button>
-        </template>
-        <template x-if="getEditingRemoteType() === 'drive'">
-            <button type="button" @click="addFlagRow('--drive-shared-with-me')" class="px-2 py-0.5 bg-amber-950/60 hover:bg-amber-900/60 border border-amber-800/60 hover:border-amber-700 rounded text-[10px] font-mono text-amber-300 transition">+ --drive-shared-with-me</button>
-        </template>
     </div>
 
     <!-- Flag Rows List -->
@@ -154,9 +145,6 @@
                         <option value="--track-renames" :hidden="!isFlagApplicableForEditingRemote('--track-renames')">--track-renames</option>
                         <option value="--track-renames-strategy" :hidden="!isFlagApplicableForEditingRemote('--track-renames-strategy')">--track-renames-strategy</option>
                         <option value="--fast-list" :hidden="!isFlagApplicableForEditingRemote('--fast-list')">--fast-list</option>
-                        <option value="--drive-shared-with-me" :hidden="!isFlagApplicableForEditingRemote('--drive-shared-with-me')">--drive-shared-with-me</option>
-                        <option value="--onedrive-no-versions" :hidden="!isFlagApplicableForEditingRemote('--onedrive-no-versions')">--onedrive-no-versions</option>
-                        <option value="--onedrive-chunk-size" :hidden="!isFlagApplicableForEditingRemote('--onedrive-chunk-size')">--onedrive-chunk-size</option>
                         <option value="--onedrive-delta" :hidden="!isFlagApplicableForEditingRemote('--onedrive-delta')">--onedrive-delta</option>
                         <option value="--checksum" :hidden="!isFlagApplicableForEditingRemote('--checksum')">--checksum</option>
                         <option value="--ignore-checksum" :hidden="!isFlagApplicableForEditingRemote('--ignore-checksum')">--ignore-checksum</option>

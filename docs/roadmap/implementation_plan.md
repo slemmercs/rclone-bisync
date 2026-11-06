@@ -1,52 +1,35 @@
-# Implementation Plan: Provider-Aware Flag Builder, Scoped Catalog & Guidance
+# Implementation Plan: Deduplicate Target Provider Options from Custom Flag Builder
 
 ## Proposed Changes
 
-Implement strict provider-aware filtering in the Profile Flag Builder and the In-App Reference Manual. When editing a sync profile, operational flags not applicable to that profile's cloud storage provider (e.g. Google Drive flags on a OneDrive remote) are strictly filtered out of the Flag Builder dropdown and quick-add pills. Furthermore, the In-App Reference Manual reflects provider-specific caveats and automatically scopes its catalog to relevant flags.
-
-To adhere strictly to engineering standards (<400 LOC ceiling per file) and keep the frontend modular and maintainable:
-1. `dashboard/frontend/js/help-data-flags.js`: Dedicated flags catalog module (~230 LOC) containing complete guided flags with backend scopes (`backends: ["all"]`, `["onedrive"]`, `["drive"]`), Bisync operational notes, provider-specific caveats, and outbound `rclone.org` documentation links.
-2. `dashboard/frontend/js/help-data.js`: Modularized policies and runbooks catalog (~140 LOC).
-3. `dashboard/frontend/js/help_diagnostics.js`: Dedicated diagnostics execution and check filtering module (~80 LOC).
-4. `dashboard/frontend/js/help.js`: Reactive controller managing drawer state, tab switching, and context/provider filtering (~160 LOC).
-5. `dashboard/frontend/js/flags_builder.js` & `dashboard/frontend/partials/modals/modal_provider_options.html`: Strictly filter dropdown options and quick-add pills by `getEditingRemoteType()`.
+Eliminate UI and configuration duplication between curated **Target Provider Options** (Tier 1) and **Operational & Custom CLI Flags** (Tier 2/3). Provider settings that have first-class checkboxes or input fields in "Target Provider Options" (`--drive-shared-with-me`, `--onedrive-no-versions`, and `--onedrive-chunk-size`) will no longer appear as redundant quick-add pills or `<select>` dropdown options in the Flag Builder. They will remain fully documented and scoped in the In-App Reference Manual (Help Drawer) with clear guidance that they are configured via Target Provider Options.
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/js/help-data-flags.js`: New static module registering `window.HelpCatalog.flags` with backend classifications and provider caveats.
-- `dashboard/frontend/js/help-data.js`: Refactored to focus on policies, runbooks, and base registry initialization.
-- `dashboard/frontend/js/help_diagnostics.js`: New module encapsulating diagnostics API fetching and check filtering.
-- `dashboard/frontend/js/help.js`: Slimmed controller integrating diagnostics module and backend-aware catalog filtering.
-- `dashboard/frontend/js/flags_builder.js`: Implements `getAvailableFlagsForEditingRemote()` and provider-scoped quick pills.
-- `dashboard/frontend/partials/modals/modal_provider_options.html`: Dynamic `<select>` rendering and provider-specific quick-add pills.
-- `dashboard/frontend/partials/components/component_help_drawer.html`: Backend filter badges and provider caveat rendering.
-- `dashboard/frontend/index.html`: Load new modular script files in proper dependency order.
-- `tests/e2e/dashboard_smoke_test.go`: End-to-end headless Chrome tests validating provider-scoped dropdown options, quick-add pills, and help drawer provider filtering.
+- `dashboard/frontend/js/flags_builder.js`:
+  - Remove `--drive-shared-with-me`, `--onedrive-no-versions`, and `--onedrive-chunk-size` from `RCLONE_FLAGS_CATALOG` so they are not offered in the custom flags builder.
+  - Keep `--onedrive-delta` in `RCLONE_FLAGS_CATALOG` scoped to `onedrive` (as it has no dedicated Target Provider Options checkbox).
+- `dashboard/frontend/partials/modals/modal_provider_options.html`:
+  - Remove provider-specific quick-add buttons (`--onedrive-no-versions`, `--onedrive-chunk-size`, `--drive-shared-with-me`) from the Quick add row.
+  - Remove redundant `<option>` entries for `--drive-shared-with-me`, `--onedrive-no-versions`, and `--onedrive-chunk-size` from the flag select dropdown.
+- `dashboard/frontend/js/help-data-flags.js`:
+  - Retain full catalog entries in the Reference Manual.
+  - Note in the descriptions of `--drive-shared-with-me`, `--onedrive-no-versions`, and `--onedrive-chunk-size` that they are conveniently configured via Target Provider Options.
+- `tests/e2e/dashboard_smoke_test.go`:
+  - Update Sub-test 8 `ProviderAwareFlagScopingAndDrawerIsolation` to verify that:
+    1. Dedicated provider settings (`--onedrive-no-versions`, `--drive-shared-with-me`) are NOT in the custom flag builder dropdown.
+    2. Provider-scoped non-curated flags (e.g. `--onedrive-delta`) are applicable for OneDrive and excluded for Google Drive in the flag builder.
+    3. The Help Drawer still documents and filters both provider flags correctly in context.
 
 ### Technical Strategy & Data Flow
 
-1. **Provider Mapping & Scoping**:
-   - Universal flags: Included on all remotes (`--track-renames`, `--checkers`, `--transfers`, `--bwlimit`, `--tpslimit`, `--buffer-size`, `--resilient`, `--recover`, etc.).
-   - OneDrive: Universal + `--onedrive-no-versions`, `--onedrive-chunk-size`, `--onedrive-delta`. Excludes `--drive-shared-with-me`.
-   - Google Drive: Universal + `--drive-shared-with-me`, `--fast-list`. Excludes `--onedrive-...`.
-   - Local / Generic: Universal flags only.
-2. **Flag Builder Dynamic Scoping**:
-   - `getAvailableFlagsForEditingRemote()` inspects `getEditingRemoteType()`.
-   - The `<select>` options in `modal_provider_options.html` use this filtered list.
-3. **Help Drawer Provider Awareness**:
-   - `detectActiveContext()` extracts active profile remote backend when editing a profile.
-   - Flag catalog highlights provider badges and renders specific operational caveats (e.g. OneDrive `--fast-list` requiring `--onedrive-delta`, symlink limitations, checksum compatibility).
-
-### Safety & Error Handling
-
-- Zero build step: Vanilla JS distribution.
-- Safe fallbacks: If remote type is unknown or unset, defaults to universal flags.
-- Custom flag option remains available in all modes.
-- Every JS file kept strictly under 300 LOC (well below 400 LOC ceiling).
+- Clean separation of concerns:
+  - **Tier 1 (Target Provider Options)**: Curated provider-specific options stored in `profile.flags.provider_options`.
+  - **Tier 2 (Operational & Custom CLI Flags)**: Bisync operational parameters (`--track-renames`, `--fast-list`, `--checkers`, etc.) and un-curated provider flags (`--onedrive-delta`) stored in `profile.flags.custom_flags`.
+  - **Reference Manual (Help Drawer)**: Complete reference documentation of all flags with backend badges.
 
 ## Verification Plan
 
-- `./scripts/check-loc.sh 400`: Verify no file exceeds 400 LOC.
-- `./scripts/check.sh all`: Full lint, template scan, security check, and test suite.
-- `tests/e2e/dashboard_smoke_test.go`: Automated test verifying OneDrive/GDrive provider scoping.
-- Dev binary verification on port 8085.
+- `tests/e2e/dashboard_smoke_test.go`: Automated test verifying clean separation, provider scoping in drawer, and absence of duplicate flag builder options.
+- `./scripts/check.sh all`: Run all 7 static analysis, template, and test gates.
+- Compile and restart `rclone-dashboard.service`, then verify UI.

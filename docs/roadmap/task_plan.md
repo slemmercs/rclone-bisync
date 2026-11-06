@@ -1,36 +1,21 @@
-# Task Plan: Provider-Aware Flag Builder, Scoped Catalog & Guidance
+# Task Plan: Deduplicate Target Provider Options from Custom Flag Builder
 
 ## Goal
-Make the Profile Flag Builder and In-App Reference Manual provider-aware so that flags not applicable to a profile's cloud storage provider (e.g. Google Drive flags on a OneDrive remote) are strictly filtered out of the Flag Builder dropdown and catalog views, while modularizing `help-data.js` and `help.js` to ensure zero files approach the 400 LOC ceiling.
+Remove redundant quick-add pills and flag builder select options for flags already managed by dedicated controls in Target Provider Options (`--drive-shared-with-me`, `--onedrive-no-versions`, `--onedrive-chunk-size`), while preserving full documentation and provider filtering in the Reference Manual Help Drawer.
 
 ## Tasks
 
-- [x] Task 1: Modularize Help Data & Diagnostics Subsystems
-  - **Scope**: Create `dashboard/frontend/js/help-data-flags.js` & `dashboard/frontend/js/help_diagnostics.js`, trim `help-data.js` & `help.js`, register in `index.html`
+- [x] Task 1: Deduplicate Flag Builder Catalog & Quick-Add Buttons
+  - **Scope**: `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/js/help-data-flags.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh all`
 
-- [x] Task 2: Provider Metadata & OneDrive Guidance in Flags Catalog
-  - **Scope**: `dashboard/frontend/js/help-data-flags.js`
-  - **Verification**: `go test -count=1 ./tests/e2e/...`
-
-- [x] Task 3: Strictly Provider-Scoped Flag Builder & Quick-Add Pills
-  - **Scope**: `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/partials/modals/modal_provider_options.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh all`
-
-- [x] Task 4: Provider-Aware Filtering & Badges in Help Drawer
-  - **Scope**: `dashboard/frontend/js/help.js`, `dashboard/frontend/partials/components/component_help_drawer.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh all`
-
-- [x] Task 5: End-to-End Automated & Live Verification
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `/tmp/rclone-bisync-dev`
+- [ ] Task 2: Update E2E Headless Chrome Tests & Live Service Verification
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, compilation & restart of `rclone-dashboard.service`
   - **Verification**: `go test -v -count=1 ./tests/e2e/... && ./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-06: Initialized plan from implementation_plan.md on branch feat/in-app-user-guidance.
-- 2026-11-06: Completed Task 1: Modularized `help-data-flags.js` (269 LOC) and `help_diagnostics.js` (54 LOC), trimming `help-data.js` to 137 LOC and `help.js` to 188 LOC (all well below 400 LOC ceiling). Registered modules in `index.html` and `app.js`. Passed all 7 quality gate checks.
-- 2026-11-06: Completed Task 2: Enriched `help-data-flags.js` with provider backend scopes (`all`, `onedrive`, `drive`), added 3 OneDrive-specific flags (`--onedrive-no-versions`, `--onedrive-chunk-size`, `--onedrive-delta`), and added operational caveats for OneDrive fast-list and Graph API HTTP 429 rate limiting (file size: 304 LOC). Verified with E2E suite.
-- 2026-11-06: Completed Task 3: Updated `flags_builder.js` (276 LOC) with backend scope metadata and provider filtering helpers (`getAvailableFlagsForEditingRemote()`, `isFlagApplicableForEditingRemote()`). Updated `modal_provider_options.html` with provider-scoped `<option :hidden>` and dynamic quick-add pills for OneDrive and Google Drive. Passed all 7 quality gate checks.
-- 2026-11-06: Completed Task 4: Implemented `getActiveProviderFilter()` and provider-scoped filtering in `help.js` (202 LOC). Added provider badge rendering (`ONEDRIVE`, `DRIVE`) in Flag Catalog items and provider context tag in Help Drawer header in `component_help_drawer.html`. Passed all 7 quality gate checks.
-- 2026-11-06: Completed Task 5: Added Sub-test 8 `ProviderAwareFlagScopingAndDrawerIsolation` in `dashboard_smoke_test.go` verifying onedrive vs drive flag scoping and drawer isolation; fixed provider matching priority in `profiles_modal.js` (`onedrive` checked before `drive`); compiled `/tmp/rclone-bisync-dev` and validated on port 8085; all 7 check.sh gates passed cleanly.
+- 2026-11-06: Initialized task plan based on user decision to remove dedicated provider options from Custom Flags & Quick Add.
+- 2026-11-06: Completed Task 1: Removed `--drive-shared-with-me`, `--onedrive-no-versions`, and `--onedrive-chunk-size` from `flags_builder.js` and `modal_provider_options.html`. Updated caveats in `help-data-flags.js`. Passed all 7 quality gates.
+
 

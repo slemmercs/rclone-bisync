@@ -1019,8 +1019,9 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 			app.profileModal.editing.remote = "work-onedrive:";
 
 			const oneDriveType = app.getEditingRemoteType();
-			const oneDriveApplicable = app.isFlagApplicableForEditingRemote("--onedrive-no-versions");
-			const driveApplicableOnOneDrive = app.isFlagApplicableForEditingRemote("--drive-shared-with-me");
+			const oneDriveDeltaApplicable = app.isFlagApplicableForEditingRemote("--onedrive-delta");
+			const hasNoVersionsInCatalog = Boolean(app.flagsCatalog.find(c => c.flag === "--onedrive-no-versions"));
+			const hasSharedWithMeInCatalog = Boolean(app.flagsCatalog.find(c => c.flag === "--drive-shared-with-me"));
 
 			// 2. Open drawer in context of profiles modal (scoped by default)
 			app.openHelpDrawer('modal_profiles');
@@ -1029,7 +1030,7 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 			const hasOneDriveFlag = oneDriveFlags.includes("--onedrive-no-versions");
 			const hasDriveFlagOnOneDrive = oneDriveFlags.includes("--drive-shared-with-me");
 
-			// 3. Toggle off contextOnly: all flags should now appear
+			// 3. Toggle off contextOnly: all flags should now appear in help drawer
 			app.toggleContextFilter();
 			const allFlags = app.filteredFlags().map(f => f.flag);
 			const allHasOneDrive = allFlags.includes("--onedrive-no-versions");
@@ -1039,6 +1040,7 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 			app.toggleContextFilter(); // toggle back to scoped
 			app.profileModal.editing.remote = "team-gdrive:";
 			const driveType = app.getEditingRemoteType();
+			const deltaApplicableOnDrive = app.isFlagApplicableForEditingRemote("--onedrive-delta");
 			const driveFlags = app.filteredFlags().map(f => f.flag);
 			const hasDriveFlag = driveFlags.includes("--drive-shared-with-me");
 			const hasOneDriveOnDrive = driveFlags.includes("--onedrive-no-versions");
@@ -1051,31 +1053,35 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 
 			return {
 				oneDriveType,
-				oneDriveApplicable,
-				driveApplicableOnOneDrive,
+				oneDriveDeltaApplicable,
+				hasNoVersionsInCatalog,
+				hasSharedWithMeInCatalog,
 				activeProviderOne,
 				hasOneDriveFlag,
 				hasDriveFlagOnOneDrive,
 				allHasOneDrive,
 				allHasDrive,
 				driveType,
+				deltaApplicableOnDrive,
 				hasDriveFlag,
 				hasOneDriveOnDrive
 			};
 		})()`
 
 		type ProviderTestResult struct {
-			OneDriveType              string `json:"oneDriveType"`
-			OneDriveApplicable        bool   `json:"oneDriveApplicable"`
-			DriveApplicableOnOneDrive bool   `json:"driveApplicableOnOneDrive"`
-			ActiveProviderOne         string `json:"activeProviderOne"`
-			HasOneDriveFlag           bool   `json:"hasOneDriveFlag"`
-			HasDriveFlagOnOneDrive    bool   `json:"hasDriveFlagOnOneDrive"`
-			AllHasOneDrive            bool   `json:"allHasOneDrive"`
-			AllHasDrive               bool   `json:"allHasDrive"`
-			DriveType                 string `json:"driveType"`
-			HasDriveFlag              bool   `json:"hasDriveFlag"`
-			HasOneDriveOnDrive        bool   `json:"hasOneDriveOnDrive"`
+			OneDriveType             string `json:"oneDriveType"`
+			OneDriveDeltaApplicable  bool   `json:"oneDriveDeltaApplicable"`
+			HasNoVersionsInCatalog   bool   `json:"hasNoVersionsInCatalog"`
+			HasSharedWithMeInCatalog bool   `json:"hasSharedWithMeInCatalog"`
+			ActiveProviderOne        string `json:"activeProviderOne"`
+			HasOneDriveFlag          bool   `json:"hasOneDriveFlag"`
+			HasDriveFlagOnOneDrive   bool   `json:"hasDriveFlagOnOneDrive"`
+			AllHasOneDrive           bool   `json:"allHasOneDrive"`
+			AllHasDrive              bool   `json:"allHasDrive"`
+			DriveType                string `json:"driveType"`
+			DeltaApplicableOnDrive   bool   `json:"deltaApplicableOnDrive"`
+			HasDriveFlag             bool   `json:"hasDriveFlag"`
+			HasOneDriveOnDrive       bool   `json:"hasOneDriveOnDrive"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[ProviderTestResult](providerScript))
@@ -1086,32 +1092,38 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 		if res.OneDriveType != "onedrive" {
 			t.Errorf("expected oneDriveType to be 'onedrive', got %q", res.OneDriveType)
 		}
-		if !res.OneDriveApplicable {
-			t.Errorf("expected --onedrive-no-versions to be applicable for onedrive remote")
+		if !res.OneDriveDeltaApplicable {
+			t.Errorf("expected --onedrive-delta to be applicable for onedrive remote in flag builder")
 		}
-		if res.DriveApplicableOnOneDrive {
-			t.Errorf("expected --drive-shared-with-me to NOT be applicable for onedrive remote")
+		if res.HasNoVersionsInCatalog {
+			t.Errorf("expected --onedrive-no-versions to be omitted from custom flag builder (managed in Target Provider Options)")
+		}
+		if res.HasSharedWithMeInCatalog {
+			t.Errorf("expected --drive-shared-with-me to be omitted from custom flag builder (managed in Target Provider Options)")
 		}
 		if res.ActiveProviderOne != "onedrive" {
 			t.Errorf("expected activeProviderOne to be 'onedrive', got %q", res.ActiveProviderOne)
 		}
 		if !res.HasOneDriveFlag {
-			t.Errorf("expected filteredFlags() to include --onedrive-no-versions for onedrive")
+			t.Errorf("expected help drawer filteredFlags() to include --onedrive-no-versions for onedrive")
 		}
 		if res.HasDriveFlagOnOneDrive {
-			t.Errorf("expected filteredFlags() to exclude --drive-shared-with-me for onedrive")
+			t.Errorf("expected help drawer filteredFlags() to exclude --drive-shared-with-me for onedrive")
 		}
 		if !res.AllHasOneDrive || !res.AllHasDrive {
-			t.Errorf("expected both provider flags to be visible when scoped filter is disabled")
+			t.Errorf("expected both provider flags to be visible in help drawer when scoped filter is disabled")
 		}
 		if res.DriveType != "drive" {
 			t.Errorf("expected driveType to be 'drive', got %q", res.DriveType)
 		}
+		if res.DeltaApplicableOnDrive {
+			t.Errorf("expected --onedrive-delta to NOT be applicable on drive in flag builder")
+		}
 		if !res.HasDriveFlag {
-			t.Errorf("expected filteredFlags() to include --drive-shared-with-me for drive")
+			t.Errorf("expected help drawer filteredFlags() to include --drive-shared-with-me for drive")
 		}
 		if res.HasOneDriveOnDrive {
-			t.Errorf("expected filteredFlags() to exclude --onedrive-no-versions for drive")
+			t.Errorf("expected help drawer filteredFlags() to exclude --onedrive-no-versions for drive")
 		}
 	})
 
