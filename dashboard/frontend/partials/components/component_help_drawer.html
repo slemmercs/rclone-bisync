@@ -48,6 +48,18 @@
                             </button>
                         </div>
 
+                        <!-- Context Awareness Badge & Scope Toggle -->
+                        <div x-show="helpDrawer.contextId && helpDrawer.contextId !== 'global'" class="flex items-center justify-between px-3 py-1.5 bg-indigo-950/40 border border-indigo-800/40 rounded-xl text-xs">
+                            <div class="flex items-center gap-1.5 text-indigo-300">
+                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                                <span class="text-slate-400">Scoped Context:</span>
+                                <strong class="text-white font-semibold" x-text="helpDrawer.contextTitle || 'Active View'"></strong>
+                            </div>
+                            <button type="button" @click="toggleContextFilter()" class="text-indigo-400 hover:text-indigo-200 text-[11px] font-semibold underline transition-colors cursor-pointer">
+                                <span x-text="helpDrawer.contextOnly ? 'Show All Topics' : 'Show Scoped Only'"></span>
+                            </button>
+                        </div>
+
                         <!-- Tab Navigation Bar -->
                         <div class="flex items-center gap-1 border-b border-slate-800/80 pt-1 overflow-x-auto no-scrollbar">
                             <button @click="setHelpTab('diagnostics')"

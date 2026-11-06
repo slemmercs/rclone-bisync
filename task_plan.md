@@ -38,7 +38,7 @@ Embed contextual policy explanations, an interactive slide-over reference manual
   - **Scope**: `dashboard/frontend/js/help.js`
   - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh all`
 
-- [ ] Task 9: Drawer Template Context Indicator & Toggle in `component_help_drawer.html`
+- [x] Task 9: Drawer Template Context Indicator & Toggle in `component_help_drawer.html`
   - **Scope**: `dashboard/frontend/partials/components/component_help_drawer.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh all`
 
@@ -60,6 +60,8 @@ Embed contextual policy explanations, an interactive slide-over reference manual
 - 2026-11-06: Completed Task 2: Implemented `handleDiagnostics` REST handler and operational check evaluators across daemon connectivity, storage accessibility, canary protection, remote token health, and host runtime environment in `internal/server/handlers_diagnostics.go`, wired to `GET /api/diagnostics` in `internal/server/server.go`.
 - 2026-11-06: Completed Task 3: Built comprehensive unit testing suite in `internal/server/handlers_diagnostics_test.go` verifying offline failure states, healthy multi-remote passes, and elevated latency warning thresholds under `-race`.
 - 2026-11-06: Completed Task 4: Created `dashboard/frontend/partials/components/component_help_drawer.html` featuring interactive slide-over tabs for System Diagnostics, Safety Policies, Flag Catalog, and Troubleshooting Runbooks. Verified with `main_test.go` and `tests/e2e/...`.
+- 2026-11-06: Completed Task 9: Added scoped context indicator bar and interactive "Show All Topics / Show Scoped Only" toggle in `dashboard/frontend/partials/components/component_help_drawer.html`. Verified template safety with `./scripts/check.sh templates` and `./scripts/check.sh all`.
+
 
 - 2026-11-06: Completed Task 5: Added `component_tooltip` macro to `ui_components.html`, embedded contextual safety policy explanations across `modal_profiles.html`, `modal_global_settings.html`, and `modal_review.html`, added Help & Manual quick link in `view_fleet.html`, and verified template compliance with `./scripts/check.sh all`.
 
