@@ -21,7 +21,7 @@ Embed contextual policy explanations, an interactive slide-over reference manual
   - **Scope**: `dashboard/frontend/partials/components/component_help_drawer.html`
   - **Verification**: `go test -count=1 ./tests/e2e/...`
 
-- [ ] Task 5: Reusable Tooltip Components & Contextual Safety Explanations
+- [x] Task 5: Reusable Tooltip Components & Contextual Safety Explanations
   - **Scope**: `dashboard/frontend/partials/components/ui_components.html`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/view_fleet.html`
   - **Verification**: `./scripts/check.sh all`
 
@@ -41,6 +41,8 @@ Embed contextual policy explanations, an interactive slide-over reference manual
 - 2026-11-06: Completed Task 2: Implemented `handleDiagnostics` REST handler and operational check evaluators across daemon connectivity, storage accessibility, canary protection, remote token health, and host runtime environment in `internal/server/handlers_diagnostics.go`, wired to `GET /api/diagnostics` in `internal/server/server.go`.
 - 2026-11-06: Completed Task 3: Built comprehensive unit testing suite in `internal/server/handlers_diagnostics_test.go` verifying offline failure states, healthy multi-remote passes, and elevated latency warning thresholds under `-race`.
 - 2026-11-06: Completed Task 4: Created `dashboard/frontend/partials/components/component_help_drawer.html` featuring interactive slide-over tabs for System Diagnostics, Safety Policies, Flag Catalog, and Troubleshooting Runbooks. Verified with `main_test.go` and `tests/e2e/...`.
+
+- 2026-11-06: Completed Task 5: Added `component_tooltip` macro to `ui_components.html`, embedded contextual safety policy explanations across `modal_profiles.html`, `modal_global_settings.html`, and `modal_review.html`, added Help & Manual quick link in `view_fleet.html`, and verified template compliance with `./scripts/check.sh all`.
 
 
 

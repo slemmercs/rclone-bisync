@@ -155,4 +155,3 @@ func TestDiagnosticsResponseSchema(t *testing.T) {
 		t.Errorf("expected PID 12345, got %d", parsed.SystemInfo.PID)
 	}
 }
-

@@ -340,4 +340,3 @@ type DiagnosticsResponse struct {
 	SystemInfo DiagnosticSystemInfo `json:"system_info"`
 	Timestamp  string               `json:"timestamp"`
 }
-

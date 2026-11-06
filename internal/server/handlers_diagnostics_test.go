@@ -218,4 +218,3 @@ func TestHandleDiagnostics_ElevatedLatencyWarning(t *testing.T) {
 		t.Errorf("expected warning status for elevated latency, got %s", daemonCheck.Status)
 	}
 }
-

@@ -30,7 +30,17 @@
                 <div class="text-[11px] text-slate-400">Baseline operational parameters inherited by profiles unless overridden.</div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Max Delete Threshold (%)</label>
+                        <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mb-1">
+                            <span>Max Delete Threshold (%)</span>
+                            <span class="group relative inline-flex items-center text-slate-500 hover:text-indigo-400 cursor-help" tabindex="0">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                <div class="absolute bottom-full left-0 mb-2 hidden group-hover:flex group-focus:flex flex-col w-64 p-2.5 rounded-xl bg-slate-950 border border-slate-700/80 shadow-2xl z-50 pointer-events-none text-left">
+                                    <span class="text-xs font-bold text-white mb-0.5">Global TOO_MANY_DELETES</span>
+                                    <span class="text-[11px] font-normal leading-relaxed text-slate-300">Default deletion ceiling percentage applied across all workloads without custom overrides.</span>
+                                    <div class="absolute left-3 top-full -mt-px w-2 h-2 bg-slate-950 border-b border-r border-slate-700/80 rotate-45"></div>
+                                </div>
+                            </span>
+                        </label>
                         <input type="number" x-model.number="globalSettingsModal.config.global_defaults.max_delete" min="1" max="100" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
                     </div>
                     <div>
@@ -58,7 +68,17 @@
                         </p>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Canary Guard Probing</label>
+                        <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mb-1">
+                            <span>Canary Guard Probing</span>
+                            <span class="group relative inline-flex items-center text-slate-500 hover:text-indigo-400 cursor-help" tabindex="0">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                <div class="absolute bottom-full left-0 mb-2 hidden group-hover:flex group-focus:flex flex-col w-64 p-2.5 rounded-xl bg-slate-950 border border-slate-700/80 shadow-2xl z-50 pointer-events-none text-left">
+                                    <span class="text-xs font-bold text-white mb-0.5">Canary Token Verification</span>
+                                    <span class="text-[11px] font-normal leading-relaxed text-slate-300">Requires RCLONE_TEST canary presence on both storage endpoints before synchronization commences.</span>
+                                    <div class="absolute left-3 top-full -mt-px w-2 h-2 bg-slate-950 border-b border-r border-slate-700/80 rotate-45"></div>
+                                </div>
+                            </span>
+                        </label>
                         <select :value="globalSettingsModal.config.global_defaults.canary_validation ? 'true' : 'false'" @change="globalSettingsModal.config.global_defaults.canary_validation = ($event.target.value === 'true')" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
                             <option value="true">Enabled (Strict RCLONE_TEST Guard)</option>
                             <option value="false">Disabled (Bypass Probing)</option>
@@ -85,7 +105,17 @@
                         <input type="number" x-model.number="globalSettingsModal.config.daemon.job_timeout_seconds" min="60" max="86400" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Stale Lock Timeout (seconds)</label>
+                        <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mb-1">
+                            <span>Stale Lock Timeout (seconds)</span>
+                            <span class="group relative inline-flex items-center text-slate-500 hover:text-indigo-400 cursor-help" tabindex="0">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                <div class="absolute bottom-full left-0 mb-2 hidden group-hover:flex group-focus:flex flex-col w-64 p-2.5 rounded-xl bg-slate-950 border border-slate-700/80 shadow-2xl z-50 pointer-events-none text-left">
+                                    <span class="text-xs font-bold text-white mb-0.5">POSIX flock Isolation</span>
+                                    <span class="text-[11px] font-normal leading-relaxed text-slate-300">Prevents multiple runner processes from writing to the same profile simultaneously. Stale locks from crashed processes are reclaimed after this duration.</span>
+                                    <div class="absolute left-3 top-full -mt-px w-2 h-2 bg-slate-950 border-b border-r border-slate-700/80 rotate-45"></div>
+                                </div>
+                            </span>
+                        </label>
                         <input type="number" x-model.number="globalSettingsModal.config.daemon.lock_stale_timeout_seconds" min="300" max="86400" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
                     </div>
                     <div>

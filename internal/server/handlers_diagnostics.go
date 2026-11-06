@@ -237,7 +237,6 @@ func (s *Server) checkSafetyProtection(_ context.Context) models.DiagnosticCheck
 	return check
 }
 
-
 func (s *Server) checkRemotesHealth(ctx context.Context) models.DiagnosticCheck {
 	check := models.DiagnosticCheck{
 		ID:       "remotes_auth_health",
@@ -314,4 +313,3 @@ func (s *Server) checkSystemRuntime() models.DiagnosticCheck {
 		Detail:   fmt.Sprintf("OS: %s/%s, Go: %s", runtime.GOOS, runtime.GOARCH, runtime.Version()),
 	}
 }
-
