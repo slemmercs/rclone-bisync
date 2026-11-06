@@ -765,6 +765,195 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 	})
 
 	// Assert no console errors
+	// Sub-test 5: Context-Aware Detection, Scoped Filtering & Scoped Toggle
+	t.Run("ContextAwareDetectionAndFiltering", func(t *testing.T) {
+		contextScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// Close any open modals and drawer
+			app.closeHelpDrawer();
+			app.currentTab = 'remotes';
+
+			// 1. Detect active tab context
+			const remotesCtx = app.detectActiveContext();
+
+			// 2. Open drawer in context of remotes tab
+			app.openHelpDrawer();
+			const activeCtxId = app.helpDrawer.contextId || '';
+			const isScoped = app.helpDrawer.contextOnly;
+			const initialTab = app.helpDrawer.tab;
+			const scopedFlagCount = app.filteredFlags().length;
+
+			// 3. Toggle off scopedOnly
+			app.toggleContextFilter();
+			const allFlagCount = app.filteredFlags().length;
+
+			// 4. Reset drawer
+			app.closeHelpDrawer();
+
+			return {
+				remotesCtxId: remotesCtx ? remotesCtx.id : '',
+				activeCtxId,
+				isScoped,
+				initialTab,
+				scopedFlagCount,
+				allFlagCount
+			};
+		})()`
+
+		type ContextAuditResult struct {
+			RemotesCtxId    string `json:"remotesCtxId"`
+			ActiveCtxId     string `json:"activeCtxId"`
+			IsScoped        bool   `json:"isScoped"`
+			InitialTab      string `json:"initialTab"`
+			ScopedFlagCount int    `json:"scopedFlagCount"`
+			AllFlagCount    int    `json:"allFlagCount"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[ContextAuditResult](contextScript))
+		if err != nil {
+			t.Fatalf("failed testing context detection and filtering: %v", err)
+		}
+		if res.RemotesCtxId != "view_remotes" {
+			t.Errorf("expected remotesCtxId to be 'view_remotes', got %q", res.RemotesCtxId)
+		}
+		if res.ActiveCtxId != "view_remotes" {
+			t.Errorf("expected activeCtxId to be 'view_remotes', got %q", res.ActiveCtxId)
+		}
+		if !res.IsScoped {
+			t.Errorf("expected isScoped to be true upon opening drawer")
+		}
+		if res.InitialTab != "runbooks" {
+			t.Errorf("expected initialTab for view_remotes to be 'runbooks', got %q", res.InitialTab)
+		}
+		if res.ScopedFlagCount >= res.AllFlagCount || res.ScopedFlagCount == 0 {
+			t.Errorf("expected scopedFlagCount (%d) to be > 0 and < allFlagCount (%d)", res.ScopedFlagCount, res.AllFlagCount)
+		}
+	})
+
+	// Sub-test 6: Modal Header Contextual Help Triggers
+	t.Run("ModalHeaderContextTriggers", func(t *testing.T) {
+		modalTriggerScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// Verify presence of modal header buttons in DOM
+			const profileBtn = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('@click')?.includes("openHelpDrawer('modal_profiles')"));
+			const reviewBtn = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('@click')?.includes("openHelpDrawer('modal_review')"));
+			const settingsBtn = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('@click')?.includes("openHelpDrawer('modal_global_settings')"));
+
+			// Test Profiles Modal Trigger
+			app.closeHelpDrawer();
+			app.profileModal.show = true;
+			const detectedProfileCtx = app.detectActiveContext();
+
+			app.openHelpDrawer('modal_profiles');
+			const profileDrawerOpen = app.helpDrawer.open;
+			const profileActiveId = app.helpDrawer.contextId || '';
+			const profileTab = app.helpDrawer.tab;
+			const profilePolicies = app.filteredPolicies().length;
+
+			// Test Review Modal Trigger
+			app.closeHelpDrawer();
+			app.profileModal.show = false;
+			app.reviewState.showModal = true;
+			const detectedReviewCtx = app.detectActiveContext();
+
+			app.openHelpDrawer('modal_review');
+			const reviewDrawerOpen = app.helpDrawer.open;
+			const reviewActiveId = app.helpDrawer.contextId || '';
+			const reviewTab = app.helpDrawer.tab;
+
+			// Test Global Settings Modal Trigger
+			app.closeHelpDrawer();
+			app.reviewState.showModal = false;
+			app.globalSettingsModal.show = true;
+			const detectedSettingsCtx = app.detectActiveContext();
+
+			app.openHelpDrawer('modal_global_settings');
+			const settingsDrawerOpen = app.helpDrawer.open;
+			const settingsActiveId = app.helpDrawer.contextId || '';
+			const settingsTab = app.helpDrawer.tab;
+
+			// Cleanup
+			app.closeHelpDrawer();
+			app.globalSettingsModal.show = false;
+
+			return {
+				hasProfileBtn: Boolean(profileBtn),
+				hasReviewBtn: Boolean(reviewBtn),
+				hasSettingsBtn: Boolean(settingsBtn),
+				detectedProfileCtxId: detectedProfileCtx ? detectedProfileCtx.id : '',
+				profileDrawerOpen,
+				profileActiveId,
+				profileTab,
+				profilePolicies,
+				detectedReviewCtxId: detectedReviewCtx ? detectedReviewCtx.id : '',
+				reviewDrawerOpen,
+				reviewActiveId,
+				reviewTab,
+				detectedSettingsCtxId: detectedSettingsCtx ? detectedSettingsCtx.id : '',
+				settingsDrawerOpen,
+				settingsActiveId,
+				settingsTab
+			};
+		})()`
+
+		type ModalAuditResult struct {
+			HasProfileBtn         bool   `json:"hasProfileBtn"`
+			HasReviewBtn          bool   `json:"hasReviewBtn"`
+			HasSettingsBtn        bool   `json:"hasSettingsBtn"`
+			DetectedProfileCtxId  string `json:"detectedProfileCtxId"`
+			ProfileDrawerOpen     bool   `json:"profileDrawerOpen"`
+			ProfileActiveId       string `json:"profileActiveId"`
+			ProfileTab            string `json:"profileTab"`
+			ProfilePolicies       int    `json:"profilePolicies"`
+			DetectedReviewCtxId   string `json:"detectedReviewCtxId"`
+			ReviewDrawerOpen      bool   `json:"reviewDrawerOpen"`
+			ReviewActiveId        string `json:"reviewActiveId"`
+			ReviewTab             string `json:"reviewTab"`
+			DetectedSettingsCtxId string `json:"detectedSettingsCtxId"`
+			SettingsDrawerOpen    bool   `json:"settingsDrawerOpen"`
+			SettingsActiveId      string `json:"settingsActiveId"`
+			SettingsTab           string `json:"settingsTab"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[ModalAuditResult](modalTriggerScript))
+		if err != nil {
+			t.Fatalf("failed testing modal header context triggers: %v", err)
+		}
+
+		if !res.HasProfileBtn || !res.HasReviewBtn || !res.HasSettingsBtn {
+			t.Errorf("modal contextual help buttons missing in DOM: profile=%v, review=%v, settings=%v",
+				res.HasProfileBtn, res.HasReviewBtn, res.HasSettingsBtn)
+		}
+
+		if res.DetectedProfileCtxId != "modal_profiles" || res.ProfileActiveId != "modal_profiles" {
+			t.Errorf("profile context mismatch: detected=%q, active=%q", res.DetectedProfileCtxId, res.ProfileActiveId)
+		}
+		if !res.ProfileDrawerOpen || res.ProfileTab != "manual" {
+			t.Errorf("profile drawer state invalid: open=%v, tab=%q", res.ProfileDrawerOpen, res.ProfileTab)
+		}
+		if res.ProfilePolicies == 0 {
+			t.Errorf("expected scoped profile policies, got 0")
+		}
+
+		if res.DetectedReviewCtxId != "modal_review" || res.ReviewActiveId != "modal_review" {
+			t.Errorf("review context mismatch: detected=%q, active=%q", res.DetectedReviewCtxId, res.ReviewActiveId)
+		}
+		if !res.ReviewDrawerOpen || res.ReviewTab != "safety" {
+			t.Errorf("review drawer state invalid: open=%v, tab=%q", res.ReviewDrawerOpen, res.ReviewTab)
+		}
+
+		if res.DetectedSettingsCtxId != "modal_global_settings" || res.SettingsActiveId != "modal_global_settings" {
+			t.Errorf("settings context mismatch: detected=%q, active=%q", res.DetectedSettingsCtxId, res.SettingsActiveId)
+		}
+		if !res.SettingsDrawerOpen || res.SettingsTab != "safety" {
+			t.Errorf("settings drawer state invalid: open=%v, tab=%q", res.SettingsDrawerOpen, res.SettingsTab)
+		}
+	})
+
 	mu.Lock()
 	defer mu.Unlock()
 	var significantErrors []string

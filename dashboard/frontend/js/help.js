@@ -56,11 +56,21 @@ window.HelpModule = {
     },
 
     openHelpDrawer(tab = null, topic = "") {
-        const ctx = this.detectActiveContext();
+        let ctx = this.detectActiveContext();
+        const validTabs = ["diagnostics", "safety", "manual", "runbooks"];
+        const contextMap = {
+            modal_profiles: { id: "modal_profiles", title: "Profile Configuration", defaultTab: "manual" },
+            modal_review: { id: "modal_review", title: "Conflict Review", defaultTab: "safety" },
+            modal_global_settings: { id: "modal_global_settings", title: "Global Settings", defaultTab: "safety" },
+        };
+        if (tab && contextMap[tab]) {
+            ctx = contextMap[tab];
+            tab = ctx.defaultTab;
+        }
         this.helpDrawer.contextId = ctx.id;
         this.helpDrawer.contextTitle = ctx.title;
         this.helpDrawer.contextOnly = (ctx.id !== "global");
-        this.helpDrawer.tab = tab || ctx.defaultTab;
+        this.helpDrawer.tab = (tab && validTabs.includes(tab)) ? tab : ctx.defaultTab;
         this.helpDrawer.search = topic || "";
         this.helpDrawer.open = true;
 
