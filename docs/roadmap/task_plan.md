@@ -13,7 +13,7 @@ Eliminate data races detected in nightly test runs by synchronizing test mock st
   - **Scope**: `internal/services/telemetry_service_test.go`, `internal/core/client/client_test.go`
   - **Verification**: `go test -race -v -count=1 ./internal/services/... -run TestTelemetryService_ReconnectGracePeriodAndWatchdog && go test -race -v -count=1 ./internal/core/client/... -run TestWaitForHealthyAndReconnectGrace`
 
-- [ ] Task 3: Full pre-flight quality gate and verification
+- [x] Task 3: Full pre-flight quality gate and verification
   - **Scope**: Full repository
   - **Verification**: `go test -race ./internal/... && ./scripts/check.sh all`
 
@@ -27,6 +27,10 @@ Eliminate data races detected in nightly test runs by synchronizing test mock st
 - 2026-11-06: Completed Task 2:
   - Replaced unsynchronized primitive bool flags with `sync/atomic.Bool` in `internal/services/telemetry_service_test.go` and `internal/core/client/client_test.go`.
   - Verified race-free execution with `go test -race` passing cleanly on both targeted test suites.
+- 2026-11-06: Completed Task 3:
+  - Executed full race test suite across all internal packages (`go test -race ./internal/...`), passing with zero data races.
+  - Executed full pre-flight quality gate (`./scripts/check.sh all`): all 7 quality stages passed cleanly.
+
 
 
 
