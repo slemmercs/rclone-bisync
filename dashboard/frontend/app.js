@@ -311,6 +311,7 @@ document.addEventListener("alpine:init", () => {
         async initDashboard() {
             initPerformanceChart();
             this.initPolling();
+            window.openHelpDrawer = (tab, topic) => this.openHelpDrawer(tab, topic);
             if (!this.isPollingPaused) await this.poll();
             if (typeof this.fetchProfiles === "function") this.fetchProfiles();
             this.fetchRemotes(false);
@@ -370,6 +371,7 @@ document.addEventListener("alpine:init", () => {
         window.AuditModule,
         window.SettingsModule,
         window.McpModule,
-        window.PollingModule
+        window.PollingModule,
+        window.HelpModule
     ));
 });

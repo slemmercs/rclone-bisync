@@ -25,9 +25,9 @@ Embed contextual policy explanations, an interactive slide-over reference manual
   - **Scope**: `dashboard/frontend/partials/components/ui_components.html`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/view_fleet.html`
   - **Verification**: `./scripts/check.sh all`
 
-- [ ] Task 6: Modular Frontend Controller, Keyboard Shortcuts & Header Trigger
+- [x] Task 6: Modular Frontend Controller, Keyboard Shortcuts & Header Trigger
   - **Scope**: `dashboard/frontend/js/help.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
-  - **Verification**: `go test -count=1 ./tests/e2e/...`
+  - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh all`
 
 - [ ] Task 7: End-to-End Headless Chrome Testing & Final Verification
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
@@ -44,6 +44,8 @@ Embed contextual policy explanations, an interactive slide-over reference manual
 
 - 2026-11-06: Completed Task 5: Added `component_tooltip` macro to `ui_components.html`, embedded contextual safety policy explanations across `modal_profiles.html`, `modal_global_settings.html`, and `modal_review.html`, added Help & Manual quick link in `view_fleet.html`, and verified template compliance with `./scripts/check.sh all`.
 
+
+- 2026-11-06: Completed Task 6: Implemented `dashboard/frontend/js/help.js`, integrated `window.HelpModule` into `app.js`, added header Help trigger and `component_help_drawer` template into `index.html`, and registered global `?` and `F1` keyboard shortcuts.
 
 
 

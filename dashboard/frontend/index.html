@@ -84,6 +84,10 @@
                         <span class="w-2 h-2 rounded-full" :class="isPollingPaused ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'"></span>
                         <span x-text="isPollingPaused ? 'PAUSED' : 'POLL'"></span>
                     </button>
+                    <button @click="openHelpDrawer('diagnostics')" class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-2.5 py-1.5 rounded-xl font-mono text-xs text-slate-300 hover:text-white transition-colors" title="Reference Manual, Safety Policies & System Diagnostics (? / F1)">
+                        <svg class="w-3.5 h-3.5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span class="hidden sm:inline">Help</span>
+                    </button>
                     <button @click="openGlobalSettingsModal('defaults')" class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700/80 px-2.5 py-1.5 rounded-xl font-mono text-xs text-slate-300 hover:text-white transition-colors" title="Global Fleet Settings">
                         <svg class="w-3.5 h-3.5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                         <span class="hidden sm:inline">Settings</span>
@@ -175,6 +179,7 @@
     {{ template "modal_dedupe" . }}
     {{ template "modal_mcp" . }}
     {{ template "component_entity_drawer" . }}
+    {{ template "component_help_drawer" . }}
     {{ template "toast" . }}
 
     <!-- Modular Frontend Scripts -->
@@ -187,6 +192,7 @@
     <script src="/static/js/fleet.js?v=22"></script>
     <script src="/static/js/settings.js?v=22"></script>
     <script src="/static/js/mcp.js?v=22"></script>
+    <script src="/static/js/help.js?v=22"></script>
 
     <script src="/static/js/charts.js?v=22"></script>
     <script src="/static/js/remotes.js?v=22"></script>
