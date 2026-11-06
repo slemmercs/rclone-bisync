@@ -39,6 +39,7 @@ type Server struct {
 	FrontendFS       fs.FS
 	Mux              *http.ServeMux
 	Version          string
+	StartTime        time.Time
 }
 
 var versionRegex = regexp.MustCompile(`^v?(\d+)\.(\d+)`)
@@ -77,6 +78,7 @@ func NewServerWithContainer(container *app.Container, frontendFS fs.FS) *Server 
 		ProfileService:   container.ProfileService,
 		FrontendFS:       frontendFS,
 		Mux:              http.NewServeMux(),
+		StartTime:        time.Now(),
 	}
 	s.routes()
 	return s
@@ -259,6 +261,7 @@ func writeJSONError(w http.ResponseWriter, statusCode int, msg string) {
 
 func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/health", s.handleDaemonHealth)
+	s.Mux.HandleFunc("GET /api/diagnostics", s.handleDiagnostics)
 	s.Mux.HandleFunc("GET /api/mcp/status", s.handleMCPStatus)
 	s.Mux.HandleFunc("GET /api/logs/bisync/raw", s.handleRawBisyncLog)
 	s.Mux.HandleFunc("GET /api/logs/bisync", s.handleBisyncLogs)

@@ -9,7 +9,7 @@ Embed contextual policy explanations, an interactive slide-over reference manual
   - **Scope**: `internal/models/api.go`
   - **Verification**: `go test -count=1 ./internal/models/...`
 
-- [ ] Task 2: Implement Diagnostic Evaluation Engine & REST Handler
+- [x] Task 2: Implement Diagnostic Evaluation Engine & REST Handler
   - **Scope**: `internal/server/handlers_diagnostics.go`, `internal/server/server.go`
   - **Verification**: `go test -count=1 ./internal/server/...`
 
@@ -38,4 +38,6 @@ Embed contextual policy explanations, an interactive slide-over reference manual
 - 2026-11-06: Initialized plan from implementation_plan.md on branch feat/in-app-user-guidance.
 
 - 2026-11-06: Completed Task 1: Defined `DiagnosticCheckStatus`, `DiagnosticCheck`, `DiagnosticSystemInfo`, and `DiagnosticsResponse` models in `internal/models/api.go` with schema tests in `internal/models/api_test.go`.
+- 2026-11-06: Completed Task 2: Implemented `handleDiagnostics` REST handler and operational check evaluators across daemon connectivity, storage accessibility, canary protection, remote token health, and host runtime environment in `internal/server/handlers_diagnostics.go`, wired to `GET /api/diagnostics` in `internal/server/server.go`.
+
 
