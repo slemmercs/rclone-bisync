@@ -13,7 +13,7 @@ Expand the in-app interactive reference manual in Bisync Hub to document all 18+
   - **Scope**: `dashboard/frontend/js/help.js`
   - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh all`
 
-- [ ] Task 3: Render Outbound `rclone.org` Links in Drawer Template
+- [x] Task 3: Render Outbound `rclone.org` Links in Drawer Template
   - **Scope**: `dashboard/frontend/partials/components/component_help_drawer.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh all`
 
@@ -31,4 +31,6 @@ Expand the in-app interactive reference manual in Bisync Hub to document all 18+
 - 2026-11-06: Completed Task 1: Created static reference catalog `dashboard/frontend/js/help-data.js` documenting all 18+ guided operational flags with `rclone.org` URLs, safety policies, and runbooks (340 LOC), registered script tag in `index.html`. Verified with `./scripts/check.sh all`.
 
 - 2026-11-06: Completed Task 2: Refactored `help.js` to dynamically consume `window.HelpCatalog`, reducing its LOC from 396 to 237 while preserving all getters, filters, and shortcuts. Verified with `go test` and `./scripts/check.sh all`.
+- 2026-11-06: Completed Task 3: Rendered external documentation badge links with `target="_blank"` and `rel="noopener noreferrer"` for flags in `component_help_drawer.html`. Verified with `./scripts/check.sh all`.
+
 
