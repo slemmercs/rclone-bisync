@@ -50,10 +50,13 @@
 
                         <!-- Context Awareness Badge & Scope Toggle -->
                         <div x-show="helpDrawer.contextId && helpDrawer.contextId !== 'global'" class="flex items-center justify-between px-3 py-1.5 bg-indigo-950/40 border border-indigo-800/40 rounded-xl text-xs">
-                            <div class="flex items-center gap-1.5 text-indigo-300">
+                            <div class="flex items-center gap-1.5 text-indigo-300 flex-wrap">
                                 <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
                                 <span class="text-slate-400">Scoped Context:</span>
                                 <strong class="text-white font-semibold" x-text="helpDrawer.contextTitle || 'Active View'"></strong>
+                                <template x-if="getActiveProviderFilter()">
+                                    <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold" x-text="'Provider: ' + getActiveProviderFilter().toUpperCase()"></span>
+                                </template>
                             </div>
                             <button type="button" @click="toggleContextFilter()" class="text-indigo-400 hover:text-indigo-200 text-[11px] font-semibold underline transition-colors cursor-pointer">
                                 <span x-text="helpDrawer.contextOnly ? 'Show All Topics' : 'Show Scoped Only'"></span>
@@ -241,6 +244,15 @@
                                         <div class="flex items-center gap-2 flex-wrap">
                                             <span class="font-mono text-xs font-bold text-indigo-300 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20" x-text="flg.flag"></span>
                                             <h4 class="text-xs font-semibold text-white" x-text="flg.name"></h4>
+                                            <template x-if="flg.backends && !flg.backends.includes('all')">
+                                                <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded font-bold"
+                                                      :class="{
+                                                          'bg-sky-500/10 text-sky-400 border border-sky-500/20': flg.backends.includes('onedrive'),
+                                                          'bg-amber-500/10 text-amber-400 border border-amber-500/20': flg.backends.includes('drive'),
+                                                          'bg-purple-500/10 text-purple-400 border border-purple-500/20': !flg.backends.includes('onedrive') && !flg.backends.includes('drive')
+                                                      }"
+                                                      x-text="flg.backends.join(', ')"></span>
+                                            </template>
                                         </div>
                                         <div class="flex items-center gap-1.5 shrink-0">
                                             <template x-if="flg.docUrl">

@@ -17,7 +17,7 @@ Make the Profile Flag Builder and In-App Reference Manual provider-aware so that
   - **Scope**: `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/partials/modals/modal_provider_options.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh all`
 
-- [ ] Task 4: Provider-Aware Filtering & Badges in Help Drawer
+- [x] Task 4: Provider-Aware Filtering & Badges in Help Drawer
   - **Scope**: `dashboard/frontend/js/help.js`, `dashboard/frontend/partials/components/component_help_drawer.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh all`
 
@@ -31,4 +31,5 @@ Make the Profile Flag Builder and In-App Reference Manual provider-aware so that
 - 2026-11-06: Completed Task 1: Modularized `help-data-flags.js` (269 LOC) and `help_diagnostics.js` (54 LOC), trimming `help-data.js` to 137 LOC and `help.js` to 188 LOC (all well below 400 LOC ceiling). Registered modules in `index.html` and `app.js`. Passed all 7 quality gate checks.
 - 2026-11-06: Completed Task 2: Enriched `help-data-flags.js` with provider backend scopes (`all`, `onedrive`, `drive`), added 3 OneDrive-specific flags (`--onedrive-no-versions`, `--onedrive-chunk-size`, `--onedrive-delta`), and added operational caveats for OneDrive fast-list and Graph API HTTP 429 rate limiting (file size: 304 LOC). Verified with E2E suite.
 - 2026-11-06: Completed Task 3: Updated `flags_builder.js` (276 LOC) with backend scope metadata and provider filtering helpers (`getAvailableFlagsForEditingRemote()`, `isFlagApplicableForEditingRemote()`). Updated `modal_provider_options.html` with provider-scoped `<option :hidden>` and dynamic quick-add pills for OneDrive and Google Drive. Passed all 7 quality gate checks.
+- 2026-11-06: Completed Task 4: Implemented `getActiveProviderFilter()` and provider-scoped filtering in `help.js` (202 LOC). Added provider badge rendering (`ONEDRIVE`, `DRIVE`) in Flag Catalog items and provider context tag in Help Drawer header in `component_help_drawer.html`. Passed all 7 quality gate checks.
 

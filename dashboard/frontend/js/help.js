@@ -134,6 +134,16 @@ window.HelpModule = {
         return (window.HelpCatalog && window.HelpCatalog.flags) ? window.HelpCatalog.flags : [];
     },
 
+    getActiveProviderFilter() {
+        if (this.profileModal && this.profileModal.show && typeof this.getEditingRemoteType === "function") {
+            const type = this.getEditingRemoteType();
+            if (type && type !== "generic") {
+                return type;
+            }
+        }
+        return null;
+    },
+
     filteredFlags() {
         const q = (this.helpDrawer.search || "").trim().toLowerCase();
         let list = this.flagsList;
@@ -141,6 +151,10 @@ window.HelpModule = {
             const ctxId = this.helpDrawer.contextId;
             const contextual = this.flagsList.filter(f => f.contexts && f.contexts.includes(ctxId));
             if (contextual.length > 0) list = contextual;
+            const activeProvider = this.getActiveProviderFilter();
+            if (activeProvider) {
+                list = list.filter(f => !f.backends || f.backends.includes("all") || f.backends.includes(activeProvider));
+            }
         }
         if (!q) return list;
         return list.filter(f =>
