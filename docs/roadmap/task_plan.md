@@ -1,35 +1,29 @@
-# Task Plan: Fix Test Race Conditions & Merge Dependabot Dependencies
+# Task Plan: Alternative A - Single-Source Declarative Schema Engine for Provider Options
 
 ## Goal
-Eliminate data races detected in nightly test runs by synchronizing test mock state with `sync/atomic.Bool`, and merge passing Dependabot PRs #73 and #74.
+Implement Alternative A: Single-Source Declarative Schema Engine for Target Provider Options, replacing duplicated Go, JavaScript, and HTML logic with a single declarative schema.
 
 ## Tasks
 
-- [x] Task 1: Merge Dependabot PRs #73 & #74, pull main, and create branch `fix/test-race-conditions`
-  - **Scope**: GitHub PRs #73 & #74, local git branch
-  - **Verification**: `git status && git log -n 3 --oneline`
+- [x] Task 1: Go Provider Options Declarative Schema Registry & Generic Backend Compiler
+  - **Scope**: `internal/profiles/provider_options.json`, `internal/profiles/registry.go`, `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/profiles/...`
 
-- [x] Task 2: Implement atomic.Bool race fixes in telemetry and client test suites
-  - **Scope**: `internal/services/telemetry_service_test.go`, `internal/core/client/client_test.go`
-  - **Verification**: `go test -race -v -count=1 ./internal/services/... -run TestTelemetryService_ReconnectGracePeriodAndWatchdog && go test -race -v -count=1 ./internal/core/client/... -run TestWaitForHealthyAndReconnectGrace`
+- [x] Task 2: Frontend Declarative Provider Options Engine & Dynamic UI Rendering
+  - **Scope**: `dashboard/frontend/js/provider_options.js`, `dashboard/frontend/index.html`, `dashboard/frontend/js/profiles_modal.js`, `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/js/flags_builder.js`
+  - **Verification**: `./scripts/check.sh templates && go test -v -count=1 ./tests/e2e/...`
 
-- [x] Task 3: Full pre-flight quality gate and verification
-  - **Scope**: Full repository
-  - **Verification**: `go test -race ./internal/... && ./scripts/check.sh all`
+- [x] Task 3: Quality Gates, Smoke Verification, Binary Build & Deployment
+  - **Scope**: `./scripts/check.sh all`, binary build, deployment to `/home/csaba/rclone-bisync/bin/rclone-bisync`, service restart, live verification
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-06: Initialized plan from implementation_plan.md.
-- 2026-11-06: Completed Task 1:
-  - Squashed and merged Dependabot PR #74 (`modernc.org/sqlite` v1.61.0 -> v1.61.1).
-  - Squashed and merged Dependabot PR #73 (`github.com/chromedp/chromedp` v0.21.0 -> v0.21.1).
-  - Pulled latest `main` into local repository and created branch `fix/test-race-conditions`.
-- 2026-11-06: Completed Task 2:
-  - Replaced unsynchronized primitive bool flags with `sync/atomic.Bool` in `internal/services/telemetry_service_test.go` and `internal/core/client/client_test.go`.
-  - Verified race-free execution with `go test -race` passing cleanly on both targeted test suites.
-- 2026-11-06: Completed Task 3:
-  - Executed full race test suite across all internal packages (`go test -race ./internal/...`), passing with zero data races.
-  - Executed full pre-flight quality gate (`./scripts/check.sh all`): all 7 quality stages passed cleanly.
+- 2026-11-06: Initialized task plan for Alternative A (Declarative Provider Options Schema Engine).
+- 2026-11-06: Completed Task 1: Embedded `provider_options.json` registry in Go, replaced hardcoded `buildProviderCLIArgs` in `builder.go` with generic registry iteration, added registry unit tests in `builder_test.go`. All tests passing.
+- 2026-11-06: Completed Task 2: Created `provider_options.js` module, registered in `index.html` and `app.js`, dynamically rendered options via Alpine `template x-for` loops in `modal_provider_options.html`, updated `generateCLIPreview` in `flags_builder.js`, added and passed E2E headless Chrome parity tests.
+- 2026-11-06: Completed Task 3: Verified all 7 quality gate stages via `./scripts/check.sh all`, compiled native single binary with embedded frontend and schema, deployed to `/home/csaba/rclone-bisync/bin/rclone-bisync`, restarted `rclone-dashboard.service`, and verified live telemetry and static asset delivery.
+
 
 
 

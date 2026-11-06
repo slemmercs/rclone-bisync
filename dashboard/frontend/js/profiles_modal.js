@@ -208,8 +208,8 @@ window.ProfilesModalModule = {
             return found.type.toLowerCase();
         }
         const lower = rName.toLowerCase();
-        if (lower.includes("drive") || lower.includes("gdrive")) return "drive";
         if (lower.includes("onedrive")) return "onedrive";
+        if (lower.includes("drive") || lower.includes("gdrive")) return "drive";
         if (lower.includes("s3")) return "s3";
         if (lower.includes("dropbox")) return "dropbox";
         return "generic";
@@ -276,8 +276,8 @@ window.ProfilesModalModule = {
             return found.type.toLowerCase();
         }
         const lower = rName.toLowerCase();
-        if (lower.includes("drive") || lower.includes("gdrive")) return "drive";
         if (lower.includes("onedrive")) return "onedrive";
+        if (lower.includes("drive") || lower.includes("gdrive")) return "drive";
         if (lower.includes("s3")) return "s3";
         if (lower.includes("dropbox")) return "dropbox";
         return "generic";

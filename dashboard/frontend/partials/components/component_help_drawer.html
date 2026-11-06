@@ -1,0 +1,329 @@
+{{/* Slide-Over Reference Manual & Interactive Diagnostics Drawer */}}
+{{ define "component_help_drawer" }}
+<div x-show="helpDrawer.open" x-cloak class="relative z-50" role="dialog" aria-modal="true" @keydown.escape.window="closeHelpDrawer()">
+    <!-- Backdrop Overlay -->
+    <div x-show="helpDrawer.open" x-transition.opacity.duration.200ms class="ds-drawer-overlay" @click="closeHelpDrawer()"></div>
+
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-50">
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-6 sm:pl-10">
+                <div x-show="helpDrawer.open"
+                     x-transition:enter="transform transition ease-in-out duration-300 sm:duration-400"
+                     x-transition:enter-start="translate-x-full"
+                     x-transition:enter-end="translate-x-0"
+                     x-transition:leave="transform transition ease-in-out duration-200"
+                     x-transition:leave-start="translate-x-0"
+                     x-transition:leave-end="translate-x-full"
+                     style="max-width: min(100vw, 46rem);"
+                     class="pointer-events-auto w-screen max-w-2xl ds-drawer-panel flex flex-col h-full bg-slate-900 border-l border-slate-800 shadow-2xl">
+
+                    <!-- Drawer Header -->
+                    <div class="shrink-0 border-b border-slate-800 p-4 pb-0 bg-slate-950/60 flex flex-col gap-3">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <h2 class="text-sm font-bold text-white tracking-wide truncate">Reference Manual & Diagnostics</h2>
+                                    <p class="text-[11px] text-slate-400 truncate">Policy guide, flag reference, runbooks, and live health audits</p>
+                                </div>
+                            </div>
+                            <button @click="closeHelpDrawer()" class="ds-btn ds-btn-ghost ds-btn-sm text-slate-400 hover:text-white p-1 rounded-lg shrink-0" title="Close drawer (Esc)">
+                                <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Search Bar -->
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            </div>
+                            <input type="text"
+                                   x-model="helpDrawer.search"
+                                   placeholder="Filter policies, flags, runbooks, or diagnostics..."
+                                   class="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-950/80 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-1 focus:ring-indigo-500/50">
+                            <button x-show="helpDrawer.search" @click="helpDrawer.search = ''" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-500 hover:text-slate-300">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Context Awareness Badge & Scope Toggle -->
+                        <div x-show="helpDrawer.contextId && helpDrawer.contextId !== 'global'" class="flex items-center justify-between px-3 py-1.5 bg-indigo-950/40 border border-indigo-800/40 rounded-xl text-xs">
+                            <div class="flex items-center gap-1.5 text-indigo-300 flex-wrap">
+                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                                <span class="text-slate-400">Scoped Context:</span>
+                                <strong class="text-white font-semibold" x-text="helpDrawer.contextTitle || 'Active View'"></strong>
+                                <template x-if="getActiveProviderFilter()">
+                                    <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold" x-text="'Provider: ' + getActiveProviderFilter().toUpperCase()"></span>
+                                </template>
+                            </div>
+                            <button type="button" @click="toggleContextFilter()" class="text-indigo-400 hover:text-indigo-200 text-[11px] font-semibold underline transition-colors cursor-pointer">
+                                <span x-text="helpDrawer.contextOnly ? 'Show All Topics' : 'Show Scoped Only'"></span>
+                            </button>
+                        </div>
+
+                        <!-- Tab Navigation Bar -->
+                        <div class="flex items-center gap-1 border-b border-slate-800/80 pt-1 overflow-x-auto no-scrollbar">
+                            <button @click="setHelpTab('diagnostics')"
+                                    :class="helpDrawer.tab === 'diagnostics' ? 'text-indigo-400 border-indigo-500 bg-indigo-500/10' : 'text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/40'"
+                                    class="px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                                <span>Diagnostics</span>
+                                <template x-if="helpDrawer.diagnostics && helpDrawer.diagnostics.status">
+                                    <span class="w-2 h-2 rounded-full"
+                                          :class="{
+                                              'bg-emerald-400': helpDrawer.diagnostics.status === 'ok',
+                                              'bg-amber-400': helpDrawer.diagnostics.status === 'warning',
+                                              'bg-rose-400': helpDrawer.diagnostics.status === 'error'
+                                          }"></span>
+                                </template>
+                            </button>
+                            <button @click="setHelpTab('safety')"
+                                    :class="helpDrawer.tab === 'safety' ? 'text-indigo-400 border-indigo-500 bg-indigo-500/10' : 'text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/40'"
+                                    class="px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                <span>Safety Policies</span>
+                            </button>
+                            <button @click="setHelpTab('manual')"
+                                    :class="helpDrawer.tab === 'manual' ? 'text-indigo-400 border-indigo-500 bg-indigo-500/10' : 'text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/40'"
+                                    class="px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                                <span>Flag Catalog</span>
+                            </button>
+                            <button @click="setHelpTab('runbooks')"
+                                    :class="helpDrawer.tab === 'runbooks' ? 'text-indigo-400 border-indigo-500 bg-indigo-500/10' : 'text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800/40'"
+                                    class="px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
+                                <span>Runbooks</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Drawer Content Body -->
+                    <div class="ds-drawer-body flex-1 overflow-y-auto p-4 space-y-4">
+                        <!-- TAB 1: DIAGNOSTICS -->
+                        <div x-show="helpDrawer.tab === 'diagnostics'" class="space-y-4">
+                            <!-- Diagnostics Action Card -->
+                            <div class="bg-slate-950/70 rounded-xl border border-slate-800 p-4 space-y-3">
+                                <div class="flex items-center justify-between gap-3 flex-wrap">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-3 h-3 rounded-full shrink-0"
+                                             :class="{
+                                                 'bg-emerald-400 shadow-sm shadow-emerald-400/50': !helpDrawer.diagnostics || helpDrawer.diagnostics.status === 'ok',
+                                                 'bg-amber-400 shadow-sm shadow-amber-400/50': helpDrawer.diagnostics && helpDrawer.diagnostics.status === 'warning',
+                                                 'bg-rose-400 shadow-sm shadow-rose-400/50': helpDrawer.diagnostics && helpDrawer.diagnostics.status === 'error'
+                                             }"></div>
+                                        <div>
+                                            <h3 class="text-xs font-bold text-white uppercase tracking-wider"
+                                                x-text="helpDrawer.diagnostics ? (helpDrawer.diagnostics.status === 'ok' ? 'All Systems Healthy' : (helpDrawer.diagnostics.status === 'warning' ? 'System Warnings' : 'Critical Issues Detected')) : 'Diagnostic Ready'"></h3>
+                                            <p class="text-[10px] text-slate-400"
+                                               x-text="helpDrawer.diagnostics && helpDrawer.diagnostics.timestamp ? 'Last audited: ' + new Date(helpDrawer.diagnostics.timestamp).toLocaleTimeString() : 'Click below to audit system health'"></p>
+                                        </div>
+                                    </div>
+
+                                    <button @click="fetchDiagnostics()"
+                                            :disabled="isDiagnosticsLoading()"
+                                            class="ds-btn ds-btn-primary ds-btn-sm text-xs flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5" :class="helpDrawer.loading ? 'animate-spin' : ''" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                                        <span x-text="helpDrawer.loading ? 'Auditing...' : 'Run Diagnostics'"></span>
+                                    </button>
+                                </div>
+
+                                <template x-if="helpDrawer.diagnostics && helpDrawer.diagnostics.summary">
+                                    <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/80 text-center font-mono text-xs">
+                                        <div class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                                            <span class="font-bold text-sm" x-text="helpDrawer.diagnostics.summary.pass || 0"></span>
+                                            <span class="text-[10px] uppercase block text-emerald-300/80">Passed</span>
+                                        </div>
+                                        <div class="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                                            <span class="font-bold text-sm" x-text="helpDrawer.diagnostics.summary.warning || 0"></span>
+                                            <span class="text-[10px] uppercase block text-amber-300/80">Warnings</span>
+                                        </div>
+                                        <div class="px-2 py-1 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                                            <span class="font-bold text-sm" x-text="helpDrawer.diagnostics.summary.fail || 0"></span>
+                                            <span class="text-[10px] uppercase block text-rose-300/80">Failed</span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- System Info Snapshot -->
+                            <template x-if="helpDrawer.diagnostics && helpDrawer.diagnostics.system_info">
+                                <div class="bg-slate-950/50 rounded-xl border border-slate-800 p-3 space-y-2 text-xs">
+                                    <div class="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                                        <span>Host Runtime Environment</span>
+                                        <span class="font-mono text-slate-400 font-normal" x-text="'PID: ' + helpDrawer.diagnostics.system_info.pid"></span>
+                                    </div>
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px] text-slate-400">
+                                        <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800/60">
+                                            <span class="block text-[9px] uppercase text-slate-500">Platform</span>
+                                            <span class="text-slate-200" x-text="helpDrawer.diagnostics.system_info.os + '/' + helpDrawer.diagnostics.system_info.arch"></span>
+                                        </div>
+                                        <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800/60">
+                                            <span class="block text-[9px] uppercase text-slate-500">Go Runtime</span>
+                                            <span class="text-slate-200 truncate block" x-text="helpDrawer.diagnostics.system_info.go_version"></span>
+                                        </div>
+                                        <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800/60">
+                                            <span class="block text-[9px] uppercase text-slate-500">Memory Alloc</span>
+                                            <span class="text-slate-200" x-text="helpDrawer.diagnostics.system_info.alloc_mb + ' MB'"></span>
+                                        </div>
+                                        <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800/60">
+                                            <span class="block text-[9px] uppercase text-slate-500">Goroutines</span>
+                                            <span class="text-slate-200" x-text="helpDrawer.diagnostics.system_info.goroutines"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Diagnostic Checks List -->
+                            <div class="space-y-2">
+                                <template x-if="helpDrawer.diagnostics && helpDrawer.diagnostics.checks">
+                                    <template x-for="chk in filteredDiagnosticChecks()" :key="chk.id">
+                                        <div class="p-3 rounded-xl border bg-slate-950/40 transition-colors"
+                                             :class="{
+                                                 'border-emerald-500/30 bg-emerald-950/10': chk.status === 'pass',
+                                                 'border-amber-500/30 bg-amber-950/10': chk.status === 'warning',
+                                                 'border-rose-500/30 bg-rose-950/10': chk.status === 'fail'
+                                             }">
+                                            <div class="flex items-start justify-between gap-2 mb-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border"
+                                                          :class="{
+                                                              'bg-emerald-500/20 text-emerald-300 border-emerald-500/30': chk.status === 'pass',
+                                                              'bg-amber-500/20 text-amber-300 border-amber-500/30': chk.status === 'warning',
+                                                              'bg-rose-500/20 text-rose-300 border-rose-500/30': chk.status === 'fail'
+                                                          }"
+                                                          x-text="chk.status.toUpperCase()"></span>
+                                                    <h4 class="text-xs font-semibold text-white" x-text="chk.name"></h4>
+                                                </div>
+                                                <span class="text-[10px] font-mono text-slate-500 uppercase" x-text="chk.category"></span>
+                                            </div>
+                                            <p class="text-xs text-slate-300 font-mono leading-relaxed" x-text="chk.message"></p>
+                                            <template x-if="chk.remedy && chk.status !== 'pass'">
+                                                <div class="mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-amber-300 flex items-start gap-1.5">
+                                                    <svg class="w-3.5 h-3.5 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                                                    <span x-text="'Remedy: ' + chk.remedy"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+                        <!-- END OF TAB 1 -->
+
+                        <!-- TAB 2: SAFETY POLICIES -->
+                        <div x-show="helpDrawer.tab === 'safety'" class="space-y-3">
+                            <template x-for="policy in filteredPolicies()" :key="policy.id">
+                                <div class="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                            </span>
+                                            <h4 class="text-xs font-bold text-white tracking-wide" x-text="policy.title"></h4>
+                                        </div>
+                                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300" x-text="policy.tag"></span>
+                                    </div>
+                                    <p class="text-xs text-slate-300 leading-relaxed font-sans" x-text="policy.description"></p>
+                                    <div class="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px] font-mono text-slate-400 space-y-1">
+                                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">How to Handle:</div>
+                                        <div class="text-slate-300" x-text="policy.action"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- END OF TAB 2 -->
+
+                        <!-- TAB 3: FLAG CATALOG -->
+                        <div x-show="helpDrawer.tab === 'manual'" class="space-y-3">
+                            <template x-for="flg in filteredFlags()" :key="flg.flag">
+                                <div class="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="font-mono text-xs font-bold text-indigo-300 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20" x-text="flg.flag"></span>
+                                            <h4 class="text-xs font-semibold text-white" x-text="flg.name"></h4>
+                                            <template x-if="flg.backends && !flg.backends.includes('all')">
+                                                <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded font-bold"
+                                                      :class="{
+                                                          'bg-sky-500/10 text-sky-400 border border-sky-500/20': flg.backends.includes('onedrive'),
+                                                          'bg-amber-500/10 text-amber-400 border border-amber-500/20': flg.backends.includes('drive'),
+                                                          'bg-purple-500/10 text-purple-400 border border-purple-500/20': !flg.backends.includes('onedrive') && !flg.backends.includes('drive')
+                                                      }"
+                                                      x-text="flg.backends.join(', ')"></span>
+                                            </template>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <template x-if="flg.docUrl">
+                                                <a :href="flg.docUrl" target="_blank" rel="noopener noreferrer"
+                                                   class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 hover:text-indigo-200 inline-flex items-center gap-1 transition-colors"
+                                                   title="Open official documentation in new tab">
+                                                    <span>rclone.org</span>
+                                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                    </svg>
+                                                </a>
+                                            </template>
+                                            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-400" x-text="flg.category"></span>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-slate-300 leading-relaxed font-sans" x-text="flg.description"></p>
+                                    <template x-if="flg.example">
+                                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800 font-mono text-[11px] text-slate-300 flex items-center justify-between gap-2">
+                                            <code class="text-indigo-300 select-all" x-text="flg.example"></code>
+                                            <button @click="copyToClipboard(flg.example, 'Flag copied to clipboard')" class="text-slate-500 hover:text-white p-1" title="Copy flag">
+                                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- END OF TAB 3 -->
+
+                        <!-- TAB 4: RUNBOOKS & TROUBLESHOOTING -->
+                        <div x-show="helpDrawer.tab === 'runbooks'" class="space-y-3">
+                            <template x-for="rb in filteredRunbooks()" :key="rb.id">
+                                <div class="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 space-y-2.5">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                            </span>
+                                            <h4 class="text-xs font-bold text-white tracking-wide" x-text="rb.title"></h4>
+                                        </div>
+                                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-400" x-text="rb.category"></span>
+                                    </div>
+                                    <p class="text-xs text-slate-300 leading-relaxed font-sans" x-text="rb.summary"></p>
+
+                                    <!-- Step by Step Actions -->
+                                    <div class="space-y-1.5 pt-1">
+                                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Resolution Steps:</div>
+                                        <ol class="list-decimal list-inside space-y-1 text-xs text-slate-300 font-sans">
+                                            <template x-for="(step, sIdx) in rb.steps" :key="sIdx">
+                                                <li class="leading-relaxed" x-text="step"></li>
+                                            </template>
+                                        </ol>
+                                    </div>
+
+                                    <!-- Copyable Command if available -->
+                                    <template x-if="rb.command">
+                                        <div class="mt-2 p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 font-mono text-[11px] text-slate-200 flex items-center justify-between gap-2">
+                                            <code class="text-emerald-300 select-all overflow-x-auto whitespace-pre" x-text="rb.command"></code>
+                                            <button @click="copyToClipboard(rb.command, 'Command copied to clipboard')" class="text-slate-400 hover:text-white p-1 shrink-0" title="Copy command">
+                                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- END OF TAB 4 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

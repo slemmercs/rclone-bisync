@@ -504,3 +504,741 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			len(significantErrors), strings.Join(significantErrors, "\n"))
 	}
 }
+
+// TestDashboard_HelpDrawerAndGuidance validates the slide-over reference manual drawer,
+// contextual guidance, live diagnostic checks query, tab switching, and keyboard triggers.
+func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
+	chromePath := findChromeBinary()
+	if chromePath == "" {
+		t.Skip("skipping E2E smoke test: Chrome/Chromium binary not found in PATH")
+	}
+
+	repoRoot := findRepoRoot(t)
+	tempDir := t.TempDir()
+
+	mockRCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/config/listremotes":
+			_, _ = w.Write([]byte(`{"remotes":["testremote"]}`))
+		case "/core/stats":
+			_, _ = w.Write([]byte(`{"bytes":0,"checks":0,"deletes":0,"transfers":0}`))
+		default:
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	defer mockRCServer.Close()
+
+	cfg := &config.Config{
+		LocalPath:   filepath.Join(tempDir, "local"),
+		RemotePath:  "testremote:",
+		BaseDir:     tempDir,
+		MetricsFile: filepath.Join(tempDir, "metrics.json"),
+		RCAPIURL:    mockRCServer.URL,
+	}
+	_ = os.MkdirAll(cfg.LocalPath, 0755)
+
+	syncSvc := services.NewSyncService(cfg, nil)
+	srv := server.NewServer(cfg, syncSvc, os.DirFS(repoRoot))
+	srv.Version = "v2.0.0-e2e"
+
+	ts := httptest.NewServer(srv)
+	defer ts.Close()
+
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.ExecPath(chromePath),
+		chromedp.DisableGPU,
+		chromedp.NoSandbox,
+		chromedp.Headless,
+		chromedp.WindowSize(1440, 900),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-software-rasterizer", true),
+		chromedp.Flag("proxy-server", "direct://"),
+		chromedp.Flag("proxy-bypass-list", "*"),
+		chromedp.Flag("disable-background-networking", true),
+		chromedp.Flag("disable-background-timer-throttling", true),
+		chromedp.Flag("disable-backgrounding-occluded-windows", true),
+		chromedp.Flag("disable-breakpad", true),
+		chromedp.Flag("disable-component-update", true),
+		chromedp.Flag("disable-ipc-flooding-protection", true),
+		chromedp.Flag("disable-hang-monitor", true),
+		chromedp.Flag("disable-renderer-backgrounding", true),
+		chromedp.Flag("force-color-profile", "srgb"),
+	)
+
+	allocCtx, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancelAlloc()
+
+	ctx, cancelCtx := chromedp.NewContext(allocCtx)
+	defer cancelCtx()
+
+	testTimeout := 35 * time.Second
+	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		testTimeout = 60 * time.Second
+	}
+	ctx, cancelTimeout := context.WithTimeout(ctx, testTimeout)
+	defer cancelTimeout()
+
+	var consoleErrors []string
+	var mu sync.Mutex
+
+	messages := chromedp.Console(ctx)
+	go func() {
+		for m, err := range messages {
+			if err != nil {
+				break
+			}
+			if m.Type == "error" || m.IsException() {
+				mu.Lock()
+				consoleErrors = append(consoleErrors, m.String())
+				mu.Unlock()
+			}
+		}
+	}()
+
+	err := chromedp.Do(ctx,
+		chromedp.Navigate(ts.URL),
+		chromedp.WaitVisible("body[x-data]"),
+		chromedp.WaitVisible("#app-header"),
+	)
+	if err != nil {
+		t.Fatalf("failed to load dashboard: %v", err)
+	}
+
+	time.Sleep(800 * time.Millisecond)
+
+	// Sub-test 1: Header Help Button & Initial Drawer Opening
+	t.Run("HelpHeaderButtonOpening", func(t *testing.T) {
+		openScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app || typeof app.openHelpDrawer !== 'function') return false;
+			app.openHelpDrawer('diagnostics');
+			return app.helpDrawer.open;
+		})()`
+		opened, err := chromedp.Run(ctx, chromedp.Evaluate[bool](openScript))
+		if err != nil || !opened {
+			t.Fatalf("failed to open help drawer via Alpine controller: %v", err)
+		}
+	})
+
+	// Sub-test 2: Live Diagnostics Audit Fetching
+	t.Run("DiagnosticsAuditFetch", func(t *testing.T) {
+		fetchScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.fetchDiagnostics();
+			return true;
+		})()`
+		_, err := chromedp.Run(ctx, chromedp.Evaluate[bool](fetchScript))
+		if err != nil {
+			t.Fatalf("failed calling fetchDiagnostics: %v", err)
+		}
+
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			done, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+				const app = Alpine.$data(document.querySelector('[x-data]'));
+				return app && !app.helpDrawer.loading && app.helpDrawer.diagnostics !== null;
+			})()`))
+			if err == nil && done {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		type DiagStatus struct {
+			Status     string `json:"status"`
+			CheckCount int    `json:"checkCount"`
+			HasSysInfo bool   `json:"hasSysInfo"`
+		}
+		statusScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			const d = app?.helpDrawer?.diagnostics;
+			if (!d) return { status: "", checkCount: 0, hasSysInfo: false };
+			return {
+				status: d.status || "",
+				checkCount: Array.isArray(d.checks) ? d.checks.length : 0,
+				hasSysInfo: Boolean(d.system_info && d.system_info.go_version)
+			};
+		})()`
+		ds, err := chromedp.Run(ctx, chromedp.Evaluate[DiagStatus](statusScript))
+		if err != nil {
+			t.Fatalf("failed reading diagnostic state: %v", err)
+		}
+		if ds.Status == "" {
+			t.Errorf("expected diagnostic status to be populated, got empty")
+		}
+		if ds.CheckCount == 0 {
+			t.Errorf("expected at least 1 diagnostic check returned, got 0")
+		}
+		if !ds.HasSysInfo {
+			t.Errorf("expected diagnostic system_info to contain runtime details")
+		}
+	})
+
+	// Sub-test 3: Drawer Tab Navigation & Search Filters
+	t.Run("DrawerTabsAndSearch", func(t *testing.T) {
+		tabsAuditScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			app.setHelpTab('safety');
+			const safetyCount = app.filteredPolicies().length;
+
+			app.helpDrawer.search = 'circuit';
+			const safetyFiltered = app.filteredPolicies().length;
+			app.helpDrawer.search = '';
+
+			app.setHelpTab('manual');
+			const flagCount = app.filteredFlags().length;
+
+			app.helpDrawer.search = '--resync';
+			const flagFiltered = app.filteredFlags().length;
+			app.helpDrawer.search = '';
+
+			app.setHelpTab('runbooks');
+			const runbookCount = app.filteredRunbooks().length;
+
+			app.helpDrawer.search = 'OAuth';
+			const runbookFiltered = app.filteredRunbooks().length;
+			app.helpDrawer.search = '';
+
+			return {
+				safetyCount,
+				safetyFiltered,
+				flagCount,
+				flagFiltered,
+				runbookCount,
+				runbookFiltered
+			};
+		})()`
+
+		type TabAuditResult struct {
+			SafetyCount     int `json:"safetyCount"`
+			SafetyFiltered  int `json:"safetyFiltered"`
+			FlagCount       int `json:"flagCount"`
+			FlagFiltered    int `json:"flagFiltered"`
+			RunbookCount    int `json:"runbookCount"`
+			RunbookFiltered int `json:"runbookFiltered"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[TabAuditResult](tabsAuditScript))
+		if err != nil {
+			t.Fatalf("failed auditing drawer tabs and search: %v", err)
+		}
+		if res.SafetyCount < 3 || res.SafetyFiltered != 1 {
+			t.Errorf("unexpected safety policy counts: total=%d, filtered=%d", res.SafetyCount, res.SafetyFiltered)
+		}
+		if res.FlagCount < 18 || res.FlagFiltered != 1 {
+			t.Errorf("unexpected flag counts: total=%d, filtered=%d (expected >= 18 flags)", res.FlagCount, res.FlagFiltered)
+		}
+		if res.RunbookCount < 3 || res.RunbookFiltered != 1 {
+			t.Errorf("unexpected runbook counts: total=%d, filtered=%d", res.RunbookCount, res.RunbookFiltered)
+		}
+	})
+
+	// Sub-test 4: Drawer Closing and Global Window Trigger
+	t.Run("DrawerCloseAndGlobalTrigger", func(t *testing.T) {
+		closeAndTriggerScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+
+			app.closeHelpDrawer();
+			if (app.helpDrawer.open) return false;
+
+			if (typeof window.openHelpDrawer === 'function') {
+				window.openHelpDrawer('manual', '--dry-run');
+			}
+			return app.helpDrawer.open && app.helpDrawer.tab === 'manual' && app.helpDrawer.search === '--dry-run';
+		})()`
+		success, err := chromedp.Run(ctx, chromedp.Evaluate[bool](closeAndTriggerScript))
+		if err != nil || !success {
+			t.Fatalf("failed testing drawer close and global trigger: %v", err)
+		}
+
+		// Close after test
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (app) app.closeHelpDrawer();
+			return true;
+		})()`))
+	})
+
+	// Assert no console errors
+	// Sub-test 5: Context-Aware Detection, Scoped Filtering & Scoped Toggle
+	t.Run("ContextAwareDetectionAndFiltering", func(t *testing.T) {
+		contextScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// Close any open modals and drawer
+			app.closeHelpDrawer();
+			app.currentTab = 'remotes';
+
+			// 1. Detect active tab context
+			const remotesCtx = app.detectActiveContext();
+
+			// 2. Open drawer in context of remotes tab
+			app.openHelpDrawer();
+			const activeCtxId = app.helpDrawer.contextId || '';
+			const isScoped = app.helpDrawer.contextOnly;
+			const initialTab = app.helpDrawer.tab;
+			const scopedFlagCount = app.filteredFlags().length;
+
+			// 3. Toggle off scopedOnly
+			app.toggleContextFilter();
+			const allFlagCount = app.filteredFlags().length;
+
+			// 4. Reset drawer
+			app.closeHelpDrawer();
+
+			return {
+				remotesCtxId: remotesCtx ? remotesCtx.id : '',
+				activeCtxId,
+				isScoped,
+				initialTab,
+				scopedFlagCount,
+				allFlagCount
+			};
+		})()`
+
+		type ContextAuditResult struct {
+			RemotesCtxId    string `json:"remotesCtxId"`
+			ActiveCtxId     string `json:"activeCtxId"`
+			IsScoped        bool   `json:"isScoped"`
+			InitialTab      string `json:"initialTab"`
+			ScopedFlagCount int    `json:"scopedFlagCount"`
+			AllFlagCount    int    `json:"allFlagCount"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[ContextAuditResult](contextScript))
+		if err != nil {
+			t.Fatalf("failed testing context detection and filtering: %v", err)
+		}
+		if res.RemotesCtxId != "view_remotes" {
+			t.Errorf("expected remotesCtxId to be 'view_remotes', got %q", res.RemotesCtxId)
+		}
+		if res.ActiveCtxId != "view_remotes" {
+			t.Errorf("expected activeCtxId to be 'view_remotes', got %q", res.ActiveCtxId)
+		}
+		if !res.IsScoped {
+			t.Errorf("expected isScoped to be true upon opening drawer")
+		}
+		if res.InitialTab != "runbooks" {
+			t.Errorf("expected initialTab for view_remotes to be 'runbooks', got %q", res.InitialTab)
+		}
+		if res.ScopedFlagCount >= res.AllFlagCount || res.ScopedFlagCount == 0 {
+			t.Errorf("expected scopedFlagCount (%d) to be > 0 and < allFlagCount (%d)", res.ScopedFlagCount, res.AllFlagCount)
+		}
+	})
+
+	// Sub-test 6: Modal Header Contextual Help Triggers
+	t.Run("ModalHeaderContextTriggers", func(t *testing.T) {
+		modalTriggerScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// Verify presence of modal header buttons in DOM
+			const profileBtn = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('@click')?.includes("openHelpDrawer('modal_profiles')"));
+			const reviewBtn = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('@click')?.includes("openHelpDrawer('modal_review')"));
+			const settingsBtn = Array.from(document.querySelectorAll('button')).find(b => b.getAttribute('@click')?.includes("openHelpDrawer('modal_global_settings')"));
+
+			// Test Profiles Modal Trigger
+			app.closeHelpDrawer();
+			app.profileModal.show = true;
+			const detectedProfileCtx = app.detectActiveContext();
+
+			app.openHelpDrawer('modal_profiles');
+			const profileDrawerOpen = app.helpDrawer.open;
+			const profileActiveId = app.helpDrawer.contextId || '';
+			const profileTab = app.helpDrawer.tab;
+			const profilePolicies = app.filteredPolicies().length;
+
+			// Test Review Modal Trigger
+			app.closeHelpDrawer();
+			app.profileModal.show = false;
+			app.reviewState.showModal = true;
+			const detectedReviewCtx = app.detectActiveContext();
+
+			app.openHelpDrawer('modal_review');
+			const reviewDrawerOpen = app.helpDrawer.open;
+			const reviewActiveId = app.helpDrawer.contextId || '';
+			const reviewTab = app.helpDrawer.tab;
+
+			// Test Global Settings Modal Trigger
+			app.closeHelpDrawer();
+			app.reviewState.showModal = false;
+			app.globalSettingsModal.show = true;
+			const detectedSettingsCtx = app.detectActiveContext();
+
+			app.openHelpDrawer('modal_global_settings');
+			const settingsDrawerOpen = app.helpDrawer.open;
+			const settingsActiveId = app.helpDrawer.contextId || '';
+			const settingsTab = app.helpDrawer.tab;
+
+			// Cleanup
+			app.closeHelpDrawer();
+			app.globalSettingsModal.show = false;
+
+			return {
+				hasProfileBtn: Boolean(profileBtn),
+				hasReviewBtn: Boolean(reviewBtn),
+				hasSettingsBtn: Boolean(settingsBtn),
+				detectedProfileCtxId: detectedProfileCtx ? detectedProfileCtx.id : '',
+				profileDrawerOpen,
+				profileActiveId,
+				profileTab,
+				profilePolicies,
+				detectedReviewCtxId: detectedReviewCtx ? detectedReviewCtx.id : '',
+				reviewDrawerOpen,
+				reviewActiveId,
+				reviewTab,
+				detectedSettingsCtxId: detectedSettingsCtx ? detectedSettingsCtx.id : '',
+				settingsDrawerOpen,
+				settingsActiveId,
+				settingsTab
+			};
+		})()`
+
+		type ModalAuditResult struct {
+			HasProfileBtn         bool   `json:"hasProfileBtn"`
+			HasReviewBtn          bool   `json:"hasReviewBtn"`
+			HasSettingsBtn        bool   `json:"hasSettingsBtn"`
+			DetectedProfileCtxId  string `json:"detectedProfileCtxId"`
+			ProfileDrawerOpen     bool   `json:"profileDrawerOpen"`
+			ProfileActiveId       string `json:"profileActiveId"`
+			ProfileTab            string `json:"profileTab"`
+			ProfilePolicies       int    `json:"profilePolicies"`
+			DetectedReviewCtxId   string `json:"detectedReviewCtxId"`
+			ReviewDrawerOpen      bool   `json:"reviewDrawerOpen"`
+			ReviewActiveId        string `json:"reviewActiveId"`
+			ReviewTab             string `json:"reviewTab"`
+			DetectedSettingsCtxId string `json:"detectedSettingsCtxId"`
+			SettingsDrawerOpen    bool   `json:"settingsDrawerOpen"`
+			SettingsActiveId      string `json:"settingsActiveId"`
+			SettingsTab           string `json:"settingsTab"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[ModalAuditResult](modalTriggerScript))
+		if err != nil {
+			t.Fatalf("failed testing modal header context triggers: %v", err)
+		}
+
+		if !res.HasProfileBtn || !res.HasReviewBtn || !res.HasSettingsBtn {
+			t.Errorf("modal contextual help buttons missing in DOM: profile=%v, review=%v, settings=%v",
+				res.HasProfileBtn, res.HasReviewBtn, res.HasSettingsBtn)
+		}
+
+		if res.DetectedProfileCtxId != "modal_profiles" || res.ProfileActiveId != "modal_profiles" {
+			t.Errorf("profile context mismatch: detected=%q, active=%q", res.DetectedProfileCtxId, res.ProfileActiveId)
+		}
+		if !res.ProfileDrawerOpen || res.ProfileTab != "manual" {
+			t.Errorf("profile drawer state invalid: open=%v, tab=%q", res.ProfileDrawerOpen, res.ProfileTab)
+		}
+		if res.ProfilePolicies == 0 {
+			t.Errorf("expected scoped profile policies, got 0")
+		}
+
+		if res.DetectedReviewCtxId != "modal_review" || res.ReviewActiveId != "modal_review" {
+			t.Errorf("review context mismatch: detected=%q, active=%q", res.DetectedReviewCtxId, res.ReviewActiveId)
+		}
+		if !res.ReviewDrawerOpen || res.ReviewTab != "safety" {
+			t.Errorf("review drawer state invalid: open=%v, tab=%q", res.ReviewDrawerOpen, res.ReviewTab)
+		}
+
+		if res.DetectedSettingsCtxId != "modal_global_settings" || res.SettingsActiveId != "modal_global_settings" {
+			t.Errorf("settings context mismatch: detected=%q, active=%q", res.DetectedSettingsCtxId, res.SettingsActiveId)
+		}
+		if !res.SettingsDrawerOpen || res.SettingsTab != "safety" {
+			t.Errorf("settings drawer state invalid: open=%v, tab=%q", res.SettingsDrawerOpen, res.SettingsTab)
+		}
+	})
+	// Sub-test 7: Doc Link Rendering and Integrity
+	t.Run("DocLinkRenderingAndIntegrity", func(t *testing.T) {
+		docLinksScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// Switch to manual tab and clear search to see all flags
+			app.openHelpDrawer('manual');
+			app.helpDrawer.search = '';
+			app.helpDrawer.contextOnly = false;
+
+			const flags = app.filteredFlags();
+			const flagsWithDocUrl = flags.filter(f => Boolean(f.docUrl));
+			const rcloneOrgUrls = flagsWithDocUrl.filter(f => f.docUrl && f.docUrl.startsWith('https://rclone.org/'));
+
+			// Query rendered DOM anchor elements within manual tab
+			const links = Array.from(document.querySelectorAll('a[href^="https://rclone.org/"]'));
+			const validRelCount = links.filter(l => l.getAttribute('rel') === 'noopener noreferrer' && l.getAttribute('target') === '_blank').length;
+
+			// Cleanup
+			app.closeHelpDrawer();
+
+			return {
+				totalFlags: flags.length,
+				flagsWithDocUrl: flagsWithDocUrl.length,
+				rcloneOrgUrls: rcloneOrgUrls.length,
+				renderedLinksCount: links.length,
+				validRelCount
+			};
+		})()`
+
+		type DocLinksResult struct {
+			TotalFlags         int `json:"totalFlags"`
+			FlagsWithDocUrl    int `json:"flagsWithDocUrl"`
+			RcloneOrgUrls      int `json:"rcloneOrgUrls"`
+			RenderedLinksCount int `json:"renderedLinksCount"`
+			ValidRelCount      int `json:"validRelCount"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DocLinksResult](docLinksScript))
+		if err != nil {
+			t.Fatalf("failed verifying doc links: %v", err)
+		}
+		if res.TotalFlags < 18 {
+			t.Errorf("expected at least 18 total flags in catalog, got %d", res.TotalFlags)
+		}
+		if res.FlagsWithDocUrl < 18 {
+			t.Errorf("expected at least 18 flags to have docUrl, got %d", res.FlagsWithDocUrl)
+		}
+		if res.RcloneOrgUrls != res.FlagsWithDocUrl {
+			t.Errorf("expected all docUrls to target rclone.org, got %d/%d", res.RcloneOrgUrls, res.FlagsWithDocUrl)
+		}
+	})
+
+	// Sub-test 8: Provider-Aware Flag Scoping and Drawer Isolation
+	t.Run("ProviderAwareFlagScopingAndDrawerIsolation", func(t *testing.T) {
+		providerScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// 1. Open profile creation modal with a OneDrive remote
+			app.closeHelpDrawer();
+			app.startNewProfile();
+			app.profileModal.editing.remote = "work-onedrive:";
+
+			const oneDriveType = app.getEditingRemoteType();
+			const hasNoVersionsInCatalog = Boolean(app.flagsCatalog.find(c => c.flag === "--onedrive-no-versions"));
+			const hasDeltaInCatalog = Boolean(app.flagsCatalog.find(c => c.flag === "--onedrive-delta"));
+			const hasSharedWithMeInCatalog = Boolean(app.flagsCatalog.find(c => c.flag === "--drive-shared-with-me"));
+
+			// 2. Open drawer in context of profiles modal (scoped by default)
+			app.openHelpDrawer('modal_profiles');
+			const activeProviderOne = app.getActiveProviderFilter();
+			const oneDriveFlags = app.filteredFlags().map(f => f.flag);
+			const hasOneDriveFlag = oneDriveFlags.includes("--onedrive-no-versions");
+			const hasOneDriveDeltaFlag = oneDriveFlags.includes("--onedrive-delta");
+			const hasDriveFlagOnOneDrive = oneDriveFlags.includes("--drive-shared-with-me");
+
+			// 3. Toggle off contextOnly: all flags should now appear in help drawer
+			app.toggleContextFilter();
+			const allFlags = app.filteredFlags().map(f => f.flag);
+			const allHasOneDrive = allFlags.includes("--onedrive-no-versions");
+			const allHasOneDriveDelta = allFlags.includes("--onedrive-delta");
+			const allHasDrive = allFlags.includes("--drive-shared-with-me");
+
+			// 4. Switch to Google Drive remote with contextOnly restored
+			app.toggleContextFilter(); // toggle back to scoped
+			app.profileModal.editing.remote = "team-gdrive:";
+			const driveType = app.getEditingRemoteType();
+			const driveFlags = app.filteredFlags().map(f => f.flag);
+			const hasDriveFlag = driveFlags.includes("--drive-shared-with-me");
+			const hasOneDriveOnDrive = driveFlags.includes("--onedrive-no-versions");
+			const hasOneDriveDeltaOnDrive = driveFlags.includes("--onedrive-delta");
+
+			// Cleanup
+			app.closeHelpDrawer();
+			if (typeof app.closeProfilesModal === 'function') {
+				app.closeProfilesModal();
+			}
+
+			return {
+				oneDriveType,
+				hasNoVersionsInCatalog,
+				hasDeltaInCatalog,
+				hasSharedWithMeInCatalog,
+				activeProviderOne,
+				hasOneDriveFlag,
+				hasOneDriveDeltaFlag,
+				hasDriveFlagOnOneDrive,
+				allHasOneDrive,
+				allHasOneDriveDelta,
+				allHasDrive,
+				driveType,
+				hasDriveFlag,
+				hasOneDriveOnDrive,
+				hasOneDriveDeltaOnDrive
+			};
+		})()`
+
+		type ProviderTestResult struct {
+			OneDriveType             string `json:"oneDriveType"`
+			HasNoVersionsInCatalog   bool   `json:"hasNoVersionsInCatalog"`
+			HasDeltaInCatalog        bool   `json:"hasDeltaInCatalog"`
+			HasSharedWithMeInCatalog bool   `json:"hasSharedWithMeInCatalog"`
+			ActiveProviderOne        string `json:"activeProviderOne"`
+			HasOneDriveFlag          bool   `json:"hasOneDriveFlag"`
+			HasOneDriveDeltaFlag     bool   `json:"hasOneDriveDeltaFlag"`
+			HasDriveFlagOnOneDrive   bool   `json:"hasDriveFlagOnOneDrive"`
+			AllHasOneDrive           bool   `json:"allHasOneDrive"`
+			AllHasOneDriveDelta      bool   `json:"allHasOneDriveDelta"`
+			AllHasDrive              bool   `json:"allHasDrive"`
+			DriveType                string `json:"driveType"`
+			HasDriveFlag             bool   `json:"hasDriveFlag"`
+			HasOneDriveOnDrive       bool   `json:"hasOneDriveOnDrive"`
+			HasOneDriveDeltaOnDrive  bool   `json:"hasOneDriveDeltaOnDrive"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[ProviderTestResult](providerScript))
+		if err != nil {
+			t.Fatalf("failed evaluating provider-aware flag scoping: %v", err)
+		}
+
+		if res.OneDriveType != "onedrive" {
+			t.Errorf("expected oneDriveType to be 'onedrive', got %q", res.OneDriveType)
+		}
+		if res.HasNoVersionsInCatalog {
+			t.Errorf("expected --onedrive-no-versions to be omitted from custom flag builder (curated in Target Provider Options)")
+		}
+		if res.HasDeltaInCatalog {
+			t.Errorf("expected --onedrive-delta to be omitted from custom flag builder (curated in Target Provider Options)")
+		}
+		if res.HasSharedWithMeInCatalog {
+			t.Errorf("expected --drive-shared-with-me to be omitted from custom flag builder (curated in Target Provider Options)")
+		}
+		if res.ActiveProviderOne != "onedrive" {
+			t.Errorf("expected activeProviderOne to be 'onedrive', got %q", res.ActiveProviderOne)
+		}
+		if !res.HasOneDriveFlag || !res.HasOneDriveDeltaFlag {
+			t.Errorf("expected help drawer filteredFlags() to include OneDrive flags for onedrive")
+		}
+		if res.HasDriveFlagOnOneDrive {
+			t.Errorf("expected help drawer filteredFlags() to exclude --drive-shared-with-me for onedrive")
+		}
+		if !res.AllHasOneDrive || !res.AllHasOneDriveDelta || !res.AllHasDrive {
+			t.Errorf("expected all provider flags to be visible in help drawer when scoped filter is disabled")
+		}
+		if res.DriveType != "drive" {
+			t.Errorf("expected driveType to be 'drive', got %q", res.DriveType)
+		}
+		if !res.HasDriveFlag {
+			t.Errorf("expected help drawer filteredFlags() to include --drive-shared-with-me for drive")
+		}
+		if res.HasOneDriveOnDrive || res.HasOneDriveDeltaOnDrive {
+			t.Errorf("expected help drawer filteredFlags() to exclude OneDrive flags for drive")
+		}
+	})
+
+	// Sub-test 9: Declarative Provider Options Engine Parity
+	t.Run("DeclarativeProviderOptionsEngineParity", func(t *testing.T) {
+		declarativeScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// Verify schema presence
+			const schemaLen = Array.isArray(window.PROVIDER_OPTIONS_SCHEMA) ? window.PROVIDER_OPTIONS_SCHEMA.length : 0;
+
+			// Test onedrive
+			app.startNewProfile();
+			app.profileModal.editing.remote = "my-onedrive:";
+			const isOneDriveTier1 = app.isTier1Provider();
+			const odBoolOpts = app.getProviderBoolOptionsList().map(o => o.key);
+			const odNonBoolOpts = app.getProviderNonBoolOptionsList().map(o => o.key);
+
+			// Test drive
+			app.profileModal.editing.remote = "my-gdrive:";
+			const isDriveTier1 = app.isTier1Provider();
+			const driveBoolOpts = app.getProviderBoolOptionsList().map(o => o.key);
+			const driveNonBoolOpts = app.getProviderNonBoolOptionsList().map(o => o.key);
+
+			// Test s3
+			app.profileModal.editing.remote = "my-s3:";
+			const isS3Tier1 = app.isTier1Provider();
+			const s3NonBoolOpts = app.getProviderNonBoolOptionsList().map(o => o.key);
+
+			// Test generic remote
+			app.profileModal.editing.remote = "sftp-backup:";
+			const isGenericTier1 = app.isTier1Provider();
+
+			// Test command synthesis with provider options
+			app.profileModal.editing.remote = "work-onedrive:";
+			app.setProviderOption('onedrive_delta', 'true');
+			app.setProviderOption('onedrive_chunk_size', '20M');
+			const synthesized = app.generateCLIPreview();
+
+			// Cleanup
+			if (typeof app.closeProfilesModal === 'function') {
+				app.closeProfilesModal();
+			}
+
+			return {
+				schemaLen,
+				isOneDriveTier1,
+				hasOneDriveDeltaBool: odBoolOpts.includes('onedrive_delta'),
+				hasOneDriveChunkNonBool: odNonBoolOpts.includes('onedrive_chunk_size'),
+				isDriveTier1,
+				hasDriveSkipShortcutsBool: driveBoolOpts.includes('drive_skip_shortcuts'),
+				hasDriveExportNonBool: driveNonBoolOpts.includes('drive_export_formats'),
+				isS3Tier1,
+				hasS3StorageClassNonBool: s3NonBoolOpts.includes('s3_storage_class'),
+				isGenericTier1,
+				synthesizedHasDelta: synthesized.includes('--onedrive-delta'),
+				synthesizedHasChunk: synthesized.includes('--onedrive-chunk-size 20M')
+			};
+		})()`
+
+		type DeclarativeResult struct {
+			SchemaLen                 int  `json:"schemaLen"`
+			IsOneDriveTier1           bool `json:"isOneDriveTier1"`
+			HasOneDriveDeltaBool      bool `json:"hasOneDriveDeltaBool"`
+			HasOneDriveChunkNonBool   bool `json:"hasOneDriveChunkNonBool"`
+			IsDriveTier1              bool `json:"isDriveTier1"`
+			HasDriveSkipShortcutsBool bool `json:"hasDriveSkipShortcutsBool"`
+			HasDriveExportNonBool     bool `json:"hasDriveExportNonBool"`
+			IsS3Tier1                 bool `json:"isS3Tier1"`
+			HasS3StorageClassNonBool  bool `json:"hasS3StorageClassNonBool"`
+			IsGenericTier1            bool `json:"isGenericTier1"`
+			SynthesizedHasDelta       bool `json:"synthesizedHasDelta"`
+			SynthesizedHasChunk       bool `json:"synthesizedHasChunk"`
+		}
+
+		dRes, err := chromedp.Run(ctx, chromedp.Evaluate[DeclarativeResult](declarativeScript))
+		if err != nil {
+			t.Fatalf("failed evaluating declarative provider options: %v", err)
+		}
+
+		if dRes.SchemaLen == 0 {
+			t.Errorf("expected non-empty PROVIDER_OPTIONS_SCHEMA")
+		}
+		if !dRes.IsOneDriveTier1 || !dRes.HasOneDriveDeltaBool || !dRes.HasOneDriveChunkNonBool {
+			t.Errorf("onedrive declarative options mismatch: %+v", dRes)
+		}
+		if !dRes.IsDriveTier1 || !dRes.HasDriveSkipShortcutsBool || !dRes.HasDriveExportNonBool {
+			t.Errorf("drive declarative options mismatch: %+v", dRes)
+		}
+		if !dRes.IsS3Tier1 || !dRes.HasS3StorageClassNonBool {
+			t.Errorf("s3 declarative options mismatch: %+v", dRes)
+		}
+		if dRes.IsGenericTier1 {
+			t.Errorf("expected sftp-backup to not be a Tier 1 provider")
+		}
+		if !dRes.SynthesizedHasDelta || !dRes.SynthesizedHasChunk {
+			t.Errorf("synthesized bisync command missing provider flags: %+v", dRes)
+		}
+	})
+
+	mu.Lock()
+	defer mu.Unlock()
+	var significantErrors []string
+	for _, ce := range consoleErrors {
+		if strings.Contains(ce, "Telemetry poll failed") {
+			continue
+		}
+		significantErrors = append(significantErrors, ce)
+	}
+	if len(significantErrors) > 0 {
+		t.Errorf("encountered %d JavaScript console errors during help drawer E2E test:\n%s",
+			len(significantErrors), strings.Join(significantErrors, "\n"))
+	}
+}

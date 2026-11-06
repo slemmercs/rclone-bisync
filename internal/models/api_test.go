@@ -84,3 +84,74 @@ func TestTelemetryAndConfigSchemas(t *testing.T) {
 		t.Fatalf("unexpected GlobalConfigResponse JSON: %+v", cfgMap)
 	}
 }
+
+func TestDiagnosticsResponseSchema(t *testing.T) {
+	resp := DiagnosticsResponse{
+		Status: "warning",
+		Summary: map[string]int{
+			"pass":    4,
+			"warning": 1,
+			"fail":    0,
+		},
+		Checks: []DiagnosticCheck{
+			{
+				ID:          "daemon_connectivity",
+				Category:    "daemon",
+				Name:        "Rclone RC Daemon",
+				Status:      DiagnosticStatusPass,
+				Message:     "Daemon is active and responsive",
+				Detail:      "Latency: 1.2ms",
+				ActionTitle: "View Logs",
+				ActionURL:   "/api/logs/daemon",
+			},
+			{
+				ID:          "remotes_oauth",
+				Category:    "remotes",
+				Name:        "OAuth Token Health",
+				Status:      DiagnosticStatusWarning,
+				Message:     "Remote 'gdrive' token expires in 2 hours",
+				Detail:      "Auto-refresh active",
+				ActionTitle: "Reconnect",
+				ActionURL:   "/api/remotes/gdrive/reconnect",
+			},
+		},
+		SystemInfo: DiagnosticSystemInfo{
+			Version:     "v1.0.0-beta.28",
+			GoVersion:   "go1.22.0",
+			OS:          "linux",
+			Arch:        "amd64",
+			PID:         12345,
+			UptimeSec:   3600,
+			BaseDir:     "/home/user/.config/rclone-bisync",
+			LogFilePath: "/home/user/.config/rclone-bisync/bisync.log",
+			IsSystemd:   true,
+		},
+		Timestamp: "2026-11-06T20:00:00Z",
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("failed to marshal DiagnosticsResponse: %v", err)
+	}
+
+	var parsed DiagnosticsResponse
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal DiagnosticsResponse: %v", err)
+	}
+
+	if parsed.Status != "warning" {
+		t.Errorf("expected status 'warning', got %s", parsed.Status)
+	}
+	if len(parsed.Checks) != 2 {
+		t.Errorf("expected 2 checks, got %d", len(parsed.Checks))
+	}
+	if parsed.Checks[0].Status != DiagnosticStatusPass {
+		t.Errorf("expected DiagnosticStatusPass, got %s", parsed.Checks[0].Status)
+	}
+	if parsed.Checks[1].Status != DiagnosticStatusWarning {
+		t.Errorf("expected DiagnosticStatusWarning, got %s", parsed.Checks[1].Status)
+	}
+	if parsed.SystemInfo.PID != 12345 {
+		t.Errorf("expected PID 12345, got %d", parsed.SystemInfo.PID)
+	}
+}
