@@ -32,6 +32,7 @@ window.HelpCatalog.flags = [
         backends: ["all"],
         contexts: ["modal_profiles", "view_remotes"],
         description: "Uses recursive listing calls to reduce cloud API transactions on providers supporting it (e.g., GDrive, S3, OneDrive).",
+        caveat: "On OneDrive, --fast-list requires recursive listing and errors if shortcuts or Personal Vault are in the sync path. Delta enumeration is preferred.",
         example: "rclone bisync local: remote: --fast-list",
         docUrl: "https://rclone.org/flags/#fast-list"
     },
@@ -132,6 +133,7 @@ window.HelpCatalog.flags = [
         backends: ["all"],
         contexts: ["modal_profiles", "modal_global_settings", "view_remotes"],
         description: "Restricts transactions-per-second to prevent cloud API rate limit HTTP 429 throttling (e.g., Google Drive, Box).",
+        caveat: "Crucial for Microsoft Graph API (OneDrive/SharePoint) and Google Drive to avert aggressive HTTP 429 rate limit throttling. Recommended: 10 TPS.",
         example: "rclone bisync local: remote: --tpslimit 10",
         docUrl: "https://rclone.org/flags/#tpslimit-float"
     },
@@ -264,6 +266,39 @@ window.HelpCatalog.flags = [
         description: "Allows checksum comparisons on cloud providers that compute hashes slowly or on-demand without timing out.",
         example: "rclone bisync local: remote: --compare checksum --slow-hash",
         docUrl: "https://rclone.org/bisync/#slow-hash"
+    },
+    {
+        flag: "--onedrive-no-versions",
+        name: "OneDrive Prevent Version Duplication",
+        category: "Provider",
+        backends: ["onedrive"],
+        contexts: ["modal_profiles", "view_remotes"],
+        description: "Prevents OneDrive from creating unnecessary historical file versions on upload, saving cloud storage quota and preventing version buildup.",
+        caveat: "Essential for OneDrive sync pairs that update frequently to prevent quota exhaustion from hidden version histories.",
+        example: "rclone bisync local: onedrive: --onedrive-no-versions",
+        docUrl: "https://rclone.org/onedrive/#onedrive-no-versions"
+    },
+    {
+        flag: "--onedrive-chunk-size",
+        name: "OneDrive Upload Chunk Size",
+        category: "Performance",
+        backends: ["onedrive"],
+        contexts: ["modal_profiles", "view_remotes"],
+        description: "Upload chunk size for large files (must be multiple of 320k, e.g. 10M, 50M, 100M). Larger chunks increase upload throughput on reliable connections.",
+        caveat: "Must be an exact multiple of 320k. Larger values consume more daemon RAM per transfer but significantly boost upload speeds.",
+        example: "rclone bisync local: onedrive: --onedrive-chunk-size 10M",
+        docUrl: "https://rclone.org/onedrive/#onedrive-chunk-size"
+    },
+    {
+        flag: "--onedrive-delta",
+        name: "OneDrive Delta Enumeration",
+        category: "Performance",
+        backends: ["onedrive"],
+        contexts: ["modal_profiles", "view_remotes"],
+        description: "Enables delta change enumeration on OneDrive via Microsoft Graph API for rapid incremental change detection.",
+        caveat: "Incompatible with Personal Vault and cannot traverse shortcut links. Recommended when fast directory delta scanning is desired.",
+        example: "rclone bisync local: onedrive: --onedrive-delta",
+        docUrl: "https://rclone.org/onedrive/#onedrive-delta"
     }
 ];
 
