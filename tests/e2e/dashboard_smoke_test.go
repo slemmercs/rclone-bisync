@@ -504,3 +504,278 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			len(significantErrors), strings.Join(significantErrors, "\n"))
 	}
 }
+
+// TestDashboard_HelpDrawerAndGuidance validates the slide-over reference manual drawer,
+// contextual guidance, live diagnostic checks query, tab switching, and keyboard triggers.
+func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
+	chromePath := findChromeBinary()
+	if chromePath == "" {
+		t.Skip("skipping E2E smoke test: Chrome/Chromium binary not found in PATH")
+	}
+
+	repoRoot := findRepoRoot(t)
+	tempDir := t.TempDir()
+
+	mockRCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/config/listremotes":
+			_, _ = w.Write([]byte(`{"remotes":["testremote"]}`))
+		case "/core/stats":
+			_, _ = w.Write([]byte(`{"bytes":0,"checks":0,"deletes":0,"transfers":0}`))
+		default:
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	defer mockRCServer.Close()
+
+	cfg := &config.Config{
+		LocalPath:   filepath.Join(tempDir, "local"),
+		RemotePath:  "testremote:",
+		BaseDir:     tempDir,
+		MetricsFile: filepath.Join(tempDir, "metrics.json"),
+		RCAPIURL:    mockRCServer.URL,
+	}
+	_ = os.MkdirAll(cfg.LocalPath, 0755)
+
+	syncSvc := services.NewSyncService(cfg, nil)
+	srv := server.NewServer(cfg, syncSvc, os.DirFS(repoRoot))
+	srv.Version = "v2.0.0-e2e"
+
+	ts := httptest.NewServer(srv)
+	defer ts.Close()
+
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.ExecPath(chromePath),
+		chromedp.DisableGPU,
+		chromedp.NoSandbox,
+		chromedp.Headless,
+		chromedp.WindowSize(1440, 900),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-software-rasterizer", true),
+		chromedp.Flag("proxy-server", "direct://"),
+		chromedp.Flag("proxy-bypass-list", "*"),
+		chromedp.Flag("disable-background-networking", true),
+		chromedp.Flag("disable-background-timer-throttling", true),
+		chromedp.Flag("disable-backgrounding-occluded-windows", true),
+		chromedp.Flag("disable-breakpad", true),
+		chromedp.Flag("disable-component-update", true),
+		chromedp.Flag("disable-ipc-flooding-protection", true),
+		chromedp.Flag("disable-hang-monitor", true),
+		chromedp.Flag("disable-renderer-backgrounding", true),
+		chromedp.Flag("force-color-profile", "srgb"),
+	)
+
+	allocCtx, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancelAlloc()
+
+	ctx, cancelCtx := chromedp.NewContext(allocCtx)
+	defer cancelCtx()
+
+	testTimeout := 35 * time.Second
+	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		testTimeout = 60 * time.Second
+	}
+	ctx, cancelTimeout := context.WithTimeout(ctx, testTimeout)
+	defer cancelTimeout()
+
+	var consoleErrors []string
+	var mu sync.Mutex
+
+	messages := chromedp.Console(ctx)
+	go func() {
+		for m, err := range messages {
+			if err != nil {
+				break
+			}
+			if m.Type == "error" || m.IsException() {
+				mu.Lock()
+				consoleErrors = append(consoleErrors, m.String())
+				mu.Unlock()
+			}
+		}
+	}()
+
+	err := chromedp.Do(ctx,
+		chromedp.Navigate(ts.URL),
+		chromedp.WaitVisible("body[x-data]"),
+		chromedp.WaitVisible("#app-header"),
+	)
+	if err != nil {
+		t.Fatalf("failed to load dashboard: %v", err)
+	}
+
+	time.Sleep(800 * time.Millisecond)
+
+	// Sub-test 1: Header Help Button & Initial Drawer Opening
+	t.Run("HelpHeaderButtonOpening", func(t *testing.T) {
+		openScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app || typeof app.openHelpDrawer !== 'function') return false;
+			app.openHelpDrawer('diagnostics');
+			return app.helpDrawer.open;
+		})()`
+		opened, err := chromedp.Run(ctx, chromedp.Evaluate[bool](openScript))
+		if err != nil || !opened {
+			t.Fatalf("failed to open help drawer via Alpine controller: %v", err)
+		}
+	})
+
+	// Sub-test 2: Live Diagnostics Audit Fetching
+	t.Run("DiagnosticsAuditFetch", func(t *testing.T) {
+		fetchScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.fetchDiagnostics();
+			return true;
+		})()`
+		_, err := chromedp.Run(ctx, chromedp.Evaluate[bool](fetchScript))
+		if err != nil {
+			t.Fatalf("failed calling fetchDiagnostics: %v", err)
+		}
+
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			done, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+				const app = Alpine.$data(document.querySelector('[x-data]'));
+				return app && !app.helpDrawer.loading && app.helpDrawer.diagnostics !== null;
+			})()`))
+			if err == nil && done {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		type DiagStatus struct {
+			Status     string `json:"status"`
+			CheckCount int    `json:"checkCount"`
+			HasSysInfo bool   `json:"hasSysInfo"`
+		}
+		statusScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			const d = app?.helpDrawer?.diagnostics;
+			if (!d) return { status: "", checkCount: 0, hasSysInfo: false };
+			return {
+				status: d.status || "",
+				checkCount: Array.isArray(d.checks) ? d.checks.length : 0,
+				hasSysInfo: Boolean(d.system_info && d.system_info.go_version)
+			};
+		})()`
+		ds, err := chromedp.Run(ctx, chromedp.Evaluate[DiagStatus](statusScript))
+		if err != nil {
+			t.Fatalf("failed reading diagnostic state: %v", err)
+		}
+		if ds.Status == "" {
+			t.Errorf("expected diagnostic status to be populated, got empty")
+		}
+		if ds.CheckCount == 0 {
+			t.Errorf("expected at least 1 diagnostic check returned, got 0")
+		}
+		if !ds.HasSysInfo {
+			t.Errorf("expected diagnostic system_info to contain runtime details")
+		}
+	})
+
+	// Sub-test 3: Drawer Tab Navigation & Search Filters
+	t.Run("DrawerTabsAndSearch", func(t *testing.T) {
+		tabsAuditScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			app.setHelpTab('safety');
+			const safetyCount = app.filteredPolicies().length;
+
+			app.helpDrawer.search = 'circuit';
+			const safetyFiltered = app.filteredPolicies().length;
+			app.helpDrawer.search = '';
+
+			app.setHelpTab('manual');
+			const flagCount = app.filteredFlags().length;
+
+			app.helpDrawer.search = '--resync';
+			const flagFiltered = app.filteredFlags().length;
+			app.helpDrawer.search = '';
+
+			app.setHelpTab('runbooks');
+			const runbookCount = app.filteredRunbooks().length;
+
+			app.helpDrawer.search = 'OAuth';
+			const runbookFiltered = app.filteredRunbooks().length;
+			app.helpDrawer.search = '';
+
+			return {
+				safetyCount,
+				safetyFiltered,
+				flagCount,
+				flagFiltered,
+				runbookCount,
+				runbookFiltered
+			};
+		})()`
+
+		type TabAuditResult struct {
+			SafetyCount     int `json:"safetyCount"`
+			SafetyFiltered  int `json:"safetyFiltered"`
+			FlagCount       int `json:"flagCount"`
+			FlagFiltered    int `json:"flagFiltered"`
+			RunbookCount    int `json:"runbookCount"`
+			RunbookFiltered int `json:"runbookFiltered"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[TabAuditResult](tabsAuditScript))
+		if err != nil {
+			t.Fatalf("failed auditing drawer tabs and search: %v", err)
+		}
+		if res.SafetyCount < 3 || res.SafetyFiltered != 1 {
+			t.Errorf("unexpected safety policy counts: total=%d, filtered=%d", res.SafetyCount, res.SafetyFiltered)
+		}
+		if res.FlagCount < 5 || res.FlagFiltered != 1 {
+			t.Errorf("unexpected flag counts: total=%d, filtered=%d", res.FlagCount, res.FlagFiltered)
+		}
+		if res.RunbookCount < 3 || res.RunbookFiltered != 1 {
+			t.Errorf("unexpected runbook counts: total=%d, filtered=%d", res.RunbookCount, res.RunbookFiltered)
+		}
+	})
+
+	// Sub-test 4: Drawer Closing and Global Window Trigger
+	t.Run("DrawerCloseAndGlobalTrigger", func(t *testing.T) {
+		closeAndTriggerScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+
+			app.closeHelpDrawer();
+			if (app.helpDrawer.open) return false;
+
+			if (typeof window.openHelpDrawer === 'function') {
+				window.openHelpDrawer('manual', '--dry-run');
+			}
+			return app.helpDrawer.open && app.helpDrawer.tab === 'manual' && app.helpDrawer.search === '--dry-run';
+		})()`
+		success, err := chromedp.Run(ctx, chromedp.Evaluate[bool](closeAndTriggerScript))
+		if err != nil || !success {
+			t.Fatalf("failed testing drawer close and global trigger: %v", err)
+		}
+
+		// Close after test
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (app) app.closeHelpDrawer();
+			return true;
+		})()`))
+	})
+
+	// Assert no console errors
+	mu.Lock()
+	defer mu.Unlock()
+	var significantErrors []string
+	for _, ce := range consoleErrors {
+		if strings.Contains(ce, "Telemetry poll failed") {
+			continue
+		}
+		significantErrors = append(significantErrors, ce)
+	}
+	if len(significantErrors) > 0 {
+		t.Errorf("encountered %d JavaScript console errors during help drawer E2E test:\n%s",
+			len(significantErrors), strings.Join(significantErrors, "\n"))
+	}
+}
