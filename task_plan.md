@@ -21,7 +21,7 @@ Expand the in-app interactive reference manual in Bisync Hub to document all 18+
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `go test -count=1 -v ./tests/e2e/...` and `./scripts/check.sh all`
 
-- [ ] Task 5: Rebuild Dev Binary & Live Verification on Port 8085
+- [x] Task 5: Rebuild Dev Binary & Live Verification on Port 8085
   - **Scope**: `/tmp/rclone-bisync-dev`
   - **Verification**: `curl -s http://127.0.0.1:8085/api/diagnostics | jq .status`
 
@@ -33,6 +33,8 @@ Expand the in-app interactive reference manual in Bisync Hub to document all 18+
 - 2026-11-06: Completed Task 2: Refactored `help.js` to dynamically consume `window.HelpCatalog`, reducing its LOC from 396 to 237 while preserving all getters, filters, and shortcuts. Verified with `go test` and `./scripts/check.sh all`.
 - 2026-11-06: Completed Task 3: Rendered external documentation badge links with `target="_blank"` and `rel="noopener noreferrer"` for flags in `component_help_drawer.html`. Verified with `./scripts/check.sh all`.
 - 2026-11-06: Completed Task 4: Expanded headless Chrome E2E tests in `tests/e2e/dashboard_smoke_test.go` with Sub-test 7 verifying all 18 flag catalog entries, rclone.org outbound documentation URLs, and `rel="noopener noreferrer"` attributes. All 7/7 checks passed.
+- 2026-11-06: Completed Task 5: Rebuilt `/tmp/rclone-bisync-dev`, restarted background daemon on port 8085 (MCP 8086), verified live diagnostic query and static asset delivery (`/static/js/help-data.js`). Feature complete.
+
 
 
 
