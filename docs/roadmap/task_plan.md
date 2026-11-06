@@ -1,37 +1,41 @@
-# Task Plan: Fix Test Race Conditions & Merge Dependabot Dependencies
+# Task Plan: In-App User Guidance & Interactive Diagnostic Manual
 
 ## Goal
-Eliminate data races detected in nightly test runs by synchronizing test mock state with `sync/atomic.Bool`, and merge passing Dependabot PRs #73 and #74.
+Embed contextual policy explanations, an interactive slide-over reference manual, and real-time self-diagnostics into the Bisync Hub dashboard to assist operators and enhance data safety understanding.
 
 ## Tasks
 
-- [x] Task 1: Merge Dependabot PRs #73 & #74, pull main, and create branch `fix/test-race-conditions`
-  - **Scope**: GitHub PRs #73 & #74, local git branch
-  - **Verification**: `git status && git log -n 3 --oneline`
+- [x] Task 1: Define Diagnostic Models & Structs
+  - **Scope**: `internal/models/api.go`
+  - **Verification**: `go test -count=1 ./internal/models/...`
 
-- [x] Task 2: Implement atomic.Bool race fixes in telemetry and client test suites
-  - **Scope**: `internal/services/telemetry_service_test.go`, `internal/core/client/client_test.go`
-  - **Verification**: `go test -race -v -count=1 ./internal/services/... -run TestTelemetryService_ReconnectGracePeriodAndWatchdog && go test -race -v -count=1 ./internal/core/client/... -run TestWaitForHealthyAndReconnectGrace`
+- [ ] Task 2: Implement Diagnostic Evaluation Engine & REST Handler
+  - **Scope**: `internal/server/handlers_diagnostics.go`, `internal/server/server.go`
+  - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [x] Task 3: Full pre-flight quality gate and verification
-  - **Scope**: Full repository
-  - **Verification**: `go test -race ./internal/... && ./scripts/check.sh all`
+- [ ] Task 3: Unit Testing Suite for Live Diagnostics
+  - **Scope**: `internal/server/handlers_diagnostics_test.go`
+  - **Verification**: `go test -race -v -count=1 ./internal/server/... -run TestHandleDiagnostics`
+
+- [ ] Task 4: In-Dashboard Reference Manual & Diagnostics Drawer Template
+  - **Scope**: `dashboard/frontend/partials/components/component_help_drawer.html`
+  - **Verification**: `go test -count=1 ./tests/e2e/...`
+
+- [ ] Task 5: Reusable Tooltip Components & Contextual Safety Explanations
+  - **Scope**: `dashboard/frontend/partials/components/ui_components.html`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/view_fleet.html`
+  - **Verification**: `./scripts/check.sh all`
+
+- [ ] Task 6: Modular Frontend Controller, Keyboard Shortcuts & Header Trigger
+  - **Scope**: `dashboard/frontend/js/help.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
+  - **Verification**: `go test -count=1 ./tests/e2e/...`
+
+- [ ] Task 7: End-to-End Headless Chrome Testing & Final Verification
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
+  - **Verification**: `go test -count=1 -v ./tests/e2e/... -run TestDashboard_HelpDrawerAndGuidance` and `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-06: Initialized plan from implementation_plan.md.
-- 2026-11-06: Completed Task 1:
-  - Squashed and merged Dependabot PR #74 (`modernc.org/sqlite` v1.61.0 -> v1.61.1).
-  - Squashed and merged Dependabot PR #73 (`github.com/chromedp/chromedp` v0.21.0 -> v0.21.1).
-  - Pulled latest `main` into local repository and created branch `fix/test-race-conditions`.
-- 2026-11-06: Completed Task 2:
-  - Replaced unsynchronized primitive bool flags with `sync/atomic.Bool` in `internal/services/telemetry_service_test.go` and `internal/core/client/client_test.go`.
-  - Verified race-free execution with `go test -race` passing cleanly on both targeted test suites.
-- 2026-11-06: Completed Task 3:
-  - Executed full race test suite across all internal packages (`go test -race ./internal/...`), passing with zero data races.
-  - Executed full pre-flight quality gate (`./scripts/check.sh all`): all 7 quality stages passed cleanly.
+- 2026-11-06: Initialized plan from implementation_plan.md on branch feat/in-app-user-guidance.
 
-
-
-
+- 2026-11-06: Completed Task 1: Defined `DiagnosticCheckStatus`, `DiagnosticCheck`, `DiagnosticSystemInfo`, and `DiagnosticsResponse` models in `internal/models/api.go` with schema tests in `internal/models/api_test.go`.
 
