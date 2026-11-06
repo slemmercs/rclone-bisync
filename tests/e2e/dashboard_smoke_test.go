@@ -1007,6 +1007,114 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 		}
 	})
 
+	// Sub-test 8: Provider-Aware Flag Scoping and Drawer Isolation
+	t.Run("ProviderAwareFlagScopingAndDrawerIsolation", func(t *testing.T) {
+		providerScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// 1. Open profile creation modal with a OneDrive remote
+			app.closeHelpDrawer();
+			app.startNewProfile();
+			app.profileModal.editing.remote = "work-onedrive:";
+
+			const oneDriveType = app.getEditingRemoteType();
+			const oneDriveApplicable = app.isFlagApplicableForEditingRemote("--onedrive-no-versions");
+			const driveApplicableOnOneDrive = app.isFlagApplicableForEditingRemote("--drive-shared-with-me");
+
+			// 2. Open drawer in context of profiles modal (scoped by default)
+			app.openHelpDrawer('modal_profiles');
+			const activeProviderOne = app.getActiveProviderFilter();
+			const oneDriveFlags = app.filteredFlags().map(f => f.flag);
+			const hasOneDriveFlag = oneDriveFlags.includes("--onedrive-no-versions");
+			const hasDriveFlagOnOneDrive = oneDriveFlags.includes("--drive-shared-with-me");
+
+			// 3. Toggle off contextOnly: all flags should now appear
+			app.toggleContextFilter();
+			const allFlags = app.filteredFlags().map(f => f.flag);
+			const allHasOneDrive = allFlags.includes("--onedrive-no-versions");
+			const allHasDrive = allFlags.includes("--drive-shared-with-me");
+
+			// 4. Switch to Google Drive remote with contextOnly restored
+			app.toggleContextFilter(); // toggle back to scoped
+			app.profileModal.editing.remote = "team-gdrive:";
+			const driveType = app.getEditingRemoteType();
+			const driveFlags = app.filteredFlags().map(f => f.flag);
+			const hasDriveFlag = driveFlags.includes("--drive-shared-with-me");
+			const hasOneDriveOnDrive = driveFlags.includes("--onedrive-no-versions");
+
+			// Cleanup
+			app.closeHelpDrawer();
+			if (typeof app.closeProfilesModal === 'function') {
+				app.closeProfilesModal();
+			}
+
+			return {
+				oneDriveType,
+				oneDriveApplicable,
+				driveApplicableOnOneDrive,
+				activeProviderOne,
+				hasOneDriveFlag,
+				hasDriveFlagOnOneDrive,
+				allHasOneDrive,
+				allHasDrive,
+				driveType,
+				hasDriveFlag,
+				hasOneDriveOnDrive
+			};
+		})()`
+
+		type ProviderTestResult struct {
+			OneDriveType              string `json:"oneDriveType"`
+			OneDriveApplicable        bool   `json:"oneDriveApplicable"`
+			DriveApplicableOnOneDrive bool   `json:"driveApplicableOnOneDrive"`
+			ActiveProviderOne         string `json:"activeProviderOne"`
+			HasOneDriveFlag           bool   `json:"hasOneDriveFlag"`
+			HasDriveFlagOnOneDrive    bool   `json:"hasDriveFlagOnOneDrive"`
+			AllHasOneDrive            bool   `json:"allHasOneDrive"`
+			AllHasDrive               bool   `json:"allHasDrive"`
+			DriveType                 string `json:"driveType"`
+			HasDriveFlag              bool   `json:"hasDriveFlag"`
+			HasOneDriveOnDrive        bool   `json:"hasOneDriveOnDrive"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[ProviderTestResult](providerScript))
+		if err != nil {
+			t.Fatalf("failed evaluating provider-aware flag scoping: %v", err)
+		}
+
+		if res.OneDriveType != "onedrive" {
+			t.Errorf("expected oneDriveType to be 'onedrive', got %q", res.OneDriveType)
+		}
+		if !res.OneDriveApplicable {
+			t.Errorf("expected --onedrive-no-versions to be applicable for onedrive remote")
+		}
+		if res.DriveApplicableOnOneDrive {
+			t.Errorf("expected --drive-shared-with-me to NOT be applicable for onedrive remote")
+		}
+		if res.ActiveProviderOne != "onedrive" {
+			t.Errorf("expected activeProviderOne to be 'onedrive', got %q", res.ActiveProviderOne)
+		}
+		if !res.HasOneDriveFlag {
+			t.Errorf("expected filteredFlags() to include --onedrive-no-versions for onedrive")
+		}
+		if res.HasDriveFlagOnOneDrive {
+			t.Errorf("expected filteredFlags() to exclude --drive-shared-with-me for onedrive")
+		}
+		if !res.AllHasOneDrive || !res.AllHasDrive {
+			t.Errorf("expected both provider flags to be visible when scoped filter is disabled")
+		}
+		if res.DriveType != "drive" {
+			t.Errorf("expected driveType to be 'drive', got %q", res.DriveType)
+		}
+		if !res.HasDriveFlag {
+			t.Errorf("expected filteredFlags() to include --drive-shared-with-me for drive")
+		}
+		if res.HasOneDriveOnDrive {
+			t.Errorf("expected filteredFlags() to exclude --onedrive-no-versions for drive")
+		}
+	})
+
 	mu.Lock()
 	defer mu.Unlock()
 	var significantErrors []string

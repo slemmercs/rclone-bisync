@@ -21,7 +21,7 @@ Make the Profile Flag Builder and In-App Reference Manual provider-aware so that
   - **Scope**: `dashboard/frontend/js/help.js`, `dashboard/frontend/partials/components/component_help_drawer.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh all`
 
-- [ ] Task 5: End-to-End Automated & Live Verification
+- [x] Task 5: End-to-End Automated & Live Verification
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `/tmp/rclone-bisync-dev`
   - **Verification**: `go test -v -count=1 ./tests/e2e/... && ./scripts/check.sh all`
 
@@ -32,4 +32,5 @@ Make the Profile Flag Builder and In-App Reference Manual provider-aware so that
 - 2026-11-06: Completed Task 2: Enriched `help-data-flags.js` with provider backend scopes (`all`, `onedrive`, `drive`), added 3 OneDrive-specific flags (`--onedrive-no-versions`, `--onedrive-chunk-size`, `--onedrive-delta`), and added operational caveats for OneDrive fast-list and Graph API HTTP 429 rate limiting (file size: 304 LOC). Verified with E2E suite.
 - 2026-11-06: Completed Task 3: Updated `flags_builder.js` (276 LOC) with backend scope metadata and provider filtering helpers (`getAvailableFlagsForEditingRemote()`, `isFlagApplicableForEditingRemote()`). Updated `modal_provider_options.html` with provider-scoped `<option :hidden>` and dynamic quick-add pills for OneDrive and Google Drive. Passed all 7 quality gate checks.
 - 2026-11-06: Completed Task 4: Implemented `getActiveProviderFilter()` and provider-scoped filtering in `help.js` (202 LOC). Added provider badge rendering (`ONEDRIVE`, `DRIVE`) in Flag Catalog items and provider context tag in Help Drawer header in `component_help_drawer.html`. Passed all 7 quality gate checks.
+- 2026-11-06: Completed Task 5: Added Sub-test 8 `ProviderAwareFlagScopingAndDrawerIsolation` in `dashboard_smoke_test.go` verifying onedrive vs drive flag scoping and drawer isolation; fixed provider matching priority in `profiles_modal.js` (`onedrive` checked before `drive`); compiled `/tmp/rclone-bisync-dev` and validated on port 8085; all 7 check.sh gates passed cleanly.
 
