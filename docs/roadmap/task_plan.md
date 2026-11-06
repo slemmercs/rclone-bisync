@@ -33,11 +33,30 @@ Embed contextual policy explanations, an interactive slide-over reference manual
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `go test -count=1 -v ./tests/e2e/... -run TestDashboard_HelpDrawerAndGuidance` and `./scripts/check.sh all`
 
+
+- [x] Task 8: Context Tagging & Active Context Detection in `help.js`
+  - **Scope**: `dashboard/frontend/js/help.js`
+  - **Verification**: `go test -count=1 ./tests/e2e/...` and `./scripts/check.sh all`
+
+- [ ] Task 9: Drawer Template Context Indicator & Toggle in `component_help_drawer.html`
+  - **Scope**: `dashboard/frontend/partials/components/component_help_drawer.html`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh all`
+
+- [ ] Task 10: Modal Header Contextual Help Triggers
+  - **Scope**: `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh all`
+
+- [ ] Task 11: E2E Headless Chrome Verification & Live Test
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
+  - **Verification**: `go test -count=1 -v ./tests/e2e/...` and `./scripts/check.sh all`
+
 ## Status Updates
 
 - 2026-11-06: Initialized plan from implementation_plan.md on branch feat/in-app-user-guidance.
 
 - 2026-11-06: Completed Task 1: Defined `DiagnosticCheckStatus`, `DiagnosticCheck`, `DiagnosticSystemInfo`, and `DiagnosticsResponse` models in `internal/models/api.go` with schema tests in `internal/models/api_test.go`.
+- 2026-11-06: Completed Task 8: Added `detectActiveContext`, `toggleContextFilter`, context metadata, and contextual scoping across policies, flags, runbooks, and diagnostic checks in `dashboard/frontend/js/help.js`.
+
 - 2026-11-06: Completed Task 2: Implemented `handleDiagnostics` REST handler and operational check evaluators across daemon connectivity, storage accessibility, canary protection, remote token health, and host runtime environment in `internal/server/handlers_diagnostics.go`, wired to `GET /api/diagnostics` in `internal/server/server.go`.
 - 2026-11-06: Completed Task 3: Built comprehensive unit testing suite in `internal/server/handlers_diagnostics_test.go` verifying offline failure states, healthy multi-remote passes, and elevated latency warning thresholds under `-race`.
 - 2026-11-06: Completed Task 4: Created `dashboard/frontend/partials/components/component_help_drawer.html` featuring interactive slide-over tabs for System Diagnostics, Safety Policies, Flag Catalog, and Troubleshooting Runbooks. Verified with `main_test.go` and `tests/e2e/...`.
