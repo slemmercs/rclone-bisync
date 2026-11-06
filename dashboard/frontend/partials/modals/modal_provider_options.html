@@ -128,6 +128,15 @@
         <button type="button" @click="addFlagRow('--transfers')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --transfers</button>
         <button type="button" @click="addFlagRow('--bwlimit')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --bwlimit</button>
         <button type="button" @click="addFlagRow('--resilient')" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-[10px] font-mono text-slate-300 transition">+ --resilient</button>
+        <template x-if="getEditingRemoteType() === 'onedrive'">
+            <button type="button" @click="addFlagRow('--onedrive-no-versions')" class="px-2 py-0.5 bg-sky-950/60 hover:bg-sky-900/60 border border-sky-800/60 hover:border-sky-700 rounded text-[10px] font-mono text-sky-300 transition">+ --onedrive-no-versions</button>
+        </template>
+        <template x-if="getEditingRemoteType() === 'onedrive'">
+            <button type="button" @click="addFlagRow('--onedrive-chunk-size')" class="px-2 py-0.5 bg-sky-950/60 hover:bg-sky-900/60 border border-sky-800/60 hover:border-sky-700 rounded text-[10px] font-mono text-sky-300 transition">+ --onedrive-chunk-size</button>
+        </template>
+        <template x-if="getEditingRemoteType() === 'drive'">
+            <button type="button" @click="addFlagRow('--drive-shared-with-me')" class="px-2 py-0.5 bg-amber-950/60 hover:bg-amber-900/60 border border-amber-800/60 hover:border-amber-700 rounded text-[10px] font-mono text-amber-300 transition">+ --drive-shared-with-me</button>
+        </template>
     </div>
 
     <!-- Flag Rows List -->
@@ -142,24 +151,27 @@
             <div class="p-2 bg-slate-900/70 border border-slate-800 rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <div class="sm:w-1/3">
                     <select :value="row.isCustom ? 'custom' : row.flag" @change="onFlagSelectChange(idx, $event.target.value)" class="w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
-                        <option value="--track-renames">--track-renames</option>
-                        <option value="--track-renames-strategy">--track-renames-strategy</option>
-                        <option value="--fast-list">--fast-list</option>
-                        <option value="--drive-shared-with-me">--drive-shared-with-me</option>
-                        <option value="--checksum">--checksum</option>
-                        <option value="--ignore-checksum">--ignore-checksum</option>
-                        <option value="--size-only">--size-only</option>
-                        <option value="--resilient">--resilient</option>
-                        <option value="--recover">--recover</option>
-                        <option value="--checkers">--checkers</option>
-                        <option value="--transfers">--transfers</option>
-                        <option value="--bwlimit">--bwlimit</option>
-                        <option value="--tpslimit">--tpslimit</option>
-                        <option value="--tpslimit-burst">--tpslimit-burst</option>
-                        <option value="--buffer-size">--buffer-size</option>
-                        <option value="--retries">--retries</option>
-                        <option value="--retries-sleep">--retries-sleep</option>
-                        <option value="--low-level-retries">--low-level-retries</option>
+                        <option value="--track-renames" :hidden="!isFlagApplicableForEditingRemote('--track-renames')">--track-renames</option>
+                        <option value="--track-renames-strategy" :hidden="!isFlagApplicableForEditingRemote('--track-renames-strategy')">--track-renames-strategy</option>
+                        <option value="--fast-list" :hidden="!isFlagApplicableForEditingRemote('--fast-list')">--fast-list</option>
+                        <option value="--drive-shared-with-me" :hidden="!isFlagApplicableForEditingRemote('--drive-shared-with-me')">--drive-shared-with-me</option>
+                        <option value="--onedrive-no-versions" :hidden="!isFlagApplicableForEditingRemote('--onedrive-no-versions')">--onedrive-no-versions</option>
+                        <option value="--onedrive-chunk-size" :hidden="!isFlagApplicableForEditingRemote('--onedrive-chunk-size')">--onedrive-chunk-size</option>
+                        <option value="--onedrive-delta" :hidden="!isFlagApplicableForEditingRemote('--onedrive-delta')">--onedrive-delta</option>
+                        <option value="--checksum" :hidden="!isFlagApplicableForEditingRemote('--checksum')">--checksum</option>
+                        <option value="--ignore-checksum" :hidden="!isFlagApplicableForEditingRemote('--ignore-checksum')">--ignore-checksum</option>
+                        <option value="--size-only" :hidden="!isFlagApplicableForEditingRemote('--size-only')">--size-only</option>
+                        <option value="--resilient" :hidden="!isFlagApplicableForEditingRemote('--resilient')">--resilient</option>
+                        <option value="--recover" :hidden="!isFlagApplicableForEditingRemote('--recover')">--recover</option>
+                        <option value="--checkers" :hidden="!isFlagApplicableForEditingRemote('--checkers')">--checkers</option>
+                        <option value="--transfers" :hidden="!isFlagApplicableForEditingRemote('--transfers')">--transfers</option>
+                        <option value="--bwlimit" :hidden="!isFlagApplicableForEditingRemote('--bwlimit')">--bwlimit</option>
+                        <option value="--tpslimit" :hidden="!isFlagApplicableForEditingRemote('--tpslimit')">--tpslimit</option>
+                        <option value="--tpslimit-burst" :hidden="!isFlagApplicableForEditingRemote('--tpslimit-burst')">--tpslimit-burst</option>
+                        <option value="--buffer-size" :hidden="!isFlagApplicableForEditingRemote('--buffer-size')">--buffer-size</option>
+                        <option value="--retries" :hidden="!isFlagApplicableForEditingRemote('--retries')">--retries</option>
+                        <option value="--retries-sleep" :hidden="!isFlagApplicableForEditingRemote('--retries-sleep')">--retries-sleep</option>
+                        <option value="--low-level-retries" :hidden="!isFlagApplicableForEditingRemote('--low-level-retries')">--low-level-retries</option>
                         <option value="custom">Custom flag (--...)</option>
                     </select>
                 </div>

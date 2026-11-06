@@ -5,24 +5,27 @@
  */
 
 const RCLONE_FLAGS_CATALOG = [
-    { flag: "--track-renames", label: "--track-renames", desc: "Track file renames and moves between runs", isBool: true },
-    { flag: "--track-renames-strategy", label: "--track-renames-strategy", desc: "Rename tracking strategy (hash, modtime, or leaf)", isBool: false, placeholder: "modtime,leaf" },
-    { flag: "--fast-list", label: "--fast-list", desc: "Use recursive list (faster scanning, uses more RAM)", isBool: true },
-    { flag: "--drive-shared-with-me", label: "--drive-shared-with-me", desc: "Sync Google Drive items shared with you", isBool: true },
-    { flag: "--checksum", label: "--checksum", desc: "Skip based on checksum comparison instead of modtime", isBool: true },
-    { flag: "--ignore-checksum", label: "--ignore-checksum", desc: "Skip checksum comparison even if available", isBool: true },
-    { flag: "--size-only", label: "--size-only", desc: "Skip based on size only (not modtime or checksum)", isBool: true },
-    { flag: "--resilient", label: "--resilient", desc: "Allow bisync to continue on non-fatal errors", isBool: true },
-    { flag: "--recover", label: "--recover", desc: "Automatically recover from state inconsistencies", isBool: true },
-    { flag: "--checkers", label: "--checkers", desc: "Number of checkers to run in parallel", isBool: false, placeholder: "8" },
-    { flag: "--transfers", label: "--transfers", desc: "Number of file transfers to run in parallel", isBool: false, placeholder: "4" },
-    { flag: "--bwlimit", label: "--bwlimit", desc: "Bandwidth limit (e.g. 10M, 500k, 10M:off)", isBool: false, placeholder: "10M" },
-    { flag: "--tpslimit", label: "--tpslimit", desc: "Limit HTTP transactions per second", isBool: false, placeholder: "10" },
-    { flag: "--tpslimit-burst", label: "--tpslimit-burst", desc: "Max HTTP transactions burst", isBool: false, placeholder: "20" },
-    { flag: "--buffer-size", label: "--buffer-size", desc: "In-memory buffer size per transfer (e.g. 16M, 64M)", isBool: false, placeholder: "16M" },
-    { flag: "--retries", label: "--retries", desc: "Number of retries on network failure", isBool: false, placeholder: "3" },
-    { flag: "--retries-sleep", label: "--retries-sleep", desc: "Sleep interval between retries", isBool: false, placeholder: "500ms" },
-    { flag: "--low-level-retries", label: "--low-level-retries", desc: "Low-level retry count", isBool: false, placeholder: "10" }
+    { flag: "--track-renames", label: "--track-renames", desc: "Track file renames and moves between runs", isBool: true, backends: ["all"] },
+    { flag: "--track-renames-strategy", label: "--track-renames-strategy", desc: "Rename tracking strategy (hash, modtime, or leaf)", isBool: false, placeholder: "modtime,leaf", backends: ["all"] },
+    { flag: "--fast-list", label: "--fast-list", desc: "Use recursive list (faster scanning, uses more RAM)", isBool: true, backends: ["all"] },
+    { flag: "--drive-shared-with-me", label: "--drive-shared-with-me", desc: "Sync Google Drive items shared with you", isBool: true, backends: ["drive"] },
+    { flag: "--onedrive-no-versions", label: "--onedrive-no-versions", desc: "Do not create new file versions on upload", isBool: true, backends: ["onedrive"] },
+    { flag: "--onedrive-chunk-size", label: "--onedrive-chunk-size", desc: "Upload chunk size for large files (multiple of 320k)", isBool: false, placeholder: "10M", backends: ["onedrive"] },
+    { flag: "--onedrive-delta", label: "--onedrive-delta", desc: "Delta change enumeration for fast incremental scanning", isBool: true, backends: ["onedrive"] },
+    { flag: "--checksum", label: "--checksum", desc: "Skip based on checksum comparison instead of modtime", isBool: true, backends: ["all"] },
+    { flag: "--ignore-checksum", label: "--ignore-checksum", desc: "Skip checksum comparison even if available", isBool: true, backends: ["all"] },
+    { flag: "--size-only", label: "--size-only", desc: "Skip based on size only (not modtime or checksum)", isBool: true, backends: ["all"] },
+    { flag: "--resilient", label: "--resilient", desc: "Allow bisync to continue on non-fatal errors", isBool: true, backends: ["all"] },
+    { flag: "--recover", label: "--recover", desc: "Automatically recover from state inconsistencies", isBool: true, backends: ["all"] },
+    { flag: "--checkers", label: "--checkers", desc: "Number of checkers to run in parallel", isBool: false, placeholder: "8", backends: ["all"] },
+    { flag: "--transfers", label: "--transfers", desc: "Number of file transfers to run in parallel", isBool: false, placeholder: "4", backends: ["all"] },
+    { flag: "--bwlimit", label: "--bwlimit", desc: "Bandwidth limit (e.g. 10M, 500k, 10M:off)", isBool: false, placeholder: "10M", backends: ["all"] },
+    { flag: "--tpslimit", label: "--tpslimit", desc: "Limit HTTP transactions per second", isBool: false, placeholder: "10", backends: ["all"] },
+    { flag: "--tpslimit-burst", label: "--tpslimit-burst", desc: "Max HTTP transactions burst", isBool: false, placeholder: "20", backends: ["all"] },
+    { flag: "--buffer-size", label: "--buffer-size", desc: "In-memory buffer size per transfer (e.g. 16M, 64M)", isBool: false, placeholder: "16M", backends: ["all"] },
+    { flag: "--retries", label: "--retries", desc: "Number of retries on network failure", isBool: false, placeholder: "3", backends: ["all"] },
+    { flag: "--retries-sleep", label: "--retries-sleep", desc: "Sleep interval between retries", isBool: false, placeholder: "500ms", backends: ["all"] },
+    { flag: "--low-level-retries", label: "--low-level-retries", desc: "Low-level retry count", isBool: false, placeholder: "10", backends: ["all"] }
 ];
 
 window.FlagsBuilderModule = {
@@ -34,10 +37,28 @@ window.FlagsBuilderModule = {
         this.customFlagRows = this.parseCustomFlags(rawCustomFlags || "");
     },
 
+    getAvailableFlagsForEditingRemote() {
+        const remoteType = typeof this.getEditingRemoteType === "function" ? this.getEditingRemoteType() : "generic";
+        return this.flagsCatalog.filter(c => {
+            if (!c.backends || c.backends.includes("all")) return true;
+            return c.backends.includes(remoteType);
+        });
+    },
+
+    isFlagApplicableForEditingRemote(flagName) {
+        if (!flagName || flagName === "custom" || flagName.startsWith("--custom")) return true;
+        const item = this.flagsCatalog.find(c => c.flag === flagName);
+        if (!item || !item.backends || item.backends.includes("all")) return true;
+        const remoteType = typeof this.getEditingRemoteType === "function" ? this.getEditingRemoteType() : "generic";
+        return item.backends.includes(remoteType);
+    },
+
     addFlagRow(defaultFlag = "") {
+        const available = this.getAvailableFlagsForEditingRemote();
         const catalogItem = this.flagsCatalog.find(c => c.flag === defaultFlag);
         const isCustom = defaultFlag === "custom" || (!catalogItem && defaultFlag !== "");
-        const flagName = isCustom ? (defaultFlag === "custom" ? "--" : defaultFlag) : (defaultFlag || this.flagsCatalog[0].flag);
+        const fallbackFlag = (available.length > 0 ? available[0].flag : "--track-renames");
+        const flagName = isCustom ? (defaultFlag === "custom" ? "--" : defaultFlag) : (defaultFlag || fallbackFlag);
         const finalBool = catalogItem ? catalogItem.isBool : false;
 
         this.customFlagRows.push({
