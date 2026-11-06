@@ -51,15 +51,21 @@
 
     <!-- Tier 1: OneDrive Controls -->
     <template x-if="getEditingRemoteType() === 'onedrive'">
-        <div class="space-y-2 pt-1 border-t border-slate-900">
+        <div class="space-y-2.5 pt-1 border-t border-slate-900">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
                     <input type="checkbox" :checked="getProviderBoolOption('onedrive_no_versions', true)" @change="setProviderBoolOption('onedrive_no_versions', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
                     <span class="text-[11px] text-slate-300 font-medium">No Versions (Prevent duplicates)</span>
                 </label>
+                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition">
+                    <input type="checkbox" :checked="getProviderBoolOption('onedrive_delta', false)" @change="setProviderBoolOption('onedrive_delta', $event.target.checked)" class="rounded bg-slate-950 border-slate-700 text-indigo-500">
+                    <span class="text-[11px] text-slate-300 font-medium">Delta Enumeration (--onedrive-delta)</span>
+                </label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                    <label class="block text-[10px] font-semibold text-slate-400 mb-1">Upload Chunk Size</label>
-                    <input type="text" :value="getProviderOption('onedrive_chunk_size', '10M')" @input="setProviderOption('onedrive_chunk_size', $event.target.value)" placeholder="10M" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                    <label class="block text-[10px] font-semibold text-slate-400 mb-1">Upload Chunk Size (Optional)</label>
+                    <input type="text" :value="getProviderOption('onedrive_chunk_size', '')" @input="setProviderOption('onedrive_chunk_size', $event.target.value)" placeholder="e.g. 10M, 50M (multiple of 320k)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
                 </div>
             </div>
         </div>
@@ -145,7 +151,6 @@
                         <option value="--track-renames" :hidden="!isFlagApplicableForEditingRemote('--track-renames')">--track-renames</option>
                         <option value="--track-renames-strategy" :hidden="!isFlagApplicableForEditingRemote('--track-renames-strategy')">--track-renames-strategy</option>
                         <option value="--fast-list" :hidden="!isFlagApplicableForEditingRemote('--fast-list')">--fast-list</option>
-                        <option value="--onedrive-delta" :hidden="!isFlagApplicableForEditingRemote('--onedrive-delta')">--onedrive-delta</option>
                         <option value="--checksum" :hidden="!isFlagApplicableForEditingRemote('--checksum')">--checksum</option>
                         <option value="--ignore-checksum" :hidden="!isFlagApplicableForEditingRemote('--ignore-checksum')">--ignore-checksum</option>
                         <option value="--size-only" :hidden="!isFlagApplicableForEditingRemote('--size-only')">--size-only</option>

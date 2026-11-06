@@ -297,7 +297,7 @@ window.HelpCatalog.flags = [
         backends: ["onedrive"],
         contexts: ["modal_profiles", "view_remotes"],
         description: "Enables delta change enumeration on OneDrive via Microsoft Graph API for rapid incremental change detection.",
-        caveat: "Incompatible with Personal Vault and cannot traverse shortcut links. Recommended when fast directory delta scanning is desired.",
+        caveat: "Configured directly via the 'Delta Enumeration' toggle in Target Provider Options. Incompatible with Personal Vault and cannot traverse shortcut links.",
         example: "rclone bisync local: onedrive: --onedrive-delta",
         docUrl: "https://rclone.org/onedrive/#onedrive-delta"
     }

@@ -234,6 +234,7 @@ func TestBuildCLIArgs(t *testing.T) {
 			Flags: ProfileFlags{
 				ProviderOptions: map[string]string{
 					"onedrive_no_versions": "true",
+					"onedrive_delta":       "true",
 					"onedrive_chunk_size":  "20M",
 				},
 			},
@@ -243,7 +244,7 @@ func TestBuildCLIArgs(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		argsStrOD := strings.Join(argsOD, " ")
-		if !strings.Contains(argsStrOD, "--onedrive-no-versions") || !strings.Contains(argsStrOD, "--onedrive-chunk-size 20M") {
+		if !strings.Contains(argsStrOD, "--onedrive-no-versions") || !strings.Contains(argsStrOD, "--onedrive-delta") || !strings.Contains(argsStrOD, "--onedrive-chunk-size 20M") {
 			t.Errorf("missing onedrive flags in args: %v", argsOD)
 		}
 

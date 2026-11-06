@@ -187,6 +187,9 @@ func buildProviderCLIArgs(providerOpts map[string]string) []string {
 	if v, ok := providerOpts["onedrive_no_versions"]; ok {
 		args = appendBoolProviderArg(args, "--onedrive-no-versions", v)
 	}
+	if v, ok := providerOpts["onedrive_delta"]; ok {
+		args = appendBoolProviderArg(args, "--onedrive-delta", v)
+	}
 	if v, ok := providerOpts["onedrive_chunk_size"]; ok && strings.TrimSpace(v) != "" {
 		args = append(args, "--onedrive-chunk-size", strings.TrimSpace(v))
 	}

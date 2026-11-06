@@ -8,7 +8,6 @@ const RCLONE_FLAGS_CATALOG = [
     { flag: "--track-renames", label: "--track-renames", desc: "Track file renames and moves between runs", isBool: true, backends: ["all"] },
     { flag: "--track-renames-strategy", label: "--track-renames-strategy", desc: "Rename tracking strategy (hash, modtime, or leaf)", isBool: false, placeholder: "modtime,leaf", backends: ["all"] },
     { flag: "--fast-list", label: "--fast-list", desc: "Use recursive list (faster scanning, uses more RAM)", isBool: true, backends: ["all"] },
-    { flag: "--onedrive-delta", label: "--onedrive-delta", desc: "Delta change enumeration for fast incremental scanning", isBool: true, backends: ["onedrive"] },
     { flag: "--checksum", label: "--checksum", desc: "Skip based on checksum comparison instead of modtime", isBool: true, backends: ["all"] },
     { flag: "--ignore-checksum", label: "--ignore-checksum", desc: "Skip checksum comparison even if available", isBool: true, backends: ["all"] },
     { flag: "--size-only", label: "--size-only", desc: "Skip based on size only (not modtime or checksum)", isBool: true, backends: ["all"] },
@@ -244,7 +243,15 @@ window.FlagsBuilderModule = {
         addBool("drive_acknowledge_abuse", "--drive-acknowledge-abuse");
         if (po.drive_export_formats && po.drive_export_formats.trim()) parts.push("--drive-export-formats", po.drive_export_formats.trim());
         if (po.drive_import_formats && po.drive_import_formats.trim()) parts.push("--drive-import-formats", po.drive_import_formats.trim());
-        addBool("onedrive_no_versions", "--onedrive-no-versions");
+        const editingType = typeof this.getEditingRemoteType === "function" ? this.getEditingRemoteType() : "";
+        if (editingType === "onedrive") {
+            const noVers = po.onedrive_no_versions !== undefined ? String(po.onedrive_no_versions).trim().toLowerCase() : "true";
+            if (noVers === "true" || noVers === "1") parts.push("--onedrive-no-versions");
+            else if (noVers === "false" || noVers === "0") parts.push("--onedrive-no-versions=false");
+        } else {
+            addBool("onedrive_no_versions", "--onedrive-no-versions");
+        }
+        addBool("onedrive_delta", "--onedrive-delta");
         if (po.onedrive_chunk_size && po.onedrive_chunk_size.trim()) parts.push("--onedrive-chunk-size", po.onedrive_chunk_size.trim());
         if (po.s3_chunk_size && po.s3_chunk_size.trim()) parts.push("--s3-chunk-size", po.s3_chunk_size.trim());
         if (po.s3_storage_class && po.s3_storage_class.trim()) parts.push("--s3-storage-class", po.s3_storage_class.trim());
