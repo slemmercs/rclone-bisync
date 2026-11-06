@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -864,9 +865,9 @@ func TestPostWithRetry429And503(t *testing.T) {
 }
 
 func TestWaitForHealthyAndReconnectGrace(t *testing.T) {
-	isHealthy := false
+	var isHealthy atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isHealthy {
+		if !isHealthy.Load() {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -894,7 +895,7 @@ func TestWaitForHealthyAndReconnectGrace(t *testing.T) {
 	// 2. WaitForHealthy recovers when server becomes healthy
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		isHealthy = true
+		isHealthy.Store(true)
 	}()
 
 	ok, err = c.WaitForHealthy(context.Background(), 500*time.Millisecond)

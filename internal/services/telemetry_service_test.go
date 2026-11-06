@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -311,9 +312,10 @@ func TestTelemetryService_Direct(t *testing.T) {
 }
 
 func TestTelemetryService_ReconnectGracePeriodAndWatchdog(t *testing.T) {
-	isAlive := true
+	var isAlive atomic.Bool
+	isAlive.Store(true)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isAlive {
+		if !isAlive.Load() {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -343,7 +345,7 @@ func TestTelemetryService_ReconnectGracePeriodAndWatchdog(t *testing.T) {
 	}
 
 	// 2. Kill daemon
-	isAlive = false
+	isAlive.Store(false)
 	telSvc.ResetDaemonHealthCache()
 
 	// 3. Immediate probe: within 400ms grace period -> status must be "reconnecting"
@@ -365,7 +367,7 @@ func TestTelemetryService_ReconnectGracePeriodAndWatchdog(t *testing.T) {
 	// 6. Test WaitForDaemon: bring daemon back to life asynchronously
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		isAlive = true
+		isAlive.Store(true)
 	}()
 
 	recovered := telSvc.WaitForDaemon(context.Background(), 2*time.Second)
