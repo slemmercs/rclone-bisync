@@ -1189,18 +1189,18 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 		})()`
 
 		type DeclarativeResult struct {
-			SchemaLen                int    `json:"schemaLen"`
-			IsOneDriveTier1          bool   `json:"isOneDriveTier1"`
-			HasOneDriveDeltaBool     bool   `json:"hasOneDriveDeltaBool"`
-			HasOneDriveChunkNonBool  bool   `json:"hasOneDriveChunkNonBool"`
-			IsDriveTier1             bool   `json:"isDriveTier1"`
-			HasDriveSkipShortcutsBool bool  `json:"hasDriveSkipShortcutsBool"`
-			HasDriveExportNonBool    bool   `json:"hasDriveExportNonBool"`
-			IsS3Tier1                bool   `json:"isS3Tier1"`
-			HasS3StorageClassNonBool bool   `json:"hasS3StorageClassNonBool"`
-			IsGenericTier1           bool   `json:"isGenericTier1"`
-			SynthesizedHasDelta      bool   `json:"synthesizedHasDelta"`
-			SynthesizedHasChunk      bool   `json:"synthesizedHasChunk"`
+			SchemaLen                 int  `json:"schemaLen"`
+			IsOneDriveTier1           bool `json:"isOneDriveTier1"`
+			HasOneDriveDeltaBool      bool `json:"hasOneDriveDeltaBool"`
+			HasOneDriveChunkNonBool   bool `json:"hasOneDriveChunkNonBool"`
+			IsDriveTier1              bool `json:"isDriveTier1"`
+			HasDriveSkipShortcutsBool bool `json:"hasDriveSkipShortcutsBool"`
+			HasDriveExportNonBool     bool `json:"hasDriveExportNonBool"`
+			IsS3Tier1                 bool `json:"isS3Tier1"`
+			HasS3StorageClassNonBool  bool `json:"hasS3StorageClassNonBool"`
+			IsGenericTier1            bool `json:"isGenericTier1"`
+			SynthesizedHasDelta       bool `json:"synthesizedHasDelta"`
+			SynthesizedHasChunk       bool `json:"synthesizedHasChunk"`
 		}
 
 		dRes, err := chromedp.Run(ctx, chromedp.Evaluate[DeclarativeResult](declarativeScript))

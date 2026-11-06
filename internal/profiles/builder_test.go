@@ -396,4 +396,3 @@ func TestProviderOptions_Registry(t *testing.T) {
 		t.Errorf("unexpected true for unknown provider")
 	}
 }
-

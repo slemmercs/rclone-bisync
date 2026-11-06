@@ -24,10 +24,10 @@ type ProviderOptionDef struct {
 }
 
 var (
-	registryOnce     sync.Once
-	providerOptions  []ProviderOptionDef
-	providerMap      map[string][]ProviderOptionDef
-	knownProviders   map[string]bool
+	registryOnce    sync.Once
+	providerOptions []ProviderOptionDef
+	providerMap     map[string][]ProviderOptionDef
+	knownProviders  map[string]bool
 )
 
 func initRegistry() {
