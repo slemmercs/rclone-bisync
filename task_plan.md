@@ -42,7 +42,7 @@ Embed contextual policy explanations, an interactive slide-over reference manual
   - **Scope**: `dashboard/frontend/partials/components/component_help_drawer.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh all`
 
-- [ ] Task 10: Modal Header Contextual Help Triggers
+- [x] Task 10: Modal Header Contextual Help Triggers
   - **Scope**: `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh all`
 
@@ -67,6 +67,8 @@ Embed contextual policy explanations, an interactive slide-over reference manual
 
 
 - 2026-11-06: Completed Task 6: Implemented `dashboard/frontend/js/help.js`, integrated `window.HelpModule` into `app.js`, added header Help trigger and `component_help_drawer` template into `index.html`, and registered global `?` and `F1` keyboard shortcuts.
+
+- 2026-11-06: Completed Task 10: Added contextual help triggers (`?` button with `openHelpDrawer(...)`) to headers of `modal_profiles.html`, `modal_review.html`, and `modal_global_settings.html`. Verified with `./scripts/check.sh templates` and `./scripts/check.sh all`.
 
 - 2026-11-06: Completed Task 7: Implemented `TestDashboard_HelpDrawerAndGuidance` in `tests/e2e/dashboard_smoke_test.go` covering help drawer triggering, diagnostics fetch, tab switching, and keyboard shortcuts under headless Chrome, and verified all 7 quality gate stages passed.
 

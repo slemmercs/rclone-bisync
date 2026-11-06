@@ -13,9 +13,14 @@
                     <div class="text-[11px] text-slate-400">Multi-workload isolation, schedule tickers, and version rollback</div>
                 </div>
             </div>
-            <button @click="closeProfilesModal()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors">
-                <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
+            <div class="flex items-center gap-1">
+                <button type="button" @click="openHelpDrawer('modal_profiles')" class="text-slate-500 hover:text-indigo-400 p-1.5 rounded-lg transition-colors cursor-pointer" title="Open Context Guidance (F1)">
+                    <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </button>
+                <button @click="closeProfilesModal()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors" title="Close modal (Esc)">
+                    <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
         </div>
 
         <!-- Navigation Tabs -->
