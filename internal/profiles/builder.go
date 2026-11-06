@@ -153,59 +153,26 @@ func appendBoolProviderArg(args []string, flagName string, val string) []string 
 	return args
 }
 
-// buildProviderCLIArgs translates typed ProviderOptions into command-line arguments.
+// buildProviderCLIArgs translates typed ProviderOptions into command-line arguments
+// using the declarative schema registry.
 func buildProviderCLIArgs(providerOpts map[string]string) []string {
 	if len(providerOpts) == 0 {
 		return nil
 	}
 	var args []string
-
-	// Google Drive
-	if v, ok := providerOpts["drive_skip_shortcuts"]; ok {
-		args = appendBoolProviderArg(args, "--drive-skip-shortcuts", v)
+	for _, opt := range GetProviderOptions() {
+		v, exists := providerOpts[opt.Key]
+		if !exists {
+			continue
+		}
+		switch opt.Type {
+		case "bool":
+			args = appendBoolProviderArg(args, opt.Flag, v)
+		case "text", "select":
+			if val := strings.TrimSpace(v); val != "" {
+				args = append(args, opt.Flag, val)
+			}
+		}
 	}
-	if v, ok := providerOpts["drive_use_trash"]; ok {
-		args = appendBoolProviderArg(args, "--drive-use-trash", v)
-	}
-	if v, ok := providerOpts["drive_skip_gdocs"]; ok {
-		args = appendBoolProviderArg(args, "--drive-skip-gdocs", v)
-	}
-	if v, ok := providerOpts["drive_shared_with_me"]; ok {
-		args = appendBoolProviderArg(args, "--drive-shared-with-me", v)
-	}
-	if v, ok := providerOpts["drive_acknowledge_abuse"]; ok {
-		args = appendBoolProviderArg(args, "--drive-acknowledge-abuse", v)
-	}
-	if v, ok := providerOpts["drive_export_formats"]; ok && strings.TrimSpace(v) != "" {
-		args = append(args, "--drive-export-formats", strings.TrimSpace(v))
-	}
-	if v, ok := providerOpts["drive_import_formats"]; ok && strings.TrimSpace(v) != "" {
-		args = append(args, "--drive-import-formats", strings.TrimSpace(v))
-	}
-
-	// Microsoft OneDrive
-	if v, ok := providerOpts["onedrive_no_versions"]; ok {
-		args = appendBoolProviderArg(args, "--onedrive-no-versions", v)
-	}
-	if v, ok := providerOpts["onedrive_delta"]; ok {
-		args = appendBoolProviderArg(args, "--onedrive-delta", v)
-	}
-	if v, ok := providerOpts["onedrive_chunk_size"]; ok && strings.TrimSpace(v) != "" {
-		args = append(args, "--onedrive-chunk-size", strings.TrimSpace(v))
-	}
-
-	// Amazon S3
-	if v, ok := providerOpts["s3_chunk_size"]; ok && strings.TrimSpace(v) != "" {
-		args = append(args, "--s3-chunk-size", strings.TrimSpace(v))
-	}
-	if v, ok := providerOpts["s3_storage_class"]; ok && strings.TrimSpace(v) != "" {
-		args = append(args, "--s3-storage-class", strings.TrimSpace(v))
-	}
-
-	// Dropbox
-	if v, ok := providerOpts["dropbox_chunk_size"]; ok && strings.TrimSpace(v) != "" {
-		args = append(args, "--dropbox-chunk-size", strings.TrimSpace(v))
-	}
-
 	return args
 }

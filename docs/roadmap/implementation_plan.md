@@ -1,30 +1,49 @@
-# Implementation Plan: Curate OneDrive Target Provider Options (Delta & Chunk Size)
+# Implementation Plan: Alternative A - Single-Source Declarative Schema Engine for Provider Options
 
 ## Proposed Changes
 
-Add first-class curated controls for OneDrive in **Target Provider Options** (Tier 1) for `--onedrive-delta`, alongside `--onedrive-no-versions` and `--onedrive-chunk-size`, and ensure CLI command synthesis and backend argument compilation properly reflect all OneDrive provider options.
+Transition Target Provider Options from hardcoded, duplicated Go/JS/HTML implementations to **Alternative A: Single-Source Declarative Schema Engine**.
+Instead of hand-coding UI inputs, backend flag compilers, and frontend CLI previews for each remote type (Google Drive, OneDrive, Amazon S3, Dropbox, etc.), all provider-specific options will be defined declaratively in a unified schema.
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/partials/modals/modal_provider_options.html`:
-  - Enhance OneDrive section with two toggle options: `No Versions (Prevent duplicates)` and `Delta Enumeration (--onedrive-delta)`.
-  - Provide `Upload Chunk Size` input in dedicated grid row with helper text `(e.g. 10M, 50M)`.
-  - Remove `--onedrive-delta` from the custom flags `<select>` dropdown now that it is curated in Tier 1.
-- `dashboard/frontend/js/flags_builder.js`:
-  - Remove `--onedrive-delta` from `RCLONE_FLAGS_CATALOG` (curated in Target Provider Options).
-  - Add `onedrive_delta` serialization to `synthesizeBisyncCommand()`.
-  - Ensure `onedrive_chunk_size` and `onedrive_no_versions` are properly serialized into synthesized CLI command when active.
-- `internal/profiles/builder.go` & `internal/profiles/builder_test.go`:
-  - Add `onedrive_delta` handling in `appendProviderArgs()`.
-  - Add unit test coverage in `builder_test.go`.
-- `dashboard/frontend/js/help-data-flags.js`:
-  - Update caveat for `--onedrive-delta` indicating it is configured directly in Target Provider Options.
-- `tests/e2e/dashboard_smoke_test.go`:
-  - Update E2E test to verify OneDrive Target Provider Options controls and absence of duplicate custom flag options.
+- `internal/profiles/provider_options.json`: Single source of truth containing metadata for all provider options (flags, types, labels, default values, options).
+- `internal/profiles/registry.go`: Go registry embedding `provider_options.json` with lookup utilities and validation.
+- `internal/profiles/builder.go`: Generic iteration over schema definitions to synthesize CLI arguments, replacing the hardcoded `if/switch` chain.
+- `internal/profiles/builder_test.go`: Comprehensive unit tests verifying schema integrity and parity with existing CLI generation.
+- `dashboard/frontend/js/provider_options.js`: Modular frontend registry and Alpine.js helper methods for dynamic options handling.
+- `dashboard/frontend/index.html`: Registration of the `provider_options.js` script tag.
+- `dashboard/frontend/partials/modals/modal_provider_options.html`: Dynamic Alpine `<template x-for>` rendering for boolean flags and value inputs.
+- `dashboard/frontend/js/flags_builder.js`: Generic synthesis of provider flags in live CLI preview.
+- `tests/e2e/dashboard_smoke_test.go`: Verification of dynamically rendered provider options across provider types.
+
+### Technical Strategy & Data Flow
+
+- **Declarative Schema Structure**:
+  - `provider`: Provider type identifier (e.g., `drive`, `onedrive`, `s3`, `dropbox`).
+  - `key`: Option field identifier (e.g., `onedrive_delta`, `drive_skip_shortcuts`, `s3_storage_class`).
+  - `flag`: Exact Rclone CLI argument flag (e.g., `--onedrive-delta`, `--drive-skip-shortcuts`, `--s3-storage-class`).
+  - `type`: `bool`, `text`, or `select`.
+  - `label`: Concise human-readable UI label.
+  - `default`: Default value (e.g., `"true"`, `"false"`, `"STANDARD"`).
+  - `placeholder`: Optional input placeholder text.
+  - `options`: Allowed values for `select` type.
+  - `desc`: Inline guidance and tooltip description.
+- **Backend CLI Synthesis**:
+  - `buildProviderCLIArgs(providerOpts)` iterates through `GetProviderOptions()`, formatting boolean flags (including `=false` when disabled if default was true) and value flags cleanly.
+- **Frontend Live Preview & UI Rendering**:
+  - Alpine helper `isProviderFieldChecked(field)` provides AST-safe boolean binding without dotted paths (complying with `cmd/check/html_scanner.go`).
+  - Live CLI preview iterates over `PROVIDER_OPTIONS_REGISTRY` identically to Go backend.
+
+### Safety & Error Handling
+
+- **Alpine Attribute AST Safety**: Avoid dotted expressions in `:checked` bindings to eliminate Alpine boolean coercion bugs and comply with `./scripts/check.sh templates`.
+- **Zero Subprocess / Safe Defaults**: Unset optional values generate zero CLI noise; defaults are strictly respected.
+- **LOC Boundaries**: Modularized into small files well under the 400 LOC limit.
 
 ## Verification Plan
 
-- `go test -v -count=1 ./internal/profiles/...`: Verify `appendProviderArgs` with `onedrive_delta`.
-- `go test -v -count=1 ./tests/e2e/...`: Verify headless Chrome testing of provider options and drawer.
-- `./scripts/check.sh all`: Run all 7 quality stages.
-- Rebuild binary and restart `rclone-dashboard.service`.
+- `go test -v -count=1 ./internal/profiles/...`: Validate Go registry parsing and CLI flag builder parity.
+- `./scripts/check.sh templates`: Verify template AST scanner passes without boolean attribute violations.
+- `go test -v -count=1 ./tests/e2e/...`: Verify headless Chrome dynamic rendering across provider switches.
+- `./scripts/check.sh all`: Full 7-stage quality gate check.

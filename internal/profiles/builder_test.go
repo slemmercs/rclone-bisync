@@ -344,3 +344,56 @@ func TestBuildCLIArgs(t *testing.T) {
 		}
 	})
 }
+
+func TestProviderOptions_Registry(t *testing.T) {
+	opts := GetProviderOptions()
+	if len(opts) == 0 {
+		t.Fatalf("expected non-empty provider options from registry")
+	}
+
+	keysSeen := make(map[string]bool)
+	for _, o := range opts {
+		if o.Provider == "" {
+			t.Errorf("empty provider in option: %+v", o)
+		}
+		if o.Key == "" {
+			t.Errorf("empty key in option: %+v", o)
+		}
+		if keysSeen[o.Key] {
+			t.Errorf("duplicate key %q in registry", o.Key)
+		}
+		keysSeen[o.Key] = true
+
+		if !strings.HasPrefix(o.Flag, "--") {
+			t.Errorf("flag %q does not start with '--'", o.Flag)
+		}
+		if o.Type != "bool" && o.Type != "text" && o.Type != "select" {
+			t.Errorf("invalid type %q for option %s", o.Type, o.Key)
+		}
+		if o.Label == "" {
+			t.Errorf("empty label for option %s", o.Key)
+		}
+		if o.Type == "select" && len(o.Options) == 0 {
+			t.Errorf("select option %s has empty options slice", o.Key)
+		}
+	}
+
+	driveOpts := GetProviderOptionsFor("drive")
+	if len(driveOpts) == 0 {
+		t.Errorf("expected drive options, got none")
+	}
+
+	odOpts := GetProviderOptionsFor("onedrive")
+	if len(odOpts) == 0 {
+		t.Errorf("expected onedrive options, got none")
+	}
+
+	if !IsTier1Provider("drive") || !IsTier1Provider("onedrive") || !IsTier1Provider("s3") || !IsTier1Provider("dropbox") {
+		t.Errorf("expected drive, onedrive, s3, dropbox to be Tier 1 providers")
+	}
+
+	if IsTier1Provider("unknown_backend_xyz") {
+		t.Errorf("unexpected true for unknown provider")
+	}
+}
+

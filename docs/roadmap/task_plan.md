@@ -1,23 +1,28 @@
-# Task Plan: Curate OneDrive Target Provider Options (Delta & Chunk Size)
+# Task Plan: Alternative A - Single-Source Declarative Schema Engine for Provider Options
 
 ## Goal
-Add `--onedrive-delta` to Target Provider Options in `modal_provider_options.html`, ensure all OneDrive options (`onedrive_no_versions`, `onedrive_delta`, `onedrive_chunk_size`) compile in backend and synthesize in frontend CLI preview, and clean up duplicate dropdown flags.
+Implement Alternative A: Single-Source Declarative Schema Engine for Target Provider Options, replacing duplicated Go, JavaScript, and HTML logic with a single declarative schema.
 
 ## Tasks
 
-- [x] Task 1: Backend Support for OneDrive Delta & Frontend Controls Integration
-  - **Scope**: `internal/profiles/builder.go`, `internal/profiles/builder_test.go`, `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/js/flags_builder.js`, `dashboard/frontend/js/help-data-flags.js`
-  - **Verification**: `go test -v -count=1 ./internal/profiles/... && ./scripts/check.sh templates && ./scripts/check.sh all`
+- [x] Task 1: Go Provider Options Declarative Schema Registry & Generic Backend Compiler
+  - **Scope**: `internal/profiles/provider_options.json`, `internal/profiles/registry.go`, `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/profiles/...`
 
-- [x] Task 2: E2E Headless Chrome Tests, Binary Build & Service Deployment
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, build binary, restart service
-  - **Verification**: `go test -v -count=1 ./tests/e2e/... && ./scripts/check.sh all`
+- [ ] Task 2: Frontend Declarative Provider Options Engine & Dynamic UI Rendering
+  - **Scope**: `dashboard/frontend/js/provider_options.js`, `dashboard/frontend/index.html`, `dashboard/frontend/js/profiles_modal.js`, `dashboard/frontend/partials/modals/modal_provider_options.html`, `dashboard/frontend/js/flags_builder.js`
+  - **Verification**: `./scripts/check.sh templates && go test -v -count=1 ./tests/e2e/...`
+
+- [ ] Task 3: Quality Gates, Smoke Verification, Binary Build & Deployment
+  - **Scope**: `./scripts/check.sh all`, binary build, deployment to `/home/csaba/rclone-bisync/bin/rclone-bisync`, service restart, live verification
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-06: Initialized task plan to add `--onedrive-delta` into Target Provider Options and fix synthesis for OneDrive provider options.
-- 2026-11-06: Completed Task 1: Integrated `onedrive_delta` and `onedrive_chunk_size` into Target Provider Options and backend CLI builder. All 7 check gates passed cleanly.
-- 2026-11-06: Completed Task 2: Verified automated headless Chrome E2E tests, compiled binary, deployed to `/home/csaba/rclone-bisync/bin/rclone-bisync`, restarted `rclone-dashboard.service` (PID 359427), all 7 quality gates passed.
+- 2026-11-06: Initialized task plan for Alternative A (Declarative Provider Options Schema Engine).
+- 2026-11-06: Completed Task 1: Embedded `provider_options.json` registry in Go, replaced hardcoded `buildProviderCLIArgs` in `builder.go` with generic registry iteration, added registry unit tests in `builder_test.go`. All tests passing.
+
+
 
 
 
