@@ -729,8 +729,8 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 		if res.SafetyCount < 3 || res.SafetyFiltered != 1 {
 			t.Errorf("unexpected safety policy counts: total=%d, filtered=%d", res.SafetyCount, res.SafetyFiltered)
 		}
-		if res.FlagCount < 5 || res.FlagFiltered != 1 {
-			t.Errorf("unexpected flag counts: total=%d, filtered=%d", res.FlagCount, res.FlagFiltered)
+		if res.FlagCount < 18 || res.FlagFiltered != 1 {
+			t.Errorf("unexpected flag counts: total=%d, filtered=%d (expected >= 18 flags)", res.FlagCount, res.FlagFiltered)
 		}
 		if res.RunbookCount < 3 || res.RunbookFiltered != 1 {
 			t.Errorf("unexpected runbook counts: total=%d, filtered=%d", res.RunbookCount, res.RunbookFiltered)
@@ -951,6 +951,59 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 		}
 		if !res.SettingsDrawerOpen || res.SettingsTab != "safety" {
 			t.Errorf("settings drawer state invalid: open=%v, tab=%q", res.SettingsDrawerOpen, res.SettingsTab)
+		}
+	})
+	// Sub-test 7: Doc Link Rendering and Integrity
+	t.Run("DocLinkRenderingAndIntegrity", func(t *testing.T) {
+		docLinksScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return null;
+
+			// Switch to manual tab and clear search to see all flags
+			app.openHelpDrawer('manual');
+			app.helpDrawer.search = '';
+			app.helpDrawer.contextOnly = false;
+
+			const flags = app.filteredFlags();
+			const flagsWithDocUrl = flags.filter(f => Boolean(f.docUrl));
+			const rcloneOrgUrls = flagsWithDocUrl.filter(f => f.docUrl && f.docUrl.startsWith('https://rclone.org/'));
+
+			// Query rendered DOM anchor elements within manual tab
+			const links = Array.from(document.querySelectorAll('a[href^="https://rclone.org/"]'));
+			const validRelCount = links.filter(l => l.getAttribute('rel') === 'noopener noreferrer' && l.getAttribute('target') === '_blank').length;
+
+			// Cleanup
+			app.closeHelpDrawer();
+
+			return {
+				totalFlags: flags.length,
+				flagsWithDocUrl: flagsWithDocUrl.length,
+				rcloneOrgUrls: rcloneOrgUrls.length,
+				renderedLinksCount: links.length,
+				validRelCount
+			};
+		})()`
+
+		type DocLinksResult struct {
+			TotalFlags         int `json:"totalFlags"`
+			FlagsWithDocUrl    int `json:"flagsWithDocUrl"`
+			RcloneOrgUrls      int `json:"rcloneOrgUrls"`
+			RenderedLinksCount int `json:"renderedLinksCount"`
+			ValidRelCount      int `json:"validRelCount"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DocLinksResult](docLinksScript))
+		if err != nil {
+			t.Fatalf("failed verifying doc links: %v", err)
+		}
+		if res.TotalFlags < 18 {
+			t.Errorf("expected at least 18 total flags in catalog, got %d", res.TotalFlags)
+		}
+		if res.FlagsWithDocUrl < 18 {
+			t.Errorf("expected at least 18 flags to have docUrl, got %d", res.FlagsWithDocUrl)
+		}
+		if res.RcloneOrgUrls != res.FlagsWithDocUrl {
+			t.Errorf("expected all docUrls to target rclone.org, got %d/%d", res.RcloneOrgUrls, res.FlagsWithDocUrl)
 		}
 	})
 

@@ -17,7 +17,7 @@ Expand the in-app interactive reference manual in Bisync Hub to document all 18+
   - **Scope**: `dashboard/frontend/partials/components/component_help_drawer.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh all`
 
-- [ ] Task 4: Headless Chrome E2E Verification for Expanded Catalog
+- [x] Task 4: Headless Chrome E2E Verification for Expanded Catalog
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `go test -count=1 -v ./tests/e2e/...` and `./scripts/check.sh all`
 
@@ -32,5 +32,7 @@ Expand the in-app interactive reference manual in Bisync Hub to document all 18+
 
 - 2026-11-06: Completed Task 2: Refactored `help.js` to dynamically consume `window.HelpCatalog`, reducing its LOC from 396 to 237 while preserving all getters, filters, and shortcuts. Verified with `go test` and `./scripts/check.sh all`.
 - 2026-11-06: Completed Task 3: Rendered external documentation badge links with `target="_blank"` and `rel="noopener noreferrer"` for flags in `component_help_drawer.html`. Verified with `./scripts/check.sh all`.
+- 2026-11-06: Completed Task 4: Expanded headless Chrome E2E tests in `tests/e2e/dashboard_smoke_test.go` with Sub-test 7 verifying all 18 flag catalog entries, rclone.org outbound documentation URLs, and `rel="noopener noreferrer"` attributes. All 7/7 checks passed.
+
 
 
