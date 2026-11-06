@@ -17,7 +17,7 @@ Embed contextual policy explanations, an interactive slide-over reference manual
   - **Scope**: `internal/server/handlers_diagnostics_test.go`
   - **Verification**: `go test -race -v -count=1 ./internal/server/... -run TestHandleDiagnostics`
 
-- [ ] Task 4: In-Dashboard Reference Manual & Diagnostics Drawer Template
+- [x] Task 4: In-Dashboard Reference Manual & Diagnostics Drawer Template
   - **Scope**: `dashboard/frontend/partials/components/component_help_drawer.html`
   - **Verification**: `go test -count=1 ./tests/e2e/...`
 
@@ -40,6 +40,8 @@ Embed contextual policy explanations, an interactive slide-over reference manual
 - 2026-11-06: Completed Task 1: Defined `DiagnosticCheckStatus`, `DiagnosticCheck`, `DiagnosticSystemInfo`, and `DiagnosticsResponse` models in `internal/models/api.go` with schema tests in `internal/models/api_test.go`.
 - 2026-11-06: Completed Task 2: Implemented `handleDiagnostics` REST handler and operational check evaluators across daemon connectivity, storage accessibility, canary protection, remote token health, and host runtime environment in `internal/server/handlers_diagnostics.go`, wired to `GET /api/diagnostics` in `internal/server/server.go`.
 - 2026-11-06: Completed Task 3: Built comprehensive unit testing suite in `internal/server/handlers_diagnostics_test.go` verifying offline failure states, healthy multi-remote passes, and elevated latency warning thresholds under `-race`.
+- 2026-11-06: Completed Task 4: Created `dashboard/frontend/partials/components/component_help_drawer.html` featuring interactive slide-over tabs for System Diagnostics, Safety Policies, Flag Catalog, and Troubleshooting Runbooks. Verified with `main_test.go` and `tests/e2e/...`.
+
 
 
 
