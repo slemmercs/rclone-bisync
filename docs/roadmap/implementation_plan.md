@@ -1,78 +1,53 @@
-# Implementation Plan: Explorer Ergonomics, PDF Preview, Config Encryption Fix, and Header Layout Optimization
+# Implementation Plan: UI Suite Polish & Workflow Alignment
 
-[Overview]
-Resolve operational ergonomics, safety barriers, and layout issues identified in Milestone 1 testing:
-1. Fix Rclone configuration password encryption failure by replacing quoted shell snippets with a clean, temporary POSIX helper executable that parses without fs.SpaceSepList quoting errors.
-2. Filter file preview icons so unsupported binary formats (.docx, .xlsx, .pptx, archives, executables) do not display preview buttons or dump raw binary/zip text, and enable native inline PDF preview via an iframe streaming endpoint.
-3. Eliminate header overcrowding by removing the bandwidth speed pill from the Tier 1 context bar and integrating Bandwidth Throttling controls into the Global Settings modal (Engine & Polling tab).
-4. Remove the redundant standalone Bandwidth & Active Transfers telemetry card, unifying active transfer indicators into the existing synchronization progress monitor.
-5. Enhance File Explorer with a dedicated "Upload" button (file input trigger) and a desktop-class right-click and hover "..." context menu hosting file operations (Preview, Download, Copy to opposing pane, Delete).
+## Overview
+This implementation plan addresses the UI/UX refinements identified during Milestone 1 testing:
+1. Relocating Global Fleet Settings tabs into a clean **multi-line tab pill arrangement** (`flex-wrap`) with zero horizontal scrollbars.
+2. Adding graceful client and backend validation for **configuration encryption removal**, warning that the current passphrase is required instead of raising an execution error.
+3. Removing the redundant **Engine Transfer Telemetry panel** from the Telemetry view so only the active synchronization progress bar is displayed when sync runs.
+4. Streamlining File Explorer row actions so only the **Download button** and **`...` context menu trigger** appear on row hover, moving Copy and Delete exclusively into the context menu.
+5. Aligning context menu icons to standard **Lucide SVGs with directional arrows** (pointing right in the left pane for "Copy to Remote", and pointing left in the right pane for "Copy to Local").
+6. **Folder Download Evaluation & Resolution**: Downloading folders as zip archives to the browser adds unnecessary remote streaming overhead when users can already copy entire directories between remotes and local disks via the dual-pane explorer ("Copy to Local / Remote"). We will keep single-file downloads enabled for browser retrieval and retain directory transfers for filesystem operations, keeping the architecture lean and resilient.
 
-[Types]
-Type system changes:
-1. FilePreviewResponse (internal/models/preview.go):
-   - Add IsPDF bool `json:"is_pdf,omitempty"` to explicitly flag PDF documents for native in-browser viewing.
-2. FileUploadResponse (internal/models/explorer.go):
-   - Add FileUploadResponse struct for multipart upload confirmations.
+---
 
-[Files]
-File modifications:
-1. internal/services/config_encryption_service.go:
-   - Replace inlined shell string with temporary executable script in os.TempDir() to prevent fs.SpaceSepList parsing errors in rclone.
-2. internal/services/explorer_preview.go:
-   - Fix detectMimeType and isBinaryData so openxmlformats (.docx, .xlsx, .pptx) are identified as binary.
-   - Detect PDF files and return IsPDF: true with MimeType: "application/pdf".
-3. internal/server/handlers_preview.go:
-   - Support inline=true query parameter on GET /api/explorer/download for PDF iframe embedding.
-4. internal/server/handlers_explorer.go:
-   - Add POST /api/explorer/upload handling multipart file uploads with path jail confinement.
-5. dashboard/frontend/partials/modals/modal_file_preview.html:
-   - Render iframe for PDF preview when is_pdf is true.
-6. dashboard/frontend/partials/modals/modal_global_settings.html:
-   - Add Bandwidth Throttling controls (presets, custom rate, status) under Engine & Polling tab.
-7. dashboard/frontend/partials/components/component_header.html & dashboard/frontend/index.html:
-   - Remove bandwidth widget from Tier 1 context bar.
-8. dashboard/frontend/partials/view_telemetry.html:
-   - Remove redundant standalone Bandwidth card.
-9. dashboard/frontend/partials/view_explorer.html:
-   - Add Upload button.
-   - Restrict Preview button to isItemPreviewable(item).
-   - Add hover Download button and "..." action button + right-click context menu.
-10. dashboard/frontend/js/explorer_actions.js:
-    - Implement isItemPreviewable, openContextMenu, closeContextMenu, and uploadFiles.
+## Proposed Changes
 
-[Functions]
-Function modifications:
-1. createPasswordHelperScript() (string, error) in internal/services/config_encryption_service.go:
-   - Writes a temporary POSIX shell script in os.TempDir() that inspects RCLONE_PASSWORD_CHANGE and echoes $NEW_PASS or $OLD_PASS.
-2. isItemPreviewable(item) in dashboard/frontend/js/explorer_actions.js:
-   - Returns true only for text, code, markdown, image, and PDF files.
-3. handleUploadFile in internal/server/handlers_explorer.go:
-   - Handles POST /api/explorer/upload with path jail confinement.
+### 1. Global Fleet Settings Tab Navigation & Encryption Removal Validation
+- `dashboard/frontend/partials/modals/modal_global_settings.html`:
+  - Change tab container to `flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-2.5 text-xs font-semibold` (remove `overflow-x-auto` and `shrink-0`).
+- `dashboard/frontend/js/settings.js`:
+  - In `removeConfigPassword()`: Check if `old_password` is empty. If empty, trigger `showToast("Current passphrase is required to remove encryption.", "warning")` and return early without dispatching an API call.
+- `internal/server/handlers_encryption.go`:
+  - In `handleRemoveConfigEncryption()`: Validate that `req.Password` is non-empty. Return HTTP 400 Bad Request with a clear error payload if empty.
+- `internal/server/handlers_encryption_test.go`:
+  - Add test case verifying HTTP 400 is returned when removing encryption with an empty password.
 
-[Classes]
-Frontend modules:
-1. window.ExplorerActionsModule:
-   - Extends explorer state with contextMenu: { open: false, x: 0, y: 0, paneKey: null, item: null }.
-   - Adds triggerUpload(paneKey) and uploadFiles(paneKey, files).
+### 2. Remove Redundant Telemetry Panel
+- `dashboard/frontend/partials/view_telemetry.html`:
+  - Remove `<!-- Core Daemon Bandwidth & Active Transfers Card -->` (the Engine Transfer Telemetry card).
+  - Retain `<!-- Live Transfer Progress Card -->` (active synchronization progress bar with file name, speed, ETA, and percentage).
 
-[Dependencies]
-No new external Go module or npm dependencies. Uses standard library and existing Rclone RC client.
+### 3. Explorer Row Actions Declutter & Directional Context Menu Icons
+- `dashboard/frontend/partials/view_explorer.html`:
+  - In left pane file rows: Remove inline Preview, Copy, and Delete buttons. Keep only Download and `...` More Actions button.
+  - In right pane file rows: Remove inline Preview, Copy, and Delete buttons. Keep only Download and `...` More Actions button.
+- `dashboard/frontend/partials/components/component_context_menu.html`:
+  - For `contextMenu.paneKey === 'left'`: Render Lucide `arrow-right` SVG (`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`) for "Copy to Remote".
+  - For `contextMenu.paneKey === 'right'`: Render Lucide `arrow-left` SVG (`<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>`) for "Copy to Local".
+  - Ensure all other items use pure Lucide SVGs (Preview: `eye`, Download: `download`, Copy Path: `copy`, Delete: `trash-2`).
 
-[Testing]
-Testing approach:
-1. Unit tests:
-   - internal/services/config_encryption_service_test.go: verify helper script generation and password set/change/remove.
-   - internal/services/explorer_preview_test.go: verify .docx/.xlsx are recognized as binary and .pdf as is_pdf.
-   - internal/server/handlers_explorer_test.go: verify upload and path jail confinement.
-2. E2E tests (tests/e2e/dashboard_smoke_test.go):
-   - Headless Chrome test verifying context menu, upload button, PDF preview iframe, and clean header layout.
-3. ./scripts/check.sh all:
-   - Run all 7 quality gates.
+### 4. Quality Gate Verification & Smoke Testing
+- `tests/e2e/dashboard_smoke_test.go`:
+  - Update smoke tests to assert that only Download and `...` buttons are visible on row hover, and verify the multi-line settings tab wrapping.
+- Run `./scripts/check.sh all` to ensure all 7 quality gates pass.
 
-[Implementation Order]
-1. Config Encryption Fix (helper script in config_encryption_service.go).
-2. Preview Fix & PDF Streaming (explorer_preview.go, handlers_preview.go, modal_file_preview.html).
-3. Header & Telemetry Layout Cleanup (remove header pill, move bandwidth to settings modal, remove duplicate telemetry card).
-4. Explorer Upload & Context Menu (Upload button, isItemPreviewable check, hover Download + "..." context menu).
-5. Full Verification, E2E Smoke Tests, and Binary Build.
+---
+
+## Verification Plan
+
+- Unit & handler tests: `go test -v -count=1 ./internal/server/... -run TestHandleRemoveConfigEncryption`
+- LOC audit: `./scripts/check-loc.sh 400`
+- Full check suite: `./scripts/check.sh all`
+- E2E smoke tests: `go test -v -count=1 ./tests/e2e/...`
+

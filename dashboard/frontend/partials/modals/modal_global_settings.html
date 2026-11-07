@@ -24,12 +24,12 @@
         </div>
 
         <!-- Navigation Tabs -->
-        <div class="flex items-center gap-2 border-b border-slate-800 pb-2 text-xs font-semibold overflow-x-auto">
-            <button @click="globalSettingsModal.tab = 'defaults'" :class="globalSettingsModal.tab === 'defaults' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors shrink-0">Operational Defaults</button>
-            <button @click="globalSettingsModal.tab = 'engine'" :class="globalSettingsModal.tab === 'engine' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors shrink-0">Engine &amp; Polling</button>
-            <button @click="globalSettingsModal.tab = 'bandwidth'; fetchBandwidthLimit(); fetchCoreStats()" :class="globalSettingsModal.tab === 'bandwidth' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors shrink-0">Bandwidth Throttling</button>
-            <button @click="globalSettingsModal.tab = 'notifications'" :class="globalSettingsModal.tab === 'notifications' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors shrink-0">Alerts &amp; Webhooks</button>
-            <button @click="globalSettingsModal.tab = 'security'" :class="globalSettingsModal.tab === 'security' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors shrink-0">Config Security</button>
+        <div class="flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-2.5 text-xs font-semibold">
+            <button @click="globalSettingsModal.tab = 'defaults'" :class="globalSettingsModal.tab === 'defaults' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors cursor-pointer">Operational Defaults</button>
+            <button @click="globalSettingsModal.tab = 'engine'" :class="globalSettingsModal.tab === 'engine' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors cursor-pointer">Engine &amp; Polling</button>
+            <button @click="globalSettingsModal.tab = 'bandwidth'; fetchBandwidthLimit(); fetchCoreStats()" :class="globalSettingsModal.tab === 'bandwidth' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors cursor-pointer">Bandwidth Throttling</button>
+            <button @click="globalSettingsModal.tab = 'notifications'" :class="globalSettingsModal.tab === 'notifications' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors cursor-pointer">Alerts &amp; Webhooks</button>
+            <button @click="globalSettingsModal.tab = 'security'" :class="globalSettingsModal.tab === 'security' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors cursor-pointer">Config Security</button>
         </div>
         <!-- Tab 1: Operational Defaults -->
         <template x-if="globalSettingsModal.tab === 'defaults'">
