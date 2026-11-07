@@ -1,109 +1,231 @@
-# Implementation Plan: Milestone 2 - Dual-Pane File Commander & Ad-Hoc Transfers
+# Implementation Plan: Pure Profile Sync Staging & Remediation Workspace
 
-## Overview
-Milestone 2 advances Bisync Hub into an interactive dual-pane cloud storage commander:
-1. **Interactive Dual-Pane Commander**: Side-by-side synchronized explorer panes (`leftPane`, `rightPane`) with independent browsing, path jails, breadcrumbs, and cross-pane transfer triggers.
-2. **Atomic Move & Purge Operations**: Safe file/directory moves (`operations/movefile`, `operations/movedir`) and directory purging with canary protection and local jail validation.
-3. **Non-Blocking Queued Upload Dock**: Asynchronous upload manager detecting active sync locks (`flock` contention or `telemetry.is_syncing === true`), staging transfers in a queued state instead of returning 409 errors, and auto-resuming once locks clear.
-4. **Cloud Public Web Links**: Remote cloud web link resolution (`operations/publiclink`) for instant navigation to Google Drive and OneDrive web interfaces.
+## [Overview]
+Transform the explorer into a profile-bound Sync Staging & Remediation Workspace where the left pane is strictly jailed to the active profile's local storage and the right pane is bound to the active profile's cloud remote, enabling atomic file/directory moves, directory purges, cloud public web links, non-blocking upload coordination during active sync, and seamless deep-link triage from review sessions.
 
----
+The workspace operates as a 1:1 visual counterpart to the sync engine. Changing the selected profile simultaneously shifts both panes to that profile's root paths. Staging actions (dragging files left-to-right to push changes, or right-to-left to pull changes) directly manipulate disk/cloud state without triggering a full bisync run. Safety is guaranteed by canary inviolability (`RCLONE_TEST`), strict local path confinement (`filepath.Rel`), contextual deletion warnings, and audit logging with distinct staging vs remediation provenance.
 
-## Proposed Changes
+## [Types]
 
-### Affected Components & Packages
+### 1. `internal/models/operations.go`
+- `MoveRequest`:
+  ```go
+  type MoveRequest struct {
+      ProfileID string `json:"profile_id"`
+      SrcRemote string `json:"src_remote"` // "local" or remote name
+      SrcPath   string `json:"src_path"`
+      DstRemote string `json:"dst_remote"` // "local" or remote name
+      DstPath   string `json:"dst_path"`
+      IsDir     bool   `json:"is_dir"`
+  }
+  ```
+- `MoveResponse`:
+  ```go
+  type MoveResponse struct {
+      Status string `json:"status"` // "success" or "error"
+      Src    string `json:"src"`
+      Dst    string `json:"dst"`
+      Error  string `json:"error,omitempty"`
+  }
+  ```
+- `PurgeRequest`:
+  ```go
+  type PurgeRequest struct {
+      ProfileID string `json:"profile_id"`
+      Remote    string `json:"remote"` // "local" or remote name
+      Path      string `json:"path"`
+  }
+  ```
+- `PurgeResponse`:
+  ```go
+  type PurgeResponse struct {
+      Status string `json:"status"`
+      Path   string `json:"path"`
+      Error  string `json:"error,omitempty"`
+  }
+  ```
+- `PublicLinkRequest`:
+  ```go
+  type PublicLinkRequest struct {
+      ProfileID string `json:"profile_id"`
+      Remote    string `json:"remote"`
+      Path      string `json:"path"`
+      Unlink    bool   `json:"unlink,omitempty"`
+  }
+  ```
+- `PublicLinkResponse`:
+  ```go
+  type PublicLinkResponse struct {
+      URL       string `json:"url,omitempty"`
+      Supported bool   `json:"supported"`
+      Status    string `json:"status"`
+      Error     string `json:"error,omitempty"`
+  }
+  ```
 
-- `internal/models/operations.go`:
-  - `MoveRequest` & `MoveResponse`: Source/destination remotes, paths, directory flag, and status.
-  - `PublicLinkRequest` & `PublicLinkResponse`: Canonical remote cloud URL retrieval.
-  - `QueuedUploadItem`: Transfer queue item representation, byte progress, and state (`queued`, `uploading`, `completed`, `failed`).
+### 2. `internal/models/upload.go`
+- `UploadQueueItem`:
+  ```go
+  type UploadQueueItem struct {
+      ID         string    `json:"id"`
+      ProfileID  string    `json:"profile_id"`
+      Remote     string    `json:"remote"`
+      Path       string    `json:"path"`
+      FileName   string    `json:"file_name"`
+      Size       int64     `json:"size"`
+      Status     string    `json:"status"` // "queued", "waiting_for_sync", "uploading", "completed", "failed"
+      Error      string    `json:"error,omitempty"`
+      CreatedAt  time.Time `json:"created_at"`
+  }
+  ```
+- `UploadDockStatus`:
+  ```go
+  type UploadDockStatus struct {
+      PendingCount int               `json:"pending_count"`
+      IsSyncActive bool              `json:"is_sync_active"`
+      Items        []UploadQueueItem `json:"items"`
+  }
+  ```
 
-- `internal/core/client/operations.go`:
-  - `MoveFile(ctx, srcFs, srcRemote, dstFs, dstRemote)` wrapping RC `/operations/movefile`.
-  - `MoveDir(ctx, srcFs, dstFs)` wrapping RC `/operations/movedir`.
-  - `PublicLink(ctx, fs, remote, unlink bool)` wrapping RC `/operations/publiclink`.
+## [Files]
 
-- `internal/services/explorer_ops.go`:
-  - `MoveItem(ctx, srcRemote, srcPath, dstRemote, dstPath string, isDir bool, localBase ...string) (models.MoveResponse, error)` enforcing path jails and canary protection.
-  - `GetPublicLink(ctx, remote, path string) (string, error)` with graceful degradation on unsupported tiers (local, SFTP, S3).
+### New Files
+- `internal/models/operations.go`: Request and response contract DTOs for Move, Purge, and PublicLink.
+- `internal/models/upload.go`: Request and response contract DTOs for non-blocking upload dock.
+- `internal/core/client/operations.go`: Rclone RC client wrappers for `/operations/movefile`, `/operations/movedir`, `/operations/purge`, `/operations/publiclink`.
+- `internal/core/client/operations_test.go`: Unit tests for operations client using `httptest.Server`.
+- `internal/services/explorer_move.go`: Domain service method `MoveItem` handling local atomic renames, cloud moves, canary blocks, and local jail validation.
+- `internal/services/explorer_move_test.go`: Unit tests verifying `MoveItem` under valid moves, canary blocks, and jail escape attempts.
+- `internal/services/explorer_purge.go`: Domain service method `PurgeDirectory` enforcing canary recursion protection and profile jail bounds.
+- `internal/services/explorer_link.go`: Domain service method `GetPublicLink` with graceful degradation for unsupported remotes.
+- `internal/services/upload_dock.go`: Lightweight thread-safe in-memory upload dock coordinating with sync engine state.
+- `internal/services/upload_dock_test.go`: Unit tests verifying lock detection and state transitions.
+- `internal/server/handlers_operations.go`: HTTP endpoints for `/api/operations/move`, `/api/operations/purge`, `/api/operations/publiclink`, `/api/explorer/dock`.
+- `internal/server/handlers_operations_test.go`: HTTP tests covering authorization, jail containment, and error responses.
 
-- `internal/services/upload_queue.go`:
-  - `UploadQueueManager` maintaining an in-memory thread-safe queue of pending uploads.
-  - Coordinates with `core/lock` to defer upload processing when sync runs are active, auto-resuming on completion.
-
-- `internal/server/handlers_operations.go` & `internal/server/server.go`:
-  - `POST /api/operations/move`: Validates payload, checks path jails/canaries, and executes atomic move.
-  - `POST /api/operations/purge`: Purges directory with recursive canary protection.
-  - `GET /api/operations/publiclink`: Returns canonical web link for cloud items.
-  - `GET /api/explorer/queue` & `POST /api/explorer/upload-queued`: Multipart file upload staging into upload queue.
-
+### Modified Existing Files
+- `internal/server/server.go`: Call `s.registerOperationsRoutes()` to attach new endpoints while staying strictly under 400 LOC.
+- `dashboard/frontend/partials/components/component_explorer_toolbar.html`:
+  - Bind to active profile with lock indicator (`Profile: [Name] (Local <-> Remote)`).
+  - Add Upload Dock status indicator (`Uploads: N`).
+  - Active Remediation Cockpit Banner when navigating from a conflict review item.
 - `dashboard/frontend/partials/view_explorer.html`:
-  - Dual-pane commander layout with responsive split-screen toggle (`Single Pane` vs `Dual Commander`).
-  - Drag-and-drop file upload target zones on both left and right panes.
-  - Commander action bar: `[Copy]`, `[Move]`, `[Delete]`, and upload queue status indicator.
+  - Render ambient conflict/deletion badges on file rows matching candidate items.
+  - Contextual sync impact warnings on delete/purge actions.
+- `dashboard/frontend/partials/modals/modal_review.html`:
+  - Add "Inspect in Workspace" button (🔍) to candidate rows.
+- `dashboard/frontend/partials/components/component_context_menu.html`:
+  - Add inline review decision triggers (`Keep Local`, `Keep Remote`, `Accept Delete`) when right-clicking candidate rows.
+- `dashboard/frontend/js/explorer.js` & `dashboard/frontend/js/review.js`:
+  - Methods `inspectCandidateInWorkspace(candidate)` and `getReviewCandidate(path)`.
+- `docs/roadmap/task_plan.md`: Sequential, atomic micro-tasks tracking each step.
 
-- `dashboard/frontend/js/explorer.js` & `dashboard/frontend/js/explorer_actions.js`:
-  - Dual-pane state management (`leftPane`, `rightPane`, active pane focus).
-  - Cross-pane directional transfer handlers and keyboard shortcuts.
-  - Non-blocking upload dock status pill and drawer.
+## [Functions]
 
----
+### New Functions
+1. `c.MoveFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) error`
+   - File: `internal/core/client/operations.go`
+   - Purpose: Calls Rclone RC `operations/movefile` with normalized fs endpoints.
+2. `c.MoveDir(ctx context.Context, srcFs, dstFs string) error`
+   - File: `internal/core/client/operations.go`
+   - Purpose: Calls Rclone RC `operations/movedir`.
+3. `c.Purge(ctx context.Context, fs, remote string) error`
+   - File: `internal/core/client/operations.go`
+   - Purpose: Calls Rclone RC `operations/purge`.
+4. `c.PublicLink(ctx context.Context, fs, remote string, unlink bool) (*models.PublicLinkResponse, error)`
+   - File: `internal/core/client/operations.go`
+   - Purpose: Calls Rclone RC `operations/publiclink` and returns shareable URL.
+5. `e.MoveItem(ctx context.Context, req models.MoveRequest, localBase string) (models.MoveResponse, error)`
+   - File: `internal/services/explorer_move.go`
+   - Purpose: Validates local jail boundaries, blocks `RCLONE_TEST` canary moves, executes atomic `os.Rename` for local moves or RC client for cloud, audits with `SOURCE: WORKSPACE_STAGING`.
+6. `e.PurgeDirectory(ctx context.Context, req models.PurgeRequest, localBase string) (models.PurgeResponse, error)`
+   - File: `internal/services/explorer_purge.go`
+   - Purpose: Recursively verifies no canary is contained before purging; audits action.
+7. `e.GetPublicLink(ctx context.Context, req models.PublicLinkRequest) (models.PublicLinkResponse, error)`
+   - File: `internal/services/explorer_link.go`
+   - Purpose: Calls client public link; handles unsupported remotes gracefully without 500 error.
+8. `dock.Enqueue(item models.UploadQueueItem) error` / `dock.GetStatus() models.UploadDockStatus`
+   - File: `internal/services/upload_dock.go`
+   - Purpose: In-memory upload queue tracking deferrals during active sync runs.
+9. `s.handleMoveItem(w http.ResponseWriter, r *http.Request)`
+   - File: `internal/server/handlers_operations.go`
+   - Purpose: HTTP handler for `POST /api/operations/move`.
+10. `s.handlePurgeDirectory(w http.ResponseWriter, r *http.Request)`
+    - File: `internal/server/handlers_operations.go`
+    - Purpose: HTTP handler for `POST /api/operations/purge`.
+11. `s.handlePublicLink(w http.ResponseWriter, r *http.Request)`
+    - File: `internal/server/handlers_operations.go`
+    - Purpose: HTTP handler for `GET /api/operations/publiclink`.
 
-### Technical Strategy & Data Flow
+### Modified Functions
+1. `s.routes()`
+   - File: `internal/server/server.go`
+   - Modification: Call `s.registerOperationsRoutes()` to register new operational routes without exceeding 400 LOC.
+2. `fetchExplorerDirectory(pane, target, path)`
+   - File: `dashboard/frontend/js/explorer.js`
+   - Modification: Check active review candidates and apply ambient badges.
 
-```
-[Operator Action] ─── Drag & Drop / Move / Copy
-         │
-         ▼
-[Frontend Controller] (explorer.js / explorer_actions.js)
-         │
-         ├── Check `telemetry.is_syncing`
-         │     ├── If Idle: Direct execution via /api/operations/move or /api/explorer/upload
-         │     └── If Sync Active: Route to /api/explorer/upload-queued
-         │
-         ▼
-[Backend Service Layer] (ExplorerService / UploadQueueManager)
-         │
-         ├── Path Jail Validation (`isLocalPathJailed`)
-         ├── Canary File Protection (`RCLONE_TEST` check)
-         ├── Advisory Flock Lock Coordination
-         │
-         ▼
-[Rclone RC API / Local Filesystem] ─── Atomic Rename / Transfer
-```
+## [Classes / Structs]
 
-### Safety & Error Handling
+1. `ExplorerService`:
+   - File: `internal/services/explorer_service.go`
+   - Receives new methods across decomposed domain files (`explorer_move.go`, `explorer_purge.go`, `explorer_link.go`).
+2. `UploadDock`:
+   - File: `internal/services/upload_dock.go`
+   - Thread-safe manager: `sync.RWMutex`, `items []models.UploadQueueItem`, checks `syncService.IsSyncing()`.
+3. `RcloneClient`:
+   - File: `internal/core/client/operations.go`
+   - Receives methods `MoveFile`, `MoveDir`, `Purge`, `PublicLink`.
 
-- **Local Filesystem Jail**: All file moves, copies, and uploads must verify source and destination paths using `filepath.Rel` and base prefix confinement (`isLocalPathJailed`).
-- **Canary File Inviolability**: `RCLONE_TEST` cannot be moved, renamed, overwritten, or deleted. Any directory move or purge recursively checks for canary files before execution.
-- **Flock Concurrency Coordination**: Background sync runs acquire exclusive locks. Explorer write actions check advisory lock state to prevent mid-sync corruption, enqueuing uploads if locks are held.
-- **Code Governance Limits**: Every Go file and frontend module must remain strictly under 400 LOC.
+## [Dependencies]
+- Zero external runtime or package dependencies; standard Go library (`net/http`, `os`, `path/filepath`, `sync`, `time`) and existing internal modules (`internal/core/client`, `internal/models`, `internal/security`).
 
----
+## [Testing]
 
-## Verification Plan
+1. **Unit Tests**:
+   - `internal/core/client/operations_test.go`:
+     - `TestMoveFile_Success`, `TestMoveFile_Error`
+     - `TestMoveDir_Success`
+     - `TestPurge_Success`, `TestPurge_Error`
+     - `TestPublicLink_Success`, `TestPublicLink_Unsupported`
+   - `internal/services/explorer_move_test.go`:
+     - `TestMoveItem_LocalToLocal_Success`
+     - `TestMoveItem_CanaryBlocked`
+     - `TestMoveItem_JailEscapeBlocked`
+     - `TestPurgeDirectory_CanaryBlocked`
+   - `internal/server/handlers_operations_test.go`:
+     - Test HTTP endpoints with valid payloads and deliberate jail traversal attempts (`../`).
+2. **Quality Gates**:
+   - `./scripts/check.sh all` validating format, vet, staticcheck, LOC compliance (<400 LOC per file), template safety, and race detector.
+3. **End-to-End Headless Chrome Tests**:
+   - `tests/e2e/dashboard_smoke_test.go`:
+     - Verify workspace dual panes reflect active profile local and remote paths.
+     - Verify review candidate deep link opens workspace and highlights target.
 
-### Automated Unit & Integration Tests
-- `internal/services/explorer_ops_test.go`:
-  - `TestMoveItem_LocalToLocal`: Verify atomic local moves and jail enforcement.
-  - `TestMoveItem_CanaryProtection`: Verify moving `RCLONE_TEST` returns 403 / error.
-  - `TestMoveItem_RemoteToRemote`: Mock RC `/operations/movefile` and verify request payload.
-- `internal/services/upload_queue_test.go`:
-  - Test queue state transitions when lock is held vs released.
-- `internal/server/handlers_operations_test.go`:
-  - Test `/api/operations/move` route and error responses.
-  - Test `/api/operations/publiclink` route and fallback behavior.
+## [Implementation Order]
 
-### End-to-End Headless Chrome Tests (`tests/e2e/dashboard_smoke_test.go`)
-- E2E smoke test verifying:
-  - Commander dual-pane toggle renders both panes.
-  - Drag-and-drop upload zone triggers exist.
-  - Directional transfer buttons open confirmation modals with correct source/destination.
-
-### Full Quality Gate Execution
-- `./scripts/check.sh all`:
-  - All 7 stages passing: format, vet, staticcheck, Alpine template safety, LOC check (<400 LOC), unit tests, and race detector.
-
-- Full check suite: `./scripts/check.sh all`
-- E2E smoke tests: `go test -v -count=1 ./tests/e2e/...`
-
+1. **Step 1: Core Client Operation Wrappers & Models**
+   - Create `internal/models/operations.go` and `internal/models/upload.go`.
+   - Implement `internal/core/client/operations.go` and `internal/core/client/operations_test.go`.
+   - Verify: `go test -v -count=1 ./internal/core/client/... -run "TestMove|TestPurge|TestPublicLink"`
+2. **Step 2: Service Layer Profile-Bound Operations (Move, Purge, Link)**
+   - Implement `internal/services/explorer_move.go`, `explorer_purge.go`, `explorer_link.go`.
+   - Implement unit tests in `internal/services/explorer_move_test.go`.
+   - Verify: `go test -v -count=1 ./internal/services/... -run "TestMoveItem|TestPurge|TestPublicLink"`
+3. **Step 3: Server Handlers & Endpoint Routing**
+   - Implement `internal/server/handlers_operations.go` and `internal/server/handlers_operations_test.go`.
+   - Wire route registration in `internal/server/server.go`.
+   - Verify: `go test -v -count=1 ./internal/server/... -run TestHandleOperations`
+4. **Step 4: Non-Blocking Upload Dock Service**
+   - Implement `internal/services/upload_dock.go` and unit tests in `internal/services/upload_dock_test.go`.
+   - Add endpoint in `internal/server/handlers_operations.go`.
+   - Verify: `go test -v -count=1 ./internal/services/... -run TestUploadDock`
+5. **Step 5: Frontend Workspace Layout & Profile-Bound Panes**
+   - Update `component_explorer_toolbar.html`, `view_explorer.html`, `explorer.js`, and `explorer_actions.js`.
+   - Verify: `./scripts/check.sh templates && ./scripts/check.sh loc`
+6. **Step 6: Sync Review Remediation Bridge**
+   - Update `modal_review.html`, `component_context_menu.html`, and `review.js`.
+   - Verify: `./scripts/check.sh templates && ./scripts/check.sh loc`
+7. **Step 7: Full Quality Gates & E2E Smoke Testing**
+   - Add E2E headless test scenarios in `tests/e2e/dashboard_smoke_test.go`.
+   - Execute full pre-commit check: `./scripts/check.sh all`.
