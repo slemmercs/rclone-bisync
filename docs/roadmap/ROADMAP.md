@@ -1,227 +1,91 @@
-# Roadmap
+# Bisync Hub Strategic Roadmap
 
-This roadmap represents the intended direction of Bisync Hub.
-
-The roadmap may evolve as the project grows.
+This roadmap outlines the strategic direction, architectural horizons, and forward-looking milestones for **Bisync Hub**.
 
 ---
 
-## Vision
+## Vision & Guiding Principles
 
-Become the safest and most understandable way to operate Rclone Bisync.
+**"Review. Decide. Sync."**
 
-**Review. Decide. Sync.**
+Bisync Hub exists to be the safest, most transparent, and most resilient way to operate Rclone Bisync across desktop and homelab environments.
 
----
+### Guiding Principles
 
-## Community Participation
-
-Roadmap priorities are primarily driven by:
-
-1. User safety & data loss prevention
-2. Reliability & crash-resilient atomicity
-3. Usability & operational transparency
-4. Maintainer capacity
-5. Community feedback
-
-Roadmap items are not commitments and may change based on project needs.
+1. **User Safety & Data Loss Prevention First**: Destructive actions always require deterministic barriers, dry-run previews, or explicit operator confirmation.
+2. **Crash-Resilient Atomicity**: All state mutations, telemetry writes, and review decisions use atomic file replacement and race-free POSIX advisory locking (`flock`).
+3. **Operational Transparency**: System state, failure causes (`TOO_MANY_DELETES`, missing canaries, lock contention), and flag effects must be comprehensible to operators without guesswork.
+4. **Zero Global Pollution**: Native Go single binary distribution with embedded assets and zero external runtime dependencies.
 
 ---
 
-## Status Summary
+## Delivered Releases & Milestone History
 
-| Epic / Feature | Status | Milestone / PR |
-| :--- | :--- | :--- |
-| Single-Binary Go Architecture & Embedded UI | **Delivered** | PR #9 |
-| Test Coverage Uplift (>80% statement coverage across all packages) | **Delivered** | PR #17 |
-| Remote OAuth Reconnect & Lifecycle Management | **Delivered** | PR #16 |
-| SyncService Modularization & Domain Separation | **Delivered** | PR #18 |
-| Bisync Hub Rebranding & Lucide SVG Design System | **Delivered** | PR #20 |
-| **Interactive Sync Review & Deletion Diff Visualizer** | **Delivered** | Milestone 4 (`feat/interactive-sync-review`) |
-| **Heuristic Conflict Recommendation Engine** | **Delivered** | Milestone 4 Extension (`feat/heuristic-conflict-engine`) |
-| **Frontend Template Modularization (`html/template`)** | **Delivered** | Refactor (`refactor/modularize-frontend-templates`) |
-| **Immutable Audit Ledger & Unified Log Architecture** | **Delivered** | PR #27 (`feat/immutable-audit-ledger-and-unified-logging`) |
-| **Service Layer Decoupling & Architecture Modularization (sub-400 LOC)** | **Delivered** | PR #28, PR #29, PR #31 (`v1.0.0-beta.2`–`beta.4`) |
-| **Go CLI Quality Gate (`cmd/check`) & E2E Testing Suite** | **Delivered** | PR #32 (`feat/alpine-boolean-lint-and-e2e`) |
-| **Multi-Profile Backend Engine (Storage, Scheduler, Flags)** | **Delivered** | PR #37, PR #40, PR #42 (`v1.0.0-beta.7`–`beta.9`) |
-| **Hybrid Fleet Overview, Provider Presets & Global Fleet Settings** | **Delivered** | PR #41, PR #43 (`v1.0.0-beta.8`–`beta.10`) |
-| **UI Design System, 10ms Telemetry & Inline Log Folding** | **Delivered** | PR #45 (`v1.0.0-beta.12`) |
-| **Remote Hash Deduplication & Baseline Protection** | **Delivered** | PR #45 (`v1.0.0-beta.12`) |
-| **Unified Logging, Profile Ledger & Telemetry De-Noising** | **Delivered** | PR #49–#53 (`v1.0.0-beta.14`–`beta.18`) |
-| **Technical Debt Remediation & Strict Sub-400 LOC Modularization** | **Delivered** | PR #54 (`v1.0.0-beta.19`) |
-| **Typed Service Contracts & Copyleft License Guard** | **Delivered** | PR #55 (`v1.0.0-beta.20`) |
-| **Native Model Context Protocol (MCP) Server (`rclone-bisync mcp`)** | **Delivered** | PR #56 (`v1.0.0-beta.20`) |
-| **Tier 1 Curated Options, Guided Flags Builder & Audit Ledger Sync** | **Delivered** | PR #59 (`v1.0.0-beta.21`) |
-| **RC Argument Compiler, Rename Tracking & Review Cache Invalidation** | **Delivered** | `v1.0.0-beta.22` |
-| **Security Hardening (CodeQL #24) & MCP Inspector Modal** | **Delivered** | `v1.0.0-beta.23` |
-| **Embedded MCP Server Consolidation & Profile Store Protection** | **Delivered** | PR #70 (`v1.0.0-beta.27`) |
-| **Architecture Hardening & Real Rclone Sandbox Suite** | **Delivered** | PR #70 (`v1.0.0-beta.27`) |
-| **In-App User Guidance & Interactive Diagnostic Manual** | **Active Strategic Priority** | Help Documents & Contextual Guidance |
-| **Configuration Snapshot & Rollback Engine** | **Near-Term Priority 2** | Safety Pipeline & Config Snapshot API |
-| **Homelab Reverse Proxy Hardening & OpenTelemetry Observability** | **Near-Term Priority 3** | Auth, Headers & OTel Metrics/Traces |
-| Remote Mount Manager & Pooled Virtual Storage Engine | Planned | Storage & VFS Extension |
-| Local Inter-Process Communication (IPC) via Unix Sockets | Planned | Infrastructure Hardening |
-| Auto-Generated Cryptographic Credentials Engine | Planned | Infrastructure Hardening |
-| Desktop Application Packaging (Wails) | Future | Native Packaging |
+All historical releases, delivered epics, and version changelogs (from initial architecture port through `v1.0.0-beta.27`) are documented in detail in our official release notes:
+
+👉 **[View All Delivered Releases on GitHub](https://github.com/slemmercs/rclone-bisync/releases)**
 
 ---
 
-## Active Strategic Priorities
+## Forward-Looking Horizons
 
-### Delivered Milestone: Hybrid Fleet Overview, Provider Presets & Global Fleet Settings (`v1.0.0-beta.10`)
+### Horizon 1: Target v1.0.0 General Availability (GA)
 
-Transitions the Bisync Hub dashboard from single-tenancy to a workload-centric operational hierarchy:
-- **Level 1 Fleet View**: Dashboard overview presenting system health summary counters (`Total`, `Healthy`, `Needs Review`, `Failing`, `Syncing`), interactive profile card grid, search/filter controls, and inline quick-actions.
-- **Level 2 Scoped Workspace**: Context-aware workspace scoped to the selected profile with header context switcher and breadcrumb navigation.
-- **Visual Operational Flags & Provider Presets**: 3-tier flag hierarchy configuration (Execution Controls, Profile Settings, Custom Flags Escape Hatch), provider-aware presets (`gdrive`, `onedrive`, `dropbox`, `s3`), and editable Global Fleet Settings (`modal_global_settings.html`) with live inheritance badges.
-- Refer to [`docs/design/hybrid_fleet_overview_contextual_profile_workspace.md`](../design/hybrid_fleet_overview_contextual_profile_workspace.md) and [`docs/design/bisync_operational_flags.md`](../design/bisync_operational_flags.md).
+The immediate focus leading to the production `v1.0.0` GA milestone centers on enterprise-grade configuration resilience and homelab production readiness.
 
----
-### Delivered Milestone: Remote Hash Deduplication & Baseline Protection (`v1.0.0-beta.12`)
+#### 1. Configuration Snapshot & One-Click Rollback Engine
+- **3-Layer Safety Pipeline**: Automated configuration backups, SHA-256 integrity verification, and strict JSON/env schema validation before applying settings changes.
+- **Atomic Configuration Snapshots**: Timestamped configuration states archived under `config_snapshots/` before any profile mutation or global settings update.
+- **One-Click Rollback API & Visual Diff**: Visual side-by-side comparison of active configuration against historical snapshots with instant restoration to revert misconfigurations safely.
 
-Safely consolidates cloud remote collisions using native MD5 checksum deduplication without triggering bisync circuit breakers:
-- **Interactive Storage View Action**: Quick-action `[Dedupe by Hash]` added to storage remote cards (`modal_dedupe.html`).
-- **3-Strategy Execution**: Supports `oldest` (recommended - preserves original creation timestamps), `newest` (preserves latest modifications), and `list` (safe dry-run preview).
-- **Automated Baseline Resync Safeguard**: Following remote deduplication, Bisync Hub refreshes internal baseline listings, completely preventing `TOO_MANY_DELETES` trips on subsequent sync runs.
-- **Engine Process Isolation**: Process execution locks prevent concurrent sync jobs from corrupting cloud state during active deduplication.
-
----
-
-### Delivered Milestone: Native Model Context Protocol (MCP) Server (`v1.0.0-beta.20`)
-
-Integrates Bisync Hub directly into AI agent workflows (Claude Desktop, Cursor, Cline) via the official Model Context Protocol (MCP):
-- **Single-Binary Dual Transport**: Pure-Go architecture supporting standard I/O (`stdio`) for local IDE/CLI agents and HTTP Server-Sent Events (`sse` on `--port 8081`) with graceful shutdown.
-- **Cryptographic Confirmation Ticket Engine**: 2-step confirmation loop with exact parameter fingerprint validation (`expectedParams`) protecting destructive mutations (`trigger_sync` with `resync`/`force`, `resolve_review` with `execute=true`, and `dedupe_by_hash`).
-- **Token-Optimized Read Tools & Resources**:
-  - `bisync_get_status`: Compact health summary by default (195 characters, **~98.5% token reduction**), with opt-in flags for logs, config, and metrics.
-  - `bisync_get_logs`: Dedicated tail-limited log retrieval tool with severity filtering (`ERROR`, `NOTICE`, `INFO`).
-  - `bisync_explore_path`: Jail-confined filesystem explorer (`filepath.Rel`) with windowed pagination (`limit`, `offset`) and projected metadata.
-  - `bisync_get_sync_history`: Historical ledger queries with stripped cryptographic hashes.
-  - `bisync_inspect_conflict_session`: Unresolved candidate filtering and file diffs.
-  - 5 MCP Resources: `bisync://profiles`, `bisync://status`, `bisync://profile/{id}`, `bisync://history/{id}`, `bisync://conflicts/{session_id}`.
-- **Mutating Tools & ADR-004 Compliance**:
-  - `bisync_trigger_sync`: Default dry-run mode with safety-gated resync and force flags.
-  - `bisync_resolve_review`: Support for canonical decisions (`keep-local`, `keep-remote`, `keep-both`, `accept-delete`, `restore-item`, `skip`) and session-level `dismiss`.
-  - `bisync_dedupe_by_hash`: Default safe `list` preview mode, 2,000-character context window output truncation, and bounded SQLite audit logging (zero audit records written for zero-deletion previews per ADR-004).
-
----
-
-### Delivered Milestone: Tier 1 Curated Options, Guided Flags Builder & Audit Ledger Sync (`v1.0.0-beta.21`)
-
-Streamlines profile operational flag management, guarantees boolean argument persistence, provides an interactive flag builder with real-time command preview, and fixes audit ledger counter synchronization:
-- **Tier 1 Curated Provider Options**: Curated high-impact toggles for Google Drive (`--drive-shared-with-me`, `--drive-skip-gdocs`, `--drive-use-trash`), OneDrive, S3, and Dropbox, with clean lean fallbacks for other providers.
-- **Explicit Boolean Serialization & Compiler Support**: Correctly serializes unchecked boolean overrides (e.g., `--drive-use-trash=false`) and enhances CLI-to-RC compiler to parse `=value` arguments into typed parameters.
-- **Guided `+ Add Flag` Builder (`flags_builder.js`)**: Interactive row-by-row builder with autocomplete datalist, type-aware value inputs, validation tooltips, POSIX command-line tokenizer, and live generated `rclone bisync` command preview.
-- **Dual Count/Percentage `MaxDeleteValue`**: Type-safe model supporting both count thresholds (e.g., `42`) and percentages (e.g., `10%`), serialized seamlessly with backwards compatibility.
-- **Audit Ledger Counter Sync & CodeQL Remediation**: Initialized audit records on boot so navigation tab badges show total event count immediately, stabilized profile filtering, and fixed quote sanitization escaping (CodeQL #23).
-
----
-
-### Delivered Milestone: RC Argument Compilation, Rename Tracking & Review Cache Invalidation (`v1.0.0-beta.22`)
-
-Hardens CLI-to-RC argument compilation, rename tracking flags, in-memory review barrier synchronization, and dropdown rendering:
-- **Rclone RC Parameter Compilation & Config Remapping**: Added `TypeParamMaxDelete` stripping `%` and emitting integer `maxDelete` at top-level AND setting `_config["MaxDelete"]` (`fs.ConfigInfo.MaxDelete`). Remapped `--track-renames` (`TypeConfigBool` -> `_config["TrackRenames"]`) and `--track-renames-strategy` (`TypeConfigStr` -> `_config["TrackRenamesStrategy"]`).
-- **Review Session In-Memory Cache Invalidation**: Eliminated stale in-memory review barriers by auto-clearing `s.session = nil` when `active_review_session.json` is missing on disk or dismissed/resolved.
-- **Flags Builder `<select>` DOM Parser Fix**: Replaced `<template x-for>` inside `<select>` with standard `<option>` tags, preventing Chromium/WebKit parser stripping and restoring dropdown options. Expanded curated catalog with `--track-renames` and `--track-renames-strategy`.
-- **Headless Chromium E2E Testing**: Added automated E2E test verifying flags builder `<select>` retains catalog options.
-
----
-
-### Delivered Milestone: Security Hardening (CodeQL #24) & MCP Inspector Modal (`v1.0.0-beta.23`)
-
-Eliminates CodeQL #24 path injection, hardens agent diagnostics, adds scoped log filtering, flag compilation tool, configurable `MCP_READ_ONLY` mode, and interactive dashboard header MCP inspector modal:
-- **Security Hardening (CodeQL Alert #24)**: Strict session ID format validation (`review.IsValidSessionID`), path traversal guards, containment enforcement in rollback staging, and HTTP 400 rejection across API endpoints.
-- **Configurable MCP Read-Only Mode (`MCP_READ_ONLY`)**: Added `MCP_READ_ONLY` setting in `bisync.env` and `--read-only` flag fallback for deterministic read-only safety without systemd modifications.
-- **Interactive MCP Inspector Modal (`modal_mcp.html`)**: Transformed header status pill into an interactive modal with live connection metrics, endpoint copy button, client integration snippets (Claude Desktop / Cline / Cursor), and an 11-tool catalog with dynamic permission badges.
-- **Explicit MCP Abort Diagnostics**: Integrated classified sync failure causes (`TOO_MANY_DELETES`, canary missing, lock contention) into MCP `bisync_trigger_sync` responses with active review barrier guidance.
-- **Scoped MCP Log Filtering**: Added `profile_id` and `run_id` filter parameters to `bisync_get_logs` with JSON and plain-text fallback matching.
-- **Flag Compiler Validation Tool (`bisync_validate_flags`)**: Read-only MCP tool exposing `compiler.CompileFlagsToParams` to test flag parsing, backend options, and `_config` dictionaries without executing sync.
-- **Explorer Pagination Metadata**: Added `total_count` and `has_more` to `bisync_explore_path` pagination responses.
-- **Unified Background Serving**: Embedded the native MCP SSE server directly into the dashboard daemon service, consolidating systemd units and eliminating duplicate schedulers and multi-daemon file races.
-
----
-
-### Delivered Milestone: Architecture Hardening, Real Rclone Sandbox Suite & Embedded MCP (`v1.0.0-beta.27`)
-
-Eliminates concurrency race conditions, introduces Tier 4 real local Rclone integration testing, standardizes API schemas, and consolidates background service architectures:
-- **POSIX Advisory File Locking**: Implemented race-free POSIX advisory locking (`syscall.Flock`) on active review session (`active_review_session.json.flock`) and write-ahead log (`review.wal.flock`), ensuring mutual exclusion between CLI commands, external scripts, and daemon workers.
-- **Tier 4 Real Local Rclone Sandbox Integration Suite**: Ephemeral integration testing harness (`tests/integration/rclone_sandbox_test.go`, `tests/integration/rclone_sandbox_edgecases_test.go`) executing real `rclone rcd` binaries on dynamic loopback ports with `--config /dev/null`, verifying trailing whitespace resilience, 404 idempotent deletions, and mixed directory/file conflict reviews without touching cloud remotes.
-- **Typed REST Schema Governance**: Replaced loose maps with concrete Go models in `internal/models/api.go` (`GlobalDefaults`, `ConfigDaemonSettings`, `GlobalConfigResponse`, `TelemetryResponse`) providing schema contracts across endpoints.
-- **Daemon Health Watchdog & Auto-Reconnect**: Background telemetry watchdog with exponential reconnect backoff and connection grace periods surviving transient RC daemon restarts.
-- **Embedded MCP Server Consolidation**: Embedded native Model Context Protocol SSE server on port 8081 directly inside `rclone-dashboard.service`, eliminating separate daemon units, duplicate schedulers, and multi-process lock contention.
-
----
-
-### Active Strategic Priority (#1): In-App User Guidance, Info & Help Documents
-
-Enhances dashboard accessibility for non-technical operators and new users:
-- **Contextual Tooltips & Policy Explanations**: Embeds inline tooltips and modal banners across `partials/view_*.html` explaining safety mechanisms (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
-- **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags (`--buffer-size`, `--tpslimit`), and step-by-step conflict recovery workflows.
-- **Interactive Diagnostics & Troubleshooting**: Embedded help documents for resolving OAuth token drops, path permissions issues, and systemd service status.
-
----
-
-### Near-Term Priority 2: Configuration Snapshot & Rollback Engine
-
-Provides server-side configuration safety for global environments:
-- **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying new settings.
-- **Atomic Configuration Snapshots**: Snapshot profile state before applying structural edits or sync actions, archived in `config_snapshots/` with timestamped revisions.
-- **One-Click Rollback API & Visual Diff**: Visual comparison of active configuration against historical snapshots with one-click restoration to instantly revert breaking changes.
-
----
-
-### Near-Term Priority 3: Homelab Reverse Proxy Security Hardening & OpenTelemetry Observability
-
-Hardens production and self-hosted homelab deployments with standards-based observability:
+#### 2. Homelab Production Hardening & Standards Observability (OTel/OTLP)
 - **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
-- **Authentication Integration**: Optional HTTP basic authentication or forward-auth middleware support for secure exposure behind reverse proxies (Traefik, Caddy, Nginx).
-- **OpenTelemetry Observability (OTel/OTLP)**: Native OpenTelemetry metrics and traces instrumentation exposing sync execution durations, cumulative transferred bytes, lock contention wait times, error counters, and daemon health via standard OTLP exporters (e.g. OTLP gRPC/HTTP to OpenTelemetry Collector, Prometheus OTel receiver, or Grafana Tempo/Mimir).
+- **Authentication Gateway Support**: Optional HTTP basic authentication or forward-auth middleware integration for secure exposure behind reverse proxies (Traefik, Caddy, Nginx).
+- **Native OpenTelemetry Instrumentation**: Export sync run durations, transferred byte counts, lock contention wait periods, error rates, and daemon health metrics directly over standard OTLP (gRPC / HTTP) to Prometheus OTel receivers, OpenTelemetry Collectors, or Grafana Tempo/Mimir.
 
 ---
 
-## Secondary & Infrastructure Priorities
+### Horizon 2: Advanced Operational Visibility & Queued Workflows
 
-### Remote Mount Lifecycle Manager & Pooled Storage Engine
+Expands forensic visibility and smooths file transfer operations without lock collisions.
 
-Programmatic management of VFS virtual drive mounts and multi-cloud storage pooling (`internal/mount`):
-- **Stage A (Remote Mount Manager)**: Mount, inspect, configure, and unmount individual remotes to local paths via Rclone RC `/mount/*` endpoints. Keepalive probes with automatic reconnect on transient network drops.
-- **Stage B (Pooled Storage Engine)**: Provision stacked multi-cloud topologies (`union` + `chunker` + `crypt`) over RC `/config/create`. Combines disparate storage tiers into a single encrypted virtual drive guarded by Bisync Hub's safety probes.
-- Refer to [`docs/design/remote_mount_manager_design_specification.md`](../design/remote_mount_manager_design_specification.md).
+#### 3. Unified Operational Log Ledger & Deep Path Navigation
+- **Structured High-Density Ledger**: High-density table viewer aligning `bisync.log` events with Audit Ledger records (`TIME`, `LEVEL`, `SOURCE`, `RUN ID`, `MESSAGE`, `ACTIONS`).
+- **Run ID & Review ID Cross-Correlation**: Clickable Run ID chips (`#run-...`) linking directly to filtered Audit Ledger records and daemon traces; Review ID chips (`@rev-...`) linking to conflict review records.
+- **Deep Path Navigation**: Contextual path parser recognizing file references in log lines (`Duplicate ignored`, `Deleted`, `Transferring`) with deep links that switch to File Explorer, navigate to the target directory, and highlight the file.
 
----
+#### 4. Remote Cloud Web Link Navigation ("Open on Remote")
+- **Public Web Link Resolution**: Integration with Rclone RC `operations/publiclink` to retrieve canonical cloud URLs for Google Drive and OneDrive items.
+- **Explorer & Log Integration**: Quick-action link icons embedded directly in remote File Explorer rows and log path chips.
+- **Graceful Capability Degradation**: Automatic suppression of web link actions on storage tiers lacking web interfaces (local filesystem, SFTP, raw S3).
 
-### Rclone Remote Control (RC) Framework Hardening
-
-Improves connectivity resiliency between Bisync Hub and the background Rclone `rcd` daemon:
-- Automated HTTP connection pooling and exponential backoff retry logic with jitter for HTTP 429 throttling.
-- Dynamic RC API version compatibility checks and health probes.
-- Proactive connection health monitoring across local Unix sockets and TCP loopbacks.
-
----
-
-### Local Inter-Process Communication (IPC) via Unix Sockets
-
-Replace loopback TCP ports with local Unix domain sockets:
-- Communicate over `unix:///run/user/$UID/rclone.sock` with strict `0600` permissions.
-- Eliminate local port contention and unauthorized loopback snooping.
-- Dual-mode support for bare-metal user sessions and containerized volume bind-mounts.
+#### 5. Queued Dual-Pane File Explorer Direct Upload
+- **Non-Blocking Upload Dock**: Asynchronous upload queue accepting file uploads during active synchronization (`telemetry.is_syncing === true` or POSIX flock contention) rather than returning HTTP 409 errors.
+- **Sequential Auto-Resume**: Automatically dispatches queued transfers once active sync runs finish and locks are released.
+- **Mid-Upload Lock Coordination**: Advisory upload coordination delaying scheduled sync triggers while active multipart uploads are in-flight.
 
 ---
 
-### Auto-Generated Cryptographic Credentials Engine
+### Horizon 3: Storage Expansion & Native Infrastructure
 
-Automated credential management without plaintext defaults:
-- `install.sh` generation of cryptographically random 32-character secrets in secure directories (`0600`).
-- Built-in Go CLI rotation command (`rclone-bisync rotate-creds`) utilizing `crypto/rand`.
-- Automatic daemon reload on credential rotation.
+Broadens platform integration and system storage capabilities.
+
+#### 6. Remote Mount Lifecycle Manager & Multi-Cloud Pooling
+- **Stage A (Remote Mount Manager)**: Pure-Go daemon managing Rclone VFS mount lifecycles on Linux (FUSE) with health keepalive probes, background daemon supervision, and clean unmount handlers (`fusermount -u`).
+- **Stage B (Pooled Storage Engine)**: Programmatic provisioning of stacked multi-cloud topologies (`union` + `chunker` + `crypt`) via Rclone RC `/config/create`. Combines disparate storage backends into a unified virtual drive guarded by Bisync Hub safety barriers.
+
+#### 7. Local IPC via Unix Domain Sockets
+- Replaces loopback TCP ports with local Unix domain sockets (`unix:///run/user/$UID/rclone.sock`) with strict `0600` permissions.
+- Eliminates local port contention and unauthorized loopback snooping in multi-user and containerized environments.
+
+#### 8. Native Desktop Application Packaging (Wails)
+- Standalone native desktop application bundle with native OS system tray integration, sleep/wake network reconnect hooks, and offline desktop notifications.
 
 ---
 
-## Long-Term Direction
+## Long-Term Direction & Non-Goals
 
-Bisync Hub is explicitly not intended to become:
-- A multi-tenant cloud SaaS platform.
-- A proprietary replacement for the upstream Rclone engine.
-- A complex binary diff merge engine (diff merges are left to specialized editors).
-
-Its mission is to be the premier, safety-first desktop and server hub for Rclone Bisync operations.
+To maintain high code quality and focus, Bisync Hub is explicitly **not** intended to become:
+- **A multi-tenant cloud SaaS platform**: It is optimized as a sovereign, self-hosted homelab and desktop hub.
+- **A proprietary replacement for upstream Rclone**: Bisync Hub wraps and orchestrates official Rclone RC engines rather than re-implementing cloud storage protocols.
+- **An arbitrary text/binary diff merge editor**: File content diff merges are intentionally deferred to specialized diff tools.
