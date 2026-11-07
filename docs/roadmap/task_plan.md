@@ -1,39 +1,30 @@
-# Task Plan: Rclone-UI Feature Suite - Milestone 1 (Operational Controls & Inspection)
+# Task Plan: Explorer Ergonomics, PDF Preview, Config Encryption Fix, and Layout Optimization
 
 ## Goal
-Implement Milestone 1 of the Rclone-UI Feature Suite natively in Bisync Hub: Dynamic Bandwidth Throttling, Transfer Stats, Safe File Preview/Download, and Configuration Encryption Status.
+Resolve operational ergonomics, safety barriers, and layout issues from testing: fix config encryption `--password-command` execution, restrict preview icons to supported formats, enable native PDF preview, move bandwidth controls into Settings modal, clean up duplicate telemetry cards, and add Explorer Upload & Context Menu.
 
 ## Tasks
 
-- [x] Task 1: Bandwidth - [ ] Task 1: Bandwidth & Core Stats Models and Client RC Methods Core Stats Models and Client RC Methods
-  - **Scope**: `internal/models/core.go`, `internal/core/client/client.go`, `internal/core/client/client_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/core/client/...`
+- [x] Task 1: Fix Rclone Config Encryption `--password-command` Execution
+  - **Scope**: `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`
 
-- [x] Task 2: Core Service and HTTP API Handlers
-  - **Scope**: `internal/services/core_service.go`, `internal/services/core_service_test.go`, `internal/server/handlers_core.go`, `internal/server/server.go`, `internal/app/container.go`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestCoreService`
-
-- [x] Task 3: File Preview & Streaming Service
-  - **Scope**: `internal/models/preview.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_preview_test.go`
+- [ ] Task 2: File Preview Format Classification & Native In-Browser PDF Streaming
+  - **Scope**: `internal/models/preview.go`, `internal/services/explorer_preview.go`, `internal/server/handlers_preview.go`, `dashboard/frontend/partials/modals/modal_file_preview.html`, tests
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestPreview`
 
-- [x] Task 4: File Preview & Download HTTP Endpoints and Explorer UI
-  - **Scope**: `internal/server/handlers_preview.go`, `dashboard/frontend/partials/modals/modal_file_preview.html`, `dashboard/frontend/partials/view_explorer.html`
-  - **Verification**: `go test -v -count=1 ./internal/server/...`
-
-- [x] Task 5: Rclone Config Encryption Service and Settings UI
-  - **Scope**: `internal/models/encryption.go`, `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`, `internal/server/handlers_encryption.go`, `dashboard/frontend/partials/modals/modal_global_settings.html`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestEncryption`
-
-- [x] Task 6: Header Bandwidth Controller and Real-Time Stats UI
-  - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/bandwidth.js`, `dashboard/frontend/partials/components/component_header.html`, `dashboard/frontend/partials/view_telemetry.html`
+- [ ] Task 3: Header & Telemetry Layout Cleanup (Bandwidth in Settings Modal)
+  - **Scope**: `dashboard/frontend/partials/components/component_header.html`, `dashboard/frontend/index.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/bandwidth.js`
   - **Verification**: `./scripts/check.sh templates`
 
-- [x] Task 7: Milestone 1 Verification, E2E Smoke Tests, and Full Quality Gates
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, all Milestone 1 components
+- [ ] Task 4: File Explorer Upload & Right-Click Context Menu
+  - **Scope**: `internal/server/handlers_explorer.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/js/explorer_actions.js`, `internal/server/handlers_explorer_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/server/...`
+
+- [ ] Task 5: End-to-End Smoke Tests & Full Quality Gate Verification
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, all updated components
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-07: Initialized task plan from implementation_plan.md for Milestone 1.
-- 2026-11-07: Completed Tasks 1-7 for Milestone 1: operational controls, dynamic bandwidth throttling, core stats, file preview/streaming with path jail confinement, and rclone.conf encryption management. All 7 quality gates passed.
+- 2026-11-07: Initialized task plan based on user testing feedback.
