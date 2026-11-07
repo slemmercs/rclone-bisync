@@ -232,6 +232,30 @@
                     </button>
                 </div>
 
+                <!-- Daemon Secrets Persistence Status -->
+                <div x-show="globalSettingsModal.encryption.is_encrypted" class="p-3 rounded-xl border transition-all" :class="globalSettingsModal.encryption.has_daemon_passphrase ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-amber-500/10 border-amber-500/30'">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full shrink-0" :class="globalSettingsModal.encryption.has_daemon_passphrase ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'"></span>
+                            <span class="text-xs font-semibold text-white">Daemon Passphrase Persistence:</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider" :class="globalSettingsModal.encryption.has_daemon_passphrase ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'" x-text="globalSettingsModal.encryption.has_daemon_passphrase ? 'Configured (rc-secrets.env)' : 'Missing / Unconfigured'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Passphrase Resolution Form if Missing -->
+                    <div x-show="!globalSettingsModal.encryption.has_daemon_passphrase" class="mt-3 pt-3 border-t border-amber-500/20 space-y-2">
+                        <div class="text-[11px] text-amber-200">
+                            The background daemon requires <code class="font-mono text-amber-100">RCLONE_CONFIG_PASS</code> in <code class="font-mono text-amber-100">rc-secrets.env</code> to execute background syncs without interactive prompts.
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                            <input type="password" x-model="globalSettingsModal.encryption.daemon_password" placeholder="Enter rclone.conf passphrase to persist" class="flex-1 bg-slate-900 border border-amber-500/40 focus:border-amber-400 rounded-lg px-3 py-1.5 text-xs text-white font-mono">
+                            <button type="button" @click="saveDaemonPassphrase()" :disabled="isSavingDaemonPassphrase()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-semibold rounded-lg text-xs transition-colors cursor-pointer shrink-0 shadow-sm flex items-center justify-center gap-1.5">
+                                <span x-text="globalSettingsModal.encryption.saving_daemon_passphrase ? 'Validating...' : 'Verify & Persist'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Set or Change Password Form -->
                 <div class="p-3.5 bg-slate-950/40 border border-slate-800/80 rounded-xl space-y-3">
                     <h4 class="text-xs font-bold text-slate-200" x-text="globalSettingsModal.encryption.is_encrypted ? 'Change Configuration Passphrase' : 'Set Configuration Encryption Passphrase'"></h4>

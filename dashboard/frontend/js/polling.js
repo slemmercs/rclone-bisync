@@ -121,6 +121,9 @@ window.PollingModule = {
             if ((syncJustFinished || profilesStale) && typeof this.fetchProfiles === "function") {
                 this.lastProfilesFetch = Date.now();
                 this.fetchProfiles();
+                if (typeof this.fetchConfigEncryptionStatus === "function") {
+                    this.fetchConfigEncryptionStatus();
+                }
             }
 
             if (syncJustFinished && typeof this.fetchAuditRecords === "function") {
