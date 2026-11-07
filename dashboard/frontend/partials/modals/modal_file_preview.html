@@ -1,0 +1,88 @@
+{{ define "modal_file_preview" }}
+<!-- Safe File Preview Modal -->
+<div x-show="filePreviewModal.show" x-cloak @keydown.escape.window="closePreviewModal()" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-transition.opacity.duration.200ms>
+    <div @click.away="closePreviewModal()" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative space-y-4 flex flex-col max-h-[90vh]">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+                    <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-sm font-bold text-white truncate" x-text="filePreviewModal.name || 'File Preview'"></h3>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-400 font-mono truncate mt-0.5">
+                        <span class="px-1.5 py-0.2 rounded bg-slate-800 text-indigo-300 border border-slate-700/60 font-semibold uppercase text-[9px]" x-text="filePreviewModal.remote || 'local'"></span>
+                        <span class="truncate" x-text="filePreviewModal.path"></span>
+                        <template x-if="filePreviewModal.preview && filePreviewModal.preview.size">
+                            <span class="text-slate-500" x-text="'• ' + formatBytes(filePreviewModal.preview.size)"></span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <button @click="closePreviewModal()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors ml-2 shrink-0 cursor-pointer" title="Close Preview">
+                <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+        </div>
+        <!-- Truncation Notice -->
+        <template x-if="filePreviewModal.preview && filePreviewModal.preview.truncated">
+            <div class="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs flex items-center gap-2 shrink-0">
+                <svg class="w-4 h-4 shrink-0 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12.01" x2="12.01" y1="16" y2="16"/></svg>
+                <span>Preview truncated to 2 MB display limit. Download file for full content.</span>
+            </div>
+        </template>
+
+        <!-- Body / Content Viewer -->
+        <div class="flex-1 overflow-auto min-h-[14rem] flex flex-col justify-center">
+            <!-- Loading -->
+            <div x-show="filePreviewModal.loading" class="py-16 flex flex-col items-center justify-center gap-3 text-slate-400 text-xs">
+                <svg class="w-6 h-6 animate-spin text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <span>Loading preview...</span>
+            </div>
+
+            <!-- Error -->
+            <div x-show="!filePreviewModal.loading && filePreviewModal.error" class="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs font-mono whitespace-pre-wrap">
+                <span x-text="filePreviewModal.error"></span>
+            </div>
+
+            <!-- Image View -->
+            <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && filePreviewModal.preview.data_url">
+                <div class="flex items-center justify-center p-2 bg-slate-950/60 rounded-xl border border-slate-800">
+                    <img :src="filePreviewModal.preview.data_url" :alt="filePreviewModal.name" class="max-h-[55vh] max-w-full rounded-lg object-contain shadow-lg" />
+                </div>
+            </template>
+
+            <!-- Binary File Notice -->
+            <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && filePreviewModal.preview.is_binary && !filePreviewModal.preview.data_url">
+                <div class="py-12 flex flex-col items-center justify-center text-center gap-3 px-4">
+                    <div class="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div class="space-y-1">
+                        <h4 class="text-sm font-semibold text-slate-200">Binary File</h4>
+                        <p class="text-xs text-slate-400 max-w-sm">Direct preview is not supported for binary files. Use download to inspect locally.</p>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Text Content View -->
+            <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && !filePreviewModal.preview.is_binary && !filePreviewModal.preview.data_url">
+                <pre class="w-full flex-1 max-h-[55vh] overflow-auto p-4 bg-slate-950/90 text-slate-200 rounded-xl border border-slate-800 font-mono text-xs leading-relaxed whitespace-pre select-text"><code x-text="filePreviewModal.preview.content || '(empty file)'"></code></pre>
+            </template>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-between border-t border-slate-800 pt-3 shrink-0">
+            <span class="text-[11px] text-slate-500 font-mono">Confinement: Read-only path jail</span>
+            <div class="flex items-center gap-2">
+                <button type="button" @click="downloadPreviewFile()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm">
+                    <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    <span>Download</span>
+                </button>
+                <button type="button" @click="closePreviewModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors cursor-pointer">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}

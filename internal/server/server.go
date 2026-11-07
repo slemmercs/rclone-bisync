@@ -286,6 +286,8 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("POST /api/browse/canary", s.handleProvisionCanary)
 	s.Mux.HandleFunc("POST /api/browse/copy", s.handleCopyItem)
 	s.Mux.HandleFunc("POST /api/browse/delete", s.handleDeleteItem)
+	s.Mux.HandleFunc("GET /api/explorer/preview", s.handleExplorerPreview)
+	s.Mux.HandleFunc("GET /api/explorer/download", s.handleExplorerDownload)
 
 	// Review & Conflict Resolution Endpoints
 	s.Mux.HandleFunc("GET /api/review/session", s.handleReviewSession)

@@ -218,5 +218,79 @@ window.ExplorerActionsModule = {
         } else if (confirm(`Transfer directory contents:\nFrom: [${srcLabel}] ${fromPath}\nTo: [${dstLabel}] ${toPath}`)) {
             await executeCopy();
         }
+    },
+
+    async previewFile(paneKey, item) {
+        if (!item || item.IsDir) return;
+        const pane = this.explorer[paneKey];
+        const remote = pane.target || (paneKey === 'left' ? 'local' : '');
+        let path = item.Path || item.Name;
+        if (pane.path && !path.startsWith(pane.path)) {
+            path = `${pane.path.replace(/\/+$/, '')}/${item.Name}`;
+        }
+        const profileId = this.activeProfile ? this.activeProfile.id : "";
+
+        this.filePreviewModal = {
+            show: true,
+            loading: true,
+            error: null,
+            remote,
+            path,
+            name: item.Name,
+            preview: null
+        };
+
+        try {
+            const query = new URLSearchParams({
+                remote,
+                path,
+                profile_id: profileId
+            });
+            const res = await fetch(`/api/explorer/preview?${query.toString()}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            this.filePreviewModal.preview = data;
+            this.filePreviewModal.loading = false;
+        } catch (err) {
+            this.filePreviewModal.loading = false;
+            this.filePreviewModal.error = err.message || "Failed to load preview";
+        }
+    },
+
+    closePreviewModal() {
+        this.filePreviewModal.show = false;
+        this.filePreviewModal.preview = null;
+        this.filePreviewModal.error = null;
+    },
+
+    downloadFile(paneKey, item) {
+        if (!item || item.IsDir) return;
+        const pane = this.explorer[paneKey];
+        const remote = pane.target || (paneKey === 'left' ? 'local' : '');
+        let path = item.Path || item.Name;
+        if (pane.path && !path.startsWith(pane.path)) {
+            path = `${pane.path.replace(/\/+$/, '')}/${item.Name}`;
+        }
+        const profileId = this.activeProfile ? this.activeProfile.id : "";
+        const query = new URLSearchParams({
+            remote,
+            path,
+            profile_id: profileId
+        });
+        window.open(`/api/explorer/download?${query.toString()}`, "_blank");
+    },
+
+    downloadPreviewFile() {
+        if (!this.filePreviewModal.remote || !this.filePreviewModal.path) return;
+        const profileId = this.activeProfile ? this.activeProfile.id : "";
+        const query = new URLSearchParams({
+            remote: this.filePreviewModal.remote,
+            path: this.filePreviewModal.path,
+            profile_id: profileId
+        });
+        window.open(`/api/explorer/download?${query.toString()}`, "_blank");
     }
 };

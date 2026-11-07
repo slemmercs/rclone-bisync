@@ -128,6 +128,17 @@ document.addEventListener("alpine:init", () => {
             deleting: false
         },
 
+        // File Preview Modal State
+        filePreviewModal: {
+            show: false,
+            loading: false,
+            error: null,
+            remote: "",
+            path: "",
+            name: "",
+            preview: null
+        },
+
         // Reusable Confirmation Modal State
         confirmModal: {
             show: false,

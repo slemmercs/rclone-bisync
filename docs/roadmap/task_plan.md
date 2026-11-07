@@ -17,7 +17,7 @@ Implement Milestone 1 of the Rclone-UI Feature Suite natively in Bisync Hub: Dyn
   - **Scope**: `internal/models/preview.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_preview_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestPreview`
 
-- [ ] Task 4: File Preview & Download HTTP Endpoints and Explorer UI
+- [x] Task 4: File Preview & Download HTTP Endpoints and Explorer UI
   - **Scope**: `internal/server/handlers_preview.go`, `dashboard/frontend/partials/modals/modal_file_preview.html`, `dashboard/frontend/partials/view_explorer.html`
   - **Verification**: `go test -v -count=1 ./internal/server/...`
 
