@@ -100,6 +100,33 @@ func TestExplorerPreview_LocalFiles(t *testing.T) {
 	if name != "readme.md" || size != int64(len(content)) || !strings.Contains(string(content), "# Hello Bisync") {
 		t.Errorf("unexpected stream content: %s, name: %s, size: %d", string(content), name, size)
 	}
+
+	// 7. PDF preview
+	pdfFile := filepath.Join(tmpDir, "document.pdf")
+	if err := os.WriteFile(pdfFile, []byte("%PDF-1.4 dummy binary pdf content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	prevPDF, err := svc.PreviewItem(context.Background(), "local", "document.pdf")
+	if err != nil {
+		t.Fatalf("failed to preview pdf: %v", err)
+	}
+	if !prevPDF.IsPDF || !prevPDF.IsBinary || prevPDF.Content != "" {
+		t.Errorf("expected IsPDF=true, IsBinary=true, empty Content, got: %+v", prevPDF)
+	}
+
+	// 8. DOCX / OpenXML preview
+	docxFile := filepath.Join(tmpDir, "report.docx")
+	if err := os.WriteFile(docxFile, []byte("PK\x03\x04[Content_Types].xml dummy zip content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	prevDocx, err := svc.PreviewItem(context.Background(), "local", "report.docx")
+	if err != nil {
+		t.Fatalf("failed to preview docx: %v", err)
+	}
+	if !prevDocx.IsBinary || prevDocx.Content != "" {
+		t.Errorf("expected IsBinary=true and empty Content for docx, got: %+v", prevDocx)
+	}
+
 }
 
 func TestExplorerPreview_RemoteFiles(t *testing.T) {
@@ -162,5 +189,26 @@ func TestExplorerPreview_RemoteClientNil(t *testing.T) {
 	_, _, _, err = svc.DownloadStream(context.Background(), "myremote:", "remote.txt")
 	if err == nil || !strings.Contains(err.Error(), "rclone client is not configured") {
 		t.Errorf("expected client not configured error, got: %v", err)
+	}
+}
+
+func TestDetectMimeType(t *testing.T) {
+	cases := []struct {
+		filename string
+		expected string
+	}{
+		{"test.pdf", "application/pdf"},
+		{"test.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+		{"test.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+		{"test.zip", "application/zip"},
+		{"test.md", "text/markdown; charset=utf-8"},
+		{"test.json", "application/json"},
+	}
+
+	for _, tc := range cases {
+		got := DetectMimeType(tc.filename, nil)
+		if got != tc.expected {
+			t.Errorf("DetectMimeType(%q) = %q, expected %q", tc.filename, got, tc.expected)
+		}
 	}
 }

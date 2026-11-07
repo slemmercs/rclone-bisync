@@ -9,9 +9,9 @@ Resolve operational ergonomics, safety barriers, and layout issues from testing:
   - **Scope**: `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`
 
-- [ ] Task 2: File Preview Format Classification & Native In-Browser PDF Streaming
+- [x] Task 2: File Preview Format Classification & Native In-Browser PDF Streaming
   - **Scope**: `internal/models/preview.go`, `internal/services/explorer_preview.go`, `internal/server/handlers_preview.go`, `dashboard/frontend/partials/modals/modal_file_preview.html`, tests
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestPreview`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run 'TestExplorerPreview|TestDetectMimeType'` and `go test -v -count=1 ./internal/server/... -run 'TestHandlePreview|TestHandleDownload'`
 
 - [ ] Task 3: Header & Telemetry Layout Cleanup (Bandwidth in Settings Modal)
   - **Scope**: `dashboard/frontend/partials/components/component_header.html`, `dashboard/frontend/index.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/bandwidth.js`

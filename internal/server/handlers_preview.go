@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 // handleExplorerPreview serves file previews (UTF-8 text or base64 image data URIs) with jail confinement.
@@ -81,8 +83,15 @@ func (s *Server) handleExplorerDownload(w http.ResponseWriter, r *http.Request) 
 		name = filepath.Base(path)
 	}
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filepath.Base(name)))
-	w.Header().Set("Content-Type", "application/octet-stream")
+	inline := r.URL.Query().Get("inline") == "true" || r.URL.Query().Get("inline") == "1"
+	if inline {
+		mimeType := services.DetectMimeType(name, nil)
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filepath.Base(name)))
+		w.Header().Set("Content-Type", mimeType)
+	} else {
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filepath.Base(name)))
+		w.Header().Set("Content-Type", "application/octet-stream")
+	}
 	if size > 0 {
 		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	}

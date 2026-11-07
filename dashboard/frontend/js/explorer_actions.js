@@ -220,6 +220,18 @@ window.ExplorerActionsModule = {
         }
     },
 
+    isItemPreviewable(item) {
+        if (!item || item.IsDir) return false;
+        const name = (item.Name || '').toLowerCase();
+        const previewExtensions = [
+            '.txt', '.md', '.markdown', '.log', '.conf', '.ini', '.env', '.csv',
+            '.json', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.js', '.ts', '.go', '.sh', '.bash', '.py', '.rs', '.sql',
+            '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico',
+            '.pdf'
+        ];
+        return previewExtensions.some(ext => name.endsWith(ext));
+    },
+
     async previewFile(paneKey, item) {
         if (!item || item.IsDir) return;
         const pane = this.explorer[paneKey];

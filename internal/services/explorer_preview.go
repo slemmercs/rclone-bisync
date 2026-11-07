@@ -140,7 +140,7 @@ func (e *ExplorerService) previewLocalFile(cleanPath string, localBase ...string
 	// Sniff initial bytes for MIME detection and binary classification
 	sniffBuf := make([]byte, 512)
 	nSniff, _ := io.ReadFull(f, sniffBuf)
-	mimeType := detectMimeType(fileName, sniffBuf[:nSniff])
+	mimeType := DetectMimeType(fileName, sniffBuf[:nSniff])
 
 	resp := &models.FilePreviewResponse{
 		Remote:   "local",
@@ -148,6 +148,12 @@ func (e *ExplorerService) previewLocalFile(cleanPath string, localBase ...string
 		Name:     fileName,
 		Size:     size,
 		MimeType: mimeType,
+	}
+
+	if mimeType == "application/pdf" {
+		resp.IsBinary = true
+		resp.IsPDF = true
+		return resp, nil
 	}
 
 	if strings.HasPrefix(mimeType, "image/") && mimeType != "image/svg+xml" {
@@ -221,7 +227,7 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 
 	mimeType, _ := item["MimeType"].(string)
 	if mimeType == "" {
-		mimeType = detectMimeType(fileName, nil)
+		mimeType = DetectMimeType(fileName, nil)
 	}
 
 	resp := &models.FilePreviewResponse{
@@ -230,6 +236,12 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 		Name:     fileName,
 		Size:     size,
 		MimeType: mimeType,
+	}
+
+	if mimeType == "application/pdf" {
+		resp.IsBinary = true
+		resp.IsPDF = true
+		return resp, nil
 	}
 
 	if strings.HasPrefix(mimeType, "image/") && mimeType != "image/svg+xml" {
@@ -275,7 +287,8 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 	return resp, nil
 }
 
-func detectMimeType(fileName string, sample []byte) string {
+// DetectMimeType determines the appropriate MIME type from file extension or initial bytes.
+func DetectMimeType(fileName string, sample []byte) string {
 	ext := strings.ToLower(filepath.Ext(fileName))
 	switch ext {
 	case ".md", ".markdown":
@@ -304,6 +317,24 @@ func detectMimeType(fileName string, sample []byte) string {
 		return "text/xml; charset=utf-8"
 	case ".svg":
 		return "image/svg+xml"
+	case ".pdf":
+		return "application/pdf"
+	case ".docx":
+		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case ".xlsx":
+		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	case ".pptx":
+		return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+	case ".zip":
+		return "application/zip"
+	case ".tar", ".gz", ".tgz", ".bz2", ".xz", ".7z", ".rar":
+		return "application/octet-stream"
+	case ".py":
+		return "text/x-python; charset=utf-8"
+	case ".rs":
+		return "text/x-rust; charset=utf-8"
+	case ".sql":
+		return "text/x-sql; charset=utf-8"
 	}
 
 	if detected := mime.TypeByExtension(ext); detected != "" {
@@ -318,6 +349,20 @@ func detectMimeType(fileName string, sample []byte) string {
 }
 
 func isBinaryData(mimeType string, data []byte) bool {
+	// Office documents, archives, PDFs, executables, and octet streams are strictly binary
+	if strings.Contains(mimeType, "openxmlformats") ||
+		strings.Contains(mimeType, "msword") ||
+		strings.Contains(mimeType, "ms-excel") ||
+		strings.Contains(mimeType, "ms-powerpoint") ||
+		strings.Contains(mimeType, "zip") ||
+		strings.Contains(mimeType, "pdf") ||
+		strings.Contains(mimeType, "octet-stream") ||
+		strings.Contains(mimeType, "tar") ||
+		strings.Contains(mimeType, "compressed") ||
+		strings.Contains(mimeType, "x-executable") {
+		return true
+	}
+
 	if strings.HasPrefix(mimeType, "text/") ||
 		strings.Contains(mimeType, "json") ||
 		strings.Contains(mimeType, "xml") ||
