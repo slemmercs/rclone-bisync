@@ -9,7 +9,7 @@ Implement UI/UX refinements identified during testing: restructure Global Fleet 
   - **Scope**: `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `internal/server/handlers_encryption.go`, `internal/server/handlers_encryption_test.go`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleRemoveConfigEncryption`
 
-- [ ] Task 2: Remove Redundant Engine Transfer Telemetry Card
+- [x] Task 2: Remove Redundant Engine Transfer Telemetry Card
   - **Scope**: `dashboard/frontend/partials/view_telemetry.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
@@ -25,4 +25,5 @@ Implement UI/UX refinements identified during testing: restructure Global Fleet 
 
 - 2026-11-07: Initialized UI Suite Polish task plan from approved implementation_plan.md.
 - 2026-11-07: Completed Task 1 - Global Fleet Settings Multi-Line Tabs & Passphrase Validation. Verified with unit tests, templates check, and loc audit.
+- 2026-11-07: Completed Task 2 - Remove Redundant Engine Transfer Telemetry Card. Verified with templates check and loc audit.
 
