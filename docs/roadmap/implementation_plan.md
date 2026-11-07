@@ -1,12 +1,11 @@
-# Implementation Plan: Automated Rclone Config Passphrase Persistence & Daemon Safety
+# Implementation Plan: Milestone 2 - Dual-Pane File Commander & Ad-Hoc Transfers
 
 ## Overview
-When `rclone.conf` is encrypted, the background `rclone-daemon.service` must have access to `RCLONE_CONFIG_PASS` to decrypt the configuration non-interactively upon system boot or service restart. 
-
-This feature implements:
-1. **Automatic Secret Sync**: When `rclone.conf` is encrypted via the UI, the encryption passphrase is automatically and atomically persisted to `rc-secrets.env` (`0600` permissions) under `RCLONE_CONFIG_PASS`. When encryption is removed via the UI, `RCLONE_CONFIG_PASS` is automatically purged from `rc-secrets.env`.
-2. **Startup & Polling Detection**: On startup and polling cycles, Bisync Hub inspects `rclone.conf` encryption status. If `rclone.conf` is encrypted but `RCLONE_CONFIG_PASS` is missing from both the daemon secrets file and process environment, it sets a warning status.
-3. **UI Warning Banner & Assisted Persistence**: When an external encryption mismatch is detected, a prominent warning banner is displayed across the Bisync Hub cockpit alerting the operator that the background daemon will fail on reboot, with an action button to enter and validate the passphrase to save it directly into `rc-secrets.env`.
+Milestone 2 advances Bisync Hub into an interactive dual-pane cloud storage commander:
+1. **Interactive Dual-Pane Commander**: Side-by-side synchronized explorer panes (`leftPane`, `rightPane`) with independent browsing, path jails, breadcrumbs, and cross-pane transfer triggers.
+2. **Atomic Move & Purge Operations**: Safe file/directory moves (`operations/movefile`, `operations/movedir`) and directory purging with canary protection and local jail validation.
+3. **Non-Blocking Queued Upload Dock**: Asynchronous upload manager detecting active sync locks (`flock` contention or `telemetry.is_syncing === true`), staging transfers in a queued state instead of returning 409 errors, and auto-resuming once locks clear.
+4. **Cloud Public Web Links**: Remote cloud web link resolution (`operations/publiclink`) for instant navigation to Google Drive and OneDrive web interfaces.
 
 ---
 
@@ -14,50 +13,96 @@ This feature implements:
 
 ### Affected Components & Packages
 
-- `internal/config/secrets.go` & `internal/config/config.go`:
-  - Add atomic `.env` file management utilities: `UpdateSecret(path, key, value string) error` and `RemoveSecret(path, key string) error` with strict POSIX `0600` permissions.
-  - Track `SecretsFile` path on the `Config` struct during discovery in `LoadConfig`.
+- `internal/models/operations.go`:
+  - `MoveRequest` & `MoveResponse`: Source/destination remotes, paths, directory flag, and status.
+  - `PublicLinkRequest` & `PublicLinkResponse`: Canonical remote cloud URL retrieval.
+  - `QueuedUploadItem`: Transfer queue item representation, byte progress, and state (`queued`, `uploading`, `completed`, `failed`).
 
-- `internal/models/encryption.go`:
-  - Extend `EncryptionStatusResponse` with `HasDaemonPassphrase bool` and `Warning string`.
-  - Add `SaveDaemonPassphraseRequest` struct.
+- `internal/core/client/operations.go`:
+  - `MoveFile(ctx, srcFs, srcRemote, dstFs, dstRemote)` wrapping RC `/operations/movefile`.
+  - `MoveDir(ctx, srcFs, dstFs)` wrapping RC `/operations/movedir`.
+  - `PublicLink(ctx, fs, remote, unlink bool)` wrapping RC `/operations/publiclink`.
 
-- `internal/services/config_encryption_service.go`:
-  - Update `GetStatus()` to inspect `os.Getenv("RCLONE_CONFIG_PASS")` and `rc-secrets.env`.
-  - In `SetPassword()`: Automatically persist `RCLONE_CONFIG_PASS` to `rc-secrets.env` upon successful encryption change.
-  - In `RemovePassword()`: Automatically purge `RCLONE_CONFIG_PASS` from `rc-secrets.env`.
-  - Add `SaveDaemonPassphrase(ctx, passphrase)`: Validate passphrase against `rclone` (e.g. running `rclone listremotes`), then update `rc-secrets.env` and in-memory environment.
+- `internal/services/explorer_ops.go`:
+  - `MoveItem(ctx, srcRemote, srcPath, dstRemote, dstPath string, isDir bool, localBase ...string) (models.MoveResponse, error)` enforcing path jails and canary protection.
+  - `GetPublicLink(ctx, remote, path string) (string, error)` with graceful degradation on unsupported tiers (local, SFTP, S3).
 
-- `internal/server/handlers_encryption.go` & `internal/server/server.go`:
-  - Add `POST /api/config/encryption/save-passphrase` endpoint.
-  - Wire route and security context.
+- `internal/services/upload_queue.go`:
+  - `UploadQueueManager` maintaining an in-memory thread-safe queue of pending uploads.
+  - Coordinates with `core/lock` to defer upload processing when sync runs are active, auto-resuming on completion.
 
-- `dashboard/frontend/index.html` & `dashboard/frontend/partials/modals/modal_global_settings.html`:
-  - Add top-level warning banner for missing daemon passphrase (`rclone.conf` encrypted but missing in `rc-secrets.env`).
-  - Add inline indicator and action in Global Fleet Settings (Security tab) showing whether daemon persistence is active.
+- `internal/server/handlers_operations.go` & `internal/server/server.go`:
+  - `POST /api/operations/move`: Validates payload, checks path jails/canaries, and executes atomic move.
+  - `POST /api/operations/purge`: Purges directory with recursive canary protection.
+  - `GET /api/operations/publiclink`: Returns canonical web link for cloud items.
+  - `GET /api/explorer/queue` & `POST /api/explorer/upload-queued`: Multipart file upload staging into upload queue.
 
-- `dashboard/frontend/js/settings.js` & `dashboard/frontend/app.js`:
-  - Fetch encryption status during dashboard initialization and polling.
-  - Handle submitting daemon passphrase to save to `rc-secrets.env`.
+- `dashboard/frontend/partials/view_explorer.html`:
+  - Dual-pane commander layout with responsive split-screen toggle (`Single Pane` vs `Dual Commander`).
+  - Drag-and-drop file upload target zones on both left and right panes.
+  - Commander action bar: `[Copy]`, `[Move]`, `[Delete]`, and upload queue status indicator.
+
+- `dashboard/frontend/js/explorer.js` & `dashboard/frontend/js/explorer_actions.js`:
+  - Dual-pane state management (`leftPane`, `rightPane`, active pane focus).
+  - Cross-pane directional transfer handlers and keyboard shortcuts.
+  - Non-blocking upload dock status pill and drawer.
 
 ---
 
-## Safety & Error Handling
+### Technical Strategy & Data Flow
 
-- **Atomic Writes**: `UpdateSecret` and `RemoveSecret` write to a temporary file (`.tmp.<pid>`) in the same directory and execute `os.Rename` with `0600` file permissions to prevent race conditions or partial reads by systemd.
-- **Passphrase Validation**: Before persisting an externally supplied passphrase, verify it successfully decrypts `rclone.conf` using `rclone listremotes` via the ephemeral helper script.
-- **Path Confinement**: `rc-secrets.env` path is strictly resolved from configured `BaseDir` or user home directory, never accepted from untrusted user input.
-- **Secret Redaction**: Passphrases are excluded from general telemetry, audit detail logs, and error responses.
+```
+[Operator Action] ─── Drag & Drop / Move / Copy
+         │
+         ▼
+[Frontend Controller] (explorer.js / explorer_actions.js)
+         │
+         ├── Check `telemetry.is_syncing`
+         │     ├── If Idle: Direct execution via /api/operations/move or /api/explorer/upload
+         │     └── If Sync Active: Route to /api/explorer/upload-queued
+         │
+         ▼
+[Backend Service Layer] (ExplorerService / UploadQueueManager)
+         │
+         ├── Path Jail Validation (`isLocalPathJailed`)
+         ├── Canary File Protection (`RCLONE_TEST` check)
+         ├── Advisory Flock Lock Coordination
+         │
+         ▼
+[Rclone RC API / Local Filesystem] ─── Atomic Rename / Transfer
+```
+
+### Safety & Error Handling
+
+- **Local Filesystem Jail**: All file moves, copies, and uploads must verify source and destination paths using `filepath.Rel` and base prefix confinement (`isLocalPathJailed`).
+- **Canary File Inviolability**: `RCLONE_TEST` cannot be moved, renamed, overwritten, or deleted. Any directory move or purge recursively checks for canary files before execution.
+- **Flock Concurrency Coordination**: Background sync runs acquire exclusive locks. Explorer write actions check advisory lock state to prevent mid-sync corruption, enqueuing uploads if locks are held.
+- **Code Governance Limits**: Every Go file and frontend module must remain strictly under 400 LOC.
 
 ---
 
 ## Verification Plan
 
-- Unit test secret updating, escaping, appending, and removal: `go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`
-- Unit test service status reporting and automatic secret sync: `go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`
-- Unit test API handlers for encryption status and save-passphrase: `go test -v -count=1 ./internal/server/... -run TestEncryption`
-- LOC & Template check: `./scripts/check-loc.sh 400` and `./scripts/check.sh templates`
-- Full test suite: `./scripts/check.sh all`
+### Automated Unit & Integration Tests
+- `internal/services/explorer_ops_test.go`:
+  - `TestMoveItem_LocalToLocal`: Verify atomic local moves and jail enforcement.
+  - `TestMoveItem_CanaryProtection`: Verify moving `RCLONE_TEST` returns 403 / error.
+  - `TestMoveItem_RemoteToRemote`: Mock RC `/operations/movefile` and verify request payload.
+- `internal/services/upload_queue_test.go`:
+  - Test queue state transitions when lock is held vs released.
+- `internal/server/handlers_operations_test.go`:
+  - Test `/api/operations/move` route and error responses.
+  - Test `/api/operations/publiclink` route and fallback behavior.
+
+### End-to-End Headless Chrome Tests (`tests/e2e/dashboard_smoke_test.go`)
+- E2E smoke test verifying:
+  - Commander dual-pane toggle renders both panes.
+  - Drag-and-drop upload zone triggers exist.
+  - Directional transfer buttons open confirmation modals with correct source/destination.
+
+### Full Quality Gate Execution
+- `./scripts/check.sh all`:
+  - All 7 stages passing: format, vet, staticcheck, Alpine template safety, LOC check (<400 LOC), unit tests, and race detector.
 
 - Full check suite: `./scripts/check.sh all`
 - E2E smoke tests: `go test -v -count=1 ./tests/e2e/...`
