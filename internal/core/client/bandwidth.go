@@ -1,13 +1,13 @@
 package client
 
 import (
-"context"
-"encoding/json"
-"fmt"
-"net/http"
-"time"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
 
-"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // SetBandwidthLimit sets a dynamic bandwidth limit via rclone RC core/bwlimit.
@@ -89,14 +89,14 @@ func (c *RcloneClient) GetParsedCoreStats(ctx context.Context) (*models.CoreStat
 			eta = *t.ETA
 		}
 		transfers = append(transfers, models.ActiveTransfer{
-Name:       t.Name,
-Size:       t.Size,
-Bytes:      t.Bytes,
-Percentage: t.Percentage,
-Speed:      t.Speed,
-SpeedAvg:   t.SpeedAvg,
-ETA:        eta,
-})
+			Name:       t.Name,
+			Size:       t.Size,
+			Bytes:      t.Bytes,
+			Percentage: t.Percentage,
+			Speed:      t.Speed,
+			SpeedAvg:   t.SpeedAvg,
+			ETA:        eta,
+		})
 	}
 
 	return &models.CoreStatsResponse{

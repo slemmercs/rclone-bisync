@@ -1,17 +1,17 @@
 package client
 
 import (
-"context"
-"io"
-"net/http"
-"net/http/httptest"
-"testing"
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
 func TestRcloneClient_StatItem(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path == "/operations/stat" {
-w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/operations/stat" {
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{
 				"item": {
@@ -40,8 +40,8 @@ w.Header().Set("Content-Type", "application/json")
 
 func TestRcloneClient_CatStreamAndFile(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path == "/operations/cat" {
-w.Header().Set("Content-Type", "text/plain")
+		if r.URL.Path == "/operations/cat" {
+			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("Hello world!"))
 			return

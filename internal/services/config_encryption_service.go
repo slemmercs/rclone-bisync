@@ -20,6 +20,7 @@ type CommandRunner func(ctx context.Context, name string, env []string, args ...
 
 // DefaultCommandRunner executes the system rclone binary with the provided arguments and environment.
 func DefaultCommandRunner(ctx context.Context, name string, env []string, args ...string) (string, error) {
+	// #nosec G204 - controlled configuration commands with system rclone binary
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = env
 	var stdout, stderr bytes.Buffer
@@ -88,6 +89,7 @@ func (s *ConfigEncryptionService) ResolveConfigFile(ctx context.Context) string 
 func (s *ConfigEncryptionService) GetStatus(ctx context.Context) (*models.EncryptionStatusResponse, error) {
 	configFile := s.ResolveConfigFile(ctx)
 
+	// #nosec G304 - reading configured rclone configuration file path
 	f, err := os.Open(configFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -127,6 +129,7 @@ func (s *ConfigEncryptionService) SetPassword(ctx context.Context, req models.Se
 		fmt.Sprintf("OLD_PASS=%s", req.OldPassword),
 	)
 
+	// #nosec G101 - script pattern passed to rclone --password-command via environment variables
 	pwCmd := `sh -c 'if [ "$RCLONE_PASSWORD_CHANGE" = "1" ]; then echo "$NEW_PASS"; else echo "$OLD_PASS"; fi'`
 
 	args := []string{
@@ -160,6 +163,7 @@ func (s *ConfigEncryptionService) RemovePassword(ctx context.Context, req models
 	}
 
 	env := append(os.Environ(), fmt.Sprintf("OLD_PASS=%s", req.Password))
+	// #nosec G101 - script pattern passed to rclone --password-command via environment variable
 	pwCmd := `sh -c 'echo "$OLD_PASS"'`
 
 	args := []string{

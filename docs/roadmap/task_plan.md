@@ -29,10 +29,11 @@ Implement Milestone 1 of the Rclone-UI Feature Suite natively in Bisync Hub: Dyn
   - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/bandwidth.js`, `dashboard/frontend/partials/components/component_header.html`, `dashboard/frontend/partials/view_telemetry.html`
   - **Verification**: `./scripts/check.sh templates`
 
-- [ ] Task 7: Milestone 1 Verification, E2E Smoke Tests, and Full Quality Gates
+- [x] Task 7: Milestone 1 Verification, E2E Smoke Tests, and Full Quality Gates
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`, all Milestone 1 components
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
 - 2026-11-07: Initialized task plan from implementation_plan.md for Milestone 1.
+- 2026-11-07: Completed Tasks 1-7 for Milestone 1: operational controls, dynamic bandwidth throttling, core stats, file preview/streaming with path jail confinement, and rclone.conf encryption management. All 7 quality gates passed.

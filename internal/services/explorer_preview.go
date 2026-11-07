@@ -1,26 +1,26 @@
 package services
 
 import (
-"bytes"
-"context"
-"encoding/base64"
-"fmt"
-"io"
-"mime"
-"net/http"
-"os"
-"path/filepath"
-"strings"
-"unicode/utf8"
+	"bytes"
+	"context"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"mime"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"unicode/utf8"
 
-"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 const (
-// MaxTextPreviewSize defines maximum preview size for text/code (2 MB).
-MaxTextPreviewSize = 2 * 1024 * 1024
-// MaxImagePreviewSize defines maximum preview size for image data URIs (5 MB).
-MaxImagePreviewSize = 5 * 1024 * 1024
+	// MaxTextPreviewSize defines maximum preview size for text/code (2 MB).
+	MaxTextPreviewSize = 2 * 1024 * 1024
+	// MaxImagePreviewSize defines maximum preview size for image data URIs (5 MB).
+	MaxImagePreviewSize = 5 * 1024 * 1024
 )
 
 // PreviewItem retrieves safe preview payload (UTF-8 text or base64 image data URL) for a file.
@@ -64,6 +64,7 @@ func (e *ExplorerService) DownloadStream(ctx context.Context, remote, path strin
 			return nil, "", 0, fmt.Errorf("cannot download directory")
 		}
 
+		// #nosec G304 - targetAbs is strictly verified by IsLocalPathJailed
 		f, err := os.Open(targetAbs)
 		if err != nil {
 			return nil, "", 0, fmt.Errorf("failed to open file: %w", err)
@@ -126,6 +127,7 @@ func (e *ExplorerService) previewLocalFile(cleanPath string, localBase ...string
 		return nil, fmt.Errorf("cannot preview directory")
 	}
 
+	// #nosec G304 - targetAbs is strictly verified by IsLocalPathJailed
 	f, err := os.Open(targetAbs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)

@@ -1,13 +1,13 @@
 package services
 
 import (
-"context"
-"net/http"
-"net/http/httptest"
-"testing"
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 
-"github.com/slemmercs/rclone-bisync/internal/config"
-"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 )
 
 func TestCoreService_ClientNil(t *testing.T) {
@@ -48,7 +48,7 @@ func TestCoreService_SetBandwidthLimit_EmptyRate(t *testing.T) {
 func TestCoreService_BandwidthOperations(t *testing.T) {
 	// Arrange
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/core/bwlimit":
 			if r.Method == http.MethodPost {

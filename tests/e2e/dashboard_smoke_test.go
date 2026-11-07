@@ -487,6 +487,109 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 	})
 
+	// 7. Test Milestone 1 Operational Controls (Bandwidth, Config Encryption, File Preview)
+	t.Run("Milestone1OperationalControls", func(t *testing.T) {
+		script := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine app data not found" };
+
+			// Test Bandwidth Popover and Presets
+			if (typeof app.toggleBandwidthPopover !== 'function') return { error: "toggleBandwidthPopover missing" };
+			app.toggleBandwidthPopover();
+			const popoverOpen = app.isBandwidthPopoverOpen();
+			const presets = app.bandwidth?.presets || [];
+			const formattedSpeed = app.formatSpeed(10485760);
+			const formattedBytes = app.formatBytes(5242880);
+			app.closeBandwidthPopover();
+			const popoverClosed = !app.isBandwidthPopoverOpen();
+
+			// Test Config Encryption Tab in Global Settings
+			if (typeof app.openGlobalSettingsModal !== 'function') return { error: "openGlobalSettingsModal missing" };
+			app.openGlobalSettingsModal('encryption');
+			const encryptionTabActive = app.globalSettingsModal?.tab === 'encryption';
+			const encryptionLoading = typeof app.isEncryptionLoading === 'function' ? app.isEncryptionLoading() : null;
+			app.closeGlobalSettingsModal();
+
+			// Test File Preview Modal
+			if (typeof app.previewFile !== 'function') return { error: "previewFile missing" };
+			app.filePreviewModal = {
+				show: true,
+				loading: false,
+				error: null,
+				remote: 'local',
+				path: 'docs/test.txt',
+				name: 'test.txt',
+				preview: {
+					name: 'test.txt',
+					size: 1024,
+					mime_type: 'text/plain',
+					is_text: true,
+					content: 'Hello Bisync UI Suite'
+				}
+			};
+			const previewModalOpen = Boolean(app.filePreviewModal?.show);
+			const previewContent = app.filePreviewModal?.preview?.content;
+			app.closePreviewModal();
+			const previewModalClosed = !app.filePreviewModal?.show;
+
+			return {
+				popoverOpen,
+				popoverClosed,
+				presetsLen: presets.length,
+				formattedSpeed,
+				formattedBytes,
+				encryptionTabActive,
+				encryptionLoading,
+				previewModalOpen,
+				previewContent,
+				previewModalClosed
+			};
+		})()`
+
+		type M1Result struct {
+			Error               *string `json:"error"`
+			PopoverOpen         bool    `json:"popoverOpen"`
+			PopoverClosed       bool    `json:"popoverClosed"`
+			PresetsLen          int     `json:"presetsLen"`
+			FormattedSpeed      string  `json:"formattedSpeed"`
+			FormattedBytes      string  `json:"formattedBytes"`
+			EncryptionTabActive bool    `json:"encryptionTabActive"`
+			EncryptionLoading   *bool   `json:"encryptionLoading"`
+			PreviewModalOpen    bool    `json:"previewModalOpen"`
+			PreviewContent      string  `json:"previewContent"`
+			PreviewModalClosed  bool    `json:"previewModalClosed"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[M1Result](script))
+		if err != nil {
+			t.Fatalf("failed evaluating Milestone 1 controls: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Milestone 1 check failed: %s", *res.Error)
+		}
+		if !res.PopoverOpen || !res.PopoverClosed {
+			t.Errorf("bandwidth popover open/close mismatch: open=%v closed=%v", res.PopoverOpen, res.PopoverClosed)
+		}
+		if res.PresetsLen < 5 {
+			t.Errorf("expected at least 5 bandwidth presets, got %d", res.PresetsLen)
+		}
+		if res.FormattedSpeed != "10.0 MB/s" {
+			t.Errorf("expected formattedSpeed '10.0 MB/s', got %q", res.FormattedSpeed)
+		}
+		if res.FormattedBytes != "5.0 MB" {
+			t.Errorf("expected formattedBytes '5.0 MB', got %q", res.FormattedBytes)
+		}
+		if !res.EncryptionTabActive {
+			t.Errorf("expected encryption tab to be active in global settings")
+		}
+		if res.EncryptionLoading == nil || *res.EncryptionLoading {
+			t.Errorf("expected encryption loading to be false")
+		}
+		if !res.PreviewModalOpen || res.PreviewContent != "Hello Bisync UI Suite" || !res.PreviewModalClosed {
+			t.Errorf("preview modal mismatch: open=%v content=%q closed=%v", res.PreviewModalOpen, res.PreviewContent, res.PreviewModalClosed)
+		}
+	})
+
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
 	defer mu.Unlock()

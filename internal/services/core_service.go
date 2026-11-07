@@ -1,13 +1,13 @@
 package services
 
 import (
-"context"
-"fmt"
-"strings"
+	"context"
+	"fmt"
+	"strings"
 
-"github.com/slemmercs/rclone-bisync/internal/config"
-"github.com/slemmercs/rclone-bisync/internal/core/client"
-"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // CoreService provides high-level domain operations for Rclone core runtime controls (bandwidth, stats).

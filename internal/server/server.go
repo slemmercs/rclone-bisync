@@ -24,24 +24,24 @@ import (
 )
 
 type Server struct {
-	Container        *app.Container
-	Config           *config.Config
-	SyncService      *services.SyncService
-	TelemetryService *services.TelemetryService
-	CanaryService    *services.CanaryService
-	DeletionService  *services.DeletionService
-	ExplorerService  *services.ExplorerService
-	ReviewService    *services.ReviewService
-	AuditService     *services.AuditService
-	LogService       *services.LogService
+	Container               *app.Container
+	Config                  *config.Config
+	SyncService             *services.SyncService
+	TelemetryService        *services.TelemetryService
+	CanaryService           *services.CanaryService
+	DeletionService         *services.DeletionService
+	ExplorerService         *services.ExplorerService
+	ReviewService           *services.ReviewService
+	AuditService            *services.AuditService
+	LogService              *services.LogService
 	CoreService             *services.CoreService
 	ConfigEncryptionService *services.ConfigEncryptionService
 	AuthService             *remoteauth.RemoteAuthService
-	ProfileService   *profiles.Service
-	FrontendFS       fs.FS
-	Mux              *http.ServeMux
-	Version          string
-	StartTime        time.Time
+	ProfileService          *profiles.Service
+	FrontendFS              fs.FS
+	Mux                     *http.ServeMux
+	Version                 string
+	StartTime               time.Time
 }
 
 var versionRegex = regexp.MustCompile(`^v?(\d+)\.(\d+)`)
@@ -66,23 +66,23 @@ func NewServerWithContainer(container *app.Container, frontendFS fs.FS) *Server 
 		container, _ = app.NewContainer(&config.Config{})
 	}
 	s := &Server{
-		Container:        container,
-		Config:           container.Config,
-		SyncService:      container.SyncService,
-		TelemetryService: container.TelemetryService,
-		CanaryService:    container.CanaryService,
-		DeletionService:  container.DeletionService,
-		ExplorerService:  container.ExplorerService,
-		ReviewService:    container.ReviewService,
-		AuditService:     container.AuditService,
-		LogService:       container.LogService,
+		Container:               container,
+		Config:                  container.Config,
+		SyncService:             container.SyncService,
+		TelemetryService:        container.TelemetryService,
+		CanaryService:           container.CanaryService,
+		DeletionService:         container.DeletionService,
+		ExplorerService:         container.ExplorerService,
+		ReviewService:           container.ReviewService,
+		AuditService:            container.AuditService,
+		LogService:              container.LogService,
 		CoreService:             container.CoreService,
 		ConfigEncryptionService: container.ConfigEncryptionService,
 		AuthService:             container.AuthService,
-		ProfileService:   container.ProfileService,
-		FrontendFS:       frontendFS,
-		Mux:              http.NewServeMux(),
-		StartTime:        time.Now(),
+		ProfileService:          container.ProfileService,
+		FrontendFS:              frontendFS,
+		Mux:                     http.NewServeMux(),
+		StartTime:               time.Now(),
 	}
 	s.routes()
 	return s

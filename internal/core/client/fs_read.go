@@ -1,14 +1,14 @@
 package client
 
 import (
-"bytes"
-"context"
-"encoding/json"
-"fmt"
-"io"
-"net/http"
-"strings"
-"time"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 )
 
 // StatItem calls /operations/stat to retrieve metadata about a single file or directory on a remote.

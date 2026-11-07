@@ -1,11 +1,11 @@
 package server
 
 import (
-"encoding/json"
-"net/http"
-"strings"
+	"encoding/json"
+	"net/http"
+	"strings"
 
-"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 func (s *Server) handleGetBandwidthLimit(w http.ResponseWriter, r *http.Request) {

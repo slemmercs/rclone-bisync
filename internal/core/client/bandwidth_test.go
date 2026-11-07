@@ -1,19 +1,19 @@
 package client
 
 import (
-"context"
-"net/http"
-"net/http/httptest"
-"testing"
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
 func TestSetBandwidthLimit_Success(t *testing.T) {
 	// Arrange
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path != "/core/bwlimit" {
-t.Errorf("expected path /core/bwlimit, got %s", r.URL.Path)
-}
-w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/core/bwlimit" {
+			t.Errorf("expected path /core/bwlimit, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"bytesPerSecond": 10485760, "rate": "10M"}`))
 	}))
@@ -42,9 +42,9 @@ w.Header().Set("Content-Type", "application/json")
 func TestSetBandwidthLimit_Error(t *testing.T) {
 	// Arrange
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.WriteHeader(http.StatusInternalServerError)
-_, _ = w.Write([]byte(`{"error": "unknown bandwidth unit"}`))
-}))
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error": "unknown bandwidth unit"}`))
+	}))
 	defer ts.Close()
 
 	c := NewRcloneClient(ts.URL, "", "")
@@ -61,10 +61,10 @@ _, _ = w.Write([]byte(`{"error": "unknown bandwidth unit"}`))
 func TestGetBandwidthLimit_Success(t *testing.T) {
 	// Arrange
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path != "/core/bwlimit" {
-t.Errorf("expected path /core/bwlimit, got %s", r.URL.Path)
-}
-w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/core/bwlimit" {
+			t.Errorf("expected path /core/bwlimit, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"bytesPerSecond": 5242880, "rate": "5M"}`))
 	}))
@@ -90,10 +90,10 @@ w.Header().Set("Content-Type", "application/json")
 func TestGetParsedCoreStats_Success(t *testing.T) {
 	// Arrange
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-if r.URL.Path != "/core/stats" {
-t.Errorf("expected path /core/stats, got %s", r.URL.Path)
-}
-w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/core/stats" {
+			t.Errorf("expected path /core/stats, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"bytes": 1048576,
@@ -144,9 +144,9 @@ w.Header().Set("Content-Type", "application/json")
 func TestGetParsedCoreStats_Error(t *testing.T) {
 	// Arrange
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.WriteHeader(http.StatusBadGateway)
-_, _ = w.Write([]byte(`Bad Gateway`))
-}))
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`Bad Gateway`))
+	}))
 	defer ts.Close()
 
 	c := NewRcloneClient(ts.URL, "", "")

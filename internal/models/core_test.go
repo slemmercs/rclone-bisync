@@ -1,8 +1,8 @@
 package models
 
 import (
-"encoding/json"
-"testing"
+	"encoding/json"
+	"testing"
 )
 
 func TestCoreModelsSerialization(t *testing.T) {

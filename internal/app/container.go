@@ -18,27 +18,27 @@ import (
 
 // Container manages dependency injection, service instantiation, and lifecycle hooks for bisync-hub.
 type Container struct {
-	mu               sync.Mutex
-	Config           *config.Config
-	Logger           *logger.Logger
-	Client           *client.RcloneClient
-	SyncService      *services.SyncService
-	TelemetryService *services.TelemetryService
-	CanaryService    *services.CanaryService
-	DeletionService  *services.DeletionService
-	ExplorerService  *services.ExplorerService
-	ReviewService    *services.ReviewService
-	AuditService     *services.AuditService
-	LogService       *services.LogService
+	mu                      sync.Mutex
+	Config                  *config.Config
+	Logger                  *logger.Logger
+	Client                  *client.RcloneClient
+	SyncService             *services.SyncService
+	TelemetryService        *services.TelemetryService
+	CanaryService           *services.CanaryService
+	DeletionService         *services.DeletionService
+	ExplorerService         *services.ExplorerService
+	ReviewService           *services.ReviewService
+	AuditService            *services.AuditService
+	LogService              *services.LogService
 	CoreService             *services.CoreService
 	ConfigEncryptionService *services.ConfigEncryptionService
 	AuthService             *remoteauth.RemoteAuthService
-	ProfileStore     *profiles.Store
-	ProfileScheduler *profiles.Scheduler
-	ProfileService   *profiles.Service
-	ProfileExecutor  profiles.SyncExecutor
-	started          bool
-	stopped          bool
+	ProfileStore            *profiles.Store
+	ProfileScheduler        *profiles.Scheduler
+	ProfileService          *profiles.Service
+	ProfileExecutor         profiles.SyncExecutor
+	started                 bool
+	stopped                 bool
 }
 
 // Option configures a Container instance during initialization.

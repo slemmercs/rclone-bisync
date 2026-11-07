@@ -1,16 +1,16 @@
 package server
 
 import (
-"bytes"
-"encoding/json"
-"net/http"
-"net/http/httptest"
-"testing"
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 
-"github.com/slemmercs/rclone-bisync/internal/config"
-"github.com/slemmercs/rclone-bisync/internal/core/client"
-"github.com/slemmercs/rclone-bisync/internal/models"
-"github.com/slemmercs/rclone-bisync/internal/services"
+	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 func setupTestServerWithCore(rcServerURL string) *Server {
@@ -33,7 +33,7 @@ func setupTestServerWithCore(rcServerURL string) *Server {
 func TestHandleGetBandwidthLimit_Success(t *testing.T) {
 	// Arrange
 	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"bytesPerSecond": 10485760, "rate": "10M"}`))
 	}))
@@ -62,7 +62,7 @@ w.Header().Set("Content-Type", "application/json")
 func TestHandleSetBandwidthLimit_Success(t *testing.T) {
 	// Arrange
 	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"bytesPerSecond": 5242880, "rate": "5M"}`))
 	}))
@@ -112,7 +112,7 @@ func TestHandleSetBandwidthLimit_ValidationErrors(t *testing.T) {
 func TestHandleGetCoreStats_Success(t *testing.T) {
 	// Arrange
 	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"bytes": 1048576,
