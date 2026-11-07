@@ -34,6 +34,7 @@ type Server struct {
 	ReviewService    *services.ReviewService
 	AuditService     *services.AuditService
 	LogService       *services.LogService
+	CoreService      *services.CoreService
 	AuthService      *remoteauth.RemoteAuthService
 	ProfileService   *profiles.Service
 	FrontendFS       fs.FS
@@ -74,6 +75,7 @@ func NewServerWithContainer(container *app.Container, frontendFS fs.FS) *Server 
 		ReviewService:    container.ReviewService,
 		AuditService:     container.AuditService,
 		LogService:       container.LogService,
+		CoreService:      container.CoreService,
 		AuthService:      container.AuthService,
 		ProfileService:   container.ProfileService,
 		FrontendFS:       frontendFS,
@@ -312,6 +314,11 @@ func (s *Server) routes() {
 	// Global Fleet Settings Endpoints
 	s.Mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	s.Mux.HandleFunc("PUT /api/config", s.handleUpdateConfig)
+
+	// Core Daemon Controls Endpoints
+	s.Mux.HandleFunc("GET /api/core/bwlimit", s.handleGetBandwidthLimit)
+	s.Mux.HandleFunc("POST /api/core/bwlimit", s.handleSetBandwidthLimit)
+	s.Mux.HandleFunc("GET /api/core/stats", s.handleGetCoreStats)
 
 	// Static assets & SPA
 	if s.FrontendFS != nil {

@@ -30,6 +30,7 @@ type Container struct {
 	ReviewService    *services.ReviewService
 	AuditService     *services.AuditService
 	LogService       *services.LogService
+	CoreService      *services.CoreService
 	AuthService      *remoteauth.RemoteAuthService
 	ProfileStore     *profiles.Store
 	ProfileScheduler *profiles.Scheduler
@@ -212,9 +213,12 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 		c.ReviewService.Audit = c.AuditService
 	}
 
-	// 5. Initialize Logging and Auth Services
+	// 5. Initialize Logging, Core Daemon, and Auth Services
 	if c.LogService == nil {
 		c.LogService = services.NewLogService()
+	}
+	if c.CoreService == nil {
+		c.CoreService = services.NewCoreService(cfg, c.Client)
 	}
 	if c.AuthService == nil {
 		c.AuthService = remoteauth.NewRemoteAuthService(cfg, c.Client, nil)
