@@ -21,7 +21,7 @@ Implement automatic persistence of `RCLONE_CONFIG_PASS` to `rc-secrets.env` when
   - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [ ] Task 5: Full Quality Gates & E2E Smoke Testing
+- [x] Task 5: Full Quality Gates & E2E Smoke Testing
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all`
 
@@ -32,4 +32,5 @@ Implement automatic persistence of `RCLONE_CONFIG_PASS` to `rc-secrets.env` when
 - 2026-11-07: Completed Task 2 - Service Layer Passphrase Synchronization & Validation. Verified with unit tests (`go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`).
 - 2026-11-07: Completed Task 3 - API Endpoints for Passphrase Persistence & Verification. Verified with unit tests (`go test -v -count=1 ./internal/server/... -run TestHandleSaveDaemonPassphrase`).
 - 2026-11-07: Completed Task 4 - Frontend Cockpit Warning Banner & Passphrase Persistence UI. Verified with template safety and LOC checks (`./scripts/check.sh templates && ./scripts/check.sh loc`).
+- 2026-11-07: Completed Task 5 - Full Quality Gates & E2E Smoke Testing. Verified with E2E Chrome test and full quality check (`./scripts/check.sh all`).
 
