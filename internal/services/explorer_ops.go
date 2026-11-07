@@ -245,7 +245,6 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 	return models.DeleteResponse{Status: "success", Fs: remoteName, Remote: cleanPath, Path: cleanPath}, nil
 }
 
-
 // UploadFile saves a streamed file to the specified remote directory, enforcing path jails and canary protection.
 func (e *ExplorerService) UploadFile(ctx context.Context, remote, dirPath, fileName string, reader io.Reader, size int64, localBase ...string) (models.UploadResponse, error) {
 	cleanDirPath := strings.Trim(strings.TrimSpace(dirPath), "/")
@@ -305,7 +304,7 @@ func (e *ExplorerService) UploadFile(ctx context.Context, remote, dirPath, fileN
 		}
 		_ = tmpFile.Close()
 
-		if err := os.Chmod(tmpPath, 0644); err != nil {
+		if err := os.Chmod(tmpPath, 0600); err != nil {
 			return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to set file permissions: %v", err)}, nil
 		}
 
@@ -339,7 +338,8 @@ func (e *ExplorerService) UploadFile(ctx context.Context, remote, dirPath, fileN
 	defer os.RemoveAll(tmpDir)
 
 	tmpFilePath := filepath.Join(tmpDir, cleanFileName)
-	tmpFile, err := os.OpenFile(tmpFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	// #nosec G304 - staged file created in isolated temporary directory
+	tmpFile, err := os.OpenFile(tmpFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to create staged upload file: %v", err)}, nil
 	}

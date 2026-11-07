@@ -21,10 +21,10 @@ Resolve operational ergonomics, safety barriers, and layout issues from testing:
   - **Scope**: `internal/server/handlers_explorer.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/js/explorer_actions.js`, `internal/server/handlers_explorer_test.go`
   - **Verification**: `go test -v -count=1 ./internal/server/ -run TestHandleExplorerUpload` and `./scripts/check.sh templates`
 
-- [ ] Task 5: End-to-End Smoke Tests & Full Quality Gate Verification
+- [x] Task 5: End-to-End Smoke Tests & Full Quality Gate Verification
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`, all updated components
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-07: Initialized task plan based on user testing feedback.
+- 2026-11-07: Completed all Milestone 1 tasks and quality gates. All 7 checks in `./scripts/check.sh all` and Chrome E2E tests passed.

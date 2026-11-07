@@ -47,11 +47,7 @@ window.ExplorerActionsModule = {
     },
 
     cancelDelete() {
-        this.deleteModal.show = false;
-        this.deleteModal.item = null;
-        this.deleteModal.paneKey = null;
-        this.deleteModal.step = 1;
-        this.deleteModal.deleting = false;
+        this.deleteModal = { show: false, item: null, paneKey: null, step: 1, deleting: false };
     },
 
     async executeDeleteItem(paneKey, item) {
@@ -375,19 +371,11 @@ window.ExplorerActionsModule = {
         const x = Math.min(clientX, window.innerWidth - 220);
         const y = Math.min(clientY, window.innerHeight - 240);
 
-        this.contextMenu = {
-            show: true,
-            x: Math.max(10, x),
-            y: Math.max(10, y),
-            paneKey,
-            item
-        };
+        this.contextMenu = { show: true, x: Math.max(10, x), y: Math.max(10, y), paneKey, item };
     },
 
     closeContextMenu() {
-        this.contextMenu.show = false;
-        this.contextMenu.item = null;
-        this.contextMenu.paneKey = null;
+        this.contextMenu = { show: false, item: null, paneKey: null, x: 0, y: 0 };
     },
 
     copyItemPath(item) {

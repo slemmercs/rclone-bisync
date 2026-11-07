@@ -575,4 +575,3 @@ func TestHandleExplorerUpload_SuccessAndSafety(t *testing.T) {
 		t.Fatalf("profile uploaded file content mismatch: %v (data: %s)", err, string(content))
 	}
 }
-

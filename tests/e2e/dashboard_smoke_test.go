@@ -554,6 +554,19 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.closePreviewModal();
 			const previewModalClosed = !app.filePreviewModal?.show;
 
+			// Test Context Menu
+			if (typeof app.openContextMenu !== 'function') return { error: "openContextMenu missing" };
+			app.openContextMenu('left', { Name: 'test.txt', Path: 'test.txt', IsDir: false }, { clientX: 100, clientY: 150, preventDefault() {}, stopPropagation() {} });
+			const contextMenuOpen = Boolean(app.contextMenu?.show);
+			const contextMenuItemName = app.contextMenu?.item?.Name;
+			app.closeContextMenu();
+			const contextMenuClosed = !app.contextMenu?.show;
+
+			// Test Explorer Upload Triggers
+			if (typeof app.triggerUpload !== 'function') return { error: "triggerUpload missing" };
+			const uploadLeftInputExists = Boolean(document.getElementById('explorer-upload-left'));
+			const uploadRightInputExists = Boolean(document.getElementById('explorer-upload-right'));
+
 			return {
 				popoverOpen,
 				popoverClosed,
@@ -564,22 +577,32 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				encryptionLoading,
 				previewModalOpen,
 				previewContent,
-				previewModalClosed
+				previewModalClosed,
+				contextMenuOpen,
+				contextMenuItemName,
+				contextMenuClosed,
+				uploadLeftInputExists,
+				uploadRightInputExists
 			};
 		})()`
 
 		type M1Result struct {
-			Error               *string `json:"error"`
-			PopoverOpen         bool    `json:"popoverOpen"`
-			PopoverClosed       bool    `json:"popoverClosed"`
-			PresetsLen          int     `json:"presetsLen"`
-			FormattedSpeed      string  `json:"formattedSpeed"`
-			FormattedBytes      string  `json:"formattedBytes"`
-			EncryptionTabActive bool    `json:"encryptionTabActive"`
-			EncryptionLoading   *bool   `json:"encryptionLoading"`
-			PreviewModalOpen    bool    `json:"previewModalOpen"`
-			PreviewContent      string  `json:"previewContent"`
-			PreviewModalClosed  bool    `json:"previewModalClosed"`
+			Error                  *string `json:"error"`
+			PopoverOpen            bool    `json:"popoverOpen"`
+			PopoverClosed          bool    `json:"popoverClosed"`
+			PresetsLen             int     `json:"presetsLen"`
+			FormattedSpeed         string  `json:"formattedSpeed"`
+			FormattedBytes         string  `json:"formattedBytes"`
+			EncryptionTabActive    bool    `json:"encryptionTabActive"`
+			EncryptionLoading      *bool   `json:"encryptionLoading"`
+			PreviewModalOpen       bool    `json:"previewModalOpen"`
+			PreviewContent         string  `json:"previewContent"`
+			PreviewModalClosed     bool    `json:"previewModalClosed"`
+			ContextMenuOpen        bool    `json:"contextMenuOpen"`
+			ContextMenuItemName    string  `json:"contextMenuItemName"`
+			ContextMenuClosed      bool    `json:"contextMenuClosed"`
+			UploadLeftInputExists  bool    `json:"uploadLeftInputExists"`
+			UploadRightInputExists bool    `json:"uploadRightInputExists"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[M1Result](script))
@@ -610,6 +633,13 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		if !res.PreviewModalOpen || res.PreviewContent != "Hello Bisync UI Suite" || !res.PreviewModalClosed {
 			t.Errorf("preview modal mismatch: open=%v content=%q closed=%v", res.PreviewModalOpen, res.PreviewContent, res.PreviewModalClosed)
 		}
+		if !res.ContextMenuOpen || res.ContextMenuItemName != "test.txt" || !res.ContextMenuClosed {
+			t.Errorf("context menu mismatch: open=%v name=%q closed=%v", res.ContextMenuOpen, res.ContextMenuItemName, res.ContextMenuClosed)
+		}
+		if !res.UploadLeftInputExists || !res.UploadRightInputExists {
+			t.Errorf("upload input triggers missing: left=%v right=%v", res.UploadLeftInputExists, res.UploadRightInputExists)
+		}
+
 	})
 
 	// 6. Check for any runtime JavaScript console errors or exceptions

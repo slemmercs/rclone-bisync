@@ -193,4 +193,3 @@ func TestConfigEncryptionService_CreatePasswordHelperScript(t *testing.T) {
 		t.Errorf("script content missing RCLONE_PASSWORD_CHANGE logic: %s", string(content))
 	}
 }
-

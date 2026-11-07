@@ -1,50 +1,7 @@
 {{ define "view_explorer" }}
         <!-- View 3: File Explorer Workspace -->
         <div x-show="currentTab === 'explorer'" x-cloak x-transition.opacity.duration.200ms class="space-y-5">
-            <!-- Explorer Cockpit Subheader Toolbar -->
-            <div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
-                <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-200">Dual-Pane Directory Explorer</span>
-                    <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block" x-text="explorer.isSwapped ? 'Remote ⇄ Local' : 'Local ⇄ Remote'"></span>
-                    <template x-if="activeProfile">
-                        <div class="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-950/60 border border-indigo-700/50 rounded-lg text-xs">
-                            <span class="text-[10px] text-slate-400">Profile:</span>
-                            <span class="text-indigo-300 font-semibold truncate max-w-[10rem]" x-text="activeProfile.name"></span>
-                            <button @click="openProfilesModal('list')" class="text-[10px] text-indigo-400 hover:text-white underline ml-0.5">Switch</button>
-                        </div>
-                    </template>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-2">
-                    <div class="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-2 py-1 rounded-lg text-xs">
-                        <span class="text-[11px] text-slate-400 font-sans">Delete Safety:</span>
-                        <select x-model="deleteConfirmMode" @change="setDeleteConfirmMode(deleteConfirmMode)" class="bg-slate-900 border border-slate-700/80 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium">
-                            <option value="double">Double Confirmation (Default)</option>
-                            <option value="single">Single Confirmation</option>
-                            <option value="none">Direct (No Confirmation)</option>
-                        </select>
-                    </div>
-                    <button @click="swapExplorerPanes()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60" title="Swap Left and Right Panes (⇄)">
-                        <span class="text-sm font-bold">⇄</span><span>Swap Panes</span>
-                    </button>
-                    <button @click="syncCurrentDirectory('left')" :disabled="isExplorerLoading()" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-indigo-500/30" title="Sync current local directory contents to remote">
-                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><span>Sync Local to Remote</span>
-                    </button>
-                    <button @click="syncCurrentDirectory('right')" :disabled="isExplorerLoading()" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-500/30" title="Sync current remote directory contents to local">
-                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg><span>Sync Remote to Local</span>
-                    </button>
-                    <button @click="refreshExplorer()" :disabled="isExplorerLoading()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
-                        <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': isExplorerLoading() }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-                        <span>Refresh</span>
-                    </button>
-                    <button x-show="reviewState.active" @click="openReviewModal()" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-amber-500/40 animate-pulse cursor-pointer" title="Open Review & Resolution Center">
-                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
-                        <span x-text="`Review Active (${reviewStats.total})`"></span>
-                    </button>
-                </div>
-            </div>
-
+            {{ template "component_explorer_toolbar" . }}
             <!-- Dual Pane Columns Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <!-- Left Pane: Local Storage -->
@@ -414,40 +371,4 @@
                 </div>
             </div>
         </div> <!-- End View 3: File Explorer Workspace -->
-
-            <!-- Floating File Context Menu -->
-            <div x-show="contextMenu.show" x-cloak @click.outside="closeContextMenu()" :style="'top: ' + contextMenu.y + 'px; left: ' + contextMenu.x + 'px;'" class="fixed z-50 min-w-[12rem] bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl py-1 text-xs text-slate-200 font-sans backdrop-blur-md">
-                <div class="px-3 py-1.5 border-b border-slate-800 text-[10px] font-mono text-slate-400 truncate max-w-[14rem]" x-text="contextMenu.item ? contextMenu.item.Name : ''"></div>
-                <template x-if="contextMenu.item && isItemPreviewable(contextMenu.item)">
-                    <button type="button" @click="previewFile(contextMenu.paneKey, contextMenu.item); closeContextMenu()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200 hover:text-white transition-colors cursor-pointer">
-                        <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                        <span>Preview</span>
-                    </button>
-                </template>
-                <template x-if="contextMenu.item && !contextMenu.item.IsDir">
-                    <button type="button" @click="downloadFile(contextMenu.paneKey, contextMenu.item); closeContextMenu()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200 hover:text-white transition-colors cursor-pointer">
-                        <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-                        <span>Download</span>
-                    </button>
-                </template>
-                <template x-if="contextMenu.item && !contextMenu.item.IsDir">
-                    <button type="button" @click="transferItem(contextMenu.paneKey, contextMenu.item); closeContextMenu()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200 hover:text-white transition-colors cursor-pointer">
-                        <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-                        <span x-text="contextMenu.paneKey === 'left' ? 'Copy to Remote' : 'Copy to Local'"></span>
-                    </button>
-                </template>
-                <button type="button" @click="copyItemPath(contextMenu.item); closeContextMenu()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200 hover:text-white transition-colors cursor-pointer">
-                    <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                    <span>Copy Path</span>
-                </button>
-                <template x-if="contextMenu.item && !isCanaryItem(contextMenu.item)">
-                    <div class="border-t border-slate-800 pt-1 mt-1">
-                        <button type="button" @click="promptDeleteItem(contextMenu.paneKey, contextMenu.item); closeContextMenu()" class="w-full px-3 py-1.5 text-left hover:bg-rose-500/20 flex items-center gap-2 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer">
-                            <svg class="w-3.5 h-3.5 text-rose-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                            <span>Delete</span>
-                        </button>
-                    </div>
-                </template>
-            </div>
-
 {{ end }}

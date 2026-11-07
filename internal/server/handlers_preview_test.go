@@ -152,7 +152,6 @@ func TestHandleDownload_Inline(t *testing.T) {
 	}
 }
 
-
 func TestHandleDownload_MissingPathAndDirectory(t *testing.T) {
 	s, _ := setupPreviewTestServer(t)
 

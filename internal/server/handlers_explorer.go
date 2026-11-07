@@ -117,6 +117,8 @@ func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleExplorerUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<20)
+	// #nosec G120 - request body is bounded to 64MB via http.MaxBytesReader
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		writeJSON(w, http.StatusBadRequest, models.UploadResponse{Status: "error", Error: "Failed to parse multipart form: " + err.Error()})
 		return
@@ -154,4 +156,3 @@ func (s *Server) handleExplorerUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, res)
 }
-
