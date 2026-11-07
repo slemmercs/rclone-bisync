@@ -13,9 +13,9 @@ Implement automatic persistence of `RCLONE_CONFIG_PASS` to `rc-secrets.env` when
   - **Scope**: `internal/models/encryption.go`, `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`
 
-- [ ] Task 3: API Endpoints for Passphrase Persistence & Verification
+- [x] Task 3: API Endpoints for Passphrase Persistence & Verification
   - **Scope**: `internal/server/handlers_encryption.go`, `internal/server/handlers_encryption_test.go`, `internal/server/server.go`
-  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestEncryption`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleSaveDaemonPassphrase`
 
 - [ ] Task 4: Frontend Cockpit Warning Banner & Passphrase Persistence UI
   - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `dashboard/frontend/app.js`
@@ -30,4 +30,5 @@ Implement automatic persistence of `RCLONE_CONFIG_PASS` to `rc-secrets.env` when
 - 2026-11-07: Initialized task plan from approved implementation_plan.md.
 - 2026-11-07: Completed Task 1 - Environment Secret Management Utilities & Unit Tests. Verified with unit tests (`go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`).
 - 2026-11-07: Completed Task 2 - Service Layer Passphrase Synchronization & Validation. Verified with unit tests (`go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`).
+- 2026-11-07: Completed Task 3 - API Endpoints for Passphrase Persistence & Verification. Verified with unit tests (`go test -v -count=1 ./internal/server/... -run TestHandleSaveDaemonPassphrase`).
 
