@@ -327,6 +327,8 @@ document.addEventListener("alpine:init", () => {
             if (typeof this.fetchProfiles === "function") this.fetchProfiles();
             this.fetchRemotes(false);
             this.fetchReviewSession(false);
+            if (typeof this.fetchBandwidthLimit === "function") this.fetchBandwidthLimit();
+            if (typeof this.fetchCoreStats === "function") this.fetchCoreStats();
             if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1);
             if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             if (this.currentTab === "remotes") this.fetchRemotes(true);
@@ -382,6 +384,7 @@ document.addEventListener("alpine:init", () => {
         window.LogsModule,
         window.AuditModule,
         window.SettingsModule,
+        window.BandwidthModule,
         window.McpModule,
         window.PollingModule,
         window.HelpDiagnosticsModule,

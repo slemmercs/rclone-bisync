@@ -25,7 +25,7 @@ Implement Milestone 1 of the Rclone-UI Feature Suite natively in Bisync Hub: Dyn
   - **Scope**: `internal/models/encryption.go`, `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`, `internal/server/handlers_encryption.go`, `dashboard/frontend/partials/modals/modal_global_settings.html`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestEncryption`
 
-- [ ] Task 6: Header Bandwidth Controller and Real-Time Stats UI
+- [x] Task 6: Header Bandwidth Controller and Real-Time Stats UI
   - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/bandwidth.js`, `dashboard/frontend/partials/components/component_header.html`, `dashboard/frontend/partials/view_telemetry.html`
   - **Verification**: `./scripts/check.sh templates`
 

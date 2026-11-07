@@ -134,6 +134,11 @@ window.PollingModule = {
                 }
             }
 
+            // Real-time core daemon transfer and bandwidth stats
+            if (typeof this.fetchCoreStats === "function") {
+                this.fetchCoreStats();
+            }
+
             this.wasSyncing = isSyncing;
         } catch (err) {
             console.error("Telemetry poll failed:", err);

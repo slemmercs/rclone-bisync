@@ -48,6 +48,10 @@ window.SettingsModule = {
         return Boolean(this.globalSettingsModal?.saving);
     },
 
+    isEncryptionLoading() {
+        return Boolean(this.globalSettingsModal?.encryption?.loading);
+    },
+
     isExplorerRemoteLocked() {
         return Boolean(this.globalSettingsModal?.config?.global_defaults?.lock_explorer_remote);
     },
