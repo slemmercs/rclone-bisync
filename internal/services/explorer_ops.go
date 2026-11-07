@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -242,4 +243,135 @@ func (e *ExplorerService) DeleteItem(ctx context.Context, remote, path string, i
 		return models.DeleteResponse{Status: "error", Error: fmt.Sprintf("Delete file failed: %v", err)}, nil
 	}
 	return models.DeleteResponse{Status: "success", Fs: remoteName, Remote: cleanPath, Path: cleanPath}, nil
+}
+
+
+// UploadFile saves a streamed file to the specified remote directory, enforcing path jails and canary protection.
+func (e *ExplorerService) UploadFile(ctx context.Context, remote, dirPath, fileName string, reader io.Reader, size int64, localBase ...string) (models.UploadResponse, error) {
+	cleanDirPath := strings.Trim(strings.TrimSpace(dirPath), "/")
+	cleanFileName := filepath.Base(strings.TrimSpace(fileName))
+
+	if cleanFileName == "" || cleanFileName == "." || cleanFileName == "/" || strings.Contains(fileName, "..") || strings.Contains(fileName, "/") || strings.Contains(fileName, "\\") {
+		return models.UploadResponse{Status: "error", Error: "Invalid filename or path traversal detected"}, nil
+	}
+
+	if cleanFileName == CanaryFilename {
+		return models.UploadResponse{Status: "error", Error: "Canary test file (RCLONE_TEST) cannot be uploaded or overwritten"}, nil
+	}
+
+	remoteClean := strings.TrimSpace(remote)
+	isLocal := strings.ToLower(remoteClean) == "local" || remoteClean == ""
+
+	if isLocal {
+		rawBase := ""
+		if len(localBase) > 0 && localBase[0] != "" {
+			rawBase = localBase[0]
+		} else if e.Config != nil {
+			rawBase = e.Config.LocalPath
+		}
+		if rawBase == "" {
+			rawBase = "~/gdrive"
+		}
+
+		baseDir, targetDir, ok := isLocalPathJailed(rawBase, cleanDirPath)
+		if !ok {
+			return models.UploadResponse{Status: "error", Error: "Directory traversal forbidden"}, nil
+		}
+		cleanBase := filepath.Clean(baseDir)
+		basePrefix := cleanBase + string(filepath.Separator)
+		if targetDir != cleanBase && !strings.HasPrefix(targetDir, basePrefix) {
+			return models.UploadResponse{Status: "error", Error: "Directory traversal forbidden"}, nil
+		}
+
+		fi, err := os.Stat(targetDir)
+		if err != nil || !fi.IsDir() {
+			return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Target directory does not exist: %s", cleanDirPath)}, nil
+		}
+
+		destPath := filepath.Join(targetDir, cleanFileName)
+		tmpFile, err := os.CreateTemp(targetDir, fmt.Sprintf(".upload-%d-*.tmp", os.Getpid()))
+		if err != nil {
+			return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to create temporary file: %v", err)}, nil
+		}
+		tmpPath := tmpFile.Name()
+		defer func() {
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpPath)
+		}()
+
+		written, err := io.Copy(tmpFile, reader)
+		if err != nil {
+			return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to write uploaded content: %v", err)}, nil
+		}
+		_ = tmpFile.Close()
+
+		if err := os.Chmod(tmpPath, 0644); err != nil {
+			return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to set file permissions: %v", err)}, nil
+		}
+
+		if err := os.Rename(tmpPath, destPath); err != nil {
+			return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to commit uploaded file: %v", err)}, nil
+		}
+
+		relPath := cleanFileName
+		if cleanDirPath != "" {
+			relPath = fmt.Sprintf("%s/%s", cleanDirPath, cleanFileName)
+		}
+
+		return models.UploadResponse{
+			Status: "success",
+			Msg:    fmt.Sprintf("Uploaded %s", cleanFileName),
+			Remote: "local",
+			Path:   relPath,
+			Size:   written,
+		}, nil
+	}
+
+	// Remote destination
+	if e.Client == nil {
+		return models.UploadResponse{Status: "error", Error: "client not configured"}, nil
+	}
+
+	tmpDir, err := os.MkdirTemp("", "rclone-upload-*")
+	if err != nil {
+		return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to create temporary staging directory: %v", err)}, nil
+	}
+	defer os.RemoveAll(tmpDir)
+
+	tmpFilePath := filepath.Join(tmpDir, cleanFileName)
+	tmpFile, err := os.OpenFile(tmpFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to create staged upload file: %v", err)}, nil
+	}
+	written, err := io.Copy(tmpFile, reader)
+	_ = tmpFile.Close()
+	if err != nil {
+		return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Failed to write staged content: %v", err)}, nil
+	}
+
+	remoteName := strings.TrimRight(remoteClean, ":") + ":"
+	var dstFs string
+	if cleanDirPath != "" {
+		dstFs = fmt.Sprintf("%s%s", remoteName, cleanDirPath)
+	} else {
+		dstFs = remoteName
+	}
+
+	ok, err := e.Client.CopyFile(ctx, tmpDir, cleanFileName, dstFs, cleanFileName)
+	if err != nil || !ok {
+		return models.UploadResponse{Status: "error", Error: fmt.Sprintf("Remote upload failed: %v", err)}, nil
+	}
+
+	relPath := cleanFileName
+	if cleanDirPath != "" {
+		relPath = fmt.Sprintf("%s/%s", cleanDirPath, cleanFileName)
+	}
+
+	return models.UploadResponse{
+		Status: "success",
+		Msg:    fmt.Sprintf("Uploaded %s", cleanFileName),
+		Remote: remoteClean,
+		Path:   relPath,
+		Size:   written,
+	}, nil
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -465,3 +466,113 @@ func TestExplorer_PathTraversalForbidden(t *testing.T) {
 		t.Fatalf("expected path traversal error, got: %+v", delRes)
 	}
 }
+
+func TestHandleExplorerUpload_SuccessAndSafety(t *testing.T) {
+	srv, defaultLocal, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. Normal upload to default local
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	_ = w.WriteField("remote", "local")
+	_ = w.WriteField("path", "")
+	part, err := w.CreateFormFile("file", "uploaded_doc.txt")
+	if err != nil {
+		t.Fatalf("failed to create form file: %v", err)
+	}
+	_, _ = part.Write([]byte("hello world upload content"))
+	_ = w.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/explorer/upload", &b)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var res models.UploadResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if res.Status != "success" || res.Path != "uploaded_doc.txt" {
+		t.Fatalf("expected success, got: %+v", res)
+	}
+	content, err := os.ReadFile(filepath.Join(defaultLocal, "uploaded_doc.txt"))
+	if err != nil || string(content) != "hello world upload content" {
+		t.Fatalf("uploaded file content mismatch: %v (data: %s)", err, string(content))
+	}
+
+	// 2. Traversal attempt in path
+	b.Reset()
+	w = multipart.NewWriter(&b)
+	_ = w.WriteField("remote", "local")
+	_ = w.WriteField("path", "../../../etc")
+	part, _ = w.CreateFormFile("file", "hacked.txt")
+	_, _ = part.Write([]byte("evil"))
+	_ = w.Close()
+
+	req = httptest.NewRequest(http.MethodPost, "/api/explorer/upload", &b)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	var errRes models.UploadResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &errRes)
+	if errRes.Status != "error" || errRes.Error != "Path traversal forbidden" {
+		t.Fatalf("expected path traversal forbidden error, got: %+v", errRes)
+	}
+
+	// 3. Canary file upload attempt (RCLONE_TEST)
+	b.Reset()
+	w = multipart.NewWriter(&b)
+	_ = w.WriteField("remote", "local")
+	_ = w.WriteField("path", "")
+	part, _ = w.CreateFormFile("file", "RCLONE_TEST")
+	_, _ = part.Write([]byte("fake canary"))
+	_ = w.Close()
+
+	req = httptest.NewRequest(http.MethodPost, "/api/explorer/upload", &b)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	var canaryRes models.UploadResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &canaryRes)
+	if canaryRes.Status != "error" || canaryRes.Error != "Canary test file (RCLONE_TEST) cannot be uploaded or overwritten" {
+		t.Fatalf("expected canary protection error, got: %+v", canaryRes)
+	}
+
+	// 4. Upload scoped to profile_id = "prof_onedrive"
+	b.Reset()
+	w = multipart.NewWriter(&b)
+	_ = w.WriteField("remote", "local")
+	_ = w.WriteField("path", "")
+	_ = w.WriteField("profile_id", "prof_onedrive")
+	part, _ = w.CreateFormFile("file", "profile_doc.txt")
+	_, _ = part.Write([]byte("onedrive profile data"))
+	_ = w.Close()
+
+	req = httptest.NewRequest(http.MethodPost, "/api/explorer/upload", &b)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	var profRes models.UploadResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &profRes)
+	if profRes.Status != "success" || profRes.Path != "profile_doc.txt" {
+		t.Fatalf("expected profile upload success, got: %+v", profRes)
+	}
+	content, err = os.ReadFile(filepath.Join(profileLocal, "profile_doc.txt"))
+	if err != nil || string(content) != "onedrive profile data" {
+		t.Fatalf("profile uploaded file content mismatch: %v (data: %s)", err, string(content))
+	}
+}
+

@@ -115,3 +115,43 @@ func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, res)
 }
+
+func (s *Server) handleExplorerUpload(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		writeJSON(w, http.StatusBadRequest, models.UploadResponse{Status: "error", Error: "Failed to parse multipart form: " + err.Error()})
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, models.UploadResponse{Status: "error", Error: "File is required"})
+		return
+	}
+	defer file.Close()
+
+	remote := strings.TrimSpace(r.FormValue("remote"))
+	if remote == "" {
+		remote = "local"
+	}
+	targetPath := strings.TrimSpace(r.FormValue("path"))
+	profileID := strings.TrimSpace(r.FormValue("profile_id"))
+
+	if strings.Contains(targetPath, "..") || strings.Contains(header.Filename, "..") {
+		writeJSON(w, http.StatusOK, models.UploadResponse{Status: "error", Error: "Path traversal forbidden"})
+		return
+	}
+
+	if header.Filename == "RCLONE_TEST" {
+		writeJSON(w, http.StatusOK, models.UploadResponse{Status: "error", Error: "Canary test file (RCLONE_TEST) cannot be uploaded or overwritten"})
+		return
+	}
+
+	localBase := s.resolveLocalPath(profileID)
+	res, err := s.ExplorerService.UploadFile(r.Context(), remote, targetPath, header.Filename, file, header.Size, localBase)
+	if err != nil {
+		writeJSON(w, http.StatusOK, models.UploadResponse{Status: "error", Error: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+

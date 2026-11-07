@@ -139,6 +139,15 @@ document.addEventListener("alpine:init", () => {
             preview: null
         },
 
+        // File Context Menu State
+        contextMenu: {
+            show: false,
+            x: 0,
+            y: 0,
+            paneKey: null,
+            item: null
+        },
+
         // Reusable Confirmation Modal State
         confirmModal: {
             show: false,

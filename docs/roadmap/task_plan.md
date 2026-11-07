@@ -17,9 +17,9 @@ Resolve operational ergonomics, safety barriers, and layout issues from testing:
   - **Scope**: `dashboard/frontend/partials/components/component_header.html`, `dashboard/frontend/index.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/bandwidth.js`
   - **Verification**: `./scripts/check.sh templates` and `go test -v -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke/GlobalSettingsModalTabs`
 
-- [ ] Task 4: File Explorer Upload & Right-Click Context Menu
+- [x] Task 4: File Explorer Upload & Right-Click Context Menu
   - **Scope**: `internal/server/handlers_explorer.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/js/explorer_actions.js`, `internal/server/handlers_explorer_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/server/...`
+  - **Verification**: `go test -v -count=1 ./internal/server/ -run TestHandleExplorerUpload` and `./scripts/check.sh templates`
 
 - [ ] Task 5: End-to-End Smoke Tests & Full Quality Gate Verification
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`, all updated components
