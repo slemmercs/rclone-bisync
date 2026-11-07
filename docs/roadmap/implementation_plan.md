@@ -1,49 +1,33 @@
-# Implementation Plan: Alternative A - Single-Source Declarative Schema Engine for Provider Options
+# Implementation Plan: Streamline ROADMAP.md and backlog.md
 
 ## Proposed Changes
 
-Transition Target Provider Options from hardcoded, duplicated Go/JS/HTML implementations to **Alternative A: Single-Source Declarative Schema Engine**.
-Instead of hand-coding UI inputs, backend flag compilers, and frontend CLI previews for each remote type (Google Drive, OneDrive, Amazon S3, Dropbox, etc.), all provider-specific options will be defined declaratively in a unified schema.
+Streamline `docs/roadmap/ROADMAP.md` and `docs/roadmap/backlog.md` to eliminate massive duplication of historical completed milestones (which are already documented in GitHub Releases `v1.0.0-beta.1` through `beta.27` and git history). Establish crisp role boundaries between strategic roadmap vs. tactical backlog.
 
 ### Affected Components & Packages
 
-- `internal/profiles/provider_options.json`: Single source of truth containing metadata for all provider options (flags, types, labels, default values, options).
-- `internal/profiles/registry.go`: Go registry embedding `provider_options.json` with lookup utilities and validation.
-- `internal/profiles/builder.go`: Generic iteration over schema definitions to synthesize CLI arguments, replacing the hardcoded `if/switch` chain.
-- `internal/profiles/builder_test.go`: Comprehensive unit tests verifying schema integrity and parity with existing CLI generation.
-- `dashboard/frontend/js/provider_options.js`: Modular frontend registry and Alpine.js helper methods for dynamic options handling.
-- `dashboard/frontend/index.html`: Registration of the `provider_options.js` script tag.
-- `dashboard/frontend/partials/modals/modal_provider_options.html`: Dynamic Alpine `<template x-for>` rendering for boolean flags and value inputs.
-- `dashboard/frontend/js/flags_builder.js`: Generic synthesis of provider flags in live CLI preview.
-- `tests/e2e/dashboard_smoke_test.go`: Verification of dynamically rendered provider options across provider types.
+- `docs/roadmap/ROADMAP.md`: Strategic vision, guiding principles, forward-looking horizons towards v1.0.0-GA and beyond, and non-goals. Direct link to GitHub Releases for historical changelog.
+- `docs/roadmap/backlog.md`: Tactical, prioritized engineering backlog with scoped work items, estimates (story points & hours), and references to technical design specifications.
+- `site/`: Ensure any site documentation or links referencing roadmap/backlog remain valid.
 
-### Technical Strategy & Data Flow
+### Technical Strategy & Content Boundaries
 
-- **Declarative Schema Structure**:
-  - `provider`: Provider type identifier (e.g., `drive`, `onedrive`, `s3`, `dropbox`).
-  - `key`: Option field identifier (e.g., `onedrive_delta`, `drive_skip_shortcuts`, `s3_storage_class`).
-  - `flag`: Exact Rclone CLI argument flag (e.g., `--onedrive-delta`, `--drive-skip-shortcuts`, `--s3-storage-class`).
-  - `type`: `bool`, `text`, or `select`.
-  - `label`: Concise human-readable UI label.
-  - `default`: Default value (e.g., `"true"`, `"false"`, `"STANDARD"`).
-  - `placeholder`: Optional input placeholder text.
-  - `options`: Allowed values for `select` type.
-  - `desc`: Inline guidance and tooltip description.
-- **Backend CLI Synthesis**:
-  - `buildProviderCLIArgs(providerOpts)` iterates through `GetProviderOptions()`, formatting boolean flags (including `=false` when disabled if default was true) and value flags cleanly.
-- **Frontend Live Preview & UI Rendering**:
-  - Alpine helper `isProviderFieldChecked(field)` provides AST-safe boolean binding without dotted paths (complying with `cmd/check/html_scanner.go`).
-  - Live CLI preview iterates over `PROVIDER_OPTIONS_REGISTRY` identically to Go backend.
+1. **`ROADMAP.md` (Strategic "Why & Where")**:
+   - Target audience: Users, contributors, evaluators.
+   - Forward-looking horizons:
+     - **Horizon 1 (Target v1.0.0-GA)**: Configuration Snapshot & Rollback Engine, Homelab Reverse Proxy Hardening & Standards Observability (OTel/OTLP).
+     - **Horizon 2 (Post-GA Operational Visibility)**: High-Density Unified Log Ledger & Deep Path Navigation, Remote Cloud Web Links, Queued File Explorer Direct Upload.
+     - **Horizon 3 (Storage & Infrastructure Expansion)**: Remote Mount Manager & Pooled Virtual Storage Engine, Local IPC via Unix Sockets, Native Desktop Packaging (Wails).
+   - Clear link to GitHub Releases for past delivered versions.
+   - Non-goals section (multi-tenant SaaS, diff merge editor, upstream rclone replacement).
 
-### Safety & Error Handling
+2. **`backlog.md` (Tactical "What & How")**:
+   - Target audience: Developers, sprint planners.
+   - Groomed, sequenced work queue with estimates (SP and hours), architecture impact, and design doc references.
+   - Strict removal of delivered sprints (Phases 1-6, PR #9-76).
 
-- **Alpine Attribute AST Safety**: Avoid dotted expressions in `:checked` bindings to eliminate Alpine boolean coercion bugs and comply with `./scripts/check.sh templates`.
-- **Zero Subprocess / Safe Defaults**: Unset optional values generate zero CLI noise; defaults are strictly respected.
-- **LOC Boundaries**: Modularized into small files well under the 400 LOC limit.
+### Verification Plan
 
-## Verification Plan
+- Inspect both files for formatting, links, and markdown integrity.
+- Run `./scripts/check.sh all` to guarantee that all quality gates (including license and link checks) pass cleanly.
 
-- `go test -v -count=1 ./internal/profiles/...`: Validate Go registry parsing and CLI flag builder parity.
-- `./scripts/check.sh templates`: Verify template AST scanner passes without boolean attribute violations.
-- `go test -v -count=1 ./tests/e2e/...`: Verify headless Chrome dynamic rendering across provider switches.
-- `./scripts/check.sh all`: Full 7-stage quality gate check.
