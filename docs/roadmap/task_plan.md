@@ -9,7 +9,7 @@ Implement automatic persistence of `RCLONE_CONFIG_PASS` to `rc-secrets.env` when
   - **Scope**: `internal/config/secrets.go`, `internal/config/secrets_test.go`, `internal/config/config.go`
   - **Verification**: `go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`
 
-- [ ] Task 2: Service Layer Passphrase Synchronization & Validation
+- [x] Task 2: Service Layer Passphrase Synchronization & Validation
   - **Scope**: `internal/models/encryption.go`, `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`
 
@@ -29,4 +29,5 @@ Implement automatic persistence of `RCLONE_CONFIG_PASS` to `rc-secrets.env` when
 
 - 2026-11-07: Initialized task plan from approved implementation_plan.md.
 - 2026-11-07: Completed Task 1 - Environment Secret Management Utilities & Unit Tests. Verified with unit tests (`go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`).
+- 2026-11-07: Completed Task 2 - Service Layer Passphrase Synchronization & Validation. Verified with unit tests (`go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`).
 

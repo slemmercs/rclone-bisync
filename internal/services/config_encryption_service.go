@@ -85,6 +85,37 @@ func (s *ConfigEncryptionService) ResolveConfigFile(ctx context.Context) string 
 	return filepath.Join(home, ".config", "rclone", "rclone.conf")
 }
 
+// ResolveSecretsFile determines the location of rc-secrets.env.
+func (s *ConfigEncryptionService) ResolveSecretsFile() string {
+	if s.Config != nil && s.Config.SecretsFile != "" {
+		return s.Config.SecretsFile
+	}
+	home, _ := os.UserHomeDir()
+	candidate := filepath.Join(home, "rclone-bisync", "rc-secrets.env")
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate
+	}
+	if _, err := os.Stat("rc-secrets.env"); err == nil {
+		return "rc-secrets.env"
+	}
+	return candidate
+}
+
+// HasDaemonPassphrase checks whether RCLONE_CONFIG_PASS is set in environment or rc-secrets.env.
+func (s *ConfigEncryptionService) HasDaemonPassphrase() bool {
+	if os.Getenv("RCLONE_CONFIG_PASS") != "" {
+		return true
+	}
+	secFile := s.ResolveSecretsFile()
+	parsed, err := config.ParseEnvFile(secFile)
+	if err == nil {
+		if pass, ok := parsed["RCLONE_CONFIG_PASS"]; ok && strings.TrimSpace(pass) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // GetStatus checks whether the active rclone.conf is encrypted with a password.
 func (s *ConfigEncryptionService) GetStatus(ctx context.Context) (*models.EncryptionStatusResponse, error) {
 	configFile := s.ResolveConfigFile(ctx)
@@ -94,8 +125,10 @@ func (s *ConfigEncryptionService) GetStatus(ctx context.Context) (*models.Encryp
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &models.EncryptionStatusResponse{
-				IsEncrypted: false,
-				ConfigFile:  configFile,
+				IsEncrypted:         false,
+				ConfigFile:          configFile,
+				HasDaemonPassphrase: s.HasDaemonPassphrase(),
+				SecretsFile:         s.ResolveSecretsFile(),
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to open config file: %w", err)
@@ -109,9 +142,18 @@ func (s *ConfigEncryptionService) GetStatus(ctx context.Context) (*models.Encryp
 	isEncrypted := strings.Contains(content, "RCLONE_ENCRYPT_V0:") ||
 		strings.Contains(content, "# Encrypted rclone configuration File")
 
+	hasDaemonPass := s.HasDaemonPassphrase()
+	var warning string
+	if isEncrypted && !hasDaemonPass {
+		warning = "rclone.conf is encrypted but RCLONE_CONFIG_PASS is not configured in rc-secrets.env. The daemon service will fail to restart or decrypt configurations upon system reboot."
+	}
+
 	return &models.EncryptionStatusResponse{
-		IsEncrypted: isEncrypted,
-		ConfigFile:  configFile,
+		IsEncrypted:         isEncrypted,
+		ConfigFile:          configFile,
+		HasDaemonPassphrase: hasDaemonPass,
+		SecretsFile:         s.ResolveSecretsFile(),
+		Warning:             warning,
 	}, nil
 }
 
@@ -180,9 +222,14 @@ func (s *ConfigEncryptionService) SetPassword(ctx context.Context, req models.Se
 		return nil, fmt.Errorf("failed to set encryption password: %w", err)
 	}
 
+	// Synchronize with rc-secrets.env and runtime environment
+	secFile := s.ResolveSecretsFile()
+	_ = config.UpdateSecret(secFile, "RCLONE_CONFIG_PASS", newPass)
+	_ = os.Setenv("RCLONE_CONFIG_PASS", newPass)
+
 	return &models.EncryptionActionResponse{
 		Status:  "success",
-		Message: "Configuration password set successfully",
+		Message: "Configuration password set and synchronized with secrets storage successfully",
 	}, nil
 }
 
@@ -223,8 +270,59 @@ func (s *ConfigEncryptionService) RemovePassword(ctx context.Context, req models
 		return nil, fmt.Errorf("failed to remove encryption password: %w", err)
 	}
 
+	// Purge from rc-secrets.env and runtime environment
+	secFile := s.ResolveSecretsFile()
+	_ = config.RemoveSecret(secFile, "RCLONE_CONFIG_PASS")
+	_ = os.Unsetenv("RCLONE_CONFIG_PASS")
+
 	return &models.EncryptionActionResponse{
 		Status:  "success",
 		Message: "Configuration password removed successfully",
+	}, nil
+}
+
+// SaveDaemonPassphrase verifies and saves an encryption passphrase to rc-secrets.env.
+func (s *ConfigEncryptionService) SaveDaemonPassphrase(ctx context.Context, req models.SaveDaemonPassphraseRequest) (*models.EncryptionActionResponse, error) {
+	pass := strings.TrimSpace(req.Password)
+	if pass == "" {
+		return nil, fmt.Errorf("passphrase cannot be empty")
+	}
+
+	configFile := s.ResolveConfigFile(ctx)
+
+	env := append(os.Environ(),
+		fmt.Sprintf("NEW_PASS=%s", pass),
+		fmt.Sprintf("OLD_PASS=%s", pass),
+	)
+
+	helperScript, err := createPasswordHelperScript()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = os.Remove(helperScript)
+	}()
+
+	args := []string{
+		"listremotes",
+		"--config", configFile,
+		"--ask-password=false",
+		"--password-command", helperScript,
+	}
+
+	_, err = s.Runner(ctx, "rclone", env, args...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid passphrase: could not decrypt configuration: %w", err)
+	}
+
+	secFile := s.ResolveSecretsFile()
+	if err := config.UpdateSecret(secFile, "RCLONE_CONFIG_PASS", pass); err != nil {
+		return nil, fmt.Errorf("failed to save passphrase to %s: %w", secFile, err)
+	}
+	_ = os.Setenv("RCLONE_CONFIG_PASS", pass)
+
+	return &models.EncryptionActionResponse{
+		Status:  "success",
+		Message: fmt.Sprintf("Passphrase verified and saved to %s", filepath.Base(secFile)),
 	}, nil
 }
