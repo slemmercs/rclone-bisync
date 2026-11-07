@@ -92,6 +92,12 @@ window.SettingsModule = {
             this.globalSettingsModal.loading = false;
         }
         this.fetchConfigEncryptionStatus();
+        if (typeof this.fetchBandwidthLimit === "function") {
+            this.fetchBandwidthLimit();
+        }
+        if (typeof this.fetchCoreStats === "function") {
+            this.fetchCoreStats();
+        }
     },
 
     async fetchConfigEncryptionStatus() {

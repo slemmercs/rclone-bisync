@@ -79,9 +79,6 @@
                 </div>
                 <!-- Right: Global Daemon Health & Latency -->
                 <div class="flex items-center gap-2 shrink-0">
-                    <!-- Dynamic Bandwidth Throttler Popover Trigger -->
-                    {{ template "component_header_bandwidth" . }}
-
                     <!-- Polling Status Toggle (Dev Mode / Alt+P) -->
                     <button @click="togglePolling()" class="flex items-center gap-1.5 bg-slate-900 border px-2.5 py-1.5 rounded-xl font-mono text-xs transition-colors" :class="isPollingPaused ? 'border-amber-500/40 text-amber-400 bg-amber-950/30' : 'border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'" :title="isPollingPaused ? 'Polling paused (Alt+P to resume)' : 'Live polling active (Alt+P to pause)'">
                         <span class="w-2 h-2 rounded-full" :class="isPollingPaused ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'"></span>

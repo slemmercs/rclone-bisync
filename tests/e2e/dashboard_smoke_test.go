@@ -360,6 +360,28 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			t.Errorf("expected daemon engine inputs to be present in DOM, got %d (err: %v)", count, err)
 		}
 
+		// Test switching to bandwidth tab
+		switchBwScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.globalSettingsModal.tab = 'bandwidth';
+			return true;
+		})()`
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](switchBwScript))
+		if err != nil {
+			t.Fatalf("failed switching to bandwidth tab: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+
+		bwPresetCheck := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			return app && app.bandwidth && Array.isArray(app.bandwidth.presets) && app.bandwidth.presets.length > 0;
+		})()`
+		bwOk, err := chromedp.Run(ctx, chromedp.Evaluate[bool](bwPresetCheck))
+		if err != nil || !bwOk {
+			t.Errorf("expected bandwidth presets to be accessible on bandwidth tab, got %v (err: %v)", bwOk, err)
+		}
+
 		// Close modal
 		closeScript := `(() => {
 			const app = Alpine.$data(document.querySelector('[x-data]'));

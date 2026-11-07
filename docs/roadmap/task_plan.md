@@ -13,9 +13,9 @@ Resolve operational ergonomics, safety barriers, and layout issues from testing:
   - **Scope**: `internal/models/preview.go`, `internal/services/explorer_preview.go`, `internal/server/handlers_preview.go`, `dashboard/frontend/partials/modals/modal_file_preview.html`, tests
   - **Verification**: `go test -v -count=1 ./internal/services/... -run 'TestExplorerPreview|TestDetectMimeType'` and `go test -v -count=1 ./internal/server/... -run 'TestHandlePreview|TestHandleDownload'`
 
-- [ ] Task 3: Header & Telemetry Layout Cleanup (Bandwidth in Settings Modal)
+- [x] Task 3: Header & Telemetry Layout Cleanup (Bandwidth in Settings Modal)
   - **Scope**: `dashboard/frontend/partials/components/component_header.html`, `dashboard/frontend/index.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/bandwidth.js`
-  - **Verification**: `./scripts/check.sh templates`
+  - **Verification**: `./scripts/check.sh templates` and `go test -v -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke/GlobalSettingsModalTabs`
 
 - [ ] Task 4: File Explorer Upload & Right-Click Context Menu
   - **Scope**: `internal/server/handlers_explorer.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/js/explorer_actions.js`, `internal/server/handlers_explorer_test.go`
