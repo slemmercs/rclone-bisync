@@ -1,53 +1,64 @@
-# Implementation Plan: UI Suite Polish & Workflow Alignment
+# Implementation Plan: Automated Rclone Config Passphrase Persistence & Daemon Safety
 
 ## Overview
-This implementation plan addresses the UI/UX refinements identified during Milestone 1 testing:
-1. Relocating Global Fleet Settings tabs into a clean **multi-line tab pill arrangement** (`flex-wrap`) with zero horizontal scrollbars.
-2. Adding graceful client and backend validation for **configuration encryption removal**, warning that the current passphrase is required instead of raising an execution error.
-3. Removing the redundant **Engine Transfer Telemetry panel** from the Telemetry view so only the active synchronization progress bar is displayed when sync runs.
-4. Streamlining File Explorer row actions so only the **Download button** and **`...` context menu trigger** appear on row hover, moving Copy and Delete exclusively into the context menu.
-5. Aligning context menu icons to standard **Lucide SVGs with directional arrows** (pointing right in the left pane for "Copy to Remote", and pointing left in the right pane for "Copy to Local").
-6. **Folder Download Evaluation & Resolution**: Downloading folders as zip archives to the browser adds unnecessary remote streaming overhead when users can already copy entire directories between remotes and local disks via the dual-pane explorer ("Copy to Local / Remote"). We will keep single-file downloads enabled for browser retrieval and retain directory transfers for filesystem operations, keeping the architecture lean and resilient.
+When `rclone.conf` is encrypted, the background `rclone-daemon.service` must have access to `RCLONE_CONFIG_PASS` to decrypt the configuration non-interactively upon system boot or service restart. 
+
+This feature implements:
+1. **Automatic Secret Sync**: When `rclone.conf` is encrypted via the UI, the encryption passphrase is automatically and atomically persisted to `rc-secrets.env` (`0600` permissions) under `RCLONE_CONFIG_PASS`. When encryption is removed via the UI, `RCLONE_CONFIG_PASS` is automatically purged from `rc-secrets.env`.
+2. **Startup & Polling Detection**: On startup and polling cycles, Bisync Hub inspects `rclone.conf` encryption status. If `rclone.conf` is encrypted but `RCLONE_CONFIG_PASS` is missing from both the daemon secrets file and process environment, it sets a warning status.
+3. **UI Warning Banner & Assisted Persistence**: When an external encryption mismatch is detected, a prominent warning banner is displayed across the Bisync Hub cockpit alerting the operator that the background daemon will fail on reboot, with an action button to enter and validate the passphrase to save it directly into `rc-secrets.env`.
 
 ---
 
 ## Proposed Changes
 
-### 1. Global Fleet Settings Tab Navigation & Encryption Removal Validation
-- `dashboard/frontend/partials/modals/modal_global_settings.html`:
-  - Change tab container to `flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-2.5 text-xs font-semibold` (remove `overflow-x-auto` and `shrink-0`).
-- `dashboard/frontend/js/settings.js`:
-  - In `removeConfigPassword()`: Check if `old_password` is empty. If empty, trigger `showToast("Current passphrase is required to remove encryption.", "warning")` and return early without dispatching an API call.
-- `internal/server/handlers_encryption.go`:
-  - In `handleRemoveConfigEncryption()`: Validate that `req.Password` is non-empty. Return HTTP 400 Bad Request with a clear error payload if empty.
-- `internal/server/handlers_encryption_test.go`:
-  - Add test case verifying HTTP 400 is returned when removing encryption with an empty password.
+### Affected Components & Packages
 
-### 2. Remove Redundant Telemetry Panel
-- `dashboard/frontend/partials/view_telemetry.html`:
-  - Remove `<!-- Core Daemon Bandwidth & Active Transfers Card -->` (the Engine Transfer Telemetry card).
-  - Retain `<!-- Live Transfer Progress Card -->` (active synchronization progress bar with file name, speed, ETA, and percentage).
+- `internal/config/secrets.go` & `internal/config/config.go`:
+  - Add atomic `.env` file management utilities: `UpdateSecret(path, key, value string) error` and `RemoveSecret(path, key string) error` with strict POSIX `0600` permissions.
+  - Track `SecretsFile` path on the `Config` struct during discovery in `LoadConfig`.
 
-### 3. Explorer Row Actions Declutter & Directional Context Menu Icons
-- `dashboard/frontend/partials/view_explorer.html`:
-  - In left pane file rows: Remove inline Preview, Copy, and Delete buttons. Keep only Download and `...` More Actions button.
-  - In right pane file rows: Remove inline Preview, Copy, and Delete buttons. Keep only Download and `...` More Actions button.
-- `dashboard/frontend/partials/components/component_context_menu.html`:
-  - For `contextMenu.paneKey === 'left'`: Render Lucide `arrow-right` SVG (`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`) for "Copy to Remote".
-  - For `contextMenu.paneKey === 'right'`: Render Lucide `arrow-left` SVG (`<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>`) for "Copy to Local".
-  - Ensure all other items use pure Lucide SVGs (Preview: `eye`, Download: `download`, Copy Path: `copy`, Delete: `trash-2`).
+- `internal/models/encryption.go`:
+  - Extend `EncryptionStatusResponse` with `HasDaemonPassphrase bool` and `Warning string`.
+  - Add `SaveDaemonPassphraseRequest` struct.
 
-### 4. Quality Gate Verification & Smoke Testing
-- `tests/e2e/dashboard_smoke_test.go`:
-  - Update smoke tests to assert that only Download and `...` buttons are visible on row hover, and verify the multi-line settings tab wrapping.
-- Run `./scripts/check.sh all` to ensure all 7 quality gates pass.
+- `internal/services/config_encryption_service.go`:
+  - Update `GetStatus()` to inspect `os.Getenv("RCLONE_CONFIG_PASS")` and `rc-secrets.env`.
+  - In `SetPassword()`: Automatically persist `RCLONE_CONFIG_PASS` to `rc-secrets.env` upon successful encryption change.
+  - In `RemovePassword()`: Automatically purge `RCLONE_CONFIG_PASS` from `rc-secrets.env`.
+  - Add `SaveDaemonPassphrase(ctx, passphrase)`: Validate passphrase against `rclone` (e.g. running `rclone listremotes`), then update `rc-secrets.env` and in-memory environment.
+
+- `internal/server/handlers_encryption.go` & `internal/server/server.go`:
+  - Add `POST /api/config/encryption/save-passphrase` endpoint.
+  - Wire route and security context.
+
+- `dashboard/frontend/index.html` & `dashboard/frontend/partials/modals/modal_global_settings.html`:
+  - Add top-level warning banner for missing daemon passphrase (`rclone.conf` encrypted but missing in `rc-secrets.env`).
+  - Add inline indicator and action in Global Fleet Settings (Security tab) showing whether daemon persistence is active.
+
+- `dashboard/frontend/js/settings.js` & `dashboard/frontend/app.js`:
+  - Fetch encryption status during dashboard initialization and polling.
+  - Handle submitting daemon passphrase to save to `rc-secrets.env`.
+
+---
+
+## Safety & Error Handling
+
+- **Atomic Writes**: `UpdateSecret` and `RemoveSecret` write to a temporary file (`.tmp.<pid>`) in the same directory and execute `os.Rename` with `0600` file permissions to prevent race conditions or partial reads by systemd.
+- **Passphrase Validation**: Before persisting an externally supplied passphrase, verify it successfully decrypts `rclone.conf` using `rclone listremotes` via the ephemeral helper script.
+- **Path Confinement**: `rc-secrets.env` path is strictly resolved from configured `BaseDir` or user home directory, never accepted from untrusted user input.
+- **Secret Redaction**: Passphrases are excluded from general telemetry, audit detail logs, and error responses.
 
 ---
 
 ## Verification Plan
 
-- Unit & handler tests: `go test -v -count=1 ./internal/server/... -run TestHandleRemoveConfigEncryption`
-- LOC audit: `./scripts/check-loc.sh 400`
+- Unit test secret updating, escaping, appending, and removal: `go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`
+- Unit test service status reporting and automatic secret sync: `go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`
+- Unit test API handlers for encryption status and save-passphrase: `go test -v -count=1 ./internal/server/... -run TestEncryption`
+- LOC & Template check: `./scripts/check-loc.sh 400` and `./scripts/check.sh templates`
+- Full test suite: `./scripts/check.sh all`
+
 - Full check suite: `./scripts/check.sh all`
 - E2E smoke tests: `go test -v -count=1 ./tests/e2e/...`
 

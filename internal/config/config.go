@@ -39,6 +39,7 @@ type Config struct {
 	RCAuthEnabled bool
 	RCUser        string
 	RCPass        string
+	SecretsFile   string
 
 	NotificationAppName            string
 	SuccessNotificationIntervalMin float64
@@ -219,15 +220,24 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		}
 	}
 
+	var secretsFile string
 	for _, d := range dirs {
 		fi, err := os.Stat(d)
 		if err == nil && !fi.IsDir() {
 			_ = LoadEnvFile(d)
-			_ = LoadEnvFile(filepath.Join(filepath.Dir(d), "rc-secrets.env"))
+			secCandidate := filepath.Join(filepath.Dir(d), "rc-secrets.env")
+			if _, serr := os.Stat(secCandidate); serr == nil && secretsFile == "" {
+				secretsFile = secCandidate
+			}
+			_ = LoadEnvFile(secCandidate)
 			baseDir = filepath.Dir(d)
 			continue
 		}
-		_ = LoadEnvFile(filepath.Join(d, "rc-secrets.env"))
+		secCandidate := filepath.Join(d, "rc-secrets.env")
+		if _, serr := os.Stat(secCandidate); serr == nil && secretsFile == "" {
+			secretsFile = secCandidate
+		}
+		_ = LoadEnvFile(secCandidate)
 		_ = LoadEnvFile(filepath.Join(d, "bisync.env"))
 		if err == nil && fi.IsDir() && d != "." {
 			baseDir = d
@@ -235,6 +245,9 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	}
 
 	baseDir = getEnv("BASE_DIR", baseDir)
+	if secretsFile == "" {
+		secretsFile = filepath.Join(baseDir, "rc-secrets.env")
+	}
 
 	rcPass := os.Getenv("RC_PASS")
 	rcAuthEnabled := true
@@ -302,6 +315,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		RCAuthEnabled: rcAuthEnabled,
 		RCUser:        getEnv("RC_USER", "rclone"),
 		RCPass:        rcPass,
+		SecretsFile:   secretsFile,
 
 		NotificationAppName:            getEnv("NOTIFICATION_APP_NAME", "Rclone Bisync"),
 		SuccessNotificationIntervalMin: getEnvFloat("SUCCESS_NOTIFICATION_INTERVAL_MIN", 30),

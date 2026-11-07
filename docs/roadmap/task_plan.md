@@ -1,31 +1,32 @@
-# Task Plan: UI Suite Polish & Workflow Alignment
+# Task Plan: Automated Rclone Config Passphrase Persistence & Daemon Safety
 
 ## Goal
-Implement UI/UX refinements identified during testing: restructure Global Fleet Settings modal tabs into a multi-line pill layout, add empty password validation/warning when removing encryption, remove redundant Engine Transfer Telemetry card, streamline explorer row actions to Download and `...` buttons only, and align context menu Lucide icons with directional arrows.
+Implement automatic persistence of `RCLONE_CONFIG_PASS` to `rc-secrets.env` when encrypting `rclone.conf` via the UI, detect missing daemon passphrase on startup/polling for externally encrypted configurations, and display a prominent warning banner with guided resolution.
 
 ## Tasks
 
-- [x] Task 1: Global Fleet Settings Multi-Line Tabs & Passphrase Validation
-  - **Scope**: `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `internal/server/handlers_encryption.go`, `internal/server/handlers_encryption_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleRemoveConfigEncryption`
+- [x] Task 1: Environment Secret Management Utilities & Unit Tests
+  - **Scope**: `internal/config/secrets.go`, `internal/config/secrets_test.go`, `internal/config/config.go`
+  - **Verification**: `go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`
 
-- [x] Task 2: Remove Redundant Engine Transfer Telemetry Card
-  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`
-  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
+- [ ] Task 2: Service Layer Passphrase Synchronization & Validation
+  - **Scope**: `internal/models/encryption.go`, `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`
 
-- [x] Task 3: Explorer Row Actions Declutter & Directional Context Menu Icons
-  - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_context_menu.html`
-  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
+- [ ] Task 3: API Endpoints for Passphrase Persistence & Verification
+  - **Scope**: `internal/server/handlers_encryption.go`, `internal/server/handlers_encryption_test.go`, `internal/server/server.go`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestEncryption`
 
-- [x] Task 4: Full Quality Gate Verification & Smoke Testing
+- [ ] Task 4: Frontend Cockpit Warning Banner & Passphrase Persistence UI
+  - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+
+- [ ] Task 5: Full Quality Gates & E2E Smoke Testing
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
-  - **Verification**: `./scripts/check.sh all` and `go test -v -count=1 ./tests/e2e/...`
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-07: Initialized UI Suite Polish task plan from approved implementation_plan.md.
-- 2026-11-07: Completed Task 1 - Global Fleet Settings Multi-Line Tabs & Passphrase Validation. Verified with unit tests, templates check, and loc audit.
-- 2026-11-07: Completed Task 2 - Remove Redundant Engine Transfer Telemetry Card. Verified with templates check and loc audit.
-- 2026-11-07: Completed Task 3 - Explorer Row Actions Declutter & Directional Context Menu Icons. Verified with templates check and loc audit.
-- 2026-11-07: Completed Task 4 - Full Quality Gate Verification, E2E Smoke Tests, Binary Build, and Deployment on Port 8090. Verified with `./scripts/check.sh all` and live server probing.
+- 2026-11-07: Initialized task plan from approved implementation_plan.md.
+- 2026-11-07: Completed Task 1 - Environment Secret Management Utilities & Unit Tests. Verified with unit tests (`go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`).
 
