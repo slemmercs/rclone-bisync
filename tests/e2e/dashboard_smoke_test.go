@@ -382,6 +382,18 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			t.Errorf("expected bandwidth presets to be accessible on bandwidth tab, got %v (err: %v)", bwOk, err)
 		}
 
+		// Verify settings modal tabs container has responsive flex-wrap
+		tabNavWrapCheck := `(() => {
+			const modal = document.getElementById('modal-global-settings');
+			if (!modal) return false;
+			const tabNav = modal.querySelector('.flex-wrap');
+			return tabNav !== null;
+		})()`
+		hasFlexWrap, err := chromedp.Run(ctx, chromedp.Evaluate[bool](tabNavWrapCheck))
+		if err != nil || !hasFlexWrap {
+			t.Errorf("expected global settings tabs container to have flex-wrap, got %v (err: %v)", hasFlexWrap, err)
+		}
+
 		// Close modal
 		closeScript := `(() => {
 			const app = Alpine.$data(document.querySelector('[x-data]'));
@@ -562,6 +574,28 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.closeContextMenu();
 			const contextMenuClosed = !app.contextMenu?.show;
 
+			// Test Encryption Removal Safety Validation (empty passphrase)
+			let encryptionWarningShown = false;
+			const origToast = app.showToast;
+			app.showToast = (msg, type) => {
+				if (type === 'warning' && typeof msg === 'string' && msg.includes('passphrase is required')) {
+					encryptionWarningShown = true;
+				}
+				origToast.call(app, msg, type);
+			};
+			if (!app.globalSettingsModal) app.globalSettingsModal = {};
+			if (!app.globalSettingsModal.encryption) app.globalSettingsModal.encryption = {};
+			app.globalSettingsModal.encryption.old_password = '   ';
+			app.removeConfigPassword();
+			app.showToast = origToast;
+
+			// Test Explorer Row Action Buttons (Inline Preview/Copy/Delete decluttered, Download and More Actions present)
+			const downloadButtonsCount = document.querySelectorAll('button[title="Download file"]').length;
+			const moreActionsCount = document.querySelectorAll('button[title="More actions"]').length;
+			const inlinePreviewCount = document.querySelectorAll('button[title="Preview file"]').length;
+			const inlineCopyCount = document.querySelectorAll('button[title*="Copy to opposing"]').length;
+			const inlineDeleteCount = document.querySelectorAll('button[title*="Delete from"]').length;
+
 			// Test Explorer Upload Triggers
 			if (typeof app.triggerUpload !== 'function') return { error: "triggerUpload missing" };
 			const uploadLeftInputExists = Boolean(document.getElementById('explorer-upload-left'));
@@ -581,6 +615,12 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				contextMenuOpen,
 				contextMenuItemName,
 				contextMenuClosed,
+				encryptionWarningShown,
+				downloadButtonsCount,
+				moreActionsCount,
+				inlinePreviewCount,
+				inlineCopyCount,
+				inlineDeleteCount,
 				uploadLeftInputExists,
 				uploadRightInputExists
 			};
@@ -601,6 +641,12 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			ContextMenuOpen        bool    `json:"contextMenuOpen"`
 			ContextMenuItemName    string  `json:"contextMenuItemName"`
 			ContextMenuClosed      bool    `json:"contextMenuClosed"`
+			EncryptionWarningShown bool    `json:"encryptionWarningShown"`
+			DownloadButtonsCount   int     `json:"downloadButtonsCount"`
+			MoreActionsCount       int     `json:"moreActionsCount"`
+			InlinePreviewCount     int     `json:"inlinePreviewCount"`
+			InlineCopyCount        int     `json:"inlineCopyCount"`
+			InlineDeleteCount      int     `json:"inlineDeleteCount"`
 			UploadLeftInputExists  bool    `json:"uploadLeftInputExists"`
 			UploadRightInputExists bool    `json:"uploadRightInputExists"`
 		}
@@ -635,6 +681,13 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.ContextMenuOpen || res.ContextMenuItemName != "test.txt" || !res.ContextMenuClosed {
 			t.Errorf("context menu mismatch: open=%v name=%q closed=%v", res.ContextMenuOpen, res.ContextMenuItemName, res.ContextMenuClosed)
+		}
+		if !res.EncryptionWarningShown {
+			t.Errorf("expected empty passphrase encryption removal to trigger warning toast")
+		}
+		if res.InlinePreviewCount != 0 || res.InlineCopyCount != 0 || res.InlineDeleteCount != 0 {
+			t.Errorf("expected zero inline preview/copy/delete buttons in explorer rows: preview=%d copy=%d delete=%d",
+				res.InlinePreviewCount, res.InlineCopyCount, res.InlineDeleteCount)
 		}
 		if !res.UploadLeftInputExists || !res.UploadRightInputExists {
 			t.Errorf("upload input triggers missing: left=%v right=%v", res.UploadLeftInputExists, res.UploadRightInputExists)

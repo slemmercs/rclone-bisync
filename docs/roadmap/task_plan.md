@@ -17,7 +17,7 @@ Implement UI/UX refinements identified during testing: restructure Global Fleet 
   - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_context_menu.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
-- [ ] Task 4: Full Quality Gate Verification & Smoke Testing
+- [x] Task 4: Full Quality Gate Verification & Smoke Testing
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all` and `go test -v -count=1 ./tests/e2e/...`
 
@@ -27,4 +27,5 @@ Implement UI/UX refinements identified during testing: restructure Global Fleet 
 - 2026-11-07: Completed Task 1 - Global Fleet Settings Multi-Line Tabs & Passphrase Validation. Verified with unit tests, templates check, and loc audit.
 - 2026-11-07: Completed Task 2 - Remove Redundant Engine Transfer Telemetry Card. Verified with templates check and loc audit.
 - 2026-11-07: Completed Task 3 - Explorer Row Actions Declutter & Directional Context Menu Icons. Verified with templates check and loc audit.
+- 2026-11-07: Completed Task 4 - Full Quality Gate Verification, E2E Smoke Tests, Binary Build, and Deployment on Port 8090. Verified with `./scripts/check.sh all` and live server probing.
 
