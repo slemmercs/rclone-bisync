@@ -1,39 +1,31 @@
-# Task Plan: Rclone-UI Feature Suite - Milestone 1 (Operational Controls & Inspection)
+# Task Plan: UI Suite Polish & Workflow Alignment
 
 ## Goal
-Implement Milestone 1 of the Rclone-UI Feature Suite natively in Bisync Hub: Dynamic Bandwidth Throttling, Transfer Stats, Safe File Preview/Download, and Configuration Encryption Status.
+Implement UI/UX refinements identified during testing: restructure Global Fleet Settings modal tabs into a multi-line pill layout, add empty password validation/warning when removing encryption, remove redundant Engine Transfer Telemetry card, streamline explorer row actions to Download and `...` buttons only, and align context menu Lucide icons with directional arrows.
 
 ## Tasks
 
-- [x] Task 1: Bandwidth - [ ] Task 1: Bandwidth & Core Stats Models and Client RC Methods Core Stats Models and Client RC Methods
-  - **Scope**: `internal/models/core.go`, `internal/core/client/client.go`, `internal/core/client/client_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/core/client/...`
+- [x] Task 1: Global Fleet Settings Multi-Line Tabs & Passphrase Validation
+  - **Scope**: `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `internal/server/handlers_encryption.go`, `internal/server/handlers_encryption_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleRemoveConfigEncryption`
 
-- [x] Task 2: Core Service and HTTP API Handlers
-  - **Scope**: `internal/services/core_service.go`, `internal/services/core_service_test.go`, `internal/server/handlers_core.go`, `internal/server/server.go`, `internal/app/container.go`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestCoreService`
+- [x] Task 2: Remove Redundant Engine Transfer Telemetry Card
+  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
-- [x] Task 3: File Preview & Streaming Service
-  - **Scope**: `internal/models/preview.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_preview_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestPreview`
+- [x] Task 3: Explorer Row Actions Declutter & Directional Context Menu Icons
+  - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_context_menu.html`
+  - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
-- [x] Task 4: File Preview & Download HTTP Endpoints and Explorer UI
-  - **Scope**: `internal/server/handlers_preview.go`, `dashboard/frontend/partials/modals/modal_file_preview.html`, `dashboard/frontend/partials/view_explorer.html`
-  - **Verification**: `go test -v -count=1 ./internal/server/...`
-
-- [x] Task 5: Rclone Config Encryption Service and Settings UI
-  - **Scope**: `internal/models/encryption.go`, `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`, `internal/server/handlers_encryption.go`, `dashboard/frontend/partials/modals/modal_global_settings.html`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestEncryption`
-
-- [x] Task 6: Header Bandwidth Controller and Real-Time Stats UI
-  - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/bandwidth.js`, `dashboard/frontend/partials/components/component_header.html`, `dashboard/frontend/partials/view_telemetry.html`
-  - **Verification**: `./scripts/check.sh templates`
-
-- [x] Task 7: Milestone 1 Verification, E2E Smoke Tests, and Full Quality Gates
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, all Milestone 1 components
-  - **Verification**: `./scripts/check.sh all`
+- [x] Task 4: Full Quality Gate Verification & Smoke Testing
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
+  - **Verification**: `./scripts/check.sh all` and `go test -v -count=1 ./tests/e2e/...`
 
 ## Status Updates
 
-- 2026-11-07: Initialized task plan from implementation_plan.md for Milestone 1.
-- 2026-11-07: Completed Tasks 1-7 for Milestone 1: operational controls, dynamic bandwidth throttling, core stats, file preview/streaming with path jail confinement, and rclone.conf encryption management. All 7 quality gates passed.
+- 2026-11-07: Initialized UI Suite Polish task plan from approved implementation_plan.md.
+- 2026-11-07: Completed Task 1 - Global Fleet Settings Multi-Line Tabs & Passphrase Validation. Verified with unit tests, templates check, and loc audit.
+- 2026-11-07: Completed Task 2 - Remove Redundant Engine Transfer Telemetry Card. Verified with templates check and loc audit.
+- 2026-11-07: Completed Task 3 - Explorer Row Actions Declutter & Directional Context Menu Icons. Verified with templates check and loc audit.
+- 2026-11-07: Completed Task 4 - Full Quality Gate Verification, E2E Smoke Tests, Binary Build, and Deployment on Port 8090. Verified with `./scripts/check.sh all` and live server probing.
+

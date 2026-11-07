@@ -92,6 +92,12 @@ window.SettingsModule = {
             this.globalSettingsModal.loading = false;
         }
         this.fetchConfigEncryptionStatus();
+        if (typeof this.fetchBandwidthLimit === "function") {
+            this.fetchBandwidthLimit();
+        }
+        if (typeof this.fetchCoreStats === "function") {
+            this.fetchCoreStats();
+        }
     },
 
     async fetchConfigEncryptionStatus() {
@@ -141,6 +147,12 @@ window.SettingsModule = {
 
     async removeConfigPassword() {
         const enc = this.globalSettingsModal.encryption;
+        if (!enc.old_password || !enc.old_password.trim()) {
+            if (typeof this.showToast === "function") {
+                this.showToast("Current passphrase is required to remove encryption.", "warning");
+            }
+            return;
+        }
         enc.loading = true;
         try {
             const res = await window.API.post("/api/config/encryption/remove", {
@@ -156,7 +168,10 @@ window.SettingsModule = {
                 throw new Error(res.error || "Failed to remove password");
             }
         } catch (err) {
-            if (typeof this.showToast === "function") this.showToast(`Error: ${err.message}`, "error");
+            const isWarning = err.status === "warning" || (err.message && err.message.toLowerCase().includes("current passphrase is required"));
+            if (typeof this.showToast === "function") {
+                this.showToast(isWarning ? err.message : `Error: ${err.message}`, isWarning ? "warning" : "error");
+            }
         } finally {
             enc.loading = false;
         }

@@ -95,6 +95,18 @@ func TestHandleSetConfigEncryption_EmptyPassword(t *testing.T) {
 func TestHandleRemoveConfigEncryption(t *testing.T) {
 	s, _ := setupEncryptionTestServer(t)
 
+	// Test empty password rejection
+	payloadEmpty := models.RemoveEncryptionRequest{Password: ""}
+	bodyEmpty, _ := json.Marshal(payloadEmpty)
+	reqEmpty := httptest.NewRequest(http.MethodPost, "/api/config/encryption/remove", bytes.NewReader(bodyEmpty))
+	wEmpty := httptest.NewRecorder()
+	s.Mux.ServeHTTP(wEmpty, reqEmpty)
+
+	if wEmpty.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for empty password, got %d", wEmpty.Code)
+	}
+
+	// Test valid password success
 	payload := models.RemoveEncryptionRequest{Password: "secret123"}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/config/encryption/remove", bytes.NewReader(body))

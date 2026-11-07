@@ -62,6 +62,16 @@ type CopyResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
+// UploadResponse represents the result of a file upload operation.
+type UploadResponse struct {
+	Status string `json:"status"`
+	Msg    string `json:"msg,omitempty"`
+	Remote string `json:"remote,omitempty"`
+	Path   string `json:"path,omitempty"`
+	Size   int64  `json:"size,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
 type DeleteRequest struct {
 	Remote    string `json:"remote"`
 	Path      string `json:"path"`

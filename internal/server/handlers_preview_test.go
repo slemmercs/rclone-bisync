@@ -125,6 +125,33 @@ func TestHandleDownload_Success(t *testing.T) {
 	}
 }
 
+func TestHandleDownload_Inline(t *testing.T) {
+	s, tmpDir := setupPreviewTestServer(t)
+
+	pdfFile := filepath.Join(tmpDir, "sample.pdf")
+	if err := os.WriteFile(pdfFile, []byte("%PDF-1.4 test"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/explorer/download?remote=local&path=sample.pdf&inline=true", nil)
+	w := httptest.NewRecorder()
+	s.Mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	disp := w.Header().Get("Content-Disposition")
+	if !strings.Contains(disp, `inline; filename="sample.pdf"`) {
+		t.Errorf("expected inline Content-Disposition, got: %s", disp)
+	}
+
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "application/pdf" {
+		t.Errorf("expected application/pdf Content-Type, got: %s", contentType)
+	}
+}
+
 func TestHandleDownload_MissingPathAndDirectory(t *testing.T) {
 	s, _ := setupPreviewTestServer(t)
 

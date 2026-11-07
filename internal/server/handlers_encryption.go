@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -59,6 +60,14 @@ func (s *Server) handleRemoveConfigEncryption(w http.ResponseWriter, r *http.Req
 
 	var req models.RemoveEncryptionRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	if strings.TrimSpace(req.Password) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "warning",
+			"error":  "Current passphrase is required to remove encryption.",
+		})
+		return
+	}
 
 	resp, err := s.ConfigEncryptionService.RemovePassword(r.Context(), req)
 	if err != nil {

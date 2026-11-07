@@ -1,7 +1,7 @@
 {{ define "modal_file_preview" }}
 <!-- Safe File Preview Modal -->
 <div x-show="filePreviewModal.show" x-cloak @keydown.escape.window="closePreviewModal()" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-transition.opacity.duration.200ms>
-    <div @click.away="closePreviewModal()" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative space-y-4 flex flex-col max-h-[90vh]">
+    <div @click.away="closePreviewModal()" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative space-y-4 flex flex-col max-h-[90vh]">
         <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
             <div class="flex items-center gap-2.5 min-w-0 flex-1">
@@ -47,12 +47,19 @@
             <!-- Image View -->
             <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && filePreviewModal.preview.data_url">
                 <div class="flex items-center justify-center p-2 bg-slate-950/60 rounded-xl border border-slate-800">
-                    <img :src="filePreviewModal.preview.data_url" :alt="filePreviewModal.name" class="max-h-[55vh] max-w-full rounded-lg object-contain shadow-lg" />
+                    <img :src="filePreviewModal.preview.data_url" :alt="filePreviewModal.name" class="max-h-[60vh] max-w-full rounded-lg object-contain shadow-lg" />
+                </div>
+            </template>
+
+            <!-- PDF View (Native Browser PDF Viewer via iframe) -->
+            <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && filePreviewModal.preview.is_pdf">
+                <div class="w-full h-[65vh] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex flex-col">
+                    <iframe :src="'/api/explorer/download?remote=' + encodeURIComponent(filePreviewModal.remote || '') + '&path=' + encodeURIComponent(filePreviewModal.path || '') + '&inline=true&profile_id=' + encodeURIComponent(activeProfile ? activeProfile.id : '')" class="w-full h-full border-0 rounded-xl" title="PDF Preview"></iframe>
                 </div>
             </template>
 
             <!-- Binary File Notice -->
-            <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && filePreviewModal.preview.is_binary && !filePreviewModal.preview.data_url">
+            <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && filePreviewModal.preview.is_binary && !filePreviewModal.preview.data_url && !filePreviewModal.preview.is_pdf">
                 <div class="py-12 flex flex-col items-center justify-center text-center gap-3 px-4">
                     <div class="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
                         <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -65,8 +72,8 @@
             </template>
 
             <!-- Text Content View -->
-            <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && !filePreviewModal.preview.is_binary && !filePreviewModal.preview.data_url">
-                <pre class="w-full flex-1 max-h-[55vh] overflow-auto p-4 bg-slate-950/90 text-slate-200 rounded-xl border border-slate-800 font-mono text-xs leading-relaxed whitespace-pre select-text"><code x-text="filePreviewModal.preview.content || '(empty file)'"></code></pre>
+            <template x-if="!filePreviewModal.loading && !filePreviewModal.error && filePreviewModal.preview && !filePreviewModal.preview.is_binary && !filePreviewModal.preview.data_url && !filePreviewModal.preview.is_pdf">
+                <pre class="w-full flex-1 max-h-[60vh] overflow-auto p-4 bg-slate-950/90 text-slate-200 rounded-xl border border-slate-800 font-mono text-xs leading-relaxed whitespace-pre select-text"><code x-text="filePreviewModal.preview.content || '(empty file)'"></code></pre>
             </template>
         </div>
 

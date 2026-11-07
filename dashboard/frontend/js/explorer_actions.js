@@ -47,11 +47,7 @@ window.ExplorerActionsModule = {
     },
 
     cancelDelete() {
-        this.deleteModal.show = false;
-        this.deleteModal.item = null;
-        this.deleteModal.paneKey = null;
-        this.deleteModal.step = 1;
-        this.deleteModal.deleting = false;
+        this.deleteModal = { show: false, item: null, paneKey: null, step: 1, deleting: false };
     },
 
     async executeDeleteItem(paneKey, item) {
@@ -220,6 +216,18 @@ window.ExplorerActionsModule = {
         }
     },
 
+    isItemPreviewable(item) {
+        if (!item || item.IsDir) return false;
+        const name = (item.Name || '').toLowerCase();
+        const previewExtensions = [
+            '.txt', '.md', '.markdown', '.log', '.conf', '.ini', '.env', '.csv',
+            '.json', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.js', '.ts', '.go', '.sh', '.bash', '.py', '.rs', '.sql',
+            '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico',
+            '.pdf'
+        ];
+        return previewExtensions.some(ext => name.endsWith(ext));
+    },
+
     async previewFile(paneKey, item) {
         if (!item || item.IsDir) return;
         const pane = this.explorer[paneKey];
@@ -292,5 +300,92 @@ window.ExplorerActionsModule = {
             profile_id: profileId
         });
         window.open(`/api/explorer/download?${query.toString()}`, "_blank");
-    }
+    },
+
+    triggerUpload(paneKey) {
+        const input = document.getElementById(`explorer-upload-${paneKey}`);
+        if (input) {
+            input.value = "";
+            input.click();
+        }
+    },
+
+    async handleFileUpload(paneKey, event) {
+        const files = event?.target?.files;
+        if (!files || files.length === 0) return;
+        const file = files[0];
+        const pane = this.explorer[paneKey];
+        const remote = pane.target || (paneKey === 'left' ? 'local' : '');
+        const path = pane.path || "";
+        const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("remote", remote);
+        formData.append("path", path);
+        if (profileId) {
+            formData.append("profile_id", profileId);
+        }
+
+        if (typeof this.showToast === "function") {
+            this.showToast(`Uploading ${file.name}...`, "info");
+        }
+
+        try {
+            const res = await fetch("/api/explorer/upload", {
+                method: "POST",
+                headers: {
+                    "X-Dashboard-Request": "1"
+                },
+                body: formData
+            });
+            const data = await res.json();
+            if (data.status === "success") {
+                if (typeof this.showToast === "function") {
+                    this.showToast(`Uploaded "${file.name}" successfully`, "success");
+                }
+                this.fetchExplorerDirectory(paneKey, remote, path);
+            } else {
+                if (typeof this.showToast === "function") {
+                    this.showToast(`Upload failed: ${data.error || 'Unknown error'}`, "error");
+                }
+            }
+        } catch (err) {
+            if (typeof this.showToast === "function") {
+                this.showToast(`Upload error: ${err.message}`, "error");
+            }
+        } finally {
+            if (event.target) event.target.value = "";
+        }
+    },
+
+    openContextMenu(paneKey, item, event) {
+        if (!item) return;
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        const clientX = event ? event.clientX : window.innerWidth / 2;
+        const clientY = event ? event.clientY : window.innerHeight / 2;
+        const x = Math.min(clientX, window.innerWidth - 220);
+        const y = Math.min(clientY, window.innerHeight - 240);
+
+        this.contextMenu = { show: true, x: Math.max(10, x), y: Math.max(10, y), paneKey, item };
+    },
+
+    closeContextMenu() {
+        this.contextMenu = { show: false, item: null, paneKey: null, x: 0, y: 0 };
+    },
+
+    copyItemPath(item) {
+        if (!item) return;
+        const p = item.Path || item.Name;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(p);
+            if (typeof this.showToast === "function") {
+                this.showToast(`Copied path: ${p}`, "success");
+            }
+        }
+    },
 };

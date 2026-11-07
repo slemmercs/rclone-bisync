@@ -115,6 +115,37 @@ func (s *ConfigEncryptionService) GetStatus(ctx context.Context) (*models.Encryp
 	}, nil
 }
 
+// createPasswordHelperScript creates an ephemeral POSIX script to safely feed passwords
+// to rclone's --password-command without shell quotation or parsing issues.
+func createPasswordHelperScript() (string, error) {
+	tmpFile, err := os.CreateTemp("", "rclone-pw-helper-*.sh")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp password helper: %w", err)
+	}
+	scriptContent := `#!/bin/sh
+if [ "$RCLONE_PASSWORD_CHANGE" = "1" ]; then
+    echo "$NEW_PASS"
+else
+    echo "$OLD_PASS"
+fi
+`
+	if _, err := tmpFile.WriteString(scriptContent); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("failed to write temp password helper: %w", err)
+	}
+	if err := tmpFile.Chmod(0700); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("failed to chmod temp password helper: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("failed to close temp password helper: %w", err)
+	}
+	return tmpFile.Name(), nil
+}
+
 // SetPassword sets or updates the encryption password on rclone.conf.
 func (s *ConfigEncryptionService) SetPassword(ctx context.Context, req models.SetEncryptionRequest) (*models.EncryptionActionResponse, error) {
 	newPass := strings.TrimSpace(req.Password)
@@ -129,17 +160,22 @@ func (s *ConfigEncryptionService) SetPassword(ctx context.Context, req models.Se
 		fmt.Sprintf("OLD_PASS=%s", req.OldPassword),
 	)
 
-	// #nosec G101 - script pattern passed to rclone --password-command via environment variables
-	pwCmd := `sh -c 'if [ "$RCLONE_PASSWORD_CHANGE" = "1" ]; then echo "$NEW_PASS"; else echo "$OLD_PASS"; fi'`
+	helperScript, err := createPasswordHelperScript()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = os.Remove(helperScript)
+	}()
 
 	args := []string{
 		"config", "encryption", "set",
 		"--config", configFile,
 		"--ask-password=false",
-		"--password-command", pwCmd,
+		"--password-command", helperScript,
 	}
 
-	_, err := s.Runner(ctx, "rclone", env, args...)
+	_, err = s.Runner(ctx, "rclone", env, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set encryption password: %w", err)
 	}
@@ -162,15 +198,24 @@ func (s *ConfigEncryptionService) RemovePassword(ctx context.Context, req models
 		}, nil
 	}
 
-	env := append(os.Environ(), fmt.Sprintf("OLD_PASS=%s", req.Password))
-	// #nosec G101 - script pattern passed to rclone --password-command via environment variable
-	pwCmd := `sh -c 'echo "$OLD_PASS"'`
+	env := append(os.Environ(),
+		fmt.Sprintf("OLD_PASS=%s", req.Password),
+		fmt.Sprintf("NEW_PASS=%s", ""),
+	)
+
+	helperScript, err := createPasswordHelperScript()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = os.Remove(helperScript)
+	}()
 
 	args := []string{
 		"config", "encryption", "remove",
 		"--config", configFile,
 		"--ask-password=false",
-		"--password-command", pwCmd,
+		"--password-command", helperScript,
 	}
 
 	_, err = s.Runner(ctx, "rclone", env, args...)

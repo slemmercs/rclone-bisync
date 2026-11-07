@@ -360,6 +360,40 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			t.Errorf("expected daemon engine inputs to be present in DOM, got %d (err: %v)", count, err)
 		}
 
+		// Test switching to bandwidth tab
+		switchBwScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return false;
+			app.globalSettingsModal.tab = 'bandwidth';
+			return true;
+		})()`
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](switchBwScript))
+		if err != nil {
+			t.Fatalf("failed switching to bandwidth tab: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+
+		bwPresetCheck := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			return app && app.bandwidth && Array.isArray(app.bandwidth.presets) && app.bandwidth.presets.length > 0;
+		})()`
+		bwOk, err := chromedp.Run(ctx, chromedp.Evaluate[bool](bwPresetCheck))
+		if err != nil || !bwOk {
+			t.Errorf("expected bandwidth presets to be accessible on bandwidth tab, got %v (err: %v)", bwOk, err)
+		}
+
+		// Verify settings modal tabs container has responsive flex-wrap
+		tabNavWrapCheck := `(() => {
+			const modal = document.getElementById('modal-global-settings');
+			if (!modal) return false;
+			const tabNav = modal.querySelector('.flex-wrap');
+			return tabNav !== null;
+		})()`
+		hasFlexWrap, err := chromedp.Run(ctx, chromedp.Evaluate[bool](tabNavWrapCheck))
+		if err != nil || !hasFlexWrap {
+			t.Errorf("expected global settings tabs container to have flex-wrap, got %v (err: %v)", hasFlexWrap, err)
+		}
+
 		// Close modal
 		closeScript := `(() => {
 			const app = Alpine.$data(document.querySelector('[x-data]'));
@@ -532,6 +566,41 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.closePreviewModal();
 			const previewModalClosed = !app.filePreviewModal?.show;
 
+			// Test Context Menu
+			if (typeof app.openContextMenu !== 'function') return { error: "openContextMenu missing" };
+			app.openContextMenu('left', { Name: 'test.txt', Path: 'test.txt', IsDir: false }, { clientX: 100, clientY: 150, preventDefault() {}, stopPropagation() {} });
+			const contextMenuOpen = Boolean(app.contextMenu?.show);
+			const contextMenuItemName = app.contextMenu?.item?.Name;
+			app.closeContextMenu();
+			const contextMenuClosed = !app.contextMenu?.show;
+
+			// Test Encryption Removal Safety Validation (empty passphrase)
+			let encryptionWarningShown = false;
+			const origToast = app.showToast;
+			app.showToast = (msg, type) => {
+				if (type === 'warning' && typeof msg === 'string' && msg.includes('passphrase is required')) {
+					encryptionWarningShown = true;
+				}
+				origToast.call(app, msg, type);
+			};
+			if (!app.globalSettingsModal) app.globalSettingsModal = {};
+			if (!app.globalSettingsModal.encryption) app.globalSettingsModal.encryption = {};
+			app.globalSettingsModal.encryption.old_password = '   ';
+			app.removeConfigPassword();
+			app.showToast = origToast;
+
+			// Test Explorer Row Action Buttons (Inline Preview/Copy/Delete decluttered, Download and More Actions present)
+			const downloadButtonsCount = document.querySelectorAll('button[title="Download file"]').length;
+			const moreActionsCount = document.querySelectorAll('button[title="More actions"]').length;
+			const inlinePreviewCount = document.querySelectorAll('button[title="Preview file"]').length;
+			const inlineCopyCount = document.querySelectorAll('button[title*="Copy to opposing"]').length;
+			const inlineDeleteCount = document.querySelectorAll('button[title*="Delete from"]').length;
+
+			// Test Explorer Upload Triggers
+			if (typeof app.triggerUpload !== 'function') return { error: "triggerUpload missing" };
+			const uploadLeftInputExists = Boolean(document.getElementById('explorer-upload-left'));
+			const uploadRightInputExists = Boolean(document.getElementById('explorer-upload-right'));
+
 			return {
 				popoverOpen,
 				popoverClosed,
@@ -542,22 +611,44 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				encryptionLoading,
 				previewModalOpen,
 				previewContent,
-				previewModalClosed
+				previewModalClosed,
+				contextMenuOpen,
+				contextMenuItemName,
+				contextMenuClosed,
+				encryptionWarningShown,
+				downloadButtonsCount,
+				moreActionsCount,
+				inlinePreviewCount,
+				inlineCopyCount,
+				inlineDeleteCount,
+				uploadLeftInputExists,
+				uploadRightInputExists
 			};
 		})()`
 
 		type M1Result struct {
-			Error               *string `json:"error"`
-			PopoverOpen         bool    `json:"popoverOpen"`
-			PopoverClosed       bool    `json:"popoverClosed"`
-			PresetsLen          int     `json:"presetsLen"`
-			FormattedSpeed      string  `json:"formattedSpeed"`
-			FormattedBytes      string  `json:"formattedBytes"`
-			EncryptionTabActive bool    `json:"encryptionTabActive"`
-			EncryptionLoading   *bool   `json:"encryptionLoading"`
-			PreviewModalOpen    bool    `json:"previewModalOpen"`
-			PreviewContent      string  `json:"previewContent"`
-			PreviewModalClosed  bool    `json:"previewModalClosed"`
+			Error                  *string `json:"error"`
+			PopoverOpen            bool    `json:"popoverOpen"`
+			PopoverClosed          bool    `json:"popoverClosed"`
+			PresetsLen             int     `json:"presetsLen"`
+			FormattedSpeed         string  `json:"formattedSpeed"`
+			FormattedBytes         string  `json:"formattedBytes"`
+			EncryptionTabActive    bool    `json:"encryptionTabActive"`
+			EncryptionLoading      *bool   `json:"encryptionLoading"`
+			PreviewModalOpen       bool    `json:"previewModalOpen"`
+			PreviewContent         string  `json:"previewContent"`
+			PreviewModalClosed     bool    `json:"previewModalClosed"`
+			ContextMenuOpen        bool    `json:"contextMenuOpen"`
+			ContextMenuItemName    string  `json:"contextMenuItemName"`
+			ContextMenuClosed      bool    `json:"contextMenuClosed"`
+			EncryptionWarningShown bool    `json:"encryptionWarningShown"`
+			DownloadButtonsCount   int     `json:"downloadButtonsCount"`
+			MoreActionsCount       int     `json:"moreActionsCount"`
+			InlinePreviewCount     int     `json:"inlinePreviewCount"`
+			InlineCopyCount        int     `json:"inlineCopyCount"`
+			InlineDeleteCount      int     `json:"inlineDeleteCount"`
+			UploadLeftInputExists  bool    `json:"uploadLeftInputExists"`
+			UploadRightInputExists bool    `json:"uploadRightInputExists"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[M1Result](script))
@@ -588,6 +679,20 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		if !res.PreviewModalOpen || res.PreviewContent != "Hello Bisync UI Suite" || !res.PreviewModalClosed {
 			t.Errorf("preview modal mismatch: open=%v content=%q closed=%v", res.PreviewModalOpen, res.PreviewContent, res.PreviewModalClosed)
 		}
+		if !res.ContextMenuOpen || res.ContextMenuItemName != "test.txt" || !res.ContextMenuClosed {
+			t.Errorf("context menu mismatch: open=%v name=%q closed=%v", res.ContextMenuOpen, res.ContextMenuItemName, res.ContextMenuClosed)
+		}
+		if !res.EncryptionWarningShown {
+			t.Errorf("expected empty passphrase encryption removal to trigger warning toast")
+		}
+		if res.InlinePreviewCount != 0 || res.InlineCopyCount != 0 || res.InlineDeleteCount != 0 {
+			t.Errorf("expected zero inline preview/copy/delete buttons in explorer rows: preview=%d copy=%d delete=%d",
+				res.InlinePreviewCount, res.InlineCopyCount, res.InlineDeleteCount)
+		}
+		if !res.UploadLeftInputExists || !res.UploadRightInputExists {
+			t.Errorf("upload input triggers missing: left=%v right=%v", res.UploadLeftInputExists, res.UploadRightInputExists)
+		}
+
 	})
 
 	// 6. Check for any runtime JavaScript console errors or exceptions

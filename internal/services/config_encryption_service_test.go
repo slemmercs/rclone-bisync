@@ -165,3 +165,31 @@ func TestConfigEncryptionService_RemovePassword_AlreadyUnencrypted(t *testing.T)
 		t.Errorf("unexpected message: %s", resp.Message)
 	}
 }
+
+func TestConfigEncryptionService_CreatePasswordHelperScript(t *testing.T) {
+	scriptPath, err := createPasswordHelperScript()
+	if err != nil {
+		t.Fatalf("failed to create password helper script: %v", err)
+	}
+	defer func() {
+		_ = os.Remove(scriptPath)
+	}()
+
+	info, err := os.Stat(scriptPath)
+	if err != nil {
+		t.Fatalf("failed to stat script: %v", err)
+	}
+
+	// Verify permissions are executable by owner (0700)
+	if info.Mode().Perm()&0100 == 0 {
+		t.Errorf("expected script to be executable by owner, perm: %o", info.Mode().Perm())
+	}
+
+	content, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatalf("failed to read script: %v", err)
+	}
+	if !strings.Contains(string(content), "RCLONE_PASSWORD_CHANGE") {
+		t.Errorf("script content missing RCLONE_PASSWORD_CHANGE logic: %s", string(content))
+	}
+}

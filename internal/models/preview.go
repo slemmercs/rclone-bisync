@@ -8,6 +8,7 @@ type FilePreviewResponse struct {
 	Size      int64  `json:"size"`
 	MimeType  string `json:"mime_type"`
 	IsBinary  bool   `json:"is_binary"`
+	IsPDF     bool   `json:"is_pdf,omitempty"`
 	Content   string `json:"content,omitempty"`  // UTF-8 decoded text content
 	DataURL   string `json:"data_url,omitempty"` // Base64 data URI (data:<mime>;base64,<encoded>) for image preview
 	Truncated bool   `json:"truncated"`
