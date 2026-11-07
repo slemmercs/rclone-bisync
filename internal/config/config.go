@@ -45,6 +45,7 @@ type Config struct {
 	ErrorNotificationRepeatHours   float64
 
 	RcloneCommonArgs []string
+	RcloneConfigFile string
 
 	MaxLogSizeMB   int
 	LogBackupCount int
@@ -307,6 +308,7 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 		ErrorNotificationRepeatHours:   getEnvFloat("ERROR_NOTIFICATION_REPEAT_HOURS", 6),
 
 		RcloneCommonArgs: splitArgs(rawArgs),
+		RcloneConfigFile: getEnv("RCLONE_CONFIG", ""),
 
 		MaxLogSizeMB:   getEnvInt("MAX_LOG_SIZE_MB", 5),
 		LogBackupCount: getEnvInt("LOG_BACKUP_COUNT", 5),

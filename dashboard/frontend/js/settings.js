@@ -32,6 +32,15 @@ window.SettingsModule = {
                 webhook_url: "",
                 watchdog_ping_url: ""
             }
+        },
+        encryption: {
+            loading: false,
+            is_encrypted: false,
+            config_file: "",
+            new_password: "",
+            old_password: "",
+            confirm_password: "",
+            error: null
         }
     },
 
@@ -77,6 +86,75 @@ window.SettingsModule = {
             this.globalSettingsModal.error = "Failed to load global configuration: " + err.message;
         } finally {
             this.globalSettingsModal.loading = false;
+        }
+        this.fetchConfigEncryptionStatus();
+    },
+
+    async fetchConfigEncryptionStatus() {
+        try {
+            const data = await window.API.get("/api/config/encryption");
+            if (data) {
+                this.globalSettingsModal.encryption.is_encrypted = Boolean(data.is_encrypted);
+                this.globalSettingsModal.encryption.config_file = data.config_file || "";
+            }
+        } catch (e) {
+            console.warn("Failed to probe config encryption status:", e);
+        }
+    },
+
+    async setConfigPassword() {
+        const enc = this.globalSettingsModal.encryption;
+        if (!enc.new_password) {
+            if (typeof this.showToast === "function") this.showToast("Please enter a new password.", "error");
+            return;
+        }
+        if (enc.new_password !== enc.confirm_password) {
+            if (typeof this.showToast === "function") this.showToast("Passwords do not match.", "error");
+            return;
+        }
+
+        enc.loading = true;
+        try {
+            const res = await window.API.post("/api/config/encryption/set", {
+                password: enc.new_password,
+                old_password: enc.old_password || ""
+            });
+            if (res && res.status === "success") {
+                if (typeof this.showToast === "function") this.showToast("Configuration password set successfully.", "success");
+                enc.new_password = "";
+                enc.old_password = "";
+                enc.confirm_password = "";
+                await this.fetchConfigEncryptionStatus();
+            } else {
+                throw new Error(res.error || "Failed to set password");
+            }
+        } catch (err) {
+            if (typeof this.showToast === "function") this.showToast(`Error: ${err.message}`, "error");
+        } finally {
+            enc.loading = false;
+        }
+    },
+
+    async removeConfigPassword() {
+        const enc = this.globalSettingsModal.encryption;
+        enc.loading = true;
+        try {
+            const res = await window.API.post("/api/config/encryption/remove", {
+                password: enc.old_password || ""
+            });
+            if (res && res.status === "success") {
+                if (typeof this.showToast === "function") this.showToast("Configuration password removed.", "success");
+                enc.new_password = "";
+                enc.old_password = "";
+                enc.confirm_password = "";
+                await this.fetchConfigEncryptionStatus();
+            } else {
+                throw new Error(res.error || "Failed to remove password");
+            }
+        } catch (err) {
+            if (typeof this.showToast === "function") this.showToast(`Error: ${err.message}`, "error");
+        } finally {
+            enc.loading = false;
         }
     },
 

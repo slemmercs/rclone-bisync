@@ -34,8 +34,9 @@ type Server struct {
 	ReviewService    *services.ReviewService
 	AuditService     *services.AuditService
 	LogService       *services.LogService
-	CoreService      *services.CoreService
-	AuthService      *remoteauth.RemoteAuthService
+	CoreService             *services.CoreService
+	ConfigEncryptionService *services.ConfigEncryptionService
+	AuthService             *remoteauth.RemoteAuthService
 	ProfileService   *profiles.Service
 	FrontendFS       fs.FS
 	Mux              *http.ServeMux
@@ -75,8 +76,9 @@ func NewServerWithContainer(container *app.Container, frontendFS fs.FS) *Server 
 		ReviewService:    container.ReviewService,
 		AuditService:     container.AuditService,
 		LogService:       container.LogService,
-		CoreService:      container.CoreService,
-		AuthService:      container.AuthService,
+		CoreService:             container.CoreService,
+		ConfigEncryptionService: container.ConfigEncryptionService,
+		AuthService:             container.AuthService,
 		ProfileService:   container.ProfileService,
 		FrontendFS:       frontendFS,
 		Mux:              http.NewServeMux(),
@@ -316,6 +318,9 @@ func (s *Server) routes() {
 	// Global Fleet Settings Endpoints
 	s.Mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	s.Mux.HandleFunc("PUT /api/config", s.handleUpdateConfig)
+	s.Mux.HandleFunc("GET /api/config/encryption", s.handleGetConfigEncryption)
+	s.Mux.HandleFunc("POST /api/config/encryption/set", s.handleSetConfigEncryption)
+	s.Mux.HandleFunc("POST /api/config/encryption/remove", s.handleRemoveConfigEncryption)
 
 	// Core Daemon Controls Endpoints
 	s.Mux.HandleFunc("GET /api/core/bwlimit", s.handleGetBandwidthLimit)

@@ -21,7 +21,7 @@ Implement Milestone 1 of the Rclone-UI Feature Suite natively in Bisync Hub: Dyn
   - **Scope**: `internal/server/handlers_preview.go`, `dashboard/frontend/partials/modals/modal_file_preview.html`, `dashboard/frontend/partials/view_explorer.html`
   - **Verification**: `go test -v -count=1 ./internal/server/...`
 
-- [ ] Task 5: Rclone Config Encryption Service and Settings UI
+- [x] Task 5: Rclone Config Encryption Service and Settings UI
   - **Scope**: `internal/models/encryption.go`, `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`, `internal/server/handlers_encryption.go`, `dashboard/frontend/partials/modals/modal_global_settings.html`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestEncryption`
 

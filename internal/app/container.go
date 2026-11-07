@@ -30,8 +30,9 @@ type Container struct {
 	ReviewService    *services.ReviewService
 	AuditService     *services.AuditService
 	LogService       *services.LogService
-	CoreService      *services.CoreService
-	AuthService      *remoteauth.RemoteAuthService
+	CoreService             *services.CoreService
+	ConfigEncryptionService *services.ConfigEncryptionService
+	AuthService             *remoteauth.RemoteAuthService
 	ProfileStore     *profiles.Store
 	ProfileScheduler *profiles.Scheduler
 	ProfileService   *profiles.Service
@@ -219,6 +220,9 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 	}
 	if c.CoreService == nil {
 		c.CoreService = services.NewCoreService(cfg, c.Client)
+	}
+	if c.ConfigEncryptionService == nil {
+		c.ConfigEncryptionService = services.NewConfigEncryptionService(cfg, c.Client, nil)
 	}
 	if c.AuthService == nil {
 		c.AuthService = remoteauth.NewRemoteAuthService(cfg, c.Client, nil)
