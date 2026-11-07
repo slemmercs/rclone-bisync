@@ -328,6 +328,7 @@ document.addEventListener("alpine:init", () => {
             window.openHelpDrawer = (tab, topic) => this.openHelpDrawer(tab, topic);
             if (!this.isPollingPaused) await this.poll();
             if (typeof this.fetchProfiles === "function") this.fetchProfiles();
+            if (typeof this.fetchConfigEncryptionStatus === "function") this.fetchConfigEncryptionStatus();
             this.fetchRemotes(false);
             this.fetchReviewSession(false);
             if (typeof this.fetchBandwidthLimit === "function") this.fetchBandwidthLimit();

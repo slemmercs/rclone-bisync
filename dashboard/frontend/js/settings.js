@@ -36,10 +36,14 @@ window.SettingsModule = {
         encryption: {
             loading: false,
             is_encrypted: false,
+            has_daemon_passphrase: true,
+            warning: "",
             config_file: "",
             new_password: "",
             old_password: "",
             confirm_password: "",
+            daemon_password: "",
+            saving_daemon_passphrase: false,
             error: null
         }
     },
@@ -50,6 +54,10 @@ window.SettingsModule = {
 
     isEncryptionLoading() {
         return Boolean(this.globalSettingsModal?.encryption?.loading);
+    },
+
+    isSavingDaemonPassphrase() {
+        return Boolean(this.globalSettingsModal?.encryption?.saving_daemon_passphrase);
     },
 
     isExplorerRemoteLocked() {
@@ -105,10 +113,42 @@ window.SettingsModule = {
             const data = await window.API.get("/api/config/encryption");
             if (data) {
                 this.globalSettingsModal.encryption.is_encrypted = Boolean(data.is_encrypted);
+                this.globalSettingsModal.encryption.has_daemon_passphrase = Boolean(data.has_daemon_passphrase);
+                this.globalSettingsModal.encryption.warning = data.warning || "";
                 this.globalSettingsModal.encryption.config_file = data.config_file || "";
             }
         } catch (e) {
             console.warn("Failed to probe config encryption status:", e);
+        }
+    },
+
+    async saveDaemonPassphrase() {
+        const enc = this.globalSettingsModal.encryption;
+        if (!enc.daemon_password || !enc.daemon_password.trim()) {
+            if (typeof this.showToast === "function") this.showToast("Please enter the daemon passphrase.", "warning");
+            return;
+        }
+
+        enc.saving_daemon_passphrase = true;
+        try {
+            const res = await window.API.post("/api/config/encryption/save-passphrase", {
+                password: enc.daemon_password
+            });
+            if (res && res.status === "success") {
+                if (typeof this.showToast === "function") {
+                    this.showToast("Daemon passphrase verified and persisted to rc-secrets.env.", "success");
+                }
+                enc.daemon_password = "";
+                await this.fetchConfigEncryptionStatus();
+            } else {
+                throw new Error(res.error || "Failed to persist passphrase");
+            }
+        } catch (err) {
+            if (typeof this.showToast === "function") {
+                this.showToast(`Verification Failed: ${err.message}`, "error");
+            }
+        } finally {
+            enc.saving_daemon_passphrase = false;
         }
     },
 

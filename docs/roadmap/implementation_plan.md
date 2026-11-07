@@ -1,53 +1,109 @@
-# Implementation Plan: UI Suite Polish & Workflow Alignment
+# Implementation Plan: Milestone 2 - Dual-Pane File Commander & Ad-Hoc Transfers
 
 ## Overview
-This implementation plan addresses the UI/UX refinements identified during Milestone 1 testing:
-1. Relocating Global Fleet Settings tabs into a clean **multi-line tab pill arrangement** (`flex-wrap`) with zero horizontal scrollbars.
-2. Adding graceful client and backend validation for **configuration encryption removal**, warning that the current passphrase is required instead of raising an execution error.
-3. Removing the redundant **Engine Transfer Telemetry panel** from the Telemetry view so only the active synchronization progress bar is displayed when sync runs.
-4. Streamlining File Explorer row actions so only the **Download button** and **`...` context menu trigger** appear on row hover, moving Copy and Delete exclusively into the context menu.
-5. Aligning context menu icons to standard **Lucide SVGs with directional arrows** (pointing right in the left pane for "Copy to Remote", and pointing left in the right pane for "Copy to Local").
-6. **Folder Download Evaluation & Resolution**: Downloading folders as zip archives to the browser adds unnecessary remote streaming overhead when users can already copy entire directories between remotes and local disks via the dual-pane explorer ("Copy to Local / Remote"). We will keep single-file downloads enabled for browser retrieval and retain directory transfers for filesystem operations, keeping the architecture lean and resilient.
+Milestone 2 advances Bisync Hub into an interactive dual-pane cloud storage commander:
+1. **Interactive Dual-Pane Commander**: Side-by-side synchronized explorer panes (`leftPane`, `rightPane`) with independent browsing, path jails, breadcrumbs, and cross-pane transfer triggers.
+2. **Atomic Move & Purge Operations**: Safe file/directory moves (`operations/movefile`, `operations/movedir`) and directory purging with canary protection and local jail validation.
+3. **Non-Blocking Queued Upload Dock**: Asynchronous upload manager detecting active sync locks (`flock` contention or `telemetry.is_syncing === true`), staging transfers in a queued state instead of returning 409 errors, and auto-resuming once locks clear.
+4. **Cloud Public Web Links**: Remote cloud web link resolution (`operations/publiclink`) for instant navigation to Google Drive and OneDrive web interfaces.
 
 ---
 
 ## Proposed Changes
 
-### 1. Global Fleet Settings Tab Navigation & Encryption Removal Validation
-- `dashboard/frontend/partials/modals/modal_global_settings.html`:
-  - Change tab container to `flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-2.5 text-xs font-semibold` (remove `overflow-x-auto` and `shrink-0`).
-- `dashboard/frontend/js/settings.js`:
-  - In `removeConfigPassword()`: Check if `old_password` is empty. If empty, trigger `showToast("Current passphrase is required to remove encryption.", "warning")` and return early without dispatching an API call.
-- `internal/server/handlers_encryption.go`:
-  - In `handleRemoveConfigEncryption()`: Validate that `req.Password` is non-empty. Return HTTP 400 Bad Request with a clear error payload if empty.
-- `internal/server/handlers_encryption_test.go`:
-  - Add test case verifying HTTP 400 is returned when removing encryption with an empty password.
+### Affected Components & Packages
 
-### 2. Remove Redundant Telemetry Panel
-- `dashboard/frontend/partials/view_telemetry.html`:
-  - Remove `<!-- Core Daemon Bandwidth & Active Transfers Card -->` (the Engine Transfer Telemetry card).
-  - Retain `<!-- Live Transfer Progress Card -->` (active synchronization progress bar with file name, speed, ETA, and percentage).
+- `internal/models/operations.go`:
+  - `MoveRequest` & `MoveResponse`: Source/destination remotes, paths, directory flag, and status.
+  - `PublicLinkRequest` & `PublicLinkResponse`: Canonical remote cloud URL retrieval.
+  - `QueuedUploadItem`: Transfer queue item representation, byte progress, and state (`queued`, `uploading`, `completed`, `failed`).
 
-### 3. Explorer Row Actions Declutter & Directional Context Menu Icons
+- `internal/core/client/operations.go`:
+  - `MoveFile(ctx, srcFs, srcRemote, dstFs, dstRemote)` wrapping RC `/operations/movefile`.
+  - `MoveDir(ctx, srcFs, dstFs)` wrapping RC `/operations/movedir`.
+  - `PublicLink(ctx, fs, remote, unlink bool)` wrapping RC `/operations/publiclink`.
+
+- `internal/services/explorer_ops.go`:
+  - `MoveItem(ctx, srcRemote, srcPath, dstRemote, dstPath string, isDir bool, localBase ...string) (models.MoveResponse, error)` enforcing path jails and canary protection.
+  - `GetPublicLink(ctx, remote, path string) (string, error)` with graceful degradation on unsupported tiers (local, SFTP, S3).
+
+- `internal/services/upload_queue.go`:
+  - `UploadQueueManager` maintaining an in-memory thread-safe queue of pending uploads.
+  - Coordinates with `core/lock` to defer upload processing when sync runs are active, auto-resuming on completion.
+
+- `internal/server/handlers_operations.go` & `internal/server/server.go`:
+  - `POST /api/operations/move`: Validates payload, checks path jails/canaries, and executes atomic move.
+  - `POST /api/operations/purge`: Purges directory with recursive canary protection.
+  - `GET /api/operations/publiclink`: Returns canonical web link for cloud items.
+  - `GET /api/explorer/queue` & `POST /api/explorer/upload-queued`: Multipart file upload staging into upload queue.
+
 - `dashboard/frontend/partials/view_explorer.html`:
-  - In left pane file rows: Remove inline Preview, Copy, and Delete buttons. Keep only Download and `...` More Actions button.
-  - In right pane file rows: Remove inline Preview, Copy, and Delete buttons. Keep only Download and `...` More Actions button.
-- `dashboard/frontend/partials/components/component_context_menu.html`:
-  - For `contextMenu.paneKey === 'left'`: Render Lucide `arrow-right` SVG (`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`) for "Copy to Remote".
-  - For `contextMenu.paneKey === 'right'`: Render Lucide `arrow-left` SVG (`<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>`) for "Copy to Local".
-  - Ensure all other items use pure Lucide SVGs (Preview: `eye`, Download: `download`, Copy Path: `copy`, Delete: `trash-2`).
+  - Dual-pane commander layout with responsive split-screen toggle (`Single Pane` vs `Dual Commander`).
+  - Drag-and-drop file upload target zones on both left and right panes.
+  - Commander action bar: `[Copy]`, `[Move]`, `[Delete]`, and upload queue status indicator.
 
-### 4. Quality Gate Verification & Smoke Testing
-- `tests/e2e/dashboard_smoke_test.go`:
-  - Update smoke tests to assert that only Download and `...` buttons are visible on row hover, and verify the multi-line settings tab wrapping.
-- Run `./scripts/check.sh all` to ensure all 7 quality gates pass.
+- `dashboard/frontend/js/explorer.js` & `dashboard/frontend/js/explorer_actions.js`:
+  - Dual-pane state management (`leftPane`, `rightPane`, active pane focus).
+  - Cross-pane directional transfer handlers and keyboard shortcuts.
+  - Non-blocking upload dock status pill and drawer.
+
+---
+
+### Technical Strategy & Data Flow
+
+```
+[Operator Action] ─── Drag & Drop / Move / Copy
+         │
+         ▼
+[Frontend Controller] (explorer.js / explorer_actions.js)
+         │
+         ├── Check `telemetry.is_syncing`
+         │     ├── If Idle: Direct execution via /api/operations/move or /api/explorer/upload
+         │     └── If Sync Active: Route to /api/explorer/upload-queued
+         │
+         ▼
+[Backend Service Layer] (ExplorerService / UploadQueueManager)
+         │
+         ├── Path Jail Validation (`isLocalPathJailed`)
+         ├── Canary File Protection (`RCLONE_TEST` check)
+         ├── Advisory Flock Lock Coordination
+         │
+         ▼
+[Rclone RC API / Local Filesystem] ─── Atomic Rename / Transfer
+```
+
+### Safety & Error Handling
+
+- **Local Filesystem Jail**: All file moves, copies, and uploads must verify source and destination paths using `filepath.Rel` and base prefix confinement (`isLocalPathJailed`).
+- **Canary File Inviolability**: `RCLONE_TEST` cannot be moved, renamed, overwritten, or deleted. Any directory move or purge recursively checks for canary files before execution.
+- **Flock Concurrency Coordination**: Background sync runs acquire exclusive locks. Explorer write actions check advisory lock state to prevent mid-sync corruption, enqueuing uploads if locks are held.
+- **Code Governance Limits**: Every Go file and frontend module must remain strictly under 400 LOC.
 
 ---
 
 ## Verification Plan
 
-- Unit & handler tests: `go test -v -count=1 ./internal/server/... -run TestHandleRemoveConfigEncryption`
-- LOC audit: `./scripts/check-loc.sh 400`
+### Automated Unit & Integration Tests
+- `internal/services/explorer_ops_test.go`:
+  - `TestMoveItem_LocalToLocal`: Verify atomic local moves and jail enforcement.
+  - `TestMoveItem_CanaryProtection`: Verify moving `RCLONE_TEST` returns 403 / error.
+  - `TestMoveItem_RemoteToRemote`: Mock RC `/operations/movefile` and verify request payload.
+- `internal/services/upload_queue_test.go`:
+  - Test queue state transitions when lock is held vs released.
+- `internal/server/handlers_operations_test.go`:
+  - Test `/api/operations/move` route and error responses.
+  - Test `/api/operations/publiclink` route and fallback behavior.
+
+### End-to-End Headless Chrome Tests (`tests/e2e/dashboard_smoke_test.go`)
+- E2E smoke test verifying:
+  - Commander dual-pane toggle renders both panes.
+  - Drag-and-drop upload zone triggers exist.
+  - Directional transfer buttons open confirmation modals with correct source/destination.
+
+### Full Quality Gate Execution
+- `./scripts/check.sh all`:
+  - All 7 stages passing: format, vet, staticcheck, Alpine template safety, LOC check (<400 LOC), unit tests, and race detector.
+
 - Full check suite: `./scripts/check.sh all`
 - E2E smoke tests: `go test -v -count=1 ./tests/e2e/...`
 

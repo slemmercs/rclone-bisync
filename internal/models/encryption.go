@@ -9,9 +9,17 @@ type ConfigPathsResponse struct {
 
 // EncryptionStatusResponse reports whether rclone.conf is password-encrypted.
 type EncryptionStatusResponse struct {
-	IsEncrypted bool   `json:"is_encrypted"`
-	ConfigFile  string `json:"config_file"`
-	Error       string `json:"error,omitempty"`
+	IsEncrypted         bool   `json:"is_encrypted"`
+	ConfigFile          string `json:"config_file"`
+	HasDaemonPassphrase bool   `json:"has_daemon_passphrase"`
+	SecretsFile         string `json:"secrets_file,omitempty"`
+	Warning             string `json:"warning,omitempty"`
+	Error               string `json:"error,omitempty"`
+}
+
+// SaveDaemonPassphraseRequest contains a passphrase to persist in rc-secrets.env.
+type SaveDaemonPassphraseRequest struct {
+	Password string `json:"password"`
 }
 
 // SetEncryptionRequest contains the new password and optional old password for rclone.conf.

@@ -77,3 +77,30 @@ func (s *Server) handleRemoveConfigEncryption(w http.ResponseWriter, r *http.Req
 
 	writeJSON(w, http.StatusOK, resp)
 }
+
+// handleSaveDaemonPassphrase validates and persists the daemon passphrase to rc-secrets.env.
+func (s *Server) handleSaveDaemonPassphrase(w http.ResponseWriter, r *http.Request) {
+	if s.ConfigEncryptionService == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "config encryption service is not available"})
+		return
+	}
+
+	var req models.SaveDaemonPassphraseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request payload"})
+		return
+	}
+
+	if strings.TrimSpace(req.Password) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "passphrase cannot be empty"})
+		return
+	}
+
+	resp, err := s.ConfigEncryptionService.SaveDaemonPassphrase(r.Context(), req)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}

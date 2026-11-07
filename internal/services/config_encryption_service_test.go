@@ -193,3 +193,120 @@ func TestConfigEncryptionService_CreatePasswordHelperScript(t *testing.T) {
 		t.Errorf("script content missing RCLONE_PASSWORD_CHANGE logic: %s", string(content))
 	}
 }
+
+func TestConfigEncryptionService_PassphrasePersistenceAndWarning(t *testing.T) {
+	tmpDir := t.TempDir()
+	confPath := filepath.Join(tmpDir, "encrypted.conf")
+	secretsPath := filepath.Join(tmpDir, "rc-secrets.env")
+
+	// 1. Write encrypted config
+	encContent := "# Encrypted rclone configuration File\n\nRCLONE_ENCRYPT_V0:\nSGVsbG8="
+	if err := os.WriteFile(confPath, []byte(encContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure RCLONE_CONFIG_PASS env var is cleared for test isolation
+	oldEnv := os.Getenv("RCLONE_CONFIG_PASS")
+	_ = os.Unsetenv("RCLONE_CONFIG_PASS")
+	defer func() {
+		if oldEnv != "" {
+			_ = os.Setenv("RCLONE_CONFIG_PASS", oldEnv)
+		}
+	}()
+
+	mockRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
+		return "drive:\n", nil
+	}
+
+	cfg := &config.Config{
+		RcloneConfigFile: confPath,
+		SecretsFile:      secretsPath,
+	}
+	svc := NewConfigEncryptionService(cfg, nil, mockRunner)
+
+	// Status before secrets file: Encrypted=true, HasDaemonPassphrase=false, Warning non-empty
+	status, err := svc.GetStatus(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !status.IsEncrypted {
+		t.Errorf("expected IsEncrypted=true")
+	}
+	if status.HasDaemonPassphrase {
+		t.Errorf("expected HasDaemonPassphrase=false")
+	}
+	if status.Warning == "" {
+		t.Errorf("expected warning when daemon passphrase is missing")
+	}
+
+	// Act 1: SaveDaemonPassphrase with valid password
+	saveResp, err := svc.SaveDaemonPassphrase(context.Background(), models.SaveDaemonPassphraseRequest{Password: "mypassword123"})
+	if err != nil {
+		t.Fatalf("unexpected error saving passphrase: %v", err)
+	}
+	if saveResp.Status != "success" {
+		t.Errorf("expected status success, got %s", saveResp.Status)
+	}
+
+	// Verify secrets file contains RCLONE_CONFIG_PASS
+	parsed, err := config.ParseEnvFile(secretsPath)
+	if err != nil {
+		t.Fatalf("failed to parse secrets file: %v", err)
+	}
+	if parsed["RCLONE_CONFIG_PASS"] != "mypassword123" {
+		t.Errorf("expected 'mypassword123', got '%s'", parsed["RCLONE_CONFIG_PASS"])
+	}
+
+	// Status after saving: HasDaemonPassphrase=true, Warning=""
+	status, err = svc.GetStatus(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !status.HasDaemonPassphrase {
+		t.Errorf("expected HasDaemonPassphrase=true after saving")
+	}
+	if status.Warning != "" {
+		t.Errorf("expected empty warning after saving daemon passphrase, got %s", status.Warning)
+	}
+
+	// Act 2: SetPassword updates secrets file
+	setResp, err := svc.SetPassword(context.Background(), models.SetEncryptionRequest{
+		Password:    "newpass456",
+		OldPassword: "mypassword123",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error setting password: %v", err)
+	}
+	if setResp.Status != "success" {
+		t.Errorf("expected status success, got %s", setResp.Status)
+	}
+	parsed, _ = config.ParseEnvFile(secretsPath)
+	if parsed["RCLONE_CONFIG_PASS"] != "newpass456" {
+		t.Errorf("expected 'newpass456' in secrets file, got '%s'", parsed["RCLONE_CONFIG_PASS"])
+	}
+
+	// Act 3: RemovePassword purges secrets file
+	remResp, err := svc.RemovePassword(context.Background(), models.RemoveEncryptionRequest{
+		Password: "newpass456",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error removing password: %v", err)
+	}
+	if remResp.Status != "success" {
+		t.Errorf("expected status success, got %s", remResp.Status)
+	}
+	parsed, _ = config.ParseEnvFile(secretsPath)
+	if _, exists := parsed["RCLONE_CONFIG_PASS"]; exists {
+		t.Errorf("expected RCLONE_CONFIG_PASS to be removed from secrets file")
+	}
+
+	// Act 4: SaveDaemonPassphrase with failing runner (invalid password)
+	failRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
+		return "", fmt.Errorf("bad password")
+	}
+	failSvc := NewConfigEncryptionService(cfg, nil, failRunner)
+	_, err = failSvc.SaveDaemonPassphrase(context.Background(), models.SaveDaemonPassphraseRequest{Password: "wrongpass"})
+	if err == nil {
+		t.Errorf("expected error when runner fails password validation, got nil")
+	}
+}

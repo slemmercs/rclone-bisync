@@ -403,7 +403,88 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](closeScript))
 	})
 
-	// 5. Test Flags Builder Select Options (ensure browser doesn't strip <option> tags)
+	// 5. Test Daemon Passphrase Warning Banner & Persistence UI
+	t.Run("DaemonPassphraseWarningAndPersistence", func(t *testing.T) {
+		script := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine data not found" };
+
+			// 1. Initial status: verify default state & helper methods
+			if (typeof app.isSavingDaemonPassphrase !== 'function') {
+				return { error: "isSavingDaemonPassphrase missing" };
+			}
+			if (typeof app.saveDaemonPassphrase !== 'function') {
+				return { error: "saveDaemonPassphrase missing" };
+			}
+			const initialSaving = app.isSavingDaemonPassphrase();
+
+			// 2. Simulate encrypted config missing daemon passphrase
+			if (!app.globalSettingsModal) app.globalSettingsModal = {};
+			if (!app.globalSettingsModal.encryption) app.globalSettingsModal.encryption = {};
+			app.globalSettingsModal.encryption.is_encrypted = true;
+			app.globalSettingsModal.encryption.has_daemon_passphrase = false;
+
+			// 3. Test empty daemon passphrase validation
+			let warningToast = false;
+			const origToast = app.showToast;
+			app.showToast = (msg, type) => {
+				if (type === 'warning' && typeof msg === 'string' && msg.includes('daemon passphrase')) {
+					warningToast = true;
+				}
+				if (typeof origToast === 'function') origToast.call(app, msg, type);
+			};
+			app.globalSettingsModal.encryption.daemon_password = '   ';
+			app.saveDaemonPassphrase();
+			app.showToast = origToast;
+
+			// 4. Test opening security settings tab
+			app.openGlobalSettingsModal('security');
+			const activeTab = app.globalSettingsModal.tab;
+			const modalOpen = app.globalSettingsModal.show;
+
+			// 5. Restore normal unencrypted state & close modal
+			app.globalSettingsModal.encryption.is_encrypted = false;
+			app.globalSettingsModal.encryption.has_daemon_passphrase = true;
+			app.closeGlobalSettingsModal();
+
+			return {
+				initialSaving,
+				warningToast,
+				activeTab,
+				modalOpen
+			};
+		})()`
+
+		type DaemonPassphraseResult struct {
+			Error         *string `json:"error"`
+			InitialSaving bool    `json:"initialSaving"`
+			WarningToast  bool    `json:"warningToast"`
+			ActiveTab     string  `json:"activeTab"`
+			ModalOpen     bool    `json:"modalOpen"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DaemonPassphraseResult](script))
+		if err != nil {
+			t.Fatalf("failed evaluating daemon passphrase test script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("daemon passphrase check failed: %s", *res.Error)
+		}
+		if res.InitialSaving {
+			t.Errorf("expected initial isSavingDaemonPassphrase to be false")
+		}
+		if !res.WarningToast {
+			t.Errorf("expected empty daemon passphrase submission to trigger warning toast")
+		}
+		if res.ActiveTab != "security" {
+			t.Errorf("expected active tab 'security', got %q", res.ActiveTab)
+		}
+		if !res.ModalOpen {
+			t.Errorf("expected global settings modal to open")
+		}
+	})
+
+	// 6. Test Flags Builder Select Options (ensure browser doesn't strip <option> tags)
 	t.Run("FlagsBuilderSelectOptionsNotStripped", func(t *testing.T) {
 		openScript := `(() => {
 			const app = Alpine.$data(document.querySelector('[x-data]'));

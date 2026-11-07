@@ -324,6 +324,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/config/encryption", s.handleGetConfigEncryption)
 	s.Mux.HandleFunc("POST /api/config/encryption/set", s.handleSetConfigEncryption)
 	s.Mux.HandleFunc("POST /api/config/encryption/remove", s.handleRemoveConfigEncryption)
+	s.Mux.HandleFunc("POST /api/config/encryption/save-passphrase", s.handleSaveDaemonPassphrase)
 
 	// Core Daemon Controls Endpoints
 	s.Mux.HandleFunc("GET /api/core/bwlimit", s.handleGetBandwidthLimit)
