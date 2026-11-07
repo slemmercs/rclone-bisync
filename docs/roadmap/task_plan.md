@@ -13,7 +13,7 @@ Implement UI/UX refinements identified during testing: restructure Global Fleet 
   - **Scope**: `dashboard/frontend/partials/view_telemetry.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
-- [ ] Task 3: Explorer Row Actions Declutter & Directional Context Menu Icons
+- [x] Task 3: Explorer Row Actions Declutter & Directional Context Menu Icons
   - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_context_menu.html`
   - **Verification**: `./scripts/check.sh templates` and `./scripts/check.sh loc`
 
@@ -26,4 +26,5 @@ Implement UI/UX refinements identified during testing: restructure Global Fleet 
 - 2026-11-07: Initialized UI Suite Polish task plan from approved implementation_plan.md.
 - 2026-11-07: Completed Task 1 - Global Fleet Settings Multi-Line Tabs & Passphrase Validation. Verified with unit tests, templates check, and loc audit.
 - 2026-11-07: Completed Task 2 - Remove Redundant Engine Transfer Telemetry Card. Verified with templates check and loc audit.
+- 2026-11-07: Completed Task 3 - Explorer Row Actions Declutter & Directional Context Menu Icons. Verified with templates check and loc audit.
 

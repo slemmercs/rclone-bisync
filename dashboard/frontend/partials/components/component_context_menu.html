@@ -14,9 +14,10 @@
             <span>Download</span>
         </button>
     </template>
-    <template x-if="contextMenu.item && !contextMenu.item.IsDir">
+    <template x-if="contextMenu.item">
         <button type="button" @click="transferItem(contextMenu.paneKey, contextMenu.item); closeContextMenu()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200 hover:text-white transition-colors cursor-pointer">
-            <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+            <svg x-show="contextMenu.paneKey === 'left'" class="w-3.5 h-3.5 text-sky-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            <svg x-show="contextMenu.paneKey !== 'left'" class="w-3.5 h-3.5 text-sky-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
             <span x-text="contextMenu.paneKey === 'left' ? 'Copy to Remote' : 'Copy to Local'"></span>
         </button>
     </template>
