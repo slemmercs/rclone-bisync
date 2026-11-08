@@ -13,7 +13,7 @@ Implement Milestone 2: Pure Profile Sync Staging & Remediation Workspace with at
   - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_purge.go`, `internal/services/explorer_ops_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestExplorerOps"`
 
-- [ ] Task 3: HTTP API Handlers & Routing for Workspace Operations
+- [x] Task 3: HTTP API Handlers & Routing for Workspace Operations
   - **Scope**: `internal/server/handlers_operations.go`, `internal/server/handlers_operations_test.go`, `internal/server/server.go`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleOperations`
 
