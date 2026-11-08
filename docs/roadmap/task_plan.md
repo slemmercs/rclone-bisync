@@ -21,7 +21,7 @@ Resolve 7 issues from sandbox interactive testing: fix remote preview/download u
   - **Scope**: `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
   - **Verification**: `go test -v -count=1 ./internal/engine/runner/... -run TestRunner_`
 
-- [ ] Task 5: Initial Sync / Missing Listings Detection & Resync Confirmation Modal
+- [x] Task 5: Initial Sync / Missing Listings Detection & Resync Confirmation Modal
   - **Scope**: `internal/server/handlers_profiles.go`, `internal/server/handlers_profiles_test.go`, `dashboard/frontend/js/profiles_history.js`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_ProfileSync`
 

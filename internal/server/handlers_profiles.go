@@ -242,13 +242,32 @@ func (s *Server) handleProfileSync(w http.ResponseWriter, r *http.Request) {
 		DryRun bool `json:"dry_run"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	prof, err := s.ProfileService.Get(id)
+	if err != nil {
+		status := http.StatusNotFound
+		writeJSON(w, status, models.ErrorResponse{Status: "error", Error: err.Error()})
+		return
+	}
+
+	// Detect if profile has never run a baseline sync and resync wasn't requested
+	if prof.State.LastSync == nil && !req.Resync {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status":          "requires_resync",
+			"requires_resync": true,
+			"msg":             fmt.Sprintf("Profile %q has never been synchronized. Initial synchronization requires --resync to establish baseline listings.", id),
+			"profile_id":      id,
+		})
+		return
+	}
+
 	opts := profiles.SyncOptions{
 		Force:  req.Force,
 		Resync: req.Resync,
 		DryRun: req.DryRun,
 		Origin: "dashboard",
 	}
-	err := s.ProfileService.TriggerSyncWithOptions(r.Context(), id, opts)
+	err = s.ProfileService.TriggerSyncWithOptions(r.Context(), id, opts)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, profiles.ErrProfileNotActive) || errors.Is(err, profiles.ErrProfileNotFound) {

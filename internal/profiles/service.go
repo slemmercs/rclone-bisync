@@ -204,6 +204,16 @@ func (s *Service) Rollback(ctx context.Context, id string, targetVersion int) (*
 	return restored, nil
 }
 
+// Store returns the underlying profile Store.
+func (s *Service) Store() *Store {
+	return s.store
+}
+
+// UpdateState updates dynamic operational state for a profile.
+func (s *Service) UpdateState(id string, state OperationalState) error {
+	return s.store.UpdateState(id, state)
+}
+
 // TriggerSync prompts immediate execution of a profile sync.
 func (s *Service) TriggerSync(ctx context.Context, id string, force bool) error {
 	return s.TriggerSyncWithOptions(ctx, id, SyncOptions{Force: force})

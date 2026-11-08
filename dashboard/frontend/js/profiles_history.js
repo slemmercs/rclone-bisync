@@ -97,13 +97,37 @@ window.ProfilesHistoryModule = {
         }
     },
 
-    async triggerProfileSync(profId, force = false) {
+    async triggerProfileSync(profId, forceOrOpts = false, resyncArg = false, dryRunArg = false) {
+        let force = false;
+        let resync = false;
+        let dryRun = false;
+        if (typeof forceOrOpts === "object" && forceOrOpts !== null) {
+            force = !!forceOrOpts.force;
+            resync = !!forceOrOpts.resync;
+            dryRun = !!forceOrOpts.dry_run || !!forceOrOpts.dryRun;
+        } else {
+            force = !!forceOrOpts;
+            resync = !!resyncArg;
+            dryRun = !!dryRunArg;
+        }
+
         this.profilesData.syncingId = profId;
         try {
-            const res = await window.API.post(`/api/profiles/${encodeURIComponent(profId)}/sync`, { force });
-            if (res.status === "error") throw new Error(res.error || "Sync trigger failed");
+            const res = await window.API.post(`/api/profiles/${encodeURIComponent(profId)}/sync`, {
+                force,
+                resync,
+                dry_run: dryRun
+            });
+            if (res && res.requires_resync) {
+                if (confirm(`Profile "${profId}" has never been synced. First run requires --resync to establish baseline listings.\n\nProceed with --resync now?`)) {
+                    await this.triggerProfileSync(profId, force, true, dryRun);
+                }
+                return;
+            }
+            if (res && res.status === "error") throw new Error(res.error || "Sync trigger failed");
             if (typeof this.showToast === "function") {
-                this.showToast(`Sync triggered for profile "${profId}".`, "success");
+                const label = dryRun ? "Dry run" : (resync ? "Resync" : "Sync");
+                this.showToast(`${label} triggered for profile "${profId}".`, "success");
             }
             await this.fetchProfiles();
             if (typeof this.fetchBisyncLogs === "function") {
