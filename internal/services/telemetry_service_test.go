@@ -261,6 +261,9 @@ func TestTelemetryService_Direct(t *testing.T) {
 	if summary.Count != 1 {
 		t.Fatalf("expected 1 remote, got: %v", summary.Count)
 	}
+	if summary.Remotes[0]["can_public_link"] != true {
+		t.Fatalf("expected can_public_link to be true for drive, got: %v", summary.Remotes[0]["can_public_link"])
+	}
 
 	// 3. GetTransferStats
 	ts := telSvc.GetTransferStats(context.Background())

@@ -1,53 +1,35 @@
-# Implementation Plan: Sandbox Reliability & File Operations Remediation
+# Implementation Plan: Provider-Aware "Open on Remote" Capability Filtering
 
 ## Proposed Changes
 
-Address 7 critical issues discovered during sandbox interactive testing:
-1. **Remote File Preview & Streaming (Issue 1)**:
-   - Rclone RC does not provide an `/operations/cat` endpoint (returns 404). The official Rclone RC API endpoint for reading single files is `/operations/getfile`, which supports `base64: true`, `offset`, `count`, and `maxSize`.
-   - Update `internal/core/client/fs_read.go` to invoke `/operations/getfile` and decode base64 results for `CatFile` and `CatStream`.
-   - Add `--rc-serve` to `scripts/run-sandbox.sh` and set `RCLONE_CACHE_DIR="$SANDBOX_DIR/cache"` for full ephemeral containment.
-
-2. **Directory Copying & Tree Placement (Issues 2, 3, 4)**:
-   - In `internal/services/explorer_ops.go` (`CopyItemWithOptions`), copying a directory (`isDir == true`) currently targets `dstFs` directly, causing Rclone's `/sync/copy` to dump files into the destination root instead of preserving the directory container.
-   - Adjust `dstFs` and local target directory to append `filepath.Base(cleanSrcPath)` so the folder container is recreated at the destination.
-
-3. **Missing Listings & First Sync Detection (Issue 5)**:
-   - Running `rclone bisync` without `--resync` on an uninitialized profile fails with `NO_LISTINGS` ("cannot find prior Path1 or Path2 listings").
-   - In `internal/server/handlers_profiles.go`, detect when an uninitialized profile (`p.State.LastSync == nil`) is triggered without `resync`, returning `requires_resync: true`.
-   - In `dashboard/frontend/js/profiles_history.js`, intercept `requires_resync` and prompt the user with a confirmation dialog to initialize baseline listings via `--resync`.
-
-4. **Audit Ledger Logging for Resync (Issue 6)**:
-   - In `internal/engine/runner/runner_handlers.go`, `recordAuditExecuted` was gated strictly by `monitorRes.FilesSynced > 0`. A zero-transfer resync was therefore never recorded in the audit ledger.
-   - Expand condition to `monitorRes.FilesSynced > 0 || resync || origin == "dashboard" || origin == "cli"`.
-
-5. **File Move/Rename Path Construction & Lucide Icon (Issue 7)**:
-   - In `internal/services/explorer_move.go` (`executeMove`), moving a file on a remote treated `cleanDstPath` as `dstFs` and appended `srcFile` again, creating nested folder structures (e.g. `test1/archive_info.json/archive_info.json`).
-   - Parse `cleanDstPath` into destination directory and destination filename properly.
-   - Ensure "New Folder" buttons use canonical Lucide `folder-plus` SVG markup.
+Filter out the "Open on Remote" context menu item when the active pane's storage provider does not support public sharing links (`operations/publiclink`), preventing user-facing errors on unsupported backends (such as local filesystem, alias to local, SFTP, raw S3).
 
 ### Affected Components & Packages
 
-- `internal/core/client/fs_read.go`: Update `CatFile` and `CatStream` to use `/operations/getfile`.
-- `internal/core/client/fs_read_test.go`: Update unit tests for `/operations/getfile`.
-- `internal/services/explorer_preview_test.go`: Update mock server for `/operations/getfile`.
-- `internal/services/explorer_ops.go`: Fix directory destination path in `CopyItemWithOptions`.
-- `internal/services/explorer_move.go`: Fix destination path parsing in `executeMove`.
-- `internal/engine/runner/runner_handlers.go`: Log audit events for resync and user-initiated runs.
-- `internal/server/handlers_profiles.go`: Add initial sync check for missing listings.
-- `dashboard/frontend/js/profiles_history.js`: Add confirmation dialog for initial resync.
-- `dashboard/frontend/partials/view_explorer.html` & `component_context_menu.html`: Lucide icon consistency.
-- `scripts/run-sandbox.sh`: Add `--rc-serve` and `RCLONE_CACHE_DIR`.
+- `internal/core/client/remotes.go`: Add `GetRemoteFsInfo(ctx, remote)` querying Rclone RC `/operations/fsinfo` for backend features.
+- `internal/services/telemetry_remotes.go`: In `GetRemotesSummaryCached`, evaluate `Features.PublicLink` from `GetRemoteFsInfo` with fallback to known provider types, populating `"can_public_link"` on each remote in `RemotesResponse`.
+- `dashboard/frontend/js/explorer_operations.js`: Implement `canOpenOnRemote(paneKey)` to check remote capability; dynamically update `found.can_public_link = false` if runtime API returns unsupported.
+- `dashboard/frontend/partials/components/component_context_menu.html`: Update template conditional from `target !== 'local'` to `canOpenOnRemote(contextMenu.paneKey)`.
+- `internal/services/telemetry_service_test.go`: Add unit test assertions for `can_public_link` metadata in remotes summary.
+
+### Technical Strategy & Data Flow
+
+1. **Backend Capability Discovery**:
+   - `c.GetRemoteFsInfo(ctx, remote)` queries `/operations/fsinfo`.
+   - `telemetry_remotes.go` extracts `Features.PublicLink`. If `fsinfo` is unavailable (e.g. timeout or offline remote), falls back to provider type whitelist (`drive`, `onedrive`, `dropbox`, `box`, `pcloud`, `yandex`, `mega`, `mailru`, `opendrive`, `linkbox`, `pikpak`, `zoho`, `protondrive`).
+   - `"can_public_link": bool` is included in the remote's JSON dictionary returned by `GET /api/remotes`.
+
+2. **Frontend Filtering**:
+   - `canOpenOnRemote(paneKey)` matches `explorer[paneKey].target` against `remotesData.remotes`.
+   - If target is `"local"` or not found, returns `false`.
+   - If `remote.can_public_link` is explicit, returns its boolean value; otherwise falls back to provider whitelist.
+   - If `openOnRemote` ever returns `supported: false`, updates cached remote state to immediately suppress the item.
 
 ## Verification Plan
 
-- Unit test `CatFile` and `CatStream` with mock Rclone `/operations/getfile`.
-- Unit test directory copy and move destination paths.
-- Unit test audit ledger recording for 0-transfer resync.
-- Run full quality suite: `./scripts/check.sh all`.
-- Verify in sandbox.
-
-   - File: `internal/core/client/operations.go`
+- `go test -v -count=1 ./internal/services/... -run TestGetRemotesSummary`
+- `go test -v -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
+- `./scripts/check.sh all`
    - Purpose: Calls Rclone RC `operations/purge`.
 4. `c.PublicLink(ctx context.Context, fs, remote string, unlink bool) (*models.PublicLinkResponse, error)`
    - File: `internal/core/client/operations.go`

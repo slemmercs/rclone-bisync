@@ -371,6 +371,9 @@ func TestListRemotesAndAbout(t *testing.T) {
 		case "/core/stats":
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"bytes": 1024, "speed": 100}`))
+		case "/operations/fsinfo":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"Features": {"PublicLink": true}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -387,6 +390,11 @@ func TestListRemotesAndAbout(t *testing.T) {
 	about := c.GetRemoteAbout(context.Background(), "gdrive")
 	if about == nil || about["total"] != float64(1000000) {
 		t.Fatalf("unexpected about response: %v", about)
+	}
+
+	fsinfo := c.GetRemoteFsInfo(context.Background(), "gdrive")
+	if fsinfo == nil {
+		t.Fatal("expected non-nil fsinfo")
 	}
 
 	stats, err := c.GetCoreStats(context.Background())
