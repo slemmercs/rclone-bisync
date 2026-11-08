@@ -274,3 +274,126 @@ func TestHandleOperations_ExplorerDock(t *testing.T) {
 		t.Fatalf("expected status 200 on delete, got %d", wDel.Code)
 	}
 }
+
+func TestHandler_MakeDir(t *testing.T) {
+	// Arrange
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. Successful local directory creation
+	body, _ := json.Marshal(models.MkdirRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "projects/subfolder",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/operations/mkdir", bytes.NewReader(body))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	var resp models.MkdirResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got %s: %s", resp.Status, resp.Error)
+	}
+	if fi, err := os.Stat(filepath.Join(profileLocal, "projects", "subfolder")); err != nil || !fi.IsDir() {
+		t.Fatalf("expected directory to be created on disk, err: %v", err)
+	}
+
+	// 2. Traversal attempt rejected
+	bodyTrav, _ := json.Marshal(models.MkdirRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "../escaped_dir",
+	})
+	reqTrav := httptest.NewRequest(http.MethodPost, "/api/operations/mkdir", bytes.NewReader(bodyTrav))
+	reqTrav.Header.Set("X-Dashboard-Request", "1")
+	wTrav := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wTrav, reqTrav)
+
+	var respTrav models.MkdirResponse
+	_ = json.NewDecoder(wTrav.Body).Decode(&respTrav)
+	if respTrav.Status != "error" {
+		t.Fatalf("expected error for traversal attempt, got %+v", respTrav)
+	}
+
+	// 3. Remote directory creation with mock RC server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/operations/mkdir" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	rcClient := client.NewRcloneClient(ts.URL, "", "")
+	srv.ExplorerService = services.NewExplorerService(srv.Config, rcClient, srv.CanaryService)
+
+	bodyRemote, _ := json.Marshal(models.MkdirRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "onedrive:",
+		Path:      "remote_docs/new_folder",
+	})
+	reqRemote := httptest.NewRequest(http.MethodPost, "/api/operations/mkdir", bytes.NewReader(bodyRemote))
+	reqRemote.Header.Set("X-Dashboard-Request", "1")
+	wRemote := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wRemote, reqRemote)
+
+	var respRemote models.MkdirResponse
+	_ = json.NewDecoder(wRemote.Body).Decode(&respRemote)
+	if respRemote.Status != "success" {
+		t.Fatalf("expected success for remote mkdir, got %+v", respRemote)
+	}
+
+	// 4. Invalid JSON payload
+	reqBad := httptest.NewRequest(http.MethodPost, "/api/operations/mkdir", bytes.NewReader([]byte("invalid json")))
+	reqBad.Header.Set("X-Dashboard-Request", "1")
+	wBad := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wBad, reqBad)
+	if wBad.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for bad JSON, got %d", wBad.Code)
+	}
+}
+
+func TestHandler_IdenticalPathSafeguards(t *testing.T) {
+	// Arrange
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+	testFile := filepath.Join(profileLocal, "stay_safe.txt")
+	_ = os.WriteFile(testFile, []byte("preserve this content"), 0644)
+
+	// 1. Move identical paths
+	bodyMove, _ := json.Marshal(models.MoveRequest{
+		ProfileID: "prof_onedrive",
+		SrcRemote: "local",
+		SrcPath:   "stay_safe.txt",
+		DstRemote: "local",
+		DstPath:   "stay_safe.txt",
+	})
+	reqMove := httptest.NewRequest(http.MethodPost, "/api/operations/move", bytes.NewReader(bodyMove))
+	reqMove.Header.Set("X-Dashboard-Request", "1")
+	wMove := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wMove, reqMove)
+
+	var respMove models.MoveResponse
+	_ = json.NewDecoder(wMove.Body).Decode(&respMove)
+	if respMove.Status != "error" || respMove.Error != "Source and destination paths are identical" {
+		t.Fatalf("expected identical path rejection on move, got %+v", respMove)
+	}
+
+	// 2. Copy identical paths
+	ctx := reqMove.Context()
+	copyResp, err := srv.ExplorerService.CopyItemWithOptions(ctx, "local", "stay_safe.txt", "local", "stay_safe.txt", false, profileLocal, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if copyResp.Status != "error" || copyResp.Error != "Source and destination paths are identical" {
+		t.Fatalf("expected identical path rejection on copy, got %+v", copyResp)
+	}
+}
+

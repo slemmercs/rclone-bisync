@@ -12,6 +12,7 @@ import (
 func (s *Server) registerOperationsRoutes() {
 	s.Mux.HandleFunc("POST /api/operations/move", s.handleMoveItem)
 	s.Mux.HandleFunc("POST /api/operations/purge", s.handlePurgeDirectory)
+	s.Mux.HandleFunc("POST /api/operations/mkdir", s.handleMakeDir)
 	s.Mux.HandleFunc("GET /api/operations/publiclink", s.handlePublicLink)
 	s.Mux.HandleFunc("POST /api/operations/publiclink", s.handlePublicLink)
 	s.Mux.HandleFunc("GET /api/explorer/preview", s.handleExplorerPreview)
@@ -87,6 +88,41 @@ func (s *Server) handlePurgeDirectory(w http.ResponseWriter, r *http.Request) {
 
 	if resp.Status == "success" && s.AuditService != nil {
 		_, _ = s.AuditService.RecordEvent(req.ProfileID, audit.ActionWorkspaceDirPurged, s.resolveActor(r), map[string]any{
+			"remote": req.Remote,
+			"path":   req.Path,
+			"source": "WORKSPACE_STAGING",
+		})
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleMakeDir(w http.ResponseWriter, r *http.Request) {
+	if s.ExplorerService == nil {
+		writeJSON(w, http.StatusInternalServerError, models.MkdirResponse{Status: "error", Error: "explorer service not configured"})
+		return
+	}
+
+	var req models.MkdirRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, models.MkdirResponse{Status: "error", Error: "Invalid request payload"})
+		return
+	}
+
+	if strings.Contains(req.Path, "..") {
+		writeJSON(w, http.StatusOK, models.MkdirResponse{Status: "error", Error: "Path traversal forbidden"})
+		return
+	}
+
+	localBase := s.resolveLocalPath(req.ProfileID)
+	resp, err := s.ExplorerService.MakeDir(r.Context(), req, localBase)
+	if err != nil {
+		writeJSON(w, http.StatusOK, models.MkdirResponse{Status: "error", Error: err.Error()})
+		return
+	}
+
+	if resp.Status == "success" && s.AuditService != nil {
+		_, _ = s.AuditService.RecordEvent(req.ProfileID, audit.ActionWorkspaceDirCreated, s.resolveActor(r), map[string]any{
 			"remote": req.Remote,
 			"path":   req.Path,
 			"source": "WORKSPACE_STAGING",

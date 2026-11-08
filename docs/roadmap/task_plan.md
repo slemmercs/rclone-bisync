@@ -9,7 +9,7 @@ Fix file explorer remote target desynchronization, safeguard operations against 
   - **Scope**: `internal/models/operations.go`, `internal/services/explorer_mkdir.go`, `internal/services/explorer_mkdir_test.go`, `internal/audit/taxonomy.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerService_MakeDir`
 
-- [ ] Task 2: Mkdir Server Handler & Identical Path Safeguards
+- [x] Task 2: Mkdir Server Handler & Identical Path Safeguards
   - **Scope**: `internal/server/handlers_operations.go`, `internal/server/handlers_operations_test.go`, `internal/services/explorer_ops.go`, `internal/services/explorer_move.go`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_MakeDir`
 

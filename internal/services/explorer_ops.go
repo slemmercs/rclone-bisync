@@ -27,6 +27,14 @@ func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, sr
 	srcIsLocal := strings.ToLower(strings.TrimSpace(srcRemote)) == "local" || strings.TrimSpace(srcRemote) == ""
 	dstIsLocal := strings.ToLower(strings.TrimSpace(dstRemote)) == "local" || strings.TrimSpace(dstRemote) == ""
 
+	canonSrc := strings.TrimSuffix(strings.TrimSpace(srcRemote), ":")
+	canonDst := strings.TrimSuffix(strings.TrimSpace(dstRemote), ":")
+	if (srcIsLocal && dstIsLocal) || strings.EqualFold(canonSrc, canonDst) {
+		if cleanSrcPath == cleanDstPath {
+			return models.CopyResponse{Status: "error", Error: "Source and destination paths are identical"}, nil
+		}
+	}
+
 	rawBase := localBase
 	if rawBase == "" && e.Config != nil {
 		rawBase = e.Config.LocalPath

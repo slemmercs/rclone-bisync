@@ -38,6 +38,14 @@ func (e *ExplorerService) MoveItem(ctx context.Context, req models.MoveRequest, 
 	srcIsLocal := strings.ToLower(strings.TrimSpace(req.SrcRemote)) == "local" || strings.TrimSpace(req.SrcRemote) == ""
 	dstIsLocal := strings.ToLower(strings.TrimSpace(req.DstRemote)) == "local" || strings.TrimSpace(req.DstRemote) == ""
 
+	canonSrc := strings.TrimSuffix(strings.TrimSpace(req.SrcRemote), ":")
+	canonDst := strings.TrimSuffix(strings.TrimSpace(req.DstRemote), ":")
+	if (srcIsLocal && dstIsLocal) || strings.EqualFold(canonSrc, canonDst) {
+		if cleanSrcPath == cleanDstPath {
+			return models.MoveResponse{Status: "error", Error: "Source and destination paths are identical"}, nil
+		}
+	}
+
 	rawBase := ""
 	if len(localBase) > 0 && localBase[0] != "" {
 		rawBase = localBase[0]
