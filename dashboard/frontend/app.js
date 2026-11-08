@@ -92,7 +92,7 @@ document.addEventListener("alpine:init", () => {
                 foldersFirst: true
             },
             right: {
-                target: "gdrive",
+                target: "",
                 path: "",
                 items: [],
                 loading: false,

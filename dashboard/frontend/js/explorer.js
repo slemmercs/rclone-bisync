@@ -16,10 +16,10 @@ window.ExplorerModule = {
             const remotePath = (p.remote_path || "").replace(/^\/+/, "");
             if (!this.explorer.isSwapped) {
                 this.explorer.left.target = "local";
-                if (remote && !this.explorer.right.target) this.explorer.right.target = remote;
+                if (remote) this.explorer.right.target = remote;
                 if (remotePath && !this.explorer.right.path) this.explorer.right.path = remotePath;
             } else {
-                if (remote && !this.explorer.left.target) this.explorer.left.target = remote;
+                if (remote) this.explorer.left.target = remote;
                 if (remotePath && !this.explorer.left.path) this.explorer.left.path = remotePath;
                 this.explorer.right.target = "local";
             }

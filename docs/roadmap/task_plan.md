@@ -9,7 +9,7 @@ Implement and verify the full browser-driven user journey across the File Explor
   - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (scaffolding: ephemeral `rclone rcd` with local remote `sandrem:`, directory tree seeding, server initialization)
   - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/HarnessSetup"`
 
-- [ ] Task 2: Real Dual-Pane Exploration & Navigation Journey
+- [x] Task 2: Real Dual-Pane Exploration & Navigation Journey
   - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (navigate to Explorer, verify left pane lists `localDir` items, right pane lists `sandrem:` items via live RC)
   - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealExploration"`
 

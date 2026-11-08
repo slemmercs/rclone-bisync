@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -49,8 +50,8 @@ func setupSandboxHarness(t *testing.T) *sandboxHarness {
 	_ = os.MkdirAll(localDir, 0750)
 	_ = os.MkdirAll(remoteDir, 0750)
 
-	// Write isolated rclone.conf defining a local remote "sandrem"
-	confContent := "[sandrem]\ntype = local\n"
+	// Write isolated rclone.conf defining a local alias remote "sandrem"
+	confContent := fmt.Sprintf("[sandrem]\ntype = alias\nremote = %s\n", remoteDir)
 	if err := os.WriteFile(confPath, []byte(confContent), 0600); err != nil {
 		t.Fatalf("failed to write sandbox rclone.conf: %v", err)
 	}
@@ -112,7 +113,7 @@ func setupSandboxHarness(t *testing.T) *sandboxHarness {
 			ID:         "sandbox-prof",
 			Name:       "Sandbox Profile",
 			Remote:     "sandrem:",
-			RemotePath: remoteDir,
+			RemotePath: "",
 			LocalPath:  localDir,
 			Enabled:    true,
 			Schedule:   "manual",
@@ -125,7 +126,7 @@ func setupSandboxHarness(t *testing.T) *sandboxHarness {
 
 	cfg := &config.Config{
 		LocalPath:           localDir,
-		RemotePath:          fmt.Sprintf("sandrem:%s", remoteDir),
+		RemotePath:          "sandrem:",
 		BaseDir:             sandboxDir,
 		ProfilesFile:        profilesPath,
 		ProfilesHistoryFile: filepath.Join(sandboxDir, "profiles_history.json"),
@@ -250,6 +251,90 @@ func TestDashboard_SandboxUIJourney(t *testing.T) {
 		}
 		if res.ProfilesCount != 1 {
 			t.Errorf("expected 1 loaded sandbox profile, got %d", res.ProfilesCount)
+		}
+	})
+
+	t.Run("RealExploration", func(t *testing.T) {
+		currentURL, _ := chromedp.Run(ctx, chromedp.Location())
+		if !strings.HasPrefix(currentURL, "http") {
+			_ = chromedp.Do(ctx,
+				chromedp.Navigate(harness.serverURL),
+				chromedp.WaitVisible("body[x-data]"),
+				chromedp.WaitVisible("#app-header"),
+			)
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		err := chromedp.Do(ctx,
+			chromedp.Click(`button[data-tab="explorer"]`),
+			chromedp.WaitVisible(`div[x-show="currentTab === 'explorer'"]`),
+		)
+		if err != nil {
+			t.Fatalf("failed switching to explorer tab: %v", err)
+		}
+
+		time.Sleep(1 * time.Second)
+
+		type PaneStats struct {
+			LeftTarget  string   `json:"leftTarget"`
+			LeftItems   []string `json:"leftItems"`
+			RightTarget string   `json:"rightTarget"`
+			RightItems  []string `json:"rightItems"`
+			RightCanary bool     `json:"rightCanary"`
+		}
+
+		queryPanesScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not initialized" };
+			return {
+				leftTarget: app.explorer.left.target,
+				leftItems: (app.explorer.left.items || []).map(i => i.Name),
+				rightTarget: app.explorer.right.target,
+				rightItems: (app.explorer.right.items || []).map(i => i.Name),
+				rightCanary: Boolean(app.explorer.right.hasCanary)
+			};
+		})()`
+
+		stats, err := chromedp.Run(ctx, chromedp.Evaluate[PaneStats](queryPanesScript))
+		if err != nil {
+			t.Fatalf("failed querying explorer pane stats: %v", err)
+		}
+
+		if stats.LeftTarget != "local" {
+			t.Errorf("expected left target to be 'local', got %q", stats.LeftTarget)
+		}
+		if stats.RightTarget != "sandrem" {
+			t.Errorf("expected right target to be 'sandrem', got %q", stats.RightTarget)
+		}
+
+		// Verify local pane items
+		hasAlpha := false
+		hasRename := false
+		for _, name := range stats.LeftItems {
+			if name == "alpha.txt" {
+				hasAlpha = true
+			}
+			if name == "to_rename.txt" {
+				hasRename = true
+			}
+		}
+		if !hasAlpha || !hasRename {
+			t.Errorf("expected left pane to list alpha.txt and to_rename.txt, got %+v", stats.LeftItems)
+		}
+
+		// Verify remote pane items fetched through live rclone RC
+		hasCloudData := false
+		hasPurgeDir := false
+		for _, name := range stats.RightItems {
+			if name == "cloud_data.txt" {
+				hasCloudData = true
+			}
+			if name == "purge_target" {
+				hasPurgeDir = true
+			}
+		}
+		if !hasCloudData || !hasPurgeDir {
+			t.Errorf("expected right pane to list cloud_data.txt and purge_target via live RC, got %+v", stats.RightItems)
 		}
 	})
 }
