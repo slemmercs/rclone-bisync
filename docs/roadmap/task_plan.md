@@ -5,7 +5,7 @@ Implement Milestone 2: Pure Profile Sync Staging & Remediation Workspace with at
 
 ## Tasks
 
-- [ ] Task 1: Core RC Client Operations Wrappers & Data Models
+- [x] Task 1: Core RC Client Operations Wrappers & Data Models
   - **Scope**: `internal/models/operations.go`, `internal/models/upload.go`, `internal/core/client/operations.go`, `internal/core/client/operations_test.go`
   - **Verification**: `go test -v -count=1 ./internal/core/client/... -run "TestMove|TestPurge|TestPublicLink"`
 
