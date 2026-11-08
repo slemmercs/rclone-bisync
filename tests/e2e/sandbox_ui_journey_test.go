@@ -1,10 +1,12 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -17,6 +19,7 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/server"
 	"github.com/slemmercs/rclone-bisync/internal/services"
@@ -597,6 +600,202 @@ func TestDashboard_SandboxUIJourney(t *testing.T) {
 		}
 		if !strings.Contains(strings.ToLower(canaryMoveRes.Message), "canary") {
 			t.Errorf("expected canary warning toast, got: %q", canaryMoveRes.Message)
+		}
+	})
+
+	t.Run("UploadDockJourney", func(t *testing.T) {
+		currentURL, _ := chromedp.Run(ctx, chromedp.Location())
+		if !strings.HasPrefix(currentURL, "http") {
+			_ = chromedp.Do(ctx,
+				chromedp.Navigate(harness.serverURL),
+				chromedp.WaitVisible("body[x-data]"),
+				chromedp.WaitVisible("#app-header"),
+				chromedp.Click(`button[data-tab="explorer"]`),
+				chromedp.WaitVisible(`div[x-show="currentTab === 'explorer'"]`),
+			)
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		// Step 1: Initial upload dock state assertion
+		initScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			return {
+				pendingCount: app.uploadDock ? app.uploadDock.pending_count : 0,
+				modalShown: Boolean(app.uploadDockModal && app.uploadDockModal.show)
+			};
+		})()`
+		type DockState struct {
+			PendingCount int  `json:"pendingCount"`
+			ModalShown   bool `json:"modalShown"`
+		}
+		initRes, err := chromedp.Run(ctx, chromedp.Evaluate[DockState](initScript))
+		if err != nil {
+			t.Fatalf("failed querying initial dock state: %v", err)
+		}
+		if initRes.ModalShown {
+			t.Errorf("expected uploadDockModal to be initially hidden")
+		}
+
+		// Step 2: Enqueue items into upload dock via HTTP API
+		postDockItem := func(item models.UploadQueueItem) models.UploadQueueItem {
+			b, _ := json.Marshal(item)
+			req, err := http.NewRequest(http.MethodPost, harness.serverURL+"/api/explorer/dock", bytes.NewReader(b))
+			if err != nil {
+				t.Fatalf("failed creating dock request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Dashboard-Request", "1")
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("failed enqueuing item: %v", err)
+			}
+			defer res.Body.Close()
+			var enqueued models.UploadQueueItem
+			_ = json.NewDecoder(res.Body).Decode(&enqueued)
+			return enqueued
+		}
+
+		item1 := postDockItem(models.UploadQueueItem{
+			ProfileID: "sandbox-prof",
+			Remote:    "local",
+			Path:      "uploads",
+			FileName:  "staged_dataset_1.csv",
+			Size:      1048576,
+		})
+		item2 := postDockItem(models.UploadQueueItem{
+			ProfileID: "sandbox-prof",
+			Remote:    "sandrem:",
+			Path:      "backups",
+			FileName:  "archive_snapshot.tar.gz",
+			Size:      2097152,
+		})
+
+		if item1.ID == "" || item2.ID == "" {
+			t.Fatalf("expected non-empty IDs for enqueued items, got item1=%+v item2=%+v", item1, item2)
+		}
+
+		// Refresh upload dock in UI and assert pending count
+		refreshScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.fetchUploadDockStatus();
+			return true;
+		})()`
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](refreshScript))
+		if err != nil {
+			t.Fatalf("failed triggering fetchUploadDockStatus: %v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+
+		pollDockScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			return {
+				pendingCount: app.uploadDock ? app.uploadDock.pending_count : 0,
+				itemCount: (app.uploadDock && app.uploadDock.items) ? app.uploadDock.items.length : 0
+			};
+		})()`
+		type PollRes struct {
+			PendingCount int `json:"pendingCount"`
+			ItemCount    int `json:"itemCount"`
+		}
+		pRes, err := chromedp.Run(ctx, chromedp.Evaluate[PollRes](pollDockScript))
+		if err != nil {
+			t.Fatalf("failed polling dock: %v", err)
+		}
+		if pRes.PendingCount < 2 || pRes.ItemCount < 2 {
+			t.Fatalf("expected at least 2 pending items, got pending=%d items=%d", pRes.PendingCount, pRes.ItemCount)
+		}
+
+		// Step 3: Open upload dock modal via UI interaction
+		openModalScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.openUploadDockModal();
+			return {
+				modalShown: Boolean(app.uploadDockModal && app.uploadDockModal.show),
+				renderedFiles: (app.uploadDock.items || []).map(i => i.file_name)
+			};
+		})()`
+		type ModalOpenRes struct {
+			ModalShown    bool     `json:"modalShown"`
+			RenderedFiles []string `json:"renderedFiles"`
+		}
+		openRes, err := chromedp.Run(ctx, chromedp.Evaluate[ModalOpenRes](openModalScript))
+		if err != nil {
+			t.Fatalf("failed opening upload dock modal: %v", err)
+		}
+		if !openRes.ModalShown {
+			t.Fatalf("expected uploadDockModal.show to be true after openUploadDockModal")
+		}
+		hasFile1 := false
+		hasFile2 := false
+		for _, f := range openRes.RenderedFiles {
+			if f == "staged_dataset_1.csv" {
+				hasFile1 = true
+			}
+			if f == "archive_snapshot.tar.gz" {
+				hasFile2 = true
+			}
+		}
+		if !hasFile1 || !hasFile2 {
+			t.Fatalf("expected modal to list both queued files, got %+v", openRes.RenderedFiles)
+		}
+
+		// Step 4: Delete one item from dock via API and refresh status
+		deleteDockItem := func(id string) {
+			req, err := http.NewRequest(http.MethodDelete, harness.serverURL+"/api/explorer/dock?id="+id, nil)
+			if err != nil {
+				t.Fatalf("failed creating delete dock request: %v", err)
+			}
+			req.Header.Set("X-Dashboard-Request", "1")
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("failed deleting item: %v", err)
+			}
+			res.Body.Close()
+		}
+		deleteDockItem(item1.ID)
+
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](refreshScript))
+		if err != nil {
+			t.Fatalf("failed triggering refresh after delete: %v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+
+		pRes, err = chromedp.Run(ctx, chromedp.Evaluate[PollRes](pollDockScript))
+		if err != nil {
+			t.Fatalf("failed polling dock after delete: %v", err)
+		}
+		if pRes.PendingCount != 1 {
+			t.Errorf("expected pending count to decrease to 1, got %d", pRes.PendingCount)
+		}
+
+		// Step 5: Close upload dock modal
+		closeModalScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.closeUploadDockModal();
+			return Boolean(app.uploadDockModal && app.uploadDockModal.show);
+		})()`
+		modalShown, err := chromedp.Run(ctx, chromedp.Evaluate[bool](closeModalScript))
+		if err != nil {
+			t.Fatalf("failed closing upload dock modal: %v", err)
+		}
+		if modalShown {
+			t.Fatalf("expected uploadDockModal.show to be false after closeUploadDockModal")
+		}
+
+		// Step 6: Clear all remaining items and verify dock is empty
+		deleteDockItem(item2.ID)
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](refreshScript))
+		if err != nil {
+			t.Fatalf("failed triggering refresh after clearing remaining: %v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+
+		pRes, err = chromedp.Run(ctx, chromedp.Evaluate[PollRes](pollDockScript))
+		if err != nil {
+			t.Fatalf("failed polling dock after final clear: %v", err)
+		}
+		if pRes.PendingCount != 0 {
+			t.Errorf("expected dock pending count to be 0 after clear, got %d", pRes.PendingCount)
 		}
 	})
 

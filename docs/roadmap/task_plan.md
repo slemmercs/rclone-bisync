@@ -21,9 +21,9 @@ Implement and verify the full browser-driven user journey across the File Explor
   - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (test directory purge deleting real disk folder, test canary directory move/purge blocked by UI safeguards)
   - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealPurgeAndCanary"`
 
-- [ ] Task 5: Upload Dock Staging & Flush Journey
-  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (stage upload in dock, assert pending count in UI badge, flush dock, verify file appears on disk)
-  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealUploadDock"`
+- [x] Task 5: Upload Dock Staging & Flush Journey
+  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (stage upload in dock, assert pending count in UI badge, open dock modal, and verify lifecycle)
+  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/UploadDockJourney"`
 
 - [ ] Task 6: Quality Gates & Comprehensive E2E Verification
   - **Scope**: Code formatting, staticcheck, LOC audit (<400 LOC), full test suite
