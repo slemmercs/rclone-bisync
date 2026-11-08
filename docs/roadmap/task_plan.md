@@ -9,9 +9,9 @@ Implement Milestone 2: Pure Profile Sync Staging & Remediation Workspace with at
   - **Scope**: `internal/models/operations.go`, `internal/models/upload.go`, `internal/core/client/operations.go`, `internal/core/client/operations_test.go`
   - **Verification**: `go test -v -count=1 ./internal/core/client/... -run "TestMove|TestPurge|TestPublicLink"`
 
-- [ ] Task 2: Service Layer Profile-Bound Operations (Move, Purge, Link)
-  - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_purge.go`, `internal/services/explorer_link.go`, `internal/services/explorer_move_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestMoveItem|TestPurgeItem|TestPublicLink"`
+- [x] Task 2: Service Layer Profile-Bound Operations (Move, Purge, Link)
+  - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_purge.go`, `internal/services/explorer_ops_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestExplorerOps"`
 
 - [ ] Task 3: HTTP API Handlers & Routing for Workspace Operations
   - **Scope**: `internal/server/handlers_operations.go`, `internal/server/handlers_operations_test.go`, `internal/server/server.go`
