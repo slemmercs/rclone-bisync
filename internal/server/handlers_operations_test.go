@@ -230,3 +230,49 @@ func TestHandleOperations_PublicLink(t *testing.T) {
 	}
 }
 
+func TestHandleOperations_ExplorerDock(t *testing.T) {
+	// Arrange
+	srv, _, _ := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. GET initial status
+	reqGet := httptest.NewRequest(http.MethodGet, "/api/explorer/dock?profile_id=prof_onedrive", nil)
+	reqGet.Header.Set("X-Dashboard-Request", "1")
+	wGet := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wGet, reqGet)
+
+	var status models.UploadDockStatus
+	_ = json.NewDecoder(wGet.Body).Decode(&status)
+	if status.PendingCount != 0 {
+		t.Fatalf("expected 0 pending items, got %d", status.PendingCount)
+	}
+
+	// 2. POST enqueue item
+	body, _ := json.Marshal(models.UploadQueueItem{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "uploads",
+		FileName:  "docked.pdf",
+		Size:      500,
+	})
+	reqPost := httptest.NewRequest(http.MethodPost, "/api/explorer/dock", bytes.NewReader(body))
+	reqPost.Header.Set("X-Dashboard-Request", "1")
+	wPost := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wPost, reqPost)
+
+	var enqueued models.UploadQueueItem
+	_ = json.NewDecoder(wPost.Body).Decode(&enqueued)
+	if enqueued.ID == "" || enqueued.Status != "queued" {
+		t.Fatalf("expected enqueued item, got %+v", enqueued)
+	}
+
+	// 3. DELETE item by ID
+	reqDel := httptest.NewRequest(http.MethodDelete, "/api/explorer/dock?id="+enqueued.ID, nil)
+	reqDel.Header.Set("X-Dashboard-Request", "1")
+	wDel := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wDel, reqDel)
+	if wDel.Code != http.StatusOK {
+		t.Fatalf("expected status 200 on delete, got %d", wDel.Code)
+	}
+}
+
+

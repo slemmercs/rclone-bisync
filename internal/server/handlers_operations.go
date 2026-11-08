@@ -9,6 +9,21 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
+func (s *Server) registerOperationsRoutes() {
+	s.Mux.HandleFunc("POST /api/operations/move", s.handleMoveItem)
+	s.Mux.HandleFunc("POST /api/operations/purge", s.handlePurgeDirectory)
+	s.Mux.HandleFunc("GET /api/operations/publiclink", s.handlePublicLink)
+	s.Mux.HandleFunc("POST /api/operations/publiclink", s.handlePublicLink)
+	s.Mux.HandleFunc("GET /api/explorer/preview", s.handleExplorerPreview)
+	s.Mux.HandleFunc("POST /api/browse/upload", s.handleExplorerUpload)
+	s.Mux.HandleFunc("POST /api/explorer/upload", s.handleExplorerUpload)
+	s.Mux.HandleFunc("GET /api/explorer/download", s.handleExplorerDownload)
+	s.Mux.HandleFunc("GET /api/explorer/dock", s.handleExplorerDock)
+	s.Mux.HandleFunc("POST /api/explorer/dock", s.handleExplorerDock)
+	s.Mux.HandleFunc("DELETE /api/explorer/dock", s.handleExplorerDock)
+}
+
+
 func (s *Server) handleMoveItem(w http.ResponseWriter, r *http.Request) {
 	if s.ExplorerService == nil {
 		writeJSON(w, http.StatusInternalServerError, models.MoveResponse{Status: "error", Error: "explorer service not configured"})
@@ -115,3 +130,45 @@ func (s *Server) handlePublicLink(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, resp)
 }
+
+func (s *Server) handleExplorerDock(w http.ResponseWriter, r *http.Request) {
+	if s.UploadDock == nil {
+		writeJSON(w, http.StatusOK, models.UploadDockStatus{
+			PendingCount: 0,
+			IsSyncActive: false,
+			Items:        []models.UploadQueueItem{},
+		})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		profileID := r.URL.Query().Get("profile_id")
+		status := s.UploadDock.GetStatus(profileID)
+		writeJSON(w, http.StatusOK, status)
+	case http.MethodPost:
+		var item models.UploadQueueItem
+		if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+			return
+		}
+		enqueued, err := s.UploadDock.Enqueue(item)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, enqueued)
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		profileID := r.URL.Query().Get("profile_id")
+		if id != "" {
+			s.UploadDock.RemoveItem(id)
+		} else {
+			s.UploadDock.ClearCompleted(profileID)
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "success"})
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+	}
+}
+

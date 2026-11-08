@@ -17,7 +17,7 @@ Implement Milestone 2: Pure Profile Sync Staging & Remediation Workspace with at
   - **Scope**: `internal/server/handlers_operations.go`, `internal/server/handlers_operations_test.go`, `internal/server/server.go`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleOperations`
 
-- [ ] Task 4: Lightweight Upload Dock Service & Mid-Sync Deferral
+- [x] Task 4: Lightweight Upload Dock Service & Mid-Sync Deferral
   - **Scope**: `internal/services/upload_dock.go`, `internal/services/upload_dock_test.go`, `internal/server/handlers_operations.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestUploadDock`
 

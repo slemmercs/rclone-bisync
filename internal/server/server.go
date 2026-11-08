@@ -38,6 +38,7 @@ type Server struct {
 	ConfigEncryptionService *services.ConfigEncryptionService
 	AuthService             *remoteauth.RemoteAuthService
 	ProfileService          *profiles.Service
+	UploadDock              *services.UploadDock
 	FrontendFS              fs.FS
 	Mux                     *http.ServeMux
 	Version                 string
@@ -80,9 +81,13 @@ func NewServerWithContainer(container *app.Container, frontendFS fs.FS) *Server 
 		ConfigEncryptionService: container.ConfigEncryptionService,
 		AuthService:             container.AuthService,
 		ProfileService:          container.ProfileService,
+		UploadDock:              container.UploadDock,
 		FrontendFS:              frontendFS,
 		Mux:                     http.NewServeMux(),
 		StartTime:               time.Now(),
+	}
+	if s.UploadDock == nil {
+		s.UploadDock = services.NewUploadDock(s.ProfileService)
 	}
 	s.routes()
 	return s
@@ -288,15 +293,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("POST /api/browse/canary", s.handleProvisionCanary)
 	s.Mux.HandleFunc("POST /api/browse/copy", s.handleCopyItem)
 	s.Mux.HandleFunc("POST /api/browse/delete", s.handleDeleteItem)
-	s.Mux.HandleFunc("POST /api/operations/move", s.handleMoveItem)
-	s.Mux.HandleFunc("POST /api/operations/purge", s.handlePurgeDirectory)
-	s.Mux.HandleFunc("GET /api/operations/publiclink", s.handlePublicLink)
-	s.Mux.HandleFunc("POST /api/operations/publiclink", s.handlePublicLink)
-	s.Mux.HandleFunc("GET /api/explorer/preview", s.handleExplorerPreview)
-	s.Mux.HandleFunc("POST /api/browse/upload", s.handleExplorerUpload)
-	s.Mux.HandleFunc("POST /api/explorer/upload", s.handleExplorerUpload)
-
-	s.Mux.HandleFunc("GET /api/explorer/download", s.handleExplorerDownload)
+	s.registerOperationsRoutes()
 
 	// Review & Conflict Resolution Endpoints
 	s.Mux.HandleFunc("GET /api/review/session", s.handleReviewSession)

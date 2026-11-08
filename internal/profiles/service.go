@@ -219,7 +219,7 @@ func (s *Service) TriggerSyncWithOptions(ctx context.Context, id string, opts Sy
 
 // IsAnySyncing reports whether any profile worker is actively executing a synchronization cycle.
 func (s *Service) IsAnySyncing() bool {
-	if s.scheduler == nil {
+	if s == nil || s.scheduler == nil {
 		return false
 	}
 	return s.scheduler.IsAnyRunning()
@@ -227,7 +227,7 @@ func (s *Service) IsAnySyncing() bool {
 
 // IsProfileSyncing reports whether the specified profile is actively executing a synchronization cycle.
 func (s *Service) IsProfileSyncing(id string) bool {
-	if s.scheduler == nil {
+	if s == nil || s.scheduler == nil {
 		return false
 	}
 	return s.scheduler.IsProfileRunning(id)

@@ -37,6 +37,7 @@ type Container struct {
 	ProfileScheduler        *profiles.Scheduler
 	ProfileService          *profiles.Service
 	ProfileExecutor         profiles.SyncExecutor
+	UploadDock              *services.UploadDock
 	started                 bool
 	stopped                 bool
 }
@@ -254,6 +255,10 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 			c.ProfileScheduler = profiles.NewScheduler(profStore, c.ProfileExecutor)
 			c.ProfileService = profiles.NewService(profStore, c.Client, c.ProfileScheduler)
 		}
+	if c.UploadDock == nil {
+		c.UploadDock = services.NewUploadDock(c.ProfileService)
+	}
+
 	}
 
 	return c, nil
