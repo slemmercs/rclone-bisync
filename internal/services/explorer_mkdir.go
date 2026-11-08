@@ -47,7 +47,7 @@ func (e *ExplorerService) MakeDir(ctx context.Context, req models.MkdirRequest, 
 			return models.MkdirResponse{Status: "error", Error: "Path traversal or invalid target directory"}, nil
 		}
 
-		if err := os.MkdirAll(target, 0755); err != nil {
+		if err := os.MkdirAll(target, 0750); err != nil {
 			return models.MkdirResponse{Status: "error", Error: fmt.Sprintf("Failed to create local directory: %v", err)}, nil
 		}
 		return models.MkdirResponse{

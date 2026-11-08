@@ -76,36 +76,8 @@ document.addEventListener("alpine:init", () => {
 
         // Dual-Pane File Explorer State
         explorer: {
-            left: {
-                target: "local",
-                path: "",
-                items: [],
-                loading: false,
-                error: null,
-                hasCanary: false,
-                totalSize: 0,
-                itemCount: 0,
-                copied: false,
-                search: "",
-                sortBy: "name",
-                sortAsc: true,
-                foldersFirst: true
-            },
-            right: {
-                target: "",
-                path: "",
-                items: [],
-                loading: false,
-                error: null,
-                hasCanary: false,
-                totalSize: 0,
-                itemCount: 0,
-                copied: false,
-                search: "",
-                sortBy: "name",
-                sortAsc: true,
-                foldersFirst: true
-            },
+            left: { target: "local", path: "", items: [], loading: false, error: null, hasCanary: false, totalSize: 0, itemCount: 0, copied: false, search: "", sortBy: "name", sortAsc: true, foldersFirst: true },
+            right: { target: "", path: "", items: [], loading: false, error: null, hasCanary: false, totalSize: 0, itemCount: 0, copied: false, search: "", sortBy: "name", sortAsc: true, foldersFirst: true },
             draggedItem: null,
             draggedSourcePane: null,
             isDragOverLeft: false,

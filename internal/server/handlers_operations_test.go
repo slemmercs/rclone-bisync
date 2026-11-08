@@ -396,4 +396,3 @@ func TestHandler_IdenticalPathSafeguards(t *testing.T) {
 		t.Fatalf("expected identical path rejection on copy, got %+v", copyResp)
 	}
 }
-

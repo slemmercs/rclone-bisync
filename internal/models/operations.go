@@ -68,4 +68,3 @@ type MkdirResponse struct {
 	Path   string `json:"path,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
-
