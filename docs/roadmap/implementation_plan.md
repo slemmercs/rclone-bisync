@@ -1,103 +1,64 @@
-# Implementation Plan: Tier 4 Rclone Sandbox UI Journey E2E Suite
+# Implementation Plan: File Explorer Remote Target Synchronization & Directory Creation (Mkdir)
 
 ## Proposed Changes
 
-Implement a comprehensive browser-driven end-to-end integration test (`tests/e2e/sandbox_ui_journey_test.go`) that connects headless Chromium/Chrome to a live, ephemeral `rclone rcd` daemon and a live Bisync Hub server operating exclusively on real local folders (`t.TempDir()`).
+Address two critical usability and reliability issues in the File Explorer Workspace:
+1. **Explorer Remote Target Desynchronization & Self-Operation Safeguards**:
+   - In the frontend, asynchronous loading of profiles and remotes caused the dual-pane file explorer to initialize before the active profile was loaded, defaulting the right pane to `""` which coerced to `"local"`. As a result, both left and right panes displayed the exact same local folder.
+   - Performing a file move/copy when source and destination are identical caused file system collisions and errors.
+   - Fix: Ensure `initExplorer()`, `fetchProfiles()`, and `fetchRemotes()` synchronize the right pane target with `activeProfile.remote` (or the first available discovered remote), and safeguard backend `CopyItemWithOptions` and `MoveItem` against identical source and destination paths.
 
-This suite bridges the gap between the headless browser UI tests (which used mock servers) and the Tier 4 backend sandbox integration tests, validating the full user journey:
-1. Directory exploration against real filesystem structures.
-2. File move/rename via modal directly modifying disk.
-3. Directory purge with safety confirmation removing disk folders.
-4. Canary protection (`RCLONE_TEST`) actively blocking destructive actions in the UI.
-5. In-flight upload dock staging and mid-sync deferral.
+2. **Add "Create Folder" (Mkdir) Capability**:
+   - Provide a native "New Folder" action for both local storage and remote targets.
+   - Add Go domain models (`MkdirRequest`, `MkdirResponse`), `ExplorerService.MakeDir` with strict path jailing for local storage and `RcloneClient.Mkdir` for remotes.
+   - Add `POST /api/operations/mkdir` with audit logging.
+   - Add `modal_explorer_mkdir.html` and UI buttons in both explorer pane headers.
 
 ### Affected Components & Packages
 
-- `tests/e2e/sandbox_ui_journey_test.go`: Real sandbox E2E test file launching `rclone rcd`, Bisync Hub server, and Chromedp runner.
-- `docs/roadmap/task_plan.md`: Atomic tasks tracking sandbox UI journey execution.
+- `internal/models/operations.go`: Structs `MkdirRequest` and `MkdirResponse`.
+- `internal/services/explorer_mkdir.go`: Implementation of `MakeDir(ctx, req, localBase)`.
+- `internal/services/explorer_mkdir_test.go`: Unit tests for directory creation (local path jail, remote client mock, canary name rejection).
+- `internal/services/explorer_ops.go`: Guard in `CopyItemWithOptions` against identical source and destination.
+- `internal/services/explorer_move.go`: Guard in `MoveItem` against identical source and destination.
+- `internal/server/handlers_operations.go`: Route `POST /api/operations/mkdir` and audit logging.
+- `internal/server/handlers_operations_test.go`: HTTP handler tests for mkdir.
+- `dashboard/frontend/partials/modals/modal_explorer_mkdir.html`: Modal dialog for creating new folders.
+- `dashboard/frontend/index.html`: Include template `modal_explorer_mkdir`.
+- `dashboard/frontend/partials/view_explorer.html`: "New Folder" button in left and right pane headers.
+- `dashboard/frontend/js/explorer_operations.js`: State `mkdirModal`, `promptCreateFolder(paneKey)`, and `executeCreateFolder()`.
+- `dashboard/frontend/js/explorer.js`: Target synchronization in `initExplorer()`, `syncExplorerWithActiveProfile()`, and `fetchExplorerDirectory()`.
+- `dashboard/frontend/js/profiles.js`: Call `syncExplorerWithActiveProfile()` in `fetchProfiles()`.
+- `dashboard/frontend/app.js`: Await profile and remote fetch before initial tab explorer check in `initDashboard()`.
 
 ### Technical Strategy & Data Flow
 
-1. **Ephemeral Real Rclone Daemon**:
-   - Verify `rclone` and Chrome/Chromium availability in PATH (`t.Skip` gracefully if absent).
-   - Write dynamic isolated `rclone.conf` defining a `local` remote target:
-     ```ini
-     [sandrem]
-     type = local
-     ```
-   - Spawn `rclone rcd` with `--rc-addr 127.0.0.1:0 --rc-no-auth --config <rclone.conf> --cache-dir <tempDir>/cache`.
-   - Wait for healthy state via `client.WaitForHealthy`.
+1. **Remote Target Synchronization**:
+   - In `initDashboard()`, `await this.fetchProfiles()` and `await this.fetchRemotes(false)` before running tab initialization.
+   - In `fetchProfiles()`, if the right pane target is unconfigured or equal to "local", invoke `syncExplorerWithActiveProfile()`.
+   - In `initExplorer()`, if `profilesData.list` is empty, wait for profiles/remotes, and if `p.remote` is present, set right target to `p.remote.replace(/:+$/, "")`. If no profile remote exists, fall back to `remotesData.remotes[0].name`.
+   - In `CopyItemWithOptions` and `MoveItem`, detect if `srcFs == dstFs && srcFile == dstFile` and return an explanatory error rather than dispatching a destructive self-copy/move.
 
-2. **Seeded Local Sandbox Environment**:
-   - `localDir`: `<tempDir>/local` (profile `LocalPath`), seeded with:
-     - `file_alpha.txt` ("alpha content")
-     - `docs/nested.txt` ("nested doc")
-     - `to_rename.txt` ("rename me")
-   - `remoteDir`: `<tempDir>/remote` (profile `RemotePath` on `sandrem:`), seeded with:
-     - `remote_file.txt` ("remote content")
-     - `purge_dir/target.txt` ("purge payload")
-     - `canary_dir/RCLONE_TEST` (canary marker)
-
-3. **Bisync Hub Configuration & Real Wiring**:
-   - Instantiate `config.Config` pointing to `localDir`, remote `sandrem:`, and real Rclone RC URL.
-   - Configure active profile with ID `sandbox-profile`.
-   - Launch `httptest.NewServer(server.NewServer(cfg, syncSvc, frontendFS))`.
-
-4. **Headless Chrome UI Journey Execution**:
-   - **Step 1: Workspace Initialization & Real Directory Fetch**:
-     Navigate to dashboard, switch to Explorer tab, verify both left pane (`local`) and right pane (`sandrem:`) populate with real filesystem entries.
-   - **Step 2: Real File Move/Rename via Modal**:
-     Trigger `promptMoveItem` for `to_rename.txt` $\to$ `renamed_success.txt`, execute move via modal, verify UI updates, and assert via `os.Stat` that `renamed_success.txt` exists on disk and `to_rename.txt` is gone.
-   - **Step 3: Real Directory Purge**:
-     Trigger `promptPurgeDirectory` for `purge_dir`, verify directory and contents are deleted from disk (`os.Stat` returns `os.IsNotExist`).
-   - **Step 4: Canary Protection in UI**:
-     Trigger `promptPurgeDirectory` or `promptMoveItem` on canary items, verify warning toast appears in UI and file remains intact on disk.
-   - **Step 5: Upload Dock Staging & Execution**:
-     Stage upload payload via `/api/explorer/dock`, verify pending badge in UI, flush dock, and verify file is written to destination.
+2. **Create Folder Workflow**:
+   - User clicks `+ New Folder` in left or right explorer pane header.
+   - UI opens `mkdirModal` pre-scoped to `paneKey` and the current subpath.
+   - On submission, UI posts to `/api/operations/mkdir` with `{ remote, path, profile_id }`.
+   - Backend checks path traversal (`..`), verifies local path jail or remote target, creates directory (`os.MkdirAll` with `0755` or `c.Mkdir`), records audit event, and returns success.
+   - UI closes modal, displays toast, and refreshes the directory listing of that pane.
 
 ### Safety & Error Handling
 
-- **Zero Cloud Impact**: Uses purely local storage and ephemeral dynamic ports.
-- **Process Cleanup**: `t.Cleanup()` ensures all background processes (`rclone rcd`, test servers, browser contexts) terminate cleanly.
-- **Canary Inviolability**: Verifies canary files are protected even when requested through live UI events.
+- **Path Traversal Jail**: Local directory creation enforces `isLocalPathJailed` within profile local root (`os.MkdirAll(safePath, 0755)`).
+- **Canary Name Guard**: Folder creation matching `RCLONE_TEST` is strictly forbidden.
+- **Identical Source/Destination Protection**: Moving or copying between identical source and destination directories/paths is intercepted with a clean validation error.
 
 ## Verification Plan
 
-- Fast unit/e2e run: `go test -v -count=1 ./tests/e2e -run TestDashboard_SandboxUIJourney`
-- Full quality check: `./scripts/check.sh all`
+- Unit test `TestExplorerService_MakeDir` in `internal/services/explorer_mkdir_test.go`.
+- Server test `TestHandler_MakeDir` in `internal/server/handlers_operations_test.go`.
+- Browser E2E test covering New Folder creation and verified distinct panes.
+- Quality gates: `./scripts/check.sh all`.
 
-- `internal/services/upload_dock.go`: Lightweight thread-safe in-memory upload dock coordinating with sync engine state.
-- `internal/services/upload_dock_test.go`: Unit tests verifying lock detection and state transitions.
-- `internal/server/handlers_operations.go`: HTTP endpoints for `/api/operations/move`, `/api/operations/purge`, `/api/operations/publiclink`, `/api/explorer/dock`.
-- `internal/server/handlers_operations_test.go`: HTTP tests covering authorization, jail containment, and error responses.
-
-### Modified Existing Files
-- `internal/server/server.go`: Call `s.registerOperationsRoutes()` to attach new endpoints while staying strictly under 400 LOC.
-- `dashboard/frontend/partials/components/component_explorer_toolbar.html`:
-  - Bind to active profile with lock indicator (`Profile: [Name] (Local <-> Remote)`).
-  - Add Upload Dock status indicator (`Uploads: N`).
-  - Active Remediation Cockpit Banner when navigating from a conflict review item.
-- `dashboard/frontend/partials/view_explorer.html`:
-  - Render ambient conflict/deletion badges on file rows matching candidate items.
-  - Contextual sync impact warnings on delete/purge actions.
-- `dashboard/frontend/partials/modals/modal_review.html`:
-  - Add "Inspect in Workspace" button (🔍) to candidate rows.
-- `dashboard/frontend/partials/components/component_context_menu.html`:
-  - Add inline review decision triggers (`Keep Local`, `Keep Remote`, `Accept Delete`) when right-clicking candidate rows.
-- `dashboard/frontend/js/explorer.js` & `dashboard/frontend/js/review.js`:
-  - Methods `inspectCandidateInWorkspace(candidate)` and `getReviewCandidate(path)`.
-- `docs/roadmap/task_plan.md`: Sequential, atomic micro-tasks tracking each step.
-
-## [Functions]
-
-### New Functions
-1. `c.MoveFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) error`
-   - File: `internal/core/client/operations.go`
-   - Purpose: Calls Rclone RC `operations/movefile` with normalized fs endpoints.
-2. `c.MoveDir(ctx context.Context, srcFs, dstFs string) error`
-   - File: `internal/core/client/operations.go`
-   - Purpose: Calls Rclone RC `operations/movedir`.
-3. `c.Purge(ctx context.Context, fs, remote string) error`
    - File: `internal/core/client/operations.go`
    - Purpose: Calls Rclone RC `operations/purge`.
 4. `c.PublicLink(ctx context.Context, fs, remote string, unlink bool) (*models.PublicLinkResponse, error)`

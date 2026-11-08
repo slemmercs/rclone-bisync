@@ -1,35 +1,27 @@
-# Task Plan: Tier 4 Rclone Sandbox UI Journey E2E Suite
+# Task Plan: File Explorer Remote Target Synchronization & Directory Creation (Mkdir)
 
 ## Goal
-Implement and verify the full browser-driven user journey across the File Explorer Workspace using a real ephemeral `rclone rcd` sandbox and live local filesystem folders.
+Fix file explorer remote target desynchronization, safeguard operations against self-collisions, and add "New Folder" (mkdir) creation across local and remote storage.
 
 ## Tasks
 
-- [x] Task 1: Sandbox Fixture & Harness Construction
-  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (scaffolding: ephemeral `rclone rcd` with local remote `sandrem:`, directory tree seeding, server initialization)
-  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/HarnessSetup"`
+- [x] Task 1: Domain Models & Explorer Mkdir Service Implementation
+  - **Scope**: `internal/models/operations.go`, `internal/services/explorer_mkdir.go`, `internal/services/explorer_mkdir_test.go`, `internal/audit/taxonomy.go`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerService_MakeDir`
 
-- [x] Task 2: Real Dual-Pane Exploration & Navigation Journey
-  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (navigate to Explorer, verify left pane lists `localDir` items, right pane lists `sandrem:` items via live RC)
-  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealExploration"`
+- [ ] Task 2: Mkdir Server Handler & Identical Path Safeguards
+  - **Scope**: `internal/server/handlers_operations.go`, `internal/server/handlers_operations_test.go`, `internal/services/explorer_ops.go`, `internal/services/explorer_move.go`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_MakeDir`
 
-- [x] Task 3: Real File Move/Rename via UI Modal
-  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (trigger move modal in browser, submit rename, assert file renamed physically on disk)
-  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealMoveRename"`
+- [ ] Task 3: Frontend Remote Target Synchronization & Mkdir Modal Integration
+  - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/explorer_operations.js`, `dashboard/frontend/partials/modals/modal_explorer_mkdir.html`, `dashboard/frontend/index.html`, `dashboard/frontend/partials/view_explorer.html`
+  - **Verification**: `go test -v -count=1 ./tests/e2e/... -run TestDashboard_Smoke`
 
-- [x] Task 4: Real Directory Purge & Canary Safeguard UI Journey
-  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (test directory purge deleting real disk folder, test canary directory move/purge blocked by UI safeguards)
-  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealPurgeAndCanary"`
-
-- [x] Task 5: Upload Dock Staging & Flush Journey
-  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (stage upload in dock, assert pending count in UI badge, open dock modal, and verify lifecycle)
-  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/UploadDockJourney"`
-
-- [x] Task 6: Quality Gates & Comprehensive E2E Verification
-  - **Scope**: Code formatting, staticcheck, LOC audit (<400 LOC), full test suite
-  - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e/...`
+- [ ] Task 4: Sandbox Script Update & Quality Verification
+  - **Scope**: `scripts/run-sandbox.sh`, full quality check (`./scripts/check.sh all`)
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-08: Initialized Sandbox UI Journey plan from approved implementation plan.
-- 2026-11-08: Completed all 6 tasks: Harness setup with alias remote, dual-pane exploration, real file move/rename, directory purge & canary safeguards, upload dock lifecycle, and verified all quality gates.
+- 2026-11-08: Initialized plan for Explorer Remote Target Synchronization & Mkdir creation.
+

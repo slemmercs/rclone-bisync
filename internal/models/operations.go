@@ -53,3 +53,19 @@ type PublicLinkResponse struct {
 	Supported bool   `json:"supported"`
 	Error     string `json:"error,omitempty"`
 }
+
+// MkdirRequest specifies parameters for creating a new directory.
+type MkdirRequest struct {
+	ProfileID string `json:"profile_id,omitempty"`
+	Remote    string `json:"remote"`
+	Path      string `json:"path"`
+}
+
+// MkdirResponse describes the outcome of a directory creation operation.
+type MkdirResponse struct {
+	Status string `json:"status"` // "success" or "error"
+	Msg    string `json:"msg,omitempty"`
+	Path   string `json:"path,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
