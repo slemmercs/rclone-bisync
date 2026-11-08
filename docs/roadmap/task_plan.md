@@ -25,11 +25,12 @@ Resolve 7 issues from sandbox interactive testing: fix remote preview/download u
   - **Scope**: `internal/server/handlers_profiles.go`, `internal/server/handlers_profiles_test.go`, `dashboard/frontend/js/profiles_history.js`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_ProfileSync`
 
-- [ ] Task 6: Sandbox Script Enhancements & Quality Verification
+- [x] Task 6: Sandbox Script Enhancements & Quality Verification
   - **Scope**: `scripts/run-sandbox.sh`, full quality check (`./scripts/check.sh all`)
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
 - 2026-11-08: Initialized 6-task plan addressing the 7 interactive sandbox issues.
+- 2026-11-08: All 6 tasks completed and verified with all 7 quality gate checks passing and full e2e test suite passing.
 

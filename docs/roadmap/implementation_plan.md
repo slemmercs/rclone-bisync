@@ -1,63 +1,51 @@
-# Implementation Plan: File Explorer Remote Target Synchronization & Directory Creation (Mkdir)
+# Implementation Plan: Sandbox Reliability & File Operations Remediation
 
 ## Proposed Changes
 
-Address two critical usability and reliability issues in the File Explorer Workspace:
-1. **Explorer Remote Target Desynchronization & Self-Operation Safeguards**:
-   - In the frontend, asynchronous loading of profiles and remotes caused the dual-pane file explorer to initialize before the active profile was loaded, defaulting the right pane to `""` which coerced to `"local"`. As a result, both left and right panes displayed the exact same local folder.
-   - Performing a file move/copy when source and destination are identical caused file system collisions and errors.
-   - Fix: Ensure `initExplorer()`, `fetchProfiles()`, and `fetchRemotes()` synchronize the right pane target with `activeProfile.remote` (or the first available discovered remote), and safeguard backend `CopyItemWithOptions` and `MoveItem` against identical source and destination paths.
+Address 7 critical issues discovered during sandbox interactive testing:
+1. **Remote File Preview & Streaming (Issue 1)**:
+   - Rclone RC does not provide an `/operations/cat` endpoint (returns 404). The official Rclone RC API endpoint for reading single files is `/operations/getfile`, which supports `base64: true`, `offset`, `count`, and `maxSize`.
+   - Update `internal/core/client/fs_read.go` to invoke `/operations/getfile` and decode base64 results for `CatFile` and `CatStream`.
+   - Add `--rc-serve` to `scripts/run-sandbox.sh` and set `RCLONE_CACHE_DIR="$SANDBOX_DIR/cache"` for full ephemeral containment.
 
-2. **Add "Create Folder" (Mkdir) Capability**:
-   - Provide a native "New Folder" action for both local storage and remote targets.
-   - Add Go domain models (`MkdirRequest`, `MkdirResponse`), `ExplorerService.MakeDir` with strict path jailing for local storage and `RcloneClient.Mkdir` for remotes.
-   - Add `POST /api/operations/mkdir` with audit logging.
-   - Add `modal_explorer_mkdir.html` and UI buttons in both explorer pane headers.
+2. **Directory Copying & Tree Placement (Issues 2, 3, 4)**:
+   - In `internal/services/explorer_ops.go` (`CopyItemWithOptions`), copying a directory (`isDir == true`) currently targets `dstFs` directly, causing Rclone's `/sync/copy` to dump files into the destination root instead of preserving the directory container.
+   - Adjust `dstFs` and local target directory to append `filepath.Base(cleanSrcPath)` so the folder container is recreated at the destination.
+
+3. **Missing Listings & First Sync Detection (Issue 5)**:
+   - Running `rclone bisync` without `--resync` on an uninitialized profile fails with `NO_LISTINGS` ("cannot find prior Path1 or Path2 listings").
+   - In `internal/server/handlers_profiles.go`, detect when an uninitialized profile (`p.State.LastSync == nil`) is triggered without `resync`, returning `requires_resync: true`.
+   - In `dashboard/frontend/js/profiles_history.js`, intercept `requires_resync` and prompt the user with a confirmation dialog to initialize baseline listings via `--resync`.
+
+4. **Audit Ledger Logging for Resync (Issue 6)**:
+   - In `internal/engine/runner/runner_handlers.go`, `recordAuditExecuted` was gated strictly by `monitorRes.FilesSynced > 0`. A zero-transfer resync was therefore never recorded in the audit ledger.
+   - Expand condition to `monitorRes.FilesSynced > 0 || resync || origin == "dashboard" || origin == "cli"`.
+
+5. **File Move/Rename Path Construction & Lucide Icon (Issue 7)**:
+   - In `internal/services/explorer_move.go` (`executeMove`), moving a file on a remote treated `cleanDstPath` as `dstFs` and appended `srcFile` again, creating nested folder structures (e.g. `test1/archive_info.json/archive_info.json`).
+   - Parse `cleanDstPath` into destination directory and destination filename properly.
+   - Ensure "New Folder" buttons use canonical Lucide `folder-plus` SVG markup.
 
 ### Affected Components & Packages
 
-- `internal/models/operations.go`: Structs `MkdirRequest` and `MkdirResponse`.
-- `internal/services/explorer_mkdir.go`: Implementation of `MakeDir(ctx, req, localBase)`.
-- `internal/services/explorer_mkdir_test.go`: Unit tests for directory creation (local path jail, remote client mock, canary name rejection).
-- `internal/services/explorer_ops.go`: Guard in `CopyItemWithOptions` against identical source and destination.
-- `internal/services/explorer_move.go`: Guard in `MoveItem` against identical source and destination.
-- `internal/server/handlers_operations.go`: Route `POST /api/operations/mkdir` and audit logging.
-- `internal/server/handlers_operations_test.go`: HTTP handler tests for mkdir.
-- `dashboard/frontend/partials/modals/modal_explorer_mkdir.html`: Modal dialog for creating new folders.
-- `dashboard/frontend/index.html`: Include template `modal_explorer_mkdir`.
-- `dashboard/frontend/partials/view_explorer.html`: "New Folder" button in left and right pane headers.
-- `dashboard/frontend/js/explorer_operations.js`: State `mkdirModal`, `promptCreateFolder(paneKey)`, and `executeCreateFolder()`.
-- `dashboard/frontend/js/explorer.js`: Target synchronization in `initExplorer()`, `syncExplorerWithActiveProfile()`, and `fetchExplorerDirectory()`.
-- `dashboard/frontend/js/profiles.js`: Call `syncExplorerWithActiveProfile()` in `fetchProfiles()`.
-- `dashboard/frontend/app.js`: Await profile and remote fetch before initial tab explorer check in `initDashboard()`.
-
-### Technical Strategy & Data Flow
-
-1. **Remote Target Synchronization**:
-   - In `initDashboard()`, `await this.fetchProfiles()` and `await this.fetchRemotes(false)` before running tab initialization.
-   - In `fetchProfiles()`, if the right pane target is unconfigured or equal to "local", invoke `syncExplorerWithActiveProfile()`.
-   - In `initExplorer()`, if `profilesData.list` is empty, wait for profiles/remotes, and if `p.remote` is present, set right target to `p.remote.replace(/:+$/, "")`. If no profile remote exists, fall back to `remotesData.remotes[0].name`.
-   - In `CopyItemWithOptions` and `MoveItem`, detect if `srcFs == dstFs && srcFile == dstFile` and return an explanatory error rather than dispatching a destructive self-copy/move.
-
-2. **Create Folder Workflow**:
-   - User clicks `+ New Folder` in left or right explorer pane header.
-   - UI opens `mkdirModal` pre-scoped to `paneKey` and the current subpath.
-   - On submission, UI posts to `/api/operations/mkdir` with `{ remote, path, profile_id }`.
-   - Backend checks path traversal (`..`), verifies local path jail or remote target, creates directory (`os.MkdirAll` with `0755` or `c.Mkdir`), records audit event, and returns success.
-   - UI closes modal, displays toast, and refreshes the directory listing of that pane.
-
-### Safety & Error Handling
-
-- **Path Traversal Jail**: Local directory creation enforces `isLocalPathJailed` within profile local root (`os.MkdirAll(safePath, 0755)`).
-- **Canary Name Guard**: Folder creation matching `RCLONE_TEST` is strictly forbidden.
-- **Identical Source/Destination Protection**: Moving or copying between identical source and destination directories/paths is intercepted with a clean validation error.
+- `internal/core/client/fs_read.go`: Update `CatFile` and `CatStream` to use `/operations/getfile`.
+- `internal/core/client/fs_read_test.go`: Update unit tests for `/operations/getfile`.
+- `internal/services/explorer_preview_test.go`: Update mock server for `/operations/getfile`.
+- `internal/services/explorer_ops.go`: Fix directory destination path in `CopyItemWithOptions`.
+- `internal/services/explorer_move.go`: Fix destination path parsing in `executeMove`.
+- `internal/engine/runner/runner_handlers.go`: Log audit events for resync and user-initiated runs.
+- `internal/server/handlers_profiles.go`: Add initial sync check for missing listings.
+- `dashboard/frontend/js/profiles_history.js`: Add confirmation dialog for initial resync.
+- `dashboard/frontend/partials/view_explorer.html` & `component_context_menu.html`: Lucide icon consistency.
+- `scripts/run-sandbox.sh`: Add `--rc-serve` and `RCLONE_CACHE_DIR`.
 
 ## Verification Plan
 
-- Unit test `TestExplorerService_MakeDir` in `internal/services/explorer_mkdir_test.go`.
-- Server test `TestHandler_MakeDir` in `internal/server/handlers_operations_test.go`.
-- Browser E2E test covering New Folder creation and verified distinct panes.
-- Quality gates: `./scripts/check.sh all`.
+- Unit test `CatFile` and `CatStream` with mock Rclone `/operations/getfile`.
+- Unit test directory copy and move destination paths.
+- Unit test audit ledger recording for 0-transfer resync.
+- Run full quality suite: `./scripts/check.sh all`.
+- Verify in sandbox.
 
    - File: `internal/core/client/operations.go`
    - Purpose: Calls Rclone RC `operations/purge`.

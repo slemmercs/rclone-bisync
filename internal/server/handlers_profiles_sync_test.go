@@ -30,8 +30,8 @@ func TestHandler_ProfileSync(t *testing.T) {
 
 	// 1. Initial sync trigger without resync -> should require resync
 	reqBody := map[string]any{
-		"force":  false,
-		"resync": false,
+		"force":   false,
+		"resync":  false,
 		"dry_run": false,
 	}
 	w := doJSONReq(s, http.MethodPost, "/api/profiles/prof_sync_test/sync", reqBody, true)
@@ -48,8 +48,8 @@ func TestHandler_ProfileSync(t *testing.T) {
 
 	// 2. Initial sync trigger with resync: true -> should succeed
 	reqBodyResync := map[string]any{
-		"force":  false,
-		"resync": true,
+		"force":   false,
+		"resync":  true,
 		"dry_run": false,
 	}
 	w = doJSONReq(s, http.MethodPost, "/api/profiles/prof_sync_test/sync", reqBodyResync, true)
