@@ -255,9 +255,9 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 			c.ProfileScheduler = profiles.NewScheduler(profStore, c.ProfileExecutor)
 			c.ProfileService = profiles.NewService(profStore, c.Client, c.ProfileScheduler)
 		}
-	if c.UploadDock == nil {
-		c.UploadDock = services.NewUploadDock(c.ProfileService)
-	}
+		if c.UploadDock == nil {
+			c.UploadDock = services.NewUploadDock(c.ProfileService)
+		}
 
 	}
 

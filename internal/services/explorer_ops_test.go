@@ -248,4 +248,3 @@ func TestExplorerOps_GetPublicLink(t *testing.T) {
 		t.Fatalf("expected remote public link success, got %+v", respRemote)
 	}
 }
-

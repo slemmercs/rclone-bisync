@@ -41,8 +41,8 @@ func (e *ExplorerService) MoveItem(ctx context.Context, req models.MoveRequest, 
 		return models.MoveResponse{Status: "error", Error: "Directory contains canary test file (RCLONE_TEST) and cannot be moved"}, nil
 	}
 
-	var srcFs, srcFile, dstFs, dstFile string
-	var targetSrc, targetDst string
+	var srcFs, srcFile string
+	var targetSrc string
 
 	if srcIsLocal {
 		baseSrc, tSrc, ok := isLocalPathJailed(rawBase, cleanSrcPath)
@@ -78,9 +78,10 @@ func (e *ExplorerService) MoveItem(ctx context.Context, req models.MoveRequest, 
 			srcFile = filepath.Base(cleanSrcPath)
 		}
 	}
-	return e.executeMove(ctx, req, rawBase, cleanSrcPath, cleanDstPath, srcIsLocal, dstIsLocal, srcFs, srcFile, targetSrc, dstFs, dstFile, targetDst)
+	return e.executeMove(ctx, req, rawBase, cleanSrcPath, cleanDstPath, srcIsLocal, dstIsLocal, srcFs, srcFile, targetSrc)
 }
-func (e *ExplorerService) executeMove(ctx context.Context, req models.MoveRequest, rawBase, cleanSrcPath, cleanDstPath string, srcIsLocal, dstIsLocal bool, srcFs, srcFile, targetSrc, dstFs, dstFile, targetDst string) (models.MoveResponse, error) {
+func (e *ExplorerService) executeMove(ctx context.Context, req models.MoveRequest, rawBase, cleanSrcPath, cleanDstPath string, srcIsLocal, dstIsLocal bool, srcFs, srcFile, targetSrc string) (models.MoveResponse, error) {
+	var dstFs, dstFile, targetDst string
 	if dstIsLocal {
 		baseDst, tDst, ok := isLocalPathJailed(rawBase, cleanDstPath)
 		if !ok {
@@ -123,7 +124,7 @@ func (e *ExplorerService) executeMove(ctx context.Context, req models.MoveReques
 	}
 
 	if srcIsLocal && dstIsLocal {
-		if err := os.MkdirAll(filepath.Dir(targetDst), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(targetDst), 0750); err != nil {
 			return models.MoveResponse{Status: "error", Error: fmt.Sprintf("Failed to prepare destination: %v", err)}, nil
 		}
 		if err := os.Rename(targetSrc, targetDst); err != nil {
@@ -163,4 +164,3 @@ func (e *ExplorerService) executeMove(ctx context.Context, req models.MoveReques
 	}
 	return models.MoveResponse{Status: "success", Msg: fmt.Sprintf("Moved %s to %s", srcFile, dstFile), Src: fmt.Sprintf("%s/%s", srcFs, srcFile), Dst: fmt.Sprintf("%s/%s", dstFs, dstFile)}, nil
 }
-

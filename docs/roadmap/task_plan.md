@@ -29,7 +29,7 @@ Implement Milestone 2: Pure Profile Sync Staging & Remediation Workspace with at
   - **Scope**: `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/components/component_context_menu.html`, `dashboard/frontend/js/review.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [ ] Task 7: Full Quality Gates & E2E Smoke Testing
+- [x] Task 7: Full Quality Gates & E2E Smoke Testing
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e/...`
 

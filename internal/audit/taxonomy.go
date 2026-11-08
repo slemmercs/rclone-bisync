@@ -33,5 +33,4 @@ const (
 	// Workspace Staging Operations
 	ActionWorkspaceItemMoved Action = "WORKSPACE_ITEM_MOVED"
 	ActionWorkspaceDirPurged Action = "WORKSPACE_DIR_PURGED"
-
 )

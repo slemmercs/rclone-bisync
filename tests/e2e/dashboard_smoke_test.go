@@ -775,6 +775,102 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 
 	})
+	// 7. Test Milestone 2 Operational Controls (Move/Purge Modals, Upload Dock, Review Workspace Remediation Bridge)
+	t.Run("Milestone2OperationalControls", func(t *testing.T) {
+		script := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			// Test Move Modal opening and closing
+			if (typeof app.promptMoveItem !== 'function') return { error: "promptMoveItem missing" };
+			app.promptMoveItem('left', { Name: 'document.pdf', Path: 'document.pdf', IsDir: false });
+			const moveModalOpen = Boolean(app.moveModal?.show);
+			const moveModalItem = app.moveModal?.item?.Name;
+			app.cancelMove();
+			const moveModalClosed = !app.moveModal?.show;
+
+			// Test Purge Directory prompt method presence
+			if (typeof app.promptPurgeDirectory !== 'function') return { error: "promptPurgeDirectory missing" };
+
+			// Test Upload Dock Modal opening and closing
+			if (typeof app.openUploadDockModal !== 'function') return { error: "openUploadDockModal missing" };
+			app.openUploadDockModal();
+			const uploadDockOpen = Boolean(app.uploadDockModal?.show);
+			app.closeUploadDockModal();
+			const uploadDockClosed = !app.uploadDockModal?.show;
+
+			// Test Remediation inspectInWorkspace navigation helper
+			if (typeof app.inspectInWorkspace !== 'function') return { error: "inspectInWorkspace missing" };
+			app.reviewState = {
+				active: true,
+				session: {
+					id: 'sess-1',
+					profile_id: 'default',
+					conflicts: [
+						{ id: 'c1', path: 'projects/alpha/report.docx', decision: 'pending' }
+					],
+					deletions: [
+						{ id: 'd1', path: 'trash/old_log.txt', decision: 'pending' }
+					]
+				}
+			};
+			const cnfCandidate = app.reviewCandidates.find(c => c.type === 'conflict');
+			app.inspectInWorkspace(cnfCandidate);
+			const candidateInspectedTab = app.currentTab;
+			const candidateHighlighted = app.explorer?.highlightName === 'report.docx';
+			const candidateDirNavigated = app.explorer?.left?.path === 'projects/alpha';
+
+			// Test Context Menu Remediation lookup
+			const candidateLookup = app.getReviewCandidate('left', { Name: 'report.docx' });
+			const hasCandidateMatch = Boolean(candidateLookup && candidateLookup.id === 'c1');
+
+			return {
+				moveModalOpen,
+				moveModalItem,
+				moveModalClosed,
+				uploadDockOpen,
+				uploadDockClosed,
+				candidateInspectedTab,
+				candidateHighlighted,
+				candidateDirNavigated,
+				hasCandidateMatch
+			};
+		})()`
+
+		type M2Result struct {
+			Error                 *string `json:"error"`
+			MoveModalOpen         bool    `json:"moveModalOpen"`
+			MoveModalItem         string  `json:"moveModalItem"`
+			MoveModalClosed       bool    `json:"moveModalClosed"`
+			UploadDockOpen        bool    `json:"uploadDockOpen"`
+			UploadDockClosed      bool    `json:"uploadDockClosed"`
+			CandidateInspectedTab string  `json:"candidateInspectedTab"`
+			CandidateHighlighted  bool    `json:"candidateHighlighted"`
+			CandidateDirNavigated bool    `json:"candidateDirNavigated"`
+			HasCandidateMatch     bool    `json:"hasCandidateMatch"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[M2Result](script))
+		if err != nil {
+			t.Fatalf("failed evaluating Milestone 2 script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Milestone 2 check failed: %s", *res.Error)
+		}
+		if !res.MoveModalOpen || res.MoveModalItem != "document.pdf" || !res.MoveModalClosed {
+			t.Errorf("move modal mismatch: open=%v item=%q closed=%v", res.MoveModalOpen, res.MoveModalItem, res.MoveModalClosed)
+		}
+		if !res.UploadDockOpen || !res.UploadDockClosed {
+			t.Errorf("upload dock mismatch: open=%v closed=%v", res.UploadDockOpen, res.UploadDockClosed)
+		}
+		if res.CandidateInspectedTab != "explorer" || !res.CandidateHighlighted || !res.CandidateDirNavigated {
+			t.Errorf("inspect in workspace mismatch: tab=%q highlighted=%v dirNavigated=%v",
+				res.CandidateInspectedTab, res.CandidateHighlighted, res.CandidateDirNavigated)
+		}
+		if !res.HasCandidateMatch {
+			t.Errorf("expected review candidate match for report.docx")
+		}
+	})
 
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()

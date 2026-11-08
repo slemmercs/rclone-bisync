@@ -23,7 +23,6 @@ func (s *Server) registerOperationsRoutes() {
 	s.Mux.HandleFunc("DELETE /api/explorer/dock", s.handleExplorerDock)
 }
 
-
 func (s *Server) handleMoveItem(w http.ResponseWriter, r *http.Request) {
 	if s.ExplorerService == nil {
 		writeJSON(w, http.StatusInternalServerError, models.MoveResponse{Status: "error", Error: "explorer service not configured"})
@@ -171,4 +170,3 @@ func (s *Server) handleExplorerDock(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
 	}
 }
-

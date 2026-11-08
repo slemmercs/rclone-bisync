@@ -53,7 +53,6 @@ func setupTestServerWithProfilesAndExplorer(t *testing.T) (*Server, string, stri
 	srv.ProfileService = pService
 	srv.UploadDock = services.NewUploadDock(pService)
 
-
 	canarySvc := services.NewCanaryService(cfg, nil)
 	srv.CanaryService = canarySvc
 

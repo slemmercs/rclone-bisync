@@ -274,5 +274,3 @@ func TestHandleOperations_ExplorerDock(t *testing.T) {
 		t.Fatalf("expected status 200 on delete, got %d", wDel.Code)
 	}
 }
-
-

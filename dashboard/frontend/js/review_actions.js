@@ -161,7 +161,11 @@ window.ReviewActionsModule = {
             this.reviewState.showModal = false;
         }
 
-        this.currentTab = "explorer";
+        if (typeof this.switchTab === "function") {
+            this.switchTab("explorer");
+        } else {
+            this.currentTab = "explorer";
+        }
 
         if (this.explorer) {
             this.explorer.highlightPath = fullPath;

@@ -52,4 +52,3 @@ type PublicLinkResponse struct {
 	Supported bool   `json:"supported"`
 	Error     string `json:"error,omitempty"`
 }
-
