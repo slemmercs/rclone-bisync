@@ -17,7 +17,7 @@ Implement and verify the full browser-driven user journey across the File Explor
   - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (trigger move modal in browser, submit rename, assert file renamed physically on disk)
   - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealMoveRename"`
 
-- [ ] Task 4: Real Directory Purge & Canary Safeguard UI Journey
+- [x] Task 4: Real Directory Purge & Canary Safeguard UI Journey
   - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (test directory purge deleting real disk folder, test canary directory move/purge blocked by UI safeguards)
   - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealPurgeAndCanary"`
 

@@ -440,4 +440,164 @@ func TestDashboard_SandboxUIJourney(t *testing.T) {
 			t.Errorf("expected left pane to NOT contain 'to_rename.txt', got %+v", leftItems)
 		}
 	})
+
+	t.Run("RealPurgeAndCanary", func(t *testing.T) {
+		currentURL, _ := chromedp.Run(ctx, chromedp.Location())
+		if !strings.HasPrefix(currentURL, "http") {
+			_ = chromedp.Do(ctx,
+				chromedp.Navigate(harness.serverURL),
+				chromedp.WaitVisible("body[x-data]"),
+				chromedp.WaitVisible("#app-header"),
+				chromedp.Click(`button[data-tab="explorer"]`),
+				chromedp.WaitVisible(`div[x-show="currentTab === 'explorer'"]`),
+			)
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		// Initial physical disk state
+		purgeTargetDir := filepath.Join(harness.remoteDir, "purge_target")
+		canaryFile := filepath.Join(harness.remoteDir, "protected_canary", "RCLONE_TEST")
+
+		if _, err := os.Stat(purgeTargetDir); err != nil {
+			t.Fatalf("expected remote purge_target directory to exist: %v", err)
+		}
+		if _, err := os.Stat(canaryFile); err != nil {
+			t.Fatalf("expected canary file to exist in protected_canary: %v", err)
+		}
+
+		// Part A: Execute real purge of non-canary directory via UI modal confirmation
+		purgePromptScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			const item = (app.explorer.right.items || []).find(i => i.Name === 'purge_target');
+			if (!item) return { error: "purge_target not found in right pane" };
+			app.promptPurgeDirectory('right', item);
+			return { ok: true, modalShown: Boolean(app.confirmModal && app.confirmModal.show) };
+		})()`
+
+		type PurgePromptRes struct {
+			Error      *string `json:"error"`
+			OK         bool    `json:"ok"`
+			ModalShown bool    `json:"modalShown"`
+		}
+		pRes, err := chromedp.Run(ctx, chromedp.Evaluate[PurgePromptRes](purgePromptScript))
+		if err != nil {
+			t.Fatalf("failed prompting purge directory: %v", err)
+		}
+		if pRes.Error != nil {
+			t.Fatalf("prompt purge returned error: %s", *pRes.Error)
+		}
+		if !pRes.ModalShown {
+			t.Fatalf("expected confirmModal.show to be true after promptPurgeDirectory")
+		}
+
+		// Confirm directory purge
+		confirmScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.handleConfirmModal();
+			return { confirmed: true };
+		})()`
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[any](confirmScript))
+		if err != nil {
+			t.Fatalf("failed executing handleConfirmModal: %v", err)
+		}
+
+		// Wait for remote operation and explorer UI refresh
+		time.Sleep(1000 * time.Millisecond)
+
+		// Assert physical disk deletion on remote alias directory
+		if _, err := os.Stat(purgeTargetDir); !os.IsNotExist(err) {
+			t.Fatalf("expected purge_target to be physically deleted from remote disk, got err: %v", err)
+		}
+
+		// Query right pane items to verify purge_target is removed
+		queryRightPane := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			return (app.explorer.right.items || []).map(i => i.Name);
+		})()`
+		rightItems, err := chromedp.Run(ctx, chromedp.Evaluate[[]string](queryRightPane))
+		if err != nil {
+			t.Fatalf("failed querying right pane items: %v", err)
+		}
+		for _, name := range rightItems {
+			if name == "purge_target" {
+				t.Fatalf("expected right pane to not contain 'purge_target' after purge, got %+v", rightItems)
+			}
+		}
+
+		// Part B: Attempt to purge directory containing canary (RCLONE_TEST)
+		canaryPurgePromptScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			const item = (app.explorer.right.items || []).find(i => i.Name === 'protected_canary');
+			if (!item) return { error: "protected_canary not found in right pane" };
+			app.promptPurgeDirectory('right', item);
+			return { ok: true, modalShown: Boolean(app.confirmModal && app.confirmModal.show) };
+		})()`
+		pRes, err = chromedp.Run(ctx, chromedp.Evaluate[PurgePromptRes](canaryPurgePromptScript))
+		if err != nil {
+			t.Fatalf("failed prompting purge on canary dir: %v", err)
+		}
+		if pRes.Error != nil {
+			t.Fatalf("prompt canary purge returned error: %s", *pRes.Error)
+		}
+
+		// Confirm attempt to purge canary directory
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[any](confirmScript))
+		if err != nil {
+			t.Fatalf("failed confirming canary dir purge: %v", err)
+		}
+
+		time.Sleep(800 * time.Millisecond)
+
+		// Assert physical canary file is STILL intact on disk
+		if _, err := os.Stat(canaryFile); err != nil {
+			t.Fatalf("expected canary file to remain intact on disk after purge attempt, got error: %v", err)
+		}
+
+		// Check UI toast message for refusal
+		type ToastState struct {
+			Show    bool   `json:"show"`
+			Message string `json:"message"`
+			Type    string `json:"type"`
+		}
+		queryToast := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			return {
+				show: Boolean(app.toast && app.toast.show),
+				message: app.toast ? app.toast.message : "",
+				type: app.toast ? app.toast.type : ""
+			};
+		})()`
+		toast, err := chromedp.Run(ctx, chromedp.Evaluate[ToastState](queryToast))
+		if err != nil {
+			t.Fatalf("failed querying toast state: %v", err)
+		}
+		if !strings.Contains(strings.ToLower(toast.Message), "canary") && !strings.Contains(strings.ToLower(toast.Message), "purge failed") {
+			t.Errorf("expected canary purge rejection toast message, got: %q", toast.Message)
+		}
+
+		// Part C: Direct canary file rename attempt rejected
+		canaryMoveScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.promptMoveItem('right', { Name: 'RCLONE_TEST', Path: 'RCLONE_TEST', IsDir: false });
+			return {
+				modalShown: Boolean(app.moveModal && app.moveModal.show),
+				message: app.toast ? app.toast.message : ""
+			};
+		})()`
+		type MoveCanaryRes struct {
+			ModalShown bool   `json:"modalShown"`
+			Message    string `json:"message"`
+		}
+		canaryMoveRes, err := chromedp.Run(ctx, chromedp.Evaluate[MoveCanaryRes](canaryMoveScript))
+		if err != nil {
+			t.Fatalf("failed calling promptMoveItem on canary: %v", err)
+		}
+		if canaryMoveRes.ModalShown {
+			t.Errorf("expected move modal to NOT open for canary item, but modalShown=true")
+		}
+		if !strings.Contains(strings.ToLower(canaryMoveRes.Message), "canary") {
+			t.Errorf("expected canary warning toast, got: %q", canaryMoveRes.Message)
+		}
+	})
+
 }
