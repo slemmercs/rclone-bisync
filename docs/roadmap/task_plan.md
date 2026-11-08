@@ -13,7 +13,7 @@ Resolve 7 issues from sandbox interactive testing: fix remote preview/download u
   - **Scope**: `internal/services/explorer_ops.go`, `internal/services/explorer_ops_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerOps_Copy`
 
-- [ ] Task 3: Fix File Move / Rename Destination Parsing and Lucide Icon
+- [x] Task 3: Fix File Move / Rename Destination Parsing and Lucide Icon
   - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_ops_test.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_context_menu.html`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerOps_MoveItem`
 

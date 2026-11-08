@@ -134,11 +134,40 @@ func (e *ExplorerService) executeMove(ctx context.Context, req models.MoveReques
 		if req.IsDir {
 			dstFs = fmt.Sprintf("%s%s", remoteName, cleanDstPath)
 		} else {
-			dstFs = remoteName
-			if cleanDstPath != "" {
+			if cleanDstPath == "" {
+				dstFs = remoteName
+				dstFile = srcFile
+			} else if strings.HasSuffix(req.DstPath, "/") {
 				dstFs = fmt.Sprintf("%s%s", remoteName, cleanDstPath)
+				dstFile = srcFile
+			} else {
+				parentDir := filepath.Dir(cleanDstPath)
+				dstFile = filepath.Base(cleanDstPath)
+				if dstFile == "" || dstFile == "." || dstFile == "/" {
+					dstFile = srcFile
+				}
+				if parentDir == "." || parentDir == "/" || parentDir == "" {
+					dstFs = remoteName
+				} else {
+					dstFs = fmt.Sprintf("%s%s", remoteName, parentDir)
+				}
 			}
-			dstFile = srcFile
+		}
+	}
+
+	canonSrc := strings.TrimSuffix(strings.TrimSpace(req.SrcRemote), ":")
+	canonDst := strings.TrimSuffix(strings.TrimSpace(req.DstRemote), ":")
+	if (srcIsLocal && dstIsLocal) || strings.EqualFold(canonSrc, canonDst) {
+		if req.IsDir {
+			if srcFs == dstFs {
+				return models.MoveResponse{Status: "error", Error: "Source and destination paths are identical"}, nil
+			}
+		} else {
+			srcFull := fmt.Sprintf("%s/%s", strings.TrimRight(srcFs, "/"), srcFile)
+			dstFull := fmt.Sprintf("%s/%s", strings.TrimRight(dstFs, "/"), dstFile)
+			if srcFull == dstFull {
+				return models.MoveResponse{Status: "error", Error: "Source and destination paths are identical"}, nil
+			}
 		}
 	}
 

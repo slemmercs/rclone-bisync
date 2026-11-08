@@ -102,8 +102,10 @@ func TestExplorerOps_MoveItem_JailEscapeBlocked(t *testing.T) {
 
 func TestExplorerOps_MoveItem_RemoteSuccess(t *testing.T) {
 	// Arrange
+	var receivedPayload map[string]interface{}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewDecoder(r.Body).Decode(&receivedPayload)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{}`))
 	}))
@@ -126,6 +128,78 @@ func TestExplorerOps_MoveItem_RemoteSuccess(t *testing.T) {
 	}
 	if resp.Status != "success" {
 		t.Fatalf("expected success, got %s: %s", resp.Status, resp.Error)
+	}
+	if receivedPayload["srcFs"] != "remote:folder" {
+		t.Fatalf("expected srcFs to be 'remote:folder', got: %v", receivedPayload["srcFs"])
+	}
+	if receivedPayload["srcRemote"] != "file.txt" {
+		t.Fatalf("expected srcRemote to be 'file.txt', got: %v", receivedPayload["srcRemote"])
+	}
+	if receivedPayload["dstFs"] != "remote:archive" {
+		t.Fatalf("expected dstFs to be 'remote:archive', got: %v", receivedPayload["dstFs"])
+	}
+	if receivedPayload["dstRemote"] != "file.txt" {
+		t.Fatalf("expected dstRemote to be 'file.txt', got: %v", receivedPayload["dstRemote"])
+	}
+}
+
+func TestExplorerOps_MoveItem_RemoteRenameInSameDir(t *testing.T) {
+	// Arrange
+	var receivedPayload map[string]interface{}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewDecoder(r.Body).Decode(&receivedPayload)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer ts.Close()
+
+	rcClient := client.NewRcloneClient(ts.URL, "", "")
+	expSvc := NewExplorerService(&config.Config{}, rcClient, nil)
+
+	// Act: rename test1/archive_info.json to test1/archive_info_v2.json
+	resp, err := expSvc.MoveItem(context.Background(), models.MoveRequest{
+		SrcRemote: "testremote:",
+		SrcPath:   "test1/archive_info.json",
+		DstRemote: "testremote:",
+		DstPath:   "test1/archive_info_v2.json",
+	})
+
+	// Assert
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got %s: %s", resp.Status, resp.Error)
+	}
+	if receivedPayload["srcFs"] != "testremote:test1" {
+		t.Fatalf("expected srcFs to be 'testremote:test1', got: %v", receivedPayload["srcFs"])
+	}
+	if receivedPayload["srcRemote"] != "archive_info.json" {
+		t.Fatalf("expected srcRemote to be 'archive_info.json', got: %v", receivedPayload["srcRemote"])
+	}
+	if receivedPayload["dstFs"] != "testremote:test1" {
+		t.Fatalf("expected dstFs to be 'testremote:test1', got: %v", receivedPayload["dstFs"])
+	}
+	if receivedPayload["dstRemote"] != "archive_info_v2.json" {
+		t.Fatalf("expected dstRemote to be 'archive_info_v2.json', got: %v", receivedPayload["dstRemote"])
+	}
+}
+
+func TestExplorerOps_MoveItem_IdenticalBlocked(t *testing.T) {
+	expSvc := NewExplorerService(&config.Config{}, nil, nil)
+
+	resp, err := expSvc.MoveItem(context.Background(), models.MoveRequest{
+		SrcRemote: "remote:",
+		SrcPath:   "folder/same.txt",
+		DstRemote: "remote:",
+		DstPath:   "folder/same.txt",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "error" || resp.Error != "Source and destination paths are identical" {
+		t.Fatalf("expected identical error, got: %+v", resp)
 	}
 }
 
