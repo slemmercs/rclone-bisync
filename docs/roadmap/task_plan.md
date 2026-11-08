@@ -17,7 +17,7 @@ Resolve 7 issues from sandbox interactive testing: fix remote preview/download u
   - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_ops_test.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_context_menu.html`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerOps_MoveItem`
 
-- [ ] Task 4: Audit Ledger Logging for Resync & User Actions
+- [x] Task 4: Audit Ledger Logging for Resync & User Actions
   - **Scope**: `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
   - **Verification**: `go test -v -count=1 ./internal/engine/runner/... -run TestRunner_`
 

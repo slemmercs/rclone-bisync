@@ -341,7 +341,7 @@ func TestSyncRunner_AuditExecuted_And_Aborted(t *testing.T) {
 		t.Errorf("expected bisync.log to contain SYNC_EXECUTED: %s", logContent)
 	}
 
-	// Act 1b: Option 2 verification: 0-transfer run (even with origin: "dashboard") must NOT append to audit ledger
+	// Act 1b: 0-transfer routine background run (origin: "daemon") must NOT append to audit ledger
 	srv0 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/sync/bisync":
@@ -358,16 +358,47 @@ func TestSyncRunner_AuditExecuted_And_Aborted(t *testing.T) {
 	cfg0 := *cfg
 	cfg0.RCAPIURL = srv0.URL
 	r0 := NewSyncRunner(&cfg0)
-	success0 := r0.Run(context.Background(), false, false, false, "dashboard", "run_audit_02_empty", false)
+	success0 := r0.Run(context.Background(), false, false, false, "daemon", "run_audit_02_empty", false)
 	if !success0 {
-		t.Fatal("expected 0-transfer run to succeed")
+		t.Fatal("expected 0-transfer daemon run to succeed")
 	}
 	recordsAfter0, totalAfter0, err := audit.QueryRecords(db, audit.Filter{})
 	if err != nil {
 		t.Fatalf("failed to query records: %v", err)
 	}
 	if totalAfter0 != 1 || len(recordsAfter0) != 1 {
-		t.Fatalf("expected audit records count to remain 1 after 0-transfer run (Option 2), got: %d", totalAfter0)
+		t.Fatalf("expected audit records count to remain 1 after 0-transfer daemon run, got: %d", totalAfter0)
+	}
+
+	// Act 1c: 0-transfer resync run (origin: "daemon", resync: true) MUST append to audit ledger
+	successResync := r0.Run(context.Background(), true, false, false, "daemon", "run_audit_03_resync", false)
+	if !successResync {
+		t.Fatal("expected resync run to succeed")
+	}
+	recordsAfterResync, totalAfterResync, err := audit.QueryRecords(db, audit.Filter{})
+	if err != nil {
+		t.Fatalf("failed to query records: %v", err)
+	}
+	if totalAfterResync != 2 || len(recordsAfterResync) != 2 {
+		t.Fatalf("expected audit records count to be 2 after 0-transfer resync run, got: %d", totalAfterResync)
+	}
+	var resyncPayload map[string]any
+	_ = json.Unmarshal(recordsAfterResync[0].Details, &resyncPayload)
+	if resyncPayload["resync"] != true {
+		t.Errorf("expected resync: true in audit payload, got: %+v", resyncPayload)
+	}
+
+	// Act 1d: 0-transfer user action (origin: "dashboard") MUST append to audit ledger
+	successUser := r0.Run(context.Background(), false, false, false, "dashboard", "run_audit_04_user", false)
+	if !successUser {
+		t.Fatal("expected user dashboard run to succeed")
+	}
+	recordsAfterUser, totalAfterUser, err := audit.QueryRecords(db, audit.Filter{})
+	if err != nil {
+		t.Fatalf("failed to query records: %v", err)
+	}
+	if totalAfterUser != 3 || len(recordsAfterUser) != 3 {
+		t.Fatalf("expected audit records count to be 3 after user dashboard run, got: %d", totalAfterUser)
 	}
 
 	// Act 2: Circuit break / abort scenario (Lock contention)
@@ -383,22 +414,19 @@ func TestSyncRunner_AuditExecuted_And_Aborted(t *testing.T) {
 	}
 	_ = lm.Release()
 
-	// Assert 3: Audit DB retains only the 1 mutating record; non-mutating aborts are NOT logged to audit.db
-	records2, total2, err := audit.QueryRecords(db, audit.Filter{})
+	// Assert 3: Audit DB retains the 3 valid records; non-mutating aborts are NOT logged to audit.db
+	_, total2, err := audit.QueryRecords(db, audit.Filter{})
 	if err != nil {
 		t.Fatalf("failed to query audit records: %v", err)
 	}
-	if total2 != 1 {
-		t.Fatalf("expected audit records count to remain 1 after aborted non-mutating run, got: %d", total2)
-	}
-	if records2[0].Action != audit.ActionSyncExecuted {
-		t.Errorf("expected Action %s, got: %s", audit.ActionSyncExecuted, records2[0].Action)
+	if total2 != 3 {
+		t.Fatalf("expected audit records count to remain 3 after aborted run, got: %d", total2)
 	}
 
-	// Assert 4: Ledger SHA-256 chain integrity verified with 1 block
+	// Assert 4: Ledger SHA-256 chain integrity verified with 3 blocks
 	valid, count, err := audit.VerifyLedger(db)
-	if err != nil || !valid || count != 1 {
-		t.Fatalf("expected valid ledger chain with 1 block, got valid=%v, count=%d, err=%v", valid, count, err)
+	if err != nil || !valid || count != 3 {
+		t.Fatalf("expected valid ledger chain with 3 blocks, got valid=%v, count=%d, err=%v", valid, count, err)
 	}
 }
 
