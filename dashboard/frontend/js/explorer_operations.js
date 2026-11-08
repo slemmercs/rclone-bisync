@@ -72,6 +72,8 @@ window.ExplorerOperationsModule = {
         try {
             const data = await window.API.post("/api/operations/move", {
                 remote,
+                src_remote: remote,
+                dst_remote: remote,
                 src_path: srcPath,
                 dst_path: dstPath,
                 is_dir: !!item.IsDir,

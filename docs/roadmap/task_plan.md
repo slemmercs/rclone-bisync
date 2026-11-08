@@ -13,7 +13,7 @@ Implement and verify the full browser-driven user journey across the File Explor
   - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (navigate to Explorer, verify left pane lists `localDir` items, right pane lists `sandrem:` items via live RC)
   - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealExploration"`
 
-- [ ] Task 3: Real File Move/Rename via UI Modal
+- [x] Task 3: Real File Move/Rename via UI Modal
   - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (trigger move modal in browser, submit rename, assert file renamed physically on disk)
   - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealMoveRename"`
 

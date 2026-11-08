@@ -15,6 +15,17 @@ func (e *ExplorerService) MoveItem(ctx context.Context, req models.MoveRequest, 
 	cleanSrcPath := strings.Trim(strings.TrimSpace(req.SrcPath), "/")
 	cleanDstPath := strings.Trim(strings.TrimSpace(req.DstPath), "/")
 
+	if req.SrcRemote == "" && req.Remote != "" {
+		req.SrcRemote = req.Remote
+	}
+	if req.DstRemote == "" {
+		if req.Remote != "" {
+			req.DstRemote = req.Remote
+		} else {
+			req.DstRemote = req.SrcRemote
+		}
+	}
+
 	if cleanSrcPath == "" {
 		return models.MoveResponse{Status: "error", Error: "Root directory cannot be moved"}, nil
 	}

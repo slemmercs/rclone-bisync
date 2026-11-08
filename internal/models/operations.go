@@ -5,6 +5,7 @@ type MoveRequest struct {
 	ProfileID    string `json:"profile_id,omitempty"`
 	SrcProfileID string `json:"src_profile_id,omitempty"`
 	DstProfileID string `json:"dst_profile_id,omitempty"`
+	Remote       string `json:"remote,omitempty"`
 	SrcRemote    string `json:"src_remote"`
 	SrcPath      string `json:"src_path"`
 	DstRemote    string `json:"dst_remote"`

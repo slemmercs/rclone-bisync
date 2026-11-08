@@ -337,4 +337,107 @@ func TestDashboard_SandboxUIJourney(t *testing.T) {
 			t.Errorf("expected right pane to list cloud_data.txt and purge_target via live RC, got %+v", stats.RightItems)
 		}
 	})
+
+	t.Run("RealMoveRename", func(t *testing.T) {
+		currentURL, _ := chromedp.Run(ctx, chromedp.Location())
+		if !strings.HasPrefix(currentURL, "http") {
+			_ = chromedp.Do(ctx,
+				chromedp.Navigate(harness.serverURL),
+				chromedp.WaitVisible("body[x-data]"),
+				chromedp.WaitVisible("#app-header"),
+				chromedp.Click(`button[data-tab="explorer"]`),
+				chromedp.WaitVisible(`div[x-show="currentTab === 'explorer'"]`),
+			)
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		// Verify initial disk state
+		initialSrcPath := filepath.Join(harness.localDir, "to_rename.txt")
+		destPath := filepath.Join(harness.localDir, "renamed_success.txt")
+		if _, err := os.Stat(initialSrcPath); err != nil {
+			t.Fatalf("expected initial source file to exist: %v", err)
+		}
+		if _, err := os.Stat(destPath); !os.IsNotExist(err) {
+			t.Fatalf("expected dest file to not exist prior to move: %v", err)
+		}
+
+		// Trigger promptMoveItem via UI/Alpine
+		openPromptScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			const item = (app.explorer.left.items || []).find(i => i.Name === 'to_rename.txt');
+			if (!item) return { error: "to_rename.txt not found in left pane" };
+			app.promptMoveItem('left', item);
+			return { ok: true, name: item.Name };
+		})()`
+
+		type PromptRes struct {
+			Error *string `json:"error"`
+			OK    bool    `json:"ok"`
+			Name  string  `json:"name"`
+		}
+		promptRes, err := chromedp.Run(ctx, chromedp.Evaluate[PromptRes](openPromptScript))
+		if err != nil {
+			t.Fatalf("failed opening move modal: %v", err)
+		}
+		if promptRes.Error != nil {
+			t.Fatalf("failed prompting move: %s", *promptRes.Error)
+		}
+
+		// Modal should now be visible
+		err = chromedp.Do(ctx,
+			chromedp.WaitVisible("#move-new-name-input"),
+		)
+		if err != nil {
+			t.Fatalf("move-new-name-input not visible: %v", err)
+		}
+
+		// Enter new name and trigger execution
+		executeScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.moveModal.newName = "renamed_success.txt";
+			return app.executeMoveItem();
+		})()`
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[any](executeScript))
+		if err != nil {
+			t.Fatalf("failed executing move item: %v", err)
+		}
+
+		// Wait briefly for filesystem mutation and UI directory refresh
+		time.Sleep(800 * time.Millisecond)
+
+		// Assert physical disk mutation
+		if _, err := os.Stat(destPath); err != nil {
+			t.Fatalf("expected renamed_success.txt on physical disk after UI move, got error: %v", err)
+		}
+		if _, err := os.Stat(initialSrcPath); !os.IsNotExist(err) {
+			t.Fatalf("expected to_rename.txt to be removed from physical disk, got err: %v", err)
+		}
+
+		// Verify UI reflects the change
+		queryLeftPane := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			return (app.explorer.left.items || []).map(i => i.Name);
+		})()`
+		leftItems, err := chromedp.Run(ctx, chromedp.Evaluate[[]string](queryLeftPane))
+		if err != nil {
+			t.Fatalf("failed querying left pane items: %v", err)
+		}
+
+		hasNewName := false
+		hasOldName := false
+		for _, name := range leftItems {
+			if name == "renamed_success.txt" {
+				hasNewName = true
+			}
+			if name == "to_rename.txt" {
+				hasOldName = true
+			}
+		}
+		if !hasNewName {
+			t.Errorf("expected left pane to contain 'renamed_success.txt', got %+v", leftItems)
+		}
+		if hasOldName {
+			t.Errorf("expected left pane to NOT contain 'to_rename.txt', got %+v", leftItems)
+		}
+	})
 }

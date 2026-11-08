@@ -31,7 +31,7 @@
 
         <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800/80">
             <button type="button" @click="cancelMove()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition-colors">Cancel</button>
-            <button type="button" @click="executeMoveItem()" :disabled="isMoveDisabled()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 shadow-lg shadow-indigo-950/40">
+            <button id="move-confirm-btn" type="button" @click="executeMoveItem()" :disabled="isMoveDisabled()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 shadow-lg shadow-indigo-950/40">
                 <svg x-show="moveModal.moving" class="w-3.5 h-3.5 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 <span x-text="moveModal.moving ? 'Moving...' : 'Confirm Move'"></span>
             </button>
