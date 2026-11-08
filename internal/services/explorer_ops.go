@@ -88,7 +88,15 @@ func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, sr
 	}
 
 	if dstIsLocal {
-		baseDst, targetDst, ok := isLocalPathJailed(rawBase, cleanDstPath)
+		targetDstPath := cleanDstPath
+		if isDir && cleanSrcPath != "" {
+			srcDirName := filepath.Base(cleanSrcPath)
+			if filepath.Base(cleanDstPath) != srcDirName {
+				targetDstPath = filepath.Join(cleanDstPath, srcDirName)
+			}
+		}
+
+		baseDst, targetDst, ok := isLocalPathJailed(rawBase, targetDstPath)
 		if !ok {
 			return models.CopyResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
 		}
@@ -117,8 +125,19 @@ func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, sr
 	} else {
 		remoteName := strings.TrimRight(dstRemote, ":") + ":"
 		if isDir {
-			if cleanDstPath != "" {
-				dstFs = fmt.Sprintf("%s%s", remoteName, cleanDstPath)
+			targetDst := cleanDstPath
+			if cleanSrcPath != "" {
+				srcDirName := filepath.Base(cleanSrcPath)
+				if filepath.Base(cleanDstPath) != srcDirName {
+					if cleanDstPath != "" {
+						targetDst = fmt.Sprintf("%s/%s", cleanDstPath, srcDirName)
+					} else {
+						targetDst = srcDirName
+					}
+				}
+			}
+			if targetDst != "" {
+				dstFs = fmt.Sprintf("%s%s", remoteName, targetDst)
 			} else {
 				dstFs = remoteName
 			}
@@ -129,6 +148,18 @@ func (e *ExplorerService) CopyItemWithOptions(ctx context.Context, srcRemote, sr
 				dstFs = fmt.Sprintf("%s%s", remoteName, cleanDstPath)
 			}
 			dstFile = srcFile
+		}
+	}
+
+	if (srcIsLocal && dstIsLocal) || strings.EqualFold(canonSrc, canonDst) {
+		if isDir {
+			if srcFs == dstFs {
+				return models.CopyResponse{Status: "error", Error: "Source and destination paths are identical"}, nil
+			}
+		} else {
+			if fmt.Sprintf("%s/%s", strings.TrimRight(srcFs, "/"), srcFile) == fmt.Sprintf("%s/%s", strings.TrimRight(dstFs, "/"), dstFile) {
+				return models.CopyResponse{Status: "error", Error: "Source and destination paths are identical"}, nil
+			}
 		}
 	}
 

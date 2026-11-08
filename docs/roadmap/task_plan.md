@@ -9,7 +9,7 @@ Resolve 7 issues from sandbox interactive testing: fix remote preview/download u
   - **Scope**: `internal/core/client/fs_read.go`, `internal/core/client/fs_read_test.go`, `internal/services/explorer_preview_test.go`, `scripts/run-sandbox.sh`
   - **Verification**: `go test -v -count=1 ./internal/core/client/... -run TestRcloneClient_Cat`
 
-- [ ] Task 2: Fix Directory Copying and Destination Path Placement
+- [x] Task 2: Fix Directory Copying and Destination Path Placement
   - **Scope**: `internal/services/explorer_ops.go`, `internal/services/explorer_ops_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerOps_Copy`
 

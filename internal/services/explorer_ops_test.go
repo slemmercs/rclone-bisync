@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -248,3 +249,105 @@ func TestExplorerOps_GetPublicLink(t *testing.T) {
 		t.Fatalf("expected remote public link success, got %+v", respRemote)
 	}
 }
+
+func TestExplorerOps_CopyDir_LocalToRemotePreservesContainer(t *testing.T) {
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "subfolder")
+	_ = os.MkdirAll(subDir, 0755)
+	_ = os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("data"), 0644)
+
+	var lastSrcFs, lastDstFs string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/sync/copy" {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if src, ok := body["srcFs"].(string); ok {
+				lastSrcFs = src
+			}
+			if dst, ok := body["dstFs"].(string); ok {
+				lastDstFs = dst
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	rcClient := client.NewRcloneClient(ts.URL, "", "")
+	expSvc := NewExplorerService(&config.Config{LocalPath: tmpDir}, rcClient, nil)
+
+	// Act: copy "subfolder" into remote root ""
+	resp, err := expSvc.CopyItem(context.Background(), "local", "subfolder", "testremote:", "", true, tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got: %+v", resp)
+	}
+	if lastDstFs != "testremote:subfolder" {
+		t.Fatalf("expected dstFs to be 'testremote:subfolder', got: %s", lastDstFs)
+	}
+	if lastSrcFs != subDir {
+		t.Fatalf("expected srcFs to be '%s', got: %s", subDir, lastSrcFs)
+	}
+}
+
+func TestExplorerOps_CopyDir_RemoteToLocalPreservesContainer(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	var lastSrcFs, lastDstFs string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/sync/copy" {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if src, ok := body["srcFs"].(string); ok {
+				lastSrcFs = src
+			}
+			if dst, ok := body["dstFs"].(string); ok {
+				lastDstFs = dst
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	rcClient := client.NewRcloneClient(ts.URL, "", "")
+	expSvc := NewExplorerService(&config.Config{LocalPath: tmpDir}, rcClient, nil)
+
+	// Act: copy "backup_docs" from testremote: to local root ""
+	resp, err := expSvc.CopyItem(context.Background(), "testremote:", "backup_docs", "local", "", true, tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got: %+v", resp)
+	}
+	expectedDst := filepath.Join(tmpDir, "backup_docs")
+	if lastDstFs != expectedDst {
+		t.Fatalf("expected dstFs to be '%s', got: %s", expectedDst, lastDstFs)
+	}
+	if lastSrcFs != "testremote:backup_docs" {
+		t.Fatalf("expected srcFs to be 'testremote:backup_docs', got: %s", lastSrcFs)
+	}
+}
+
+func TestExplorerOps_CopyDir_IdenticalBlocked(t *testing.T) {
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "folderA")
+	_ = os.MkdirAll(subDir, 0755)
+
+	expSvc := NewExplorerService(&config.Config{LocalPath: tmpDir}, nil, nil)
+
+	// Act: copy "folderA" to "folderA" on local
+	resp, err := expSvc.CopyItem(context.Background(), "local", "folderA", "local", "folderA", true, tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "error" || resp.Error != "Source and destination paths are identical" {
+		t.Fatalf("expected identical error, got: %+v", resp)
+	}
+}
+
