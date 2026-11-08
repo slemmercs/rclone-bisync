@@ -226,6 +226,7 @@ func (s *ConfigEncryptionService) SetPassword(ctx context.Context, req models.Se
 	secFile := s.ResolveSecretsFile()
 	_ = config.UpdateSecret(secFile, "RCLONE_CONFIG_PASS", newPass)
 	_ = os.Setenv("RCLONE_CONFIG_PASS", newPass)
+	_ = s.RestartDaemon(ctx)
 
 	return &models.EncryptionActionResponse{
 		Status:  "success",
@@ -274,11 +275,29 @@ func (s *ConfigEncryptionService) RemovePassword(ctx context.Context, req models
 	secFile := s.ResolveSecretsFile()
 	_ = config.RemoveSecret(secFile, "RCLONE_CONFIG_PASS")
 	_ = os.Unsetenv("RCLONE_CONFIG_PASS")
+	_ = s.RestartDaemon(ctx)
 
 	return &models.EncryptionActionResponse{
 		Status:  "success",
 		Message: "Configuration password removed successfully",
 	}, nil
+}
+
+// RestartDaemon attempts to restart the rclone background daemon so that
+// updated credentials or encryption passphrases take effect immediately.
+func (s *ConfigEncryptionService) RestartDaemon(ctx context.Context) error {
+	// 1. If running under systemd, restart rclone-daemon.service
+	if s.Runner != nil {
+		if _, err := s.Runner(ctx, "systemctl", os.Environ(), "--user", "restart", "rclone-daemon.service"); err == nil {
+			return nil
+		}
+	}
+
+	// 2. Fallback: if Client is configured, send core/quit so supervisor or process loop restarts it
+	if s.Client != nil {
+		_ = s.Client.Quit(ctx)
+	}
+	return nil
 }
 
 // SaveDaemonPassphrase verifies and saves an encryption passphrase to rc-secrets.env.

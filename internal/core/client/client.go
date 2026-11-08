@@ -258,3 +258,9 @@ func (c *RcloneClient) GetCoreStats(ctx context.Context) ([]byte, error) {
 	}
 	return body, nil
 }
+
+// Quit sends POST /core/quit to shut down the rclone daemon (triggering supervisor or systemd restart).
+func (c *RcloneClient) Quit(ctx context.Context) error {
+	_, _, err := c.post(ctx, "core/quit", nil, 2*time.Second)
+	return err
+}

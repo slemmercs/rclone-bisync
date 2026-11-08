@@ -1,0 +1,18 @@
+{
+  "name": "rclone-bisync Development & Sandbox",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml"
+      ]
+    }
+  },
+  "forwardPorts": [8080, 8081, 5572, 8085, 8086, 5575],
+  "postCreateCommand": "go version && rclone version",
+  "remoteUser": "vscode"
+}
