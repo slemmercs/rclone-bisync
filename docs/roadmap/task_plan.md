@@ -25,10 +25,11 @@ Implement and verify the full browser-driven user journey across the File Explor
   - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (stage upload in dock, assert pending count in UI badge, open dock modal, and verify lifecycle)
   - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/UploadDockJourney"`
 
-- [ ] Task 6: Quality Gates & Comprehensive E2E Verification
+- [x] Task 6: Quality Gates & Comprehensive E2E Verification
   - **Scope**: Code formatting, staticcheck, LOC audit (<400 LOC), full test suite
   - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e/...`
 
 ## Status Updates
 
 - 2026-11-08: Initialized Sandbox UI Journey plan from approved implementation plan.
+- 2026-11-08: Completed all 6 tasks: Harness setup with alias remote, dual-pane exploration, real file move/rename, directory purge & canary safeguards, upload dock lifecycle, and verified all quality gates.
