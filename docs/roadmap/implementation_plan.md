@@ -1,103 +1,71 @@
-# Implementation Plan: Pure Profile Sync Staging & Remediation Workspace
+# Implementation Plan: Tier 4 Rclone Sandbox UI Journey E2E Suite
 
-## [Overview]
-Transform the explorer into a profile-bound Sync Staging & Remediation Workspace where the left pane is strictly jailed to the active profile's local storage and the right pane is bound to the active profile's cloud remote, enabling atomic file/directory moves, directory purges, cloud public web links, non-blocking upload coordination during active sync, and seamless deep-link triage from review sessions.
+## Proposed Changes
 
-The workspace operates as a 1:1 visual counterpart to the sync engine. Changing the selected profile simultaneously shifts both panes to that profile's root paths. Staging actions (dragging files left-to-right to push changes, or right-to-left to pull changes) directly manipulate disk/cloud state without triggering a full bisync run. Safety is guaranteed by canary inviolability (`RCLONE_TEST`), strict local path confinement (`filepath.Rel`), contextual deletion warnings, and audit logging with distinct staging vs remediation provenance.
+Implement a comprehensive browser-driven end-to-end integration test (`tests/e2e/sandbox_ui_journey_test.go`) that connects headless Chromium/Chrome to a live, ephemeral `rclone rcd` daemon and a live Bisync Hub server operating exclusively on real local folders (`t.TempDir()`).
 
-## [Types]
+This suite bridges the gap between the headless browser UI tests (which used mock servers) and the Tier 4 backend sandbox integration tests, validating the full user journey:
+1. Directory exploration against real filesystem structures.
+2. File move/rename via modal directly modifying disk.
+3. Directory purge with safety confirmation removing disk folders.
+4. Canary protection (`RCLONE_TEST`) actively blocking destructive actions in the UI.
+5. In-flight upload dock staging and mid-sync deferral.
 
-### 1. `internal/models/operations.go`
-- `MoveRequest`:
-  ```go
-  type MoveRequest struct {
-      ProfileID string `json:"profile_id"`
-      SrcRemote string `json:"src_remote"` // "local" or remote name
-      SrcPath   string `json:"src_path"`
-      DstRemote string `json:"dst_remote"` // "local" or remote name
-      DstPath   string `json:"dst_path"`
-      IsDir     bool   `json:"is_dir"`
-  }
-  ```
-- `MoveResponse`:
-  ```go
-  type MoveResponse struct {
-      Status string `json:"status"` // "success" or "error"
-      Src    string `json:"src"`
-      Dst    string `json:"dst"`
-      Error  string `json:"error,omitempty"`
-  }
-  ```
-- `PurgeRequest`:
-  ```go
-  type PurgeRequest struct {
-      ProfileID string `json:"profile_id"`
-      Remote    string `json:"remote"` // "local" or remote name
-      Path      string `json:"path"`
-  }
-  ```
-- `PurgeResponse`:
-  ```go
-  type PurgeResponse struct {
-      Status string `json:"status"`
-      Path   string `json:"path"`
-      Error  string `json:"error,omitempty"`
-  }
-  ```
-- `PublicLinkRequest`:
-  ```go
-  type PublicLinkRequest struct {
-      ProfileID string `json:"profile_id"`
-      Remote    string `json:"remote"`
-      Path      string `json:"path"`
-      Unlink    bool   `json:"unlink,omitempty"`
-  }
-  ```
-- `PublicLinkResponse`:
-  ```go
-  type PublicLinkResponse struct {
-      URL       string `json:"url,omitempty"`
-      Supported bool   `json:"supported"`
-      Status    string `json:"status"`
-      Error     string `json:"error,omitempty"`
-  }
-  ```
+### Affected Components & Packages
 
-### 2. `internal/models/upload.go`
-- `UploadQueueItem`:
-  ```go
-  type UploadQueueItem struct {
-      ID         string    `json:"id"`
-      ProfileID  string    `json:"profile_id"`
-      Remote     string    `json:"remote"`
-      Path       string    `json:"path"`
-      FileName   string    `json:"file_name"`
-      Size       int64     `json:"size"`
-      Status     string    `json:"status"` // "queued", "waiting_for_sync", "uploading", "completed", "failed"
-      Error      string    `json:"error,omitempty"`
-      CreatedAt  time.Time `json:"created_at"`
-  }
-  ```
-- `UploadDockStatus`:
-  ```go
-  type UploadDockStatus struct {
-      PendingCount int               `json:"pending_count"`
-      IsSyncActive bool              `json:"is_sync_active"`
-      Items        []UploadQueueItem `json:"items"`
-  }
-  ```
+- `tests/e2e/sandbox_ui_journey_test.go`: Real sandbox E2E test file launching `rclone rcd`, Bisync Hub server, and Chromedp runner.
+- `docs/roadmap/task_plan.md`: Atomic tasks tracking sandbox UI journey execution.
 
-## [Files]
+### Technical Strategy & Data Flow
 
-### New Files
-- `internal/models/operations.go`: Request and response contract DTOs for Move, Purge, and PublicLink.
-- `internal/models/upload.go`: Request and response contract DTOs for non-blocking upload dock.
-- `internal/core/client/operations.go`: Rclone RC client wrappers for `/operations/movefile`, `/operations/movedir`, `/operations/purge`, `/operations/publiclink`.
-- `internal/core/client/operations_test.go`: Unit tests for operations client using `httptest.Server`.
-- `internal/services/explorer_move.go`: Domain service method `MoveItem` handling local atomic renames, cloud moves, canary blocks, and local jail validation.
-- `internal/services/explorer_move_test.go`: Unit tests verifying `MoveItem` under valid moves, canary blocks, and jail escape attempts.
-- `internal/services/explorer_purge.go`: Domain service method `PurgeDirectory` enforcing canary recursion protection and profile jail bounds.
-- `internal/services/explorer_link.go`: Domain service method `GetPublicLink` with graceful degradation for unsupported remotes.
+1. **Ephemeral Real Rclone Daemon**:
+   - Verify `rclone` and Chrome/Chromium availability in PATH (`t.Skip` gracefully if absent).
+   - Write dynamic isolated `rclone.conf` defining a `local` remote target:
+     ```ini
+     [sandrem]
+     type = local
+     ```
+   - Spawn `rclone rcd` with `--rc-addr 127.0.0.1:0 --rc-no-auth --config <rclone.conf> --cache-dir <tempDir>/cache`.
+   - Wait for healthy state via `client.WaitForHealthy`.
+
+2. **Seeded Local Sandbox Environment**:
+   - `localDir`: `<tempDir>/local` (profile `LocalPath`), seeded with:
+     - `file_alpha.txt` ("alpha content")
+     - `docs/nested.txt` ("nested doc")
+     - `to_rename.txt` ("rename me")
+   - `remoteDir`: `<tempDir>/remote` (profile `RemotePath` on `sandrem:`), seeded with:
+     - `remote_file.txt` ("remote content")
+     - `purge_dir/target.txt` ("purge payload")
+     - `canary_dir/RCLONE_TEST` (canary marker)
+
+3. **Bisync Hub Configuration & Real Wiring**:
+   - Instantiate `config.Config` pointing to `localDir`, remote `sandrem:`, and real Rclone RC URL.
+   - Configure active profile with ID `sandbox-profile`.
+   - Launch `httptest.NewServer(server.NewServer(cfg, syncSvc, frontendFS))`.
+
+4. **Headless Chrome UI Journey Execution**:
+   - **Step 1: Workspace Initialization & Real Directory Fetch**:
+     Navigate to dashboard, switch to Explorer tab, verify both left pane (`local`) and right pane (`sandrem:`) populate with real filesystem entries.
+   - **Step 2: Real File Move/Rename via Modal**:
+     Trigger `promptMoveItem` for `to_rename.txt` $\to$ `renamed_success.txt`, execute move via modal, verify UI updates, and assert via `os.Stat` that `renamed_success.txt` exists on disk and `to_rename.txt` is gone.
+   - **Step 3: Real Directory Purge**:
+     Trigger `promptPurgeDirectory` for `purge_dir`, verify directory and contents are deleted from disk (`os.Stat` returns `os.IsNotExist`).
+   - **Step 4: Canary Protection in UI**:
+     Trigger `promptPurgeDirectory` or `promptMoveItem` on canary items, verify warning toast appears in UI and file remains intact on disk.
+   - **Step 5: Upload Dock Staging & Execution**:
+     Stage upload payload via `/api/explorer/dock`, verify pending badge in UI, flush dock, and verify file is written to destination.
+
+### Safety & Error Handling
+
+- **Zero Cloud Impact**: Uses purely local storage and ephemeral dynamic ports.
+- **Process Cleanup**: `t.Cleanup()` ensures all background processes (`rclone rcd`, test servers, browser contexts) terminate cleanly.
+- **Canary Inviolability**: Verifies canary files are protected even when requested through live UI events.
+
+## Verification Plan
+
+- Fast unit/e2e run: `go test -v -count=1 ./tests/e2e -run TestDashboard_SandboxUIJourney`
+- Full quality check: `./scripts/check.sh all`
+
 - `internal/services/upload_dock.go`: Lightweight thread-safe in-memory upload dock coordinating with sync engine state.
 - `internal/services/upload_dock_test.go`: Unit tests verifying lock detection and state transitions.
 - `internal/server/handlers_operations.go`: HTTP endpoints for `/api/operations/move`, `/api/operations/purge`, `/api/operations/publiclink`, `/api/explorer/dock`.

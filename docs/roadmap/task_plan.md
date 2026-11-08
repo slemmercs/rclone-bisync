@@ -1,38 +1,34 @@
-# Task Plan: Pure Profile Sync Staging & Remediation Workspace
+# Task Plan: Tier 4 Rclone Sandbox UI Journey E2E Suite
 
 ## Goal
-Implement Milestone 2: Pure Profile Sync Staging & Remediation Workspace with atomic move/purge operations, canary inviolability, non-blocking upload dock, cloud public links, and deep-linked review triage.
+Implement and verify the full browser-driven user journey across the File Explorer Workspace using a real ephemeral `rclone rcd` sandbox and live local filesystem folders.
 
 ## Tasks
 
-- [x] Task 1: Core RC Client Operations Wrappers & Data Models
-  - **Scope**: `internal/models/operations.go`, `internal/models/upload.go`, `internal/core/client/operations.go`, `internal/core/client/operations_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/core/client/... -run "TestMove|TestPurge|TestPublicLink"`
+- [x] Task 1: Sandbox Fixture & Harness Construction
+  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (scaffolding: ephemeral `rclone rcd` with local remote `sandrem:`, directory tree seeding, server initialization)
+  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/HarnessSetup"`
 
-- [x] Task 2: Service Layer Profile-Bound Operations (Move, Purge, Link)
-  - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_purge.go`, `internal/services/explorer_ops_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run "TestExplorerOps"`
+- [ ] Task 2: Real Dual-Pane Exploration & Navigation Journey
+  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (navigate to Explorer, verify left pane lists `localDir` items, right pane lists `sandrem:` items via live RC)
+  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealExploration"`
 
-- [x] Task 3: HTTP API Handlers & Routing for Workspace Operations
-  - **Scope**: `internal/server/handlers_operations.go`, `internal/server/handlers_operations_test.go`, `internal/server/server.go`
-  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleOperations`
+- [ ] Task 3: Real File Move/Rename via UI Modal
+  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (trigger move modal in browser, submit rename, assert file renamed physically on disk)
+  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealMoveRename"`
 
-- [x] Task 4: Lightweight Upload Dock Service & Mid-Sync Deferral
-  - **Scope**: `internal/services/upload_dock.go`, `internal/services/upload_dock_test.go`, `internal/server/handlers_operations.go`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestUploadDock`
+- [ ] Task 4: Real Directory Purge & Canary Safeguard UI Journey
+  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (test directory purge deleting real disk folder, test canary directory move/purge blocked by UI safeguards)
+  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealPurgeAndCanary"`
 
-- [x] Task 5: Frontend Profile-Bound Workspace & Staging Layout
-  - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_explorer_toolbar.html`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_actions.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
+- [ ] Task 5: Upload Dock Staging & Flush Journey
+  - **Scope**: `tests/e2e/sandbox_ui_journey_test.go` (stage upload in dock, assert pending count in UI badge, flush dock, verify file appears on disk)
+  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestDashboard_SandboxUIJourney/RealUploadDock"`
 
-- [x] Task 6: Sync Review Remediation Bridge & Ambient Candidate Highlighting
-  - **Scope**: `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/components/component_context_menu.html`, `dashboard/frontend/js/review.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 7: Full Quality Gates & E2E Smoke Testing
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
+- [ ] Task 6: Quality Gates & Comprehensive E2E Verification
+  - **Scope**: Code formatting, staticcheck, LOC audit (<400 LOC), full test suite
   - **Verification**: `./scripts/check.sh all && go test -v -count=1 ./tests/e2e/...`
 
 ## Status Updates
 
-- 2026-11-07: Initialized Milestone 2 Task Plan from approved Option 1 implementation plan.
+- 2026-11-08: Initialized Sandbox UI Journey plan from approved implementation plan.
