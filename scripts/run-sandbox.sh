@@ -43,6 +43,8 @@ mkdir -p "$SANDBOX_DIR/local/subfolder"
 mkdir -p "$SANDBOX_DIR/remote_storage/backup_docs"
 mkdir -p "$SANDBOX_DIR/review_sessions"
 mkdir -p "$SANDBOX_DIR/review_backups"
+mkdir -p "$SANDBOX_DIR/cache"
+export RCLONE_CACHE_DIR="$SANDBOX_DIR/cache"
 
 # 3. Seed mock test data
 echo "Local notes for testing parallel instance" > "$SANDBOX_DIR/local/sample_notes.txt"
@@ -79,6 +81,7 @@ RC_PORT=$RC_PORT
 RC_USER=$RC_USER
 RC_PASS=$RC_PASS
 RCLONE_CONFIG=$SANDBOX_DIR/rclone.conf
+RCLONE_CACHE_DIR=$SANDBOX_DIR/cache
 PROFILES_FILE=$SANDBOX_DIR/profiles.json
 PROFILES_HISTORY_FILE=$SANDBOX_DIR/profiles_history.json
 AUDIT_DB_PATH=$SANDBOX_DIR/audit.db
@@ -133,7 +136,9 @@ echo "🚀 Starting ephemeral Rclone RC daemon on port $RC_PORT (with live passp
             set +a
         fi
         export RCLONE_CONFIG="$SANDBOX_DIR/rclone.conf"
+        export RCLONE_CACHE_DIR="$SANDBOX_DIR/cache"
         rclone rcd \
+            --rc-serve \
             --rc-addr "127.0.0.1:$RC_PORT" \
             --rc-user "$RC_USER" \
             --rc-pass "$RC_PASS" \

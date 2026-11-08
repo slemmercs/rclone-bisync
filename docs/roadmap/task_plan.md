@@ -1,28 +1,35 @@
-# Task Plan: File Explorer Remote Target Synchronization & Directory Creation (Mkdir)
+# Task Plan: Sandbox Reliability & File Operations Remediation
 
 ## Goal
-Fix file explorer remote target desynchronization, safeguard operations against self-collisions, and add "New Folder" (mkdir) creation across local and remote storage.
+Resolve 7 issues from sandbox interactive testing: fix remote preview/download using `operations/getfile`, preserve folder containers on directory copy, fix destination path parsing on file moves, log resyncs in audit ledger, detect missing listings with a resync confirmation dialog, and isolate cache directories in sandbox.
 
 ## Tasks
 
-- [x] Task 1: Domain Models & Explorer Mkdir Service Implementation
-  - **Scope**: `internal/models/operations.go`, `internal/services/explorer_mkdir.go`, `internal/services/explorer_mkdir_test.go`, `internal/audit/taxonomy.go`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerService_MakeDir`
+- [x] Task 1: Fix Rclone RC File Preview & Download (operations/getfile & --rc-serve)
+  - **Scope**: `internal/core/client/fs_read.go`, `internal/core/client/fs_read_test.go`, `internal/services/explorer_preview_test.go`, `scripts/run-sandbox.sh`
+  - **Verification**: `go test -v -count=1 ./internal/core/client/... -run TestRcloneClient_Cat`
 
-- [x] Task 2: Mkdir Server Handler & Identical Path Safeguards
-  - **Scope**: `internal/server/handlers_operations.go`, `internal/server/handlers_operations_test.go`, `internal/services/explorer_ops.go`, `internal/services/explorer_move.go`
-  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_MakeDir`
+- [ ] Task 2: Fix Directory Copying and Destination Path Placement
+  - **Scope**: `internal/services/explorer_ops.go`, `internal/services/explorer_ops_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerOps_Copy`
 
-- [x] Task 3: Frontend Remote Target Synchronization & Mkdir Modal Integration
-  - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/explorer_operations.js`, `dashboard/frontend/partials/modals/modal_explorer_mkdir.html`, `dashboard/frontend/index.html`, `dashboard/frontend/partials/view_explorer.html`
-  - **Verification**: `go test -v -count=1 ./tests/e2e/... -run TestDashboard_Smoke`
+- [ ] Task 3: Fix File Move / Rename Destination Parsing and Lucide Icon
+  - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_ops_test.go`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_context_menu.html`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestExplorerOps_MoveItem`
 
-- [x] Task 4: Sandbox Script Update & Quality Verification
+- [ ] Task 4: Audit Ledger Logging for Resync & User Actions
+  - **Scope**: `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/engine/runner/... -run TestRunner_`
+
+- [ ] Task 5: Initial Sync / Missing Listings Detection & Resync Confirmation Modal
+  - **Scope**: `internal/server/handlers_profiles.go`, `internal/server/handlers_profiles_test.go`, `dashboard/frontend/js/profiles_history.js`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_ProfileSync`
+
+- [ ] Task 6: Sandbox Script Enhancements & Quality Verification
   - **Scope**: `scripts/run-sandbox.sh`, full quality check (`./scripts/check.sh all`)
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-08: Initialized plan for Explorer Remote Target Synchronization & Mkdir creation.
-- 2026-11-08: Completed all 4 tasks: models, service mkdir, handlers & identical-path guards, UI integration, and quality gates.
+- 2026-11-08: Initialized 6-task plan addressing the 7 interactive sandbox issues.
 
