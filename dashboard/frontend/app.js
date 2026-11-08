@@ -142,6 +142,10 @@ document.addEventListener("alpine:init", () => {
         // File Context Menu State
         contextMenu: { show: false, x: 0, y: 0, paneKey: null, item: null },
 
+        // Upload Dock & Remediation State
+        uploadDock: { pending_count: 0, is_sync_active: false, items: [] },
+        remediationCandidate: null,
+
         // Reusable Confirmation Modal State
         confirmModal: {
             show: false,
@@ -377,21 +381,13 @@ document.addEventListener("alpine:init", () => {
         window.ProfilesModule,
         window.ProfilesModalModule,
         window.ProviderOptionsModule,
-        window.FlagsBuilderModule,
-        window.ProfilesHistoryModule,
-        window.RemotesModule,
-        window.RemotesModalsModule,
-        window.ExplorerModule,
-        window.ExplorerActionsModule,
-        window.ReviewModule,
-        window.ReviewActionsModule,
-        window.LogsModule,
-        window.AuditModule,
-        window.SettingsModule,
-        window.BandwidthModule,
-        window.McpModule,
-        window.PollingModule,
-        window.HelpDiagnosticsModule,
-        window.HelpModule
+        window.FlagsBuilderModule, window.ProfilesHistoryModule,
+        window.RemotesModule, window.RemotesModalsModule,
+        window.ExplorerModule, window.ExplorerActionsModule, window.ExplorerOperationsModule,
+        window.ReviewModule, window.ReviewActionsModule,
+        window.LogsModule, window.AuditModule,
+        window.SettingsModule, window.BandwidthModule,
+        window.McpModule, window.PollingModule,
+        window.HelpDiagnosticsModule, window.HelpModule
     ));
 });

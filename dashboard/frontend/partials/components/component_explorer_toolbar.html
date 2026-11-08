@@ -1,20 +1,28 @@
 {{ define "component_explorer_toolbar" }}
 <!-- Explorer Cockpit Subheader Toolbar -->
-<div class="sticky top-2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
-    <div class="flex items-center gap-2">
-        <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>
-        <span class="text-xs font-semibold uppercase tracking-wider text-slate-200">Dual-Pane Directory Explorer</span>
-        <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block" x-text="explorer.isSwapped ? 'Remote ⇄ Local' : 'Local ⇄ Remote'"></span>
-        <template x-if="activeProfile">
-            <div class="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-950/60 border border-indigo-700/50 rounded-lg text-xs">
-                <span class="text-[10px] text-slate-400">Profile:</span>
-                <span class="text-indigo-300 font-semibold truncate max-w-[10rem]" x-text="activeProfile.name"></span>
-                <button @click="openProfilesModal('list')" class="text-[10px] text-indigo-400 hover:text-white underline ml-0.5">Switch</button>
-            </div>
-        </template>
-    </div>
+<div class="sticky top-2 z-20 space-y-2">
+    <div class="bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-slate-950/40">
+        <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-200">Dual-Pane Directory Explorer</span>
+            <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-400 border border-slate-700/60 hidden sm:inline-block" x-text="explorer.isSwapped ? 'Remote ⇄ Local' : 'Local ⇄ Remote'"></span>
+            <template x-if="activeProfile">
+                <div class="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-950/60 border border-indigo-700/50 rounded-lg text-xs">
+                    <span class="text-[10px] text-slate-400">Profile:</span>
+                    <span class="text-indigo-300 font-semibold truncate max-w-[8rem]" x-text="activeProfile.name"></span>
+                    <span class="text-[10px] font-mono text-indigo-400 hidden xl:inline-block truncate max-w-[12rem]" x-text="'(' + (activeProfile.local_path || 'local') + ' ⇄ ' + (activeProfile.remote || '') + (activeProfile.remote_path ? '/' + activeProfile.remote_path : '') + ')'"></span>
+                    <button @click="openProfilesModal('list')" class="text-[10px] text-indigo-400 hover:text-white underline ml-0.5">Switch</button>
+                </div>
+            </template>
+        </div>
 
     <div class="flex flex-wrap items-center gap-2">
+        <button @click="openUploadDockModal()" class="px-2.5 py-1 bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5" :title="'Upload Dock: ' + (uploadDock.pending_count || 0) + ' pending'">
+            <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            <span>Uploads:</span>
+            <span class="font-mono text-indigo-300 font-bold" x-text="uploadDock.pending_count || 0"></span>
+            <span x-show="uploadDock.is_sync_active" class="px-1 py-0.2 rounded text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider font-bold">Mid-Sync</span>
+        </button>
         <div class="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-2 py-1 rounded-lg text-xs">
             <span class="text-[11px] text-slate-400 font-sans">Delete Safety:</span>
             <select x-model="deleteConfirmMode" @change="setDeleteConfirmMode(deleteConfirmMode)" class="bg-slate-900 border border-slate-700/80 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium">
@@ -41,5 +49,20 @@
             <span x-text="`Review Active (${reviewStats.total})`"></span>
         </button>
     </div>
+</div>
+
+<!-- Active Remediation Cockpit Banner -->
+<template x-if="remediationCandidate">
+    <div class="bg-amber-950/70 border border-amber-600/50 rounded-xl px-4 py-2 flex items-center justify-between gap-3 text-xs text-amber-200 shadow-md">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-bold uppercase tracking-wider border border-amber-500/30">Remediation Triage</span>
+            <span class="text-slate-300 truncate">Inspecting Conflict: <strong class="text-amber-300 font-mono" x-text="remediationCandidate.Path || remediationCandidate.file_path || ''"></strong></span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <button @click="openReviewModal()" class="px-2.5 py-1 bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 rounded-lg text-xs font-medium transition-colors">Return to Review</button>
+            <button @click="clearRemediationCandidate()" class="text-slate-400 hover:text-white text-xs px-1.5 py-0.5">Dismiss</button>
+        </div>
+    </div>
+</template>
 </div>
 {{ end }}

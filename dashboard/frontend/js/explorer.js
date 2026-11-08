@@ -36,6 +36,10 @@ window.ExplorerModule = {
         if (this.explorer.right.items.length === 0) {
             this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
         }
+        if (typeof this.fetchUploadDockStatus === "function") {
+            this.fetchUploadDockStatus();
+        }
+
     },
 
     syncExplorerWithActiveProfile() {

@@ -21,7 +21,7 @@ Implement Milestone 2: Pure Profile Sync Staging & Remediation Workspace with at
   - **Scope**: `internal/services/upload_dock.go`, `internal/services/upload_dock_test.go`, `internal/server/handlers_operations.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestUploadDock`
 
-- [ ] Task 5: Frontend Profile-Bound Workspace & Staging Layout
+- [x] Task 5: Frontend Profile-Bound Workspace & Staging Layout
   - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_explorer_toolbar.html`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_actions.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
