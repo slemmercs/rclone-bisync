@@ -68,6 +68,12 @@
             <span>Open on Remote</span>
         </button>
     </template>
+    <template x-if="contextMenu.paneKey">
+        <button type="button" @click="promptCreateFolder(contextMenu.paneKey); closeContextMenu()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200 hover:text-white transition-colors cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+            <span>New Folder</span>
+        </button>
+    </template>
     <template x-if="contextMenu.item && !isCanaryItem(contextMenu.item)">
         <button type="button" @click="promptMoveItem(contextMenu.paneKey, contextMenu.item); closeContextMenu()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 flex items-center gap-2 text-slate-200 hover:text-white transition-colors cursor-pointer">
             <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>

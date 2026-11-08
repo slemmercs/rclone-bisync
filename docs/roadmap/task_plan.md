@@ -13,7 +13,7 @@ Fix file explorer remote target desynchronization, safeguard operations against 
   - **Scope**: `internal/server/handlers_operations.go`, `internal/server/handlers_operations_test.go`, `internal/services/explorer_ops.go`, `internal/services/explorer_move.go`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_MakeDir`
 
-- [ ] Task 3: Frontend Remote Target Synchronization & Mkdir Modal Integration
+- [x] Task 3: Frontend Remote Target Synchronization & Mkdir Modal Integration
   - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/explorer_operations.js`, `dashboard/frontend/partials/modals/modal_explorer_mkdir.html`, `dashboard/frontend/index.html`, `dashboard/frontend/partials/view_explorer.html`
   - **Verification**: `go test -v -count=1 ./tests/e2e/... -run TestDashboard_Smoke`
 

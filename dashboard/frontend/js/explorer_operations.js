@@ -12,9 +12,89 @@ window.ExplorerOperationsModule = {
         moving: false
     },
 
+    mkdirModal: {
+        show: false,
+        paneKey: null,
+        dirName: "",
+        creating: false
+    },
+
     uploadDockModal: {
         show: false,
         loading: false
+    },
+
+    promptCreateFolder(paneKey) {
+        this.mkdirModal = {
+            show: true,
+            paneKey: paneKey || "left",
+            dirName: "",
+            creating: false
+        };
+        if (this.$nextTick) {
+            this.$nextTick(() => {
+                const el = document.getElementById("mkdir-input");
+                if (el) el.focus();
+            });
+        }
+    },
+
+    cancelCreateFolder() {
+        this.mkdirModal = { show: false, paneKey: null, dirName: "", creating: false };
+    },
+
+    isMkdirDisabled() {
+        return Boolean(this.mkdirModal.creating || !this.mkdirModal.dirName || this.mkdirModal.dirName.trim() === "");
+    },
+
+    async executeCreateFolder() {
+        const { paneKey, dirName } = this.mkdirModal;
+        if (!paneKey || !dirName || dirName.trim() === "") return;
+        const trimmed = dirName.trim();
+        if (trimmed === "RCLONE_TEST") {
+            if (typeof this.showToast === "function") {
+                this.showToast("Cannot create directory named canary test file (RCLONE_TEST)", "error");
+            }
+            return;
+        }
+        if (trimmed.includes("..") || trimmed.includes("/") || trimmed.includes("\\")) {
+            if (typeof this.showToast === "function") {
+                this.showToast("Invalid folder name: slashes and path traversal forbidden", "error");
+            }
+            return;
+        }
+
+        this.mkdirModal.creating = true;
+        const remote = this.explorer[paneKey].target;
+        const currentPanePath = this.explorer[paneKey].path || "";
+        const fullDirPath = currentPanePath ? `${currentPanePath}/${trimmed}`.replace(/^\/+/, "") : trimmed;
+        const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
+
+        try {
+            const data = await window.API.post("/api/operations/mkdir", {
+                remote,
+                path: fullDirPath,
+                profile_id: profileId
+            });
+
+            if (data.status === "success") {
+                if (typeof this.showToast === "function") {
+                    this.showToast(`Folder "${trimmed}" created successfully`, "success");
+                }
+                this.cancelCreateFolder();
+                this.fetchExplorerDirectory(paneKey, remote, currentPanePath);
+            } else {
+                if (typeof this.showToast === "function") {
+                    this.showToast(`Create folder failed: ${data.error || 'Unknown error'}`, "error");
+                }
+            }
+        } catch (err) {
+            if (typeof this.showToast === "function") {
+                this.showToast(`Create folder failed: ${err.message}`, "error");
+            }
+        } finally {
+            this.mkdirModal.creating = false;
+        }
     },
 
     promptMoveItem(paneKey, item) {

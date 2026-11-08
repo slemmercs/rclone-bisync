@@ -288,6 +288,16 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 					}
 				}
 			}
+
+			if tc.name == "explorer" {
+				mkdirVisible, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+					const btns = Array.from(document.querySelectorAll('button')).filter(b => b.innerText && b.innerText.includes('New Folder'));
+					return btns.length >= 2;
+				})()`))
+				if err != nil || !mkdirVisible {
+					t.Errorf("expected at least 2 visible 'New Folder' buttons in dual explorer panes")
+				}
+			}
 		})
 	}
 

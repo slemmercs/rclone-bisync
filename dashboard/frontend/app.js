@@ -128,6 +128,13 @@ document.addEventListener("alpine:init", () => {
             deleting: false
         },
 
+        mkdirModal: {
+            show: false,
+            paneKey: null,
+            dirName: "",
+            creating: false
+        },
+
         // File Preview Modal State
         filePreviewModal: {
             show: false,
@@ -331,16 +338,16 @@ document.addEventListener("alpine:init", () => {
             this.initPolling();
             window.openHelpDrawer = (tab, topic) => this.openHelpDrawer(tab, topic);
             if (!this.isPollingPaused) await this.poll();
-            if (typeof this.fetchProfiles === "function") this.fetchProfiles();
+            if (typeof this.fetchProfiles === "function") await this.fetchProfiles();
             if (typeof this.fetchConfigEncryptionStatus === "function") this.fetchConfigEncryptionStatus();
-            this.fetchRemotes(false);
+            await this.fetchRemotes(false);
             this.fetchReviewSession(false);
             if (typeof this.fetchBandwidthLimit === "function") this.fetchBandwidthLimit();
             if (typeof this.fetchCoreStats === "function") this.fetchCoreStats();
             if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1);
             if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             if (this.currentTab === "remotes") this.fetchRemotes(true);
-            else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") this.initExplorer();
+            else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") await this.initExplorer();
             else if (this.currentTab === "audit" && typeof this.initAudit === "function") this.initAudit();
             this.setupLogScroll("log-bisync");
         },

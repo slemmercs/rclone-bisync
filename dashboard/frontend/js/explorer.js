@@ -5,14 +5,21 @@
  */
 
 window.ExplorerModule = {
-    initExplorer() {
+    async initExplorer() {
+        if (!this.profilesData.list || this.profilesData.list.length === 0) {
+            if (typeof this.fetchProfiles === "function") {
+                await this.fetchProfiles();
+            }
+        }
         if (!this.remotesData.remotes || this.remotesData.remotes.length === 0) {
-            this.fetchRemotes(false);
+            if (typeof this.fetchRemotes === "function") {
+                await this.fetchRemotes(false);
+            }
         }
 
         const p = this.activeProfile;
         if (p) {
-            const remote = (p.remote || "").replace(/:$/, "");
+            const remote = (p.remote || "").replace(/:+$/, "");
             const remotePath = (p.remote_path || "").replace(/^\/+/, "");
             if (!this.explorer.isSwapped) {
                 this.explorer.left.target = "local";
@@ -25,7 +32,7 @@ window.ExplorerModule = {
             }
         } else if (this.remotesData.remotes && this.remotesData.remotes.length > 0) {
             const active = this.remotesData.remotes.find(r => typeof this.isRemoteActiveTarget === "function" ? this.isRemoteActiveTarget(r) : r.is_active_target);
-            if (!this.explorer.isSwapped && !this.explorer.right.target) {
+            if (!this.explorer.isSwapped && (!this.explorer.right.target || this.explorer.right.target === "local")) {
                 this.explorer.right.target = active ? active.name : this.remotesData.remotes[0].name;
             }
         }
@@ -33,13 +40,12 @@ window.ExplorerModule = {
         if (this.explorer.left.items.length === 0) {
             this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
         }
-        if (this.explorer.right.items.length === 0) {
+        if (this.explorer.right.items.length === 0 && this.explorer.right.target) {
             this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
         }
         if (typeof this.fetchUploadDockStatus === "function") {
             this.fetchUploadDockStatus();
         }
-
     },
 
     syncExplorerWithActiveProfile() {
