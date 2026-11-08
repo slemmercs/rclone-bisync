@@ -132,12 +132,62 @@ window.ReviewActionsModule = {
         }
     },
 
-    getItemReviewBadge(paneKey, item) {
+    getReviewCandidate(paneKey, item) {
         if (!this.reviewState?.active || !this.reviewState?.session || !item) return null;
         const pane = this.explorer ? this.explorer[paneKey] : null;
-        const fullRelPath = (pane && pane.path) ? `${pane.path}/${item.Name}` : item.Name;
+        const fullRelPath = (pane && pane.path) ? `${pane.path}/${item.Name}`.replace(/^\/+/, "") : item.Name;
+        return this.reviewCandidates.find(c => {
+            const cPath = (c.path || "").replace(/^\/+/, "");
+            return cPath === fullRelPath || cPath === item.Name;
+        }) || null;
+    },
 
-        const candidate = this.reviewCandidates.find(c => c.path === fullRelPath || c.path === item.Name);
+    inspectInWorkspace(candidate) {
+        if (!candidate || !candidate.path) return;
+
+        const sessionProfileId = this.reviewState?.session?.profile_id;
+        if (sessionProfileId && this.profilesData?.activeId !== sessionProfileId && typeof this.selectProfile === "function") {
+            this.selectProfile(sessionProfileId);
+        }
+
+        const fullPath = candidate.path.replace(/^\/+/, "");
+        const lastSlash = fullPath.lastIndexOf("/");
+        const dir = lastSlash >= 0 ? fullPath.substring(0, lastSlash) : "";
+        const fileName = lastSlash >= 0 ? fullPath.substring(lastSlash + 1) : fullPath;
+
+        if (typeof this.closeReviewModal === "function") {
+            this.closeReviewModal();
+        } else if (this.reviewState) {
+            this.reviewState.showModal = false;
+        }
+
+        this.currentTab = "explorer";
+
+        if (this.explorer) {
+            this.explorer.highlightPath = fullPath;
+            this.explorer.highlightName = fileName;
+            setTimeout(() => {
+                if (this.explorer && this.explorer.highlightName === fileName) {
+                    this.explorer.highlightName = null;
+                }
+            }, 6000);
+
+            this.explorer.left.path = dir;
+            this.explorer.right.path = dir;
+
+            if (typeof this.fetchExplorerDirectory === "function") {
+                this.fetchExplorerDirectory("left", this.explorer.left.target, dir);
+                this.fetchExplorerDirectory("right", this.explorer.right.target, dir);
+            }
+        }
+
+        if (typeof this.showToast === "function") {
+            this.showToast(`Navigated workspace to candidate: ${fileName}`, "info");
+        }
+    },
+
+    getItemReviewBadge(paneKey, item) {
+        const candidate = this.getReviewCandidate(paneKey, item);
         if (!candidate) return null;
 
         if (candidate.type === "deletion") {
@@ -172,23 +222,30 @@ window.ReviewActionsModule = {
     },
 
     getItemReviewRowClass(paneKey, item) {
+        const classes = [];
+        if (this.explorer?.highlightName && item && this.explorer.highlightName === item.Name) {
+            classes.push("ring-2 ring-indigo-500 bg-indigo-500/20");
+        }
         const badge = this.getItemReviewBadge(paneKey, item);
         if (badge) {
             if (badge.label.includes("DELETE") || badge.label.includes("DELETION")) {
-                return "bg-rose-500/10 border-l-2 border-rose-500";
+                classes.push("bg-rose-500/10 border-l-2 border-rose-500");
+            } else if (badge.label.includes("CONFLICT")) {
+                classes.push("bg-amber-500/10 border-l-2 border-amber-500");
+            } else {
+                classes.push("bg-emerald-500/10 border-l-2 border-emerald-500");
             }
-            if (badge.label.includes("CONFLICT")) {
-                return "bg-amber-500/10 border-l-2 border-amber-500";
-            }
-            return "bg-emerald-500/10 border-l-2 border-emerald-500";
+            return classes.join(" ");
         }
         if (item && item.Name === "RCLONE_TEST") {
-            return "bg-amber-500/5 border-l-2 border-amber-500";
+            classes.push("bg-amber-500/5 border-l-2 border-amber-500");
+            return classes.join(" ");
         }
         if (typeof this.isItemExcluded === "function" && this.isItemExcluded(item)) {
-            return "opacity-50 text-slate-500";
+            classes.push("opacity-50 text-slate-500");
+            return classes.join(" ");
         }
-        return "";
+        return classes.join(" ");
     },
 
     isReviewDismissing() {

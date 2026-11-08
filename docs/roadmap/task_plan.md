@@ -25,7 +25,7 @@ Implement Milestone 2: Pure Profile Sync Staging & Remediation Workspace with at
   - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_explorer_toolbar.html`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_actions.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
-- [ ] Task 6: Sync Review Remediation Bridge & Ambient Candidate Highlighting
+- [x] Task 6: Sync Review Remediation Bridge & Ambient Candidate Highlighting
   - **Scope**: `dashboard/frontend/partials/modals/modal_review.html`, `dashboard/frontend/partials/components/component_context_menu.html`, `dashboard/frontend/js/review.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
 
