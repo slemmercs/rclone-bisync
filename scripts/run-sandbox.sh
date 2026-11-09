@@ -143,6 +143,7 @@ echo "🚀 Starting ephemeral Rclone RC daemon on port $RC_PORT (with live passp
             --rc-user "$RC_USER" \
             --rc-pass "$RC_PASS" \
             --config "$SANDBOX_DIR/rclone.conf" \
+            --cache-dir "$SANDBOX_DIR/cache" \
             --log-level INFO \
             --log-file "$SANDBOX_DIR/rclone-daemon.log" \
             --use-json-log || true

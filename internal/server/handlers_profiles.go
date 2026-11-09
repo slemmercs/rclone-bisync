@@ -251,7 +251,7 @@ func (s *Server) handleProfileSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Detect if profile has never run a baseline sync and resync wasn't requested
-	if prof.State.LastSync == nil && !req.Resync {
+	if (prof.State.LastSync == nil || prof.State.LastSync.IsZero()) && !req.Resync {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":          "requires_resync",
 			"requires_resync": true,

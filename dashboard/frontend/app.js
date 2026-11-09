@@ -332,6 +332,13 @@ document.addEventListener("alpine:init", () => {
                     payload.profile_id = this.profilesData.activeId;
                 }
                 const data = await window.API.post("/api/action", payload);
+                if (data.requires_resync) {
+                    const profId = payload.profile_id || "selected profile";
+                    if (confirm(`Profile "${profId}" has never been synced. Initial synchronization requires --resync to establish baseline listings.\n\nProceed with --resync now?`)) {
+                        return await this.triggerAction("force_resync");
+                    }
+                    return;
+                }
                 if (data.status === "error") {
                     const errDetail = data.msg || data.error || "Request failed";
                     this.showToast("Action Error: " + errDetail, "error");

@@ -16,9 +16,29 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ProfileID != "" && s.ProfileService != nil {
+	targetProfileID := req.ProfileID
+	if targetProfileID == "" && s.ProfileService != nil {
+		if p, err := s.ProfileService.Get("default"); err == nil && p != nil {
+			targetProfileID = "default"
+		}
+	}
+
+	if targetProfileID != "" && s.ProfileService != nil {
 		switch req.Action {
 		case "start_sync", "resync", "force_resync", "force_sync", "dry_run":
+			if req.Action == "start_sync" {
+				prof, err := s.ProfileService.Get(targetProfileID)
+				if err == nil && prof != nil && (prof.State.LastSync == nil || prof.State.LastSync.IsZero()) {
+					writeJSON(w, http.StatusOK, map[string]any{
+						"status":          "requires_resync",
+						"requires_resync": true,
+						"msg":             fmt.Sprintf("Profile %q has never been synchronized. Initial synchronization requires --resync to establish baseline listings.", targetProfileID),
+						"profile_id":      targetProfileID,
+					})
+					return
+				}
+			}
+
 			origin := s.resolveActor(r)
 			if origin == "USER" {
 				origin = "dashboard"
@@ -29,11 +49,11 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 				DryRun: req.Action == "dry_run",
 				Origin: origin,
 			}
-			if err := s.ProfileService.TriggerSyncWithOptions(r.Context(), req.ProfileID, opts); err != nil {
+			if err := s.ProfileService.TriggerSyncWithOptions(r.Context(), targetProfileID, opts); err != nil {
 				writeJSON(w, http.StatusOK, models.ActionResponse{Status: "error", Msg: err.Error(), Error: err.Error()})
 				return
 			}
-			writeJSON(w, http.StatusOK, models.ActionResponse{Status: "success", Msg: fmt.Sprintf("Action %s initiated for profile %s", req.Action, req.ProfileID)})
+			writeJSON(w, http.StatusOK, models.ActionResponse{Status: "success", Msg: fmt.Sprintf("Action %s initiated for profile %s", req.Action, targetProfileID)})
 			return
 		}
 	}
