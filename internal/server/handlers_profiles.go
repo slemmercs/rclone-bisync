@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/models"
@@ -252,6 +253,21 @@ func (s *Server) handleProfileSync(w http.ResponseWriter, r *http.Request) {
 
 	// Detect if profile has never run a baseline sync and resync wasn't requested
 	if (prof.State.LastSync == nil || prof.State.LastSync.IsZero()) && !req.Resync {
+		origin := s.resolveActor(r)
+		if origin == "USER" {
+			origin = "dashboard"
+		}
+		if l := s.getLogger(); l != nil {
+			_ = l.RecordSyncRun(models.BisyncLogEntry{
+				Time:      time.Now().Format(time.RFC3339),
+				Level:     "notice",
+				Type:      "sync",
+				ProfileID: id,
+				Status:    "REQUIRES_RESYNC",
+				Msg:       fmt.Sprintf("[%s] Profile has never been synchronized. Initial synchronization requires --resync confirmation to establish baseline listings.", id),
+				Origin:    origin,
+			})
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":          "requires_resync",
 			"requires_resync": true,

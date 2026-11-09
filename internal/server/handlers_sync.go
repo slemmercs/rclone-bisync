@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
@@ -26,9 +27,24 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 	if targetProfileID != "" && s.ProfileService != nil {
 		switch req.Action {
 		case "start_sync", "resync", "force_resync", "force_sync", "dry_run":
+			origin := s.resolveActor(r)
+			if origin == "USER" {
+				origin = "dashboard"
+			}
 			if req.Action == "start_sync" {
 				prof, err := s.ProfileService.Get(targetProfileID)
 				if err == nil && prof != nil && (prof.State.LastSync == nil || prof.State.LastSync.IsZero()) {
+					if l := s.getLogger(); l != nil {
+						_ = l.RecordSyncRun(models.BisyncLogEntry{
+							Time:      time.Now().Format(time.RFC3339),
+							Level:     "notice",
+							Type:      "sync",
+							ProfileID: targetProfileID,
+							Status:    "REQUIRES_RESYNC",
+							Msg:       fmt.Sprintf("[%s] Profile has never been synchronized. Initial synchronization requires --resync confirmation to establish baseline listings.", targetProfileID),
+							Origin:    origin,
+						})
+					}
 					writeJSON(w, http.StatusOK, map[string]any{
 						"status":          "requires_resync",
 						"requires_resync": true,
@@ -39,10 +55,6 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			origin := s.resolveActor(r)
-			if origin == "USER" {
-				origin = "dashboard"
-			}
 			opts := profiles.SyncOptions{
 				Force:  req.Action == "force_sync",
 				Resync: req.Action == "resync" || req.Action == "force_resync",

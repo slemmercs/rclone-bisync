@@ -13,7 +13,7 @@ Replace unstyled browser `window.confirm(...)` popups with the custom UI confirm
   - **Scope**: `scripts/run-sandbox.sh`, `internal/config/config.go`
   - **Verification**: `go test -count=1 ./internal/config/...`
 
-- [ ] Task 3: Backend Intercept & Resync Notice Logging
+- [x] Task 3: Backend Intercept & Resync Notice Logging
   - **Scope**: `internal/server/handlers_sync.go`, `internal/server/handlers_profiles.go`, `internal/server/handlers_profiles_sync_test.go`
   - **Verification**: `go test -count=1 ./internal/server/... -run "TestHandleAction_RequiresResync|TestHandler_ProfileSync"`
 
@@ -30,3 +30,4 @@ Replace unstyled browser `window.confirm(...)` popups with the custom UI confirm
 - 2026-11-09: Initialized task plan from implementation_plan.md.
 - 2026-11-09: Task 1 verified: Migrated uninitialized resync confirmation dialogs in `app.js` and `profiles_history.js` to styled `confirmModal`. E2E smoke tests passed.
 - 2026-11-09: Task 2 verified: Standardized default LogFile to bisync.log in config, sandbox setup, and comments. All tests in internal/config passed.
+- 2026-11-09: Task 3 verified: Added REQUIRES_RESYNC notice logging to bisync.log on intercepted uninitialized sync triggers in handlers_sync.go and handlers_profiles.go. Tests in internal/server passed.

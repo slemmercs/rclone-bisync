@@ -16,6 +16,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/core/security"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
@@ -137,6 +138,16 @@ func (w *statusRecordingWriter) Flush() {
 	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
 		flusher.Flush()
 	}
+}
+
+func (s *Server) getLogger() *logger.Logger {
+	if s.AuditService != nil && s.AuditService.Logger != nil {
+		return s.AuditService.Logger
+	}
+	if s.Container != nil && s.Container.Logger != nil {
+		return s.Container.Logger
+	}
+	return nil
 }
 
 func (s *Server) resolveActor(r *http.Request) string {

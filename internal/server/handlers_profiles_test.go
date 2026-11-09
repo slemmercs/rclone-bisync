@@ -43,6 +43,7 @@ func setupTestServerWithProfiles(t *testing.T) (*Server, *profiles.Service) {
 		BaseDir:             tmpDir,
 		ProfilesFile:        profPath,
 		ProfilesHistoryFile: histPath,
+		LogFile:             filepath.Join(tmpDir, "bisync.log"),
 	}
 
 	s := NewServer(cfg, nil, nil)

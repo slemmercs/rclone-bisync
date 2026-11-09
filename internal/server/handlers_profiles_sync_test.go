@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +48,15 @@ func TestHandler_ProfileSync(t *testing.T) {
 		t.Fatalf("expected requires_resync: true and status: requires_resync, got %+v", resp)
 	}
 
+	// Verify that the intercept notice was logged to bisync.log
+	logData, err := os.ReadFile(s.Config.LogFile)
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
+	}
+	if !strings.Contains(string(logData), "REQUIRES_RESYNC") || !strings.Contains(string(logData), "prof_sync_test") {
+		t.Fatalf("expected REQUIRES_RESYNC log entry in bisync.log, got: %s", string(logData))
+	}
+
 	// 2. Initial sync trigger with resync: true -> should succeed
 	reqBodyResync := map[string]any{
 		"force":   false,
@@ -66,7 +77,7 @@ func TestHandler_ProfileSync(t *testing.T) {
 
 	// 3. Mark profile as having synced (LastSync set)
 	now := time.Now()
-	err := svc.UpdateState("prof_sync_test", profiles.OperationalState{
+	err = svc.UpdateState("prof_sync_test", profiles.OperationalState{
 		LastSync: &now,
 		Status:   profiles.StatusHealthy,
 	})
@@ -128,6 +139,15 @@ func TestHandleAction_RequiresResync(t *testing.T) {
 		t.Fatalf("expected requires_resync: true and status: requires_resync, got %+v", resp)
 	}
 
+	// Verify that the intercept notice was logged to bisync.log
+	logDataAction, err := os.ReadFile(s.Config.LogFile)
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
+	}
+	if !strings.Contains(string(logDataAction), "REQUIRES_RESYNC") || !strings.Contains(string(logDataAction), "prof_action_test") {
+		t.Fatalf("expected REQUIRES_RESYNC log entry in bisync.log, got: %s", string(logDataAction))
+	}
+
 	// 2. Post force_resync via /api/action -> should succeed
 	reqBodyResync := map[string]any{
 		"action":     "force_resync",
@@ -147,7 +167,7 @@ func TestHandleAction_RequiresResync(t *testing.T) {
 
 	// 3. Mark profile as initialized
 	now := time.Now()
-	err := svc.UpdateState("prof_action_test", profiles.OperationalState{
+	err = svc.UpdateState("prof_action_test", profiles.OperationalState{
 		LastSync: &now,
 		Status:   profiles.StatusHealthy,
 	})
