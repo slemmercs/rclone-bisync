@@ -881,6 +881,75 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			t.Errorf("expected review candidate match for report.docx")
 		}
 	})
+	// 8. Test Open on Remote Capability Filtering
+	t.Run("OpenOnRemoteCapabilityFiltering", func(t *testing.T) {
+		script := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			if (typeof app.canOpenOnRemote !== 'function') {
+				return { error: "canOpenOnRemote method missing" };
+			}
+
+			// Mock remotes data
+			app.remotesData = {
+				remotes: [
+					{ name: 'drive_remote', type: 'drive', can_public_link: true },
+					{ name: 'sftp_remote', type: 'sftp', can_public_link: false },
+					{ name: 'box_remote', type: 'box' } // fallback whitelist
+				]
+			};
+
+			app.explorer = app.explorer || {};
+			app.explorer.left = { target: 'local', path: '' };
+			app.explorer.right = { target: 'drive_remote:', path: '' };
+
+			const localSupported = app.canOpenOnRemote('left');
+			const driveSupported = app.canOpenOnRemote('right');
+
+			app.explorer.right.target = 'sftp_remote:';
+			const sftpSupported = app.canOpenOnRemote('right');
+
+			app.explorer.right.target = 'box_remote:';
+			const boxSupported = app.canOpenOnRemote('right');
+
+			return {
+				localSupported,
+				driveSupported,
+				sftpSupported,
+				boxSupported
+			};
+		})()`
+
+		type CapResult struct {
+			Error          *string `json:"error"`
+			LocalSupported bool    `json:"localSupported"`
+			DriveSupported bool    `json:"driveSupported"`
+			SftpSupported  bool    `json:"sftpSupported"`
+			BoxSupported   bool    `json:"boxSupported"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[CapResult](script))
+		if err != nil {
+			t.Fatalf("failed evaluating OpenOnRemote script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("OpenOnRemote check failed: %s", *res.Error)
+		}
+		if res.LocalSupported {
+			t.Errorf("expected local target to return false for canOpenOnRemote")
+		}
+		if !res.DriveSupported {
+			t.Errorf("expected drive_remote to return true for canOpenOnRemote")
+		}
+		if res.SftpSupported {
+			t.Errorf("expected sftp_remote to return false for canOpenOnRemote")
+		}
+		if !res.BoxSupported {
+			t.Errorf("expected box_remote to return true for canOpenOnRemote via whitelist fallback")
+		}
+	})
+
 
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()

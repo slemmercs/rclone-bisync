@@ -1,130 +1,104 @@
-# Implementation Plan: Provider-Aware "Open on Remote" Capability Filtering
+# Implementation Plan: Explorer Capabilities, Audit Parity, Initial-Sync Safety & Log Resilience
 
-## Proposed Changes
+## Overview
+Implement provider-aware capability filtering for File Explorer remote public sharing links, achieve full cryptographic audit ledger parity across all manual File Explorer operations, enforce universal uninitialized profile detection requiring baseline `--resync` across all sync triggers, and isolate the sandbox cache directory to prevent host listing collisions and log fetch failures.
 
-Filter out the "Open on Remote" context menu item when the active pane's storage provider does not support public sharing links (`operations/publiclink`), preventing user-facing errors on unsupported backends (such as local filesystem, alias to local, SFTP, raw S3).
+## Types
 
-### Affected Components & Packages
+### 1. Audit Taxonomy Extensions (`internal/audit/taxonomy.go`)
+Extend the standardized audit action enumeration to cover all manual staging mutations initiated from the File Explorer:
+```go
+const (
+    // Workspace Manual Staging Operations
+    ActionWorkspaceItemMoved     Action = "WORKSPACE_ITEM_MOVED"
+    ActionWorkspaceDirPurged     Action = "WORKSPACE_DIR_PURGED"
+    ActionWorkspaceDirCreated    Action = "WORKSPACE_DIR_CREATED"
+    ActionWorkspaceFileUploaded  Action = "WORKSPACE_FILE_UPLOADED"
+    ActionWorkspaceItemCopied    Action = "WORKSPACE_ITEM_COPIED"
+    ActionWorkspaceItemDeleted   Action = "WORKSPACE_ITEM_DELETED"
+)
+```
 
-- `internal/core/client/remotes.go`: Add `GetRemoteFsInfo(ctx, remote)` querying Rclone RC `/operations/fsinfo` for backend features.
-- `internal/services/telemetry_remotes.go`: In `GetRemotesSummaryCached`, evaluate `Features.PublicLink` from `GetRemoteFsInfo` with fallback to known provider types, populating `"can_public_link"` on each remote in `RemotesResponse`.
-- `dashboard/frontend/js/explorer_operations.js`: Implement `canOpenOnRemote(paneKey)` to check remote capability; dynamically update `found.can_public_link = false` if runtime API returns unsupported.
-- `dashboard/frontend/partials/components/component_context_menu.html`: Update template conditional from `target !== 'local'` to `canOpenOnRemote(contextMenu.paneKey)`.
-- `internal/services/telemetry_service_test.go`: Add unit test assertions for `can_public_link` metadata in remotes summary.
+### 2. Remote Public Link Capability Contract (`internal/models/remote.go` / `internal/services/telemetry_remotes.go`)
+Ensure the boolean field `can_public_link` is exposed on each remote dictionary returned by `GET /api/remotes`:
+```go
+type RemoteInfo struct {
+    Name          string `json:"name"`
+    Type          string `json:"type"`
+    CanPublicLink bool   `json:"can_public_link"`
+}
+```
 
-### Technical Strategy & Data Flow
+## Files
 
-1. **Backend Capability Discovery**:
-   - `c.GetRemoteFsInfo(ctx, remote)` queries `/operations/fsinfo`.
-   - `telemetry_remotes.go` extracts `Features.PublicLink`. If `fsinfo` is unavailable (e.g. timeout or offline remote), falls back to provider type whitelist (`drive`, `onedrive`, `dropbox`, `box`, `pcloud`, `yandex`, `mega`, `mailru`, `opendrive`, `linkbox`, `pikpak`, `zoho`, `protondrive`).
-   - `"can_public_link": bool` is included in the remote's JSON dictionary returned by `GET /api/remotes`.
+### Existing Files to Modify:
+1. `dashboard/frontend/js/explorer_operations.js`:
+   - Implement `canOpenOnRemote(paneKey)` helper matching `explorer[paneKey].target` against `remotesData.remotes` and checking `can_public_link`.
+   - Update `openOnRemote()`: if the backend returns `supported: false` or error, dynamically set `remote.can_public_link = false` on the cached remote object to immediately hide the action.
+2. `dashboard/frontend/partials/components/component_context_menu.html`:
+   - Replace `<template x-if="contextMenu.item && contextMenu.paneKey && explorer[contextMenu.paneKey].target !== 'local'">` with `<template x-if="contextMenu.item && contextMenu.paneKey && canOpenOnRemote(contextMenu.paneKey)">`.
+3. `internal/audit/taxonomy.go`:
+   - Add `ActionWorkspaceFileUploaded`, `ActionWorkspaceItemCopied`, and `ActionWorkspaceItemDeleted`.
+4. `internal/server/handlers_explorer.go`:
+   - In `handleExplorerUpload`: upon successful upload, invoke `s.AuditService.RecordEvent(profileID, audit.ActionWorkspaceFileUploaded, s.resolveActor(r), map[string]any{ ... })`.
+   - In `handleCopyItem`: record `audit.ActionWorkspaceItemCopied`.
+   - In `handleDeleteItem`: record `audit.ActionWorkspaceItemDeleted`.
+5. `dashboard/frontend/js/audit.js`:
+   - Update `getAuditActionBadgeClass` to style `WORKSPACE_FILE_UPLOADED`, `WORKSPACE_ITEM_COPIED`, and `WORKSPACE_ITEM_DELETED`.
+6. `internal/server/handlers_sync.go`:
+   - In `handleAction` for `case "start_sync"`: check whether `prof.State.LastSync == nil || prof.State.LastSync.IsZero()`. If uninitialized, return `requires_resync: true` and `status: "requires_resync"`.
+7. `dashboard/frontend/app.js`:
+   - In `triggerAction(actionStr)`: intercept `data.requires_resync`. If user confirms, cascade to `triggerAction("force_resync")` or `triggerProfileSync(profId, false, true, false)`.
+8. `scripts/run-sandbox.sh`:
+   - Add `--cache-dir "$SANDBOX_DIR/cache"` explicitly to the `rclone rcd` command arguments to prevent fallback to `~/.cache/rclone`.
+9. `internal/server/handlers_telemetry.go`:
+   - In `handleDaemonLogs`: enforce defensive handling against missing log files and return empty log arrays instead of hanging or returning 500.
+10. `dashboard/frontend/js/logs.js`:
+    - In `openDaemonModal`: catch connection errors with user-friendly error formatting.
 
-2. **Frontend Filtering**:
-   - `canOpenOnRemote(paneKey)` matches `explorer[paneKey].target` against `remotesData.remotes`.
-   - If target is `"local"` or not found, returns `false`.
-   - If `remote.can_public_link` is explicit, returns its boolean value; otherwise falls back to provider whitelist.
-   - If `openOnRemote` ever returns `supported: false`, updates cached remote state to immediately suppress the item.
+## Functions
 
-## Verification Plan
+### New Functions:
+- `canOpenOnRemote(paneKey)` (`dashboard/frontend/js/explorer_operations.js`):
+  Evaluates whether the target storage provider of `paneKey` supports public links using `this.remotesData.remotes` and whitelist fallback.
 
-- `go test -v -count=1 ./internal/services/... -run TestGetRemotesSummary`
-- `go test -v -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
-- `./scripts/check.sh all`
-   - Purpose: Calls Rclone RC `operations/purge`.
-4. `c.PublicLink(ctx context.Context, fs, remote string, unlink bool) (*models.PublicLinkResponse, error)`
-   - File: `internal/core/client/operations.go`
-   - Purpose: Calls Rclone RC `operations/publiclink` and returns shareable URL.
-5. `e.MoveItem(ctx context.Context, req models.MoveRequest, localBase string) (models.MoveResponse, error)`
-   - File: `internal/services/explorer_move.go`
-   - Purpose: Validates local jail boundaries, blocks `RCLONE_TEST` canary moves, executes atomic `os.Rename` for local moves or RC client for cloud, audits with `SOURCE: WORKSPACE_STAGING`.
-6. `e.PurgeDirectory(ctx context.Context, req models.PurgeRequest, localBase string) (models.PurgeResponse, error)`
-   - File: `internal/services/explorer_purge.go`
-   - Purpose: Recursively verifies no canary is contained before purging; audits action.
-7. `e.GetPublicLink(ctx context.Context, req models.PublicLinkRequest) (models.PublicLinkResponse, error)`
-   - File: `internal/services/explorer_link.go`
-   - Purpose: Calls client public link; handles unsupported remotes gracefully without 500 error.
-8. `dock.Enqueue(item models.UploadQueueItem) error` / `dock.GetStatus() models.UploadDockStatus`
-   - File: `internal/services/upload_dock.go`
-   - Purpose: In-memory upload queue tracking deferrals during active sync runs.
-9. `s.handleMoveItem(w http.ResponseWriter, r *http.Request)`
-   - File: `internal/server/handlers_operations.go`
-   - Purpose: HTTP handler for `POST /api/operations/move`.
-10. `s.handlePurgeDirectory(w http.ResponseWriter, r *http.Request)`
-    - File: `internal/server/handlers_operations.go`
-    - Purpose: HTTP handler for `POST /api/operations/purge`.
-11. `s.handlePublicLink(w http.ResponseWriter, r *http.Request)`
-    - File: `internal/server/handlers_operations.go`
-    - Purpose: HTTP handler for `GET /api/operations/publiclink`.
+### Modified Functions:
+- `handleExplorerUpload(w, r)` (`internal/server/handlers_explorer.go`):
+  Audits file upload with remote, target path, filename, size, and actor.
+- `handleCopyItem(w, r)` (`internal/server/handlers_explorer.go`):
+  Audits copy operation with src/dst remotes, paths, and is_dir flag.
+- `handleDeleteItem(w, r)` (`internal/server/handlers_explorer.go`):
+  Audits delete operation with remote, path, and is_dir flag.
+- `handleAction(w, r)` (`internal/server/handlers_sync.go`):
+  Guards `start_sync` against uninitialized profiles missing baseline listings.
+- `triggerAction(actionStr)` (`dashboard/frontend/app.js`):
+  Prompts user when `requires_resync` is returned by `/api/action`.
+- `openOnRemote(paneKey, item)` (`dashboard/frontend/js/explorer_operations.js`):
+  Dynamically mutates `remote.can_public_link = false` upon runtime unsupported response.
+
+## Classes
+No new Go classes or services required. `AuditService`, `ExplorerService`, and `SyncService` integrate the above changes within their existing contracts.
+
+## Dependencies
+Native Go standard library and existing internal modules (`internal/audit`, `internal/services`, `internal/server`). Zero external runtime dependencies.
+
+## Testing
+1. `internal/server/handlers_explorer_test.go`:
+   - Verify `handleExplorerUpload`, `handleCopyItem`, and `handleDeleteItem` write audit records to the test audit database.
+2. `internal/server/handlers_profiles_sync_test.go`:
+   - Verify `/api/action` with `start_sync` returns `requires_resync: true` when a profile has `LastSync == nil`.
+3. `tests/e2e/dashboard_smoke_test.go`:
+   - Headless Chrome test asserting that context menu on unsupported or local remotes suppresses "Open on Remote".
+4. Quality gate:
+   - Full pass: `./scripts/check.sh all`.
+
+## Implementation Order
+1. Complete Context Menu Capability Filtering (`explorer_operations.js`, `component_context_menu.html`).
+2. Audit Ledger Parity for File Explorer Operations (`taxonomy.go`, `handlers_explorer.go`, `audit.js`, `handlers_explorer_test.go`).
+3. Universal Uninitialized Profile Detection & Sandbox Cache Isolation (`handlers_sync.go`, `app.js`, `run-sandbox.sh`, `handlers_profiles_sync_test.go`).
+4. Correlated Log Resilience & Error Formatting (`handlers_telemetry.go`, `logs.js`).
+5. Quality Gate Verification (`./scripts/check.sh all`).
+
 
 ### Modified Functions
-1. `s.routes()`
-   - File: `internal/server/server.go`
-   - Modification: Call `s.registerOperationsRoutes()` to register new operational routes without exceeding 400 LOC.
-2. `fetchExplorerDirectory(pane, target, path)`
-   - File: `dashboard/frontend/js/explorer.js`
-   - Modification: Check active review candidates and apply ambient badges.
 
-## [Classes / Structs]
-
-1. `ExplorerService`:
-   - File: `internal/services/explorer_service.go`
-   - Receives new methods across decomposed domain files (`explorer_move.go`, `explorer_purge.go`, `explorer_link.go`).
-2. `UploadDock`:
-   - File: `internal/services/upload_dock.go`
-   - Thread-safe manager: `sync.RWMutex`, `items []models.UploadQueueItem`, checks `syncService.IsSyncing()`.
-3. `RcloneClient`:
-   - File: `internal/core/client/operations.go`
-   - Receives methods `MoveFile`, `MoveDir`, `Purge`, `PublicLink`.
-
-## [Dependencies]
-- Zero external runtime or package dependencies; standard Go library (`net/http`, `os`, `path/filepath`, `sync`, `time`) and existing internal modules (`internal/core/client`, `internal/models`, `internal/security`).
-
-## [Testing]
-
-1. **Unit Tests**:
-   - `internal/core/client/operations_test.go`:
-     - `TestMoveFile_Success`, `TestMoveFile_Error`
-     - `TestMoveDir_Success`
-     - `TestPurge_Success`, `TestPurge_Error`
-     - `TestPublicLink_Success`, `TestPublicLink_Unsupported`
-   - `internal/services/explorer_move_test.go`:
-     - `TestMoveItem_LocalToLocal_Success`
-     - `TestMoveItem_CanaryBlocked`
-     - `TestMoveItem_JailEscapeBlocked`
-     - `TestPurgeDirectory_CanaryBlocked`
-   - `internal/server/handlers_operations_test.go`:
-     - Test HTTP endpoints with valid payloads and deliberate jail traversal attempts (`../`).
-2. **Quality Gates**:
-   - `./scripts/check.sh all` validating format, vet, staticcheck, LOC compliance (<400 LOC per file), template safety, and race detector.
-3. **End-to-End Headless Chrome Tests**:
-   - `tests/e2e/dashboard_smoke_test.go`:
-     - Verify workspace dual panes reflect active profile local and remote paths.
-     - Verify review candidate deep link opens workspace and highlights target.
-
-## [Implementation Order]
-
-1. **Step 1: Core Client Operation Wrappers & Models**
-   - Create `internal/models/operations.go` and `internal/models/upload.go`.
-   - Implement `internal/core/client/operations.go` and `internal/core/client/operations_test.go`.
-   - Verify: `go test -v -count=1 ./internal/core/client/... -run "TestMove|TestPurge|TestPublicLink"`
-2. **Step 2: Service Layer Profile-Bound Operations (Move, Purge, Link)**
-   - Implement `internal/services/explorer_move.go`, `explorer_purge.go`, `explorer_link.go`.
-   - Implement unit tests in `internal/services/explorer_move_test.go`.
-   - Verify: `go test -v -count=1 ./internal/services/... -run "TestMoveItem|TestPurge|TestPublicLink"`
-3. **Step 3: Server Handlers & Endpoint Routing**
-   - Implement `internal/server/handlers_operations.go` and `internal/server/handlers_operations_test.go`.
-   - Wire route registration in `internal/server/server.go`.
-   - Verify: `go test -v -count=1 ./internal/server/... -run TestHandleOperations`
-4. **Step 4: Non-Blocking Upload Dock Service**
-   - Implement `internal/services/upload_dock.go` and unit tests in `internal/services/upload_dock_test.go`.
-   - Add endpoint in `internal/server/handlers_operations.go`.
-   - Verify: `go test -v -count=1 ./internal/services/... -run TestUploadDock`
-5. **Step 5: Frontend Workspace Layout & Profile-Bound Panes**
-   - Update `component_explorer_toolbar.html`, `view_explorer.html`, `explorer.js`, and `explorer_actions.js`.
-   - Verify: `./scripts/check.sh templates && ./scripts/check.sh loc`
-6. **Step 6: Sync Review Remediation Bridge**
-   - Update `modal_review.html`, `component_context_menu.html`, and `review.js`.
-   - Verify: `./scripts/check.sh templates && ./scripts/check.sh loc`
-7. **Step 7: Full Quality Gates & E2E Smoke Testing**
-   - Add E2E headless test scenarios in `tests/e2e/dashboard_smoke_test.go`.
-   - Execute full pre-commit check: `./scripts/check.sh all`.

@@ -228,6 +228,24 @@ window.ExplorerOperationsModule = {
         }
     },
 
+    canOpenOnRemote(paneKey) {
+        if (!paneKey || !this.explorer || !this.explorer[paneKey]) return false;
+        const target = this.explorer[paneKey].target;
+        if (!target || target === "local") return false;
+
+        const remotes = this.remotesData?.remotes || [];
+        const cleanName = target.replace(/:.*$/, "");
+        const match = remotes.find(r => r.name === target || r.name === cleanName || `${r.name}:` === target);
+        if (match) {
+            if (typeof match.can_public_link === "boolean") {
+                return match.can_public_link;
+            }
+            const supportedTypes = ["drive", "onedrive", "dropbox", "box", "pcloud", "yandex", "mega", "mailru", "opendrive", "linkbox", "pikpak", "zoho", "protondrive"];
+            return supportedTypes.includes((match.type || "").toLowerCase());
+        }
+        return false;
+    },
+
     async openOnRemote(paneKey, item) {
         if (!item) return;
         const remote = this.explorer[paneKey].target;
@@ -254,6 +272,12 @@ window.ExplorerOperationsModule = {
             if (data && data.supported && data.url) {
                 window.open(data.url, "_blank");
             } else if (data && !data.supported) {
+                const remotes = this.remotesData?.remotes || [];
+                const cleanName = remote.replace(/:.*$/, "");
+                const match = remotes.find(r => r.name === remote || r.name === cleanName || `${r.name}:` === remote);
+                if (match) {
+                    match.can_public_link = false;
+                }
                 if (typeof this.showToast === "function") {
                     this.showToast("Web view link unsupported for this storage provider", "info");
                 }

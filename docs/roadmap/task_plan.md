@@ -1,7 +1,7 @@
-# Task Plan: Provider-Aware "Open on Remote" Capability Filtering
+# Task Plan: Explorer Capabilities, Audit Parity, Initial-Sync Safety & Log Resilience
 
 ## Goal
-Filter out "Open on Remote" from the File Explorer context menu when the active storage provider does not support public sharing links (`operations/publiclink`), avoiding runtime errors on unsupported storage tiers.
+Resolve 4 user-reported issues: (1) provider-aware "Open on Remote" context menu filtering, (2) File Explorer manual operations audit ledger logging, (3) universal baseline `--resync` enforcement on uninitialized profiles with sandbox cache isolation, and (4) resilient correlated daemon log retrieval.
 
 ## Tasks
 
@@ -9,15 +9,29 @@ Filter out "Open on Remote" from the File Explorer context menu when the active 
   - **Scope**: `internal/core/client/remotes.go`, `internal/services/telemetry_remotes.go`, `internal/services/telemetry_service_test.go`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestGetRemotesSummary`
 
-- [ ] Task 2: Frontend Context Menu Filtering & Dynamic Capability Degradation
+- [x] Task 2: Frontend Context Menu Filtering & Dynamic Capability Degradation
   - **Scope**: `dashboard/frontend/js/explorer_operations.js`, `dashboard/frontend/partials/components/component_context_menu.html`, `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `go test -v -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 3: Quality Gate Verification & Pre-Commit Check
-  - **Scope**: Full quality check suite
+- [ ] Task 3: Audit Ledger Parity for File Explorer Operations
+  - **Scope**: `internal/audit/taxonomy.go`, `internal/server/handlers_explorer.go`, `dashboard/frontend/js/audit.js`, `internal/server/handlers_explorer_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleExplorerUpload`
+
+- [ ] Task 4: Universal Uninitialized Profile Detection & Sandbox Cache Isolation
+  - **Scope**: `internal/server/handlers_sync.go`, `dashboard/frontend/app.js`, `scripts/run-sandbox.sh`, `internal/server/handlers_profiles_sync_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_ProfileSync`
+
+- [ ] Task 5: Correlated Daemon Log Resilience & Error Formatting
+  - **Scope**: `internal/server/handlers_telemetry.go`, `dashboard/frontend/js/logs.js`, `internal/server/handlers_telemetry_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_DaemonLogs`
+
+- [ ] Task 6: Quality Gate Verification & Pre-Commit Check
+  - **Scope**: Full repository quality check suite
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-08: Initialized 3-task plan for provider-aware "Open on Remote" capability filtering.
+- 2026-11-08: Task 1 verified and committed (`git commit 6c2689c`).
+- 2026-11-09: Initialized updated comprehensive plan covering all 4 interactive sandbox issues.
+
 
