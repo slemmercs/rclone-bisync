@@ -21,7 +21,7 @@ Replace unstyled browser `window.confirm(...)` popups with the custom UI confirm
   - **Scope**: `internal/engine/runner/runner.go`, `internal/engine/runner/runner_test.go`
   - **Verification**: `go test -count=1 ./internal/engine/runner/... -run TestRunWithError`
 
-- [ ] Task 5: Quality Gate Verification & Pre-Commit Validation
+- [x] Task 5: Quality Gate Verification & Pre-Commit Validation
   - **Scope**: Full repository check suite
   - **Verification**: `./scripts/check.sh all`
 
@@ -32,3 +32,4 @@ Replace unstyled browser `window.confirm(...)` popups with the custom UI confirm
 - 2026-11-09: Task 2 verified: Standardized default LogFile to bisync.log in config, sandbox setup, and comments. All tests in internal/config passed.
 - 2026-11-09: Task 3 verified: Added REQUIRES_RESYNC notice logging to bisync.log on intercepted uninitialized sync triggers in handlers_sync.go and handlers_profiles.go. Tests in internal/server passed.
 - 2026-11-09: Task 4 verified: Added RUNNING status milestone entry to r.Logger in RunWithError upon sync job dispatch. All runner unit tests passed.
+- 2026-11-09: Task 5 verified: Full quality gate passed with 7/7 checks and E2E smoke tests clean. Refactored server route registration to routes.go to adhere to the 400-LOC ceiling.
