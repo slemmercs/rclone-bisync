@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -60,15 +61,28 @@ func TestSyncRunnerExecution(t *testing.T) {
 		t.Fatalf("expected sync run to succeed")
 	}
 
-	// Verify structured single-line log output in bisync.log
+	// Verify structured log output in bisync.log (RUNNING followed by SUCCESS)
 	logData, err := os.ReadFile(cfg.LogFile)
 	if err != nil {
 		t.Fatalf("failed to read bisync.log: %v", err)
 	}
 
+	lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 log entries (RUNNING and SUCCESS), got %d entries: %s", len(lines), string(logData))
+	}
+
+	var runningEntry map[string]interface{}
+	if err := json.Unmarshal([]byte(lines[0]), &runningEntry); err != nil {
+		t.Fatalf("failed to parse RUNNING log entry: %v, content=%s", err, lines[0])
+	}
+	if runningEntry["run_id"] != "test_run" || runningEntry["status"] != "RUNNING" || runningEntry["job_id"] != float64(10) {
+		t.Fatalf("unexpected RUNNING log entry content: %+v", runningEntry)
+	}
+
 	var entry map[string]interface{}
-	if err := json.Unmarshal(logData, &entry); err != nil {
-		t.Fatalf("failed to parse bisync.log entry: %v, content=%s", err, string(logData))
+	if err := json.Unmarshal([]byte(lines[1]), &entry); err != nil {
+		t.Fatalf("failed to parse SUCCESS bisync.log entry: %v, content=%s", err, lines[1])
 	}
 
 	if entry["run_id"] != "test_run" || entry["status"] != "SUCCESS" || entry["job_id"] != float64(10) {
@@ -537,5 +551,126 @@ func TestSyncRunner_ActionLabeling(t *testing.T) {
 	data, _ = os.ReadFile(logPath)
 	if !strings.Contains(string(data), "[OneDrive (Test)] Sync succeeded in 1.5s (1 file(s) transferred)") {
 		t.Fatalf("expected sync message, got: %s", string(data))
+	}
+}
+
+func TestRunWithError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sync/bisync":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobid": 42})
+		case "/job/status":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"finished": true,
+				"success":  true,
+				"output":   map[string]interface{}{"transfers": 1},
+			})
+		}
+	}))
+	defer srv.Close()
+
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "bisync.log")
+
+	cfg := &config.Config{
+		RCAPIURL:                 srv.URL,
+		LocalPath:                tmpDir,
+		RemotePath:               "gdrive:",
+		LogFile:                  logPath,
+		LockFile:                 filepath.Join(tmpDir, "bisync.lock"),
+		NotificationStateFile:    filepath.Join(tmpDir, "notify.json"),
+		PendingDeletionsFile:     filepath.Join(tmpDir, "deletions.json"),
+		RateLimitBackoffFile:     filepath.Join(tmpDir, "rate.json"),
+		MetricsFile:              filepath.Join(tmpDir, "metrics.jsonl"),
+		JobPollInitialSleepSec:   0.005,
+		JobPollMaxSleepSec:       0.01,
+		JobPollBackoffMultiplier: 1.0,
+		JobTimeoutSeconds:        5,
+		ProfileID:                "test_profile",
+		ProfileName:              "Test Profile",
+	}
+
+	r := NewSyncRunner(cfg)
+
+	// 1. Dry run execution
+	ok, err := r.RunWithError(context.Background(), false, false, true, "dashboard", "run_dry_test", true)
+	if !ok || err != nil {
+		t.Fatalf("expected dry run to succeed, got ok=%v, err=%v", ok, err)
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read bisync.log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 log entries, got %d: %s", len(lines), string(data))
+	}
+
+	var dryRunEntry map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &dryRunEntry); err != nil {
+		t.Fatalf("failed to parse RUNNING dry-run entry: %v", err)
+	}
+	if dryRunEntry["status"] != "RUNNING" || dryRunEntry["run_id"] != "run_dry_test" {
+		t.Fatalf("expected RUNNING status for dry run, got %+v", dryRunEntry)
+	}
+	if !strings.Contains(fmt.Sprint(dryRunEntry["msg"]), "Dry run started") {
+		t.Fatalf("expected 'Dry run started' in msg, got %v", dryRunEntry["msg"])
+	}
+
+	// 2. Resync execution
+	_ = os.Remove(logPath)
+	r.Logger, _ = logger.New(logPath, false)
+	ok, err = r.RunWithError(context.Background(), true, false, false, "dashboard", "run_resync_test", true)
+	if !ok || err != nil {
+		t.Fatalf("expected resync to succeed, got ok=%v, err=%v", ok, err)
+	}
+
+	data, err = os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read bisync.log: %v", err)
+	}
+	lines = strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 log entries, got %d: %s", len(lines), string(data))
+	}
+
+	var resyncEntry map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &resyncEntry); err != nil {
+		t.Fatalf("failed to parse RUNNING resync entry: %v", err)
+	}
+	if resyncEntry["status"] != "RUNNING" || resyncEntry["run_id"] != "run_resync_test" {
+		t.Fatalf("expected RUNNING status for resync, got %+v", resyncEntry)
+	}
+	if !strings.Contains(fmt.Sprint(resyncEntry["msg"]), "Resync started") {
+		t.Fatalf("expected 'Resync started' in msg, got %v", resyncEntry["msg"])
+	}
+
+	// 3. Normal sync execution
+	_ = os.Remove(logPath)
+	r.Logger, _ = logger.New(logPath, false)
+	ok, err = r.RunWithError(context.Background(), false, false, false, "dashboard", "run_sync_test", true)
+	if !ok || err != nil {
+		t.Fatalf("expected normal sync to succeed, got ok=%v, err=%v", ok, err)
+	}
+
+	data, err = os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read bisync.log: %v", err)
+	}
+	lines = strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 log entries, got %d: %s", len(lines), string(data))
+	}
+
+	var syncEntry map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &syncEntry); err != nil {
+		t.Fatalf("failed to parse RUNNING sync entry: %v", err)
+	}
+	if syncEntry["status"] != "RUNNING" || syncEntry["run_id"] != "run_sync_test" {
+		t.Fatalf("expected RUNNING status for normal sync, got %+v", syncEntry)
+	}
+	if !strings.Contains(fmt.Sprint(syncEntry["msg"]), "Sync started") {
+		t.Fatalf("expected 'Sync started' in msg, got %v", syncEntry["msg"])
 	}
 }
