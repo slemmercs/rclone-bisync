@@ -312,7 +312,7 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Invariant: Audit ledger strictly records mutations (state changes).
-	// Zero-deletion runs or cancelled dry-runs are logged to bisync-hub-log.json and omitted from audit.db.
+	// Zero-deletion runs or cancelled dry-runs are logged to bisync.log and omitted from audit.db.
 	if s.AuditService != nil && mode != "list" && deletedCount > 0 {
 		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, s.resolveActor(r), map[string]any{
 			"run_id":     runID,

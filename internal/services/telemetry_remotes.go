@@ -84,6 +84,18 @@ func (t *TelemetryService) GetRemotesSummaryCached(ctx context.Context, forceRef
 			about = make(map[string]interface{})
 		}
 
+		canPublicLink := false
+		fsinfo := t.Client.GetRemoteFsInfo(ctx, cleanName)
+		if fsinfo != nil {
+			if feat, ok := fsinfo["Features"].(map[string]interface{}); ok {
+				if pl, ok := feat["PublicLink"].(bool); ok {
+					canPublicLink = pl
+				}
+			}
+		} else {
+			canPublicLink = isProviderPublicLinkSupported(rtype)
+		}
+
 		remoteData = append(remoteData, map[string]interface{}{
 			"name":             cleanName,
 			"fs":               fmt.Sprintf("%s:", cleanName),
@@ -91,6 +103,7 @@ func (t *TelemetryService) GetRemotesSummaryCached(ctx context.Context, forceRef
 			"type_label":       typeLabel,
 			"is_active_target": isActive,
 			"about":            about,
+			"can_public_link":  canPublicLink,
 		})
 	}
 
@@ -121,4 +134,16 @@ func (t *TelemetryService) GetRemotesSummaryCached(ctx context.Context, forceRef
 	t.lockMu.Unlock()
 
 	return resp, nil
+}
+
+// isProviderPublicLinkSupported determines whether a provider type natively supports public sharing links.
+func isProviderPublicLinkSupported(rtype string) bool {
+	switch strings.ToLower(strings.TrimSpace(rtype)) {
+	case "drive", "onedrive", "dropbox", "box", "pcloud",
+		"yandex", "mega", "mailru", "opendrive", "linkbox",
+		"pikpak", "zoho", "protondrive":
+		return true
+	default:
+		return false
+	}
 }

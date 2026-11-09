@@ -204,6 +204,16 @@ func (s *Service) Rollback(ctx context.Context, id string, targetVersion int) (*
 	return restored, nil
 }
 
+// Store returns the underlying profile Store.
+func (s *Service) Store() *Store {
+	return s.store
+}
+
+// UpdateState updates dynamic operational state for a profile.
+func (s *Service) UpdateState(id string, state OperationalState) error {
+	return s.store.UpdateState(id, state)
+}
+
 // TriggerSync prompts immediate execution of a profile sync.
 func (s *Service) TriggerSync(ctx context.Context, id string, force bool) error {
 	return s.TriggerSyncWithOptions(ctx, id, SyncOptions{Force: force})
@@ -219,7 +229,7 @@ func (s *Service) TriggerSyncWithOptions(ctx context.Context, id string, opts Sy
 
 // IsAnySyncing reports whether any profile worker is actively executing a synchronization cycle.
 func (s *Service) IsAnySyncing() bool {
-	if s.scheduler == nil {
+	if s == nil || s.scheduler == nil {
 		return false
 	}
 	return s.scheduler.IsAnyRunning()
@@ -227,7 +237,7 @@ func (s *Service) IsAnySyncing() bool {
 
 // IsProfileSyncing reports whether the specified profile is actively executing a synchronization cycle.
 func (s *Service) IsProfileSyncing(id string) bool {
-	if s.scheduler == nil {
+	if s == nil || s.scheduler == nil {
 		return false
 	}
 	return s.scheduler.IsProfileRunning(id)

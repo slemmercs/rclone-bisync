@@ -141,6 +141,11 @@ window.PollingModule = {
             if (typeof this.fetchCoreStats === "function") {
                 this.fetchCoreStats();
             }
+            // Real-time upload dock queue status during explorer tab
+            if (this.currentTab === "explorer" && typeof this.fetchUploadDockStatus === "function") {
+                this.fetchUploadDockStatus();
+            }
+
 
             this.wasSyncing = isSyncing;
         } catch (err) {

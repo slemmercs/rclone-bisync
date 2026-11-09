@@ -40,10 +40,10 @@ func TestRcloneClient_StatItem(t *testing.T) {
 
 func TestRcloneClient_CatStreamAndFile(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/operations/cat" {
-			w.Header().Set("Content-Type", "text/plain")
+		if r.URL.Path == "/operations/getfile" {
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("Hello world!"))
+			_, _ = w.Write([]byte(`{"result":"SGVsbG8gd29ybGQh"}`)) // base64 for "Hello world!"
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -53,7 +53,7 @@ func TestRcloneClient_CatStreamAndFile(t *testing.T) {
 	cl := NewRcloneClient(ts.URL, "", "")
 
 	// CatStream
-	stream, _, err := cl.CatStream(context.Background(), "myremote:", "notes.txt", 0, 0)
+	stream, size, err := cl.CatStream(context.Background(), "myremote:", "notes.txt", 0, 0)
 	if err != nil {
 		t.Fatalf("CatStream error: %v", err)
 	}
@@ -64,6 +64,9 @@ func TestRcloneClient_CatStreamAndFile(t *testing.T) {
 	}
 	if string(content) != "Hello world!" {
 		t.Errorf("expected 'Hello world!', got '%s'", string(content))
+	}
+	if size != 12 {
+		t.Errorf("expected size 12, got %d", size)
 	}
 
 	// CatFile

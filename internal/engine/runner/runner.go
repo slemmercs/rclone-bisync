@@ -248,6 +248,28 @@ func (r *SyncRunner) RunWithError(
 		return false, fmt.Errorf("sync dispatch failed [%s]: %s", errType, errStr)
 	}
 
+	if r.Logger != nil {
+		action := "Sync"
+		if dryRun {
+			action = "Dry run"
+		} else if resync {
+			action = "Resync"
+		}
+		_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+			Time:        time.Now().Format(time.RFC3339),
+			Level:       "info",
+			Type:        "sync",
+			ProfileID:   profID,
+			ProfileName: profName,
+			Msg:         r.formatLogMsg(fmt.Sprintf("%s started (job ID %d)", action, jobID)),
+			RunID:       runID,
+			JobID:       jobID,
+			Origin:      origin,
+			Status:      "RUNNING",
+			StartTime:   startTime.Format(time.RFC3339),
+		})
+	}
+
 	monitorRes := r.Client.MonitorJob(
 		ctx,
 		jobID,

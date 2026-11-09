@@ -1,36 +1,29 @@
-# Task Plan: Automated Rclone Config Passphrase Persistence & Daemon Safety
+# Task Plan: CodeQL Path Injection Remediation, PR #80 Merge & Release v1.0.0-beta.30
 
 ## Goal
-Implement automatic persistence of `RCLONE_CONFIG_PASS` to `rc-secrets.env` when encrypting `rclone.conf` via the UI, detect missing daemon passphrase on startup/polling for externally encrypted configurations, and display a prominent warning banner with guided resolution.
+Remediate the two high-severity CodeQL path-traversal alerts (`go/path-injection`) in `internal/services/explorer_move.go`, verify the security and functional test gates, update and merge Pull Request #80, and release version `v1.0.0-beta.30`.
 
 ## Tasks
 
-- [x] Task 1: Environment Secret Management Utilities & Unit Tests
-  - **Scope**: `internal/config/secrets.go`, `internal/config/secrets_test.go`, `internal/config/config.go`
-  - **Verification**: `go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`
+- [x] Task 1: Sanitize Local Path Resolution in `internal/services/explorer_move.go` & Add Unit Tests
+  - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_ops_test.go`
+  - **Verification**: `go test -count=1 ./internal/services/... -run TestExplorerOps_MoveItem`
 
-- [x] Task 2: Service Layer Passphrase Synchronization & Validation
-  - **Scope**: `internal/models/encryption.go`, `internal/services/config_encryption_service.go`, `internal/services/config_encryption_service_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`
+- [x] Task 2: Quality Gate Verification & Pre-Commit Validation
+  - **Scope**: Full repository check suite and end-to-end tests
+  - **Verification**: `./scripts/check.sh all && go test -count=1 ./tests/e2e/...`
 
-- [x] Task 3: API Endpoints for Passphrase Persistence & Verification
-  - **Scope**: `internal/server/handlers_encryption.go`, `internal/server/handlers_encryption_test.go`, `internal/server/server.go`
-  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleSaveDaemonPassphrase`
+- [ ] Task 3: Commit, Push & Verify GitHub CodeQL Run on PR #80
+  - **Scope**: Remote tracking branch `feat/milestone-2-sync-staging-workspace`
+  - **Verification**: `gh pr checks 80` (CodeQL workflow clean)
 
-- [x] Task 4: Frontend Cockpit Warning Banner & Passphrase Persistence UI
-  - **Scope**: `dashboard/frontend/index.html`, `dashboard/frontend/partials/modals/modal_global_settings.html`, `dashboard/frontend/js/settings.js`, `dashboard/frontend/app.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc`
-
-- [x] Task 5: Full Quality Gates & E2E Smoke Testing
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
-  - **Verification**: `./scripts/check.sh all`
+- [ ] Task 4: Merge PR #80 & Release v1.0.0-beta.30
+  - **Scope**: Merge to `main`, create tag and release `v1.0.0-beta.30`
+  - **Verification**: `gh pr merge 80 --squash && gh release view v1.0.0-beta.30`
 
 ## Status Updates
 
-- 2026-11-07: Initialized task plan from approved implementation_plan.md.
-- 2026-11-07: Completed Task 1 - Environment Secret Management Utilities & Unit Tests. Verified with unit tests (`go test -v -count=1 ./internal/config/... -run TestUpdateRemoveSecret`).
-- 2026-11-07: Completed Task 2 - Service Layer Passphrase Synchronization & Validation. Verified with unit tests (`go test -v -count=1 ./internal/services/... -run TestConfigEncryptionService`).
-- 2026-11-07: Completed Task 3 - API Endpoints for Passphrase Persistence & Verification. Verified with unit tests (`go test -v -count=1 ./internal/server/... -run TestHandleSaveDaemonPassphrase`).
-- 2026-11-07: Completed Task 4 - Frontend Cockpit Warning Banner & Passphrase Persistence UI. Verified with template safety and LOC checks (`./scripts/check.sh templates && ./scripts/check.sh loc`).
-- 2026-11-07: Completed Task 5 - Full Quality Gates & E2E Smoke Testing. Verified with E2E Chrome test and full quality check (`./scripts/check.sh all`).
+- 2026-11-09: Initialized task plan from implementation_plan.md.
+- 2026-11-09: Task 1 verified: Applied DotDotCheck and PrefixCheck barrier guards directly to req paths and local cleanTargetDst/cleanDstDir sinks in explorer_move.go. Added traversal rejection unit test cases; all tests passed.
+- 2026-11-09: Task 2 verified: Formatted explorer_ops_test.go, passed all 7/7 check.sh gates, verified all headless Chrome and journey E2E tests, and confirmed all internal packages satisfy the 400-LOC limit.
 

@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,7 +42,7 @@ func (c *RcloneClient) StatItem(ctx context.Context, remote, path string) (map[s
 	return res.Item, nil
 }
 
-// CatStream opens a streaming reader from /operations/cat for downloading or inspecting remote files.
+// CatStream opens a streaming reader using /operations/getfile with base64 decoding for inspecting or downloading remote files.
 func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offset, count int64) (io.ReadCloser, int64, error) {
 	fs := NormalizeFs(remote)
 	cleanPath := strings.Trim(path, "/")
@@ -49,6 +50,7 @@ func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offse
 	payload := map[string]interface{}{
 		"fs":     fs,
 		"remote": cleanPath,
+		"base64": true,
 	}
 	if offset > 0 {
 		payload["offset"] = offset
@@ -57,35 +59,30 @@ func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offse
 		payload["count"] = count
 	}
 
-	fullURL := fmt.Sprintf("%s/operations/cat", c.APIURL)
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(payloadBytes))
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if c.Username != "" && c.Password != "" {
-		req.SetBasicAuth(c.Username, c.Password)
-	}
-
-	resp, err := c.HTTPClient.Do(req)
+	resp, body, err := c.post(ctx, "operations/getfile", payload, 30*time.Second)
 	if err != nil {
 		return nil, 0, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		return nil, 0, fmt.Errorf("cat failed (HTTP %d): %s", resp.StatusCode, string(body))
+		return nil, 0, fmt.Errorf("getfile failed (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 
-	return resp.Body, resp.ContentLength, nil
+	var res struct {
+		Result string `json:"result"`
+	}
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, 0, fmt.Errorf("failed to parse getfile response: %w", err)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(res.Result)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to decode base64 file data: %w", err)
+	}
+
+	return io.NopCloser(bytes.NewReader(decoded)), int64(len(decoded)), nil
 }
 
-// CatFile calls /operations/cat and reads up to count bytes directly into a byte buffer.
+// CatFile calls CatStream and reads up to count bytes directly into a byte buffer.
 func (c *RcloneClient) CatFile(ctx context.Context, remote, path string, offset, count int64) ([]byte, error) {
 	stream, _, err := c.CatStream(ctx, remote, path, offset, count)
 	if err != nil {

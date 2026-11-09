@@ -1,0 +1,398 @@
+package server
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/services"
+)
+
+func TestHandleOperations_MoveItem_Success(t *testing.T) {
+	// Arrange
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+	srcFile := filepath.Join(profileLocal, "doc.txt")
+	_ = os.WriteFile(srcFile, []byte("content"), 0644)
+
+	reqBody, _ := json.Marshal(models.MoveRequest{
+		ProfileID: "prof_onedrive",
+		SrcRemote: "local",
+		SrcPath:   "doc.txt",
+		DstRemote: "local",
+		DstPath:   "moved_doc.txt",
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/operations/move", bytes.NewReader(reqBody))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+
+	// Act
+	srv.Mux.ServeHTTP(w, req)
+
+	// Assert
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var resp models.MoveResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got %s: %s", resp.Status, resp.Error)
+	}
+	if _, err := os.Stat(filepath.Join(profileLocal, "moved_doc.txt")); os.IsNotExist(err) {
+		t.Fatal("expected moved file to exist")
+	}
+}
+
+func TestHandleOperations_MoveItem_TraversalAndCanary(t *testing.T) {
+	// Arrange
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. Traversal attempt
+	reqBody, _ := json.Marshal(models.MoveRequest{
+		ProfileID: "prof_onedrive",
+		SrcRemote: "local",
+		SrcPath:   "../escaped.txt",
+		DstRemote: "local",
+		DstPath:   "stolen.txt",
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/operations/move", bytes.NewReader(reqBody))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(w, req)
+
+	var resp models.MoveResponse
+	_ = json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Status != "error" {
+		t.Fatalf("expected traversal error, got %s", resp.Status)
+	}
+
+	// 2. Canary protection
+	_ = os.WriteFile(filepath.Join(profileLocal, "RCLONE_TEST"), []byte("canary"), 0644)
+	canaryBody, _ := json.Marshal(models.MoveRequest{
+		ProfileID: "prof_onedrive",
+		SrcRemote: "local",
+		SrcPath:   "RCLONE_TEST",
+		DstRemote: "local",
+		DstPath:   "canary_backup",
+	})
+
+	req2 := httptest.NewRequest(http.MethodPost, "/api/operations/move", bytes.NewReader(canaryBody))
+	req2.Header.Set("X-Dashboard-Request", "1")
+	w2 := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(w2, req2)
+
+	var resp2 models.MoveResponse
+	_ = json.NewDecoder(w2.Body).Decode(&resp2)
+	if resp2.Status != "error" {
+		t.Fatalf("expected canary error, got %s", resp2.Status)
+	}
+}
+
+func TestHandleOperations_PurgeDirectory_Success(t *testing.T) {
+	// Arrange
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+	purgeDir := filepath.Join(profileLocal, "purge_folder")
+	_ = os.MkdirAll(purgeDir, 0755)
+	_ = os.WriteFile(filepath.Join(purgeDir, "subfile.txt"), []byte("data"), 0644)
+
+	reqBody, _ := json.Marshal(models.PurgeRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "purge_folder",
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/operations/purge", bytes.NewReader(reqBody))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+
+	// Act
+	srv.Mux.ServeHTTP(w, req)
+
+	// Assert
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var resp models.PurgeResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got %s: %s", resp.Status, resp.Error)
+	}
+	if _, err := os.Stat(purgeDir); !os.IsNotExist(err) {
+		t.Fatal("expected directory to be deleted")
+	}
+}
+
+func TestHandleOperations_PurgeDirectory_TraversalAndCanary(t *testing.T) {
+	// Arrange
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. Traversal attempt
+	reqBody, _ := json.Marshal(models.PurgeRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "../escaped",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/operations/purge", bytes.NewReader(reqBody))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(w, req)
+
+	var resp models.PurgeResponse
+	_ = json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Status != "error" {
+		t.Fatalf("expected traversal error, got %s", resp.Status)
+	}
+
+	// 2. Directory with canary
+	canaryDir := filepath.Join(profileLocal, "protected_dir")
+	_ = os.MkdirAll(canaryDir, 0755)
+	_ = os.WriteFile(filepath.Join(canaryDir, "RCLONE_TEST"), []byte("canary"), 0644)
+
+	canaryBody, _ := json.Marshal(models.PurgeRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "protected_dir",
+	})
+	req2 := httptest.NewRequest(http.MethodPost, "/api/operations/purge", bytes.NewReader(canaryBody))
+	req2.Header.Set("X-Dashboard-Request", "1")
+	w2 := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(w2, req2)
+
+	var resp2 models.PurgeResponse
+	_ = json.NewDecoder(w2.Body).Decode(&resp2)
+	if resp2.Status != "error" {
+		t.Fatalf("expected canary error, got %s", resp2.Status)
+	}
+}
+
+func TestHandleOperations_PublicLink(t *testing.T) {
+	// Arrange
+	srv, _, _ := setupTestServerWithProfilesAndExplorer(t)
+
+	// Mock RC server for public link
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"url": "https://onedrive.live.com/sharedlink"}`))
+	}))
+	defer ts.Close()
+
+	rcClient := client.NewRcloneClient(ts.URL, "", "")
+	srv.ExplorerService = services.NewExplorerService(srv.Config, rcClient, srv.CanaryService)
+
+	// 1. GET local -> unsupported
+	reqLocal := httptest.NewRequest(http.MethodGet, "/api/operations/publiclink?remote=local&path=file.pdf", nil)
+	reqLocal.Header.Set("X-Dashboard-Request", "1")
+	wLocal := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wLocal, reqLocal)
+
+	var respLocal models.PublicLinkResponse
+	_ = json.NewDecoder(wLocal.Body).Decode(&respLocal)
+	if respLocal.Supported {
+		t.Fatal("expected local public link to be unsupported")
+	}
+
+	// 2. GET remote -> success
+	reqRemote := httptest.NewRequest(http.MethodGet, "/api/operations/publiclink?remote=onedrive:&path=file.pdf", nil)
+	reqRemote.Header.Set("X-Dashboard-Request", "1")
+	wRemote := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wRemote, reqRemote)
+
+	var respRemote models.PublicLinkResponse
+	_ = json.NewDecoder(wRemote.Body).Decode(&respRemote)
+	if !respRemote.Supported || respRemote.URL != "https://onedrive.live.com/sharedlink" {
+		t.Fatalf("expected remote public link success, got %+v", respRemote)
+	}
+
+	// 3. Traversal -> rejected
+	reqTrav := httptest.NewRequest(http.MethodGet, "/api/operations/publiclink?remote=onedrive:&path=../etc/passwd", nil)
+	reqTrav.Header.Set("X-Dashboard-Request", "1")
+	wTrav := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wTrav, reqTrav)
+
+	var respTrav models.PublicLinkResponse
+	_ = json.NewDecoder(wTrav.Body).Decode(&respTrav)
+	if respTrav.Status != "error" {
+		t.Fatal("expected traversal error")
+	}
+}
+
+func TestHandleOperations_ExplorerDock(t *testing.T) {
+	// Arrange
+	srv, _, _ := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. GET initial status
+	reqGet := httptest.NewRequest(http.MethodGet, "/api/explorer/dock?profile_id=prof_onedrive", nil)
+	reqGet.Header.Set("X-Dashboard-Request", "1")
+	wGet := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wGet, reqGet)
+
+	var status models.UploadDockStatus
+	_ = json.NewDecoder(wGet.Body).Decode(&status)
+	if status.PendingCount != 0 {
+		t.Fatalf("expected 0 pending items, got %d", status.PendingCount)
+	}
+
+	// 2. POST enqueue item
+	body, _ := json.Marshal(models.UploadQueueItem{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "uploads",
+		FileName:  "docked.pdf",
+		Size:      500,
+	})
+	reqPost := httptest.NewRequest(http.MethodPost, "/api/explorer/dock", bytes.NewReader(body))
+	reqPost.Header.Set("X-Dashboard-Request", "1")
+	wPost := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wPost, reqPost)
+
+	var enqueued models.UploadQueueItem
+	_ = json.NewDecoder(wPost.Body).Decode(&enqueued)
+	if enqueued.ID == "" || enqueued.Status != "queued" {
+		t.Fatalf("expected enqueued item, got %+v", enqueued)
+	}
+
+	// 3. DELETE item by ID
+	reqDel := httptest.NewRequest(http.MethodDelete, "/api/explorer/dock?id="+enqueued.ID, nil)
+	reqDel.Header.Set("X-Dashboard-Request", "1")
+	wDel := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wDel, reqDel)
+	if wDel.Code != http.StatusOK {
+		t.Fatalf("expected status 200 on delete, got %d", wDel.Code)
+	}
+}
+
+func TestHandler_MakeDir(t *testing.T) {
+	// Arrange
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. Successful local directory creation
+	body, _ := json.Marshal(models.MkdirRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "projects/subfolder",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/operations/mkdir", bytes.NewReader(body))
+	req.Header.Set("X-Dashboard-Request", "1")
+	w := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	var resp models.MkdirResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got %s: %s", resp.Status, resp.Error)
+	}
+	if fi, err := os.Stat(filepath.Join(profileLocal, "projects", "subfolder")); err != nil || !fi.IsDir() {
+		t.Fatalf("expected directory to be created on disk, err: %v", err)
+	}
+
+	// 2. Traversal attempt rejected
+	bodyTrav, _ := json.Marshal(models.MkdirRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "local",
+		Path:      "../escaped_dir",
+	})
+	reqTrav := httptest.NewRequest(http.MethodPost, "/api/operations/mkdir", bytes.NewReader(bodyTrav))
+	reqTrav.Header.Set("X-Dashboard-Request", "1")
+	wTrav := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wTrav, reqTrav)
+
+	var respTrav models.MkdirResponse
+	_ = json.NewDecoder(wTrav.Body).Decode(&respTrav)
+	if respTrav.Status != "error" {
+		t.Fatalf("expected error for traversal attempt, got %+v", respTrav)
+	}
+
+	// 3. Remote directory creation with mock RC server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/operations/mkdir" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	rcClient := client.NewRcloneClient(ts.URL, "", "")
+	srv.ExplorerService = services.NewExplorerService(srv.Config, rcClient, srv.CanaryService)
+
+	bodyRemote, _ := json.Marshal(models.MkdirRequest{
+		ProfileID: "prof_onedrive",
+		Remote:    "onedrive:",
+		Path:      "remote_docs/new_folder",
+	})
+	reqRemote := httptest.NewRequest(http.MethodPost, "/api/operations/mkdir", bytes.NewReader(bodyRemote))
+	reqRemote.Header.Set("X-Dashboard-Request", "1")
+	wRemote := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wRemote, reqRemote)
+
+	var respRemote models.MkdirResponse
+	_ = json.NewDecoder(wRemote.Body).Decode(&respRemote)
+	if respRemote.Status != "success" {
+		t.Fatalf("expected success for remote mkdir, got %+v", respRemote)
+	}
+
+	// 4. Invalid JSON payload
+	reqBad := httptest.NewRequest(http.MethodPost, "/api/operations/mkdir", bytes.NewReader([]byte("invalid json")))
+	reqBad.Header.Set("X-Dashboard-Request", "1")
+	wBad := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wBad, reqBad)
+	if wBad.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for bad JSON, got %d", wBad.Code)
+	}
+}
+
+func TestHandler_IdenticalPathSafeguards(t *testing.T) {
+	// Arrange
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+	testFile := filepath.Join(profileLocal, "stay_safe.txt")
+	_ = os.WriteFile(testFile, []byte("preserve this content"), 0644)
+
+	// 1. Move identical paths
+	bodyMove, _ := json.Marshal(models.MoveRequest{
+		ProfileID: "prof_onedrive",
+		SrcRemote: "local",
+		SrcPath:   "stay_safe.txt",
+		DstRemote: "local",
+		DstPath:   "stay_safe.txt",
+	})
+	reqMove := httptest.NewRequest(http.MethodPost, "/api/operations/move", bytes.NewReader(bodyMove))
+	reqMove.Header.Set("X-Dashboard-Request", "1")
+	wMove := httptest.NewRecorder()
+	srv.Mux.ServeHTTP(wMove, reqMove)
+
+	var respMove models.MoveResponse
+	_ = json.NewDecoder(wMove.Body).Decode(&respMove)
+	if respMove.Status != "error" || respMove.Error != "Source and destination paths are identical" {
+		t.Fatalf("expected identical path rejection on move, got %+v", respMove)
+	}
+
+	// 2. Copy identical paths
+	ctx := reqMove.Context()
+	copyResp, err := srv.ExplorerService.CopyItemWithOptions(ctx, "local", "stay_safe.txt", "local", "stay_safe.txt", false, profileLocal, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if copyResp.Status != "error" || copyResp.Error != "Source and destination paths are identical" {
+		t.Fatalf("expected identical path rejection on copy, got %+v", copyResp)
+	}
+}

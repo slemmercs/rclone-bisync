@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/models"
@@ -242,13 +243,47 @@ func (s *Server) handleProfileSync(w http.ResponseWriter, r *http.Request) {
 		DryRun bool `json:"dry_run"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	prof, err := s.ProfileService.Get(id)
+	if err != nil {
+		status := http.StatusNotFound
+		writeJSON(w, status, models.ErrorResponse{Status: "error", Error: err.Error()})
+		return
+	}
+
+	// Detect if profile has never run a baseline sync and resync wasn't requested
+	if (prof.State.LastSync == nil || prof.State.LastSync.IsZero()) && !req.Resync {
+		origin := s.resolveActor(r)
+		if origin == "USER" {
+			origin = "dashboard"
+		}
+		if l := s.getLogger(); l != nil {
+			_ = l.RecordSyncRun(models.BisyncLogEntry{
+				Time:      time.Now().Format(time.RFC3339),
+				Level:     "notice",
+				Type:      "sync",
+				ProfileID: id,
+				Status:    "REQUIRES_RESYNC",
+				Msg:       fmt.Sprintf("[%s] Profile has never been synchronized. Initial synchronization requires --resync confirmation to establish baseline listings.", id),
+				Origin:    origin,
+			})
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status":          "requires_resync",
+			"requires_resync": true,
+			"msg":             fmt.Sprintf("Profile %q has never been synchronized. Initial synchronization requires --resync to establish baseline listings.", id),
+			"profile_id":      id,
+		})
+		return
+	}
+
 	opts := profiles.SyncOptions{
 		Force:  req.Force,
 		Resync: req.Resync,
 		DryRun: req.DryRun,
 		Origin: "dashboard",
 	}
-	err := s.ProfileService.TriggerSyncWithOptions(r.Context(), id, opts)
+	err = s.ProfileService.TriggerSyncWithOptions(r.Context(), id, opts)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, profiles.ErrProfileNotActive) || errors.Is(err, profiles.ErrProfileNotFound) {

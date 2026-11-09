@@ -144,10 +144,10 @@ func TestExplorerPreview_RemoteFiles(t *testing.T) {
 					"IsDir": false
 				}
 			}`))
-		case "/operations/cat":
-			w.Header().Set("Content-Type", "text/plain")
+		case "/operations/getfile":
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("Remote file body!!"))
+			_, _ = w.Write([]byte(`{"result":"UmVtb3RlIGZpbGUgYm9keSEh"}`)) // base64 for "Remote file body!!"
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

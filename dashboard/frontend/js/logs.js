@@ -284,7 +284,8 @@ window.LogsModule = {
             }
         } catch (err) {
             console.error("Failed to fetch daemon logs:", err);
-            this.daemonModalError = err.message || "Failed to fetch daemon logs";
+            const msg = err && err.message ? err.message : "Failed to connect to daemon log endpoint";
+            this.daemonModalError = `Unable to retrieve daemon logs: ${msg}`;
             this.daemonModalLogs = [];
         } finally {
             this.daemonModalLoading = false;

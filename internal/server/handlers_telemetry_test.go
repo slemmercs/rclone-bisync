@@ -4,8 +4,10 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -255,5 +257,99 @@ func TestMCPStatusEndpoint(t *testing.T) {
 	_ = json.Unmarshal(rec4.Body.Bytes(), &resp4)
 	if resp4.Status != "offline" {
 		t.Errorf("expected stale PID to resolve to offline, got %s", resp4.Status)
+	}
+}
+
+func TestHandler_DaemonLogs(t *testing.T) {
+	tmpDir := t.TempDir()
+	logFile := filepath.Join(tmpDir, "bisync.log")
+	daemonLog := filepath.Join(tmpDir, "rclone-daemon.log")
+
+	cfg := &config.Config{
+		BaseDir: tmpDir,
+		LogFile: logFile,
+	}
+
+	logSvc := services.NewLogService()
+	srv := NewServer(cfg, nil, embed.FS{})
+	srv.LogService = logSvc
+
+	// 1. Missing daemon log file: should return 200 OK with empty slice and no hang
+	req, _ := http.NewRequest(http.MethodGet, "/api/logs/daemon", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for missing daemon log, got %d", rec.Code)
+	}
+	var resp models.DaemonLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode json response: %v", err)
+	}
+	if len(resp.Logs) != 0 || resp.Count != 0 {
+		t.Fatalf("expected 0 logs for missing daemon log, got %d", len(resp.Logs))
+	}
+
+	// 2. Populated daemon log with time window correlation
+	now := time.Now().UTC()
+	l1 := fmt.Sprintf(`{"time":"%s","level":"info","msg":"Daemon task started"}`, now.Format(time.RFC3339Nano))
+	l2 := fmt.Sprintf(`{"time":"%s","level":"notice","msg":"Daemon transfer complete"}`, now.Add(2*time.Second).Format(time.RFC3339Nano))
+	_ = os.WriteFile(daemonLog, []byte(l1+"\n"+l2+"\n"), 0644)
+
+	windowURL := fmt.Sprintf("/api/logs/daemon?run_id=run_101&start_time=%s&end_time=%s",
+		url.QueryEscape(now.Add(-1*time.Second).Format(time.RFC3339)),
+		url.QueryEscape(now.Add(3*time.Second).Format(time.RFC3339)),
+	)
+	req, _ = http.NewRequest(http.MethodGet, windowURL, nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for window query, got %d", rec.Code)
+	}
+	var corrResp models.DaemonLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &corrResp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if !corrResp.Correlated || corrResp.RunID != "run_101" || corrResp.Count != 2 {
+		t.Fatalf("expected 2 correlated logs, got %+v", corrResp)
+	}
+
+	// 3. Dedupe run query directly from bisync.log
+	dedupeRunID := "dedupe-456"
+	dedupeLogContent := fmt.Sprintf(`{"time":"%s","level":"info","run_id":"%s","msg":"dedupe hash check"}`, now.Format(time.RFC3339), dedupeRunID)
+	_ = os.WriteFile(logFile, []byte(dedupeLogContent+"\n"), 0644)
+
+	req, _ = http.NewRequest(http.MethodGet, "/api/logs/daemon?run_id="+dedupeRunID, nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for dedupe query, got %d", rec.Code)
+	}
+	var dedupeResp models.DaemonLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &dedupeResp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if dedupeResp.Count != 1 || dedupeResp.RunID != dedupeRunID {
+		t.Fatalf("expected dedupe log to match, got %+v", dedupeResp)
+	}
+
+	// 4. Missing LogService handling
+	srvNoLog := NewServer(cfg, nil, embed.FS{})
+	srvNoLog.LogService = nil
+	req, _ = http.NewRequest(http.MethodGet, "/api/logs/daemon", nil)
+	rec = httptest.NewRecorder()
+	srvNoLog.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for nil LogService, got %d", rec.Code)
+	}
+	var nilSvcResp models.DaemonLogsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &nilSvcResp); err != nil {
+		t.Fatalf("failed to decode nil service response: %v", err)
+	}
+	if nilSvcResp.Error == "" || len(nilSvcResp.Logs) != 0 {
+		t.Fatalf("expected error and empty logs for nil LogService, got %+v", nilSvcResp)
 	}
 }

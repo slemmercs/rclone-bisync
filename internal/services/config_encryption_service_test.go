@@ -60,14 +60,15 @@ func TestConfigEncryptionService_SetPassword(t *testing.T) {
 	tmpDir := t.TempDir()
 	confPath := filepath.Join(tmpDir, "rclone.conf")
 
-	var capturedCmd string
-	var capturedArgs []string
-	var capturedEnv []string
+	type cmdCall struct {
+		Name string
+		Args []string
+		Env  []string
+	}
+	var calls []cmdCall
 
 	mockRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
-		capturedCmd = name
-		capturedArgs = args
-		capturedEnv = env
+		calls = append(calls, cmdCall{Name: name, Args: args, Env: env})
 		return "success", nil
 	}
 
@@ -92,16 +93,20 @@ func TestConfigEncryptionService_SetPassword(t *testing.T) {
 	if resp.Status != "success" {
 		t.Errorf("expected status success, got %s", resp.Status)
 	}
-	if capturedCmd != "rclone" {
-		t.Errorf("expected cmd rclone, got %s", capturedCmd)
+	if len(calls) == 0 {
+		t.Fatalf("expected command runner to be called")
+	}
+	firstCall := calls[0]
+	if firstCall.Name != "rclone" {
+		t.Errorf("expected first cmd rclone, got %s", firstCall.Name)
 	}
 
-	argString := strings.Join(capturedArgs, " ")
+	argString := strings.Join(firstCall.Args, " ")
 	if !strings.Contains(argString, "config encryption set") || !strings.Contains(argString, "--config") {
-		t.Errorf("unexpected args: %v", capturedArgs)
+		t.Errorf("unexpected args: %v", firstCall.Args)
 	}
 
-	envString := strings.Join(capturedEnv, " ")
+	envString := strings.Join(firstCall.Env, " ")
 	if !strings.Contains(envString, "NEW_PASS=newSecret123") || !strings.Contains(envString, "OLD_PASS=oldSecret123") {
 		t.Errorf("expected env variables to contain passwords, got: %s", envString)
 	}
@@ -115,9 +120,9 @@ func TestConfigEncryptionService_RemovePassword(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var capturedArgs []string
+	var capturedArgs [][]string
 	mockRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
-		capturedArgs = args
+		capturedArgs = append(capturedArgs, args)
 		return "success", nil
 	}
 
@@ -133,9 +138,12 @@ func TestConfigEncryptionService_RemovePassword(t *testing.T) {
 	if resp.Status != "success" {
 		t.Errorf("expected status success, got %s", resp.Status)
 	}
-	argString := strings.Join(capturedArgs, " ")
-	if !strings.Contains(argString, "config encryption remove") {
-		t.Errorf("expected config encryption remove args, got: %v", capturedArgs)
+	if len(capturedArgs) == 0 {
+		t.Fatalf("expected command runner to be called")
+	}
+	firstArgs := strings.Join(capturedArgs[0], " ")
+	if !strings.Contains(firstArgs, "config encryption remove") {
+		t.Errorf("expected config encryption remove args, got: %v", capturedArgs[0])
 	}
 }
 

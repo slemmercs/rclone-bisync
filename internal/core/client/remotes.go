@@ -74,6 +74,19 @@ func (c *RcloneClient) GetRemoteAbout(ctx context.Context, remote string) map[st
 	return res
 }
 
+// GetRemoteFsInfo queries /operations/fsinfo for backend features and capabilities.
+func (c *RcloneClient) GetRemoteFsInfo(ctx context.Context, remote string) map[string]interface{} {
+	fs := NormalizeFs(remote)
+	resp, body, err := c.post(ctx, "operations/fsinfo", map[string]string{"fs": fs}, 5*time.Second)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	var res map[string]interface{}
+	_ = json.Unmarshal(body, &res)
+	return res
+}
+
 // GetRemoteAuthConfig queries /config/get and extracts sanitized auth metadata without leaking secrets.
 func (c *RcloneClient) GetRemoteAuthConfig(ctx context.Context, remoteName string) (map[string]interface{}, error) {
 	cleanName := strings.TrimRight(remoteName, ":")

@@ -139,6 +139,15 @@
 
                         <!-- Right Decision Controls -->
                         <div class="flex items-center gap-1.5 shrink-0 self-end md:self-center">
+                            <!-- Inspect in Dual-Pane Workspace Button -->
+                            <button type="button"
+                                    @click="inspectInWorkspace(candidate)"
+                                    title="Inspect in Dual-Pane Workspace"
+                                    class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-slate-300 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer">
+                                <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                <span class="hidden sm:inline">Inspect</span>
+                            </button>
+
                             <!-- Deletion Decision Buttons -->
                             <template x-if="candidate.type === 'deletion'">
                                 <div class="flex rounded-lg bg-slate-900 border border-slate-800 p-0.5">

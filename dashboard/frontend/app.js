@@ -76,36 +76,8 @@ document.addEventListener("alpine:init", () => {
 
         // Dual-Pane File Explorer State
         explorer: {
-            left: {
-                target: "local",
-                path: "",
-                items: [],
-                loading: false,
-                error: null,
-                hasCanary: false,
-                totalSize: 0,
-                itemCount: 0,
-                copied: false,
-                search: "",
-                sortBy: "name",
-                sortAsc: true,
-                foldersFirst: true
-            },
-            right: {
-                target: "gdrive",
-                path: "",
-                items: [],
-                loading: false,
-                error: null,
-                hasCanary: false,
-                totalSize: 0,
-                itemCount: 0,
-                copied: false,
-                search: "",
-                sortBy: "name",
-                sortAsc: true,
-                foldersFirst: true
-            },
+            left: { target: "local", path: "", items: [], loading: false, error: null, hasCanary: false, totalSize: 0, itemCount: 0, copied: false, search: "", sortBy: "name", sortAsc: true, foldersFirst: true },
+            right: { target: "", path: "", items: [], loading: false, error: null, hasCanary: false, totalSize: 0, itemCount: 0, copied: false, search: "", sortBy: "name", sortAsc: true, foldersFirst: true },
             draggedItem: null,
             draggedSourcePane: null,
             isDragOverLeft: false,
@@ -128,6 +100,13 @@ document.addEventListener("alpine:init", () => {
             deleting: false
         },
 
+        mkdirModal: {
+            show: false,
+            paneKey: null,
+            dirName: "",
+            creating: false
+        },
+
         // File Preview Modal State
         filePreviewModal: {
             show: false,
@@ -141,6 +120,10 @@ document.addEventListener("alpine:init", () => {
 
         // File Context Menu State
         contextMenu: { show: false, x: 0, y: 0, paneKey: null, item: null },
+
+        // Upload Dock & Remediation State
+        uploadDock: { pending_count: 0, is_sync_active: false, items: [] },
+        remediationCandidate: null,
 
         // Reusable Confirmation Modal State
         confirmModal: {
@@ -327,16 +310,16 @@ document.addEventListener("alpine:init", () => {
             this.initPolling();
             window.openHelpDrawer = (tab, topic) => this.openHelpDrawer(tab, topic);
             if (!this.isPollingPaused) await this.poll();
-            if (typeof this.fetchProfiles === "function") this.fetchProfiles();
+            if (typeof this.fetchProfiles === "function") await this.fetchProfiles();
             if (typeof this.fetchConfigEncryptionStatus === "function") this.fetchConfigEncryptionStatus();
-            this.fetchRemotes(false);
+            await this.fetchRemotes(false);
             this.fetchReviewSession(false);
             if (typeof this.fetchBandwidthLimit === "function") this.fetchBandwidthLimit();
             if (typeof this.fetchCoreStats === "function") this.fetchCoreStats();
             if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1);
             if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             if (this.currentTab === "remotes") this.fetchRemotes(true);
-            else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") this.initExplorer();
+            else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") await this.initExplorer();
             else if (this.currentTab === "audit" && typeof this.initAudit === "function") this.initAudit();
             this.setupLogScroll("log-bisync");
         },
@@ -349,6 +332,25 @@ document.addEventListener("alpine:init", () => {
                     payload.profile_id = this.profilesData.activeId;
                 }
                 const data = await window.API.post("/api/action", payload);
+                if (data.requires_resync) {
+                    const profId = payload.profile_id || "selected profile";
+                    const executeResync = async () => {
+                        await this.triggerAction("force_resync");
+                    };
+                    if (typeof this.askConfirmation === "function") {
+                        this.askConfirmation({
+                            title: "Initial Resync Required",
+                            icon: "sync",
+                            message: `Profile "${profId}" has never been synchronized.\n\nInitial synchronization requires --resync to establish baseline listings.\n\nProceed with --resync now?`,
+                            confirmText: "Proceed with Resync",
+                            confirmClass: "bg-indigo-600 hover:bg-indigo-500",
+                            onConfirm: executeResync
+                        });
+                    } else if (confirm(`Profile "${profId}" has never been synced. Initial synchronization requires --resync to establish baseline listings.\n\nProceed with --resync now?`)) {
+                        await executeResync();
+                    }
+                    return;
+                }
                 if (data.status === "error") {
                     const errDetail = data.msg || data.error || "Request failed";
                     this.showToast("Action Error: " + errDetail, "error");
@@ -377,21 +379,13 @@ document.addEventListener("alpine:init", () => {
         window.ProfilesModule,
         window.ProfilesModalModule,
         window.ProviderOptionsModule,
-        window.FlagsBuilderModule,
-        window.ProfilesHistoryModule,
-        window.RemotesModule,
-        window.RemotesModalsModule,
-        window.ExplorerModule,
-        window.ExplorerActionsModule,
-        window.ReviewModule,
-        window.ReviewActionsModule,
-        window.LogsModule,
-        window.AuditModule,
-        window.SettingsModule,
-        window.BandwidthModule,
-        window.McpModule,
-        window.PollingModule,
-        window.HelpDiagnosticsModule,
-        window.HelpModule
+        window.FlagsBuilderModule, window.ProfilesHistoryModule,
+        window.RemotesModule, window.RemotesModalsModule,
+        window.ExplorerModule, window.ExplorerActionsModule, window.ExplorerOperationsModule,
+        window.ReviewModule, window.ReviewActionsModule,
+        window.LogsModule, window.AuditModule,
+        window.SettingsModule, window.BandwidthModule,
+        window.McpModule, window.PollingModule,
+        window.HelpDiagnosticsModule, window.HelpModule
     ));
 });

@@ -108,6 +108,11 @@ window.ProfilesModule = {
                         this.profilesData.activeId = this.profilesData.list[0].id;
                         localStorage.setItem("rclone_active_profile_id", this.profilesData.activeId);
                     }
+                    if (this.currentTab === "explorer" || !this.explorer?.right?.target || this.explorer?.right?.target === "local") {
+                        if (typeof this.syncExplorerWithActiveProfile === "function") {
+                            this.syncExplorerWithActiveProfile();
+                        }
+                    }
                 }
             }
         } catch (err) {
