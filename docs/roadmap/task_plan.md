@@ -21,7 +21,7 @@ Resolve 4 user-reported issues: (1) provider-aware "Open on Remote" context menu
   - **Scope**: `internal/server/handlers_sync.go`, `dashboard/frontend/app.js`, `scripts/run-sandbox.sh`, `internal/server/handlers_profiles_sync_test.go`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run "TestHandler_ProfileSync|TestHandleAction_RequiresResync"`
 
-- [ ] Task 5: Correlated Daemon Log Resilience & Error Formatting
+- [x] Task 5: Correlated Daemon Log Resilience & Error Formatting
   - **Scope**: `internal/server/handlers_telemetry.go`, `dashboard/frontend/js/logs.js`, `internal/server/handlers_telemetry_test.go`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_DaemonLogs`
 

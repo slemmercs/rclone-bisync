@@ -227,7 +227,7 @@ func TestProfiles_CloneRollbackSyncEndpoints(t *testing.T) {
 
 	// 8. Test /api/action profile routing
 	actionBody := map[string]string{
-		"action":     "start_sync",
+		"action":     "force_resync",
 		"profile_id": "orig-1",
 	}
 	w = doJSONReq(s, http.MethodPost, "/api/action", actionBody, true)

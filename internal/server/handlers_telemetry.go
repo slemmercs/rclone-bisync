@@ -108,9 +108,13 @@ func (s *Server) handleDaemonLogs(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
 					RunID: runID,
 					JobID: jobID,
+					Logs:  []string{},
 					Error: err.Error(),
 				})
 				return
+			}
+			if logs == nil {
+				logs = []string{}
 			}
 			writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
 				RunID:      runID,
@@ -135,6 +139,9 @@ func (s *Server) handleDaemonLogs(w http.ResponseWriter, r *http.Request) {
 	// do NOT fall back to unfiltered tail of all previous daemon runs.
 	if runID != "" && startTime.IsZero() && s.LogService != nil {
 		directLogs, _ := s.LogService.FilterLogsByRunID(s.Config.LogFile, runID, limit)
+		if directLogs == nil {
+			directLogs = []string{}
+		}
 		writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
 			RunID:      runID,
 			JobID:      jobID,
@@ -145,15 +152,41 @@ func (s *Server) handleDaemonLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.LogService == nil {
+		writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
+			RunID: runID,
+			JobID: jobID,
+			Logs:  []string{},
+			Error: "LogService not initialized",
+		})
+		return
+	}
+
 	daemonLog := filepath.Join(s.Config.BaseDir, "rclone-daemon.log")
+	if _, err := os.Stat(daemonLog); os.IsNotExist(err) {
+		writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
+			RunID:      runID,
+			JobID:      jobID,
+			Count:      0,
+			Logs:       []string{},
+			Correlated: !startTime.IsZero(),
+		})
+		return
+	}
+
 	logs, err := s.LogService.FilterDaemonLogs(daemonLog, startTime, endTime, limit)
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
 			RunID: runID,
 			JobID: jobID,
+			Logs:  []string{},
 			Error: err.Error(),
 		})
 		return
+	}
+
+	if logs == nil {
+		logs = []string{}
 	}
 
 	writeJSON(w, http.StatusOK, models.DaemonLogsResponse{
