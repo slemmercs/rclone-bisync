@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -200,6 +201,84 @@ func TestExplorerOps_MoveItem_IdenticalBlocked(t *testing.T) {
 	}
 	if resp.Status != "error" || resp.Error != "Source and destination paths are identical" {
 		t.Fatalf("expected identical error, got: %+v", resp)
+	}
+}
+func TestExplorerOps_MoveItem_PathTraversalBlocked(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{LocalPath: tmpDir}
+	expSvc := NewExplorerService(cfg, nil, nil)
+
+	testCases := []struct {
+		name    string
+		src     string
+		dst     string
+		wantErr string
+	}{
+		{
+			name:    "dot dot in src",
+			src:     "../escape.txt",
+			dst:     "dest.txt",
+			wantErr: "Path traversal forbidden",
+		},
+		{
+			name:    "dot dot in dst",
+			src:     "source.txt",
+			dst:     "../escape.txt",
+			wantErr: "Path traversal forbidden",
+		},
+		{
+			name:    "nested traversal in dst",
+			src:     "source.txt",
+			dst:     "sub/../../escape.txt",
+			wantErr: "Path traversal forbidden",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := expSvc.MoveItem(context.Background(), models.MoveRequest{
+				SrcRemote: "local",
+				SrcPath:   tc.src,
+				DstRemote: "local",
+				DstPath:   tc.dst,
+			}, tmpDir)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if resp.Status != "error" || !strings.Contains(resp.Error, tc.wantErr) {
+				t.Fatalf("expected error containing %q, got: %+v", tc.wantErr, resp)
+			}
+		})
+	}
+}
+
+func TestExplorerOps_MoveItem_LocalSuccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{LocalPath: tmpDir}
+	expSvc := NewExplorerService(cfg, nil, nil)
+
+	srcFile := filepath.Join(tmpDir, "source.txt")
+	_ = os.WriteFile(srcFile, []byte("payload"), 0600)
+
+	resp, err := expSvc.MoveItem(context.Background(), models.MoveRequest{
+		SrcRemote: "local",
+		SrcPath:   "source.txt",
+		DstRemote: "local",
+		DstPath:   "sub/dest.txt",
+	}, tmpDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got: %+v", resp)
+	}
+
+	dstFile := filepath.Join(tmpDir, "sub", "dest.txt")
+	if _, err := os.Stat(dstFile); os.IsNotExist(err) {
+		t.Fatalf("expected moved file at %s", dstFile)
+	}
+	if _, err := os.Stat(srcFile); !os.IsNotExist(err) {
+		t.Fatalf("expected source file to be removed at %s", srcFile)
 	}
 }
 
