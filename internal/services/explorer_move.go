@@ -100,13 +100,13 @@ func (e *ExplorerService) MoveItem(ctx context.Context, req models.MoveRequest, 
 	return e.executeMove(ctx, req, rawBase, cleanSrcPath, cleanDstPath, srcIsLocal, dstIsLocal, srcFs, srcFile, targetSrc)
 }
 func (e *ExplorerService) executeMove(ctx context.Context, req models.MoveRequest, rawBase, cleanSrcPath, cleanDstPath string, srcIsLocal, dstIsLocal bool, srcFs, srcFile, targetSrc string) (models.MoveResponse, error) {
-	var dstFs, dstFile, targetDst string
+	var dstFs, dstFile, targetDst, cleanBaseDst string
 	if dstIsLocal {
 		baseDst, tDst, ok := isLocalPathJailed(rawBase, cleanDstPath)
 		if !ok {
 			return models.MoveResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
 		}
-		cleanBaseDst := filepath.Clean(baseDst)
+		cleanBaseDst = filepath.Clean(baseDst)
 		dstPrefix := cleanBaseDst + string(filepath.Separator)
 		if tDst != cleanBaseDst && !strings.HasPrefix(tDst, dstPrefix) {
 			return models.MoveResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
@@ -129,6 +129,16 @@ func (e *ExplorerService) executeMove(ctx context.Context, req models.MoveReques
 				}
 			}
 		}
+
+		targetDst = filepath.Clean(targetDst)
+		relDst, err := filepath.Rel(cleanBaseDst, targetDst)
+		if err != nil || strings.HasPrefix(relDst, "..") || filepath.IsAbs(relDst) {
+			return models.MoveResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
+		}
+		if targetDst != cleanBaseDst && !strings.HasPrefix(targetDst, dstPrefix) {
+			return models.MoveResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
+		}
+		targetDst = filepath.Join(cleanBaseDst, relDst)
 	} else {
 		remoteName := strings.TrimRight(req.DstRemote, ":") + ":"
 		if req.IsDir {
@@ -172,10 +182,34 @@ func (e *ExplorerService) executeMove(ctx context.Context, req models.MoveReques
 	}
 
 	if srcIsLocal && dstIsLocal {
-		if err := os.MkdirAll(filepath.Dir(targetDst), 0750); err != nil {
+		baseSrc, _, ok := isLocalPathJailed(rawBase, cleanSrcPath)
+		if !ok {
+			return models.MoveResponse{Status: "error", Error: "Source path traversal forbidden"}, nil
+		}
+		cleanBaseSrc := filepath.Clean(baseSrc)
+		relSrc, err := filepath.Rel(cleanBaseSrc, targetSrc)
+		if err != nil || strings.HasPrefix(relSrc, "..") || filepath.IsAbs(relSrc) {
+			return models.MoveResponse{Status: "error", Error: "Source path traversal forbidden"}, nil
+		}
+		cleanTargetSrc := filepath.Join(cleanBaseSrc, relSrc)
+
+		dstDir := filepath.Clean(filepath.Dir(targetDst))
+		relDir, err := filepath.Rel(cleanBaseDst, dstDir)
+		if err != nil || strings.HasPrefix(relDir, "..") || filepath.IsAbs(relDir) {
+			return models.MoveResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
+		}
+		cleanDstDir := filepath.Join(cleanBaseDst, relDir)
+
+		relFinalDst, err := filepath.Rel(cleanBaseDst, targetDst)
+		if err != nil || strings.HasPrefix(relFinalDst, "..") || filepath.IsAbs(relFinalDst) {
+			return models.MoveResponse{Status: "error", Error: "Destination path traversal forbidden"}, nil
+		}
+		cleanTargetDst := filepath.Join(cleanBaseDst, relFinalDst)
+
+		if err := os.MkdirAll(cleanDstDir, 0750); err != nil {
 			return models.MoveResponse{Status: "error", Error: fmt.Sprintf("Failed to prepare destination: %v", err)}, nil
 		}
-		if err := os.Rename(targetSrc, targetDst); err != nil {
+		if err := os.Rename(cleanTargetSrc, cleanTargetDst); err != nil {
 			if e.Client != nil {
 				if req.IsDir {
 					if err := e.Client.MoveDir(ctx, srcFs, dstFs); err != nil {
