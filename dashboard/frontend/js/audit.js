@@ -175,6 +175,10 @@ window.AuditModule = {
         if (action.includes("ROLLBACK")) return "bg-rose-950/80 text-rose-300 border-rose-800/60";
         if (action.includes("DISMISSED")) return "bg-slate-900 text-slate-400 border-slate-700/60";
         if (action.includes("CONFIG") || action.includes("SECRET")) return "bg-purple-950/80 text-purple-300 border-purple-800/60";
+        if (action.includes("FILE_UPLOADED") || action.includes("DIR_CREATED")) return "bg-sky-950/80 text-sky-300 border-sky-800/60";
+        if (action.includes("ITEM_COPIED")) return "bg-blue-950/80 text-blue-300 border-blue-800/60";
+        if (action.includes("ITEM_MOVED")) return "bg-amber-950/80 text-amber-300 border-amber-800/60";
+        if (action.includes("ITEM_DELETED") || action.includes("DIR_PURGED")) return "bg-rose-950/80 text-rose-300 border-rose-800/60";
         return "bg-slate-800/80 text-slate-300 border-slate-700/50";
     },
 

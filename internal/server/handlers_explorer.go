@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -95,6 +96,16 @@ func (s *Server) handleCopyItem(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, models.CopyResponse{Status: "error", Error: err.Error()})
 		return
 	}
+	if res.Status == "success" && s.AuditService != nil {
+		_, _ = s.AuditService.RecordEvent(req.ProfileID, audit.ActionWorkspaceItemCopied, s.resolveActor(r), map[string]any{
+			"src_remote": req.SrcRemote,
+			"src_path":   req.SrcPath,
+			"dst_remote": req.DstRemote,
+			"dst_path":   req.DstPath,
+			"is_dir":     req.IsDir,
+			"source":     "WORKSPACE_STAGING",
+		})
+	}
 	writeJSON(w, http.StatusOK, res)
 }
 
@@ -112,6 +123,14 @@ func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.DeleteResponse{Status: "error", Error: err.Error()})
 		return
+	}
+	if res.Status == "success" && s.AuditService != nil {
+		_, _ = s.AuditService.RecordEvent(req.ProfileID, audit.ActionWorkspaceItemDeleted, s.resolveActor(r), map[string]any{
+			"remote": req.Remote,
+			"path":   req.Path,
+			"is_dir": req.IsDir,
+			"source": "WORKSPACE_STAGING",
+		})
 	}
 	writeJSON(w, http.StatusOK, res)
 }
@@ -153,6 +172,15 @@ func (s *Server) handleExplorerUpload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.UploadResponse{Status: "error", Error: err.Error()})
 		return
+	}
+	if res.Status == "success" && s.AuditService != nil {
+		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionWorkspaceFileUploaded, s.resolveActor(r), map[string]any{
+			"remote":   remote,
+			"path":     targetPath,
+			"filename": header.Filename,
+			"size":     header.Size,
+			"source":   "WORKSPACE_STAGING",
+		})
 	}
 	writeJSON(w, http.StatusOK, res)
 }

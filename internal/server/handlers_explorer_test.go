@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
@@ -58,6 +60,14 @@ func setupTestServerWithProfilesAndExplorer(t *testing.T) (*Server, string, stri
 
 	explorerSvc := services.NewExplorerService(cfg, nil, canarySvc)
 	srv.ExplorerService = explorerSvc
+
+	auditDBPath := filepath.Join(tmpDir, "test_audit.db")
+	if auditDB, err := audit.OpenDB(auditDBPath); err == nil {
+		auditSvc := services.NewAuditService(auditDB, nil)
+		auditSvc.DBPath = auditDBPath
+		srv.AuditService = auditSvc
+		t.Cleanup(func() { _ = auditSvc.Close() })
+	}
 
 	return srv, defaultLocal, profileLocal
 }
@@ -576,3 +586,124 @@ func TestHandleExplorerUpload_SuccessAndSafety(t *testing.T) {
 		t.Fatalf("profile uploaded file content mismatch: %v (data: %s)", err, string(content))
 	}
 }
+
+func TestExplorerAudit_Operations(t *testing.T) {
+	srv, _, profileLocal := setupTestServerWithProfilesAndExplorer(t)
+
+	mockRC := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer mockRC.Close()
+	srv.ExplorerService.Client = client.NewRcloneClient(mockRC.URL, "user", "pass")
+
+	// 1. Upload item with profile_id
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	_ = w.WriteField("remote", "local")
+	_ = w.WriteField("path", "")
+	_ = w.WriteField("profile_id", "prof_onedrive")
+	part, _ := w.CreateFormFile("file", "audit_upload.txt")
+	_, _ = part.Write([]byte("audit upload content"))
+	_ = w.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/explorer/upload", &b)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("X-Dashboard-Request", "1")
+	req.Header.Set("Origin", "http://localhost:8080")
+	req.Header.Set("X-Forwarded-User", "auditor@domain.test")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	// 2. Copy item
+	copyBody, _ := json.Marshal(models.CopyRequest{
+		SrcRemote: "local",
+		SrcPath:   "audit_upload.txt",
+		DstRemote: "local",
+		DstPath:   "audit_upload_copy.txt",
+		ProfileID: "prof_onedrive",
+	})
+	reqCopy := httptest.NewRequest(http.MethodPost, "/api/browse/copy", bytes.NewBuffer(copyBody))
+	reqCopy.Header.Set("Content-Type", "application/json")
+	reqCopy.Header.Set("X-Dashboard-Request", "1")
+	reqCopy.Header.Set("Origin", "http://localhost:8080")
+	reqCopy.Header.Set("X-Forwarded-User", "auditor@domain.test")
+	recCopy := httptest.NewRecorder()
+	srv.ServeHTTP(recCopy, reqCopy)
+
+	if recCopy.Code != http.StatusOK {
+		t.Fatalf("expected 200 on copy, got %d", recCopy.Code)
+	}
+
+	// 3. Delete item (create file on disk so local deletion succeeds)
+	_ = os.WriteFile(filepath.Join(profileLocal, "audit_upload_copy.txt"), []byte("copy"), 0644)
+	delBody, _ := json.Marshal(models.DeleteRequest{
+		Remote:    "local",
+		Path:      "audit_upload_copy.txt",
+		ProfileID: "prof_onedrive",
+	})
+	reqDel := httptest.NewRequest(http.MethodPost, "/api/browse/delete", bytes.NewBuffer(delBody))
+	reqDel.Header.Set("Content-Type", "application/json")
+	reqDel.Header.Set("X-Dashboard-Request", "1")
+	reqDel.Header.Set("Origin", "http://localhost:8080")
+	reqDel.Header.Set("X-Forwarded-User", "auditor@domain.test")
+	recDel := httptest.NewRecorder()
+	srv.ServeHTTP(recDel, reqDel)
+
+	if recDel.Code != http.StatusOK {
+		t.Fatalf("expected 200 on delete, got %d", recDel.Code)
+	}
+
+	// Query audit records and verify all three operations were recorded
+	recs, _, err := srv.AuditService.Query(audit.Filter{ProfileID: "prof_onedrive"})
+	if err != nil {
+		t.Fatalf("failed to query audit records: %v", err)
+	}
+
+	foundUpload := false
+	foundCopy := false
+	foundDelete := false
+
+	for _, r := range recs {
+		if r.Actor != "auditor@domain.test" {
+			t.Errorf("expected actor auditor@domain.test, got %s", r.Actor)
+		}
+		if r.ProfileID != "prof_onedrive" {
+			t.Errorf("expected profile prof_onedrive, got %s", r.ProfileID)
+		}
+		switch r.Action {
+		case audit.ActionWorkspaceFileUploaded:
+			foundUpload = true
+			if !strings.Contains(string(r.Details), "audit_upload.txt") {
+				t.Errorf("expected details to contain audit_upload.txt, got %s", string(r.Details))
+			}
+		case audit.ActionWorkspaceItemCopied:
+			foundCopy = true
+			if !strings.Contains(string(r.Details), "audit_upload.txt") {
+				t.Errorf("expected details to contain audit_upload.txt, got %s", string(r.Details))
+			}
+		case audit.ActionWorkspaceItemDeleted:
+			foundDelete = true
+			if !strings.Contains(string(r.Details), "audit_upload_copy.txt") {
+				t.Errorf("expected details to contain audit_upload_copy.txt, got %s", string(r.Details))
+			}
+		}
+	}
+
+	if !foundUpload {
+		t.Errorf("expected ActionWorkspaceFileUploaded audit record")
+	}
+	if !foundCopy {
+		t.Errorf("expected ActionWorkspaceItemCopied audit record")
+	}
+	if !foundDelete {
+		t.Errorf("expected ActionWorkspaceItemDeleted audit record")
+	}
+
+	// Clean up created file in profileLocal
+	_ = os.Remove(filepath.Join(profileLocal, "audit_upload.txt"))
+}
+

@@ -86,6 +86,12 @@
                         <option value="ROLLBACK_EXECUTED">ROLLBACK_EXECUTED</option>
                         <option value="SECRET_ROTATED">SECRET_ROTATED</option>
                         <option value="CONFIG_MUTATED">CONFIG_MUTATED</option>
+                        <option value="WORKSPACE_FILE_UPLOADED">WORKSPACE_FILE_UPLOADED</option>
+                        <option value="WORKSPACE_ITEM_COPIED">WORKSPACE_ITEM_COPIED</option>
+                        <option value="WORKSPACE_ITEM_MOVED">WORKSPACE_ITEM_MOVED</option>
+                        <option value="WORKSPACE_ITEM_DELETED">WORKSPACE_ITEM_DELETED</option>
+                        <option value="WORKSPACE_DIR_PURGED">WORKSPACE_DIR_PURGED</option>
+                        <option value="WORKSPACE_DIR_CREATED">WORKSPACE_DIR_CREATED</option>
                     </select>
 
                     <select x-model="auditData.filterActor" @change="applyAuditFilters()" class="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-300 outline-none">

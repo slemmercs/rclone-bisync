@@ -31,7 +31,10 @@ const (
 	ActionProfileRolledBack Action = "PROFILE_ROLLED_BACK"
 
 	// Workspace Staging Operations
-	ActionWorkspaceItemMoved  Action = "WORKSPACE_ITEM_MOVED"
-	ActionWorkspaceDirPurged  Action = "WORKSPACE_DIR_PURGED"
-	ActionWorkspaceDirCreated Action = "WORKSPACE_DIR_CREATED"
+	ActionWorkspaceItemMoved    Action = "WORKSPACE_ITEM_MOVED"
+	ActionWorkspaceDirPurged    Action = "WORKSPACE_DIR_PURGED"
+	ActionWorkspaceDirCreated   Action = "WORKSPACE_DIR_CREATED"
+	ActionWorkspaceFileUploaded Action = "WORKSPACE_FILE_UPLOADED"
+	ActionWorkspaceItemCopied   Action = "WORKSPACE_ITEM_COPIED"
+	ActionWorkspaceItemDeleted  Action = "WORKSPACE_ITEM_DELETED"
 )

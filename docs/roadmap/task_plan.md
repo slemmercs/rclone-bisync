@@ -13,9 +13,9 @@ Resolve 4 user-reported issues: (1) provider-aware "Open on Remote" context menu
   - **Scope**: `dashboard/frontend/js/explorer_operations.js`, `dashboard/frontend/partials/components/component_context_menu.html`, `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `go test -v -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 3: Audit Ledger Parity for File Explorer Operations
+- [x] Task 3: Audit Ledger Parity for File Explorer Operations
   - **Scope**: `internal/audit/taxonomy.go`, `internal/server/handlers_explorer.go`, `dashboard/frontend/js/audit.js`, `internal/server/handlers_explorer_test.go`
-  - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandleExplorerUpload`
+  - **Verification**: `go test -v -count=1 ./internal/server/... -run "TestExplorerAudit|TestHandleExplorerUpload"`
 
 - [ ] Task 4: Universal Uninitialized Profile Detection & Sandbox Cache Isolation
   - **Scope**: `internal/server/handlers_sync.go`, `dashboard/frontend/app.js`, `scripts/run-sandbox.sh`, `internal/server/handlers_profiles_sync_test.go`
