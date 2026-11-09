@@ -706,4 +706,3 @@ func TestExplorerAudit_Operations(t *testing.T) {
 	// Clean up created file in profileLocal
 	_ = os.Remove(filepath.Join(profileLocal, "audit_upload.txt"))
 }
-

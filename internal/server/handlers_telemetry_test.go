@@ -260,7 +260,6 @@ func TestMCPStatusEndpoint(t *testing.T) {
 	}
 }
 
-
 func TestHandler_DaemonLogs(t *testing.T) {
 	tmpDir := t.TempDir()
 	logFile := filepath.Join(tmpDir, "bisync.log")

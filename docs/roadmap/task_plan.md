@@ -25,7 +25,7 @@ Resolve 4 user-reported issues: (1) provider-aware "Open on Remote" context menu
   - **Scope**: `internal/server/handlers_telemetry.go`, `dashboard/frontend/js/logs.js`, `internal/server/handlers_telemetry_test.go`
   - **Verification**: `go test -v -count=1 ./internal/server/... -run TestHandler_DaemonLogs`
 
-- [ ] Task 6: Quality Gate Verification & Pre-Commit Check
+- [x] Task 6: Quality Gate Verification & Pre-Commit Check
   - **Scope**: Full repository quality check suite
   - **Verification**: `./scripts/check.sh all`
 
@@ -33,5 +33,10 @@ Resolve 4 user-reported issues: (1) provider-aware "Open on Remote" context menu
 
 - 2026-11-08: Task 1 verified and committed (`git commit 6c2689c`).
 - 2026-11-09: Initialized updated comprehensive plan covering all 4 interactive sandbox issues.
+- 2026-11-09: Task 2 verified and committed (`git commit 2b45e2a`).
+- 2026-11-09: Task 3 verified and committed (`git commit 46b4122`).
+- 2026-11-09: Task 4 verified and committed (`git commit 3e11aa7`).
+- 2026-11-09: Task 5 verified and committed (`git commit 816c1a2`).
+- 2026-11-09: Task 6 verified: all 7 quality gate checks in `./scripts/check.sh all` passed.
 
 

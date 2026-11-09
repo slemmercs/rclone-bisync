@@ -950,7 +950,6 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 	})
 
-
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
 	defer mu.Unlock()

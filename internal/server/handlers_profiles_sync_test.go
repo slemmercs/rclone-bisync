@@ -168,4 +168,3 @@ func TestHandleAction_RequiresResync(t *testing.T) {
 		t.Fatalf("expected status: success after initialization, got %+v", respSubsequent)
 	}
 }
-
