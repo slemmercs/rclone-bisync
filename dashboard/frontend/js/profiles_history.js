@@ -119,8 +119,20 @@ window.ProfilesHistoryModule = {
                 dry_run: dryRun
             });
             if (res && res.requires_resync) {
-                if (confirm(`Profile "${profId}" has never been synced. First run requires --resync to establish baseline listings.\n\nProceed with --resync now?`)) {
+                const executeResync = async () => {
                     await this.triggerProfileSync(profId, force, true, dryRun);
+                };
+                if (typeof this.askConfirmation === "function") {
+                    this.askConfirmation({
+                        title: "Initial Resync Required",
+                        icon: "sync",
+                        message: `Profile "${profId}" has never been synchronized.\n\nFirst run requires --resync to establish baseline listings.\n\nProceed with --resync now?`,
+                        confirmText: "Proceed with Resync",
+                        confirmClass: "bg-indigo-600 hover:bg-indigo-500",
+                        onConfirm: executeResync
+                    });
+                } else if (confirm(`Profile "${profId}" has never been synced. First run requires --resync to establish baseline listings.\n\nProceed with --resync now?`)) {
+                    await executeResync();
                 }
                 return;
             }

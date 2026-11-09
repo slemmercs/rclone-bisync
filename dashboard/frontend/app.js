@@ -334,8 +334,20 @@ document.addEventListener("alpine:init", () => {
                 const data = await window.API.post("/api/action", payload);
                 if (data.requires_resync) {
                     const profId = payload.profile_id || "selected profile";
-                    if (confirm(`Profile "${profId}" has never been synced. Initial synchronization requires --resync to establish baseline listings.\n\nProceed with --resync now?`)) {
-                        return await this.triggerAction("force_resync");
+                    const executeResync = async () => {
+                        await this.triggerAction("force_resync");
+                    };
+                    if (typeof this.askConfirmation === "function") {
+                        this.askConfirmation({
+                            title: "Initial Resync Required",
+                            icon: "sync",
+                            message: `Profile "${profId}" has never been synchronized.\n\nInitial synchronization requires --resync to establish baseline listings.\n\nProceed with --resync now?`,
+                            confirmText: "Proceed with Resync",
+                            confirmClass: "bg-indigo-600 hover:bg-indigo-500",
+                            onConfirm: executeResync
+                        });
+                    } else if (confirm(`Profile "${profId}" has never been synced. Initial synchronization requires --resync to establish baseline listings.\n\nProceed with --resync now?`)) {
+                        await executeResync();
                     }
                     return;
                 }
