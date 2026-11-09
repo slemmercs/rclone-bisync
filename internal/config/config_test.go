@@ -103,6 +103,9 @@ func TestLoadConfigSuccess(t *testing.T) {
 	if cfg.RCPass != "supersecret" {
 		t.Errorf("expected RCPass supersecret, got %s", cfg.RCPass)
 	}
+	if cfg.LogFile != filepath.Join(tmpDir, "bisync.log") {
+		t.Errorf("expected default LogFile bisync.log, got %s", cfg.LogFile)
+	}
 	if cfg.RCPort != 5572 {
 		t.Errorf("expected default port 5572, got %d", cfg.RCPort)
 	}

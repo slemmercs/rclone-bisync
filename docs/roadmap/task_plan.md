@@ -9,7 +9,7 @@ Replace unstyled browser `window.confirm(...)` popups with the custom UI confirm
   - **Scope**: `dashboard/frontend/app.js`, `dashboard/frontend/js/profiles_history.js`
   - **Verification**: `go test -count=1 ./tests/e2e/...`
 
-- [ ] Task 2: Standardize Sandbox & Default Log File Naming (`bisync.log`)
+- [x] Task 2: Standardize Sandbox & Default Log File Naming (`bisync.log`)
   - **Scope**: `scripts/run-sandbox.sh`, `internal/config/config.go`
   - **Verification**: `go test -count=1 ./internal/config/...`
 
@@ -29,3 +29,4 @@ Replace unstyled browser `window.confirm(...)` popups with the custom UI confirm
 
 - 2026-11-09: Initialized task plan from implementation_plan.md.
 - 2026-11-09: Task 1 verified: Migrated uninitialized resync confirmation dialogs in `app.js` and `profiles_history.js` to styled `confirmModal`. E2E smoke tests passed.
+- 2026-11-09: Task 2 verified: Standardized default LogFile to bisync.log in config, sandbox setup, and comments. All tests in internal/config passed.

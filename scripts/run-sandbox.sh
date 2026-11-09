@@ -44,6 +44,7 @@ mkdir -p "$SANDBOX_DIR/remote_storage/backup_docs"
 mkdir -p "$SANDBOX_DIR/review_sessions"
 mkdir -p "$SANDBOX_DIR/review_backups"
 mkdir -p "$SANDBOX_DIR/cache"
+touch "$SANDBOX_DIR/bisync.log"
 export RCLONE_CACHE_DIR="$SANDBOX_DIR/cache"
 
 # 3. Seed mock test data
@@ -85,7 +86,7 @@ RCLONE_CACHE_DIR=$SANDBOX_DIR/cache
 PROFILES_FILE=$SANDBOX_DIR/profiles.json
 PROFILES_HISTORY_FILE=$SANDBOX_DIR/profiles_history.json
 AUDIT_DB_PATH=$SANDBOX_DIR/audit.db
-LOG_FILE=$SANDBOX_DIR/bisync-hub-log.json
+LOG_FILE=$SANDBOX_DIR/bisync.log
 NOTIFICATION_APP_NAME="Bisync Sandbox"
 DEBUG_MODE=true
 FEATURE_DAEMON_HEALTH_CHECK=true
