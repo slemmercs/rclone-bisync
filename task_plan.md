@@ -64,7 +64,7 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
   - **Scope**: `dashboard/frontend/partials/view_fleet.html`, `dashboard/frontend/js/fleet.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 11: True Single-Bar Consolidation in Storage Remotes View
+- [x] Task 11: True Single-Bar Consolidation in Storage Remotes View
   - **Scope**: `dashboard/frontend/partials/view_remotes.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
@@ -79,3 +79,5 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
 - 2026-11-10: Task 9 verified: Implemented interactive MCP Tool Registry inline accordion with 24 tool definitions, parameters schemas, safeguard risk profiles, search filtering, category pill toggles, and expanded accordion state in `modal_system_health.html` and `system_health.js`. Verified via headless Chrome smoke test, template validation, and LOC audit.
 
 - 2026-11-10: Task 10 verified: Surfaced configured ready remote target badges/pills in Fleet onboarding Step 1 hero card with direct linkout navigation to the Remotes tab, backed by `hasConfiguredRemotes`, `readyRemotesList`, and `navigateToRemotes()` in `fleet.js`. Verified via headless Chrome smoke test, template validation, and LOC audit.
+
+- 2026-11-10: Task 11 verified: Consolidated the Authentication Health Overview card and Configured Remotes control bar into a single unified sleek control deck in `view_remotes.html` containing remotes count, OAuth counts, connection status pills, profile scoping, audit log, quota refresh, and remote provisioning. Verified via templates, LOC audit, and headless Chrome smoke test.
