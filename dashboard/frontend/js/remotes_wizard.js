@@ -102,6 +102,15 @@ window.RemotesWizardModule = {
         return result;
     },
 
+    isOAuthProvider(p) {
+        if (!p) return false;
+        if (p.supports_oauth) return true;
+        const oauthTypes = ["drive", "onedrive", "dropbox", "box", "pcloud", "hubic", "yandex", "mailru", "google photos", "zoho"];
+        const name = (p.name || "").toLowerCase();
+        const prefix = (p.prefix || "").toLowerCase();
+        return oauthTypes.includes(name) || oauthTypes.includes(prefix);
+    },
+
     setAuthMode(mode) {
         this.createRemoteModal.authMode = mode;
         if (mode === "oauth" && this.createRemoteModal.parameters) {

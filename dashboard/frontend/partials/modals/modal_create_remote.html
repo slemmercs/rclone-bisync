@@ -49,7 +49,7 @@
                                 <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300 transition-colors">
                                     <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                                 </div>
-                                <span x-show="p.supports_oauth" class="text-[9px] uppercase px-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">OAuth</span>
+                                <span x-show="isOAuthProvider(p)" class="text-[9px] uppercase px-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">OAuth</span>
                             </div>
                             <div>
                                 <div class="font-bold text-xs text-white group-hover:text-indigo-300 transition-colors truncate" x-text="p.name"></div>
@@ -90,7 +90,7 @@
                                 <span class="font-bold text-sm text-white group-hover:text-indigo-300 transition-colors" x-text="p.name"></span>
                                 <div class="flex items-center gap-1">
                                     <span x-show="p.popular" class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Popular</span>
-                                    <span x-show="p.supports_oauth" class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">OAuth</span>
+                                    <span x-show="isOAuthProvider(p)" class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">OAuth</span>
                                 </div>
                             </div>
                             <p class="text-xs text-slate-400 line-clamp-2" x-text="p.description || p.name"></p>
@@ -135,7 +135,7 @@
             </div>
 
             <!-- OAuth vs Custom Credentials Segmented Control -->
-            <div x-show="createRemoteModal.selectedProvider?.supports_oauth" class="space-y-2.5">
+            <div x-show="isOAuthProvider(createRemoteModal.selectedProvider)" class="space-y-2.5">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-semibold text-slate-300">Authentication Mode</span>
                     <div class="inline-flex rounded-lg bg-slate-950 p-1 border border-slate-800 text-[11px]">
@@ -238,7 +238,7 @@
                             </div>
                             <div>
                                 <span class="text-slate-500 block text-[11px]">Authentication:</span>
-                                <span :class="createRemoteModal.selectedProvider?.supports_oauth ? 'text-emerald-400' : 'text-slate-300'" x-text="createRemoteModal.selectedProvider?.supports_oauth ? (createRemoteModal.authMode === 'custom' ? 'Custom OAuth Credentials' : 'OAuth 2.0 (Browser-assisted)') : 'Standard / Direct'"></span>
+                                <span :class="isOAuthProvider(createRemoteModal.selectedProvider) ? 'text-emerald-400' : 'text-slate-300'" x-text="isOAuthProvider(createRemoteModal.selectedProvider) ? (createRemoteModal.authMode === 'custom' ? 'Custom OAuth Credentials' : 'OAuth 2.0 (Browser-assisted)') : 'Standard / Direct'"></span>
                             </div>
                             <div>
                                 <span class="text-slate-500 block text-[11px]">Sync Profile Bridge:</span>

@@ -1,5 +1,9 @@
 package models
 
+import (
+	"strings"
+)
+
 // ProviderExample represents an example option value for a provider configuration field.
 type ProviderExample struct {
 	Value    string `json:"Value"`
@@ -62,12 +66,32 @@ const (
 
 // ProviderCatalogItem represents an enriched provider metadata entry.
 type ProviderCatalogItem struct {
-	Name        string           `json:"name"`
-	Description string           `json:"description"`
-	Prefix      string           `json:"prefix,omitempty"`
-	Category    ProviderCategory `json:"category"`
-	Popular     bool             `json:"popular"`
-	Options     []ProviderOption `json:"options,omitempty"`
+	Name          string           `json:"name"`
+	Description   string           `json:"description"`
+	Prefix        string           `json:"prefix,omitempty"`
+	Category      ProviderCategory `json:"category"`
+	Popular       bool             `json:"popular"`
+	SupportsOAuth bool             `json:"supports_oauth"`
+	Options       []ProviderOption `json:"options,omitempty"`
+}
+
+// OAuthCapableProviders lists cloud providers that use OAuth 2.0 authorization flows.
+var OAuthCapableProviders = map[string]bool{
+	"drive":         true,
+	"onedrive":      true,
+	"dropbox":       true,
+	"box":           true,
+	"pcloud":        true,
+	"hubic":         true,
+	"yandex":        true,
+	"mailru":        true,
+	"google photos": true,
+	"zoho":          true,
+}
+
+// IsOAuthProvider returns true if the remote provider type uses OAuth authentication.
+func IsOAuthProvider(providerType string) bool {
+	return OAuthCapableProviders[strings.ToLower(strings.TrimSpace(providerType))]
 }
 
 // ProviderCatalogResponse represents categorized providers for the UI wizard and MCP tools.

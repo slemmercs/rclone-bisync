@@ -47,3 +47,29 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
 - 2026-11-10: Task 5 verified: Overhauled Dual-Pane Directory Explorer by replacing ambiguous "Sync" labels with explicit directional transfers ("Transfer to Remote →" / "Transfer to Local ←"), collapsed multi-bar pane headers into a single high-density header with embedded interactive breadcrumbs and quick actions, integrated search directly into column sort headers, and safeguarded RCLONE_TEST canary rows with visual lock icons, CANARY badges, drag-prevention, and action restrictions. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
 - 2026-11-10: Task 6 verified: Added headless Chrome E2E verification assertions in `dashboard_smoke_test.go` covering top-bar quick-create menu toggling, multi-tab System Health Modal (Daemon, MCP Server, Scheduler & Poller), onboarding hero card empty-state condition, remote creation wizard segmented auth toggling (`oauth` vs `custom`), and dual-pane directory explorer directional transfer action buttons and canary drag-guards. Executed complete E2E test suite and full 7-stage quality gate (`./scripts/check.sh all`) with 100% pass rate.
 
+
+- [x] Task 7: Expose `SupportsOAuth` in Backend Provider Catalog & Fix Step 2 Segmented Control
+  - **Scope**: `internal/models/provider.go`, `internal/services/remote_wizard_service.go`, `internal/services/remote_wizard_service_test.go`, `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`
+  - **Verification**: `go test -count=1 ./internal/services/... -run TestWizardService_GetProvidersCatalog` and `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+
+- [ ] Task 8: Implement Cancellation & In-Flight Abort for Remote Creation Wizard Step 3
+  - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
+
+- [ ] Task 9: Interactive MCP Tool Registry Accordion in System Health Modal
+  - **Scope**: `dashboard/frontend/partials/modals/modal_system_health.html`, `dashboard/frontend/js/system_health.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
+
+- [ ] Task 10: Fleet Onboarding Hero Card Ready Remote Badges & Navigation Linkout
+  - **Scope**: `dashboard/frontend/partials/view_fleet.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
+
+- [ ] Task 11: True Single-Bar Consolidation in Storage Remotes View
+  - **Scope**: `dashboard/frontend/partials/view_remotes.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
+
+- [ ] Task 12: E2E Smoke Tests & Full Quality Gate Check
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
+  - **Verification**: `./scripts/check.sh all`
+
+- 2026-11-10: Task 7 verified: Added `SupportsOAuth` boolean to `ProviderCatalogItem` in Go backend, populated via `IsOAuthProvider`, and implemented fallback helper `isOAuthProvider(p)` in `remotes_wizard.js` and `modal_create_remote.html` to reliably display the OAuth vs Custom segmented control.

@@ -70,6 +70,17 @@ func TestRemoteWizard_GetProvidersCatalog(t *testing.T) {
 	if len(cat.Providers) != 3 {
 		t.Fatalf("expected 3 non-hidden providers, got %d", len(cat.Providers))
 	}
+	for _, p := range cat.Providers {
+		if p.Name == "drive" && !p.SupportsOAuth {
+			t.Errorf("expected drive to have SupportsOAuth=true, got false")
+		}
+		if p.Name == "s3" && p.SupportsOAuth {
+			t.Errorf("expected s3 to have SupportsOAuth=false, got true")
+		}
+		if p.Name == "sftp" && p.SupportsOAuth {
+			t.Errorf("expected sftp to have SupportsOAuth=false, got true")
+		}
+	}
 	if callCount != 1 {
 		t.Fatalf("expected 1 call, got %d", callCount)
 	}

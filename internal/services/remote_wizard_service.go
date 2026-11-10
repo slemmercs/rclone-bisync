@@ -111,13 +111,15 @@ func (s *RemoteWizardService) GetProvidersCatalog(ctx context.Context, forceRefr
 			continue
 		}
 		cat := CategorizeProvider(p.Name)
+		supportsOAuth := models.IsOAuthProvider(p.Name) || models.IsOAuthProvider(p.Prefix)
 		items = append(items, models.ProviderCatalogItem{
-			Name:        p.Name,
-			Description: p.Description,
-			Prefix:      p.Prefix,
-			Category:    cat,
-			Popular:     PopularProviders[p.Name],
-			Options:     p.Options,
+			Name:          p.Name,
+			Description:   p.Description,
+			Prefix:        p.Prefix,
+			Category:      cat,
+			Popular:       PopularProviders[p.Name],
+			SupportsOAuth: supportsOAuth,
+			Options:       p.Options,
 		})
 	}
 

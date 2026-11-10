@@ -1,58 +1,59 @@
-# Implementation Plan: Bisync Hub Cockpit UI/UX Consolidation
+# Implementation Plan: Cockpit UI/UX Usability Polish & Bug Fixes
 
-## Proposed Changes
+## Overview
+Deliver a targeted usability and bug-fix overhaul addressing the 5 user-reported issues in the Bisync Hub cockpit:
+1. Enable an inline expandable MCP Tool Registry accordion within the System Health modal's MCP Agent Server tab displaying all 24 registered tools and resources with tool search and safety mode badges.
+2. Resolve missing OAuth vs Custom Credentials segmented toggle in Remote Creation Wizard Step 2 by exposing `SupportsOAuth` on backend `ProviderCatalogItem` and adding frontend provider prefix matching fallback.
+3. Add full abort/cancellation capability to Remote Creation Wizard Step 3 during provisioning via an explicit "Cancel Provisioning" button, window close handler, and `POST /api/remotes/auth/oauth-stop`.
+4. Surface active remote names and clickable linkouts (`switchTab('remotes')`) directly in the Fleet onboarding hero card's "Remotes Ready" badge and remote summary pills.
+5. Consolidate the two stacked bars in the Storage Remotes view ("Authentication Health Overview" and "Configured Remotes") into a single cohesive control deck.
 
-Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, remote creation wizard, and dual-pane file explorer to eliminate visual clutter, remove dangerous/ambiguous nomenclature, and streamline operator workflows. Standardize on high-contrast Lucide SVG icons across all newly introduced and refreshed UI elements.
+## Types
+- `internal/models/provider.go`:
+  - Add `SupportsOAuth bool `json:"supports_oauth"`` to `ProviderCatalogItem` struct.
 
-### Affected Components & Packages
+## Files
+- Existing files to modify:
+  - `internal/models/provider.go`: Add `SupportsOAuth bool `json:"supports_oauth"`` to `ProviderCatalogItem`.
+  - `internal/services/remote_wizard_service.go`: Set `SupportsOAuth` during catalog assembly using `remoteauth.IsOAuthProvider(p.Name) || remoteauth.IsOAuthProvider(p.Prefix)`.
+  - `dashboard/frontend/partials/modals/modal_system_health.html`: Make the MCP Tool Registry card interactive (`cursor-pointer`, active highlight, chevron), embed the 24-tool catalog inline accordion with search and parameter details.
+  - `dashboard/frontend/js/system_health.js`: Add `mcpToolsExpanded: false`, `mcpToolsSearch: ""`, and filtering helper `filteredMcpTools`.
+  - `dashboard/frontend/partials/modals/modal_create_remote.html`: Add frontend OAuth check fallback `isOAuthProvider(createRemoteModal.selectedProvider)`, add Cancel button in Step 3 when `createRemoteModal.saving` is true, and enable Back/Cancel navigation.
+  - `dashboard/frontend/js/remotes_wizard.js`: Add `isOAuthProvider(p)`, add `cancelProvisioning()` method calling `window.API.post("/api/remotes/auth/oauth-stop")` and aborting in-flight request, update `closeCreateRemoteWizard()` to abort if saving.
+  - `dashboard/frontend/partials/view_fleet.html`: Make Step 1 readiness badge clickable (`@click="switchTab('remotes')"`), display active ready remote badges (e.g. `drive:`, `s3:`), and add linkout button.
+  - `dashboard/frontend/partials/view_remotes.html`: Merge the Authentication Health Bar and Configured Remotes Control Bar into a single unified header bar.
+  - `tests/e2e/dashboard_smoke_test.go`: Add E2E tests for the new interactions.
 
-- `dashboard/frontend/index.html`: Header layout consolidation, global `[ + Create ▾ ]` dropdown, consolidated System Health Chip, modal template registration, script registration.
-- `dashboard/frontend/partials/modals/modal_system_health.html` (*new*): Unified modal covering Daemon Engine & Logs, MCP Agent Server, and Scheduler & Poller tabs with sub-system alerts.
-- `dashboard/frontend/js/system_health.js` (*new*): Alpine.js module managing System Health Modal state, tab transitions, log tailing, and polling controls.
-- `dashboard/frontend/app.js`: Register `SystemHealthModule`, global keyboard shortcuts (`c`/`Ctrl+K` for Create, `n` for Profile, `r` for Remote, `?` for Help), and consolidated health chip computed state.
-- `dashboard/frontend/partials/view_fleet.html`: Fleet header cleanup, click-to-filter profile metric cards, and 2-step first-launch onboarding hero card (`profilesData.list.length === 0`).
-- `dashboard/frontend/partials/modals/modal_create_remote.html`: Tier-1 provider spotlight (Google Drive, OneDrive, S3, Dropbox, B2), clickable breadcrumb steppers, OAuth vs Custom credentials segmented toggle, unstickable error states.
-- `dashboard/frontend/js/remotes_wizard.js`: Wizard state handling for provider spotlight, credential toggling, and resilient reset.
-- `dashboard/frontend/partials/view_remotes.html`: Single-line unified control bar merging remote count, status badges, profile scoping, and action buttons.
-- `dashboard/frontend/partials/view_explorer.html` & `component_explorer_toolbar.html`: Explorer toolbar cleanup, removing ambiguous "Sync" labels, single-line pane toolbar, directional transfer bar, and locked `RCLONE_TEST` canary visual presentation.
-- `tests/e2e/dashboard_smoke_test.go` & `tests/e2e/sandbox_ui_journey_test.go`: E2E headless Chrome assertions for header health chip, quick create menu, onboarding card, and explorer operations.
+## Functions
+- `internal/services/remote_wizard_service.go`:
+  - `GetProvidersCatalog(ctx context.Context, forceRefresh bool)`: Enrich catalog items with `SupportsOAuth`.
+- `dashboard/frontend/js/system_health.js`:
+  - `toggleMcpToolCatalog()`: Toggles inline accordion visibility.
+  - `filteredMcpTools`: Filter registered tools by name and description query.
+- `dashboard/frontend/js/remotes_wizard.js`:
+  - `isOAuthProvider(p)`: Helper checking `p.supports_oauth` or common OAuth provider prefixes (`drive`, `onedrive`, `dropbox`, `box`, `pcloud`, `yandex`, etc.).
+  - `cancelProvisioning()`: Aborts in-flight create remote request and calls `/api/remotes/auth/oauth-stop`.
 
-### Technical Strategy & Data Flow
+## Classes
+- None (zero class inheritance; standard Alpine.js reactive objects and idiomatic Go structs).
 
-1. **Header & Consolidated Health Chip**:
-   - Merge `POLL`, `MCP`, and `LIVE` status pills into a single high-density chip: `[ 🟢 Live 2ms • 🟣 MCP • ⚪ Idle ]`.
-   - Preserve backward-compatible attribute hooks (`[x-text="mcpStatusText"]`) within the chip or modal to maintain test resilience.
-   - Primary `[ + Create ▾ ]` CTA dropdown provides immediate global access to `+ New Sync Profile` (`startNewProfile()`) and `+ Connect Storage Remote` (`openCreateRemoteWizard()`).
-2. **Unified System Health Modal**:
-   - Tab 1: Daemon Engine & Correlated Logs (integrating log stream, latency ping, error counters, fold repetitive clusters).
-   - Tab 2: MCP Agent Server (transport inspection, 24-tool catalog, client config snippet with copy button).
-   - Tab 3: Scheduler & Poller (polling frequency, pause/resume toggle, job runner status).
-   - Live badge alert dots on tabs if any sub-system is degraded.
-3. **Fleet Overview & Onboarding**:
-   - Metric cards become interactive filters: clicking Healthy, Review, Critical, Running, or Total filters the profile list.
-   - 0-State: A 2-step visual onboarding card guides the operator through Remote Connection -> Profile Creation -> Bidirectional Sync.
-4. **Remote Wizard Usability**:
-   - Step 1 displays Tier-1 curated provider spotlight cards with standard Lucide SVGs, with searchable catalog below.
-   - Clickable stepper allows jumping back to completed steps.
-   - Step 2 adds an explicit segmented toggle between Automated Browser OAuth and Custom Client Credentials.
-5. **Explorer Directional Clarification & Canary Safety**:
-   - Eliminate misleading `Sync Local to Remote` / `Sync Remote to Local` buttons; replace with explicit item-level directional transfers (`Transfer to Remote →`, `Copy Selection`).
-   - Collapse 3 pane header lines into 1 line (~130px vertical reclamation).
-   - `RCLONE_TEST` canary rows styled with a lock icon, disabled deletion/renaming, and informative tooltip.
+## Dependencies
+- None (native Go standard library and Alpine.js zero-build architecture).
 
-### Safety & Error Handling
+## Testing
+- `internal/services/remote_wizard_service_test.go`: Verify `SupportsOAuth` is populated correctly for `drive` and `s3`.
+- `tests/e2e/dashboard_smoke_test.go`:
+  - Verify clicking MCP Tool Registry expands the inline tool list.
+  - Verify selecting Google Drive displays the OAuth vs Custom toggle in Step 2.
+  - Verify Cancel button appears during Step 3 provisioning and halts the action.
+  - Verify clicking Fleet onboarding ready badge navigates to `remotes` tab.
+  - Verify Remotes view has a single consolidated control bar.
+- Quality Gate: `./scripts/check.sh all` passing 7/7 stages.
 
-- **Lucide SVG Icons**: All icons adhere to Lucide 24×24 stroke-based SVGs.
-- **Canary Guard**: Strict visual lock and disabled interactive controls on `RCLONE_TEST` to prevent accidental deletion.
-- **Unstickable Wizard State**: Cancel and Back buttons remain responsive during errors, and spinner reverts automatically upon request failure.
-- **Zero LOC Regressions**: All files strictly kept below 400 LOC per `./scripts/check.sh loc 400`.
-- **Zero Unsafe Dotted Alpine Bindings**: Validated via `./scripts/check.sh templates`.
-
-## Verification Plan
-
-- `./scripts/check.sh templates`: Validate Alpine.js binding safety.
-- `./scripts/check.sh loc 400`: Enforce file length constraints.
-- `go test -count=1 ./tests/e2e/...`: Verify headless Chrome E2E test suite.
-- `./scripts/check.sh all`: Full 7-stage pre-commit quality gate.
-
-
+## Implementation Order
+1. Backend & Model: Update `internal/models/provider.go` and `internal/services/remote_wizard_service.go` to expose `supports_oauth`.
+2. Wizard Step 2 & 3: Fix OAuth toggle detection in `modal_create_remote.html` and `remotes_wizard.js`; implement `cancelProvisioning()` with `stopOAuth()`.
+3. System Health MCP Accordion: Implement inline expandable tool catalog in `modal_system_health.html` and `system_health.js`.
+4. Fleet Hero Onboarding: Add ready remote tags and clickable tab switch in `view_fleet.html`.
+5. Remotes Control Deck: Consolidate the two stacked bars into one unified bar in `view_remotes.html`.
+6. E2E Tests & Pre-commit Quality Gate: Update headless Chrome assertions and verify `./scripts/check.sh all`.
