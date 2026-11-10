@@ -88,6 +88,9 @@ type CreateRemoteResult struct {
 	RemoteType  string `json:"remote_type"`
 	ProfileID   string `json:"profile_id,omitempty"`
 	ProfileName string `json:"profile_name,omitempty"`
+	NeedsAuth   bool   `json:"needs_auth,omitempty"`
+	AuthURL     string `json:"auth_url,omitempty"`
+	Status      string `json:"status,omitempty"`
 	Success     bool   `json:"success"`
 	Message     string `json:"message"`
 }

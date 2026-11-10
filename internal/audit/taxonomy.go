@@ -22,8 +22,6 @@ const (
 	ActionCanaryProvisioned Action = "CANARY_PROVISIONED"
 	ActionPolicyViolated    Action = "POLICY_VIOLATED"
 	ActionGenesisCheckpoint Action = "GENESIS_CHECKPOINT"
-	ActionRemoteCreated     Action = "REMOTE_CREATED"
-	ActionRemoteDeleted     Action = "REMOTE_DELETED"
 
 	// Profile Lifecycle
 	ActionProfileCreated    Action = "PROFILE_CREATED"

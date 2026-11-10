@@ -264,7 +264,7 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 
 	// 8. Initialize Remote Wizard Service
 	if c.RemoteWizardService == nil {
-		c.RemoteWizardService = services.NewRemoteWizardService(cfg, c.Client, c.AuditService, c.ProfileService, c.TelemetryService)
+		c.RemoteWizardService = services.NewRemoteWizardService(cfg, c.Client, c.Logger, c.ProfileService, c.TelemetryService)
 	}
 
 	return c, nil

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
@@ -97,13 +96,6 @@ func TestRemoteWizard_GetProvidersCatalog(t *testing.T) {
 
 func TestRemoteWizard_CreateRemote(t *testing.T) {
 	tmpDir := t.TempDir()
-	auditDBPath := filepath.Join(tmpDir, "audit.db")
-	db, err := audit.OpenDB(auditDBPath)
-	if err != nil {
-		t.Fatalf("failed to open audit db: %v", err)
-	}
-	defer db.Close()
-	auditSvc := NewAuditService(db, nil)
 
 	profStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
 	if err != nil {
@@ -111,12 +103,19 @@ func TestRemoteWizard_CreateRemote(t *testing.T) {
 	}
 	profSvc := profiles.NewService(profStore, nil, nil)
 
+	oauthRunning := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/config/listremotes":
 			_ = json.NewEncoder(w).Encode(map[string][]string{"remotes": {"existing_rem:"}})
 		case "/config/create":
 			w.WriteHeader(http.StatusOK)
+		case "/config/oauthstatus":
+			if oauthRunning {
+				_ = json.NewEncoder(w).Encode(map[string]any{"status": "running", "authUrl": "http://127.0.0.1:53682/auth?state=xyz"})
+			} else {
+				_ = json.NewEncoder(w).Encode(map[string]any{"status": "idle"})
+			}
 		default:
 			http.NotFound(w, r)
 		}
@@ -125,7 +124,7 @@ func TestRemoteWizard_CreateRemote(t *testing.T) {
 
 	c := client.NewRcloneClient(server.URL, "", "")
 	telSvc := NewTelemetryService(&config.Config{}, c)
-	svc := NewRemoteWizardService(&config.Config{}, c, auditSvc, profSvc, telSvc)
+	svc := NewRemoteWizardService(&config.Config{}, c, nil, profSvc, telSvc)
 
 	// Empty name validation
 	_, err = svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{Name: ""}, "test")
@@ -163,6 +162,9 @@ func TestRemoteWizard_CreateRemote(t *testing.T) {
 	if !res.Success || res.RemoteName != "new_backup" {
 		t.Fatalf("unexpected response: %+v", res)
 	}
+	if res.NeedsAuth || res.Status != "created" {
+		t.Fatalf("expected created status and needsAuth=false, got: %+v", res)
+	}
 	if res.ProfileID == "" || res.ProfileName != "Backup Profile" {
 		t.Fatalf("expected profile ID and name, got: %+v", res)
 	}
@@ -170,6 +172,19 @@ func TestRemoteWizard_CreateRemote(t *testing.T) {
 	prof, err := profStore.Get(res.ProfileID)
 	if err != nil || prof.FullRemoteTarget() != "new_backup:backups/prod" {
 		t.Fatalf("expected created profile with target new_backup:backups/prod, got %+v (err: %v)", prof, err)
+	}
+
+	// Test OAuth Pending Flow
+	oauthRunning = true
+	resOAuth, err := svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name: "gdrive_interactive",
+		Type: "drive",
+	}, "test-actor")
+	if err != nil {
+		t.Fatalf("unexpected error creating oauth remote: %v", err)
+	}
+	if !resOAuth.NeedsAuth || resOAuth.Status != "oauth_pending" || resOAuth.AuthURL != "http://127.0.0.1:53682/auth?state=xyz" {
+		t.Fatalf("expected oauth_pending status with authURL, got: %+v", resOAuth)
 	}
 }
 

@@ -9,7 +9,7 @@ Deliver a unified, end-to-end operational journey for creating, configuring, and
   - **Scope**: `internal/models/provider.go`, `internal/services/remote_wizard_service.go`, `internal/services/remote_wizard_service_test.go`, `internal/server/handlers_remotes_mgmt.go`, `internal/server/handlers_remotes_mgmt_test.go`, `internal/server/routes.go`
   - **Verification**: `go test -count=1 ./internal/services/... -run TestRemoteWizard && go test -count=1 ./internal/server/... -run TestRemoteMgmt`
 
-- [ ] Task 2: MCP Remote & Profile Lifecycle Tools
+- [x] Task 2: MCP Remote & Profile Lifecycle Tools
   - **Scope**: `internal/mcp/tools_remote.go`, `internal/mcp/tools_remote_test.go`, `internal/mcp/tools_profile.go`, `internal/mcp/tools_profile_test.go`, `internal/mcp/server.go`
   - **Verification**: `go test -count=1 ./internal/mcp/... -run "TestRemoteTools|TestProfileTools"`
 
@@ -29,4 +29,5 @@ Deliver a unified, end-to-end operational journey for creating, configuring, and
 
 - 2026-11-10: Initialized plan from implementation_plan.md.
 - 2026-11-10: Task 1 verified: Implemented RemoteWizardService, provider categorization, DTOs, audit taxonomy, and REST endpoints (/api/remotes/providers, POST /api/remotes/create, DELETE /api/remotes/{name}). All unit tests passed.
+- 2026-11-10: Task 2 verified: Implemented MCP remote & profile lifecycle tools (bisync_list_providers, bisync_create_remote, bisync_delete_remote, bisync_create_profile, bisync_update_profile, bisync_delete_profile, bisync_rollback_profile), OAuth pending status detection, ticket confirmation safeguards, and comprehensive unit tests. All tests passed.
 

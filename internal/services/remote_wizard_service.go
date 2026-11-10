@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 )
@@ -58,7 +58,7 @@ func CategorizeProvider(pType string) models.ProviderCategory {
 type RemoteWizardService struct {
 	Config    *config.Config
 	Client    *client.RcloneClient
-	Audit     *AuditService
+	Logger    *logger.Logger
 	Profiles  *profiles.Service
 	Telemetry *TelemetryService
 
@@ -71,14 +71,14 @@ type RemoteWizardService struct {
 func NewRemoteWizardService(
 	cfg *config.Config,
 	c *client.RcloneClient,
-	auditSvc *AuditService,
+	log *logger.Logger,
 	profSvc *profiles.Service,
 	telemetrySvc *TelemetryService,
 ) *RemoteWizardService {
 	return &RemoteWizardService{
 		Config:    cfg,
 		Client:    c,
-		Audit:     auditSvc,
+		Logger:    log,
 		Profiles:  profSvc,
 		Telemetry: telemetrySvc,
 	}
@@ -178,18 +178,33 @@ func (s *RemoteWizardService) CreateRemote(ctx context.Context, req models.Creat
 		s.Telemetry.FlushRemotesCache()
 	}
 
-	if s.Audit != nil {
-		_, _ = s.Audit.RecordEvent(cleanName, audit.ActionRemoteCreated, actor, map[string]any{
-			"remote": cleanName,
-			"type":   cleanType,
-		})
+	// Probe OAuth status in case this provider initiated an interactive OAuth flow
+	needsAuth := false
+	authURL := ""
+	status := "created"
+	if s.Client != nil {
+		if oStatus, oURL, err := s.Client.OAuthStatus(ctx); err == nil && (oStatus == "running" || oURL != "") {
+			needsAuth = true
+			authURL = oURL
+			status = "oauth_pending"
+		}
+	}
+
+	if s.Logger != nil {
+		s.Logger.Info("[remotes] Remote %q (type: %s) created by %s (status: %s)", cleanName, cleanType, actor, status)
 	}
 
 	res := &models.CreateRemoteResult{
 		RemoteName: cleanName,
 		RemoteType: cleanType,
+		NeedsAuth:  needsAuth,
+		AuthURL:    authURL,
+		Status:     status,
 		Success:    true,
 		Message:    fmt.Sprintf("Remote %q created successfully", cleanName),
+	}
+	if needsAuth && authURL != "" {
+		res.Message = fmt.Sprintf("Remote %q created. Browser authorization required at: %s", cleanName, authURL)
 	}
 
 	if req.CreateProfile {
@@ -276,11 +291,8 @@ func (s *RemoteWizardService) DeleteRemote(ctx context.Context, name string, for
 		s.Telemetry.FlushRemotesCache()
 	}
 
-	if s.Audit != nil {
-		_, _ = s.Audit.RecordEvent(cleanName, audit.ActionRemoteDeleted, actor, map[string]any{
-			"remote": cleanName,
-			"force":  force,
-		})
+	if s.Logger != nil {
+		s.Logger.Info("[remotes] Remote %q deleted by %s (force: %t)", cleanName, actor, force)
 	}
 
 	return nil
