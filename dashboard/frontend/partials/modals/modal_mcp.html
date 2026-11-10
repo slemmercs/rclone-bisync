@@ -31,7 +31,7 @@
         <div class="flex items-center gap-2 border-b border-slate-800 pb-2 text-xs font-semibold shrink-0">
             <button @click="mcpModalTab = 'overview'" :class="mcpModalTab === 'overview' ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors">Server Status</button>
             <button @click="mcpModalTab = 'config'" :class="mcpModalTab === 'config' ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors">Client Integration</button>
-            <button @click="mcpModalTab = 'tools'" :class="mcpModalTab === 'tools' ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors">Tool Catalog (11)</button>
+            <button @click="mcpModalTab = 'tools'" :class="mcpModalTab === 'tools' ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30' : 'text-slate-400 hover:text-slate-200'" class="px-3 py-1.5 rounded-lg transition-colors">Tool Catalog (24)</button>
         </div>
 
         <!-- Tab 1: Server Status & Overview -->
@@ -101,9 +101,15 @@
             <div class="space-y-2">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Inspection Tools</span>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">8 READ-ONLY</span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">10 READ-ONLY</span>
                 </div>
                 <div class="space-y-1.5">
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-violet-300">bisync_list_providers</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">List supported cloud storage providers with categorized catalog and OAuth capabilities.</p>
+                        </div>
+                    </div>
                     <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <span class="font-mono text-xs font-bold text-violet-300">bisync_list_profiles</span>
@@ -148,6 +154,12 @@
                     </div>
                     <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
                         <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-violet-300">bisync_preview_file</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Safely inspect text file contents with head-truncation and binary detection guards.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
                             <span class="font-mono text-xs font-bold text-violet-300">bisync_validate_flags</span>
                             <p class="text-[11px] text-slate-400 mt-0.5">Validate CLI flags and preview compiled Rclone bisync parameters without executing.</p>
                         </div>
@@ -158,7 +170,7 @@
             <div class="space-y-2 pt-2 border-t border-slate-800">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Mutating Tools</span>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded" :class="telemetry.mcp_status?.read_only ? 'bg-rose-950 text-rose-400 border border-rose-800/60' : 'bg-amber-950 text-amber-400 border border-amber-800/60'" x-text="telemetry.mcp_status?.read_only ? 'BLOCKED (READ-ONLY)' : '3 WRITE ACCESS'"></span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded" :class="telemetry.mcp_status?.read_only ? 'bg-rose-950 text-rose-400 border border-rose-800/60' : 'bg-amber-950 text-amber-400 border border-amber-800/60'" x-text="telemetry.mcp_status?.read_only ? 'BLOCKED (READ-ONLY)' : '14 WRITE ACCESS'"></span>
                 </div>
                 <div class="space-y-1.5">
                     <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
@@ -179,6 +191,77 @@
                         <div class="min-w-0">
                             <span class="font-mono text-xs font-bold text-amber-300">bisync_dedupe_by_hash</span>
                             <p class="text-[11px] text-slate-400 mt-0.5">Execute Rclone deduplication on remote storage by cryptographic hash.</p>
+                        </div>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0">Confirmation TTL</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_create_remote</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Configure and register a new Rclone remote with optional sync profile bridge.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_delete_remote</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Delete an Rclone remote definition with active profile protection.</p>
+                        </div>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0">Confirmation TTL</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_create_profile</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Create a new sync profile with remote mapping, schedule, and flag options.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_update_profile</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Update configuration, schedule, flags, or activation state of an existing profile.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_delete_profile</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Delete or archive a sync profile workload.</p>
+                        </div>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0">Confirmation TTL</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_rollback_profile</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Rollback a sync profile to a historical version with audit tracking.</p>
+                        </div>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0">Confirmation TTL</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_mkdir</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Create a directory under local path jail or remote cloud storage target.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_copy_item</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Copy a file or directory across remotes or local filesystem.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_move_item</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Move or rename a file or directory with path confinement guards.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_delete_item</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Delete a file with RCLONE_TEST canary protection and audit logging.</p>
+                        </div>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0">Confirmation TTL</span>
+                    </div>
+                    <div class="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="font-mono text-xs font-bold text-amber-300">bisync_purge_dir</span>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Permanently purge a directory tree with canary protection and audit ledger records.</p>
                         </div>
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0">Confirmation TTL</span>
                     </div>

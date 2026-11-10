@@ -21,7 +21,7 @@ Deliver a unified, end-to-end operational journey for creating, configuring, and
   - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh templates && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 5: MCP Inspector Showcase, E2E Journey Tests & Pre-commit Quality Gate
+- [x] Task 5: MCP Inspector Showcase, E2E Journey Tests & Pre-commit Quality Gate
   - **Scope**: `dashboard/frontend/partials/modals/modal_mcp.html`, `site/usps/06-mcp-agent-server.md`, `tests/e2e/sandbox_ui_journey_test.go`
   - **Verification**: `./scripts/check.sh all && go test -count=1 ./tests/e2e/...`
 
@@ -32,4 +32,5 @@ Deliver a unified, end-to-end operational journey for creating, configuring, and
 - 2026-11-10: Task 2 verified: Implemented MCP remote & profile lifecycle tools (bisync_list_providers, bisync_create_remote, bisync_delete_remote, bisync_create_profile, bisync_update_profile, bisync_delete_profile, bisync_rollback_profile), OAuth pending status detection, ticket confirmation safeguards, and comprehensive unit tests. All tests passed.
 - 2026-11-10: Task 3 verified: Implemented MCP file explorer action tools (bisync_preview_file, bisync_mkdir, bisync_copy_item, bisync_move_item, bisync_delete_item, bisync_purge_dir) with canary guards, path traversal enforcement, ticket confirmations, and audit ledger tracking. All unit tests passed.
 - 2026-11-10: Task 4 verified: Implemented Frontend Remote Creation Wizard Modal with multi-step provider selection, categorization, OAuth detection banners, sync profile bridge provisioning, and remote deletion controls. All templates and headless browser smoke tests passed.
+- 2026-11-10: Task 5 verified: Updated MCP modal catalog to showcase all 24 tools (10 read-only, 14 write-access), updated MCP documentation in site showcase, fixed provider option example deserialization, added RemoteWizardAndProfileBridgeJourney E2E browser test, and passed full 7/7 pre-commit quality gate checks. Milestone 3 complete.
 

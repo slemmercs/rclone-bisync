@@ -172,12 +172,10 @@ window.RemotesWizardModule = {
 
             if (this.createRemoteModal.createProfile) {
                 const p = this.createRemoteModal.profile;
-                payload.create_profile = {
-                    id: (p.id || "").trim() || `${name.toLowerCase()}-sync`,
-                    name: (p.name || "").trim() || `${name} Sync`,
-                    local_path: (p.local_path || "").trim() || `~/Sync/${name}`,
-                    remote_path: (p.remote_path || "").trim()
-                };
+                payload.create_profile = true;
+                payload.profile_name = (p.name || "").trim() || `${name} Sync`;
+                payload.local_path = (p.local_path || "").trim() || `~/Sync/${name}`;
+                payload.remote_subpath = (p.remote_path || "").trim();
             }
 
             const res = await window.API.post("/api/remotes/create", payload);

@@ -798,5 +798,204 @@ func TestDashboard_SandboxUIJourney(t *testing.T) {
 			t.Errorf("expected dock pending count to be 0 after clear, got %d", pRes.PendingCount)
 		}
 	})
+	t.Run("RemoteWizardAndProfileBridgeJourney", func(t *testing.T) {
+		currentURL, _ := chromedp.Run(ctx, chromedp.Location())
+		if !strings.HasPrefix(currentURL, "http") {
+			_ = chromedp.Do(ctx,
+				chromedp.Navigate(harness.serverURL),
+				chromedp.WaitVisible("body[x-data]"),
+				chromedp.WaitVisible("#app-header"),
+			)
+			time.Sleep(500 * time.Millisecond)
+		}
+		// Step 1: Switch to remotes tab and verify initial remotes
+		err := chromedp.Do(ctx,
+			chromedp.Click(`button[data-tab="remotes"]`),
+			chromedp.WaitVisible(`div[x-show="currentTab === 'remotes'"]`),
+		)
+		if err != nil {
+			t.Fatalf("failed switching to remotes tab: %v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+
+		// Step 2: Open Remote Creation Wizard
+		openWizardScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.openCreateRemoteWizard();
+			return Boolean(app.createRemoteModal && app.createRemoteModal.show);
+		})()`
+		shown, err := chromedp.Run(ctx, chromedp.Evaluate[bool](openWizardScript))
+		if err != nil {
+			t.Fatalf("failed opening remote wizard: %v", err)
+		}
+		if !shown {
+			t.Fatalf("expected createRemoteModal.show to be true")
+		}
+
+		// Wait for providers catalog to load
+		time.Sleep(1000 * time.Millisecond)
+
+		// Step 3: Verify provider catalog loaded and filter categories
+		type ProviderCatalogStats struct {
+			TotalCount    int  `json:"totalCount"`
+			FilteredCount int  `json:"filteredCount"`
+			HasDrive      bool `json:"hasDrive"`
+		}
+		evalCatalogScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			const list = app.createRemoteModal.providers || [];
+			const filtered = typeof app.getFilteredWizardProviders === 'function' ? app.getFilteredWizardProviders() : [];
+			const hasDrive = list.some(p => p.prefix === 'drive');
+			return {
+				totalCount: list.length,
+				filteredCount: filtered.length,
+				hasDrive: hasDrive
+			};
+		})()`
+		catStats, err := chromedp.Run(ctx, chromedp.Evaluate[ProviderCatalogStats](evalCatalogScript))
+		if err != nil {
+			t.Fatalf("failed querying provider catalog: %v", err)
+		}
+		if catStats.TotalCount == 0 {
+			t.Fatalf("expected non-empty provider catalog from live rclone RC, got 0")
+		}
+		if !catStats.HasDrive {
+			t.Fatalf("expected provider catalog to include Google Drive ('drive')")
+		}
+
+		// Step 4: Select 'alias' provider and configure remote & profile bridge
+		targetLocal2 := filepath.Join(harness.sandboxDir, "local2")
+		_ = os.MkdirAll(targetLocal2, 0750)
+
+		configureScript := fmt.Sprintf(`(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			const provider = (app.createRemoteModal.providers || []).find(p => p.prefix === 'alias') || { prefix: 'alias', name: 'Alias for an existing remote' };
+			app.selectWizardProvider(provider);
+			app.createRemoteModal.remoteName = 'sandalias';
+			app.onWizardRemoteNameChange();
+			app.createRemoteModal.parameters = { remote: '%s' };
+			app.createRemoteModal.createProfile = true;
+			app.createRemoteModal.profile.id = 'sandalias-prof';
+			app.createRemoteModal.profile.name = 'SandAlias Sync';
+			app.createRemoteModal.profile.local_path = '%s';
+			return {
+				step: app.createRemoteModal.step,
+				nameError: app.createRemoteModal.nameError
+			};
+		})()`, harness.remoteDir, targetLocal2)
+
+		type ConfigRes struct {
+			Step      int    `json:"step"`
+			NameError string `json:"nameError"`
+		}
+		cfgRes, err := chromedp.Run(ctx, chromedp.Evaluate[ConfigRes](configureScript))
+		if err != nil {
+			t.Fatalf("failed configuring wizard: %v", err)
+		}
+		if cfgRes.NameError != "" {
+			t.Fatalf("unexpected nameError: %s", cfgRes.NameError)
+		}
+		if cfgRes.Step != 2 {
+			t.Fatalf("expected wizard to advance to step 2, got step %d", cfgRes.Step)
+		}
+		// Step 5: Advance to step 3 and submit creation
+		advanceAndSubmitScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.nextWizardStep();
+			return app.createRemoteModal.step;
+		})()`
+		step3, err := chromedp.Run(ctx, chromedp.Evaluate[int](advanceAndSubmitScript))
+		if err != nil || step3 != 3 {
+			t.Fatalf("expected advance to step 3, got step %d (err: %v)", step3, err)
+		}
+
+		// Submit creation
+		submitScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.submitCreateRemote();
+			return true;
+		})()`
+		_, err = chromedp.Run(ctx, chromedp.Evaluate[bool](submitScript))
+		if err != nil {
+			t.Fatalf("failed submitting create remote: %v", err)
+		}
+
+		// Wait for remote and profile creation
+		time.Sleep(1500 * time.Millisecond)
+
+		// Step 6: Verify result and created profile
+		verifyCreationScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			const created = Boolean(app.createRemoteModal.result && (app.createRemoteModal.result.success || app.createRemoteModal.result.status === 'created'));
+			const profExists = (app.profilesData?.list || []).some(p => p.remote === 'sandalias' || p.name === 'SandAlias Sync');
+			const remoteExists = (app.remotesData?.remotes || []).some(r => r.name === 'sandalias' || r.name === 'sandalias:');
+			return {
+				created: created,
+				profExists: profExists,
+				remoteExists: remoteExists,
+				error: app.createRemoteModal.error
+			};
+		})()`
+		type VerifyRes struct {
+			Created      bool    `json:"created"`
+			ProfExists   bool    `json:"profExists"`
+			RemoteExists bool    `json:"remoteExists"`
+			Error        *string `json:"error"`
+		}
+		vRes, err := chromedp.Run(ctx, chromedp.Evaluate[VerifyRes](verifyCreationScript))
+		if err != nil {
+			t.Fatalf("failed querying creation result: %v", err)
+		}
+		if vRes.Error != nil && *vRes.Error != "" {
+			t.Fatalf("wizard creation returned error: %s", *vRes.Error)
+		}
+		if !vRes.Created {
+			t.Fatalf("expected createRemoteModal.result.status === 'success'")
+		}
+		if !vRes.ProfExists {
+			t.Fatalf("expected newly provisioned profile 'sandalias-prof' in profilesData.list")
+		}
+
+		// Step 7: Close wizard
+		closeScript := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			app.closeCreateRemoteWizard();
+			return Boolean(app.createRemoteModal.show);
+		})()`
+		isShown, err := chromedp.Run(ctx, chromedp.Evaluate[bool](closeScript))
+		if err != nil || isShown {
+			t.Fatalf("expected wizard modal to close, got show=%v (err: %v)", isShown, err)
+		}
+
+		// Step 8: Clean up by verifying conflict guard and deleting remote via HTTP API
+		delReq, err := http.NewRequest(http.MethodDelete, harness.serverURL+"/api/remotes/sandalias", nil)
+		if err != nil {
+			t.Fatalf("failed creating delete request: %v", err)
+		}
+		delReq.Header.Set("X-Dashboard-Request", "1")
+		delRes, err := http.DefaultClient.Do(delReq)
+		if err != nil {
+			t.Fatalf("failed executing unforced delete: %v", err)
+		}
+		if delRes.StatusCode != http.StatusConflict {
+			t.Errorf("expected 409 Conflict due to active profile, got %d", delRes.StatusCode)
+		}
+		delRes.Body.Close()
+
+		// Force delete
+		forceDelReq, err := http.NewRequest(http.MethodDelete, harness.serverURL+"/api/remotes/sandalias?force=true", nil)
+		if err != nil {
+			t.Fatalf("failed creating force delete request: %v", err)
+		}
+		forceDelReq.Header.Set("X-Dashboard-Request", "1")
+		forceDelRes, err := http.DefaultClient.Do(forceDelReq)
+		if err != nil {
+			t.Fatalf("failed executing force delete: %v", err)
+		}
+		if forceDelRes.StatusCode != http.StatusOK {
+			t.Errorf("expected 200 OK for force delete, got %d", forceDelRes.StatusCode)
+		}
+		forceDelRes.Body.Close()
+	})
 
 }

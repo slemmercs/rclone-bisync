@@ -27,14 +27,20 @@ Instead of running external Python bridges, Node.js wrappers, or custom subproce
 │  Tools:                                Resources:                      │
 │   • bisync_get_status (Token-Optimized) • bisync://profiles            │
 │   • bisync_get_logs (Level-Filtered)    • bisync://status              │
-│   • bisync_list_profiles                • bisync://profile/{id}        │
-│   • bisync_list_remotes                 • bisync://history/{id}        │
-│   • bisync_get_sync_history             • bisync://conflicts/{session} │
+│   • bisync_list_providers (Catalog)    • bisync://profile/{id}        │
+│   • bisync_list_profiles                • bisync://history/{id}        │
+│   • bisync_list_remotes                 • bisync://conflicts/{session} │
+│   • bisync_get_sync_history                                            │
 │   • bisync_inspect_conflict_session                                    │
 │   • bisync_explore_path (Paginated)                                    │
-│   • bisync_trigger_sync (Confirmation Gated)                           │
+│   • bisync_preview_file (Safe Head)                                    │
+│   • bisync_validate_flags                                              │
+│   • bisync_trigger_sync (Confirmation)                                 │
 │   • bisync_resolve_review (Backup Staged)                              │
-│   • bisync_dedupe_by_hash (Safe Preview Default)                       │
+│   • bisync_dedupe_by_hash (Hash-Based)                                 │
+│   • bisync_create_remote / delete_remote                               │
+│   • bisync_create_profile / update / delete / rollback                 │
+│   • bisync_mkdir / copy / move / delete / purge                        │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
                                      ▼
@@ -83,11 +89,14 @@ To prevent agent context windows from being overwhelmed:
       "autoApprove": [
         "bisync_get_status",
         "bisync_get_logs",
+        "bisync_list_providers",
         "bisync_list_profiles",
         "bisync_list_remotes",
         "bisync_get_sync_history",
         "bisync_inspect_conflict_session",
-        "bisync_explore_path"
+        "bisync_explore_path",
+        "bisync_preview_file",
+        "bisync_validate_flags"
       ]
     }
   }

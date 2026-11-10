@@ -1,18 +1,25 @@
 package models
 
+// ProviderExample represents an example option value for a provider configuration field.
+type ProviderExample struct {
+	Value    string `json:"Value"`
+	Help     string `json:"Help,omitempty"`
+	Provider string `json:"Provider,omitempty"`
+}
+
 // ProviderOption represents a configurable field on an Rclone storage provider.
 type ProviderOption struct {
-	Name       string      `json:"Name"`
-	Help       string      `json:"Help"`
-	Type       string      `json:"Type"`
-	Default    interface{} `json:"Default,omitempty"`
-	DefaultStr string      `json:"DefaultStr,omitempty"`
-	Required   bool        `json:"Required"`
-	IsPassword bool        `json:"IsPassword"`
-	Sensitive  bool        `json:"Sensitive"`
-	Advanced   bool        `json:"Advanced"`
-	Exclusive  bool        `json:"Exclusive"`
-	Examples   []string    `json:"Examples,omitempty"`
+	Name       string            `json:"Name"`
+	Help       string            `json:"Help"`
+	Type       string            `json:"Type"`
+	Default    interface{}       `json:"Default,omitempty"`
+	DefaultStr string            `json:"DefaultStr,omitempty"`
+	Required   bool              `json:"Required"`
+	IsPassword bool              `json:"IsPassword"`
+	Sensitive  bool              `json:"Sensitive"`
+	Advanced   bool              `json:"Advanced"`
+	Exclusive  bool              `json:"Exclusive"`
+	Examples   []ProviderExample `json:"Examples,omitempty"`
 }
 
 // Provider represents an Rclone backend storage provider definition.
