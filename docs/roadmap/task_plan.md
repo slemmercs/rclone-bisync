@@ -13,7 +13,7 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
   - **Scope**: `dashboard/frontend/partials/view_fleet.html`, `dashboard/frontend/js/fleet.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 3: Remote Creation Wizard Usability Overhaul (Tier-1 Spotlight, Clickable Steppers, OAuth/Custom Credential Toggle, Unstickable Reset)
+- [x] Task 3: Remote Creation Wizard Usability Overhaul (Tier-1 Spotlight, Clickable Steppers, OAuth/Custom Credential Toggle, Unstickable Reset)
   - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
@@ -38,4 +38,6 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
 - 2026-11-10: Task 1 verified: Implemented global `[ + Create ▾ ]` quick-create menu, consolidated System Health Chip `[ 🟢 Live 2ms • 🟣 MCP • ⚪ Idle ]`, and multi-tab unified System Health Modal (Daemon, MCP Server, and Scheduler & Poller). Registered `SystemHealthModule` and global keyboard shortcuts. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
 
 - 2026-11-10: Task 2 verified: Streamlined Fleet Overview header action bar by removing redundant Help/Settings controls, adding Connect Remote action, implementing 2-step first-launch onboarding hero card with live remote readiness status, and scoping search/empty states cleanly. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
+
+- 2026-11-10: Task 3 verified: Implemented Tier-1 curated cloud provider spotlight (Google Drive, OneDrive, S3, Dropbox, B2), clickable breadcrumb steppers with validation gates, segmented authentication toggling between Browser OAuth and Custom Client Credentials, and resilient unstickable error states with retry/modify paths. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
 

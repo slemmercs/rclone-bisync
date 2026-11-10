@@ -15,6 +15,7 @@ window.RemotesWizardModule = {
         category: "popular", // 'popular' | 'all' | 'cloud' | 'object' | 'protocol' | 'virtual'
         providers: [],
         selectedProvider: null,
+        authMode: "oauth", // 'oauth' | 'custom'
         remoteName: "",
         nameError: "",
         parameters: {},
@@ -38,6 +39,7 @@ window.RemotesWizardModule = {
         this.createRemoteModal.error = null;
         this.createRemoteModal.search = "";
         this.createRemoteModal.category = "popular";
+        this.createRemoteModal.authMode = "oauth";
         this.createRemoteModal.remoteName = "";
         this.createRemoteModal.nameError = "";
         this.createRemoteModal.parameters = {};
@@ -66,6 +68,14 @@ window.RemotesWizardModule = {
         return Boolean(!this.createRemoteModal || this.createRemoteModal.nameError || !this.createRemoteModal.remoteName);
     },
 
+    isWizardStep2Disabled() {
+        return Boolean(!this.createRemoteModal || !this.createRemoteModal.selectedProvider);
+    },
+
+    isWizardStep3Disabled() {
+        return Boolean(this.isWizardStep2Disabled() || this.isWizardNextDisabled());
+    },
+
     async fetchWizardProviders(force = false) {
         if (this.createRemoteModal.providers.length > 0 && !force) return;
         this.createRemoteModal.loading = true;
@@ -76,6 +86,45 @@ window.RemotesWizardModule = {
             this.createRemoteModal.error = "Failed to load providers: " + err.message;
         } finally {
             this.createRemoteModal.loading = false;
+        }
+    },
+
+    get tier1Providers() {
+        const tier1Prefixes = ["drive", "onedrive", "s3", "dropbox", "b2"];
+        const list = this.createRemoteModal.providers || [];
+        const result = [];
+        for (const pref of tier1Prefixes) {
+            const found = list.find(p => p.prefix === pref);
+            if (found) {
+                result.push(found);
+            }
+        }
+        return result;
+    },
+
+    setAuthMode(mode) {
+        this.createRemoteModal.authMode = mode;
+        if (mode === "oauth" && this.createRemoteModal.parameters) {
+            delete this.createRemoteModal.parameters.client_id;
+            delete this.createRemoteModal.parameters.client_secret;
+        }
+    },
+
+    goToWizardStep(targetStep) {
+        if (targetStep === 1) {
+            this.createRemoteModal.step = 1;
+            return;
+        }
+        if (targetStep === 2) {
+            if (this.createRemoteModal.selectedProvider) {
+                this.createRemoteModal.step = 2;
+            }
+            return;
+        }
+        if (targetStep === 3) {
+            if (this.createRemoteModal.selectedProvider && !this.isWizardNextDisabled()) {
+                this.nextWizardStep();
+            }
         }
     },
 
@@ -101,6 +150,7 @@ window.RemotesWizardModule = {
     selectWizardProvider(provider) {
         if (!provider) return;
         this.createRemoteModal.selectedProvider = provider;
+        this.createRemoteModal.authMode = "oauth";
         this.createRemoteModal.parameters = {};
         if (!this.createRemoteModal.remoteName) {
             const baseName = provider.prefix || provider.name || "remote";

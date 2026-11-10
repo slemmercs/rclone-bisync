@@ -222,7 +222,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 	for _, tc := range tabs {
 		t.Run("Tab_"+tc.name, func(t *testing.T) {
 			clickScript := fmt.Sprintf(`(() => {
-				const navButtons = Array.from(document.querySelectorAll('header button'));
+				const nav = document.querySelector('header nav');
+				const navButtons = nav ? Array.from(nav.querySelectorAll('button[data-tab]')) : Array.from(document.querySelectorAll('header button'));
 				if (navButtons[%d]) {
 					navButtons[%d].click();
 					return true;

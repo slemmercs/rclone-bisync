@@ -20,22 +20,46 @@
 
         <!-- Stepper Indicator -->
         <div class="grid grid-cols-3 gap-2 border-b border-slate-800/80 pb-3 shrink-0 text-xs">
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all" :class="createRemoteModal.step === 1 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold' : (createRemoteModal.step > 1 ? 'bg-slate-800/60 border-slate-700 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500')">
+            <button type="button" @click="goToWizardStep(1)" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer text-left" :class="createRemoteModal.step === 1 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold' : (createRemoteModal.step > 1 ? 'bg-slate-800/60 border-slate-700 text-emerald-400 hover:border-slate-600' : 'bg-slate-900 border-slate-800 text-slate-500')">
                 <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold" :class="createRemoteModal.step === 1 ? 'bg-indigo-600 text-white' : (createRemoteModal.step > 1 ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400')" x-text="createRemoteModal.step > 1 ? '✓' : '1'"></span>
                 <span class="truncate">Select Provider</span>
-            </div>
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all" :class="createRemoteModal.step === 2 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold' : (createRemoteModal.step > 2 ? 'bg-slate-800/60 border-slate-700 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500')">
+            </button>
+            <button type="button" @click="goToWizardStep(2)" :disabled="isWizardStep2Disabled()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-left" :class="createRemoteModal.step === 2 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold cursor-pointer' : (createRemoteModal.step > 2 ? 'bg-slate-800/60 border-slate-700 text-emerald-400 hover:border-slate-600 cursor-pointer' : (!isWizardStep2Disabled() ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer' : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'))">
                 <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold" :class="createRemoteModal.step === 2 ? 'bg-indigo-600 text-white' : (createRemoteModal.step > 2 ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400')" x-text="createRemoteModal.step > 2 ? '✓' : '2'"></span>
                 <span class="truncate">Configuration</span>
-            </div>
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all" :class="createRemoteModal.step === 3 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold' : 'bg-slate-900 border-slate-800 text-slate-500'">
+            </button>
+            <button type="button" @click="goToWizardStep(3)" :disabled="isWizardStep3Disabled()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-left" :class="createRemoteModal.step === 3 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold cursor-pointer' : (!isWizardStep3Disabled() ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer' : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed')">
                 <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold" :class="createRemoteModal.step === 3 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'">3</span>
-                <span class="truncate">Review & Create</span>
-            </div>
+                <span class="truncate">Review &amp; Create</span>
+            </button>
         </div>
 
         <!-- Step 1: Select Provider -->
         <div x-show="createRemoteModal.step === 1" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <!-- Tier-1 Recommended Cloud Providers Spotlight -->
+            <div x-show="!createRemoteModal.search && createRemoteModal.category === 'popular'" class="space-y-2">
+                <div class="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <span>Recommended Cloud Providers</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <template x-for="p in tier1Providers" :key="'tier1-' + p.prefix">
+                        <button type="button" @click="selectWizardProvider(p)" class="p-3 rounded-xl border border-slate-800 bg-slate-950/70 hover:bg-slate-800 hover:border-indigo-500/70 transition-all text-left flex flex-col justify-between group cursor-pointer space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300 transition-colors">
+                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                                </div>
+                                <span x-show="p.supports_oauth" class="text-[9px] uppercase px-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">OAuth</span>
+                            </div>
+                            <div>
+                                <div class="font-bold text-xs text-white group-hover:text-indigo-300 transition-colors truncate" x-text="p.name"></div>
+                                <div class="text-[10px] font-mono text-slate-500 truncate" x-text="p.prefix"></div>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
             <!-- Filter & Search Toolbar -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-1.5 text-xs">
@@ -110,12 +134,46 @@
                 <div x-show="!createRemoteModal.nameError" class="text-[11px] text-slate-500">Target name used across bisync CLI and profiles (e.g. <span class="font-mono text-slate-400" x-text="(createRemoteModal.remoteName || 'remote') + ':'"></span>).</div>
             </div>
 
-            <!-- OAuth Notice Banner -->
-            <div x-show="createRemoteModal.selectedProvider?.supports_oauth" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-2.5">
-                <svg class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
-                <div>
-                    <span class="font-semibold block">Browser OAuth Authentication</span>
-                    <span class="text-[11px] text-emerald-400/90">This provider connects securely via OAuth token exchange. After creating the remote, Bisync Hub will guide you through browser authorization.</span>
+            <!-- OAuth vs Custom Credentials Segmented Control -->
+            <div x-show="createRemoteModal.selectedProvider?.supports_oauth" class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-300">Authentication Mode</span>
+                    <div class="inline-flex rounded-lg bg-slate-950 p-1 border border-slate-800 text-[11px]">
+                        <button type="button" @click="setAuthMode('oauth')" :class="createRemoteModal.authMode === 'oauth' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-white'" class="px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5">
+                            <svg class="w-3 h-3 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><polyline points="9 12 11 14 15 10"/></svg>
+                            <span>Browser OAuth</span>
+                        </button>
+                        <button type="button" @click="setAuthMode('custom')" :class="createRemoteModal.authMode === 'custom' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-white'" class="px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5">
+                            <svg class="w-3 h-3 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-6 6 7 7-3.5 3.5-7-7"/><circle cx="7.5" cy="16.5" r="4.5"/></svg>
+                            <span>Custom Credentials</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Browser OAuth Mode -->
+                <div x-show="createRemoteModal.authMode === 'oauth'" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-2.5">
+                    <svg class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><polyline points="9 12 11 14 15 10"/></svg>
+                    <div>
+                        <span class="font-semibold block">Browser OAuth Authentication</span>
+                        <span class="text-[11px] text-emerald-400/90 leading-relaxed">Bisync Hub will automatically launch a secure browser authentication session to acquire and rotate your API tokens.</span>
+                    </div>
+                </div>
+
+                <!-- Custom Client Credentials Mode -->
+                <div x-show="createRemoteModal.authMode === 'custom'" class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-3">
+                    <div class="text-[11px] text-slate-400">
+                        Supply your own OAuth App Client ID and Secret (useful for custom enterprise app limits).
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Client ID</label>
+                            <input type="text" x-model="createRemoteModal.parameters.client_id" placeholder="Optional Client ID" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-indigo-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Client Secret</label>
+                            <input type="password" x-model="createRemoteModal.parameters.client_secret" placeholder="Optional Client Secret" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-indigo-500 focus:outline-none">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -180,7 +238,7 @@
                             </div>
                             <div>
                                 <span class="text-slate-500 block text-[11px]">Authentication:</span>
-                                <span :class="createRemoteModal.selectedProvider?.supports_oauth ? 'text-emerald-400' : 'text-slate-300'" x-text="createRemoteModal.selectedProvider?.supports_oauth ? 'OAuth 2.0 (Browser-assisted)' : 'Standard / Direct'"></span>
+                                <span :class="createRemoteModal.selectedProvider?.supports_oauth ? 'text-emerald-400' : 'text-slate-300'" x-text="createRemoteModal.selectedProvider?.supports_oauth ? (createRemoteModal.authMode === 'custom' ? 'Custom OAuth Credentials' : 'OAuth 2.0 (Browser-assisted)') : 'Standard / Direct'"></span>
                             </div>
                             <div>
                                 <span class="text-slate-500 block text-[11px]">Sync Profile Bridge:</span>
@@ -201,10 +259,23 @@
                         </div>
                     </div>
 
-                    <!-- Error Alert -->
-                    <div x-show="createRemoteModal.error" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-center justify-between">
-                        <span x-text="createRemoteModal.error"></span>
-                        <button type="button" @click="createRemoteModal.error = null" class="text-rose-400 hover:text-rose-200 text-xs ml-2">Dismiss</button>
+                    <!-- Error Alert with Unstickable Recovery -->
+                    <div x-show="createRemoteModal.error" class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-rose-400 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <div>
+                                    <span class="font-bold block">Remote Creation Failed</span>
+                                    <span class="text-[11px] text-rose-300/90" x-text="createRemoteModal.error"></span>
+                                </div>
+                            </div>
+                            <button type="button" @click="createRemoteModal.error = null" class="text-rose-400 hover:text-rose-200 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/20 transition-colors cursor-pointer">Dismiss</button>
+                        </div>
+                        <div class="flex items-center gap-2 pt-1 border-t border-rose-500/20 text-[11px]">
+                            <button type="button" @click="goToWizardStep(2); createRemoteModal.error = null;" class="text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer">← Modify Configuration</button>
+                            <span class="text-slate-600">•</span>
+                            <button type="button" @click="submitCreateRemote()" :disabled="isWizardSaving()" class="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer">Retry Provisioning ↻</button>
+                        </div>
                     </div>
 
                     <!-- Action Buttons -->
