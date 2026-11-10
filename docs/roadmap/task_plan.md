@@ -1,36 +1,39 @@
-# Task Plan: Milestone 3 — Unified Cloud Remote & Sync Profile Provisioning Journey
+# Task Plan: Bisync Hub Cockpit UI/UX Consolidation
 
 ## Goal
-Deliver a unified, end-to-end operational journey for creating, configuring, and managing Rclone remotes and their corresponding sync profiles via both a browser-native UI wizard and the native MCP tool suite, plus complete parity for explorer file operations.
+Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, remote creation wizard, and dual-pane file explorer to eliminate visual clutter, remove dangerous/ambiguous nomenclature, and streamline operator workflows with Lucide SVG icons and sub-400 LOC modularity.
 
 ## Tasks
 
-- [x] Task 1: Remote Wizard Service & REST API Endpoints
-  - **Scope**: `internal/models/provider.go`, `internal/services/remote_wizard_service.go`, `internal/services/remote_wizard_service_test.go`, `internal/server/handlers_remotes_mgmt.go`, `internal/server/handlers_remotes_mgmt_test.go`, `internal/server/routes.go`
-  - **Verification**: `go test -count=1 ./internal/services/... -run TestRemoteWizard && go test -count=1 ./internal/server/... -run TestRemoteMgmt`
+- [x] Task 1: Header Quick-Create Menu, Consolidated System Health Chip & Unified System Health Modal
+  - **Scope**: `dashboard/frontend/partials/modals/modal_system_health.html`, `dashboard/frontend/js/system_health.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [x] Task 2: MCP Remote & Profile Lifecycle Tools
-  - **Scope**: `internal/mcp/tools_remote.go`, `internal/mcp/tools_remote_test.go`, `internal/mcp/tools_profile.go`, `internal/mcp/tools_profile_test.go`, `internal/mcp/server.go`
-  - **Verification**: `go test -count=1 ./internal/mcp/... -run "TestRemoteTools|TestProfileTools"`
+- [ ] Task 2: Fleet Overview Header Cleanup, Status Metric Filters & 2-Step Onboarding Hero Card
+  - **Scope**: `dashboard/frontend/partials/view_fleet.html`, `dashboard/frontend/js/fleet.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [x] Task 3: MCP File Explorer Action Tools (Parity with Milestone 2)
-  - **Scope**: `internal/mcp/tools_explorer_ops.go`, `internal/mcp/tools_explorer_delete.go`, `internal/mcp/tools_explorer_ops_test.go`, `internal/mcp/server.go`
-  - **Verification**: `go test -count=1 ./internal/mcp/... -run TestExplorerOpsTools`
+- [ ] Task 3: Remote Creation Wizard Usability Overhaul (Tier-1 Spotlight, Clickable Steppers, OAuth/Custom Credential Toggle, Unstickable Reset)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [x] Task 4: Frontend Remote Creation Wizard Modal & Bridge UI
-  - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/app.js`
-  - **Verification**: `./scripts/check.sh templates && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
+- [ ] Task 4: Storage Remotes Control Bar Consolidation
+  - **Scope**: `dashboard/frontend/partials/view_remotes.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [x] Task 5: MCP Inspector Showcase, E2E Journey Tests & Pre-commit Quality Gate
-  - **Scope**: `dashboard/frontend/partials/modals/modal_mcp.html`, `site/usps/06-mcp-agent-server.md`, `tests/e2e/sandbox_ui_journey_test.go`
+- [ ] Task 5: Dual-Pane Directory Explorer Overhaul (Clear Action Labels, Single-Line Pane Header, Directional Action Bar, RCLONE_TEST Visual Guard)
+  - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_explorer_toolbar.html`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/explorer.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
+
+- [ ] Task 6: E2E Headless Browser Journeys, Quality Gate & Documentation
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `tests/e2e/sandbox_ui_journey_test.go`
   - **Verification**: `./scripts/check.sh all && go test -count=1 ./tests/e2e/...`
 
 ## Status Updates
 
 - 2026-11-10: Initialized plan from implementation_plan.md.
-- 2026-11-10: Task 1 verified: Implemented RemoteWizardService, provider categorization, DTOs, audit taxonomy, and REST endpoints (/api/remotes/providers, POST /api/remotes/create, DELETE /api/remotes/{name}). All unit tests passed.
-- 2026-11-10: Task 2 verified: Implemented MCP remote & profile lifecycle tools (bisync_list_providers, bisync_create_remote, bisync_delete_remote, bisync_create_profile, bisync_update_profile, bisync_delete_profile, bisync_rollback_profile), OAuth pending status detection, ticket confirmation safeguards, and comprehensive unit tests. All tests passed.
-- 2026-11-10: Task 3 verified: Implemented MCP file explorer action tools (bisync_preview_file, bisync_mkdir, bisync_copy_item, bisync_move_item, bisync_delete_item, bisync_purge_dir) with canary guards, path traversal enforcement, ticket confirmations, and audit ledger tracking. All unit tests passed.
-- 2026-11-10: Task 4 verified: Implemented Frontend Remote Creation Wizard Modal with multi-step provider selection, categorization, OAuth detection banners, sync profile bridge provisioning, and remote deletion controls. All templates and headless browser smoke tests passed.
-- 2026-11-10: Task 5 verified: Updated MCP modal catalog to showcase all 24 tools (10 read-only, 14 write-access), updated MCP documentation in site showcase, fixed provider option example deserialization, added RemoteWizardAndProfileBridgeJourney E2E browser test, and passed full 7/7 pre-commit quality gate checks. Milestone 3 complete.
+
+
+
+- 2026-11-10: Task 1 verified: Implemented global `[ + Create ▾ ]` quick-create menu, consolidated System Health Chip `[ 🟢 Live 2ms • 🟣 MCP • ⚪ Idle ]`, and multi-tab unified System Health Modal (Daemon, MCP Server, and Scheduler & Poller). Registered `SystemHealthModule` and global keyboard shortcuts. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
 

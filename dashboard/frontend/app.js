@@ -386,6 +386,7 @@ document.addEventListener("alpine:init", () => {
         window.LogsModule, window.AuditModule,
         window.SettingsModule, window.BandwidthModule,
         window.McpModule, window.PollingModule,
+        window.SystemHealthModule,
         window.HelpDiagnosticsModule, window.HelpModule
     ));
 });
