@@ -1022,6 +1022,16 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.onDragStart('left', { Name: 'RCLONE_TEST', Path: 'RCLONE_TEST', IsDir: false }, { preventDefault() {} });
 			const canaryDragBlocked = app.explorer.draggedItem === null;
 
+			// Test Explorer Remote Unlock & Breadcrumb Location Bars
+			let remoteLockToggled = false;
+			if (typeof app.toggleExplorerRemoteLock === 'function') {
+				const beforeLock = app.isExplorerRemoteLocked();
+				app.toggleExplorerRemoteLock();
+				remoteLockToggled = app.isExplorerRemoteLocked() !== beforeLock;
+				app.toggleExplorerRemoteLock();
+			}
+			const breadcrumbBarsCount = document.querySelectorAll('.no-scrollbar').length;
+
 			// Test Directional Transfer Buttons presence
 			const transferToRemoteBtn = Array.from(document.querySelectorAll('button')).some(b => b.innerText && b.innerText.includes('Transfer to Remote'));
 			const transferToLocalBtn = Array.from(document.querySelectorAll('button')).some(b => b.innerText && b.innerText.includes('Transfer to Local'));
@@ -1044,6 +1054,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				hasRemotes,
 				navigatedToRemotes,
 				canaryDragBlocked,
+				remoteLockToggled,
+				breadcrumbBarsCount,
 				transferToRemoteBtn,
 				transferToLocalBtn
 			};
@@ -1068,6 +1080,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			HasRemotes                bool    `json:"hasRemotes"`
 			NavigatedToRemotes        bool    `json:"navigatedToRemotes"`
 			CanaryDragBlocked         bool    `json:"canaryDragBlocked"`
+			RemoteLockToggled         bool    `json:"remoteLockToggled"`
+			BreadcrumbBarsCount       int     `json:"breadcrumbBarsCount"`
 			TransferToRemoteBtn       bool    `json:"transferToRemoteBtn"`
 			TransferToLocalBtn        bool    `json:"transferToLocalBtn"`
 		}
@@ -1115,6 +1129,12 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.CanaryDragBlocked {
 			t.Errorf("expected dragging RCLONE_TEST canary to be blocked")
+		}
+		if !res.RemoteLockToggled {
+			t.Errorf("expected toggleExplorerRemoteLock to toggle remote lock state")
+		}
+		if res.BreadcrumbBarsCount < 2 {
+			t.Errorf("expected at least 2 breadcrumb location bars, got %d", res.BreadcrumbBarsCount)
 		}
 		if !res.TransferToRemoteBtn || !res.TransferToLocalBtn {
 			t.Errorf("expected directional transfer buttons: toRemote=%v toLocal=%v", res.TransferToRemoteBtn, res.TransferToLocalBtn)

@@ -98,6 +98,16 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+
+/* Scrollbar suppression utility for clean horizontal overflow */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
     font-size: 11px;
 }
 

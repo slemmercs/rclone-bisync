@@ -71,6 +71,10 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
 - [x] Task 12: E2E Smoke Tests & Full Quality Gate Check
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all`
+- [x] Task 13: File Explorer Breadcrumb & Header De-squashing (Dedicated Location Bar & No-Scrollbar Styling)
+  - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/css/design-tokens.css`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
+
 
 - 2026-11-10: Task 12 verified: Completed full end-to-end smoke testing (`go test -count=1 ./tests/e2e/...`) and all 7 stages of quality gate verification (`./scripts/check.sh all`) passing cleanly. All 12 tasks in the Cockpit UI/UX Usability Polish initiative are fully implemented and verified.
 
@@ -83,3 +87,5 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
 - 2026-11-10: Task 10 verified: Surfaced configured ready remote target badges/pills in Fleet onboarding Step 1 hero card with direct linkout navigation to the Remotes tab, backed by `hasConfiguredRemotes`, `readyRemotesList`, and `navigateToRemotes()` in `fleet.js`. Verified via headless Chrome smoke test, template validation, and LOC audit.
 
 - 2026-11-10: Task 11 verified: Consolidated the Authentication Health Overview card and Configured Remotes control bar into a single unified sleek control deck in `view_remotes.html` containing remotes count, OAuth counts, connection status pills, profile scoping, audit log, quota refresh, and remote provisioning. Verified via templates, LOC audit, and headless Chrome smoke test.
+
+- 2026-11-10: Task 13 verified: Resolved File Explorer path squashing bug on remote unlock by separating pane header controls (target badge, remote selector, canary guard, actions) from a dedicated full-width Breadcrumb Location Bar with copy path button and `.no-scrollbar` styling in `view_explorer.html` and `design-tokens.css`. Verified via templates, LOC audit, and E2E headless Chrome tests.

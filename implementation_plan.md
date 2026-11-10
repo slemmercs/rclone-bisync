@@ -48,6 +48,16 @@ Deliver a targeted usability and bug-fix overhaul addressing the 5 user-reported
   - Verify Cancel button appears during Step 3 provisioning and halts the action.
   - Verify clicking Fleet onboarding ready badge navigates to `remotes` tab.
   - Verify Remotes view has a single consolidated control bar.
+
+## Explorer Breadcrumb & Header Path Squashing Fix
+- Problem: In `dashboard/frontend/partials/view_explorer.html`, unlocking the remote selector renders `<select>` and lock button into the same single horizontal row as the target badge, Canary pill, New Folder, and Upload actions. This exhausts row width on dual panes (550-650px wide), squashing the breadcrumb `<div class="overflow-x-auto">` down to ~30px and displaying a truncated horizontal scrollbar right under the remote name.
+- Solution:
+  1. Add `.no-scrollbar` utility in `dashboard/frontend/css/design-tokens.css` to hide horizontal scrollbar bars on overflowed breadcrumb trails.
+  2. Structure each explorer pane header into a clean two-tier layout:
+     - Tier 1: Pane Header Bar containing Target badge (`LOCAL`/`REMOTE`), Remote selector / lock pill, Canary pill, Touch, New Folder, and Upload.
+     - Tier 2: Dedicated Breadcrumb Location Bar containing Folder icon, full-width interactive breadcrumb trail, and Copy Path button.
+  3. Ensure symmetric support for both left and right panes.
+
 - Quality Gate: `./scripts/check.sh all` passing 7/7 stages.
 
 ## Implementation Order
