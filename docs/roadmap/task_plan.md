@@ -21,7 +21,7 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
   - **Scope**: `dashboard/frontend/partials/view_remotes.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 5: Dual-Pane Directory Explorer Overhaul (Clear Action Labels, Single-Line Pane Header, Directional Action Bar, RCLONE_TEST Visual Guard)
+- [x] Task 5: Dual-Pane Directory Explorer Overhaul (Clear Action Labels, Single-Line Pane Header, Directional Action Bar, RCLONE_TEST Visual Guard)
   - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/partials/components/component_explorer_toolbar.html`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/explorer.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
@@ -43,3 +43,5 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
 
 
 - 2026-11-10: Task 4 verified: Unified Storage Remotes control bar into a single-line control row merging remote count indicators, profile scoping toggle, Add Remote trigger, and Quota refresh. Removed fragmented vertical banners. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
+
+- 2026-11-10: Task 5 verified: Overhauled Dual-Pane Directory Explorer by replacing ambiguous "Sync" labels with explicit directional transfers ("Transfer to Remote →" / "Transfer to Local ←"), collapsed multi-bar pane headers into a single high-density header with embedded interactive breadcrumbs and quick actions, integrated search directly into column sort headers, and safeguarded RCLONE_TEST canary rows with visual lock icons, CANARY badges, drag-prevention, and action restrictions. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
