@@ -57,7 +57,26 @@ window.RemotesWizardModule = {
     },
 
     closeCreateRemoteWizard() {
+        if (this.createRemoteModal.saving) {
+            this.cancelProvisioning();
+        }
         this.createRemoteModal.show = false;
+    },
+
+    async cancelProvisioning() {
+        if (this._provisionAbortController) {
+            this._provisionAbortController.abort();
+            this._provisionAbortController = null;
+        }
+        this.createRemoteModal.saving = false;
+        try {
+            if (window.API && typeof window.API.post === "function") {
+                await window.API.post("/api/remotes/auth/oauth-stop");
+            }
+        } catch (_) {}
+        if (typeof this.showToast === "function") {
+            this.showToast("Remote provisioning cancelled.", "info");
+        }
     },
 
     isWizardSaving() {
@@ -221,6 +240,7 @@ window.RemotesWizardModule = {
     async submitCreateRemote() {
         this.createRemoteModal.saving = true;
         this.createRemoteModal.error = null;
+        this._provisionAbortController = new AbortController();
         try {
             const name = this.createRemoteModal.remoteName.trim().replace(/:+$/, "");
             const payload = {
@@ -237,7 +257,9 @@ window.RemotesWizardModule = {
                 payload.remote_subpath = (p.remote_path || "").trim();
             }
 
-            const res = await window.API.post("/api/remotes/create", payload);
+            const res = await window.API.post("/api/remotes/create", payload, {
+                signal: this._provisionAbortController.signal
+            });
             if (res.status === "error") {
                 throw new Error(res.error || "Failed to create remote");
             }
@@ -254,8 +276,12 @@ window.RemotesWizardModule = {
                 this.reconnectRemote(name);
             }
         } catch (err) {
+            if (err.name === "AbortError" || (this._provisionAbortController && this._provisionAbortController.signal.aborted)) {
+                return;
+            }
             this.createRemoteModal.error = err.message;
         } finally {
+            this._provisionAbortController = null;
             this.createRemoteModal.saving = false;
         }
     },

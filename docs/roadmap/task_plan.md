@@ -52,7 +52,7 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
   - **Scope**: `internal/models/provider.go`, `internal/services/remote_wizard_service.go`, `internal/services/remote_wizard_service_test.go`, `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`
   - **Verification**: `go test -count=1 ./internal/services/... -run TestWizardService_GetProvidersCatalog` and `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 8: Implement Cancellation & In-Flight Abort for Remote Creation Wizard Step 3
+- [x] Task 8: Implement Cancellation & In-Flight Abort for Remote Creation Wizard Step 3
   - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
@@ -73,3 +73,5 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
   - **Verification**: `./scripts/check.sh all`
 
 - 2026-11-10: Task 7 verified: Added `SupportsOAuth` boolean to `ProviderCatalogItem` in Go backend, populated via `IsOAuthProvider`, and implemented fallback helper `isOAuthProvider(p)` in `remotes_wizard.js` and `modal_create_remote.html` to reliably display the OAuth vs Custom segmented control.
+
+- 2026-11-10: Task 8 verified: Added `cancelProvisioning()` in `remotes_wizard.js` with `AbortController` cancellation, OAuth stop endpoint dispatch, safe modal close hook, and interactive Cancel button during Step 3 provisioning. Verified via templates, LOC audit, and headless Chrome smoke test.
