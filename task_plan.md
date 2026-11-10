@@ -56,7 +56,7 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
   - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 9: Interactive MCP Tool Registry Accordion in System Health Modal
+- [x] Task 9: Interactive MCP Tool Registry Accordion in System Health Modal
   - **Scope**: `dashboard/frontend/partials/modals/modal_system_health.html`, `dashboard/frontend/js/system_health.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
@@ -75,3 +75,5 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
 - 2026-11-10: Task 7 verified: Added `SupportsOAuth` boolean to `ProviderCatalogItem` in Go backend, populated via `IsOAuthProvider`, and implemented fallback helper `isOAuthProvider(p)` in `remotes_wizard.js` and `modal_create_remote.html` to reliably display the OAuth vs Custom segmented control.
 
 - 2026-11-10: Task 8 verified: Added `cancelProvisioning()` in `remotes_wizard.js` with `AbortController` cancellation, OAuth stop endpoint dispatch, safe modal close hook, and interactive Cancel button during Step 3 provisioning. Verified via templates, LOC audit, and headless Chrome smoke test.
+
+- 2026-11-10: Task 9 verified: Implemented interactive MCP Tool Registry inline accordion with 24 tool definitions, parameters schemas, safeguard risk profiles, search filtering, category pill toggles, and expanded accordion state in `modal_system_health.html` and `system_health.js`. Verified via headless Chrome smoke test, template validation, and LOC audit.

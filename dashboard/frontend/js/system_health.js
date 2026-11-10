@@ -10,9 +10,58 @@ window.SystemHealthModule = {
         copiedConfig: false,
         copiedLogs: false,
         searchQuery: "",
-        logLevel: "ALL"
+        logLevel: "ALL",
+        mcpSearch: "",
+        mcpFilter: "all", // "all" | "read" | "write"
+        mcpExpandedTool: null
     },
     quickCreateOpen: false,
+
+    mcpTools: [
+        { name: "bisync_list_providers", type: "read", risk: "read-only", desc: "List supported cloud storage providers categorized by type with OAuth detection.", params: ["category", "force_refresh", "popular_only"] },
+        { name: "bisync_list_profiles", type: "read", risk: "read-only", desc: "List configured bisync profiles with current status, schedules, and remote path mappings.", params: ["include_archived"] },
+        { name: "bisync_get_status", type: "read", risk: "read-only", desc: "Compact system health summary, active syncs, daemon health, and canary status.", params: ["include_logs", "include_config", "include_metrics"] },
+        { name: "bisync_get_logs", type: "read", risk: "read-only", desc: "Retrieve recent execution logs with severity level, profile ID, and run ID filtering.", params: ["level", "limit", "profile_id", "run_id"] },
+        { name: "bisync_list_remotes", type: "read", risk: "read-only", desc: "List configured Rclone remotes, storage types, and connectivity health probe.", params: ["refresh"] },
+        { name: "bisync_get_sync_history", type: "read", risk: "read-only", desc: "Query historical sync execution records and cryptographic audit trail ledger.", params: ["profile_id", "limit", "include_hashes"] },
+        { name: "bisync_inspect_conflict_session", type: "read", risk: "read-only", desc: "Inspect pending conflict review sessions, file differences, and candidate resolutions.", params: ["session_id", "unresolved_only"] },
+        { name: "bisync_explore_path", type: "read", risk: "read-only", desc: "Safely explore files and directories under configured profile or jail root.", params: ["remote", "path", "profile_id", "limit", "offset", "filter"] },
+        { name: "bisync_preview_file", type: "read", risk: "read-only", desc: "Inspect text or image preview metadata for a file under remote or local path.", params: ["remote", "path", "profile_id"] },
+        { name: "bisync_validate_flags", type: "read", risk: "read-only", desc: "Validate CLI flags and preview compiled Rclone bisync parameters and engine config.", params: ["flags", "profile_id"] },
+        { name: "bisync_trigger_sync", type: "write", risk: "high", desc: "Trigger synchronization with blast-radius protection and dry-run safety.", params: ["profile_id", "dry_run", "resync", "force", "confirmation_token"] },
+        { name: "bisync_resolve_review", type: "write", risk: "high", desc: "Stage or apply conflict resolution decisions on a review session.", params: ["decision", "session_id", "candidate_id", "execute", "confirmation_token"] },
+        { name: "bisync_dedupe_by_hash", type: "write", risk: "high", desc: "Execute Rclone deduplication on a remote or profile path.", params: ["remote", "path", "mode", "by_hash", "confirmation_token"] },
+        { name: "bisync_create_profile", type: "write", risk: "standard", desc: "Create a new bidirectional synchronization profile with path validation.", params: ["name", "remote", "local_path", "remote_path", "schedule", "conflict_mode", "max_delete"] },
+        { name: "bisync_update_profile", type: "write", risk: "standard", desc: "Update configuration settings, schedules, or activation on an existing profile.", params: ["profile_id", "name", "remote", "local_path", "remote_path", "schedule", "conflict_mode", "max_delete", "enabled"] },
+        { name: "bisync_delete_profile", type: "write", risk: "high", desc: "Permanently delete a sync profile with confirmation token protection.", params: ["profile_id", "confirmation_token"] },
+        { name: "bisync_rollback_profile", type: "write", risk: "high", desc: "Roll back a sync profile to a previous version snapshot from configuration history.", params: ["profile_id", "version", "confirmation_token"] },
+        { name: "bisync_create_remote", type: "write", risk: "standard", desc: "Provision a new Rclone remote target with optional sync profile bridge.", params: ["name", "type", "parameters", "create_profile", "profile_name", "local_path", "remote_subpath", "schedule"] },
+        { name: "bisync_delete_remote", type: "write", risk: "high", desc: "Delete an existing Rclone remote with blast-radius safeguards.", params: ["name", "confirmation_token", "force"] },
+        { name: "bisync_mkdir", type: "write", risk: "standard", desc: "Create a directory under local jail or remote workspace path.", params: ["remote", "path", "profile_id"] },
+        { name: "bisync_copy_item", type: "write", risk: "standard", desc: "Copy a file or directory between remote and local storage targets.", params: ["src_remote", "src_path", "dst_remote", "dst_path", "is_dir", "profile_id"] },
+        { name: "bisync_move_item", type: "write", risk: "standard", desc: "Move or rename a file or directory between remote and local storage targets.", params: ["src_remote", "src_path", "dst_remote", "dst_path", "is_dir", "profile_id"] },
+        { name: "bisync_delete_item", type: "write", risk: "high", desc: "Safely delete a file or directory with canary protection and confirmation safeguards.", params: ["remote", "path", "is_dir", "profile_id", "confirmation_token"] },
+        { name: "bisync_purge_dir", type: "write", risk: "high", desc: "Recursively delete a directory and all contents with high blast-radius safeguards.", params: ["remote", "path", "profile_id", "confirmation_token"] }
+    ],
+
+    toggleMcpTool(name) {
+        if (this.systemHealthModal.mcpExpandedTool === name) {
+            this.systemHealthModal.mcpExpandedTool = null;
+        } else {
+            this.systemHealthModal.mcpExpandedTool = name;
+        }
+    },
+
+    get filteredMcpTools() {
+        const q = (this.systemHealthModal.mcpSearch || "").toLowerCase().trim();
+        const f = this.systemHealthModal.mcpFilter || "all";
+        return (this.mcpTools || []).filter(t => {
+            if (f === "read" && t.type !== "read") return false;
+            if (f === "write" && t.type !== "write") return false;
+            if (!q) return true;
+            return t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q);
+        });
+    },
 
     openSystemHealthModal(tab = "daemon") {
         this.systemHealthModal.show = true;

@@ -990,6 +990,21 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.createRemoteModal.authMode = 'oauth';
 			const authTypeOAuth = app.createRemoteModal?.authMode === 'oauth';
 
+			// Test MCP Tool Registry Accordion & Filter
+			const mcpTotalTools = (app.mcpTools || []).length;
+			app.systemHealthModal.mcpFilter = 'read';
+			const mcpReadCount = (app.filteredMcpTools || []).length;
+			app.systemHealthModal.mcpFilter = 'write';
+			const mcpWriteCount = (app.filteredMcpTools || []).length;
+			app.systemHealthModal.mcpFilter = 'all';
+			app.systemHealthModal.mcpSearch = 'trigger_sync';
+			const mcpSearchCount = (app.filteredMcpTools || []).length;
+			app.systemHealthModal.mcpSearch = '';
+			if (typeof app.toggleMcpTool === 'function') {
+				app.toggleMcpTool('bisync_get_status');
+			}
+			const mcpExpanded = app.systemHealthModal.mcpExpandedTool === 'bisync_get_status';
+
 			// Test Explorer Canary drag guard
 			if (typeof app.onDragStart !== 'function') return { error: "onDragStart missing" };
 			app.explorer.draggedItem = null;
@@ -1010,6 +1025,11 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				onboardingVisibleWithZero,
 				authTypeCustom,
 				authTypeOAuth,
+				mcpTotalTools,
+				mcpReadCount,
+				mcpWriteCount,
+				mcpSearchCount,
+				mcpExpanded,
 				canaryDragBlocked,
 				transferToRemoteBtn,
 				transferToLocalBtn
@@ -1027,6 +1047,11 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			OnboardingVisibleWithZero bool    `json:"onboardingVisibleWithZero"`
 			AuthTypeCustom            bool    `json:"authTypeCustom"`
 			AuthTypeOAuth             bool    `json:"authTypeOAuth"`
+			McpTotalTools             int     `json:"mcpTotalTools"`
+			McpReadCount              int     `json:"mcpReadCount"`
+			McpWriteCount             int     `json:"mcpWriteCount"`
+			McpSearchCount            int     `json:"mcpSearchCount"`
+			McpExpanded               bool    `json:"mcpExpanded"`
 			CanaryDragBlocked         bool    `json:"canaryDragBlocked"`
 			TransferToRemoteBtn       bool    `json:"transferToRemoteBtn"`
 			TransferToLocalBtn        bool    `json:"transferToLocalBtn"`
@@ -1051,6 +1076,21 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.AuthTypeCustom || !res.AuthTypeOAuth {
 			t.Errorf("wizard auth type toggle mismatch: custom=%v oauth=%v", res.AuthTypeCustom, res.AuthTypeOAuth)
+		}
+		if res.McpTotalTools != 24 {
+			t.Errorf("expected 24 MCP tools registered in System Health modal, got %d", res.McpTotalTools)
+		}
+		if res.McpReadCount != 10 {
+			t.Errorf("expected 10 read-only MCP tools, got %d", res.McpReadCount)
+		}
+		if res.McpWriteCount != 14 {
+			t.Errorf("expected 14 mutating MCP tools, got %d", res.McpWriteCount)
+		}
+		if res.McpSearchCount != 1 {
+			t.Errorf("expected 1 tool matching 'trigger_sync', got %d", res.McpSearchCount)
+		}
+		if !res.McpExpanded {
+			t.Errorf("expected toggleMcpTool to expand bisync_get_status")
 		}
 		if !res.CanaryDragBlocked {
 			t.Errorf("expected dragging RCLONE_TEST canary to be blocked")
