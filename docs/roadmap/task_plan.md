@@ -13,8 +13,8 @@ Deliver a unified, end-to-end operational journey for creating, configuring, and
   - **Scope**: `internal/mcp/tools_remote.go`, `internal/mcp/tools_remote_test.go`, `internal/mcp/tools_profile.go`, `internal/mcp/tools_profile_test.go`, `internal/mcp/server.go`
   - **Verification**: `go test -count=1 ./internal/mcp/... -run "TestRemoteTools|TestProfileTools"`
 
-- [ ] Task 3: MCP File Explorer Action Tools (Parity with Milestone 2)
-  - **Scope**: `internal/mcp/tools_explorer_ops.go`, `internal/mcp/tools_explorer_ops_test.go`, `internal/mcp/server.go`
+- [x] Task 3: MCP File Explorer Action Tools (Parity with Milestone 2)
+  - **Scope**: `internal/mcp/tools_explorer_ops.go`, `internal/mcp/tools_explorer_delete.go`, `internal/mcp/tools_explorer_ops_test.go`, `internal/mcp/server.go`
   - **Verification**: `go test -count=1 ./internal/mcp/... -run TestExplorerOpsTools`
 
 - [ ] Task 4: Frontend Remote Creation Wizard Modal & Bridge UI
@@ -30,4 +30,5 @@ Deliver a unified, end-to-end operational journey for creating, configuring, and
 - 2026-11-10: Initialized plan from implementation_plan.md.
 - 2026-11-10: Task 1 verified: Implemented RemoteWizardService, provider categorization, DTOs, audit taxonomy, and REST endpoints (/api/remotes/providers, POST /api/remotes/create, DELETE /api/remotes/{name}). All unit tests passed.
 - 2026-11-10: Task 2 verified: Implemented MCP remote & profile lifecycle tools (bisync_list_providers, bisync_create_remote, bisync_delete_remote, bisync_create_profile, bisync_update_profile, bisync_delete_profile, bisync_rollback_profile), OAuth pending status detection, ticket confirmation safeguards, and comprehensive unit tests. All tests passed.
+- 2026-11-10: Task 3 verified: Implemented MCP file explorer action tools (bisync_preview_file, bisync_mkdir, bisync_copy_item, bisync_move_item, bisync_delete_item, bisync_purge_dir) with canary guards, path traversal enforcement, ticket confirmations, and audit ledger tracking. All unit tests passed.
 
