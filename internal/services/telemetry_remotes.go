@@ -135,6 +135,7 @@ func (t *TelemetryService) GetRemotesSummaryCached(ctx context.Context, forceRef
 
 	return resp, nil
 }
+
 // FlushRemotesCache clears the cached remotes data forcing a fresh query on next read.
 func (t *TelemetryService) FlushRemotesCache() {
 	if t == nil {
@@ -144,8 +145,6 @@ func (t *TelemetryService) FlushRemotesCache() {
 	defer t.lockMu.Unlock()
 	t.remotesCache = RemotesCacheItem{}
 }
-
-
 
 // isProviderPublicLinkSupported determines whether a provider type natively supports public sharing links.
 func isProviderPublicLinkSupported(rtype string) bool {

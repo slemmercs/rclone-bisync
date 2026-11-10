@@ -171,7 +171,6 @@ func (s *Server) handleUpdateProfile(ctx context.Context, req mcp.CallToolReques
 	return jsonResult(updated)
 }
 
-
 func (s *Server) handleDeleteProfile(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s.cfg.ReadOnly {
 		return mcp.NewToolResultError("operation rejected: MCP server is running in read-only mode"), nil
@@ -270,4 +269,3 @@ func (s *Server) handleRollbackProfile(ctx context.Context, req mcp.CallToolRequ
 
 	return jsonResult(rolledBack)
 }
-

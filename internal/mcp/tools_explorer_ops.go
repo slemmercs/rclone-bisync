@@ -227,7 +227,6 @@ func (s *Server) handleCopyItem(ctx context.Context, req mcp.CallToolRequest) (*
 	return jsonResult(res)
 }
 
-
 func (s *Server) handleMoveItem(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s.cfg.ReadOnly {
 		return mcp.NewToolResultError("operation rejected: MCP server is running in read-only mode"), nil
@@ -288,4 +287,3 @@ func (s *Server) handleMoveItem(ctx context.Context, req mcp.CallToolRequest) (*
 
 	return jsonResult(res)
 }
-

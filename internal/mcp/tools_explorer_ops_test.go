@@ -341,4 +341,3 @@ func TestExplorerOpsTools_PurgeConfirmation(t *testing.T) {
 		t.Fatalf("expected directory to be deleted from disk")
 	}
 }
-

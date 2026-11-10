@@ -83,6 +83,7 @@ func NewRemoteWizardService(
 		Telemetry: telemetrySvc,
 	}
 }
+
 // GetProvidersCatalog queries and categorizes all Rclone backend providers (with 5m caching).
 func (s *RemoteWizardService) GetProvidersCatalog(ctx context.Context, forceRefresh bool) (*models.ProviderCatalogResponse, error) {
 	if s.Client == nil {
@@ -297,4 +298,3 @@ func (s *RemoteWizardService) DeleteRemote(ctx context.Context, name string, for
 
 	return nil
 }
-

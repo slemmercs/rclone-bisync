@@ -17,9 +17,9 @@ Deliver a unified, end-to-end operational journey for creating, configuring, and
   - **Scope**: `internal/mcp/tools_explorer_ops.go`, `internal/mcp/tools_explorer_delete.go`, `internal/mcp/tools_explorer_ops_test.go`, `internal/mcp/server.go`
   - **Verification**: `go test -count=1 ./internal/mcp/... -run TestExplorerOpsTools`
 
-- [ ] Task 4: Frontend Remote Creation Wizard Modal & Bridge UI
+- [x] Task 4: Frontend Remote Creation Wizard Modal & Bridge UI
   - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/app.js`
-  - **Verification**: `./scripts/check.sh template-lint`
+  - **Verification**: `./scripts/check.sh templates && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
 - [ ] Task 5: MCP Inspector Showcase, E2E Journey Tests & Pre-commit Quality Gate
   - **Scope**: `dashboard/frontend/partials/modals/modal_mcp.html`, `site/usps/06-mcp-agent-server.md`, `tests/e2e/sandbox_ui_journey_test.go`
@@ -31,4 +31,5 @@ Deliver a unified, end-to-end operational journey for creating, configuring, and
 - 2026-11-10: Task 1 verified: Implemented RemoteWizardService, provider categorization, DTOs, audit taxonomy, and REST endpoints (/api/remotes/providers, POST /api/remotes/create, DELETE /api/remotes/{name}). All unit tests passed.
 - 2026-11-10: Task 2 verified: Implemented MCP remote & profile lifecycle tools (bisync_list_providers, bisync_create_remote, bisync_delete_remote, bisync_create_profile, bisync_update_profile, bisync_delete_profile, bisync_rollback_profile), OAuth pending status detection, ticket confirmation safeguards, and comprehensive unit tests. All tests passed.
 - 2026-11-10: Task 3 verified: Implemented MCP file explorer action tools (bisync_preview_file, bisync_mkdir, bisync_copy_item, bisync_move_item, bisync_delete_item, bisync_purge_dir) with canary guards, path traversal enforcement, ticket confirmations, and audit ledger tracking. All unit tests passed.
+- 2026-11-10: Task 4 verified: Implemented Frontend Remote Creation Wizard Modal with multi-step provider selection, categorization, OAuth detection banners, sync profile bridge provisioning, and remote deletion controls. All templates and headless browser smoke tests passed.
 

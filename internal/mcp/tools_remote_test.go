@@ -221,4 +221,3 @@ func TestRemoteTools_DeleteRemoteConfirmation(t *testing.T) {
 		t.Fatalf("expected remote to be deleted after valid confirmation")
 	}
 }
-

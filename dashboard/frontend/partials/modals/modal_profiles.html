@@ -132,6 +132,10 @@
                     <template x-if="!hasDiscoveredRemotes()">
                         <input type="text" x-model="profileModal.editing.remote" placeholder="e.g. gdrive" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
                     </template>
+                    <div class="mt-1 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-500">Need a new target?</span>
+                        <button type="button" @click="closeProfilesModal(); openCreateRemoteWizard()" class="text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer transition-colors">+ Provision New Remote</button>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1">Remote Subpath (Optional)</label>

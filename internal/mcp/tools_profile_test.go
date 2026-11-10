@@ -282,4 +282,3 @@ func TestProfileTools_RollbackConfirmation(t *testing.T) {
 		t.Fatalf("expected rolled back name 'Original Name', got: %s", rolledBack.Name)
 	}
 }
-
