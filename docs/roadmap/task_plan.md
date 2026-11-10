@@ -1,31 +1,32 @@
-# Task Plan: CodeQL Path Injection Remediation, PR #80 Merge & Release v1.0.0-beta.30
+# Task Plan: Milestone 3 — Unified Cloud Remote & Sync Profile Provisioning Journey
 
 ## Goal
-Remediate the two high-severity CodeQL path-traversal alerts (`go/path-injection`) in `internal/services/explorer_move.go`, verify the security and functional test gates, update and merge Pull Request #80, and release version `v1.0.0-beta.30`.
+Deliver a unified, end-to-end operational journey for creating, configuring, and managing Rclone remotes and their corresponding sync profiles via both a browser-native UI wizard and the native MCP tool suite, plus complete parity for explorer file operations.
 
 ## Tasks
 
-- [x] Task 1: Sanitize Local Path Resolution in `internal/services/explorer_move.go` & Add Unit Tests
-  - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_ops_test.go`
-  - **Verification**: `go test -count=1 ./internal/services/... -run TestExplorerOps_MoveItem`
+- [x] Task 1: Remote Wizard Service & REST API Endpoints
+  - **Scope**: `internal/models/provider.go`, `internal/services/remote_wizard_service.go`, `internal/services/remote_wizard_service_test.go`, `internal/server/handlers_remotes_mgmt.go`, `internal/server/handlers_remotes_mgmt_test.go`, `internal/server/routes.go`
+  - **Verification**: `go test -count=1 ./internal/services/... -run TestRemoteWizard && go test -count=1 ./internal/server/... -run TestRemoteMgmt`
 
-- [x] Task 2: Quality Gate Verification & Pre-Commit Validation
-  - **Scope**: Full repository check suite and end-to-end tests
+- [ ] Task 2: MCP Remote & Profile Lifecycle Tools
+  - **Scope**: `internal/mcp/tools_remote.go`, `internal/mcp/tools_remote_test.go`, `internal/mcp/tools_profile.go`, `internal/mcp/tools_profile_test.go`, `internal/mcp/server.go`
+  - **Verification**: `go test -count=1 ./internal/mcp/... -run "TestRemoteTools|TestProfileTools"`
+
+- [ ] Task 3: MCP File Explorer Action Tools (Parity with Milestone 2)
+  - **Scope**: `internal/mcp/tools_explorer_ops.go`, `internal/mcp/tools_explorer_ops_test.go`, `internal/mcp/server.go`
+  - **Verification**: `go test -count=1 ./internal/mcp/... -run TestExplorerOpsTools`
+
+- [ ] Task 4: Frontend Remote Creation Wizard Modal & Bridge UI
+  - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`, `dashboard/frontend/partials/view_remotes.html`, `dashboard/frontend/partials/modals/modal_profiles.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh template-lint`
+
+- [ ] Task 5: MCP Inspector Showcase, E2E Journey Tests & Pre-commit Quality Gate
+  - **Scope**: `dashboard/frontend/partials/modals/modal_mcp.html`, `site/usps/06-mcp-agent-server.md`, `tests/e2e/sandbox_ui_journey_test.go`
   - **Verification**: `./scripts/check.sh all && go test -count=1 ./tests/e2e/...`
-
-- [x] Task 3: Commit, Push & Verify GitHub CodeQL Run on PR #80
-  - **Scope**: Remote tracking branch `feat/milestone-2-sync-staging-workspace`
-  - **Verification**: `gh pr checks 80` (CodeQL workflow clean)
-
-- [x] Task 4: Merge PR #80 & Release v1.0.0-beta.30
-  - **Scope**: Merge to `main`, create tag and release `v1.0.0-beta.30`
-  - **Verification**: `gh pr merge 80 --squash && gh release view v1.0.0-beta.30`
 
 ## Status Updates
 
-- 2026-11-09: Initialized task plan from implementation_plan.md.
-- 2026-11-09: Task 1 verified: Applied DotDotCheck and PrefixCheck barrier guards directly to req paths and local cleanTargetDst/cleanDstDir sinks in explorer_move.go. Added traversal rejection unit test cases; all tests passed.
-- 2026-11-09: Task 2 verified: Formatted explorer_ops_test.go, passed all 7/7 check.sh gates, verified all headless Chrome and journey E2E tests, and confirmed all internal packages satisfy the 400-LOC limit.
-- 2026-11-09: Task 3 verified: Committed, pushed to origin/feat/milestone-2-sync-staging-workspace. All 12/12 CI and CodeQL checks passed with zero open security alerts.
-- 2026-11-09: Task 4 verified: Merged PR #80 into main, tagged and published pre-release v1.0.0-beta.30 on GitHub.
+- 2026-11-10: Initialized plan from implementation_plan.md.
+- 2026-11-10: Task 1 verified: Implemented RemoteWizardService, provider categorization, DTOs, audit taxonomy, and REST endpoints (/api/remotes/providers, POST /api/remotes/create, DELETE /api/remotes/{name}). All unit tests passed.
 

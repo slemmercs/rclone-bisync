@@ -41,3 +41,54 @@ type CreateRemoteRequest struct {
 type DeleteRemoteRequest struct {
 	Name string `json:"name"`
 }
+
+// ProviderCategory represents a grouping of storage providers.
+type ProviderCategory string
+
+const (
+	CategoryCloud    ProviderCategory = "cloud"
+	CategoryObject   ProviderCategory = "object"
+	CategoryProtocol ProviderCategory = "protocol"
+	CategoryVirtual  ProviderCategory = "virtual"
+	CategoryOther    ProviderCategory = "other"
+)
+
+// ProviderCatalogItem represents an enriched provider metadata entry.
+type ProviderCatalogItem struct {
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Prefix      string           `json:"prefix,omitempty"`
+	Category    ProviderCategory `json:"category"`
+	Popular     bool             `json:"popular"`
+	Options     []ProviderOption `json:"options,omitempty"`
+}
+
+// ProviderCatalogResponse represents categorized providers for the UI wizard and MCP tools.
+type ProviderCatalogResponse struct {
+	Providers  []ProviderCatalogItem `json:"providers"`
+	Categories []ProviderCategory    `json:"categories"`
+}
+
+// CreateRemoteBridgeRequest defines the payload for creating a remote with an optional profile bridge.
+type CreateRemoteBridgeRequest struct {
+	Name          string                 `json:"name"`
+	Type          string                 `json:"type"`
+	Parameters    map[string]interface{} `json:"parameters"`
+	Opt           map[string]interface{} `json:"opt,omitempty"`
+	CreateProfile bool                   `json:"create_profile,omitempty"`
+	LocalPath     string                 `json:"local_path,omitempty"`
+	RemoteSubpath string                 `json:"remote_subpath,omitempty"`
+	ProfileName   string                 `json:"profile_name,omitempty"`
+	Schedule      string                 `json:"schedule,omitempty"`
+}
+
+// CreateRemoteResult represents the response after creating a remote (and optional profile).
+type CreateRemoteResult struct {
+	RemoteName  string `json:"remote_name"`
+	RemoteType  string `json:"remote_type"`
+	ProfileID   string `json:"profile_id,omitempty"`
+	ProfileName string `json:"profile_name,omitempty"`
+	Success     bool   `json:"success"`
+	Message     string `json:"message"`
+}
+

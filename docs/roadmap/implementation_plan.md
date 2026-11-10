@@ -1,39 +1,54 @@
-# Implementation Plan: Styled UI Confirm Modal & Unified Bisync Log Pipeline
-
-## Overview
-Replace the native browser `window.confirm(...)` popup with the existing dark-theme styled UI confirmation modal (`askConfirmation(...)` / `confirmModal`) when initial synchronization requires `--resync`. Additionally, harden the sync execution logging pipeline and sandbox configuration so that sync actions (initial resync requirement notices, sync start milestones, and completion/failure summaries) reliably stream into `bisync.log` and appear immediately in the Unified Ledger timeline.
+# Implementation Plan: Milestone 3 — Unified Cloud Remote & Sync Profile Provisioning
 
 ## Proposed Changes
 
-### 1. Frontend Confirmation Modal Migration
-- Replace `window.confirm(...)` calls in `dashboard/frontend/app.js` and `dashboard/frontend/js/profiles_history.js` with `this.askConfirmation(...)`.
-- Pass styled options: title `"Initial Resync Required"`, icon `"sync"`, action text `"Proceed with Resync"`, and proper async callbacks.
+Deliver a unified operational journey for creating, configuring, and managing Rclone remotes and sync profiles—accessible both through a browser-native UI wizard and programmatically through the native Model Context Protocol (MCP) server. Concurrently, bridge the MCP tool suite to feature parity with the Dual-Pane File Commander (Milestone 2) by adding dedicated tools for file preview, mkdir, copy, move, and purge.
 
-### 2. Log File Naming Parity & Sandbox Alignment
-- Align `scripts/run-sandbox.sh` to use `LOG_FILE=$SANDBOX_DIR/bisync.log` (instead of `bisync-hub-log.json`) and initialize `touch "$SANDBOX_DIR/bisync.log"`.
-- Set default fallback in `internal/config/config.go` to `filepath.Join(baseDir, "bisync.log")`.
+### Affected Components & Packages
 
-### 3. Backend Intercept & Engine Sync Logging
-- In `internal/server/handlers_sync.go` and `internal/server/handlers_profiles.go`, log a `REQUIRES_RESYNC` notice into `s.AuditService.Logger` whenever a sync request on an uninitialized profile is intercepted.
-- In `internal/engine/runner/runner.go` (`RunWithError`), log an initial `RUNNING` status entry to `r.Logger` when the sync job starts.
+- `internal/models/provider.go`: DTOs for remote creation payloads, provider catalog categorization, and profile bridge requests.
+- `internal/services/remote_wizard_service.go` (*new*): Domain service managing provider catalog discovery (`/config/providers`), categorized presets, and remote creation with audit logging.
+- `internal/services/remote_wizard_service_test.go` (*new*): Unit tests for catalog caching, provider categorization, and creation validation.
+- `internal/server/handlers_remotes_mgmt.go` (*new*): HTTP endpoints for `/api/remotes/providers`, `POST /api/remotes/create`, and `DELETE /api/remotes/{name}` with profile dependency guards.
+- `internal/server/handlers_remotes_mgmt_test.go` (*new*): REST test suite with mocked RC responses.
+- `internal/server/routes.go`: Route registration for new remote management endpoints.
+- `internal/mcp/tools_remote.go` (*new*): Remote lifecycle MCP tools (`bisync_list_providers`, `bisync_create_remote`, `bisync_delete_remote`).
+- `internal/mcp/tools_profile.go` (*new*): Profile lifecycle MCP tools (`bisync_create_profile`, `bisync_update_profile`, `bisync_delete_profile`, `bisync_rollback_profile`).
+- `internal/mcp/tools_explorer_ops.go` (*new*): File explorer MCP tools (`bisync_file_preview`, `bisync_file_mkdir`, `bisync_file_copy`, `bisync_file_move`, `bisync_file_purge`).
+- `internal/mcp/server.go`: Wire new tool registrations into `NewServer()`.
+- `dashboard/frontend/partials/modals/modal_create_remote.html` (*new*): Step-by-step remote creation wizard with provider categorization and profile bridge.
+- `dashboard/frontend/js/remotes_wizard.js` (*new*): Standalone Alpine.js wizard state controller.
+- `dashboard/frontend/partials/view_remotes.html`: Add `[ + New Remote ]` button and empty-state onboarding trigger.
+- `dashboard/frontend/partials/modals/modal_profiles.html`: Add `[ + Add New Remote ]` link in profile creation remote picker.
+- `dashboard/frontend/partials/modals/modal_mcp.html`: Update MCP inspector modal to showcase all newly exposed tools.
+- `dashboard/frontend/app.js`: Register `remotes_wizard` module.
+- `site/usps/06-mcp-agent-server.md`: Document expanded MCP tool registry and parameters.
 
-## Affected Components & Packages
-- `dashboard/frontend/app.js`: `triggerAction`
-- `dashboard/frontend/js/profiles_history.js`: `triggerProfileSync`
-- `scripts/run-sandbox.sh`: sandbox env and file setup
-- `internal/config/config.go`: default `LogFile` fallback
-- `internal/server/handlers_sync.go`: `handleAction`
-- `internal/server/handlers_profiles.go`: `handleProfileSync`
-- `internal/engine/runner/runner.go`: `RunWithError`
-- `internal/server/handlers_profiles_sync_test.go`: test coverage for resync notice logging
-- `internal/engine/runner/runner_test.go`: test coverage for running milestone logging
+### Technical Strategy & Data Flow
+
+1. **Provider Discovery & Remote Provisioning**:
+   - `RemoteWizardService` queries Rclone `/config/providers`, categorizing providers into `cloud`, `object`, `protocol`, and `virtual`, while highlighting curated presets (Google Drive, OneDrive, AWS S3, Backblaze B2, Dropbox, SFTP, WebDAV, Alias).
+   - Validates parameters, invokes Rclone `/config/create`, flushes remotes cache, and logs `REMOTE_CREATED` to the audit ledger.
+   - Profile Provisioning Bridge: If requested, immediately creates the corresponding profile (`remote` + `local_path` + `schedule`).
+
+2. **Profile Lifecycle via MCP**:
+   - Exposes `bisync_create_profile`, `bisync_update_profile`, `bisync_delete_profile`, and `bisync_rollback_profile`.
+   - Reuses `profiles.Service` with flag validation, version ledger, and scheduler hot-reloading.
+
+3. **Dual-Pane Explorer Actions via MCP**:
+   - Bridges Milestone 2 capabilities: `bisync_file_preview`, `bisync_file_mkdir`, `bisync_file_copy`, `bisync_file_move`, and `bisync_file_purge`.
+
+### Safety & Error Handling
+
+- **Path Jails**: Path confinement on `local` storage (`filepath.Rel` and `..` check).
+- **Canary Protection**: Guard `RCLONE_TEST` against deletion/modification across all UI and MCP file actions.
+- **Confirmation Tickets (`TicketManager`)**: Two-step confirmation for destructive actions (`bisync_file_purge`, `bisync_delete_remote`, `bisync_delete_profile`, `bisync_rollback_profile`).
+- **Remote Deletion Conflict Guard**: Prevents deleting remotes active in existing profiles without explicit confirmation.
+- **Read-Only Mode**: Write operations reject immediately when MCP `--read-only` is active.
+- **LOC Discipline**: Strict <400 LOC ceiling per file.
 
 ## Verification Plan
-- Unit tests:
-  - `go test -count=1 ./internal/server/... -run TestHandleAction_RequiresResync`
-  - `go test -count=1 ./internal/server/... -run TestHandleProfileSync`
-  - `go test -count=1 ./internal/engine/runner/... -run TestRunWithError`
-- E2E smoke test:
-  - `go test -count=1 ./tests/e2e/...`
-- Full check suite:
-  - `./scripts/check.sh all`
+
+- Unit tests for `RemoteWizardService`, REST endpoints, and all new MCP tools.
+- Pre-commit quality gate `./scripts/check.sh all`.
+- E2E journey test in `tests/e2e/sandbox_ui_journey_test.go`.
