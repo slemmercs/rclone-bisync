@@ -17,7 +17,7 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
   - **Scope**: `dashboard/frontend/partials/modals/modal_create_remote.html`, `dashboard/frontend/js/remotes_wizard.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 4: Storage Remotes Control Bar Consolidation
+- [x] Task 4: Storage Remotes Control Bar Consolidation
   - **Scope**: `dashboard/frontend/partials/view_remotes.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
@@ -41,3 +41,5 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
 
 - 2026-11-10: Task 3 verified: Implemented Tier-1 curated cloud provider spotlight (Google Drive, OneDrive, S3, Dropbox, B2), clickable breadcrumb steppers with validation gates, segmented authentication toggling between Browser OAuth and Custom Client Credentials, and resilient unstickable error states with retry/modify paths. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
 
+
+- 2026-11-10: Task 4 verified: Unified Storage Remotes control bar into a single-line control row merging remote count indicators, profile scoping toggle, Add Remote trigger, and Quota refresh. Removed fragmented vertical banners. Verified via templates, LOC audit, and Headless Chrome smoke test suite.
