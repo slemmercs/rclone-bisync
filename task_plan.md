@@ -68,9 +68,11 @@ Consolidate Bisync Hub cockpit UI/UX across top navigation, fleet onboarding, re
   - **Scope**: `dashboard/frontend/partials/view_remotes.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
-- [ ] Task 12: E2E Smoke Tests & Full Quality Gate Check
+- [x] Task 12: E2E Smoke Tests & Full Quality Gate Check
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all`
+
+- 2026-11-10: Task 12 verified: Completed full end-to-end smoke testing (`go test -count=1 ./tests/e2e/...`) and all 7 stages of quality gate verification (`./scripts/check.sh all`) passing cleanly. All 12 tasks in the Cockpit UI/UX Usability Polish initiative are fully implemented and verified.
 
 - 2026-11-10: Task 7 verified: Added `SupportsOAuth` boolean to `ProviderCatalogItem` in Go backend, populated via `IsOAuthProvider`, and implemented fallback helper `isOAuthProvider(p)` in `remotes_wizard.js` and `modal_create_remote.html` to reliably display the OAuth vs Custom segmented control.
 
