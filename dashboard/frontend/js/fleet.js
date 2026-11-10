@@ -151,6 +151,20 @@ window.FleetModule = {
         return `${Math.floor(sec / 86400)}d ago`;
     },
 
+    navigateToRemotes() {
+        if (typeof this.switchTab === "function") {
+            this.switchTab("remotes");
+        }
+    },
+
+    get hasConfiguredRemotes() {
+        return Boolean(this.remotesData && this.remotesData.count > 0);
+    },
+
+    get readyRemotesList() {
+        return (this.remotesData && this.remotesData.remotes) || [];
+    },
+
     openProfileWorkspace(profileId) {
         if (typeof this.selectProfile === "function") {
             this.selectProfile(profileId);

@@ -1005,6 +1005,17 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			}
 			const mcpExpanded = app.systemHealthModal.mcpExpandedTool === 'bisync_get_status';
 
+			// Test Onboarding Fleet Remote Navigation & Badges
+			const origTab = app.currentTab;
+			const hasRemotes = app.hasConfiguredRemotes;
+			if (typeof app.navigateToRemotes === 'function') {
+				app.navigateToRemotes();
+			}
+			const navigatedToRemotes = app.currentTab === 'remotes';
+			if (typeof app.switchTab === 'function') {
+				app.switchTab(origTab || 'fleet');
+			}
+
 			// Test Explorer Canary drag guard
 			if (typeof app.onDragStart !== 'function') return { error: "onDragStart missing" };
 			app.explorer.draggedItem = null;
@@ -1030,6 +1041,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				mcpWriteCount,
 				mcpSearchCount,
 				mcpExpanded,
+				hasRemotes,
+				navigatedToRemotes,
 				canaryDragBlocked,
 				transferToRemoteBtn,
 				transferToLocalBtn
@@ -1052,6 +1065,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			McpWriteCount             int     `json:"mcpWriteCount"`
 			McpSearchCount            int     `json:"mcpSearchCount"`
 			McpExpanded               bool    `json:"mcpExpanded"`
+			HasRemotes                bool    `json:"hasRemotes"`
+			NavigatedToRemotes        bool    `json:"navigatedToRemotes"`
 			CanaryDragBlocked         bool    `json:"canaryDragBlocked"`
 			TransferToRemoteBtn       bool    `json:"transferToRemoteBtn"`
 			TransferToLocalBtn        bool    `json:"transferToLocalBtn"`
@@ -1091,6 +1106,12 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.McpExpanded {
 			t.Errorf("expected toggleMcpTool to expand bisync_get_status")
+		}
+		if !res.HasRemotes {
+			t.Errorf("expected hasConfiguredRemotes to be true with testremote configured")
+		}
+		if !res.NavigatedToRemotes {
+			t.Errorf("expected navigateToRemotes to switch currentTab to remotes")
 		}
 		if !res.CanaryDragBlocked {
 			t.Errorf("expected dragging RCLONE_TEST canary to be blocked")

@@ -180,13 +180,18 @@
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/40">Step 1</span>
-                        <span x-show="remotesData.count > 0" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1">
-                            <svg class="w-3 h-3 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span x-text="remotesData.count + ' Remote' + (remotesData.count === 1 ? '' : 's') + ' Ready'"></span>
-                        </span>
-                        <span x-show="remotesData.count === 0" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
-                            0 Remotes
-                        </span>
+                        <div class="flex items-center gap-1.5">
+                            <span x-show="hasConfiguredRemotes" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 flex items-center gap-1">
+                                <svg class="w-3 h-3 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <span x-text="remotesData.count + ' Ready'"></span>
+                            </span>
+                            <button x-show="hasConfiguredRemotes" type="button" @click="navigateToRemotes()" class="text-[10px] font-mono text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors cursor-pointer" title="Manage Remotes">
+                                <span>Remotes &rarr;</span>
+                            </button>
+                            <span x-show="!hasConfiguredRemotes" class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
+                                0 Remotes
+                            </span>
+                        </div>
                     </div>
                     <div class="flex items-start gap-3">
                         <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
@@ -197,11 +202,36 @@
                             <p class="text-xs text-slate-400 mt-1 leading-relaxed">Authorize Google Drive, OneDrive, AWS S3, Dropbox, Backblaze B2, or SFTP targets.</p>
                         </div>
                     </div>
+
+                    <!-- Configured Remotes Pills (when remotes exist) -->
+                    <div x-show="hasConfiguredRemotes" class="pt-1 space-y-1.5">
+                        <div class="text-[10px] uppercase font-mono text-slate-500 flex items-center justify-between">
+                            <span>Ready Remote Targets:</span>
+                            <button type="button" @click="navigateToRemotes()" class="text-indigo-400 hover:text-indigo-300 font-mono text-[10px] hover:underline cursor-pointer">
+                                View all (<span x-text="remotesData.count"></span>)
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1">
+                            <template x-for="r in readyRemotesList" :key="r.name">
+                                <button type="button" @click="navigateToRemotes()" class="px-2 py-0.5 bg-slate-950/70 border border-slate-800 hover:border-indigo-500/60 rounded-lg text-xs font-mono text-slate-300 flex items-center gap-1.5 transition-colors cursor-pointer group" :title="'Click to view ' + r.name + ' in Remotes view'">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    <span class="text-emerald-400 group-hover:text-indigo-300" x-text="r.name + ':'"></span>
+                                    <span class="text-[10px] text-slate-500" x-text="'(' + (r.type || 'remote') + ')'"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
                 </div>
-                <button type="button" @click="openCreateRemoteWizard()" class="w-full px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer">
-                    <svg class="w-4 h-4 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    <span>Connect New Remote</span>
-                </button>
+                <div class="flex items-center gap-2 pt-1">
+                    <button type="button" @click="openCreateRemoteWizard()" class="flex-1 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer">
+                        <svg class="w-4 h-4 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>Connect New Remote</span>
+                    </button>
+                    <button x-show="hasConfiguredRemotes" type="button" @click="navigateToRemotes()" class="px-3 py-2 bg-indigo-950/50 hover:bg-indigo-900/50 border border-indigo-800/60 text-indigo-300 hover:text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer" title="View all configured remotes">
+                        <span>Remotes</span>
+                        <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                </div>
             </div>
 
             <!-- Step 2: Create Profile -->
