@@ -95,7 +95,17 @@
                                 <span :class="cluster.entry.levelClass" class="select-none shrink-0 w-14 font-bold" x-text="cluster.entry.level"></span>
                                 <div class="text-slate-200 min-w-0 flex-1 break-words text-left">
                                     <span class="whitespace-pre-wrap" x-text="cluster.entry.msg"></span>
-                                    <span x-show="cluster.entry.object" class="text-indigo-400/90 text-[10px] bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-900/40 ml-1.5 font-sans inline-block" x-text="'→ ' + cluster.entry.object"></span>
+                                    <template x-if="getEntryPath(cluster.entry)">
+                                        <button type="button" @click.stop="closeDaemonModal(); jumpToExplorerPath(getEntryPath(cluster.entry), cluster.entry)"
+                                                class="inline-flex items-center gap-1 text-indigo-400/90 hover:text-white text-[10px] bg-indigo-950/60 hover:bg-indigo-900 px-1.5 py-0.5 rounded border border-indigo-900/40 hover:border-indigo-600 ml-1.5 font-sans cursor-pointer transition-colors"
+                                                :title="'Jump to file in Explorer: ' + getEntryPath(cluster.entry)">
+                                            <svg class="w-2.5 h-2.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1 2-2h6"/></svg>
+                                            <span x-text="'→ ' + getEntryPath(cluster.entry)"></span>
+                                        </button>
+                                    </template>
+                                    <template x-if="!getEntryPath(cluster.entry) && cluster.entry.object">
+                                        <span class="text-indigo-400/90 text-[10px] bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-900/40 ml-1.5 font-sans inline-block" x-text="'→ ' + cluster.entry.object"></span>
+                                    </template>
                                     <span x-show="cluster.entry.objectType" class="text-slate-400 text-[9px] bg-slate-900 px-1 py-0.2 rounded border border-slate-800 ml-1 font-mono inline-block" x-text="cluster.entry.objectType"></span>
 
                                     <!-- Structured Details Grid (e.g. Comparison Settings, Lockfiles) -->
@@ -136,7 +146,17 @@
                                                 <span class="text-slate-600 tabular-nums shrink-0" x-text="'[' + subEntry.time + ']'"></span>
                                                 <span :class="subEntry.levelClass" class="shrink-0 w-12 font-bold text-[9px]" x-text="subEntry.level"></span>
                                                 <span class="text-slate-300 truncate" x-text="subEntry.msg"></span>
-                                                <span x-show="subEntry.object" class="text-indigo-400 text-[10px] bg-indigo-950/60 px-1.5 py-0.2 rounded border border-indigo-900/40 font-mono truncate" x-text="subEntry.object" :title="subEntry.object"></span>
+                                                <template x-if="getEntryPath(subEntry)">
+                                                    <button type="button" @click.stop="closeDaemonModal(); jumpToExplorerPath(getEntryPath(subEntry), subEntry)"
+                                                            class="inline-flex items-center gap-1 text-indigo-400 hover:text-white text-[10px] bg-indigo-950/60 hover:bg-indigo-900 px-1.5 py-0.2 rounded border border-indigo-900/40 hover:border-indigo-600 font-mono truncate max-w-[280px] cursor-pointer transition-colors"
+                                                            :title="'Jump to file in Explorer: ' + getEntryPath(subEntry)">
+                                                        <svg class="w-2.5 h-2.5 text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                                                        <span class="truncate" x-text="getEntryPath(subEntry)"></span>
+                                                    </button>
+                                                </template>
+                                                <template x-if="!getEntryPath(subEntry) && subEntry.object">
+                                                    <span class="text-indigo-400 text-[10px] bg-indigo-950/60 px-1.5 py-0.2 rounded border border-indigo-900/40 font-mono truncate" x-text="subEntry.object" :title="subEntry.object"></span>
+                                                </template>
                                                 <span x-show="subEntry.objectType" class="text-slate-500 text-[9px] bg-slate-900 px-1 py-0.2 rounded border border-slate-800 shrink-0" x-text="subEntry.objectType"></span>
                                             </div>
                                             <span x-show="isDevMode && subEntry.source" class="text-slate-600 text-[9px] shrink-0 select-none" x-text="subEntry.source"></span>

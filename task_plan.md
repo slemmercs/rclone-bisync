@@ -21,7 +21,7 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
   - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 5: Ledger & Daemon Modal Integration (`pattern_timeline_ledger.html` & `modal_daemon.html`)
+- [x] Task 5: Ledger & Daemon Modal Integration (`pattern_timeline_ledger.html` & `modal_daemon.html`)
   - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/partials/modals/modal_daemon.html`
   - **Verification**: `./scripts/check.sh templates`
 
@@ -36,5 +36,6 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
 - 2026-11-11: Completed Task 2 - Implemented async `selectProfile` with `overrideDir` bypass in `dashboard/frontend/js/profiles.js` and dual-pane `jumpToExplorerPath` & `scrollToHighlightedRow` in `dashboard/frontend/js/logs.js`. Verified with LOC gate and E2E smoke tests.
 - 2026-11-11: Completed Task 3 - Bound `:data-item-name="item.Name"` attributes to explorer left and right pane rows, updated `getItemReviewRowClass` with pulse animation, and added `@keyframes rowPulse` to `design-tokens.css`. Verified with template validator, LOC gate, and E2E smoke tests.
 - 2026-11-11: Completed Task 4 - Created `dashboard/frontend/js/log_dock.js` and `component_log_dock.html`, registered in `index.html` and `app.js`, added dock button to `component_explorer_toolbar.html`, and embedded in `view_explorer.html`. Verified with template validator, LOC gate, and E2E smoke tests.
+- 2026-11-11: Completed Task 5 - Integrated interactive path chips and `jumpToExplorerPath` deep navigation triggers into `pattern_timeline_ledger.html` and `modal_daemon.html` across single and clustered log rows. Verified with template validator, LOC gate, and E2E smoke tests.
 
 
