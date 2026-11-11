@@ -9,7 +9,7 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
   - **Scope**: `dashboard/frontend/js/utils.js`
   - **Verification**: `go test -count=1 -v ./tests/e2e -run TestDashboard_Smoke`
 
-- [ ] Task 2: Concurrency & Async Navigation Engine (`profiles.js` & `logs.js`)
+- [x] Task 2: Concurrency & Async Navigation Engine (`profiles.js` & `logs.js`)
   - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/logs.js`
   - **Verification**: `go test -count=1 -v ./tests/e2e -run TestDashboard_Smoke`
 
@@ -33,5 +33,6 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
 
 - 2026-11-11: Initialized task plan from implementation_plan.md.
 - 2026-11-11: Completed Task 1 - Implemented contextual path tokenizer `extractPathFromLogMsg` and integrated with `parseJsonLogLine` in `dashboard/frontend/js/utils.js`. Verified with LOC gate (<400 LOC) and E2E headless smoke tests.
+- 2026-11-11: Completed Task 2 - Implemented async `selectProfile` with `overrideDir` bypass in `dashboard/frontend/js/profiles.js` and dual-pane `jumpToExplorerPath` & `scrollToHighlightedRow` in `dashboard/frontend/js/logs.js`. Verified with LOC gate and E2E smoke tests.
 
 

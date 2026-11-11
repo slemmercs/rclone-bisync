@@ -175,49 +175,24 @@ window.LogsModule = {
         }
     },
 
-    nextBisyncPage() {
-        if (this.bisyncLogPage < this.bisyncLogTotalPages) {
-            this.fetchBisyncLogs(this.bisyncLogPage + 1);
-        }
-    },
+    nextBisyncPage() { if (this.bisyncLogPage < this.bisyncLogTotalPages) this.fetchBisyncLogs(this.bisyncLogPage + 1); },
+    prevBisyncPage() { if (this.bisyncLogPage > 1) this.fetchBisyncLogs(this.bisyncLogPage - 1); },
 
-    prevBisyncPage() {
-        if (this.bisyncLogPage > 1) {
-            this.fetchBisyncLogs(this.bisyncLogPage - 1);
-        }
-    },
-
-    toggleCluster(clusterId) {
-        this.expandedClusters[clusterId] = !this.expandedClusters[clusterId];
-    },
-
+    toggleCluster(clusterId) { this.expandedClusters[clusterId] = !this.expandedClusters[clusterId]; },
     expandAllClusters() {
         const map = {};
-        this.clusteredBisyncLogs.forEach(c => {
-            if (c.isCluster) map[c.id] = true;
-        });
-        this.clusteredDaemonModalLogs.forEach(c => {
-            if (c.isCluster) map[c.id] = true;
-        });
+        this.clusteredBisyncLogs.forEach(c => { if (c.isCluster) map[c.id] = true; });
+        this.clusteredDaemonModalLogs.forEach(c => { if (c.isCluster) map[c.id] = true; });
         this.expandedClusters = map;
     },
-
-    collapseAllClusters() {
-        this.expandedClusters = {};
-    },
-
+    collapseAllClusters() { this.expandedClusters = {}; },
     get areAllClustersExpanded() {
         const clusters = this.clusteredBisyncLogs.filter(c => c.isCluster);
-        if (clusters.length === 0) return false;
-        return clusters.every(c => !!this.expandedClusters[c.id]);
+        return clusters.length > 0 && clusters.every(c => !!this.expandedClusters[c.id]);
     },
-
     toggleAllClusters() {
-        if (this.areAllClustersExpanded) {
-            this.collapseAllClusters();
-        } else {
-            this.expandAllClusters();
-        }
+        if (this.areAllClustersExpanded) this.collapseAllClusters();
+        else this.expandAllClusters();
     },
 
     get filteredDeletions() {
@@ -316,6 +291,7 @@ window.LogsModule = {
     },
 
     confirmResync() {
+        const proceed = () => this.triggerAction("force_resync");
         if (typeof this.askConfirmation === "function") {
             this.askConfirmation({
                 title: "Force Resync Confirmation",
@@ -323,12 +299,66 @@ window.LogsModule = {
                 confirmText: "Rebuild & Resync",
                 confirmClass: "bg-amber-600 hover:bg-amber-500 shadow-amber-950/40",
                 icon: "warning",
-                onConfirm: () => {
-                    this.triggerAction("force_resync");
-                }
+                onConfirm: proceed
             });
         } else if (confirm("⚠ FORCE RESYNC ⚠\n\nAre you sure you want to rebuild baseline sync states?\nThis will take significantly longer.")) {
-            this.triggerAction("force_resync");
+            proceed();
+        }
+    },
+
+    async jumpToExplorerPath(targetPath, profileId = null) {
+        if (!targetPath) return;
+        const clean = String(targetPath).trim().replace(/^["'`\s]+|["'`\s]+$/g, "").replace(/\\/g, "/").replace(/^\/+/, "");
+        if (!clean) return;
+
+        const lastSlash = clean.lastIndexOf("/");
+        const dir = lastSlash >= 0 ? clean.substring(0, lastSlash) : "";
+        const filename = lastSlash >= 0 ? clean.substring(lastSlash + 1) : clean;
+
+        if (typeof this.closeDaemonModal === "function") this.closeDaemonModal();
+        else this.showDaemonModal = false;
+
+        if (profileId && this.profilesData && this.profilesData.activeId !== profileId && typeof this.selectProfile === "function") {
+            await this.selectProfile(profileId, dir);
+        }
+
+        if (typeof this.switchTab === "function") this.switchTab("explorer");
+        else this.currentTab = "explorer";
+
+        if (this.explorer) {
+            this.explorer.highlightPath = clean;
+            this.explorer.highlightName = filename;
+            setTimeout(() => {
+                if (this.explorer && this.explorer.highlightName === filename) this.explorer.highlightName = null;
+            }, 6000);
+
+            if (this.explorer.left) this.explorer.left.path = dir;
+            if (this.explorer.right) this.explorer.right.path = dir;
+
+            const p1 = (this.explorer.left && typeof this.fetchExplorerDirectory === "function")
+                ? this.fetchExplorerDirectory("left", this.explorer.left.target, dir) : Promise.resolve();
+            const p2 = (this.explorer.right && typeof this.fetchExplorerDirectory === "function")
+                ? this.fetchExplorerDirectory("right", this.explorer.right.target, dir) : Promise.resolve();
+            await Promise.allSettled([p1, p2]);
+        }
+
+        const notifyOrPulse = () => this.scrollToHighlightedRow(filename);
+        if (typeof this.$nextTick === "function") this.$nextTick(notifyOrPulse);
+        else setTimeout(notifyOrPulse, 50);
+    },
+
+    scrollToHighlightedRow(filename) {
+        if (!filename) return;
+        const selector = `[data-item-name="${CSS.escape ? CSS.escape(filename) : filename}"]`;
+        const els = document.querySelectorAll(selector);
+        els.forEach(el => {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.remove("row-pulse-ring");
+            void el.offsetWidth;
+            el.classList.add("row-pulse-ring");
+        });
+        if (els.length === 0 && typeof this.showToast === "function") {
+            this.showToast(`Navigated to folder. Item "${filename}" may be remote-only or excluded.`, "info");
         }
     },
 

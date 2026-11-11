@@ -123,20 +123,24 @@ window.ProfilesModule = {
         }
     },
 
-    selectProfile(id) {
-        if (this.profilesData.activeId === id) return;
-        this.profilesData.activeId = id;
-        localStorage.setItem("rclone_active_profile_id", id);
-        if (typeof this.showToast === "function") {
-            const p = this.profilesData.list.find(item => item.id === id);
-            this.showToast(`Active profile switched to "${p ? p.name : id}"`, "info");
+    async selectProfile(id, overrideDir = null) {
+        const idChanged = this.profilesData.activeId !== id;
+        if (idChanged) {
+            this.profilesData.activeId = id;
+            localStorage.setItem("rclone_active_profile_id", id);
+            if (typeof this.showToast === "function") {
+                const p = this.profilesData.list.find(item => item.id === id);
+                this.showToast(`Active profile switched to "${p ? p.name : id}"`, "info");
+            }
         }
-        if (typeof this.syncExplorerWithActiveProfile === "function") {
-            this.syncExplorerWithActiveProfile();
-        } else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") {
-            this.initExplorer();
+        if (overrideDir === null) {
+            if (typeof this.syncExplorerWithActiveProfile === "function") {
+                await this.syncExplorerWithActiveProfile();
+            } else if (this.currentTab === "explorer" && typeof this.initExplorer === "function") {
+                await this.initExplorer();
+            }
         }
-        if (this.currentTab === "audit" && typeof this.fetchAuditRecords === "function") {
+        if (idChanged && this.currentTab === "audit" && typeof this.fetchAuditRecords === "function") {
             this.auditData.filterProfile = id;
             this.fetchAuditRecords();
         }
