@@ -162,6 +162,32 @@ func TestRemoteTools_CreateRemote(t *testing.T) {
 	if !strings.Contains(text, "oauth_pending") || !strings.Contains(text, "127.0.0.1:53682") {
 		t.Fatalf("expected oauth_pending status with authURL, got: %s", text)
 	}
+
+	// 3. Invalid schedule rejected on linked profile creation
+	res, err = callMCP(srv.handleCreateRemote, map[string]any{
+		"name":           "invalid_sched_remote",
+		"type":           "s3",
+		"create_profile": true,
+		"local_path":     filepath.Join(tmpDir, "local_test"),
+		"schedule":       "0 * * * *",
+	})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "invalid schedule") {
+		t.Fatalf("expected invalid schedule rejection, got: %v", res)
+	}
+
+	// 4. Remote name with trailing colon is normalized
+	res, err = callMCP(srv.handleCreateRemote, map[string]any{
+		"name": "remote_with_colon:",
+		"type": "s3",
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("expected colon to be stripped and succeed, got: %v", res)
+	}
+	text = res.Content[0].(mcp.TextContent).Text
+	if !strings.Contains(text, "remote_with_colon") {
+		t.Fatalf("expected normalized remote name in result, got: %s", text)
+	}
+
 }
 
 func TestRemoteTools_DeleteRemoteConfirmation(t *testing.T) {

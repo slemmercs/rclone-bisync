@@ -78,10 +78,12 @@ func TestProfileTools_CreateAndPathTraversal(t *testing.T) {
 	syncDir := filepath.Join(tmpDir, "sync_data")
 	res, err = callMCP(srv.handleCreateProfile, map[string]any{
 		"name":          "Valid Profile",
-		"remote":        "local",
+		"remote":        "local:",
 		"local_path":    syncDir,
-		"schedule":      "0 * * * *",
+		"schedule":      "1h",
 		"conflict_mode": "newer",
+		"review_mode":   "conflicts",
+		"compare_mode":  "checksum",
 		"max_delete":    20,
 	})
 	if err != nil || res.IsError {
@@ -92,7 +94,7 @@ func TestProfileTools_CreateAndPathTraversal(t *testing.T) {
 	if err := json.Unmarshal([]byte(text), &created); err != nil {
 		t.Fatalf("failed to unmarshal created profile: %v", err)
 	}
-	if created.Name != "Valid Profile" || created.Flags.ConflictResolve == nil || *created.Flags.ConflictResolve != "newer" || created.Flags.MaxDelete == nil || string(*created.Flags.MaxDelete) != "20" {
+	if created.Name != "Valid Profile" || created.Remote != "local" || created.Schedule != "1h" || created.ReviewMode != "conflicts" || created.Flags.ConflictResolve == nil || *created.Flags.ConflictResolve != "newer" || created.Flags.CompareMode == nil || *created.Flags.CompareMode != "checksum" || created.Flags.MaxDelete == nil || string(*created.Flags.MaxDelete) != "20" {
 		t.Fatalf("unexpected profile values: %+v", created)
 	}
 }
@@ -125,12 +127,15 @@ func TestProfileTools_Update(t *testing.T) {
 		t.Fatalf("failed to create initial profile: %v", err)
 	}
 
-	// Update name, schedule, enabled
+	// Update name, schedule, review_mode, compare_mode, enabled
 	res, err := callMCP(srv.handleUpdateProfile, map[string]any{
-		"profile_id": p.ID,
-		"name":       "Updated MCP Name",
-		"schedule":   "*/15 * * * *",
-		"enabled":    false,
+		"profile_id":   p.ID,
+		"name":         "Updated MCP Name",
+		"remote":       "gdrive:",
+		"schedule":     "15m",
+		"review_mode":  "deletions",
+		"compare_mode": "size,modtime,checksum",
+		"enabled":      false,
 	})
 	if err != nil || res.IsError {
 		t.Fatalf("unexpected error updating profile: %v", res)
@@ -140,8 +145,76 @@ func TestProfileTools_Update(t *testing.T) {
 	if err := json.Unmarshal([]byte(text), &updated); err != nil {
 		t.Fatalf("failed to unmarshal updated profile: %v", err)
 	}
-	if updated.Name != "Updated MCP Name" || updated.Schedule != "*/15 * * * *" || updated.Enabled != false {
+	if updated.Name != "Updated MCP Name" || updated.Remote != "gdrive" || updated.Schedule != "15m" || updated.ReviewMode != "deletions" || updated.Flags.CompareMode == nil || *updated.Flags.CompareMode != "size,modtime,checksum" || updated.Enabled != false {
 		t.Fatalf("unexpected updated values: %+v", updated)
+	}
+}
+
+func TestProfileTools_EnumValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+	profStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
+	if err != nil {
+		t.Fatalf("failed to create profStore: %v", err)
+	}
+	profSvc := profiles.NewService(profStore, nil, nil)
+	ctr := &app.Container{ProfileService: profSvc}
+	srv, err := NewServer(ctr, ServerConfig{Version: "v1.0.0-test"})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Invalid schedule
+	res, err := callMCP(srv.handleCreateProfile, map[string]any{
+		"name":       "P1",
+		"remote":     "local",
+		"local_path": tmpDir,
+		"schedule":   "0 * * * *",
+	})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "invalid schedule") {
+		t.Errorf("expected invalid schedule error, got: %v", res)
+	}
+
+	// 2. Invalid conflict_mode
+	res, err = callMCP(srv.handleCreateProfile, map[string]any{
+		"name":          "P2",
+		"remote":        "local",
+		"local_path":    tmpDir,
+		"conflict_mode": "random",
+	})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "invalid conflict_mode") {
+		t.Errorf("expected invalid conflict_mode error, got: %v", res)
+	}
+
+	// 3. Invalid review_mode
+	res, err = callMCP(srv.handleCreateProfile, map[string]any{
+		"name":        "P3",
+		"remote":      "local",
+		"local_path":  tmpDir,
+		"review_mode": "interactive",
+	})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "invalid review_mode") {
+		t.Errorf("expected invalid review_mode error, got: %v", res)
+	}
+
+	// 4. Invalid compare_mode
+	res, err = callMCP(srv.handleCreateProfile, map[string]any{
+		"name":         "P4",
+		"remote":       "local",
+		"local_path":   tmpDir,
+		"compare_mode": "hash_only",
+	})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "invalid compare_mode") {
+		t.Errorf("expected invalid compare_mode error, got: %v", res)
+	}
+
+	// 5. Empty remote after colon stripping
+	res, err = callMCP(srv.handleCreateProfile, map[string]any{
+		"name":       "P5",
+		"remote":     ":::",
+		"local_path": tmpDir,
+	})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "remote cannot be empty") {
+		t.Errorf("expected remote cannot be empty error, got: %v", res)
 	}
 }
 

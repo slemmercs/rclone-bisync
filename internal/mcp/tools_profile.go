@@ -16,11 +16,13 @@ func (s *Server) registerProfileTools() {
 		mcp.NewTool("bisync_create_profile",
 			mcp.WithDescription("Create a new bidirectional synchronization profile with path validation"),
 			mcp.WithString("name", mcp.Required(), mcp.Description("Human-readable profile name")),
-			mcp.WithString("remote", mcp.Required(), mcp.Description("Configured remote target name (or 'local')")),
+			mcp.WithString("remote", mcp.Required(), mcp.Description("Configured remote target name (or 'local', e.g. 'drive', 'backup')")),
 			mcp.WithString("local_path", mcp.Required(), mcp.Description("Local filesystem directory path")),
 			mcp.WithString("remote_path", mcp.Description("Optional remote subdirectory path")),
-			mcp.WithString("schedule", mcp.Description("Cron expression for automated background sync (e.g. '0 * * * *')")),
-			mcp.WithString("conflict_mode", mcp.Description("Conflict resolution mode: 'newer', 'older', 'larger', 'smaller'")),
+			mcp.WithString("schedule", mcp.Description("Sync schedule interval preset: 'manual', '15m', '30m', '1h', '4h', 'daily' (default: 'manual')")),
+			mcp.WithString("conflict_mode", mcp.Description("Conflict resolution mode: 'path1', 'path2', 'newer', 'older', 'larger', 'smaller'")),
+			mcp.WithString("review_mode", mcp.Description("Review mode for operations: 'disabled', 'deletions', 'conflicts', 'all' (default: 'disabled')")),
+			mcp.WithString("compare_mode", mcp.Description("Comparison mode: 'size,modtime', 'size,modtime,checksum', 'checksum', 'modtime'")),
 			mcp.WithNumber("max_delete", mcp.Description("Max allowable deletion percentage before triggering safety abort")),
 		),
 		s.handleCreateProfile,
@@ -34,8 +36,10 @@ func (s *Server) registerProfileTools() {
 			mcp.WithString("remote", mcp.Description("Updated remote target name")),
 			mcp.WithString("local_path", mcp.Description("Updated local directory path")),
 			mcp.WithString("remote_path", mcp.Description("Updated remote subdirectory path")),
-			mcp.WithString("schedule", mcp.Description("Updated cron schedule expression")),
-			mcp.WithString("conflict_mode", mcp.Description("Updated conflict resolution mode")),
+			mcp.WithString("schedule", mcp.Description("Updated sync schedule interval preset: 'manual', '15m', '30m', '1h', '4h', 'daily'")),
+			mcp.WithString("conflict_mode", mcp.Description("Updated conflict resolution mode: 'path1', 'path2', 'newer', 'older', 'larger', 'smaller'")),
+			mcp.WithString("review_mode", mcp.Description("Updated review mode: 'disabled', 'deletions', 'conflicts', 'all'")),
+			mcp.WithString("compare_mode", mcp.Description("Updated comparison mode: 'size,modtime', 'size,modtime,checksum', 'checksum', 'modtime'")),
 			mcp.WithNumber("max_delete", mcp.Description("Updated max delete percentage threshold")),
 			mcp.WithBoolean("enabled", mcp.Description("Enable or disable scheduled execution")),
 		),
@@ -88,17 +92,46 @@ func (s *Server) handleCreateProfile(ctx context.Context, req mcp.CallToolReques
 	}
 	cleanLocal := filepath.Clean(localPath)
 
+	cleanRemote := strings.TrimRight(strings.TrimSpace(remote), ":")
+	if cleanRemote == "" {
+		return mcp.NewToolResultError("remote cannot be empty"), nil
+	}
+
+	sched := strings.TrimSpace(req.GetString("schedule", ""))
+	if sched != "" && !profiles.IsValidSchedule(sched) {
+		return mcp.NewToolResultError(fmt.Sprintf("invalid schedule %q: must be one of 'manual', '15m', '30m', '1h', '4h', 'daily'", sched)), nil
+	}
+
+	cMode := strings.TrimSpace(req.GetString("conflict_mode", ""))
+	if cMode != "" && !profiles.IsValidConflictMode(cMode) {
+		return mcp.NewToolResultError(fmt.Sprintf("invalid conflict_mode %q: must be one of 'path1', 'path2', 'newer', 'older', 'larger', 'smaller'", cMode)), nil
+	}
+
+	rMode := strings.TrimSpace(req.GetString("review_mode", ""))
+	if rMode != "" && !profiles.IsValidReviewMode(profiles.ReviewMode(rMode)) {
+		return mcp.NewToolResultError(fmt.Sprintf("invalid review_mode %q: must be one of 'disabled', 'deletions', 'conflicts', 'all'", rMode)), nil
+	}
+
+	cmpMode := strings.TrimSpace(req.GetString("compare_mode", ""))
+	if cmpMode != "" && !profiles.IsValidCompareMode(cmpMode) {
+		return mcp.NewToolResultError(fmt.Sprintf("invalid compare_mode %q: must be one of 'size,modtime', 'size,modtime,checksum', 'checksum', 'modtime'", cmpMode)), nil
+	}
+
 	prof := &profiles.Profile{
 		Name:       strings.TrimSpace(name),
-		Remote:     strings.TrimSpace(remote),
+		Remote:     cleanRemote,
 		LocalPath:  cleanLocal,
 		RemotePath: strings.Trim(req.GetString("remote_path", ""), "/\\ "),
-		Schedule:   strings.TrimSpace(req.GetString("schedule", "")),
+		Schedule:   sched,
+		ReviewMode: profiles.ReviewMode(rMode),
 		Enabled:    true,
 	}
 
-	if cMode := strings.TrimSpace(req.GetString("conflict_mode", "")); cMode != "" {
+	if cMode != "" {
 		prof.Flags.ConflictResolve = &cMode
+	}
+	if cmpMode != "" {
+		prof.Flags.CompareMode = &cmpMode
 	}
 	if maxDel := req.GetInt("max_delete", -1); maxDel >= 0 {
 		val := profiles.MaxDeleteValue(fmt.Sprintf("%d", maxDel))
@@ -135,7 +168,11 @@ func (s *Server) handleUpdateProfile(ctx context.Context, req mcp.CallToolReques
 		existing.Name = name
 	}
 	if rem := strings.TrimSpace(req.GetString("remote", "")); rem != "" {
-		existing.Remote = rem
+		cleanRem := strings.TrimRight(rem, ":")
+		if cleanRem == "" {
+			return mcp.NewToolResultError("remote cannot be empty"), nil
+		}
+		existing.Remote = cleanRem
 	}
 	if loc := strings.TrimSpace(req.GetString("local_path", "")); loc != "" {
 		if strings.Contains(loc, "..") {
@@ -148,10 +185,28 @@ func (s *Server) handleUpdateProfile(ctx context.Context, req mcp.CallToolReques
 		existing.RemotePath = strings.Trim(remPath, "/\\ ")
 	}
 	if sched := strings.TrimSpace(req.GetString("schedule", "")); sched != "" {
+		if !profiles.IsValidSchedule(sched) {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid schedule %q: must be one of 'manual', '15m', '30m', '1h', '4h', 'daily'", sched)), nil
+		}
 		existing.Schedule = sched
 	}
 	if cMode := strings.TrimSpace(req.GetString("conflict_mode", "")); cMode != "" {
+		if !profiles.IsValidConflictMode(cMode) {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid conflict_mode %q: must be one of 'path1', 'path2', 'newer', 'older', 'larger', 'smaller'", cMode)), nil
+		}
 		existing.Flags.ConflictResolve = &cMode
+	}
+	if rMode := strings.TrimSpace(req.GetString("review_mode", "")); rMode != "" {
+		if !profiles.IsValidReviewMode(profiles.ReviewMode(rMode)) {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid review_mode %q: must be one of 'disabled', 'deletions', 'conflicts', 'all'", rMode)), nil
+		}
+		existing.ReviewMode = profiles.ReviewMode(rMode)
+	}
+	if cmpMode := strings.TrimSpace(req.GetString("compare_mode", "")); cmpMode != "" {
+		if !profiles.IsValidCompareMode(cmpMode) {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid compare_mode %q: must be one of 'size,modtime', 'size,modtime,checksum', 'checksum', 'modtime'", cmpMode)), nil
+		}
+		existing.Flags.CompareMode = &cmpMode
 	}
 	if maxDel := req.GetInt("max_delete", -1); maxDel >= 0 {
 		val := profiles.MaxDeleteValue(fmt.Sprintf("%d", maxDel))

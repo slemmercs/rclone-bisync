@@ -164,7 +164,7 @@ func TestRemoteWizard_CreateRemote(t *testing.T) {
 		LocalPath:     filepath.Join(tmpDir, "sync_folder"),
 		RemoteSubpath: "backups/prod",
 		ProfileName:   "Backup Profile",
-		Schedule:      "0 * * * *",
+		Schedule:      "1h",
 	}, "test-actor")
 
 	if err != nil {
@@ -181,8 +181,8 @@ func TestRemoteWizard_CreateRemote(t *testing.T) {
 	}
 
 	prof, err := profStore.Get(res.ProfileID)
-	if err != nil || prof.FullRemoteTarget() != "new_backup:backups/prod" {
-		t.Fatalf("expected created profile with target new_backup:backups/prod, got %+v (err: %v)", prof, err)
+	if err != nil || prof.FullRemoteTarget() != "new_backup:backups/prod" || prof.Schedule != "1h" {
+		t.Fatalf("expected created profile with target new_backup:backups/prod and schedule 1h, got %+v (err: %v)", prof, err)
 	}
 
 	// Test OAuth Pending Flow

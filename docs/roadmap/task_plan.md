@@ -9,7 +9,7 @@ Enforce strict validation across all profile configuration entry points (MCP too
   - **Scope**: `internal/profiles/model.go`, `internal/profiles/model_test.go`
   - **Verification**: `go test -count=1 ./internal/profiles/...`
 
-- [ ] Task 2: MCP Profile Tools Schema & Strict Parameter Validation
+- [x] Task 2: MCP Profile Tools Schema & Strict Parameter Validation
   - **Scope**: `internal/mcp/tools_profile.go`, `internal/mcp/tools_remote.go`, `internal/mcp/tools_profile_test.go`, `internal/services/remote_wizard_service_test.go`
   - **Verification**: `go test -count=1 ./internal/mcp/... ./internal/services/...`
 
@@ -25,3 +25,4 @@ Enforce strict validation across all profile configuration entry points (MCP too
 
 - 2026-11-11: Initialized plan from implementation_plan.md.
 - 2026-11-11: Completed Task 1 - Domain enums and invariant validation added to internal/profiles/model.go with trailing colon stripping and full test suite passing in internal/profiles.
+- 2026-11-11: Completed Task 2 - MCP profile and remote tools schemas updated with UI preset enums, early parameter validation, and remote trailing colon stripping. All MCP and services unit tests passing.

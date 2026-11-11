@@ -9,6 +9,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/profiles"
 )
 
 func (s *Server) registerRemoteTools() {
@@ -25,14 +26,14 @@ func (s *Server) registerRemoteTools() {
 	s.mcpServer.AddTool(
 		mcp.NewTool("bisync_create_remote",
 			mcp.WithDescription("Provision a new Rclone remote target with optional automated sync profile provisioning bridge"),
-			mcp.WithString("name", mcp.Required(), mcp.Description("Unique name for the remote (alphanumeric, dash, underscore)")),
+			mcp.WithString("name", mcp.Required(), mcp.Description("Unique name for the remote (alphanumeric, dash, underscore; colons stripped)")),
 			mcp.WithString("type", mcp.Required(), mcp.Description("Provider backend type (e.g. s3, drive, b2, sftp)")),
 			mcp.WithObject("parameters", mcp.Description("Configuration key-value pairs for the remote")),
 			mcp.WithBoolean("create_profile", mcp.DefaultBool(false), mcp.Description("Whether to automatically create a linked sync profile")),
 			mcp.WithString("local_path", mcp.Description("Local filesystem path if creating a linked profile")),
 			mcp.WithString("remote_subpath", mcp.Description("Optional subdirectory path within the remote")),
 			mcp.WithString("profile_name", mcp.Description("Optional display name for the linked profile")),
-			mcp.WithString("schedule", mcp.Description("Cron schedule expression for sync runs (e.g. '0 * * * *')")),
+			mcp.WithString("schedule", mcp.Description("Sync schedule interval preset: 'manual', '15m', '30m', '1h', '4h', 'daily' (default: 'manual')")),
 		),
 		s.handleCreateRemote,
 	)
@@ -92,6 +93,10 @@ func (s *Server) handleCreateRemote(ctx context.Context, req mcp.CallToolRequest
 	if err != nil {
 		return mcp.NewToolResultError("missing required parameter 'name'"), nil
 	}
+	cleanName := strings.TrimRight(strings.TrimSpace(name), ":")
+	if cleanName == "" {
+		return mcp.NewToolResultError("remote name cannot be empty"), nil
+	}
 
 	remType, err := req.RequireString("type")
 	if err != nil {
@@ -103,10 +108,14 @@ func (s *Server) handleCreateRemote(ctx context.Context, req mcp.CallToolRequest
 	localPath := req.GetString("local_path", "")
 	remoteSubpath := req.GetString("remote_subpath", "")
 	profileName := req.GetString("profile_name", "")
-	schedule := req.GetString("schedule", "")
+	schedule := strings.TrimSpace(req.GetString("schedule", ""))
+
+	if createProfile && schedule != "" && !profiles.IsValidSchedule(schedule) {
+		return mcp.NewToolResultError(fmt.Sprintf("invalid schedule %q: must be one of 'manual', '15m', '30m', '1h', '4h', 'daily'", schedule)), nil
+	}
 
 	bridgeReq := models.CreateRemoteBridgeRequest{
-		Name:          name,
+		Name:          cleanName,
 		Type:          remType,
 		Parameters:    params,
 		CreateProfile: createProfile,
