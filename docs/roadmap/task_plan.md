@@ -17,7 +17,7 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
   - **Scope**: `dashboard/frontend/js/review_actions.js`, `dashboard/frontend/partials/view_explorer.html`
   - **Verification**: `./scripts/check.sh templates`
 
-- [ ] Task 4: Pinned Log Audit Dock Engine (`log_dock.js` & `component_log_dock.html`)
+- [x] Task 4: Pinned Log Audit Dock Engine (`log_dock.js` & `component_log_dock.html`)
   - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
@@ -35,5 +35,6 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
 - 2026-11-11: Completed Task 1 - Implemented contextual path tokenizer `extractPathFromLogMsg` and integrated with `parseJsonLogLine` in `dashboard/frontend/js/utils.js`. Verified with LOC gate (<400 LOC) and E2E headless smoke tests.
 - 2026-11-11: Completed Task 2 - Implemented async `selectProfile` with `overrideDir` bypass in `dashboard/frontend/js/profiles.js` and dual-pane `jumpToExplorerPath` & `scrollToHighlightedRow` in `dashboard/frontend/js/logs.js`. Verified with LOC gate and E2E smoke tests.
 - 2026-11-11: Completed Task 3 - Bound `:data-item-name="item.Name"` attributes to explorer left and right pane rows, updated `getItemReviewRowClass` with pulse animation, and added `@keyframes rowPulse` to `design-tokens.css`. Verified with template validator, LOC gate, and E2E smoke tests.
+- 2026-11-11: Completed Task 4 - Created `dashboard/frontend/js/log_dock.js` and `component_log_dock.html`, registered in `index.html` and `app.js`, added dock button to `component_explorer_toolbar.html`, and embedded in `view_explorer.html`. Verified with template validator, LOC gate, and E2E smoke tests.
 
 
