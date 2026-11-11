@@ -603,4 +603,3 @@ func TestProfiles_ErrorBranchesAndEdgeCases(t *testing.T) {
 		t.Fatalf("expected 503 on nil ProfileService history, got %d", w.Code)
 	}
 }
-

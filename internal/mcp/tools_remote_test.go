@@ -305,4 +305,3 @@ func TestNormalizeDecision(t *testing.T) {
 		}
 	}
 }
-

@@ -103,7 +103,6 @@ func TestServer_ServeSSE_GracefulShutdown(t *testing.T) {
 	}
 }
 
-
 func TestServer_ServeSSE_StatusFileLifecycle(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
