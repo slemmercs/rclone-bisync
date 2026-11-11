@@ -43,11 +43,12 @@ function extractPathFromLogMsg(msg) {
     let found = null;
     const matchers = [
         /Duplicate ignored:\s*(.+)/i,
-        /(?:-\s+)?(?:Path[12]\s+)?File was deleted(?:\s*-\s*|\s*:\s*)(.+)/i,
-        /(?:-\s+)?(?:Path[12]\s+)?Deleted(?:\s*-\s*|\s*:\s*)(.+)/i,
-        /Transferring(?:\s+file)?:\s*(.+)/i,
+        /(?:-\s+)?(?:Path[12]\s+)?(?:File\s+was\s+)?Delet(?:ed|ing)(?:\s*-\s*|\s*:\s*)(.+)/i,
+        /Transferr(?:ing|ed)(?:\s+file)?:\s*(.+)/i,
         /Conflict:\s*(.+?)\s+differs between/i,
-        /Copied(?:\s*\([^)]+\))?:\s*(.+)/i,
+        /^([a-zA-Z0-9_.-]+(?:\{[^}]+\})?:[^\s:]+):\s*Conflict/i,
+        /Conflict(?:\s*:\s*|\s+identified\s*(?:for\s*)?)(.+)/i,
+        /Copied(?:\s*\([^)]+\))?(?:\s+to)?:\s*(.+)/i,
         /Updated:\s*(.+)/i
     ];
 

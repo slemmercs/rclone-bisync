@@ -25,7 +25,7 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
   - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/partials/modals/modal_daemon.html`
   - **Verification**: `./scripts/check.sh templates`
 
-- [ ] Task 6: Roadmap Documentation, E2E Headless Smoke Tests & Pre-Commit Quality Gate
+- [x] Task 6: Roadmap Documentation, E2E Headless Smoke Tests & Pre-Commit Quality Gate
   - **Scope**: `docs/roadmap/backlog.md`, `docs/roadmap/ROADMAP.md`, `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all`
 
@@ -37,5 +37,6 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
 - 2026-11-11: Completed Task 3 - Bound `:data-item-name="item.Name"` attributes to explorer left and right pane rows, updated `getItemReviewRowClass` with pulse animation, and added `@keyframes rowPulse` to `design-tokens.css`. Verified with template validator, LOC gate, and E2E smoke tests.
 - 2026-11-11: Completed Task 4 - Created `dashboard/frontend/js/log_dock.js` and `component_log_dock.html`, registered in `index.html` and `app.js`, added dock button to `component_explorer_toolbar.html`, and embedded in `view_explorer.html`. Verified with template validator, LOC gate, and E2E smoke tests.
 - 2026-11-11: Completed Task 5 - Integrated interactive path chips and `jumpToExplorerPath` deep navigation triggers into `pattern_timeline_ledger.html` and `modal_daemon.html` across single and clustered log rows. Verified with template validator, LOC gate, and E2E smoke tests.
+- 2026-11-11: Completed Task 6 - Added headless Chrome E2E test `DeepPathNavigationAndLogDock` verifying contextual path tokenization, log dock toggle/filtering/stepping, and row pulse highlights. Updated `backlog.md` and `ROADMAP.md` for `v1.0.0-beta.32` delivery. Passed all 7 pre-commit quality gate stages (`./scripts/check.sh all`).
 
 

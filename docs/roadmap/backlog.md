@@ -14,22 +14,9 @@ This backlog maintains the tactical, prioritized engineering queue for **Bisync 
 
 ## Prioritized Work Queue
 
-### 1. Deep File Path Navigation & Pinned Log Audit Dock
-- **Estimate**: 4–5h | 3 SP
-- **Priority**: Active / In-Flight (Sprint Priority)
-- **Objective**: Direct contextual navigation from log mutation entries into the Dual-Pane File Explorer with an in-context collapsible audit dock.
-- **Scope & Architecture**:
-  - **Contextual Tokenizer**: Hardened regex suite recognizing file mutations in log lines (`Duplicate ignored`, `Deleted`, `File was deleted`, `Transferring`, `Conflict`, `Copied`, `Updated`) with remote prefix stripping and path normalization.
-  - **Synchronized Dual-Pane Navigation**: Coordinated profile switching and dual-pane directory loading with smooth DOM scrolling and animated pulse row highlight.
-  - **IDE-Style Pinned Log Audit Dock**: Collapsible bottom tray anchored beneath the Dual-Pane File Explorer with height presets (`docked`, `collapsed`, `expanded`), mutation filters, and `N` / `P` keyboard stepping.
-- **Key Files**: `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/partials/view_explorer.html`.
-- **Design Reference**: [`docs/design/operational_visibility_and_queued_upload_specification.md`](../design/operational_visibility_and_queued_upload_specification.md)
-
----
-
-### 2. Homelab Reverse Proxy Security Hardening & OpenTelemetry (OTel/OTLP)
+### 1. Homelab Reverse Proxy Security Hardening & OpenTelemetry (OTel/OTLP)
 - **Estimate**: 5–7h | 4 SP
-- **Priority**: Sprint Ready
+- **Priority**: Active / In-Flight (Sprint Priority)
 - **Objective**: Production self-hosted deployment security and standards-based observability.
 - **Scope & Architecture**:
   - **Reverse Proxy Header Normalization**: Parse and sanitize `X-Forwarded-For`, `X-Real-IP`, and `X-Forwarded-Proto` guarded by configurable trusted CIDR proxy subnet checks.
@@ -39,7 +26,7 @@ This backlog maintains the tactical, prioritized engineering queue for **Bisync 
 
 ---
 
-### 3. Queued Dual-Pane File Explorer Direct Upload
+### 2. Queued Dual-Pane File Explorer Direct Upload
 - **Estimate**: 5–6h | 4 SP
 - **Priority**: Sequenced
 - **Objective**: Direct file upload capabilities with zero sync lock collisions.
@@ -52,7 +39,10 @@ This backlog maintains the tactical, prioritized engineering queue for **Bisync 
 
 ---
 
-## Recently Delivered Epics (beta.28 – beta.31)
+## Recently Delivered Epics (beta.28 – beta.32)
+
+### [Delivered in beta.32] Deep File Path Navigation & Pinned Log Audit Dock
+- Contextual path tokenizer extracting file mutations from logs, synchronized dual-pane profile switching & directory loading, transient pulse row highlight animation, and IDE-style collapsible pinned Log Audit Dock with height presets and N/P keyboard stepping.
 
 ### [Delivered in beta.28] Configuration Snapshot & One-Click Rollback Engine
 - Automated configuration backup, SHA-256 integrity verification, timestamped JSON snapshots under `config_snapshots/`, and one-click rollback REST API.

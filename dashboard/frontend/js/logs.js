@@ -306,6 +306,18 @@ window.LogsModule = {
         }
     },
 
+    getEntryPath(entry) {
+        if (!entry) return null;
+        if (entry.object) return entry.object;
+        if (entry.details && (entry.details.path || entry.details.item_path)) {
+            return entry.details.path || entry.details.item_path;
+        }
+        if (entry.msg && typeof extractPathFromLogMsg === "function") {
+            return extractPathFromLogMsg(entry.msg);
+        }
+        return null;
+    },
+
     async jumpToExplorerPath(targetPath, profileId = null) {
         if (!targetPath) return;
         const clean = String(targetPath).trim().replace(/^["'`\s]+|["'`\s]+$/g, "").replace(/\\/g, "/").replace(/^\/+/, "");

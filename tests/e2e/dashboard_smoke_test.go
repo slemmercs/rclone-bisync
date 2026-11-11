@@ -1026,9 +1026,12 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			let remoteLockToggled = false;
 			if (typeof app.toggleExplorerRemoteLock === 'function') {
 				const beforeLock = app.isExplorerRemoteLocked();
+				const origSave = app.saveGlobalSettings;
+				app.saveGlobalSettings = () => Promise.resolve();
 				app.toggleExplorerRemoteLock();
 				remoteLockToggled = app.isExplorerRemoteLocked() !== beforeLock;
 				app.toggleExplorerRemoteLock();
+				app.saveGlobalSettings = origSave;
 			}
 			const breadcrumbBarsCount = document.querySelectorAll('.no-scrollbar').length;
 
@@ -1138,6 +1141,116 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.TransferToRemoteBtn || !res.TransferToLocalBtn {
 			t.Errorf("expected directional transfer buttons: toRemote=%v toLocal=%v", res.TransferToRemoteBtn, res.TransferToLocalBtn)
+		}
+	})
+	// 10. Test Deep File Path Navigation & Pinned Log Audit Dock Engine
+	t.Run("DeepPathNavigationAndLogDock", func(t *testing.T) {
+		script := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			// Test contextual path tokenization
+			const path1 = extractPathFromLogMsg("Copied (new) to: documents/reports/final.pdf");
+			const path2 = extractPathFromLogMsg("Deleting: old/backup.tar.gz");
+			const path3 = extractPathFromLogMsg("drive:data/photos/trip.jpg: Conflict identified");
+			const tokenizationValid = (path1 === "documents/reports/final.pdf" &&
+				path2 === "old/backup.tar.gz" &&
+				path3 === "data/photos/trip.jpg");
+
+			// Test getEntryPath
+			const ep1 = app.getEntryPath({ object: "files/data.csv" });
+			const ep2 = app.getEntryPath({ msg: "Transferred: notes/meeting.txt" });
+			const entryPathValid = (ep1 === "files/data.csv" && ep2 === "notes/meeting.txt");
+
+			// Test Log Dock toggle and height presets
+			if (typeof app.toggleLogDock !== 'function') return { error: "toggleLogDock missing" };
+			app.toggleLogDock(true);
+			const dockOpened = app.logDock?.open === true;
+			app.setLogDockHeight('expanded');
+			const dockExpanded = app.logDock?.heightPreset === 'expanded';
+			app.setLogDockHeight('docked');
+			const dockDocked = app.logDock?.heightPreset === 'docked';
+			app.setLogDockHeight('collapsed');
+			const dockCollapsed = app.logDock?.heightPreset === 'collapsed';
+			app.toggleLogDock(false);
+			const dockClosed = app.logDock?.open === false;
+
+			// Test Log Dock filtering
+			app.telemetry.bisync_logs = [
+				{ timestamp: "2026-11-11T20:00:00Z", level: "NOTICE", msg: "Transferred: notes/a.txt" },
+				{ timestamp: "2026-11-11T20:00:01Z", level: "ERROR", msg: "Error reading data" },
+				{ timestamp: "2026-11-11T20:00:02Z", level: "INFO", msg: "Engine idle" }
+			];
+			app.logDock.activeFilter = 'all';
+			const allLogsCount = app.getFilteredDockLogs().length;
+			app.logDock.activeFilter = 'mutations';
+			const mutationLogsCount = app.getFilteredDockLogs().length;
+			app.logDock.activeFilter = 'errors';
+			const errorLogsCount = app.getFilteredDockLogs().length;
+
+			// Test pulse row highlight styling
+			app.explorer.highlightName = 'sample.txt';
+			const highlightClass = app.getItemReviewRowClass('left', { Name: 'sample.txt' });
+			const nonHighlightClass = app.getItemReviewRowClass('left', { Name: 'other.txt' });
+			const highlightPulseActive = highlightClass.includes('animate-pulse');
+			const nonHighlightPulseInactive = !nonHighlightClass.includes('animate-pulse');
+			app.explorer.highlightName = null;
+
+			return {
+				tokenizationValid,
+				entryPathValid,
+				dockOpened,
+				dockExpanded,
+				dockDocked,
+				dockCollapsed,
+				dockClosed,
+				allLogsCount,
+				mutationLogsCount,
+				errorLogsCount,
+				highlightPulseActive,
+				nonHighlightPulseInactive
+			};
+		})()`
+
+		type DeepNavResult struct {
+			Error                     *string `json:"error"`
+			TokenizationValid         bool    `json:"tokenizationValid"`
+			EntryPathValid            bool    `json:"entryPathValid"`
+			DockOpened                bool    `json:"dockOpened"`
+			DockExpanded              bool    `json:"dockExpanded"`
+			DockDocked                bool    `json:"dockDocked"`
+			DockCollapsed             bool    `json:"dockCollapsed"`
+			DockClosed                bool    `json:"dockClosed"`
+			AllLogsCount              int     `json:"allLogsCount"`
+			MutationLogsCount         int     `json:"mutationLogsCount"`
+			ErrorLogsCount            int     `json:"errorLogsCount"`
+			HighlightPulseActive      bool    `json:"highlightPulseActive"`
+			NonHighlightPulseInactive bool    `json:"nonHighlightPulseInactive"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DeepNavResult](script))
+		if err != nil {
+			t.Fatalf("failed evaluating Deep Path Nav script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Deep Path Nav check failed: %s", *res.Error)
+		}
+		if !res.TokenizationValid {
+			t.Errorf("expected extractPathFromLogMsg to properly tokenize paths")
+		}
+		if !res.EntryPathValid {
+			t.Errorf("expected getEntryPath to extract paths from object and msg")
+		}
+		if !res.DockOpened || !res.DockExpanded || !res.DockDocked || !res.DockCollapsed || !res.DockClosed {
+			t.Errorf("log dock toggle/preset mismatch: open=%v expanded=%v docked=%v collapsed=%v closed=%v",
+				res.DockOpened, res.DockExpanded, res.DockDocked, res.DockCollapsed, res.DockClosed)
+		}
+		if res.AllLogsCount != 3 || res.MutationLogsCount != 2 || res.ErrorLogsCount != 1 {
+			t.Errorf("unexpected filtered log dock counts: all=%d mutations=%d errors=%d",
+				res.AllLogsCount, res.MutationLogsCount, res.ErrorLogsCount)
+		}
+		if !res.HighlightPulseActive || !res.NonHighlightPulseInactive {
+			t.Errorf("row pulse class mismatch: active=%v inactive=%v", res.HighlightPulseActive, res.NonHighlightPulseInactive)
 		}
 	})
 

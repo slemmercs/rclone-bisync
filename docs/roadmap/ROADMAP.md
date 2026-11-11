@@ -25,7 +25,8 @@ All historical releases, delivered epics, and version changelogs (from initial a
 
 👉 **[View All Delivered Releases on GitHub](https://github.com/slemmercs/rclone-bisync/releases)**
 
-### Key Recently Delivered Capabilities (beta.28 – beta.31)
+### Key Recently Delivered Capabilities (beta.28 – beta.32)
+- **Deep File Path Navigation & Pinned Log Audit Dock (`v1.0.0-beta.32`)**: Contextual path tokenizer extracting file mutations from logs, synchronized dual-pane profile switching & directory loading, transient pulse row highlight animation, and IDE-style collapsible pinned Log Audit Dock with height presets and N/P keyboard stepping.
 - **Configuration Snapshot & One-Click Rollback (`v1.0.0-beta.28`)**: Automated configuration backups, SHA-256 integrity verification, timestamped JSON snapshots under `config_snapshots/`, and one-click rollback REST API.
 - **Unified Operational Log Ledger & Run ID Correlation (`v1.0.0-beta.29`)**: Structured high-density table view aligning `bisync.log` events with Audit Ledger records, Run ID correlation chips (`#run-...`), and daemon trace inspection.
 - **Remote Cloud Web Link Navigation ("Open on Remote") (`v1.0.0-beta.30`)**: Canonical cloud URL resolution via Rclone RC `operations/publiclink` with capability filtering for Google Drive and OneDrive.
@@ -39,12 +40,7 @@ All historical releases, delivered epics, and version changelogs (from initial a
 
 The immediate focus leading to the production `v1.0.0` GA milestone centers on deep operational navigation, homelab production hardening, and queued workflows.
 
-#### 1. Deep File Path Navigation & Pinned Log Audit Dock (Active / In-Flight)
-- **Hardened Contextual Tokenizer**: Regex suite recognizing file mutations in log lines (`Duplicate ignored`, `Deleted`, `File was deleted`, `Transferring`, `Conflict`, `Copied`, `Updated`) with remote prefix stripping and path normalization.
-- **Synchronized Dual-Pane Navigation**: Coordinated profile switching and dual-pane directory loading with smooth DOM scrolling and animated pulse row highlight.
-- **IDE-Style Pinned Log Audit Dock**: Collapsible bottom tray anchored beneath the Dual-Pane File Explorer with height modes, mutation filters, and `N` / `P` keyboard stepping.
-
-#### 2. Homelab Production Hardening & Standards Observability (OTel/OTLP)
+#### 1. Homelab Production Hardening & Standards Observability (OTel/OTLP) (Active / In-Flight)
 - **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
 - **Authentication Gateway Support**: Optional HTTP basic authentication or forward-auth middleware integration for secure exposure behind reverse proxies (Traefik, Caddy, Nginx).
 - **Native OpenTelemetry Instrumentation**: Export sync run durations, transferred byte counts, lock contention wait periods, error rates, and daemon health metrics directly over standard OTLP (gRPC / HTTP) to Prometheus OTel receivers, OpenTelemetry Collectors, or Grafana Tempo/Mimir.
