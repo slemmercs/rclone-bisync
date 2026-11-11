@@ -80,7 +80,7 @@
                                   :class="getProviderColor(getActiveProfileRemoteType()).badge"
                                   x-text="getActiveProfileRemoteType().toUpperCase()"></span>
                         </div>
-                        <span class="text-emerald-400 break-all font-semibold" x-text="activeProfile ? (activeProfile.remote + (activeProfile.remote_path ? (':' + activeProfile.remote_path) : '')) : (telemetry.config?.REMOTE_PATH || '--')"></span>
+                        <span class="text-emerald-400 break-all font-semibold" x-text="activeProfile ? ((activeProfile.remote || '').replace(/:+$/, '') + ':' + (activeProfile.remote_path || '')) : (telemetry.config?.REMOTE_PATH || '--')"></span>
                     </div>
                 </div>
                 <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800/60">

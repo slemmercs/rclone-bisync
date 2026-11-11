@@ -13,8 +13,8 @@ Enforce strict validation across all profile configuration entry points (MCP too
   - **Scope**: `internal/mcp/tools_profile.go`, `internal/mcp/tools_remote.go`, `internal/mcp/tools_profile_test.go`, `internal/services/remote_wizard_service_test.go`
   - **Verification**: `go test -count=1 ./internal/mcp/... ./internal/services/...`
 
-- [ ] Task 3: Frontend Resilience (Remote Target Colon Normalization & MCP Registry Schema Alignment)
-  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/system_health.js`
+- [x] Task 3: Frontend Resilience (Remote Target Colon Normalization & MCP Registry Schema Alignment)
+  - **Scope**: `dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/partials/view_fleet.html`, `dashboard/frontend/js/system_health.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400 && go test -count=1 ./tests/e2e/... -run TestDashboard_HeadlessChromeSmoke`
 
 - [ ] Task 4: Full Quality Gate Verification & Pre-commit Check
@@ -26,3 +26,4 @@ Enforce strict validation across all profile configuration entry points (MCP too
 - 2026-11-11: Initialized plan from implementation_plan.md.
 - 2026-11-11: Completed Task 1 - Domain enums and invariant validation added to internal/profiles/model.go with trailing colon stripping and full test suite passing in internal/profiles.
 - 2026-11-11: Completed Task 2 - MCP profile and remote tools schemas updated with UI preset enums, early parameter validation, and remote trailing colon stripping. All MCP and services unit tests passing.
+- 2026-11-11: Completed Task 3 - Frontend profile target formatting normalized without double colons, and MCP Tool Registry parameter schema descriptions aligned with backend presets. Verified via templates, LOC, and E2E headless Chrome smoke test.
