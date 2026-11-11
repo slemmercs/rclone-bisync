@@ -84,6 +84,10 @@ window.ExplorerActionsModule = {
     },
 
     onDragStart(sourcePaneKey, item, event) {
+        if (!item || item.Name === "RCLONE_TEST") {
+            if (event && event.preventDefault) event.preventDefault();
+            return;
+        }
         this.explorer.draggedItem = item;
         this.explorer.draggedSourcePane = sourcePaneKey;
         if (event.dataTransfer) {

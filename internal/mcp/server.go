@@ -61,6 +61,9 @@ func NewServer(ctr *app.Container, cfg ServerConfig) (*Server, error) {
 
 	s.registerReadTools()
 	s.registerMutatingTools()
+	s.registerRemoteTools()
+	s.registerProfileTools()
+	s.registerExplorerOpsTools()
 	s.registerResources()
 
 	return s, nil

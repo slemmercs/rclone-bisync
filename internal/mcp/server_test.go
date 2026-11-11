@@ -3,8 +3,13 @@ package mcp
 import (
 	"context"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/slemmercs/rclone-bisync/internal/app"
+	"github.com/slemmercs/rclone-bisync/internal/config"
 )
 
 func TestNewServer_Initialization(t *testing.T) {
@@ -95,5 +100,66 @@ func TestServer_ServeSSE_GracefulShutdown(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("ServeSSE did not shut down in time")
+	}
+}
+
+func TestServer_ServeSSE_StatusFileLifecycle(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to get free port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	tmpDir := t.TempDir()
+	statusFile := filepath.Join(tmpDir, "mcp_status.json")
+
+	ctr := &app.Container{
+		Config: &config.Config{
+			MCPStatusFile: statusFile,
+		},
+	}
+
+	srv, err := NewServer(ctr, ServerConfig{
+		Host: "127.0.0.1",
+		Port: port,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+
+	go func() {
+		errCh <- srv.ServeSSE(ctx, "", 0)
+	}()
+
+	// Wait for status file to be written
+	var written bool
+	for range 20 {
+		if _, err := os.Stat(statusFile); err == nil {
+			written = true
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !written {
+		t.Error("expected MCP status file to be created during ServeSSE")
+	}
+
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("expected clean shutdown, got: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("ServeSSE timed out shutting down")
+	}
+
+	if _, err := os.Stat(statusFile); !os.IsNotExist(err) {
+		t.Error("expected MCP status file to be removed after ServeSSE shutdown")
 	}
 }

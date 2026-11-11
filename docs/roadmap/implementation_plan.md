@@ -1,39 +1,41 @@
-# Implementation Plan: Styled UI Confirm Modal & Unified Bisync Log Pipeline
-
-## Overview
-Replace the native browser `window.confirm(...)` popup with the existing dark-theme styled UI confirmation modal (`askConfirmation(...)` / `confirmModal`) when initial synchronization requires `--resync`. Additionally, harden the sync execution logging pipeline and sandbox configuration so that sync actions (initial resync requirement notices, sync start milestones, and completion/failure summaries) reliably stream into `bisync.log` and appear immediately in the Unified Ledger timeline.
+# Implementation Plan: Refine FullRemoteTarget, Fix Static Analysis & Deep Coverage Threshold
 
 ## Proposed Changes
 
-### 1. Frontend Confirmation Modal Migration
-- Replace `window.confirm(...)` calls in `dashboard/frontend/app.js` and `dashboard/frontend/js/profiles_history.js` with `this.askConfirmation(...)`.
-- Pass styled options: title `"Initial Resync Required"`, icon `"sync"`, action text `"Proceed with Resync"`, and proper async callbacks.
+Address three specific system issues identified during GitHub Actions nightly execution and MCP live testing:
+1. Refine `FullRemoteTarget()` in `internal/profiles/model.go` to support local filesystem paths cleanly without prepending invalid `"local:"` remote names.
+2. Bump `go.mod` to Go `1.26.11` to resolve vulnerability `GO-2026-6859` detected by `govulncheck` in CI static analysis.
+3. Elevate statement test coverage across the repository to >86.0% to comfortably clear the strict 85.0% nightly quality gate threshold under race detection.
 
-### 2. Log File Naming Parity & Sandbox Alignment
-- Align `scripts/run-sandbox.sh` to use `LOG_FILE=$SANDBOX_DIR/bisync.log` (instead of `bisync-hub-log.json`) and initialize `touch "$SANDBOX_DIR/bisync.log"`.
-- Set default fallback in `internal/config/config.go` to `filepath.Join(baseDir, "bisync.log")`.
+### 1. Refine `FullRemoteTarget()` (`internal/profiles/model.go`)
+- When `Profile.Remote` is `"local"` or empty (case-insensitive, ignoring trailing colons):
+  - Return `p.RemotePath` directly so that local-to-local sync or local destinations pass raw filesystem paths (e.g., `"/var/backups"` or `"backups"`) to Rclone instead of non-existent `"local:path"` remotes.
+- When `Profile.Remote` is a configured remote (e.g., `"workdrive"`, `"gdrive"`):
+  - Retain `fmt.Sprintf("%s:%s", r, sub)` (or `r + ":"` if subpath is empty).
+- Update unit tests in `internal/profiles/model_test.go` and `internal/profiles/store_test.go`.
 
-### 3. Backend Intercept & Engine Sync Logging
-- In `internal/server/handlers_sync.go` and `internal/server/handlers_profiles.go`, log a `REQUIRES_RESYNC` notice into `s.AuditService.Logger` whenever a sync request on an uninitialized profile is intercepted.
-- In `internal/engine/runner/runner.go` (`RunWithError`), log an initial `RUNNING` status entry to `r.Logger` when the sync job starts.
+### 2. Fix Static Analysis Vulnerability (`go.mod`)
+- Bump `go.mod` Go directive to `go 1.26.11` so GitHub Actions `actions/setup-go@v7` provisions `go 1.26.11`, eliminating vulnerability `GO-2026-6859`.
+- Verify with `./scripts/check.sh lint`.
+
+### 3. Elevate Unit Test Coverage for Deep Quality Gate (`MIN_COVERAGE=85.0`)
+- Expand test coverage in `internal/server`, `internal/mcp`, and `internal/profiles`:
+  - `internal/server/handlers_profiles_test.go`: Cover error paths for `handleDeleteProfile` (404), `handleCloneProfile` (400, 404, 409), `handleRollbackProfile` (400, 404), and `handleProfileHistory` (404).
+  - `internal/server/handlers_telemetry_test.go`: Cover `handleMCPStatus` (offline and active states), `handleRawBisyncLog`, and `handleRawDaemonLog` (missing and streamed files).
+  - `internal/mcp/server_test.go`: Cover `writeStatusFile` and `removeStatusFile` lifecycle with mock container config.
+  - `internal/profiles/model_test.go`: Cover `MaxDeleteValue` string and JSON marshalling branches.
 
 ## Affected Components & Packages
-- `dashboard/frontend/app.js`: `triggerAction`
-- `dashboard/frontend/js/profiles_history.js`: `triggerProfileSync`
-- `scripts/run-sandbox.sh`: sandbox env and file setup
-- `internal/config/config.go`: default `LogFile` fallback
-- `internal/server/handlers_sync.go`: `handleAction`
-- `internal/server/handlers_profiles.go`: `handleProfileSync`
-- `internal/engine/runner/runner.go`: `RunWithError`
-- `internal/server/handlers_profiles_sync_test.go`: test coverage for resync notice logging
-- `internal/engine/runner/runner_test.go`: test coverage for running milestone logging
+- `internal/profiles/model.go`: Local vs remote composite path handling in `FullRemoteTarget()`.
+- `internal/profiles/model_test.go` & `store_test.go`: Unit tests for `FullRemoteTarget()` and `MaxDeleteValue`.
+- `go.mod`: Upgrade Go runtime version to 1.26.11.
+- `internal/server/handlers_profiles_test.go`: Extended test coverage for profile endpoints.
+- `internal/server/handlers_telemetry_test.go`: Extended test coverage for telemetry and raw log endpoints.
+- `internal/mcp/server_test.go`: Status file write/remove tests.
 
 ## Verification Plan
-- Unit tests:
-  - `go test -count=1 ./internal/server/... -run TestHandleAction_RequiresResync`
-  - `go test -count=1 ./internal/server/... -run TestHandleProfileSync`
-  - `go test -count=1 ./internal/engine/runner/... -run TestRunWithError`
-- E2E smoke test:
-  - `go test -count=1 ./tests/e2e/...`
-- Full check suite:
-  - `./scripts/check.sh all`
+1. Task 1: `go test -count=1 -v ./internal/profiles/...`
+2. Task 2: `./scripts/check.sh lint`
+3. Task 3: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`
+4. Task 4: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh all`
+

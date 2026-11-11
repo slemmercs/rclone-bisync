@@ -1,31 +1,31 @@
-# Task Plan: CodeQL Path Injection Remediation, PR #80 Merge & Release v1.0.0-beta.30
+# Task Plan: Refine FullRemoteTarget, Fix Static Analysis & Deep Coverage Threshold
 
 ## Goal
-Remediate the two high-severity CodeQL path-traversal alerts (`go/path-injection`) in `internal/services/explorer_move.go`, verify the security and functional test gates, update and merge Pull Request #80, and release version `v1.0.0-beta.30`.
+Resolve GitHub Actions nightly and static analysis failures by refining `FullRemoteTarget()` for local paths, updating `go.mod` to Go 1.26.11 to fix standard library vulnerability `GO-2026-6859`, and boosting repository test coverage past the 85.0% threshold under race detection.
 
 ## Tasks
 
-- [x] Task 1: Sanitize Local Path Resolution in `internal/services/explorer_move.go` & Add Unit Tests
-  - **Scope**: `internal/services/explorer_move.go`, `internal/services/explorer_ops_test.go`
-  - **Verification**: `go test -count=1 ./internal/services/... -run TestExplorerOps_MoveItem`
+- [x] Task 1: Refine `FullRemoteTarget()` for Local Paths & Add Unit Tests
+  - **Scope**: `internal/profiles/model.go`, `internal/profiles/model_test.go`, `internal/profiles/store_test.go`
+  - **Verification**: `go test -count=1 -v ./internal/profiles/...`
 
-- [x] Task 2: Quality Gate Verification & Pre-Commit Validation
-  - **Scope**: Full repository check suite and end-to-end tests
-  - **Verification**: `./scripts/check.sh all && go test -count=1 ./tests/e2e/...`
+- [x] Task 2: Bump `go.mod` to Go 1.26.11 to Fix Static Analysis Vulnerability
+  - **Scope**: `go.mod`, `go.sum`
+  - **Verification**: `./scripts/check.sh lint`
 
-- [x] Task 3: Commit, Push & Verify GitHub CodeQL Run on PR #80
-  - **Scope**: Remote tracking branch `feat/milestone-2-sync-staging-workspace`
-  - **Verification**: `gh pr checks 80` (CodeQL workflow clean)
+- [x] Task 3: Elevate Test Coverage Past 85.0% Gate
+  - **Scope**: `internal/server/handlers_profiles_test.go`, `internal/server/handlers_telemetry_test.go`, `internal/mcp/server_test.go`, `internal/profiles/model_test.go`
+  - **Verification**: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`
 
-- [x] Task 4: Merge PR #80 & Release v1.0.0-beta.30
-  - **Scope**: Merge to `main`, create tag and release `v1.0.0-beta.30`
-  - **Verification**: `gh pr merge 80 --squash && gh release view v1.0.0-beta.30`
+- [x] Task 4: Run Full Quality Gate & Final Validation
+  - **Scope**: Full repository
+  - **Verification**: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-09: Initialized task plan from implementation_plan.md.
-- 2026-11-09: Task 1 verified: Applied DotDotCheck and PrefixCheck barrier guards directly to req paths and local cleanTargetDst/cleanDstDir sinks in explorer_move.go. Added traversal rejection unit test cases; all tests passed.
-- 2026-11-09: Task 2 verified: Formatted explorer_ops_test.go, passed all 7/7 check.sh gates, verified all headless Chrome and journey E2E tests, and confirmed all internal packages satisfy the 400-LOC limit.
-- 2026-11-09: Task 3 verified: Committed, pushed to origin/feat/milestone-2-sync-staging-workspace. All 12/12 CI and CodeQL checks passed with zero open security alerts.
-- 2026-11-09: Task 4 verified: Merged PR #80 into main, tagged and published pre-release v1.0.0-beta.30 on GitHub.
+- 2026-11-11: Initialized plan from implementation_plan.md.
+- 2026-11-11: Completed Task 1 - Refined FullRemoteTarget() to preserve raw filesystem paths when remote is 'local' or empty, and verified with internal/profiles test suite.
+- 2026-11-11: Completed Task 2 - Bumped go.mod to Go 1.26.11, upgraded staticcheck to latest, and verified clean static analysis & security check.
+- 2026-11-11: Completed Task 3 - Added comprehensive unit tests across internal/server, internal/mcp, internal/profiles, and internal/app, boosting test coverage to 85.1% under race detection.
+- 2026-11-11: Completed Task 4 - Formatted Go files and ran full quality gate suite with MIN_COVERAGE=85.0 and RUN_RACE=true (7/7 checks passed). All tasks completed!
 

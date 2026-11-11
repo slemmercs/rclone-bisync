@@ -10,22 +10,11 @@ import (
 )
 
 // OAuthCapableProviders lists cloud providers that use OAuth 2.0 authorization flows.
-var OAuthCapableProviders = map[string]bool{
-	"drive":         true,
-	"onedrive":      true,
-	"dropbox":       true,
-	"box":           true,
-	"pcloud":        true,
-	"hubic":         true,
-	"yandex":        true,
-	"mailru":        true,
-	"google photos": true,
-	"zoho":          true,
-}
+var OAuthCapableProviders = models.OAuthCapableProviders
 
 // IsOAuthProvider returns true if the remote provider type uses OAuth authentication.
 func IsOAuthProvider(providerType string) bool {
-	return OAuthCapableProviders[strings.ToLower(strings.TrimSpace(providerType))]
+	return models.IsOAuthProvider(providerType)
 }
 
 // GetProviderLabel returns a human-friendly provider name.

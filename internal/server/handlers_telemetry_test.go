@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -351,5 +352,91 @@ func TestHandler_DaemonLogs(t *testing.T) {
 	}
 	if nilSvcResp.Error == "" || len(nilSvcResp.Logs) != 0 {
 		t.Fatalf("expected error and empty logs for nil LogService, got %+v", nilSvcResp)
+	}
+}
+
+func TestHandler_RawLogsAndMCPStatus(t *testing.T) {
+	tmpDir := t.TempDir()
+	logFile := filepath.Join(tmpDir, "bisync.log")
+	daemonLog := filepath.Join(tmpDir, "rclone-daemon.log")
+
+	cfg := &config.Config{
+		BaseDir: tmpDir,
+		LogFile: logFile,
+	}
+
+	srv := NewServer(cfg, nil, embed.FS{})
+
+	// 1. handleMCPStatus with nil TelemetryService
+	srv.TelemetryService = nil
+	req := httptest.NewRequest(http.MethodGet, "/api/mcp/status", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for nil TelemetryService, got %d", rec.Code)
+	}
+	var mcpStatus models.MCPStatus
+	if err := json.Unmarshal(rec.Body.Bytes(), &mcpStatus); err != nil {
+		t.Fatalf("failed to decode json: %v", err)
+	}
+	if mcpStatus.Status != "offline" {
+		t.Errorf("expected offline, got %s", mcpStatus.Status)
+	}
+
+	// 2. handleRawBisyncLog when missing
+	req = httptest.NewRequest(http.MethodGet, "/api/logs/bisync/raw", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for missing bisync.log, got %d", rec.Code)
+	}
+	var errResp models.ErrorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("failed to decode error json: %v", err)
+	}
+	if errResp.Error != "Log file not found" {
+		t.Errorf("expected 'Log file not found', got %s", errResp.Error)
+	}
+
+	// 3. handleRawBisyncLog when present
+	if err := os.WriteFile(logFile, []byte("raw bisync log line\n"), 0644); err != nil {
+		t.Fatalf("failed to write log file: %v", err)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/api/logs/bisync/raw", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for present bisync.log, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "raw bisync log line") {
+		t.Errorf("expected log content, got: %s", rec.Body.String())
+	}
+
+	// 4. handleRawDaemonLog when missing
+	req = httptest.NewRequest(http.MethodGet, "/api/logs/daemon/raw", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for missing daemon log, got %d", rec.Code)
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("failed to decode error json: %v", err)
+	}
+	if errResp.Error != "Daemon log file not found" {
+		t.Errorf("expected 'Daemon log file not found', got %s", errResp.Error)
+	}
+
+	// 5. handleRawDaemonLog when present
+	if err := os.WriteFile(daemonLog, []byte("raw daemon log line\n"), 0644); err != nil {
+		t.Fatalf("failed to write daemon log: %v", err)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/api/logs/daemon/raw", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for present daemon log, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "raw daemon log line") {
+		t.Errorf("expected daemon log content, got: %s", rec.Body.String())
 	}
 }

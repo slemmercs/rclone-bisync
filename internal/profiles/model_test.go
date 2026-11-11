@@ -2,6 +2,7 @@ package profiles
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 )
 
@@ -81,4 +82,207 @@ func TestMaxDeleteValue_FlexibleTypes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMaxDeleteValue_StringAndMarshal(t *testing.T) {
+	mv := MaxDeleteValue("50")
+	if mv.String() != "50" {
+		t.Errorf("expected '50', got %q", mv.String())
+	}
+	data, err := json.Marshal(mv)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	if string(data) != "50" {
+		t.Errorf("expected 50 (number), got %s", string(data))
+	}
+
+	mvPct := MaxDeleteValue("50%")
+	if mvPct.String() != "50%" {
+		t.Errorf("expected '50%%', got %q", mvPct.String())
+	}
+	dataPct, err := json.Marshal(mvPct)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	if string(dataPct) != `"50%"` {
+		t.Errorf("expected \"50%%\", got %s", string(dataPct))
+	}
+}
+
+func TestProfile_Validate_EnumsAndNormalization(t *testing.T) {
+	strPtr := func(s string) *string { return &s }
+
+	t.Run("valid schedule presets and case insensitivity", func(t *testing.T) {
+		validSchedules := []string{"manual", "15m", "30m", "1h", "4h", "daily", "1H", "Daily", "15M"}
+		for _, s := range validSchedules {
+			p := Profile{
+				ID:        "prof_valid_sched",
+				Name:      "Valid Schedule Profile",
+				Remote:    "myremote",
+				LocalPath: "/tmp/data",
+				Schedule:  s,
+			}
+			if err := p.Validate(); err != nil {
+				t.Errorf("expected schedule %q to be valid, got: %v", s, err)
+			}
+		}
+	})
+
+	t.Run("invalid schedules rejected", func(t *testing.T) {
+		invalidSchedules := []string{"0 * * * *", "45m", "weekly", "hourly", "2h", "invalid"}
+		for _, s := range invalidSchedules {
+			p := Profile{
+				ID:        "prof_invalid_sched",
+				Name:      "Invalid Schedule Profile",
+				Remote:    "myremote",
+				LocalPath: "/tmp/data",
+				Schedule:  s,
+			}
+			err := p.Validate()
+			if err == nil {
+				t.Fatalf("expected error for schedule %q, got nil", s)
+			}
+			if !errors.Is(err, ErrInvalidSchedule) {
+				t.Errorf("expected ErrInvalidSchedule for %q, got: %v", s, err)
+			}
+		}
+	})
+
+	t.Run("remote trailing colon normalization", func(t *testing.T) {
+		p := Profile{
+			ID:        "prof_colon",
+			Name:      "Colon Profile",
+			Remote:    "remote_storage::",
+			LocalPath: "/tmp/data",
+		}
+		if err := p.Validate(); err != nil {
+			t.Fatalf("unexpected validation error: %v", err)
+		}
+		if p.Remote != "remote_storage" {
+			t.Errorf("expected remote 'remote_storage', got %q", p.Remote)
+		}
+
+		pEmpty := Profile{
+			ID:        "prof_colon_empty",
+			Name:      "Colon Empty Remote",
+			Remote:    ":::",
+			LocalPath: "/tmp/data",
+		}
+		if err := pEmpty.Validate(); !errors.Is(err, ErrInvalidRemote) {
+			t.Errorf("expected ErrInvalidRemote for ':::', got %v", err)
+		}
+	})
+
+	t.Run("review mode validation", func(t *testing.T) {
+		for _, rm := range ValidReviewModes {
+			p := Profile{
+				ID:         "prof_rm",
+				Name:       "Review Mode Profile",
+				Remote:     "r",
+				LocalPath:  "/tmp",
+				ReviewMode: rm,
+			}
+			if err := p.Validate(); err != nil {
+				t.Errorf("expected review mode %q to be valid, got %v", rm, err)
+			}
+		}
+
+		pBad := Profile{
+			ID:         "prof_rm_bad",
+			Name:       "Bad Review Mode",
+			Remote:     "r",
+			LocalPath:  "/tmp",
+			ReviewMode: "automatic",
+		}
+		if err := pBad.Validate(); !errors.Is(err, ErrInvalidReviewMode) {
+			t.Errorf("expected ErrInvalidReviewMode, got: %v", err)
+		}
+	})
+
+	t.Run("notification preference validation", func(t *testing.T) {
+		for _, np := range ValidNotificationPrefs {
+			p := Profile{
+				ID:               "prof_np",
+				Name:             "Notify Profile",
+				Remote:           "r",
+				LocalPath:        "/tmp",
+				NotificationPref: np,
+			}
+			if err := p.Validate(); err != nil {
+				t.Errorf("expected notification preference %q to be valid, got %v", np, err)
+			}
+		}
+
+		pBad := Profile{
+			ID:               "prof_np_bad",
+			Name:             "Bad Notify Profile",
+			Remote:           "r",
+			LocalPath:        "/tmp",
+			NotificationPref: "always",
+		}
+		if err := pBad.Validate(); !errors.Is(err, ErrInvalidNotificationPref) {
+			t.Errorf("expected ErrInvalidNotificationPref, got: %v", err)
+		}
+	})
+
+	t.Run("conflict resolve mode validation", func(t *testing.T) {
+		for _, cm := range ValidConflictModes {
+			p := Profile{
+				ID:        "prof_cm",
+				Name:      "Conflict Mode Profile",
+				Remote:    "r",
+				LocalPath: "/tmp",
+				Flags: ProfileFlags{
+					ConflictResolve: strPtr(cm),
+				},
+			}
+			if err := p.Validate(); err != nil {
+				t.Errorf("expected conflict mode %q to be valid, got %v", cm, err)
+			}
+		}
+
+		pBad := Profile{
+			ID:        "prof_cm_bad",
+			Name:      "Bad Conflict Mode Profile",
+			Remote:    "r",
+			LocalPath: "/tmp",
+			Flags: ProfileFlags{
+				ConflictResolve: strPtr("ask-user"),
+			},
+		}
+		if err := pBad.Validate(); !errors.Is(err, ErrInvalidConflictMode) {
+			t.Errorf("expected ErrInvalidConflictMode, got: %v", err)
+		}
+	})
+
+	t.Run("compare mode validation", func(t *testing.T) {
+		for _, cmp := range ValidCompareModes {
+			p := Profile{
+				ID:        "prof_cmp",
+				Name:      "Compare Mode Profile",
+				Remote:    "r",
+				LocalPath: "/tmp",
+				Flags: ProfileFlags{
+					CompareMode: strPtr(cmp),
+				},
+			}
+			if err := p.Validate(); err != nil {
+				t.Errorf("expected compare mode %q to be valid, got %v", cmp, err)
+			}
+		}
+
+		pBad := Profile{
+			ID:        "prof_cmp_bad",
+			Name:      "Bad Compare Mode Profile",
+			Remote:    "r",
+			LocalPath: "/tmp",
+			Flags: ProfileFlags{
+				CompareMode: strPtr("hash-only"),
+			},
+		}
+		if err := pBad.Validate(); !errors.Is(err, ErrInvalidCompareMode) {
+			t.Errorf("expected ErrInvalidCompareMode, got: %v", err)
+		}
+	})
 }

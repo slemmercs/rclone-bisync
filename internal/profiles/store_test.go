@@ -88,6 +88,40 @@ func TestProfile_Helpers(t *testing.T) {
 	if p.FullRemoteTarget() != "workdrive:" {
 		t.Errorf("unexpected FullRemoteTarget: %s", p.FullRemoteTarget())
 	}
+
+	// Local remote scenarios
+	pLocal := Profile{
+		Remote:     "local",
+		RemotePath: "/var/backups/target",
+	}
+	if pLocal.FullRemoteTarget() != "/var/backups/target" {
+		t.Errorf("expected '/var/backups/target' for local remote, got: %s", pLocal.FullRemoteTarget())
+	}
+
+	pLocalColon := Profile{
+		Remote:     "local:",
+		RemotePath: "relative/backup",
+	}
+	if pLocalColon.FullRemoteTarget() != "relative/backup" {
+		t.Errorf("expected 'relative/backup' for local: remote, got: %s", pLocalColon.FullRemoteTarget())
+	}
+
+	pEmpty := Profile{
+		Remote:     "",
+		RemotePath: "/tmp/backup",
+	}
+	if pEmpty.FullRemoteTarget() != "/tmp/backup" {
+		t.Errorf("expected '/tmp/backup' for empty remote, got: %s", pEmpty.FullRemoteTarget())
+	}
+
+	pLocalCase := Profile{
+		Remote:     "LOCAL:",
+		RemotePath: "/mnt/usb",
+	}
+	if pLocalCase.FullRemoteTarget() != "/mnt/usb" {
+		t.Errorf("expected '/mnt/usb' for case-insensitive local remote, got: %s", pLocalCase.FullRemoteTarget())
+	}
+
 	if p.LockFilePath() != "/tmp/rclone-bisync-work-docs.lock" {
 		t.Errorf("unexpected LockFilePath: %s", p.LockFilePath())
 	}
@@ -273,7 +307,7 @@ func TestStore_MultiProcessSynchronizationAndNoSettingsClobber(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get profile from storeA: %v", err)
 	}
-	profA.Schedule = "45m"
+	profA.Schedule = "30m"
 	profA.ReviewMode = ReviewAll
 	profA.ExcludePatterns = []string{"*.tmp", "node_modules/**"}
 	if err := storeA.Save(profA, "User customized options via web UI"); err != nil {
@@ -301,8 +335,8 @@ func TestStore_MultiProcessSynchronizationAndNoSettingsClobber(t *testing.T) {
 		t.Fatalf("failed to get profile after state update: %v", err)
 	}
 
-	if reloaded.Schedule != "45m" {
-		t.Errorf("expected schedule '45m' to be preserved, got '%s'", reloaded.Schedule)
+	if reloaded.Schedule != "30m" {
+		t.Errorf("expected schedule '30m' to be preserved, got '%s'", reloaded.Schedule)
 	}
 	if reloaded.ReviewMode != ReviewAll {
 		t.Errorf("expected review mode '%s' to be preserved, got '%s'", ReviewAll, reloaded.ReviewMode)
@@ -312,5 +346,19 @@ func TestStore_MultiProcessSynchronizationAndNoSettingsClobber(t *testing.T) {
 	}
 	if reloaded.State.LastDurationSec != 12.5 {
 		t.Errorf("expected LastDurationSec 12.5, got %f", reloaded.State.LastDurationSec)
+	}
+}
+
+func TestProfileService_StoreAccessor(t *testing.T) {
+	tmpDir := t.TempDir()
+	storePath := filepath.Join(tmpDir, "profiles.json")
+	histPath := filepath.Join(tmpDir, "history.json")
+	store, err := NewStore(storePath, histPath)
+	if err != nil {
+		t.Fatalf("failed to init store: %v", err)
+	}
+	svc := NewService(store, nil, nil)
+	if svc.Store() != store {
+		t.Fatal("expected Store() to return underlying store")
 	}
 }

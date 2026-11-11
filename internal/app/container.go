@@ -38,6 +38,7 @@ type Container struct {
 	ProfileService          *profiles.Service
 	ProfileExecutor         profiles.SyncExecutor
 	UploadDock              *services.UploadDock
+	RemoteWizardService     *services.RemoteWizardService
 	started                 bool
 	stopped                 bool
 }
@@ -259,6 +260,11 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 			c.UploadDock = services.NewUploadDock(c.ProfileService)
 		}
 
+	}
+
+	// 8. Initialize Remote Wizard Service
+	if c.RemoteWizardService == nil {
+		c.RemoteWizardService = services.NewRemoteWizardService(cfg, c.Client, c.Logger, c.ProfileService, c.TelemetryService)
 	}
 
 	return c, nil

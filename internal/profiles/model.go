@@ -12,15 +12,88 @@ import (
 )
 
 var (
-	ErrProfileNotFound      = errors.New("profile not found")
-	ErrProfileAlreadyExists = errors.New("profile already exists")
-	ErrInvalidProfileID     = errors.New("invalid profile id: must contain only alphanumeric characters, underscores, and hyphens")
-	ErrInvalidLocalPath     = errors.New("invalid local path: path cannot be empty")
-	ErrInvalidRemote        = errors.New("invalid remote: remote cannot be empty")
-	ErrInvalidName          = errors.New("invalid name: profile name cannot be empty")
-	ErrVersionNotFound      = errors.New("profile version not found")
-	validIDRegex            = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	ErrProfileNotFound         = errors.New("profile not found")
+	ErrProfileAlreadyExists    = errors.New("profile already exists")
+	ErrInvalidProfileID        = errors.New("invalid profile id: must contain only alphanumeric characters, underscores, and hyphens")
+	ErrInvalidLocalPath        = errors.New("invalid local path: path cannot be empty")
+	ErrInvalidRemote           = errors.New("invalid remote: remote cannot be empty")
+	ErrInvalidName             = errors.New("invalid name: profile name cannot be empty")
+	ErrVersionNotFound         = errors.New("profile version not found")
+	ErrInvalidSchedule         = errors.New("invalid schedule: must be one of 'manual', '15m', '30m', '1h', '4h', 'daily'")
+	ErrInvalidReviewMode       = errors.New("invalid review mode: must be one of 'disabled', 'deletions', 'conflicts', 'all'")
+	ErrInvalidConflictMode     = errors.New("invalid conflict mode: must be one of 'path1', 'path2', 'newer', 'older', 'larger', 'smaller'")
+	ErrInvalidCompareMode      = errors.New("invalid compare mode: must be one of 'size,modtime', 'size,modtime,checksum', 'checksum', 'modtime'")
+	ErrInvalidNotificationPref = errors.New("invalid notification preference: must be one of 'all', 'failures-only', 'review-required', 'disabled'")
+	validIDRegex               = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 )
+
+// ValidSchedules enumerates all valid synchronization schedule intervals supported by Bisync Hub UI and Scheduler.
+var ValidSchedules = []string{"manual", "15m", "30m", "1h", "4h", "daily"}
+
+// ValidConflictModes enumerates all valid conflict resolution strategies.
+var ValidConflictModes = []string{"path1", "path2", "newer", "older", "larger", "smaller"}
+
+// ValidCompareModes enumerates all valid comparison detection strategies.
+var ValidCompareModes = []string{"size,modtime", "size,modtime,checksum", "checksum", "modtime"}
+
+// ValidReviewModes enumerates all valid review mode strategies.
+var ValidReviewModes = []ReviewMode{ReviewDisabled, ReviewDeletions, ReviewConflicts, ReviewAll}
+
+// ValidNotificationPrefs enumerates all valid notification preferences.
+var ValidNotificationPrefs = []NotificationPreference{NotifyAll, NotifyFailuresOnly, NotifyReviewRequired, NotifyDisabled}
+
+// IsValidSchedule checks if the schedule is in the supported set.
+func IsValidSchedule(s string) bool {
+	s = strings.ToLower(strings.TrimSpace(s))
+	for _, v := range ValidSchedules {
+		if s == v {
+			return true
+		}
+	}
+	return false
+}
+
+// IsValidReviewMode checks if the review mode is supported.
+func IsValidReviewMode(m ReviewMode) bool {
+	for _, v := range ValidReviewModes {
+		if m == v {
+			return true
+		}
+	}
+	return false
+}
+
+// IsValidConflictMode checks if the conflict resolution mode is supported.
+func IsValidConflictMode(c string) bool {
+	c = strings.ToLower(strings.TrimSpace(c))
+	for _, v := range ValidConflictModes {
+		if c == v {
+			return true
+		}
+	}
+	return false
+}
+
+// IsValidCompareMode checks if the comparison mode is supported.
+func IsValidCompareMode(m string) bool {
+	m = strings.ToLower(strings.TrimSpace(m))
+	for _, v := range ValidCompareModes {
+		if m == v {
+			return true
+		}
+	}
+	return false
+}
+
+// IsValidNotificationPref checks if the notification preference is supported.
+func IsValidNotificationPref(n NotificationPreference) bool {
+	for _, v := range ValidNotificationPrefs {
+		if n == v {
+			return true
+		}
+	}
+	return false
+}
 
 // ProfileStatus represents operational status of a profile.
 type ProfileStatus string
@@ -179,9 +252,13 @@ type ProfileVersion struct {
 	Snapshot  Profile   `json:"snapshot"`
 }
 
-// FullRemoteTarget returns the composite remote string (e.g. "gdrive:subfolder" or "gdrive:").
+// FullRemoteTarget returns the composite remote string (e.g. "gdrive:subfolder", "/var/backup", or "gdrive:").
+// When remote is "local" or empty, it returns the raw filesystem path in RemotePath.
 func (p *Profile) FullRemoteTarget() string {
-	r := strings.TrimSuffix(p.Remote, ":")
+	r := strings.TrimSuffix(strings.TrimSpace(p.Remote), ":")
+	if r == "" || strings.EqualFold(r, "local") {
+		return p.RemotePath
+	}
 	sub := strings.TrimPrefix(p.RemotePath, "/")
 	if sub == "" {
 		return r + ":"
@@ -214,6 +291,7 @@ func (p *Profile) Validate() error {
 		return ErrInvalidName
 	}
 	p.Remote = strings.TrimSpace(p.Remote)
+	p.Remote = strings.TrimRight(p.Remote, ":")
 	if p.Remote == "" {
 		return ErrInvalidRemote
 	}
@@ -221,15 +299,50 @@ func (p *Profile) Validate() error {
 	if p.LocalPath == "" {
 		return ErrInvalidLocalPath
 	}
+	p.Schedule = strings.ToLower(strings.TrimSpace(p.Schedule))
 	if p.Schedule == "" {
 		p.Schedule = "manual"
+	}
+	if !IsValidSchedule(p.Schedule) {
+		return fmt.Errorf("%w: %q", ErrInvalidSchedule, p.Schedule)
 	}
 	if p.ReviewMode == "" {
 		p.ReviewMode = ReviewDisabled
 	}
+	if !IsValidReviewMode(p.ReviewMode) {
+		return fmt.Errorf("%w: %q", ErrInvalidReviewMode, p.ReviewMode)
+	}
 	if p.NotificationPref == "" {
 		p.NotificationPref = NotifyFailuresOnly
 	}
+	if !IsValidNotificationPref(p.NotificationPref) {
+		return fmt.Errorf("%w: %q", ErrInvalidNotificationPref, p.NotificationPref)
+	}
+
+	if p.Flags.ConflictResolve != nil {
+		cr := strings.ToLower(strings.TrimSpace(*p.Flags.ConflictResolve))
+		if cr != "" {
+			if !IsValidConflictMode(cr) {
+				return fmt.Errorf("%w: %q", ErrInvalidConflictMode, *p.Flags.ConflictResolve)
+			}
+			p.Flags.ConflictResolve = &cr
+		} else {
+			p.Flags.ConflictResolve = nil
+		}
+	}
+
+	if p.Flags.CompareMode != nil {
+		cm := strings.ToLower(strings.TrimSpace(*p.Flags.CompareMode))
+		if cm != "" {
+			if !IsValidCompareMode(cm) {
+				return fmt.Errorf("%w: %q", ErrInvalidCompareMode, *p.Flags.CompareMode)
+			}
+			p.Flags.CompareMode = &cm
+		} else {
+			p.Flags.CompareMode = nil
+		}
+	}
+
 	if p.Safety.FailureThreshold <= 0 {
 		p.Safety.FailureThreshold = 3
 	}

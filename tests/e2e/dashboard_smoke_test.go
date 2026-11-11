@@ -222,7 +222,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 	for _, tc := range tabs {
 		t.Run("Tab_"+tc.name, func(t *testing.T) {
 			clickScript := fmt.Sprintf(`(() => {
-				const navButtons = Array.from(document.querySelectorAll('header button'));
+				const nav = document.querySelector('header nav');
+				const navButtons = nav ? Array.from(nav.querySelectorAll('button[data-tab]')) : Array.from(document.querySelectorAll('header button'));
 				if (navButtons[%d]) {
 					navButtons[%d].click();
 					return true;
@@ -891,7 +892,11 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				return { error: "canOpenOnRemote method missing" };
 			}
 
-			// Mock remotes data
+			// Mock remotes data while saving originals
+			const origRemotesData = app.remotesData;
+			const origLeftTarget = app.explorer?.left?.target;
+			const origRightTarget = app.explorer?.right?.target;
+
 			app.remotesData = {
 				remotes: [
 					{ name: 'drive_remote', type: 'drive', can_public_link: true },
@@ -900,18 +905,22 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				]
 			};
 
-			app.explorer = app.explorer || {};
-			app.explorer.left = { target: 'local', path: '' };
-			app.explorer.right = { target: 'drive_remote:', path: '' };
+			if (app.explorer?.left) app.explorer.left.target = 'local';
+			if (app.explorer?.right) app.explorer.right.target = 'drive_remote:';
 
 			const localSupported = app.canOpenOnRemote('left');
 			const driveSupported = app.canOpenOnRemote('right');
 
-			app.explorer.right.target = 'sftp_remote:';
+			if (app.explorer?.right) app.explorer.right.target = 'sftp_remote:';
 			const sftpSupported = app.canOpenOnRemote('right');
 
-			app.explorer.right.target = 'box_remote:';
+			if (app.explorer?.right) app.explorer.right.target = 'box_remote:';
 			const boxSupported = app.canOpenOnRemote('right');
+
+			// Restore originals
+			app.remotesData = origRemotesData;
+			if (app.explorer?.left) app.explorer.left.target = origLeftTarget;
+			if (app.explorer?.right) app.explorer.right.target = origRightTarget;
 
 			return {
 				localSupported,
@@ -947,6 +956,188 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.BoxSupported {
 			t.Errorf("expected box_remote to return true for canOpenOnRemote via whitelist fallback")
+		}
+	})
+	// 9. Test Cockpit UI/UX Consolidation Controls (Quick-Create, System Health Modal, Wizard Auth Toggle, Canary Protection)
+	t.Run("CockpitConsolidationControls", func(t *testing.T) {
+		script := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			// Test Quick-Create Menu toggle
+			app.quickCreateOpen = true;
+			const quickCreateOpened = app.quickCreateOpen === true;
+			app.quickCreateOpen = false;
+			const quickCreateClosed = app.quickCreateOpen === false;
+
+			// Test System Health Modal tabs
+			if (typeof app.openSystemHealthModal !== 'function') return { error: "openSystemHealthModal missing" };
+			app.openSystemHealthModal('daemon');
+			const daemonTabOpen = app.systemHealthModal?.show === true && app.systemHealthModal?.tab === 'daemon';
+			app.openSystemHealthModal('mcp');
+			const mcpTabOpen = app.systemHealthModal?.show === true && app.systemHealthModal?.tab === 'mcp';
+			app.openSystemHealthModal('poller');
+			const pollerTabOpen = app.systemHealthModal?.show === true && app.systemHealthModal?.tab === 'poller';
+			app.closeSystemHealthModal();
+			const healthModalClosed = app.systemHealthModal?.show === false;
+
+			// Test First-Launch Onboarding condition
+			const onboardingVisibleWithZero = (app.profilesData?.list?.length === 0);
+
+			// Test Remote Creation Wizard Segmented Auth Toggle
+			app.createRemoteModal.authMode = 'custom';
+			const authTypeCustom = app.createRemoteModal?.authMode === 'custom';
+			app.createRemoteModal.authMode = 'oauth';
+			const authTypeOAuth = app.createRemoteModal?.authMode === 'oauth';
+
+			// Test MCP Tool Registry Accordion & Filter
+			const mcpTotalTools = (app.mcpTools || []).length;
+			app.systemHealthModal.mcpFilter = 'read';
+			const mcpReadCount = (app.filteredMcpTools || []).length;
+			app.systemHealthModal.mcpFilter = 'write';
+			const mcpWriteCount = (app.filteredMcpTools || []).length;
+			app.systemHealthModal.mcpFilter = 'all';
+			app.systemHealthModal.mcpSearch = 'trigger_sync';
+			const mcpSearchCount = (app.filteredMcpTools || []).length;
+			app.systemHealthModal.mcpSearch = '';
+			if (typeof app.toggleMcpTool === 'function') {
+				app.toggleMcpTool('bisync_get_status');
+			}
+			const mcpExpanded = app.systemHealthModal.mcpExpandedTool === 'bisync_get_status';
+
+			// Test Onboarding Fleet Remote Navigation & Badges
+			const origTab = app.currentTab;
+			const hasRemotes = app.hasConfiguredRemotes;
+			if (typeof app.navigateToRemotes === 'function') {
+				app.navigateToRemotes();
+			}
+			const navigatedToRemotes = app.currentTab === 'remotes';
+			if (typeof app.switchTab === 'function') {
+				app.switchTab(origTab || 'fleet');
+			}
+
+			// Test Explorer Canary drag guard
+			if (typeof app.onDragStart !== 'function') return { error: "onDragStart missing" };
+			app.explorer.draggedItem = null;
+			app.onDragStart('left', { Name: 'RCLONE_TEST', Path: 'RCLONE_TEST', IsDir: false }, { preventDefault() {} });
+			const canaryDragBlocked = app.explorer.draggedItem === null;
+
+			// Test Explorer Remote Unlock & Breadcrumb Location Bars
+			let remoteLockToggled = false;
+			if (typeof app.toggleExplorerRemoteLock === 'function') {
+				const beforeLock = app.isExplorerRemoteLocked();
+				app.toggleExplorerRemoteLock();
+				remoteLockToggled = app.isExplorerRemoteLocked() !== beforeLock;
+				app.toggleExplorerRemoteLock();
+			}
+			const breadcrumbBarsCount = document.querySelectorAll('.no-scrollbar').length;
+
+			// Test Directional Transfer Buttons presence
+			const transferToRemoteBtn = Array.from(document.querySelectorAll('button')).some(b => b.innerText && b.innerText.includes('Transfer to Remote'));
+			const transferToLocalBtn = Array.from(document.querySelectorAll('button')).some(b => b.innerText && b.innerText.includes('Transfer to Local'));
+
+			return {
+				quickCreateOpened,
+				quickCreateClosed,
+				daemonTabOpen,
+				mcpTabOpen,
+				pollerTabOpen,
+				healthModalClosed,
+				onboardingVisibleWithZero,
+				authTypeCustom,
+				authTypeOAuth,
+				mcpTotalTools,
+				mcpReadCount,
+				mcpWriteCount,
+				mcpSearchCount,
+				mcpExpanded,
+				hasRemotes,
+				navigatedToRemotes,
+				canaryDragBlocked,
+				remoteLockToggled,
+				breadcrumbBarsCount,
+				transferToRemoteBtn,
+				transferToLocalBtn
+			};
+		})()`
+
+		type CockpitResult struct {
+			Error                     *string `json:"error"`
+			QuickCreateOpened         bool    `json:"quickCreateOpened"`
+			QuickCreateClosed         bool    `json:"quickCreateClosed"`
+			DaemonTabOpen             bool    `json:"daemonTabOpen"`
+			McpTabOpen                bool    `json:"mcpTabOpen"`
+			PollerTabOpen             bool    `json:"pollerTabOpen"`
+			HealthModalClosed         bool    `json:"healthModalClosed"`
+			OnboardingVisibleWithZero bool    `json:"onboardingVisibleWithZero"`
+			AuthTypeCustom            bool    `json:"authTypeCustom"`
+			AuthTypeOAuth             bool    `json:"authTypeOAuth"`
+			McpTotalTools             int     `json:"mcpTotalTools"`
+			McpReadCount              int     `json:"mcpReadCount"`
+			McpWriteCount             int     `json:"mcpWriteCount"`
+			McpSearchCount            int     `json:"mcpSearchCount"`
+			McpExpanded               bool    `json:"mcpExpanded"`
+			HasRemotes                bool    `json:"hasRemotes"`
+			NavigatedToRemotes        bool    `json:"navigatedToRemotes"`
+			CanaryDragBlocked         bool    `json:"canaryDragBlocked"`
+			RemoteLockToggled         bool    `json:"remoteLockToggled"`
+			BreadcrumbBarsCount       int     `json:"breadcrumbBarsCount"`
+			TransferToRemoteBtn       bool    `json:"transferToRemoteBtn"`
+			TransferToLocalBtn        bool    `json:"transferToLocalBtn"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[CockpitResult](script))
+		if err != nil {
+			t.Fatalf("failed evaluating Cockpit Consolidation script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Cockpit Consolidation check failed: %s", *res.Error)
+		}
+		if !res.QuickCreateOpened || !res.QuickCreateClosed {
+			t.Errorf("quick-create menu toggle mismatch: open=%v close=%v", res.QuickCreateOpened, res.QuickCreateClosed)
+		}
+		if !res.DaemonTabOpen || !res.McpTabOpen || !res.PollerTabOpen || !res.HealthModalClosed {
+			t.Errorf("system health modal mismatch: daemon=%v mcp=%v poller=%v closed=%v",
+				res.DaemonTabOpen, res.McpTabOpen, res.PollerTabOpen, res.HealthModalClosed)
+		}
+		if !res.OnboardingVisibleWithZero {
+			t.Errorf("expected onboarding card to be visible when profiles count is 0")
+		}
+		if !res.AuthTypeCustom || !res.AuthTypeOAuth {
+			t.Errorf("wizard auth type toggle mismatch: custom=%v oauth=%v", res.AuthTypeCustom, res.AuthTypeOAuth)
+		}
+		if res.McpTotalTools != 24 {
+			t.Errorf("expected 24 MCP tools registered in System Health modal, got %d", res.McpTotalTools)
+		}
+		if res.McpReadCount != 10 {
+			t.Errorf("expected 10 read-only MCP tools, got %d", res.McpReadCount)
+		}
+		if res.McpWriteCount != 14 {
+			t.Errorf("expected 14 mutating MCP tools, got %d", res.McpWriteCount)
+		}
+		if res.McpSearchCount != 1 {
+			t.Errorf("expected 1 tool matching 'trigger_sync', got %d", res.McpSearchCount)
+		}
+		if !res.McpExpanded {
+			t.Errorf("expected toggleMcpTool to expand bisync_get_status")
+		}
+		if !res.HasRemotes {
+			t.Errorf("expected hasConfiguredRemotes to be true with testremote configured")
+		}
+		if !res.NavigatedToRemotes {
+			t.Errorf("expected navigateToRemotes to switch currentTab to remotes")
+		}
+		if !res.CanaryDragBlocked {
+			t.Errorf("expected dragging RCLONE_TEST canary to be blocked")
+		}
+		if !res.RemoteLockToggled {
+			t.Errorf("expected toggleExplorerRemoteLock to toggle remote lock state")
+		}
+		if res.BreadcrumbBarsCount < 2 {
+			t.Errorf("expected at least 2 breadcrumb location bars, got %d", res.BreadcrumbBarsCount)
+		}
+		if !res.TransferToRemoteBtn || !res.TransferToLocalBtn {
+			t.Errorf("expected directional transfer buttons: toRemote=%v toLocal=%v", res.TransferToRemoteBtn, res.TransferToLocalBtn)
 		}
 	})
 

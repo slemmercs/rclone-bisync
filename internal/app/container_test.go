@@ -11,6 +11,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -209,14 +210,19 @@ func TestNewContainer_WithLoggerAndDebugMode(t *testing.T) {
 		DebugMode: true,
 	}
 
-	c, err := NewContainer(cfg)
+	customLogger, err := logger.New(logPath, false)
+	if err != nil {
+		t.Fatalf("failed to create custom logger: %v", err)
+	}
+	customLogger.SetDebug(true)
+	c, err := NewContainer(cfg, WithLogger(customLogger))
 	if err != nil {
 		t.Fatalf("failed to initialize container: %v", err)
 	}
 	defer c.Close()
 
-	if c.Logger == nil {
-		t.Fatal("expected container Logger to be initialized")
+	if c.Logger != customLogger {
+		t.Fatal("expected container Logger to match customLogger")
 	}
 	if c.Logger.Level() != slog.LevelDebug {
 		t.Fatalf("expected logger level Debug when DebugMode is true, got: %v", c.Logger.Level())

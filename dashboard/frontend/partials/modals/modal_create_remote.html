@@ -1,0 +1,347 @@
+{{ define "modal_create_remote" }}
+<!-- Remote Creation Wizard Modal -->
+<div x-show="createRemoteModal.show" x-cloak @keydown.escape.window="closeCreateRemoteWizard()" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-transition.opacity.duration.200ms>
+    <div @click.away="closeCreateRemoteWizard()" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative space-y-4 max-h-[90vh] flex flex-col">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                    <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider">Remote Creation Wizard</h3>
+                    <div class="text-[11px] text-slate-400">Guided cloud remote configuration and automated sync profile bridging</div>
+                </div>
+            </div>
+            <button @click="closeCreateRemoteWizard()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors cursor-pointer" title="Close wizard (Esc)">
+                <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Stepper Indicator -->
+        <div class="grid grid-cols-3 gap-2 border-b border-slate-800/80 pb-3 shrink-0 text-xs">
+            <button type="button" @click="goToWizardStep(1)" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer text-left" :class="createRemoteModal.step === 1 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold' : (createRemoteModal.step > 1 ? 'bg-slate-800/60 border-slate-700 text-emerald-400 hover:border-slate-600' : 'bg-slate-900 border-slate-800 text-slate-500')">
+                <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold" :class="createRemoteModal.step === 1 ? 'bg-indigo-600 text-white' : (createRemoteModal.step > 1 ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400')" x-text="createRemoteModal.step > 1 ? '✓' : '1'"></span>
+                <span class="truncate">Select Provider</span>
+            </button>
+            <button type="button" @click="goToWizardStep(2)" :disabled="isWizardStep2Disabled()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-left" :class="createRemoteModal.step === 2 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold cursor-pointer' : (createRemoteModal.step > 2 ? 'bg-slate-800/60 border-slate-700 text-emerald-400 hover:border-slate-600 cursor-pointer' : (!isWizardStep2Disabled() ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer' : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'))">
+                <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold" :class="createRemoteModal.step === 2 ? 'bg-indigo-600 text-white' : (createRemoteModal.step > 2 ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400')" x-text="createRemoteModal.step > 2 ? '✓' : '2'"></span>
+                <span class="truncate">Configuration</span>
+            </button>
+            <button type="button" @click="goToWizardStep(3)" :disabled="isWizardStep3Disabled()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-left" :class="createRemoteModal.step === 3 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold cursor-pointer' : (!isWizardStep3Disabled() ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer' : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed')">
+                <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold" :class="createRemoteModal.step === 3 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'">3</span>
+                <span class="truncate">Review &amp; Create</span>
+            </button>
+        </div>
+
+        <!-- Step 1: Select Provider -->
+        <div x-show="createRemoteModal.step === 1" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <!-- Tier-1 Recommended Cloud Providers Spotlight -->
+            <div x-show="!createRemoteModal.search && createRemoteModal.category === 'popular'" class="space-y-2">
+                <div class="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <span>Recommended Cloud Providers</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <template x-for="p in tier1Providers" :key="'tier1-' + p.prefix">
+                        <button type="button" @click="selectWizardProvider(p)" class="p-3 rounded-xl border border-slate-800 bg-slate-950/70 hover:bg-slate-800 hover:border-indigo-500/70 transition-all text-left flex flex-col justify-between group cursor-pointer space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300 transition-colors">
+                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                                </div>
+                                <span x-show="isOAuthProvider(p)" class="text-[9px] uppercase px-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">OAuth</span>
+                            </div>
+                            <div>
+                                <div class="font-bold text-xs text-white group-hover:text-indigo-300 transition-colors truncate" x-text="p.name"></div>
+                                <div class="text-[10px] font-mono text-slate-500 truncate" x-text="p.prefix"></div>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Filter & Search Toolbar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                    <button type="button" @click="createRemoteModal.category = 'popular'" :class="createRemoteModal.category === 'popular' ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:text-white'" class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer">Popular</button>
+                    <button type="button" @click="createRemoteModal.category = 'cloud'" :class="createRemoteModal.category === 'cloud' ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:text-white'" class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer">Cloud</button>
+                    <button type="button" @click="createRemoteModal.category = 'object'" :class="createRemoteModal.category === 'object' ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:text-white'" class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer">Object (S3)</button>
+                    <button type="button" @click="createRemoteModal.category = 'protocol'" :class="createRemoteModal.category === 'protocol' ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:text-white'" class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer">Protocols</button>
+                    <button type="button" @click="createRemoteModal.category = 'all'" :class="createRemoteModal.category === 'all' ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:text-white'" class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer">All Providers</button>
+                </div>
+                <div class="relative w-full sm:w-60">
+                    <input type="text" x-model="createRemoteModal.search" placeholder="Search providers..." class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                    <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div x-show="createRemoteModal.loading" class="py-12 text-center text-slate-400 space-y-2">
+                <svg class="w-6 h-6 animate-spin mx-auto text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <div class="text-xs">Fetching provider catalog from Rclone...</div>
+            </div>
+
+            <!-- Providers Grid -->
+            <div x-show="!createRemoteModal.loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <template x-for="p in getFilteredWizardProviders()" :key="p.name">
+                    <div @click="selectWizardProvider(p)" class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-800/50 hover:border-indigo-500/50 transition-all cursor-pointer flex flex-col justify-between group space-y-2">
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-bold text-sm text-white group-hover:text-indigo-300 transition-colors" x-text="p.name"></span>
+                                <div class="flex items-center gap-1">
+                                    <span x-show="p.popular" class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Popular</span>
+                                    <span x-show="isOAuthProvider(p)" class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">OAuth</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-400 line-clamp-2" x-text="p.description || p.name"></p>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-2 border-t border-slate-900">
+                            <span x-text="p.prefix"></span>
+                            <span class="text-indigo-400 group-hover:translate-x-0.5 transition-transform">Configure →</span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+
+        <!-- Step 2: Configuration & Profile Bridge -->
+        <div x-show="createRemoteModal.step === 2" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <!-- Selected Provider Badge -->
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                <div class="flex items-center gap-2.5">
+                    <span class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 font-bold font-mono">
+                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                    </span>
+                    <div>
+                        <div class="font-bold text-white flex items-center gap-2">
+                            <span x-text="createRemoteModal.selectedProvider?.name"></span>
+                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300" x-text="createRemoteModal.selectedProvider?.prefix"></span>
+                        </div>
+                        <div class="text-[11px] text-slate-400" x-text="createRemoteModal.selectedProvider?.description"></div>
+                    </div>
+                </div>
+                <button type="button" @click="createRemoteModal.step = 1" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer">Change</button>
+            </div>
+
+            <!-- Remote Name Input -->
+            <div class="space-y-1.5">
+                <label class="block text-xs font-semibold text-slate-300">Remote Identifier / Name <span class="text-rose-400">*</span></label>
+                <div class="relative">
+                    <input type="text" x-model="createRemoteModal.remoteName" @input="onWizardRemoteNameChange()" placeholder="e.g. gdrive-work, backup-s3" class="w-full bg-slate-950 border rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono" :class="createRemoteModal.nameError ? 'border-rose-500 focus:border-rose-500' : 'border-slate-700 focus:border-indigo-500'">
+                </div>
+                <div x-show="createRemoteModal.nameError" class="text-[11px] text-rose-400 font-medium" x-text="createRemoteModal.nameError"></div>
+                <div x-show="!createRemoteModal.nameError" class="text-[11px] text-slate-500">Target name used across bisync CLI and profiles (e.g. <span class="font-mono text-slate-400" x-text="(createRemoteModal.remoteName || 'remote') + ':'"></span>).</div>
+            </div>
+
+            <!-- OAuth vs Custom Credentials Segmented Control -->
+            <div x-show="isOAuthProvider(createRemoteModal.selectedProvider)" class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-300">Authentication Mode</span>
+                    <div class="inline-flex rounded-lg bg-slate-950 p-1 border border-slate-800 text-[11px]">
+                        <button type="button" @click="setAuthMode('oauth')" :class="createRemoteModal.authMode === 'oauth' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-white'" class="px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5">
+                            <svg class="w-3 h-3 text-emerald-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><polyline points="9 12 11 14 15 10"/></svg>
+                            <span>Browser OAuth</span>
+                        </button>
+                        <button type="button" @click="setAuthMode('custom')" :class="createRemoteModal.authMode === 'custom' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-white'" class="px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5">
+                            <svg class="w-3 h-3 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-6 6 7 7-3.5 3.5-7-7"/><circle cx="7.5" cy="16.5" r="4.5"/></svg>
+                            <span>Custom Credentials</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Browser OAuth Mode -->
+                <div x-show="createRemoteModal.authMode === 'oauth'" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-2.5">
+                    <svg class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><polyline points="9 12 11 14 15 10"/></svg>
+                    <div>
+                        <span class="font-semibold block">Browser OAuth Authentication</span>
+                        <span class="text-[11px] text-emerald-400/90 leading-relaxed">Bisync Hub will automatically launch a secure browser authentication session to acquire and rotate your API tokens.</span>
+                    </div>
+                </div>
+
+                <!-- Custom Client Credentials Mode -->
+                <div x-show="createRemoteModal.authMode === 'custom'" class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-3">
+                    <div class="text-[11px] text-slate-400">
+                        Supply your own OAuth App Client ID and Secret (useful for custom enterprise app limits).
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Client ID</label>
+                            <input type="text" x-model="createRemoteModal.parameters.client_id" placeholder="Optional Client ID" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-indigo-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Client Secret</label>
+                            <input type="password" x-model="createRemoteModal.parameters.client_secret" placeholder="Optional Client Secret" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-indigo-500 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Linked Profile Bridge Section -->
+            <div class="border border-slate-800 rounded-xl p-4 bg-slate-950/40 space-y-3">
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" x-model="createRemoteModal.createProfile" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer">
+                        <span class="text-xs font-bold text-white">Automatically provision linked sync profile</span>
+                    </label>
+                    <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Recommended</span>
+                </div>
+                <div class="text-[11px] text-slate-400">Instantly sets up bidirectional synchronization bindings between your local folder and this remote.</div>
+
+                <div x-show="createRemoteModal.createProfile" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Profile Identifier</label>
+                        <input type="text" x-model="createRemoteModal.profile.id" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Display Name</label>
+                        <input type="text" x-model="createRemoteModal.profile.name" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Local Directory</label>
+                        <input type="text" x-model="createRemoteModal.profile.local_path" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Remote Subpath (Optional)</label>
+                        <input type="text" x-model="createRemoteModal.profile.remote_path" placeholder="Root (entire remote)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:border-indigo-500 focus:outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wizard Step 2 Footer Buttons -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                <button type="button" @click="prevWizardStep()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors cursor-pointer">← Back</button>
+                <button type="button" @click="nextWizardStep()" :disabled="isWizardNextDisabled()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer">Continue to Review →</button>
+            </div>
+        </div>
+
+
+        <!-- Step 3: Review & Create -->
+        <div x-show="createRemoteModal.step === 3" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <!-- Review Mode (Pre-creation) -->
+            <template x-if="!createRemoteModal.result">
+                <div class="space-y-4">
+                    <div class="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-3">
+                        <div class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <span>Configuration Summary</span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400">Ready to provision</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <span class="text-slate-500 block text-[11px]">Remote Target:</span>
+                                <span class="font-mono text-white font-bold" x-text="createRemoteModal.remoteName + ':'"></span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block text-[11px]">Provider Type:</span>
+                                <span class="text-slate-200" x-text="createRemoteModal.selectedProvider?.name + ' (' + createRemoteModal.selectedProvider?.prefix + ')'"></span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block text-[11px]">Authentication:</span>
+                                <span :class="isOAuthProvider(createRemoteModal.selectedProvider) ? 'text-emerald-400' : 'text-slate-300'" x-text="isOAuthProvider(createRemoteModal.selectedProvider) ? (createRemoteModal.authMode === 'custom' ? 'Custom OAuth Credentials' : 'OAuth 2.0 (Browser-assisted)') : 'Standard / Direct'"></span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block text-[11px]">Sync Profile Bridge:</span>
+                                <span :class="createRemoteModal.createProfile ? 'text-indigo-400 font-semibold' : 'text-slate-500'" x-text="createRemoteModal.createProfile ? 'Enabled (Auto-provisioned)' : 'Disabled'"></span>
+                            </div>
+                        </div>
+
+                        <!-- Profile Bridge Details -->
+                        <div x-show="createRemoteModal.createProfile" class="pt-3 border-t border-slate-900 grid grid-cols-2 gap-2 text-[11px] font-mono bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/60">
+                            <div>
+                                <span class="text-slate-500 block text-[10px]">PROFILE ID</span>
+                                <span class="text-white" x-text="createRemoteModal.profile.id"></span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block text-[10px]">LOCAL DIR</span>
+                                <span class="text-slate-300" x-text="createRemoteModal.profile.local_path"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error Alert with Unstickable Recovery -->
+                    <div x-show="createRemoteModal.error" class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-rose-400 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <div>
+                                    <span class="font-bold block">Remote Creation Failed</span>
+                                    <span class="text-[11px] text-rose-300/90" x-text="createRemoteModal.error"></span>
+                                </div>
+                            </div>
+                            <button type="button" @click="createRemoteModal.error = null" class="text-rose-400 hover:text-rose-200 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/20 transition-colors cursor-pointer">Dismiss</button>
+                        </div>
+                        <div class="flex items-center gap-2 pt-1 border-t border-rose-500/20 text-[11px]">
+                            <button type="button" @click="goToWizardStep(2); createRemoteModal.error = null;" class="text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer">← Modify Configuration</button>
+                            <span class="text-slate-600">•</span>
+                            <button type="button" @click="submitCreateRemote()" :disabled="isWizardSaving()" class="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer">Retry Provisioning ↻</button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="prevWizardStep()" :disabled="isWizardSaving()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 rounded-lg text-xs font-medium transition-colors cursor-pointer">← Back</button>
+                            <button x-show="createRemoteModal.saving" type="button" @click="cancelProvisioning()" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5 text-rose-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                <span>Cancel</span>
+                            </button>
+                        </div>
+                        <button type="button" @click="submitCreateRemote()" :disabled="isWizardSaving()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer shadow-sm">
+                            <svg x-show="createRemoteModal.saving" class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                            <span x-text="createRemoteModal.saving ? 'Provisioning Remote...' : (createRemoteModal.createProfile ? 'Create Remote & Sync Profile' : 'Create Remote')"></span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+
+            <!-- Success Mode (Post-creation) -->
+            <template x-if="createRemoteModal.result">
+                <div class="space-y-4 py-2">
+                    <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 space-y-2">
+                        <div class="flex items-center gap-2 text-sm font-bold">
+                            <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">✓</span>
+                            <span>Remote Successfully Created!</span>
+                        </div>
+                        <p class="text-xs text-emerald-400/90">
+                            Storage remote <span class="font-mono font-bold text-white" x-text="createRemoteModal.remoteName + ':'"></span> has been configured and verified.
+                        </p>
+                    </div>
+
+                    <!-- OAuth Pending Guidance -->
+                    <div x-show="createRemoteModal.oauthPending" class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 space-y-2">
+                        <div class="flex items-center gap-2 font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                            <span>OAuth Authorization Pending</span>
+                        </div>
+                        <p class="text-[11px] text-amber-400/90 leading-relaxed">
+                            An OAuth browser authorization window should open to link your account. If it didn't open or closed prematurely, click below:
+                        </p>
+                        <button type="button" @click="reconnectRemote(createRemoteModal.remoteName)" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer">
+                            <span>Open Authorization Page</span>
+                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Post-Provisioning Navigation Actions -->
+                    <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                        <button type="button" @click="closeCreateRemoteWizard()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors cursor-pointer">Done</button>
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="finishWizardAndExplore()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-700/60">
+                                <span>Browse Files</span>
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            </button>
+                            <button x-show="createRemoteModal.createProfile" type="button" @click="finishWizardAndProfile()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
+                                <span>Go to Sync Profile</span>
+                                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{{ end }}
+

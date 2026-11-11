@@ -1,6 +1,6 @@
 module github.com/slemmercs/rclone-bisync
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/chromedp/chromedp v0.21.1

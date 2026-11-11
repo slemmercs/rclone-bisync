@@ -1,0 +1,245 @@
+{{ define "modal_system_health" }}
+<!-- Unified System Health & Diagnostics Modal -->
+<div x-show="systemHealthModal.show" x-cloak @keydown.escape.window="closeSystemHealthModal()" @click.self="closeSystemHealthModal()" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden" @click.stop>
+        <!-- Modal Header -->
+        <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/70 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 rounded-xl border shrink-0" :class="isSystemHealthy ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'">
+                    <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">System Health & Engine Center</h3>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded border" :class="isSystemHealthy ? 'bg-emerald-950 text-emerald-300 border-emerald-800/60' : 'bg-rose-950 text-rose-300 border-rose-800/60'" x-text="isSystemHealthy ? 'ONLINE' : 'DEGRADED'"></span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-0.5 flex items-center gap-2 font-mono">
+                        <span x-text="'Engine Latency: ' + (daemonLatencyText !== '--' ? daemonLatencyText + 'ms' : '-- ms')"></span>
+                    </div>
+                </div>
+            </div>
+            <button type="button" @click="closeSystemHealthModal()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors cursor-pointer">
+                <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <!-- Navigation Tabs Bar -->
+        <div class="flex items-center gap-1 px-4 pt-3 border-b border-slate-800 bg-slate-950/40 shrink-0 text-xs font-semibold">
+            <button type="button" @click="setSystemHealthTab('daemon')" :class="systemHealthModal.tab === 'daemon' ? 'border-indigo-500 text-indigo-400 border-b-2 bg-indigo-500/5' : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent'" class="px-3.5 py-2 transition-colors flex items-center gap-2 cursor-pointer">
+                <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+                <span>Daemon & Logs</span>
+                <span class="w-1.5 h-1.5 rounded-full" :class="isSystemHealthy ? 'bg-emerald-400' : 'bg-rose-400'"></span>
+            </button>
+            <button type="button" @click="setSystemHealthTab('mcp')" :class="systemHealthModal.tab === 'mcp' ? 'border-violet-500 text-violet-400 border-b-2 bg-violet-500/5' : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent'" class="px-3.5 py-2 transition-colors flex items-center gap-2 cursor-pointer">
+                <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                <span>MCP Agent Server</span>
+                <span class="w-1.5 h-1.5 rounded-full" :class="isMcpActive ? 'bg-violet-400' : 'bg-slate-600'"></span>
+            </button>
+            <button type="button" @click="setSystemHealthTab('poller')" :class="systemHealthModal.tab === 'poller' ? 'border-cyan-500 text-cyan-400 border-b-2 bg-cyan-500/5' : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent'" class="px-3.5 py-2 transition-colors flex items-center gap-2 cursor-pointer">
+                <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Scheduler & Poller</span>
+                <span class="w-1.5 h-1.5 rounded-full" :class="isPollingPaused ? 'bg-amber-400' : 'bg-emerald-400'"></span>
+            </button>
+        </div>
+
+        <!-- Tab 1: Daemon & Correlated Logs -->
+        <div x-show="systemHealthModal.tab === 'daemon'" class="flex-1 flex flex-col min-h-0">
+            <!-- Telemetry Metrics Bar -->
+            <div class="p-3 bg-slate-950/50 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono shrink-0">
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] uppercase text-slate-500 block">Daemon Health</span>
+                    <span class="font-bold font-sans" :class="isSystemHealthy ? 'text-emerald-400' : 'text-rose-400'" x-text="telemetry.daemon_health?.status || 'UNKNOWN'"></span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] uppercase text-slate-500 block">Round-Trip Latency</span>
+                    <span class="font-bold text-slate-200" x-text="daemonLatencyText !== '--' ? daemonLatencyText + 'ms' : '-- ms'"></span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] uppercase text-slate-500 block">Profiles Configured</span>
+                    <span class="font-bold text-slate-200" x-text="profilesData?.list?.length || 0"></span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] uppercase text-slate-500 block">Connected Remotes</span>
+                    <span class="font-bold text-slate-200" x-text="remotesData?.count || 0"></span>
+                </div>
+            </div>
+
+            <!-- Daemon Controls & Log Filters -->
+            <div class="p-3 bg-slate-950/80 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div class="flex items-center gap-1.5 text-xs font-mono">
+                    <button type="button" @click="daemonModalLevelFilter = 'all'" :class="daemonModalLevelFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded transition-colors cursor-pointer">All</button>
+                    <button type="button" @click="daemonModalLevelFilter = 'error'" :class="daemonModalLevelFilter === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded transition-colors cursor-pointer">Error</button>
+                    <button type="button" @click="daemonModalLevelFilter = 'notice'" :class="daemonModalLevelFilter === 'notice' ? 'bg-amber-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded transition-colors cursor-pointer">Notice</button>
+                    <button type="button" @click="daemonModalLevelFilter = 'info'" :class="daemonModalLevelFilter === 'info' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'" class="px-2 py-1 rounded transition-colors cursor-pointer">Info</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="text" x-model="daemonModalSearch" placeholder="Search daemon logs..." class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 font-mono w-44 sm:w-56 focus:outline-none focus:border-indigo-500">
+                    <button type="button" @click="copyDaemonLogs()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-mono transition-colors cursor-pointer">
+                        <span x-text="daemonModalCopied ? 'Copied' : 'Copy'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Daemon Terminal View -->
+            <div class="p-4 font-mono text-xs overflow-y-auto flex-1 h-[20rem] bg-slate-950 text-left space-y-1">
+                <div x-show="daemonModalLoading" class="text-indigo-400 animate-pulse text-center py-8 font-mono">Loading daemon telemetry stream...</div>
+                <div x-show="daemonModalError" class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 font-mono" x-cloak x-text="daemonModalError"></div>
+                <template x-for="cluster in clusteredDaemonModalLogs" :key="cluster.id">
+                    <div class="py-1 border-b border-slate-900/40 hover:bg-slate-900/30 transition-colors flex items-start gap-x-2 text-[11px] font-mono leading-relaxed text-left">
+                        <span class="text-slate-500 select-none shrink-0" x-text="'[' + (cluster.entry ? cluster.entry.time : cluster.time) + ']'"></span>
+                        <span :class="cluster.entry ? cluster.entry.levelClass : cluster.levelClass" class="select-none shrink-0 w-14 font-bold" x-text="cluster.entry ? cluster.entry.level : cluster.level"></span>
+                        <div class="text-slate-200 min-w-0 flex-1 break-words text-left">
+                            <span class="whitespace-pre-wrap" x-text="cluster.entry ? cluster.entry.msg : cluster.msg"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Tab 2: MCP Agent Server -->
+        <div x-show="systemHealthModal.tab === 'mcp'" class="p-5 overflow-y-auto space-y-4 max-h-[70vh]">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="p-3 bg-slate-950/60 border border-slate-800 rounded-xl">
+                    <span class="text-[10px] uppercase font-mono text-slate-500 block">Agent Status</span>
+                    <span class="text-sm font-bold font-mono" :class="isMcpActive ? 'text-violet-400' : 'text-slate-400'" x-text="isMcpActive ? 'Active (Ready)' : 'Offline'"></span>
+                </div>
+                <div class="p-3 bg-slate-950/60 border border-slate-800 rounded-xl">
+                    <span class="text-[10px] uppercase font-mono text-slate-500 block">Safety Mode</span>
+                    <span class="text-sm font-bold font-mono" :class="telemetry.mcp_status?.read_only ? 'text-amber-400' : 'text-emerald-400'" x-text="telemetry.mcp_status?.read_only ? 'Read-Only Safe' : 'Read/Write Operations'"></span>
+                </div>
+                <div class="p-3 bg-slate-950/60 border border-slate-800 rounded-xl">
+                    <span class="text-[10px] uppercase font-mono text-slate-500 block">MCP Tool Registry</span>
+                    <span class="text-sm font-bold font-mono text-indigo-300" x-text="filteredMcpTools.length + ' / ' + mcpTools.length + ' Tools'"></span>
+                </div>
+            </div>
+
+            <!-- MCP Tool Registry Interactive Accordion -->
+            <div class="space-y-3 p-4 bg-slate-950/70 border border-slate-800/80 rounded-xl">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-bold text-white flex items-center gap-2">
+                            <span>Registered MCP Tool Catalog</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-violet-950 text-violet-300 border border-violet-800/60" x-text="filteredMcpTools.length + ' tools'"></span>
+                        </div>
+                        <div class="text-[11px] text-slate-400">Expand any tool to inspect parameter schemas, blast radius safeguards, and execution mode.</div>
+                    </div>
+
+                    <!-- Search and Filter Controls -->
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <input type="text" x-model="systemHealthModal.mcpSearch" placeholder="Filter tools..." class="w-36 sm:w-44 px-2.5 py-1 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-violet-500 transition-colors" />
+                            <button x-show="systemHealthModal.mcpSearch" @click="systemHealthModal.mcpSearch = ''" class="absolute right-2 top-1.5 text-slate-500 hover:text-white text-xs cursor-pointer">✕</button>
+                        </div>
+                        <div class="inline-flex rounded-lg p-0.5 bg-slate-900 border border-slate-800 text-[11px]">
+                            <button type="button" @click="systemHealthModal.mcpFilter = 'all'" class="px-2 py-1 rounded-md font-medium transition-colors cursor-pointer" :class="systemHealthModal.mcpFilter === 'all' ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'">All</button>
+                            <button type="button" @click="systemHealthModal.mcpFilter = 'read'" class="px-2 py-1 rounded-md font-medium transition-colors cursor-pointer" :class="systemHealthModal.mcpFilter === 'read' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'">Read (10)</button>
+                            <button type="button" @click="systemHealthModal.mcpFilter = 'write'" class="px-2 py-1 rounded-md font-medium transition-colors cursor-pointer" :class="systemHealthModal.mcpFilter === 'write' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'">Mutating (14)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Accordion List -->
+                <div class="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                    <template x-for="tool in filteredMcpTools" :key="tool.name">
+                        <div class="border border-slate-800/80 rounded-lg bg-slate-900/50 hover:border-slate-700/80 transition-colors overflow-hidden">
+                            <button type="button" @click="toggleMcpTool(tool.name)" class="w-full p-2.5 flex items-center justify-between gap-3 text-left cursor-pointer">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <span class="w-2 h-2 rounded-full shrink-0" :class="tool.type === 'read' ? 'bg-emerald-400' : (tool.risk === 'high' ? 'bg-rose-400' : 'bg-amber-400')"></span>
+                                    <span class="font-mono text-xs font-bold truncate" :class="tool.type === 'read' ? 'text-violet-300' : (tool.risk === 'high' ? 'text-rose-300' : 'text-amber-300')" x-text="tool.name"></span>
+                                    <span class="text-[11px] text-slate-400 truncate hidden md:inline" x-text="tool.desc"></span>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border" :class="tool.type === 'read' ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60' : (tool.risk === 'high' ? 'bg-rose-950/60 text-rose-300 border-rose-800/60' : 'bg-amber-950/60 text-amber-300 border-amber-800/60')" x-text="tool.type === 'read' ? 'READ-ONLY' : (tool.risk === 'high' ? 'CONFIRMATION REQ' : 'MUTATING')"></span>
+                                    <svg class="w-3.5 h-3.5 text-slate-500 transition-transform duration-200" :class="systemHealthModal.mcpExpandedTool === tool.name ? 'rotate-180 text-violet-400' : ''" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                </div>
+                            </button>
+
+                            <!-- Accordion Expanded Details -->
+                            <div x-show="systemHealthModal.mcpExpandedTool === tool.name" class="p-3 pt-0 border-t border-slate-800/50 bg-slate-950/40 text-xs space-y-2">
+                                <p class="text-[11px] text-slate-300 pt-2" x-text="tool.desc"></p>
+                                <div>
+                                    <span class="text-[10px] uppercase font-mono text-slate-500 block mb-1">Parameters</span>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="p in tool.params" :key="p">
+                                            <span class="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded font-mono text-[10px] text-slate-300" x-text="p"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div class="pt-1 flex items-center gap-2 text-[11px]">
+                                    <span class="text-slate-500">Safeguard Profile:</span>
+                                    <span :class="tool.type === 'read' ? 'text-emerald-400' : (tool.risk === 'high' ? 'text-rose-400' : 'text-amber-400')" x-text="tool.type === 'read' ? 'Read-only safe operation; zero state changes' : (tool.risk === 'high' ? 'High blast radius; enforces cryptographic 5-minute confirmation token' : 'Standard mutation; enforced under local filesystem jail confinement')"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Client Integration Snippet -->
+            <div class="p-4 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-bold text-white">Client Integration Config (Claude Desktop / Cline / Cursor)</div>
+                        <div class="text-[11px] text-slate-400">Add this stdio server configuration to your AI assistant's MCP JSON settings:</div>
+                    </div>
+                    <button type="button" @click="copyMcpConfig()" class="px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
+                        <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <span x-text="mcpModalCopiedConfig ? 'Copied!' : 'Copy JSON'"></span>
+                    </button>
+                </div>
+                <pre class="bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs font-mono text-violet-300 overflow-x-auto select-all leading-relaxed" x-text="mcpClientSnippet"></pre>
+            </div>
+        </div>
+
+        <!-- Tab 3: Scheduler & Poller -->
+        <div x-show="systemHealthModal.tab === 'poller'" class="p-5 overflow-y-auto space-y-4 max-h-[70vh]">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-2">
+                    <span class="text-[10px] uppercase font-mono text-slate-500 block">Telemetry Poller Mode</span>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full" :class="isPollingPaused ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'"></span>
+                        <span class="text-sm font-bold font-mono text-white" x-text="isPollingPaused ? 'Paused (Alt+P to resume)' : 'Active (Polling every ' + (pollingIntervalMs / 1000) + 's)'"></span>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Adaptive polling automatically scales from 8 seconds during idle periods down to 2 seconds during active synchronization tasks.
+                    </p>
+                    <div class="pt-2">
+                        <button type="button" @click="togglePolling()" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer" :class="isPollingPaused ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-amber-600/30 hover:bg-amber-600/40 text-amber-300 border border-amber-500/40'">
+                            <span x-text="isPollingPaused ? 'Resume Background Polling' : 'Pause Background Polling'"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-2">
+                    <span class="text-[10px] uppercase font-mono text-slate-500 block">Manual Diagnostic Trigger</span>
+                    <div class="text-sm font-bold font-mono text-slate-200">Immediate Flush</div>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Query the Rclone core engine stats, lock status, and profile metrics right now without waiting for the next background tick.
+                    </p>
+                    <div class="pt-2">
+                        <button type="button" @click="triggerManualPoll()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm">
+                            <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                            <span>Trigger Telemetry Poll Now</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-1">
+                <div class="text-xs font-bold text-slate-300">Keyboard Shortcuts</div>
+                <div class="text-xs text-slate-400 font-mono grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div><span class="text-indigo-400 font-bold">Alt + P</span> : Toggle Telemetry Polling</div>
+                    <div><span class="text-indigo-400 font-bold">C / Ctrl+K</span> : Global Create Menu</div>
+                    <div><span class="text-indigo-400 font-bold">N</span> : New Sync Profile</div>
+                    <div><span class="text-indigo-400 font-bold">R</span> : Connect Storage Remote</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-3 sm:p-4 border-t border-slate-800 bg-slate-950/70 flex items-center justify-between shrink-0 text-xs text-slate-500 font-mono">
+            <span>Bisync Hub Cockpit</span>
+            <button type="button" @click="closeSystemHealthModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer font-sans">Close</button>
+        </div>
+    </div>
+</div>
+{{ end }}
