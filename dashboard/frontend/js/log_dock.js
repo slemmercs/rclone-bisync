@@ -52,19 +52,30 @@ window.LogDockModule = {
     },
 
     getFilteredDockLogs() {
-        const rawLogs = (this.telemetry && Array.isArray(this.telemetry.bisync_logs)) ? this.telemetry.bisync_logs : [];
-        let logs = rawLogs;
+        let sourceLogs = [];
+        if (Array.isArray(this.filteredBisyncLogs) && this.filteredBisyncLogs.length > 0) {
+            sourceLogs = this.filteredBisyncLogs;
+        } else if (Array.isArray(this.parsedBisyncLogs) && this.parsedBisyncLogs.length > 0) {
+            sourceLogs = this.parsedBisyncLogs;
+        } else if (this.telemetry && Array.isArray(this.telemetry.bisync_logs)) {
+            const mapper = typeof parseJsonLogLine === "function" ? parseJsonLogLine : (l) => ({ msg: l });
+            sourceLogs = (this.telemetry.bisync_logs || []).map(l => typeof l === "string" ? mapper(l) : l).filter(Boolean);
+        }
+
+        let logs = sourceLogs;
         if (this.logDock.activeFilter === "mutations") {
-            logs = rawLogs.filter(l => {
+            logs = sourceLogs.filter(l => {
                 if (!l) return false;
-                const lvl = (l.level || "").toUpperCase();
+                const lvl = String(l.level || "").trim().toUpperCase();
                 if (lvl === "ERROR" || lvl === "NOTICE") return true;
-                const msg = (l.msg || "").toLowerCase();
+                const path = typeof this.getEntryPath === "function" ? this.getEntryPath(l) : (l.object || null);
+                if (path) return true;
+                const msg = String(l.msg || "").toLowerCase();
                 return msg.includes("transfer") || msg.includes("delete") || msg.includes("conflict") ||
                        msg.includes("copy") || msg.includes("move") || msg.includes("updated");
             });
         } else if (this.logDock.activeFilter === "errors") {
-            logs = rawLogs.filter(l => (l?.level || "").toUpperCase() === "ERROR");
+            logs = sourceLogs.filter(l => String(l?.level || "").trim().toUpperCase() === "ERROR");
         }
         return logs.slice(0, this.logDock.limit || 100);
     },
@@ -103,7 +114,7 @@ window.LogDockModule = {
     },
 
     getDockLogLevelClass(level) {
-        const lvl = (level || "INFO").toUpperCase();
+        const lvl = String(level || "INFO").trim().toUpperCase();
         if (lvl === "ERROR") return "bg-rose-500/20 text-rose-300 border border-rose-500/30";
         if (lvl === "NOTICE" || lvl === "WARN" || lvl === "WARNING") return "bg-amber-500/20 text-amber-300 border border-amber-500/30";
         return "bg-slate-800 text-slate-400 border border-slate-700/60";
@@ -114,7 +125,7 @@ window.LogDockModule = {
         try {
             const d = new Date(ts);
             if (isNaN(d.getTime())) return String(ts);
-            return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
         } catch (_) {
             return String(ts);
         }

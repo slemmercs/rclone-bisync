@@ -9,7 +9,7 @@ Fix empty log display in the System Health Center modal and normalize structured
   - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/modals/modal_system_health.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 2: Fix Pinned Log Dock Ingestion, Level Padding Normalization, and Mutation Path Recognition
+- [x] Task 2: Fix Pinned Log Dock Ingestion, Level Padding Normalization, and Mutation Path Recognition
   - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
@@ -21,4 +21,5 @@ Fix empty log display in the System Health Center modal and normalize structured
 
 - 2026-11-11: Initialized task plan from implementation_plan.md.
 - 2026-11-11: Completed Task 1 - Added `fetchDaemonLogs` to `logs.js`, refactored `openDaemonModal`, added deep path navigation chips and empty filter states to `modal_system_health.html`. Verified with `./scripts/check.sh templates` and `./scripts/check.sh loc 400`.
+- 2026-11-11: Completed Task 2 - Normalized log ingestion to use parsed bisync logs, trimmed log levels for error/mutation filtering, recognized detected paths as mutations, and bound uniform timestamps in `log_dock.js` and `component_log_dock.html`. Verified with `./scripts/check.sh templates` and `./scripts/check.sh loc 400`.
 
