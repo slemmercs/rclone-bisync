@@ -13,7 +13,7 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
   - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/logs.js`
   - **Verification**: `go test -count=1 -v ./tests/e2e -run TestDashboard_Smoke`
 
-- [ ] Task 3: Visual Row Highlighting & Explorer Row Data Binding (`review_actions.js` & `view_explorer.html`)
+- [x] Task 3: Visual Row Highlighting & Explorer Row Data Binding (`review_actions.js` & `view_explorer.html`)
   - **Scope**: `dashboard/frontend/js/review_actions.js`, `dashboard/frontend/partials/view_explorer.html`
   - **Verification**: `./scripts/check.sh templates`
 
@@ -34,5 +34,6 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
 - 2026-11-11: Initialized task plan from implementation_plan.md.
 - 2026-11-11: Completed Task 1 - Implemented contextual path tokenizer `extractPathFromLogMsg` and integrated with `parseJsonLogLine` in `dashboard/frontend/js/utils.js`. Verified with LOC gate (<400 LOC) and E2E headless smoke tests.
 - 2026-11-11: Completed Task 2 - Implemented async `selectProfile` with `overrideDir` bypass in `dashboard/frontend/js/profiles.js` and dual-pane `jumpToExplorerPath` & `scrollToHighlightedRow` in `dashboard/frontend/js/logs.js`. Verified with LOC gate and E2E smoke tests.
+- 2026-11-11: Completed Task 3 - Bound `:data-item-name="item.Name"` attributes to explorer left and right pane rows, updated `getItemReviewRowClass` with pulse animation, and added `@keyframes rowPulse` to `design-tokens.css`. Verified with template validator, LOC gate, and E2E smoke tests.
 
 

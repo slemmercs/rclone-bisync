@@ -228,7 +228,7 @@ window.ReviewActionsModule = {
     getItemReviewRowClass(paneKey, item) {
         const classes = [];
         if (this.explorer?.highlightName && item && this.explorer.highlightName === item.Name) {
-            classes.push("ring-2 ring-indigo-500 bg-indigo-500/20");
+            classes.push("ring-2 ring-indigo-500/80 bg-indigo-500/20 animate-pulse");
         }
         const badge = this.getItemReviewBadge(paneKey, item);
         if (badge) {
