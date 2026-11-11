@@ -18,19 +18,66 @@ function escapeHtml(str) {
 function getOriginBadge(origin) {
     if (!origin) return null;
     const o = String(origin).trim().toLowerCase();
-    if (o === "cli") {
-        return { label: "CLI", class: "bg-sky-950/80 text-sky-400 border-sky-800/50" };
-    }
-    if (o === "cron" || o === "timer" || o === "scheduler") {
-        return { label: "CRON", class: "bg-amber-950/80 text-amber-400 border-amber-800/50" };
-    }
-    if (o === "ui" || o === "dashboard" || o === "web") {
-        return { label: "UI", class: "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" };
-    }
-    if (o === "mcp") {
-        return { label: "MCP", class: "bg-violet-950/80 text-violet-400 border-violet-800/50" };
-    }
+    if (o === "cli") return { label: "CLI", class: "bg-sky-950/80 text-sky-400 border-sky-800/50" };
+    if (o === "cron" || o === "timer" || o === "scheduler") return { label: "CRON", class: "bg-amber-950/80 text-amber-400 border-amber-800/50" };
+    if (o === "ui" || o === "dashboard" || o === "web") return { label: "UI", class: "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" };
+    if (o === "mcp") return { label: "MCP", class: "bg-violet-950/80 text-violet-400 border-violet-800/50" };
     return { label: o.toUpperCase(), class: "bg-slate-900 text-slate-300 border-slate-800" };
+}
+
+// Contextual path tokenizer extracting file mutation paths from log messages
+function extractPathFromLogMsg(msg) {
+    if (!msg || typeof msg !== "string") return null;
+    let s = msg.trim();
+    if (!s) return null;
+
+    // Fast-reject HTTP access, URLs, and safety abort summaries
+    if (/^(GET|HEAD|POST|PUT|DELETE)\s+\S+\s+→/i.test(s) || /https?:\/\//i.test(s) || /safety threshold|too many deletes/i.test(s)) {
+        return null;
+    }
+
+    // Strip leading timestamp and log level prefix
+    s = s.replace(/^\d{4}[/-]\d{2}[/-]\d{2}[\sT]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\s*/, "");
+    s = s.replace(/^(?:INFO|NOTICE|ERROR|WARNING|WARN|DEBUG)\s*:\s*/i, "");
+
+    let found = null;
+    const matchers = [
+        /Duplicate ignored:\s*(.+)/i,
+        /(?:-\s+)?(?:Path[12]\s+)?File was deleted(?:\s*-\s*|\s*:\s*)(.+)/i,
+        /(?:-\s+)?(?:Path[12]\s+)?Deleted(?:\s*-\s*|\s*:\s*)(.+)/i,
+        /Transferring(?:\s+file)?:\s*(.+)/i,
+        /Conflict:\s*(.+?)\s+differs between/i,
+        /Copied(?:\s*\([^)]+\))?:\s*(.+)/i,
+        /Updated:\s*(.+)/i
+    ];
+
+    for (const re of matchers) {
+        const m = s.match(re);
+        if (m && m[1]) {
+            found = m[1].trim();
+            break;
+        }
+    }
+
+    if (!found) return null;
+
+    // Strip surrounding quotes
+    found = found.replace(/^["'`\s]+|["'`\s]+$/g, "");
+
+    // Strip remote target prefixes (e.g. 'Path1 "gdrive{tCwNP}:/docs/report.pdf"' or 'remote:path')
+    found = found.replace(/^(?:Path[12]\s*)?["']?[a-zA-Z0-9_.-]+(?:\{[^}]+\})?:[/\\]?/, "");
+    found = found.replace(/^["'`\s]+|["'`\s]+$/g, "");
+
+    // Normalize Windows backslashes and strip trailing punctuation/extra info
+    found = found.replace(/\\/g, "/");
+    found = found.replace(/[;,]$/, "").trim();
+    if (!found || found === "." || found === "/" || found.startsWith("http:") || found.startsWith("https:")) return null;
+
+    return found;
+}
+
+if (typeof window !== "undefined") {
+    window.extractPathFromLogMsg = extractPathFromLogMsg;
 }
 
 // Unified parser for Rclone and Bisync JSON log lines with legacy fallback
@@ -119,7 +166,7 @@ function parseJsonLogLine(rawLine) {
             actor: parsed.actor || null,
             hash: parsed.hash || null,
             prev_hash: parsed.prev_hash || null,
-            object: parsed.object || (parsed.details && (parsed.details.item_path || parsed.details.path || parsed.details.object || parsed.details.file)) || null,
+            object: parsed.object || (parsed.details && (parsed.details.item_path || parsed.details.path || parsed.details.object || parsed.details.file)) || extractPathFromLogMsg(cleanMsg) || null,
             objectType: parsed.objectType || null,
             source: parsed.source || null,
             details: parsed.details || structuredDetails,
@@ -158,7 +205,7 @@ function parseJsonLogLine(rawLine) {
                 msg: legacyMsg,
                 type: isReadOnly ? "http_access" : "sync",
                 is_read_only_access: isReadOnly,
-                object: null,
+                object: extractPathFromLogMsg(legacyMsg) || null,
                 origin: null,
                 origin_badge: null,
                 run_id: null,
@@ -176,7 +223,7 @@ function parseJsonLogLine(rawLine) {
             level: "RAW    ",
             levelClass: colorClass,
             msg: rawLine,
-            object: null,
+            object: extractPathFromLogMsg(rawLine) || null,
             origin: null,
             origin_badge: null,
             run_id: null,
@@ -201,27 +248,18 @@ function unwrapAndParseLogLines(rawLines) {
                         const subTrim = sub.trim();
                         if (subTrim.startsWith("{") && subTrim.endsWith("}")) {
                             const parsedSub = parseJsonLogLine(subTrim);
-                            if (parsedSub) {
-                                results.push(parsedSub);
-                                unwrappedAny = true;
-                            }
+                            if (parsedSub) { results.push(parsedSub); unwrappedAny = true; }
                         }
                     }
                     if (unwrappedAny) continue;
                 }
-            } catch (e) {
-                // Fall through to regular line parsing
-            }
+            } catch (e) { /* Fall through to regular line parsing */ }
         }
-
         const parsed = parseJsonLogLine(line);
-        if (parsed) {
-            results.push(parsed);
-        }
+        if (parsed) results.push(parsed);
     }
     return results;
 }
-
 
 // Helper to format bytes into human-readable strings
 function formatBytes(bytes, decimals = 1) {
@@ -234,7 +272,6 @@ function formatBytes(bytes, decimals = 1) {
     const idx = Math.min(i, sizes.length - 1);
     return parseFloat((bytes / Math.pow(k, idx)).toFixed(dm)) + " " + sizes[idx];
 }
-
 
 function formatModTime(isoStr) {
     if (!isoStr) return "--";
@@ -249,8 +286,7 @@ function formatModTime(isoStr) {
     }
 }
 
-// Canonical 7 Approved Status Vocabulary:
-// Healthy, Warning, Critical, Running, Idle, Blocked, Review Required
+// Canonical 7 Approved Status Vocabulary: Healthy, Warning, Critical, Running, Idle, Blocked, Review Required
 const APPROVED_STATUS_LABELS = {
     HEALTHY: "Healthy",
     WARNING: "Warning",
@@ -264,13 +300,13 @@ const APPROVED_STATUS_LABELS = {
 function normalizeStatus(rawStatus) {
     if (!rawStatus) return APPROVED_STATUS_LABELS.IDLE;
     const s = String(rawStatus).toUpperCase().trim();
-    if (s === "HEALTHY" || s === "OPERATIONAL" || s === "ONLINE" || s === "OK" || s === "SUCCESS") return APPROVED_STATUS_LABELS.HEALTHY;
-    if (s === "WARNING" || s === "ATTENTION REQUIRED" || s === "NEEDS ATTENTION" || s === "DEGRADED") return APPROVED_STATUS_LABELS.WARNING;
-    if (s === "CRITICAL" || s === "FAULT" || s === "OFFLINE" || s === "ERROR" || s === "DANGER" || s === "FAILED") return APPROVED_STATUS_LABELS.CRITICAL;
-    if (s === "RUNNING" || s === "SYNCING" || s === "SYNC IN PROGRESS" || s === "IN PROGRESS") return APPROVED_STATUS_LABELS.RUNNING;
-    if (s === "BLOCKED" || s === "STALE_LOCK" || s === "LOCK_WAIT" || s === "BACKOFF") return APPROVED_STATUS_LABELS.BLOCKED;
-    if (s === "REVIEW REQUIRED" || s === "NEEDS REVIEW" || s === "MANUAL APPROVAL" || s === "REVIEW" || s === "CONFLICT" || s === "PENDING APPROVAL") return APPROVED_STATUS_LABELS.REVIEW_REQUIRED;
-    if (s === "IDLE" || s === "STANDBY" || s === "READY") return APPROVED_STATUS_LABELS.IDLE;
+    if (["HEALTHY", "OPERATIONAL", "ONLINE", "OK", "SUCCESS"].includes(s)) return APPROVED_STATUS_LABELS.HEALTHY;
+    if (["WARNING", "ATTENTION REQUIRED", "NEEDS ATTENTION", "DEGRADED"].includes(s)) return APPROVED_STATUS_LABELS.WARNING;
+    if (["CRITICAL", "FAULT", "OFFLINE", "ERROR", "DANGER", "FAILED"].includes(s)) return APPROVED_STATUS_LABELS.CRITICAL;
+    if (["RUNNING", "SYNCING", "SYNC IN PROGRESS", "IN PROGRESS"].includes(s)) return APPROVED_STATUS_LABELS.RUNNING;
+    if (["BLOCKED", "STALE_LOCK", "LOCK_WAIT", "BACKOFF"].includes(s)) return APPROVED_STATUS_LABELS.BLOCKED;
+    if (["REVIEW REQUIRED", "NEEDS REVIEW", "MANUAL APPROVAL", "REVIEW", "CONFLICT", "PENDING APPROVAL"].includes(s)) return APPROVED_STATUS_LABELS.REVIEW_REQUIRED;
+    if (["IDLE", "STANDBY", "READY"].includes(s)) return APPROVED_STATUS_LABELS.IDLE;
     return rawStatus;
 }
 
@@ -303,37 +339,24 @@ function parseDedupeOutput(raw) {
         if (m) {
             const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
             const count = parseInt(m[2], 10) || 2;
-            if (!itemMap[p]) {
-                itemMap[p] = { path: p, found: count, deleted: 0, isDir: false };
-                totalCollisions++;
-            } else {
-                itemMap[p].found = count;
-            }
+            if (!itemMap[p]) { itemMap[p] = { path: p, found: count, deleted: 0, isDir: false }; totalCollisions++; }
+            else { itemMap[p].found = count; }
             continue;
         }
-
         m = line.match(/(?:NOTICE:\s+)?(.*?):\s+Deleted\s+(\d+)\s+extra\s+copies/i);
         if (m) {
             const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
             const count = parseInt(m[2], 10) || 1;
-            if (!itemMap[p]) {
-                itemMap[p] = { path: p, found: count + 1, deleted: count, isDir: false };
-                totalCollisions++;
-            } else {
-                itemMap[p].deleted = count;
-            }
+            if (!itemMap[p]) { itemMap[p] = { path: p, found: count + 1, deleted: count, isDir: false }; totalCollisions++; }
+            else { itemMap[p].deleted = count; }
             totalDeleted += count;
             continue;
         }
-
         m = line.match(/(.*?):\s+(\d+)\s+duplicates\s+of\s+this\s+directory/i);
         if (m) {
             const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
             const count = parseInt(m[2], 10) || 2;
-            if (!itemMap[p]) {
-                itemMap[p] = { path: p, found: count, deleted: 0, isDir: true };
-                totalCollisions++;
-            }
+            if (!itemMap[p]) { itemMap[p] = { path: p, found: count, deleted: 0, isDir: true }; totalCollisions++; }
             continue;
         }
     }

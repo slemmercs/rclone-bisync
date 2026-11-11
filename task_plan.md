@@ -5,7 +5,7 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
 
 ## Tasks
 
-- [ ] Task 1: Contextual Tokenizer Core (`utils.js`)
+- [x] Task 1: Contextual Tokenizer Core (`utils.js`)
   - **Scope**: `dashboard/frontend/js/utils.js`
   - **Verification**: `go test -count=1 -v ./tests/e2e -run TestDashboard_Smoke`
 
@@ -32,5 +32,6 @@ Implement deep path navigation from log entries into the Dual-Pane File Explorer
 ## Status Updates
 
 - 2026-11-11: Initialized task plan from implementation_plan.md.
+- 2026-11-11: Completed Task 1 - Implemented contextual path tokenizer `extractPathFromLogMsg` and integrated with `parseJsonLogLine` in `dashboard/frontend/js/utils.js`. Verified with LOC gate (<400 LOC) and E2E headless smoke tests.
 
 
