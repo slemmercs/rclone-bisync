@@ -88,6 +88,40 @@ func TestProfile_Helpers(t *testing.T) {
 	if p.FullRemoteTarget() != "workdrive:" {
 		t.Errorf("unexpected FullRemoteTarget: %s", p.FullRemoteTarget())
 	}
+
+	// Local remote scenarios
+	pLocal := Profile{
+		Remote:     "local",
+		RemotePath: "/var/backups/target",
+	}
+	if pLocal.FullRemoteTarget() != "/var/backups/target" {
+		t.Errorf("expected '/var/backups/target' for local remote, got: %s", pLocal.FullRemoteTarget())
+	}
+
+	pLocalColon := Profile{
+		Remote:     "local:",
+		RemotePath: "relative/backup",
+	}
+	if pLocalColon.FullRemoteTarget() != "relative/backup" {
+		t.Errorf("expected 'relative/backup' for local: remote, got: %s", pLocalColon.FullRemoteTarget())
+	}
+
+	pEmpty := Profile{
+		Remote:     "",
+		RemotePath: "/tmp/backup",
+	}
+	if pEmpty.FullRemoteTarget() != "/tmp/backup" {
+		t.Errorf("expected '/tmp/backup' for empty remote, got: %s", pEmpty.FullRemoteTarget())
+	}
+
+	pLocalCase := Profile{
+		Remote:     "LOCAL:",
+		RemotePath: "/mnt/usb",
+	}
+	if pLocalCase.FullRemoteTarget() != "/mnt/usb" {
+		t.Errorf("expected '/mnt/usb' for case-insensitive local remote, got: %s", pLocalCase.FullRemoteTarget())
+	}
+
 	if p.LockFilePath() != "/tmp/rclone-bisync-work-docs.lock" {
 		t.Errorf("unexpected LockFilePath: %s", p.LockFilePath())
 	}

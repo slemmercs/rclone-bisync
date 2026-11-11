@@ -1,61 +1,41 @@
-# Implementation Plan: Enforce UI-Aligned Enums & Validation for MCP & Profile Configurations
+# Implementation Plan: Refine FullRemoteTarget, Fix Static Analysis & Deep Coverage Threshold
 
 ## Proposed Changes
 
-Enforce strict validation across all profile configuration entry points—specifically MCP tools (`bisync_create_profile`, `bisync_update_profile`, `bisync_create_remote`) and backend domain models (`internal/profiles`)—so that MCP tools and API callers cannot set options outside what is defined and supported in the dashboard UI.
+Address three specific system issues identified during GitHub Actions nightly execution and MCP live testing:
+1. Refine `FullRemoteTarget()` in `internal/profiles/model.go` to support local filesystem paths cleanly without prepending invalid `"local:"` remote names.
+2. Bump `go.mod` to Go `1.26.11` to resolve vulnerability `GO-2026-6859` detected by `govulncheck` in CI static analysis.
+3. Elevate statement test coverage across the repository to >86.0% to comfortably clear the strict 85.0% nightly quality gate threshold under race detection.
 
-### 1. Domain Model Validation (`internal/profiles/model.go`)
-- Define allowed sets as constants/slices:
-  - **Schedules**: `manual`, `15m`, `30m`, `1h`, `4h`, `daily`
-  - **Review Modes**: `disabled`, `deletions`, `conflicts`, `all`
-  - **Conflict Resolve Modes**: `path1`, `path2`, `newer`, `older`, `larger`, `smaller`
-  - **Compare Modes**: `size,modtime`, `size,modtime,checksum`, `checksum`, `modtime`
-  - **Notification Preferences**: `all`, `failures-only`, `review-required`, `disabled`
-- Add concrete error types: `ErrInvalidSchedule`, `ErrInvalidReviewMode`, `ErrInvalidConflictMode`, `ErrInvalidCompareMode`, `ErrInvalidNotificationPref`.
-- In `(*Profile).Validate()`:
-  - Validate `Schedule` against the allowed set (case-insensitive trim, default to `manual` if empty).
-  - Validate `ReviewMode` against the allowed set (default to `disabled` if empty).
-  - Validate `NotificationPref` against the allowed set (default to `failures-only` if empty).
-  - Validate `Flags.ConflictResolve` if set against the allowed set.
-  - Validate `Flags.CompareMode` if set against the allowed set.
-  - Normalize `Remote` by stripping trailing colons (`strings.TrimRight(remote, ":")`) so remote identifiers are consistently stored without colon suffixes.
+### 1. Refine `FullRemoteTarget()` (`internal/profiles/model.go`)
+- When `Profile.Remote` is `"local"` or empty (case-insensitive, ignoring trailing colons):
+  - Return `p.RemotePath` directly so that local-to-local sync or local destinations pass raw filesystem paths (e.g., `"/var/backups"` or `"backups"`) to Rclone instead of non-existent `"local:path"` remotes.
+- When `Profile.Remote` is a configured remote (e.g., `"workdrive"`, `"gdrive"`):
+  - Retain `fmt.Sprintf("%s:%s", r, sub)` (or `r + ":"` if subpath is empty).
+- Update unit tests in `internal/profiles/model_test.go` and `internal/profiles/store_test.go`.
 
-### 2. MCP Tools Schema & Handler Validation (`internal/mcp/tools_profile.go`, `internal/mcp/tools_remote.go`)
-- Update `bisync_create_profile`, `bisync_update_profile`, and `bisync_create_remote` tool schemas:
-  - `schedule`: Update description to explicitly document the allowed values: `'manual', '15m', '30m', '1h', '4h', 'daily'`.
-  - `conflict_mode`: Update description to include `'path1', 'path2', 'newer', 'older', 'larger', 'smaller'`.
-  - Expose `review_mode` parameter on `bisync_create_profile` and `bisync_update_profile` with allowed values `'disabled', 'deletions', 'conflicts', 'all'`.
-  - Expose `compare_mode` parameter on `bisync_create_profile` and `bisync_update_profile` with allowed values `'size,modtime', 'size,modtime,checksum', 'checksum', 'modtime'`.
-- In MCP handler execution (`handleCreateProfile`, `handleUpdateProfile`, `handleCreateRemote`):
-  - Pre-validate inputs against the allowed sets with descriptive error messages before persisting.
-  - Normalize remote name by trimming trailing colons.
+### 2. Fix Static Analysis Vulnerability (`go.mod`)
+- Bump `go.mod` Go directive to `go 1.26.11` so GitHub Actions `actions/setup-go@v7` provisions `go 1.26.11`, eliminating vulnerability `GO-2026-6859`.
+- Verify with `./scripts/check.sh lint`.
 
-### 3. Frontend Telemetry & Explorer Display Resilience (`dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/system_health.js`)
-- In `view_telemetry.html`, format remote target cleanly as `${p.remote.replace(/:+$/, '')}:${p.remote_path ? p.remote_path.replace(/^\/+/, '') : ''}` to prevent double colons (e.g., `local_backup::backup_store`).
-- In `dashboard/frontend/js/system_health.js`, update the registered MCP tool catalog schema descriptions in `mcpTools` to match the exact allowed parameters and options.
+### 3. Elevate Unit Test Coverage for Deep Quality Gate (`MIN_COVERAGE=85.0`)
+- Expand test coverage in `internal/server`, `internal/mcp`, and `internal/profiles`:
+  - `internal/server/handlers_profiles_test.go`: Cover error paths for `handleDeleteProfile` (404), `handleCloneProfile` (400, 404, 409), `handleRollbackProfile` (400, 404), and `handleProfileHistory` (404).
+  - `internal/server/handlers_telemetry_test.go`: Cover `handleMCPStatus` (offline and active states), `handleRawBisyncLog`, and `handleRawDaemonLog` (missing and streamed files).
+  - `internal/mcp/server_test.go`: Cover `writeStatusFile` and `removeStatusFile` lifecycle with mock container config.
+  - `internal/profiles/model_test.go`: Cover `MaxDeleteValue` string and JSON marshalling branches.
 
-### 4. Tests & Quality Gate
-- Update unit tests in `internal/profiles/model_test.go`, `internal/mcp/tools_profile_test.go`, and `internal/services/remote_wizard_service_test.go` to use valid UI schedules (e.g., `"1h"`, `"15m"`) instead of arbitrary cron expressions (`"0 * * * *"`), and add negative tests asserting rejection of unauthorized options.
-- Run full pre-commit gate (`./scripts/check.sh all`).
-
-### Affected Components & Packages
-- `internal/profiles/model.go`: Domain enum constants and validation logic.
-- `internal/profiles/model_test.go`: Unit tests for profile validation.
-- `internal/mcp/tools_profile.go`: Tool registration schemas and handlers for profile CRUD.
-- `internal/mcp/tools_remote.go`: Remote creation bridge schedule documentation and validation.
-- `internal/mcp/tools_profile_test.go`: MCP profile tool tests with valid UI selections.
-- `internal/services/remote_wizard_service_test.go`: Bridge tests with valid schedules.
-- `dashboard/frontend/partials/view_telemetry.html`: Contract banner remote path display formatting.
-- `dashboard/frontend/js/system_health.js`: Registry schema descriptions.
-
-### Safety & Error Handling
-- Strict validation rejects invalid inputs at the API / MCP boundary before any filesystem, scheduler, or DB writes.
-- Clean backward compatibility: empty values still default safely (`manual` schedule, `disabled` review mode, `failures-only` notifications).
+## Affected Components & Packages
+- `internal/profiles/model.go`: Local vs remote composite path handling in `FullRemoteTarget()`.
+- `internal/profiles/model_test.go` & `store_test.go`: Unit tests for `FullRemoteTarget()` and `MaxDeleteValue`.
+- `go.mod`: Upgrade Go runtime version to 1.26.11.
+- `internal/server/handlers_profiles_test.go`: Extended test coverage for profile endpoints.
+- `internal/server/handlers_telemetry_test.go`: Extended test coverage for telemetry and raw log endpoints.
+- `internal/mcp/server_test.go`: Status file write/remove tests.
 
 ## Verification Plan
-1. Unit Tests:
-   - `go test -count=1 ./internal/profiles/...`
-   - `go test -count=1 ./internal/mcp/...`
-   - `go test -count=1 ./internal/services/...`
-2. Full Quality Gate:
-   - `./scripts/check.sh all`
+1. Task 1: `go test -count=1 -v ./internal/profiles/...`
+2. Task 2: `./scripts/check.sh lint`
+3. Task 3: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`
+4. Task 4: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh all`
+

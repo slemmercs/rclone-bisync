@@ -252,9 +252,13 @@ type ProfileVersion struct {
 	Snapshot  Profile   `json:"snapshot"`
 }
 
-// FullRemoteTarget returns the composite remote string (e.g. "gdrive:subfolder" or "gdrive:").
+// FullRemoteTarget returns the composite remote string (e.g. "gdrive:subfolder", "/var/backup", or "gdrive:").
+// When remote is "local" or empty, it returns the raw filesystem path in RemotePath.
 func (p *Profile) FullRemoteTarget() string {
-	r := strings.TrimSuffix(p.Remote, ":")
+	r := strings.TrimSuffix(strings.TrimSpace(p.Remote), ":")
+	if r == "" || strings.EqualFold(r, "local") {
+		return p.RemotePath
+	}
 	sub := strings.TrimPrefix(p.RemotePath, "/")
 	if sub == "" {
 		return r + ":"
