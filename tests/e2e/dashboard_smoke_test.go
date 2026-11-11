@@ -1175,18 +1175,20 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.toggleLogDock(false);
 			const dockClosed = app.logDock?.open === false;
 
-			// Test Log Dock filtering
+			// Test Log Dock filtering with whitespace-padded levels and stringified JSON logs
 			app.telemetry.bisync_logs = [
-				{ timestamp: "2026-11-11T20:00:00Z", level: "NOTICE", msg: "Transferred: notes/a.txt" },
-				{ timestamp: "2026-11-11T20:00:01Z", level: "ERROR", msg: "Error reading data" },
-				{ timestamp: "2026-11-11T20:00:02Z", level: "INFO", msg: "Engine idle" }
+				{ timestamp: "2026-11-11T20:00:00Z", level: "NOTICE  ", msg: "Transferred: notes/a.txt" },
+				'{"time":"2026-11-11T20:00:01Z","level":"ERROR   ","msg":"Error reading data"}',
+				{ timestamp: "2026-11-11T20:00:02Z", level: "INFO    ", msg: "Engine idle" }
 			];
+			app.bisyncPaginatedLogs = [];
 			app.logDock.activeFilter = 'all';
 			const allLogsCount = app.getFilteredDockLogs().length;
 			app.logDock.activeFilter = 'mutations';
 			const mutationLogsCount = app.getFilteredDockLogs().length;
 			app.logDock.activeFilter = 'errors';
 			const errorLogsCount = app.getFilteredDockLogs().length;
+			const fetchDaemonLogsExists = typeof app.fetchDaemonLogs === 'function';
 
 			// Test pulse row highlight styling
 			app.explorer.highlightName = 'sample.txt';
@@ -1207,6 +1209,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				allLogsCount,
 				mutationLogsCount,
 				errorLogsCount,
+				fetchDaemonLogsExists,
 				highlightPulseActive,
 				nonHighlightPulseInactive
 			};
@@ -1224,6 +1227,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			AllLogsCount              int     `json:"allLogsCount"`
 			MutationLogsCount         int     `json:"mutationLogsCount"`
 			ErrorLogsCount            int     `json:"errorLogsCount"`
+			FetchDaemonLogsExists     bool    `json:"fetchDaemonLogsExists"`
 			HighlightPulseActive      bool    `json:"highlightPulseActive"`
 			NonHighlightPulseInactive bool    `json:"nonHighlightPulseInactive"`
 		}
@@ -1248,6 +1252,9 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		if res.AllLogsCount != 3 || res.MutationLogsCount != 2 || res.ErrorLogsCount != 1 {
 			t.Errorf("unexpected filtered log dock counts: all=%d mutations=%d errors=%d",
 				res.AllLogsCount, res.MutationLogsCount, res.ErrorLogsCount)
+		}
+		if !res.FetchDaemonLogsExists {
+			t.Errorf("expected fetchDaemonLogs method to exist on Alpine instance")
 		}
 		if !res.HighlightPulseActive || !res.NonHighlightPulseInactive {
 			t.Errorf("row pulse class mismatch: active=%v inactive=%v", res.HighlightPulseActive, res.NonHighlightPulseInactive)

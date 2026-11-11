@@ -83,27 +83,82 @@ if (typeof window !== "undefined") {
 
 // Unified parser for Rclone and Bisync JSON log lines with legacy fallback
 function parseJsonLogLine(rawLine) {
-    if (typeof rawLine !== "string") return null;
-    rawLine = rawLine.trim();
     if (!rawLine) return null;
+    let parsed = null;
+    const rawStr = typeof rawLine === "string" ? rawLine.trim() : "";
+    if (typeof rawLine === "object") {
+        parsed = rawLine;
+    } else if (rawStr) {
+        try {
+            parsed = JSON.parse(rawStr);
+        } catch (_) {}
+    } else {
+        return null;
+    }
 
-    try {
-        const parsed = JSON.parse(rawLine);
-        const level = (parsed.level || "info").toLowerCase();
-        let levelClass = "text-slate-400";
-        if (parsed.type === "audit") levelClass = "text-purple-400 font-bold";
-        else if (level === "error") levelClass = "text-rose-400 font-bold";
-        else if (level === "warning" || level === "warn") levelClass = "text-amber-400 font-medium";
-        else if (level === "notice") levelClass = "text-sky-400";
-        else if (level === "info") levelClass = "text-emerald-400";
+    if (!parsed) {
+        const match = rawStr.match(/^(\d{4}-\d{2}-\d{2}\s+(\d{2}:\d{2}:\d{2}))\s+\[([A-Z]+)\]\s+(.*)$/);
+        if (match) {
+            const timeStr = match[2];
+            const level = match[3].toLowerCase();
+            let levelClass = "text-slate-400";
+            if (level === "error") levelClass = "text-rose-400 font-bold";
+            else if (level === "warning" || level === "warn") levelClass = "text-amber-400 font-medium";
+            else if (level === "notice") levelClass = "text-sky-400";
+            else if (level === "info") levelClass = "text-emerald-400";
 
-        let timeStr = "N/A";
-        if (parsed.time) {
-            const dateObj = new Date(parsed.time);
-            if (!isNaN(dateObj)) {
-                timeStr = dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-            }
+            const legacyMsg = match[4].trim();
+            const isReadOnly = /^(GET|HEAD)\s+\S+\s+→\s+[123]\d{2}/.test(legacyMsg);
+
+            return {
+                time: timeStr,
+                level: level.toUpperCase().padEnd(7),
+                levelClass: levelClass,
+                msg: legacyMsg,
+                type: isReadOnly ? "http_access" : "sync",
+                is_read_only_access: isReadOnly,
+                object: extractPathFromLogMsg(legacyMsg) || null,
+                origin: null,
+                origin_badge: null,
+                run_id: null,
+                isJson: false
+            };
         }
+
+        let colorClass = "text-slate-400";
+        if (rawStr.includes("[ERROR]")) colorClass = "text-rose-400 font-semibold";
+        else if (rawStr.includes("[WARNING]")) colorClass = "text-amber-400";
+        else if (rawStr.includes("SUCCESS")) colorClass = "text-emerald-400 font-medium";
+
+        return {
+            time: "--:--:--",
+            level: "RAW    ",
+            levelClass: colorClass,
+            msg: rawStr,
+            object: extractPathFromLogMsg(rawStr) || null,
+            origin: null,
+            origin_badge: null,
+            run_id: null,
+            isJson: false
+        };
+    }
+
+    const rawLevel = String(parsed.level || "info").trim().toLowerCase();
+    let levelClass = "text-slate-400";
+    if (parsed.type === "audit") levelClass = "text-purple-400 font-bold";
+    else if (rawLevel === "error") levelClass = "text-rose-400 font-bold";
+    else if (rawLevel === "warning" || rawLevel === "warn") levelClass = "text-amber-400 font-medium";
+    else if (rawLevel === "notice") levelClass = "text-sky-400";
+    else if (rawLevel === "info") levelClass = "text-emerald-400";
+
+    let timeStr = "N/A";
+    const ts = parsed.time || parsed.timestamp || parsed.start_time;
+    if (ts) {
+        const dateObj = new Date(ts);
+        if (!isNaN(dateObj)) {
+            timeStr = dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+        }
+    }
 
         let structuredDetails = null;
         let cleanMsg = (parsed.msg || "").trim();
@@ -154,7 +209,7 @@ function parseJsonLogLine(rawLine) {
 
         return {
             time: timeStr,
-            level: level.toUpperCase().padEnd(7),
+            level: rawLevel.toUpperCase().padEnd(7),
             levelClass: levelClass,
             msg: cleanMsg,
             type: isHttpAccess ? "http_access" : (parsed.type || "sync"),
@@ -184,53 +239,6 @@ function parseJsonLogLine(rawLine) {
             isJson: true,
             raw: rawLine
         };
-    } catch (e) {
-        // Regex fallback for legacy format: "YYYY-MM-DD HH:MM:SS [LEVEL] message"
-        const match = rawLine.match(/^(\d{4}-\d{2}-\d{2}\s+(\d{2}:\d{2}:\d{2}))\s+\[([A-Z]+)\]\s+(.*)$/);
-        if (match) {
-            const timeStr = match[2];
-            const level = match[3].toLowerCase();
-            let levelClass = "text-slate-400";
-            if (level === "error") levelClass = "text-rose-400 font-bold";
-            else if (level === "warning" || level === "warn") levelClass = "text-amber-400 font-medium";
-            else if (level === "notice") levelClass = "text-sky-400";
-            else if (level === "info") levelClass = "text-emerald-400";
-
-            const legacyMsg = match[4].trim();
-            const isReadOnly = /^(GET|HEAD)\s+\S+\s+→\s+[123]\d{2}/.test(legacyMsg);
-
-            return {
-                time: timeStr,
-                level: level.toUpperCase().padEnd(7),
-                levelClass: levelClass,
-                msg: legacyMsg,
-                type: isReadOnly ? "http_access" : "sync",
-                is_read_only_access: isReadOnly,
-                object: extractPathFromLogMsg(legacyMsg) || null,
-                origin: null,
-                origin_badge: null,
-                run_id: null,
-                isJson: false
-            };
-        }
-
-        let colorClass = "text-slate-400";
-        if (rawLine.includes("[ERROR]")) colorClass = "text-rose-400 font-semibold";
-        else if (rawLine.includes("[WARNING]")) colorClass = "text-amber-400";
-        else if (rawLine.includes("SUCCESS")) colorClass = "text-emerald-400 font-medium";
-
-        return {
-            time: "--:--:--",
-            level: "RAW    ",
-            levelClass: colorClass,
-            msg: rawLine,
-            object: extractPathFromLogMsg(rawLine) || null,
-            origin: null,
-            origin_badge: null,
-            run_id: null,
-            isJson: false
-        };
-    }
 }
 
 // Unwraps potential wrapper logs and parses each line into structured format
