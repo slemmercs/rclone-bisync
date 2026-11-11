@@ -13,14 +13,20 @@
 │  Tools:                                Resources:                      │
 │   • bisync_get_status (Token-Optimized) • bisync://profiles            │
 │   • bisync_get_logs (Level-Filtered)    • bisync://status              │
-│   • bisync_list_profiles                • bisync://profile/{id}        │
-│   • bisync_list_remotes                 • bisync://history/{id}        │
-│   • bisync_get_sync_history             • bisync://conflicts/{session} │
+│   • bisync_list_providers (Catalog)    • bisync://profile/{id}        │
+│   • bisync_list_profiles                • bisync://history/{id}        │
+│   • bisync_list_remotes                 • bisync://conflicts/{session} │
+│   • bisync_get_sync_history                                            │
 │   • bisync_inspect_conflict_session                                    │
 │   • bisync_explore_path (Paginated)                                    │
-│   • bisync_trigger_sync (Confirmation Gated)                           │
+│   • bisync_preview_file (Safe Head)                                    │
+│   • bisync_validate_flags                                              │
+│   • bisync_trigger_sync (Confirmation)                                 │
 │   • bisync_resolve_review (Backup Staged)                              │
-│   • bisync_dedupe_by_hash (Safe Preview Default)                       │
+│   • bisync_dedupe_by_hash (Hash-Based)                                 │
+│   • bisync_create_remote / delete_remote                               │
+│   • bisync_create_profile / update / delete / rollback                 │
+│   • bisync_mkdir / copy / move / delete / purge                        │
 └────────────────────────────────────┬───────────────────────────────────┘
                                      │
                                      ▼
@@ -34,11 +40,14 @@
       </span><span class="nl">"autoApprove"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
         </span><span class="s2">"bisync_get_status"</span><span class="p">,</span><span class="w">
         </span><span class="s2">"bisync_get_logs"</span><span class="p">,</span><span class="w">
+        </span><span class="s2">"bisync_list_providers"</span><span class="p">,</span><span class="w">
         </span><span class="s2">"bisync_list_profiles"</span><span class="p">,</span><span class="w">
         </span><span class="s2">"bisync_list_remotes"</span><span class="p">,</span><span class="w">
         </span><span class="s2">"bisync_get_sync_history"</span><span class="p">,</span><span class="w">
         </span><span class="s2">"bisync_inspect_conflict_session"</span><span class="p">,</span><span class="w">
-        </span><span class="s2">"bisync_explore_path"</span><span class="w">
+        </span><span class="s2">"bisync_explore_path"</span><span class="p">,</span><span class="w">
+        </span><span class="s2">"bisync_preview_file"</span><span class="p">,</span><span class="w">
+        </span><span class="s2">"bisync_validate_flags"</span><span class="w">
       </span><span class="p">]</span><span class="w">
     </span><span class="p">}</span><span class="w">
   </span><span class="p">}</span><span class="w">
