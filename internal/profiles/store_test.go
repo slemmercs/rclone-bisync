@@ -273,7 +273,7 @@ func TestStore_MultiProcessSynchronizationAndNoSettingsClobber(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get profile from storeA: %v", err)
 	}
-	profA.Schedule = "45m"
+	profA.Schedule = "30m"
 	profA.ReviewMode = ReviewAll
 	profA.ExcludePatterns = []string{"*.tmp", "node_modules/**"}
 	if err := storeA.Save(profA, "User customized options via web UI"); err != nil {
@@ -301,8 +301,8 @@ func TestStore_MultiProcessSynchronizationAndNoSettingsClobber(t *testing.T) {
 		t.Fatalf("failed to get profile after state update: %v", err)
 	}
 
-	if reloaded.Schedule != "45m" {
-		t.Errorf("expected schedule '45m' to be preserved, got '%s'", reloaded.Schedule)
+	if reloaded.Schedule != "30m" {
+		t.Errorf("expected schedule '30m' to be preserved, got '%s'", reloaded.Schedule)
 	}
 	if reloaded.ReviewMode != ReviewAll {
 		t.Errorf("expected review mode '%s' to be preserved, got '%s'", ReviewAll, reloaded.ReviewMode)
