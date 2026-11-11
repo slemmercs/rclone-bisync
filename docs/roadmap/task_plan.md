@@ -1,31 +1,36 @@
-# Task Plan: Refine FullRemoteTarget, Fix Static Analysis & Deep Coverage Threshold
+# Task Plan: Deep Path Navigation & Pinned Log Audit Dock
 
 ## Goal
-Resolve GitHub Actions nightly and static analysis failures by refining `FullRemoteTarget()` for local paths, updating `go.mod` to Go 1.26.11 to fix standard library vulnerability `GO-2026-6859`, and boosting repository test coverage past the 85.0% threshold under race detection.
+Implement deep path navigation from log entries into the Dual-Pane File Explorer with synchronized navigation, highlighted target rows, and a persistent IDE-style collapsible bottom dock for rapid batch inspection.
 
 ## Tasks
 
-- [x] Task 1: Refine `FullRemoteTarget()` for Local Paths & Add Unit Tests
-  - **Scope**: `internal/profiles/model.go`, `internal/profiles/model_test.go`, `internal/profiles/store_test.go`
-  - **Verification**: `go test -count=1 -v ./internal/profiles/...`
+- [ ] Task 1: Contextual Tokenizer Core (`utils.js`)
+  - **Scope**: `dashboard/frontend/js/utils.js`
+  - **Verification**: `go test -count=1 -v ./tests/e2e -run TestDashboard_Smoke`
 
-- [x] Task 2: Bump `go.mod` to Go 1.26.11 to Fix Static Analysis Vulnerability
-  - **Scope**: `go.mod`, `go.sum`
-  - **Verification**: `./scripts/check.sh lint`
+- [ ] Task 2: Concurrency & Async Navigation Engine (`profiles.js` & `logs.js`)
+  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/logs.js`
+  - **Verification**: `go test -count=1 -v ./tests/e2e -run TestDashboard_Smoke`
 
-- [x] Task 3: Elevate Test Coverage Past 85.0% Gate
-  - **Scope**: `internal/server/handlers_profiles_test.go`, `internal/server/handlers_telemetry_test.go`, `internal/mcp/server_test.go`, `internal/profiles/model_test.go`
-  - **Verification**: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`
+- [ ] Task 3: Visual Row Highlighting & Explorer Row Data Binding (`review_actions.js` & `view_explorer.html`)
+  - **Scope**: `dashboard/frontend/js/review_actions.js`, `dashboard/frontend/partials/view_explorer.html`
+  - **Verification**: `./scripts/check.sh templates`
 
-- [x] Task 4: Run Full Quality Gate & Final Validation
-  - **Scope**: Full repository
-  - **Verification**: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh all`
+- [ ] Task 4: Pinned Log Audit Dock Engine (`log_dock.js` & `component_log_dock.html`)
+  - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+
+- [ ] Task 5: Ledger & Daemon Modal Integration (`pattern_timeline_ledger.html` & `modal_daemon.html`)
+  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/partials/modals/modal_daemon.html`
+  - **Verification**: `./scripts/check.sh templates`
+
+- [ ] Task 6: Roadmap Documentation, E2E Headless Smoke Tests & Pre-Commit Quality Gate
+  - **Scope**: `docs/roadmap/backlog.md`, `docs/roadmap/ROADMAP.md`, `tests/e2e/dashboard_smoke_test.go`
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-11: Initialized plan from implementation_plan.md.
-- 2026-11-11: Completed Task 1 - Refined FullRemoteTarget() to preserve raw filesystem paths when remote is 'local' or empty, and verified with internal/profiles test suite.
-- 2026-11-11: Completed Task 2 - Bumped go.mod to Go 1.26.11, upgraded staticcheck to latest, and verified clean static analysis & security check.
-- 2026-11-11: Completed Task 3 - Added comprehensive unit tests across internal/server, internal/mcp, internal/profiles, and internal/app, boosting test coverage to 85.1% under race detection.
-- 2026-11-11: Completed Task 4 - Formatted Go files and ran full quality gate suite with MIN_COVERAGE=85.0 and RUN_RACE=true (7/7 checks passed). All tasks completed!
+- 2026-11-11: Initialized task plan from implementation_plan.md.
+
 

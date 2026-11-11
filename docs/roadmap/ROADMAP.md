@@ -21,9 +21,15 @@ Bisync Hub exists to be the safest, most transparent, and most resilient way to 
 
 ## Delivered Releases & Milestone History
 
-All historical releases, delivered epics, and version changelogs (from initial architecture port through `v1.0.0-beta.27`) are documented in detail in our official release notes:
+All historical releases, delivered epics, and version changelogs (from initial architecture port through `v1.0.0-beta.31`) are documented in detail in our official release notes:
 
 👉 **[View All Delivered Releases on GitHub](https://github.com/slemmercs/rclone-bisync/releases)**
+
+### Key Recently Delivered Capabilities (beta.28 – beta.31)
+- **Configuration Snapshot & One-Click Rollback (`v1.0.0-beta.28`)**: Automated configuration backups, SHA-256 integrity verification, timestamped JSON snapshots under `config_snapshots/`, and one-click rollback REST API.
+- **Unified Operational Log Ledger & Run ID Correlation (`v1.0.0-beta.29`)**: Structured high-density table view aligning `bisync.log` events with Audit Ledger records, Run ID correlation chips (`#run-...`), and daemon trace inspection.
+- **Remote Cloud Web Link Navigation ("Open on Remote") (`v1.0.0-beta.30`)**: Canonical cloud URL resolution via Rclone RC `operations/publiclink` with capability filtering for Google Drive and OneDrive.
+- **FullRemoteTarget Local Path Preservation & Go 1.26.11 (`v1.0.0-beta.31`)**: Raw filesystem path handling for local destinations, Go 1.26.11 vulnerability patch (`GO-2026-6859`), and elevated test coverage (>85% under race detection).
 
 ---
 
@@ -31,12 +37,12 @@ All historical releases, delivered epics, and version changelogs (from initial a
 
 ### Horizon 1: Target v1.0.0 General Availability (GA)
 
-The immediate focus leading to the production `v1.0.0` GA milestone centers on enterprise-grade configuration resilience and homelab production readiness.
+The immediate focus leading to the production `v1.0.0` GA milestone centers on deep operational navigation, homelab production hardening, and queued workflows.
 
-#### 1. Configuration Snapshot & One-Click Rollback Engine
-- **3-Layer Safety Pipeline**: Automated configuration backups, SHA-256 integrity verification, and strict JSON/env schema validation before applying settings changes.
-- **Atomic Configuration Snapshots**: Timestamped configuration states archived under `config_snapshots/` before any profile mutation or global settings update.
-- **One-Click Rollback API & Visual Diff**: Visual side-by-side comparison of active configuration against historical snapshots with instant restoration to revert misconfigurations safely.
+#### 1. Deep File Path Navigation & Pinned Log Audit Dock (Active / In-Flight)
+- **Hardened Contextual Tokenizer**: Regex suite recognizing file mutations in log lines (`Duplicate ignored`, `Deleted`, `File was deleted`, `Transferring`, `Conflict`, `Copied`, `Updated`) with remote prefix stripping and path normalization.
+- **Synchronized Dual-Pane Navigation**: Coordinated profile switching and dual-pane directory loading with smooth DOM scrolling and animated pulse row highlight.
+- **IDE-Style Pinned Log Audit Dock**: Collapsible bottom tray anchored beneath the Dual-Pane File Explorer with height modes, mutation filters, and `N` / `P` keyboard stepping.
 
 #### 2. Homelab Production Hardening & Standards Observability (OTel/OTLP)
 - **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
@@ -49,20 +55,11 @@ The immediate focus leading to the production `v1.0.0` GA milestone centers on e
 
 Expands forensic visibility and smooths file transfer operations without lock collisions.
 
-#### 3. Unified Operational Log Ledger & Deep Path Navigation
-- **Structured High-Density Ledger**: High-density table viewer aligning `bisync.log` events with Audit Ledger records (`TIME`, `LEVEL`, `SOURCE`, `RUN ID`, `MESSAGE`, `ACTIONS`).
-- **Run ID & Review ID Cross-Correlation**: Clickable Run ID chips (`#run-...`) linking directly to filtered Audit Ledger records and daemon traces; Review ID chips (`@rev-...`) linking to conflict review records.
-- **Deep Path Navigation**: Contextual path parser recognizing file references in log lines (`Duplicate ignored`, `Deleted`, `Transferring`) with deep links that switch to File Explorer, navigate to the target directory, and highlight the file.
-
-#### 4. Remote Cloud Web Link Navigation ("Open on Remote")
-- **Public Web Link Resolution**: Integration with Rclone RC `operations/publiclink` to retrieve canonical cloud URLs for Google Drive and OneDrive items.
-- **Explorer & Log Integration**: Quick-action link icons embedded directly in remote File Explorer rows and log path chips.
-- **Graceful Capability Degradation**: Automatic suppression of web link actions on storage tiers lacking web interfaces (local filesystem, SFTP, raw S3).
-
-#### 5. Queued Dual-Pane File Explorer Direct Upload
+#### 3. Queued Dual-Pane File Explorer Direct Upload
 - **Non-Blocking Upload Dock**: Asynchronous upload queue accepting file uploads during active synchronization (`telemetry.is_syncing === true` or POSIX flock contention) rather than returning HTTP 409 errors.
 - **Sequential Auto-Resume**: Automatically dispatches queued transfers once active sync runs finish and locks are released.
 - **Mid-Upload Lock Coordination**: Advisory upload coordination delaying scheduled sync triggers while active multipart uploads are in-flight.
+
 
 ---
 
