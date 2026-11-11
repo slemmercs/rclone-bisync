@@ -473,3 +473,134 @@ func TestProfiles_OperationalFlagsAndValidation(t *testing.T) {
 		t.Fatalf("expected 400 on prohibited custom flags in update, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+func TestProfiles_ErrorBranchesAndEdgeCases(t *testing.T) {
+	s, svc := setupTestServerWithProfiles(t)
+
+	// 1. Delete non-existent profile -> 404
+	w := doJSONReq(s, http.MethodDelete, "/api/profiles/nonexistent-prof", nil, true)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 deleting missing profile, got %d", w.Code)
+	}
+
+	// 2. Clone with invalid JSON payload -> 400
+	req := httptest.NewRequest(http.MethodPost, "/api/profiles/any/clone", bytes.NewReader([]byte("{invalid-json")))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on malformed json clone, got %d", rec.Code)
+	}
+
+	// 3. Clone non-existent source profile -> 404
+	cloneBody := map[string]string{"id": "cloned", "name": "Cloned"}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles/nonexistent-prof/clone", cloneBody, true)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 cloning missing profile, got %d", w.Code)
+	}
+
+	// 4. Rollback with invalid JSON payload -> 400
+	req = httptest.NewRequest(http.MethodPost, "/api/profiles/any/rollback", bytes.NewReader([]byte("{invalid-json")))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on malformed json rollback, got %d", rec.Code)
+	}
+
+	// 5. Rollback non-existent profile -> 404
+	rollbackBody := map[string]int{"target_version": 1}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles/nonexistent-prof/rollback", rollbackBody, true)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 rolling back missing profile, got %d", w.Code)
+	}
+
+	// 6. Rollback invalid version of existing profile -> 404
+	baseProf := &profiles.Profile{
+		ID:        "prof-valid",
+		Name:      "Valid Profile",
+		Remote:    "gdrive",
+		LocalPath: filepath.Join(s.Config.BaseDir, "valid_local"),
+		Schedule:  "manual",
+	}
+	_, err := svc.Create(context.Background(), baseProf)
+	if err != nil {
+		t.Fatalf("failed to create base profile: %v", err)
+	}
+	rollbackInvalidVer := map[string]int{"target_version": 999}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles/prof-valid/rollback", rollbackInvalidVer, true)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 rolling back nonexistent version, got %d", w.Code)
+	}
+
+	// 7. History for non-existent profile -> 404
+	w = doJSONReq(s, http.MethodGet, "/api/profiles/nonexistent-prof/history", nil, false)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 getting history for missing profile, got %d", w.Code)
+	}
+
+	// 8. Trigger sync on never-synced profile without resync -> 200 with requires_resync
+	syncBody := map[string]bool{"resync": false}
+	w = doJSONReq(s, http.MethodPost, "/api/profiles/prof-valid/sync", syncBody, true)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on initial sync without resync, got %d", w.Code)
+	}
+	var syncResp map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &syncResp)
+	if syncResp["status"] != "requires_resync" {
+		t.Fatalf("expected status requires_resync, got: %v", syncResp["status"])
+	}
+
+	// 9. Trigger sync on non-existent profile -> 404
+	w = doJSONReq(s, http.MethodPost, "/api/profiles/nonexistent-prof/sync", syncBody, true)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 syncing missing profile, got %d", w.Code)
+	}
+
+	// 10. Update profile with invalid JSON -> 400
+	req = httptest.NewRequest(http.MethodPut, "/api/profiles/prof-valid", bytes.NewReader([]byte("{bad-json")))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec = httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on malformed json update, got %d", rec.Code)
+	}
+
+	// 11. ProfileService nil error paths
+	sNil := NewServer(s.Config, nil, nil)
+	sNil.ProfileService = nil
+
+	w = doJSONReq(sNil, http.MethodPut, "/api/profiles/prof-valid", baseProf, true)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 on nil ProfileService PUT, got %d", w.Code)
+	}
+
+	w = doJSONReq(sNil, http.MethodDelete, "/api/profiles/prof-valid", nil, true)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 on nil ProfileService DELETE, got %d", w.Code)
+	}
+
+	w = doJSONReq(sNil, http.MethodPost, "/api/profiles/prof-valid/clone", cloneBody, true)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 on nil ProfileService clone, got %d", w.Code)
+	}
+
+	w = doJSONReq(sNil, http.MethodPost, "/api/profiles/prof-valid/rollback", rollbackBody, true)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 on nil ProfileService rollback, got %d", w.Code)
+	}
+
+	w = doJSONReq(sNil, http.MethodPost, "/api/profiles/prof-valid/sync", syncBody, true)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 on nil ProfileService sync, got %d", w.Code)
+	}
+
+	w = doJSONReq(sNil, http.MethodGet, "/api/profiles/prof-valid/history", nil, false)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 on nil ProfileService history, got %d", w.Code)
+	}
+}
+

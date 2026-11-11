@@ -247,3 +247,62 @@ func TestRemoteTools_DeleteRemoteConfirmation(t *testing.T) {
 		t.Fatalf("expected remote to be deleted after valid confirmation")
 	}
 }
+
+func TestExtractMapArg(t *testing.T) {
+	if extractMapArg(nil, "key") != nil {
+		t.Error("expected nil for nil args")
+	}
+	if extractMapArg("not a map", "key") != nil {
+		t.Error("expected nil for string args")
+	}
+
+	m := map[string]any{"params": map[string]any{"a": "b"}}
+	if res := extractMapArg(m, "params"); res == nil || res["a"] != "b" {
+		t.Errorf("expected parsed map, got: %v", res)
+	}
+
+	mJSON := map[string]any{"params": `{"foo":"bar"}`}
+	if res := extractMapArg(mJSON, "params"); res == nil || res["foo"] != "bar" {
+		t.Errorf("expected unmarshaled map, got: %v", res)
+	}
+
+	mBad := map[string]any{"params": `{bad json`}
+	if extractMapArg(mBad, "params") != nil {
+		t.Error("expected nil for invalid JSON string")
+	}
+
+	mEmpty := map[string]any{"params": "   "}
+	if extractMapArg(mEmpty, "params") != nil {
+		t.Error("expected nil for empty string")
+	}
+
+	mWrong := map[string]any{"params": 123}
+	if extractMapArg(mWrong, "params") != nil {
+		t.Error("expected nil for integer value")
+	}
+}
+
+func TestNormalizeDecision(t *testing.T) {
+	decisions := []struct {
+		input    string
+		expected models.ActionDecision
+		valid    bool
+	}{
+		{"keep-local", models.DecisionKeepLocal, true},
+		{"keep_remote", models.DecisionKeepRemote, true},
+		{"KEEP-BOTH", models.DecisionKeepBoth, true},
+		{"accept_delete", models.DecisionAcceptDelete, true},
+		{"restore-item", models.DecisionRestoreItem, true},
+		{"skip", models.DecisionSkip, true},
+		{"dismiss", "dismiss", true},
+		{"unknown-action", "", false},
+	}
+
+	for _, d := range decisions {
+		dec, ok := normalizeDecision(d.input)
+		if ok != d.valid || dec != d.expected {
+			t.Errorf("normalizeDecision(%q) = (%q, %v); expected (%q, %v)", d.input, dec, ok, d.expected, d.valid)
+		}
+	}
+}
+

@@ -348,3 +348,17 @@ func TestStore_MultiProcessSynchronizationAndNoSettingsClobber(t *testing.T) {
 		t.Errorf("expected LastDurationSec 12.5, got %f", reloaded.State.LastDurationSec)
 	}
 }
+
+func TestProfileService_StoreAccessor(t *testing.T) {
+	tmpDir := t.TempDir()
+	storePath := filepath.Join(tmpDir, "profiles.json")
+	histPath := filepath.Join(tmpDir, "history.json")
+	store, err := NewStore(storePath, histPath)
+	if err != nil {
+		t.Fatalf("failed to init store: %v", err)
+	}
+	svc := NewService(store, nil, nil)
+	if svc.Store() != store {
+		t.Fatal("expected Store() to return underlying store")
+	}
+}

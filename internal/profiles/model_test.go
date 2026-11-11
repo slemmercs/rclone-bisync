@@ -84,6 +84,32 @@ func TestMaxDeleteValue_FlexibleTypes(t *testing.T) {
 	}
 }
 
+func TestMaxDeleteValue_StringAndMarshal(t *testing.T) {
+	mv := MaxDeleteValue("50")
+	if mv.String() != "50" {
+		t.Errorf("expected '50', got %q", mv.String())
+	}
+	data, err := json.Marshal(mv)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	if string(data) != "50" {
+		t.Errorf("expected 50 (number), got %s", string(data))
+	}
+
+	mvPct := MaxDeleteValue("50%")
+	if mvPct.String() != "50%" {
+		t.Errorf("expected '50%%', got %q", mvPct.String())
+	}
+	dataPct, err := json.Marshal(mvPct)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	if string(dataPct) != `"50%"` {
+		t.Errorf("expected \"50%%\", got %s", string(dataPct))
+	}
+}
+
 func TestProfile_Validate_EnumsAndNormalization(t *testing.T) {
 	strPtr := func(s string) *string { return &s }
 
