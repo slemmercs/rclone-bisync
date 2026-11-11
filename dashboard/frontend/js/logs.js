@@ -228,15 +228,9 @@ window.LogsModule = {
         }
     },
 
-    async openDaemonModal(entry) {
-        this.showDaemonModal = true;
+    async fetchDaemonLogs(entry = null) {
         this.daemonModalLoading = true;
         this.daemonModalRun = entry || null;
-        this.daemonModalLogs = [];
-        this.daemonModalSearch = "";
-        this.daemonModalLevelFilter = "all";
-        this.daemonModalCopied = false;
-        this.daemonModalCopiedJSON = false;
         this.daemonModalError = null;
 
         let url = "/api/logs/daemon?limit=500";
@@ -249,14 +243,8 @@ window.LogsModule = {
 
         try {
             const data = await window.API.get(url);
-            if (data && data.error) {
-                this.daemonModalError = data.error;
-            }
-            if (data && Array.isArray(data.logs)) {
-                this.daemonModalLogs = unwrapAndParseLogLines(data.logs);
-            } else {
-                this.daemonModalLogs = [];
-            }
+            if (data && data.error) this.daemonModalError = data.error;
+            this.daemonModalLogs = (data && Array.isArray(data.logs)) ? unwrapAndParseLogLines(data.logs) : [];
         } catch (err) {
             console.error("Failed to fetch daemon logs:", err);
             const msg = err && err.message ? err.message : "Failed to connect to daemon log endpoint";
@@ -265,6 +253,15 @@ window.LogsModule = {
         } finally {
             this.daemonModalLoading = false;
         }
+    },
+
+    async openDaemonModal(entry) {
+        this.showDaemonModal = true;
+        this.daemonModalSearch = "";
+        this.daemonModalLevelFilter = "all";
+        this.daemonModalCopied = false;
+        this.daemonModalCopiedJSON = false;
+        await this.fetchDaemonLogs(entry);
     },
 
     closeDaemonModal() {
