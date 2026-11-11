@@ -260,4 +260,3 @@ func TestProfile_Validate_EnumsAndNormalization(t *testing.T) {
 		}
 	})
 }
-

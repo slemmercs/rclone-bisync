@@ -1,69 +1,61 @@
-# Implementation Plan: Cockpit UI/UX Usability Polish & Bug Fixes
+# Implementation Plan: Enforce UI-Aligned Enums & Validation for MCP & Profile Configurations
 
-## Overview
-Deliver a targeted usability and bug-fix overhaul addressing the 5 user-reported issues in the Bisync Hub cockpit:
-1. Enable an inline expandable MCP Tool Registry accordion within the System Health modal's MCP Agent Server tab displaying all 24 registered tools and resources with tool search and safety mode badges.
-2. Resolve missing OAuth vs Custom Credentials segmented toggle in Remote Creation Wizard Step 2 by exposing `SupportsOAuth` on backend `ProviderCatalogItem` and adding frontend provider prefix matching fallback.
-3. Add full abort/cancellation capability to Remote Creation Wizard Step 3 during provisioning via an explicit "Cancel Provisioning" button, window close handler, and `POST /api/remotes/auth/oauth-stop`.
-4. Surface active remote names and clickable linkouts (`switchTab('remotes')`) directly in the Fleet onboarding hero card's "Remotes Ready" badge and remote summary pills.
-5. Consolidate the two stacked bars in the Storage Remotes view ("Authentication Health Overview" and "Configured Remotes") into a single cohesive control deck.
+## Proposed Changes
 
-## Types
-- `internal/models/provider.go`:
-  - Add `SupportsOAuth bool `json:"supports_oauth"`` to `ProviderCatalogItem` struct.
+Enforce strict validation across all profile configuration entry points—specifically MCP tools (`bisync_create_profile`, `bisync_update_profile`, `bisync_create_remote`) and backend domain models (`internal/profiles`)—so that MCP tools and API callers cannot set options outside what is defined and supported in the dashboard UI.
 
-## Files
-- Existing files to modify:
-  - `internal/models/provider.go`: Add `SupportsOAuth bool `json:"supports_oauth"`` to `ProviderCatalogItem`.
-  - `internal/services/remote_wizard_service.go`: Set `SupportsOAuth` during catalog assembly using `remoteauth.IsOAuthProvider(p.Name) || remoteauth.IsOAuthProvider(p.Prefix)`.
-  - `dashboard/frontend/partials/modals/modal_system_health.html`: Make the MCP Tool Registry card interactive (`cursor-pointer`, active highlight, chevron), embed the 24-tool catalog inline accordion with search and parameter details.
-  - `dashboard/frontend/js/system_health.js`: Add `mcpToolsExpanded: false`, `mcpToolsSearch: ""`, and filtering helper `filteredMcpTools`.
-  - `dashboard/frontend/partials/modals/modal_create_remote.html`: Add frontend OAuth check fallback `isOAuthProvider(createRemoteModal.selectedProvider)`, add Cancel button in Step 3 when `createRemoteModal.saving` is true, and enable Back/Cancel navigation.
-  - `dashboard/frontend/js/remotes_wizard.js`: Add `isOAuthProvider(p)`, add `cancelProvisioning()` method calling `window.API.post("/api/remotes/auth/oauth-stop")` and aborting in-flight request, update `closeCreateRemoteWizard()` to abort if saving.
-  - `dashboard/frontend/partials/view_fleet.html`: Make Step 1 readiness badge clickable (`@click="switchTab('remotes')"`), display active ready remote badges (e.g. `drive:`, `s3:`), and add linkout button.
-  - `dashboard/frontend/partials/view_remotes.html`: Merge the Authentication Health Bar and Configured Remotes Control Bar into a single unified header bar.
-  - `tests/e2e/dashboard_smoke_test.go`: Add E2E tests for the new interactions.
+### 1. Domain Model Validation (`internal/profiles/model.go`)
+- Define allowed sets as constants/slices:
+  - **Schedules**: `manual`, `15m`, `30m`, `1h`, `4h`, `daily`
+  - **Review Modes**: `disabled`, `deletions`, `conflicts`, `all`
+  - **Conflict Resolve Modes**: `path1`, `path2`, `newer`, `older`, `larger`, `smaller`
+  - **Compare Modes**: `size,modtime`, `size,modtime,checksum`, `checksum`, `modtime`
+  - **Notification Preferences**: `all`, `failures-only`, `review-required`, `disabled`
+- Add concrete error types: `ErrInvalidSchedule`, `ErrInvalidReviewMode`, `ErrInvalidConflictMode`, `ErrInvalidCompareMode`, `ErrInvalidNotificationPref`.
+- In `(*Profile).Validate()`:
+  - Validate `Schedule` against the allowed set (case-insensitive trim, default to `manual` if empty).
+  - Validate `ReviewMode` against the allowed set (default to `disabled` if empty).
+  - Validate `NotificationPref` against the allowed set (default to `failures-only` if empty).
+  - Validate `Flags.ConflictResolve` if set against the allowed set.
+  - Validate `Flags.CompareMode` if set against the allowed set.
+  - Normalize `Remote` by stripping trailing colons (`strings.TrimRight(remote, ":")`) so remote identifiers are consistently stored without colon suffixes.
 
-## Functions
-- `internal/services/remote_wizard_service.go`:
-  - `GetProvidersCatalog(ctx context.Context, forceRefresh bool)`: Enrich catalog items with `SupportsOAuth`.
-- `dashboard/frontend/js/system_health.js`:
-  - `toggleMcpToolCatalog()`: Toggles inline accordion visibility.
-  - `filteredMcpTools`: Filter registered tools by name and description query.
-- `dashboard/frontend/js/remotes_wizard.js`:
-  - `isOAuthProvider(p)`: Helper checking `p.supports_oauth` or common OAuth provider prefixes (`drive`, `onedrive`, `dropbox`, `box`, `pcloud`, `yandex`, etc.).
-  - `cancelProvisioning()`: Aborts in-flight create remote request and calls `/api/remotes/auth/oauth-stop`.
+### 2. MCP Tools Schema & Handler Validation (`internal/mcp/tools_profile.go`, `internal/mcp/tools_remote.go`)
+- Update `bisync_create_profile`, `bisync_update_profile`, and `bisync_create_remote` tool schemas:
+  - `schedule`: Update description to explicitly document the allowed values: `'manual', '15m', '30m', '1h', '4h', 'daily'`.
+  - `conflict_mode`: Update description to include `'path1', 'path2', 'newer', 'older', 'larger', 'smaller'`.
+  - Expose `review_mode` parameter on `bisync_create_profile` and `bisync_update_profile` with allowed values `'disabled', 'deletions', 'conflicts', 'all'`.
+  - Expose `compare_mode` parameter on `bisync_create_profile` and `bisync_update_profile` with allowed values `'size,modtime', 'size,modtime,checksum', 'checksum', 'modtime'`.
+- In MCP handler execution (`handleCreateProfile`, `handleUpdateProfile`, `handleCreateRemote`):
+  - Pre-validate inputs against the allowed sets with descriptive error messages before persisting.
+  - Normalize remote name by trimming trailing colons.
 
-## Classes
-- None (zero class inheritance; standard Alpine.js reactive objects and idiomatic Go structs).
+### 3. Frontend Telemetry & Explorer Display Resilience (`dashboard/frontend/partials/view_telemetry.html`, `dashboard/frontend/js/system_health.js`)
+- In `view_telemetry.html`, format remote target cleanly as `${p.remote.replace(/:+$/, '')}:${p.remote_path ? p.remote_path.replace(/^\/+/, '') : ''}` to prevent double colons (e.g., `local_backup::backup_store`).
+- In `dashboard/frontend/js/system_health.js`, update the registered MCP tool catalog schema descriptions in `mcpTools` to match the exact allowed parameters and options.
 
-## Dependencies
-- None (native Go standard library and Alpine.js zero-build architecture).
+### 4. Tests & Quality Gate
+- Update unit tests in `internal/profiles/model_test.go`, `internal/mcp/tools_profile_test.go`, and `internal/services/remote_wizard_service_test.go` to use valid UI schedules (e.g., `"1h"`, `"15m"`) instead of arbitrary cron expressions (`"0 * * * *"`), and add negative tests asserting rejection of unauthorized options.
+- Run full pre-commit gate (`./scripts/check.sh all`).
 
-## Testing
-- `internal/services/remote_wizard_service_test.go`: Verify `SupportsOAuth` is populated correctly for `drive` and `s3`.
-- `tests/e2e/dashboard_smoke_test.go`:
-  - Verify clicking MCP Tool Registry expands the inline tool list.
-  - Verify selecting Google Drive displays the OAuth vs Custom toggle in Step 2.
-  - Verify Cancel button appears during Step 3 provisioning and halts the action.
-  - Verify clicking Fleet onboarding ready badge navigates to `remotes` tab.
-  - Verify Remotes view has a single consolidated control bar.
+### Affected Components & Packages
+- `internal/profiles/model.go`: Domain enum constants and validation logic.
+- `internal/profiles/model_test.go`: Unit tests for profile validation.
+- `internal/mcp/tools_profile.go`: Tool registration schemas and handlers for profile CRUD.
+- `internal/mcp/tools_remote.go`: Remote creation bridge schedule documentation and validation.
+- `internal/mcp/tools_profile_test.go`: MCP profile tool tests with valid UI selections.
+- `internal/services/remote_wizard_service_test.go`: Bridge tests with valid schedules.
+- `dashboard/frontend/partials/view_telemetry.html`: Contract banner remote path display formatting.
+- `dashboard/frontend/js/system_health.js`: Registry schema descriptions.
 
-## Explorer Breadcrumb & Header Path Squashing Fix
-- Problem: In `dashboard/frontend/partials/view_explorer.html`, unlocking the remote selector renders `<select>` and lock button into the same single horizontal row as the target badge, Canary pill, New Folder, and Upload actions. This exhausts row width on dual panes (550-650px wide), squashing the breadcrumb `<div class="overflow-x-auto">` down to ~30px and displaying a truncated horizontal scrollbar right under the remote name.
-- Solution:
-  1. Add `.no-scrollbar` utility in `dashboard/frontend/css/design-tokens.css` to hide horizontal scrollbar bars on overflowed breadcrumb trails.
-  2. Structure each explorer pane header into a clean two-tier layout:
-     - Tier 1: Pane Header Bar containing Target badge (`LOCAL`/`REMOTE`), Remote selector / lock pill, Canary pill, Touch, New Folder, and Upload.
-     - Tier 2: Dedicated Breadcrumb Location Bar containing Folder icon, full-width interactive breadcrumb trail, and Copy Path button.
-  3. Ensure symmetric support for both left and right panes.
+### Safety & Error Handling
+- Strict validation rejects invalid inputs at the API / MCP boundary before any filesystem, scheduler, or DB writes.
+- Clean backward compatibility: empty values still default safely (`manual` schedule, `disabled` review mode, `failures-only` notifications).
 
-- Quality Gate: `./scripts/check.sh all` passing 7/7 stages.
-
-## Implementation Order
-1. Backend & Model: Update `internal/models/provider.go` and `internal/services/remote_wizard_service.go` to expose `supports_oauth`.
-2. Wizard Step 2 & 3: Fix OAuth toggle detection in `modal_create_remote.html` and `remotes_wizard.js`; implement `cancelProvisioning()` with `stopOAuth()`.
-3. System Health MCP Accordion: Implement inline expandable tool catalog in `modal_system_health.html` and `system_health.js`.
-4. Fleet Hero Onboarding: Add ready remote tags and clickable tab switch in `view_fleet.html`.
-5. Remotes Control Deck: Consolidate the two stacked bars into one unified bar in `view_remotes.html`.
-6. E2E Tests & Pre-commit Quality Gate: Update headless Chrome assertions and verify `./scripts/check.sh all`.
+## Verification Plan
+1. Unit Tests:
+   - `go test -count=1 ./internal/profiles/...`
+   - `go test -count=1 ./internal/mcp/...`
+   - `go test -count=1 ./internal/services/...`
+2. Full Quality Gate:
+   - `./scripts/check.sh all`
