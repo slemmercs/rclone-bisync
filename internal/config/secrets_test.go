@@ -107,4 +107,3 @@ func TestUpdateRemoveSecret_ValidationErrors(t *testing.T) {
 		t.Error("expected error creating directory under /dev/null")
 	}
 }
-

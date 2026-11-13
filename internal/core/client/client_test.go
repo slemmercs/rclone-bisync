@@ -933,4 +933,3 @@ func TestQuit(t *testing.T) {
 		t.Fatal("expected server to receive /core/quit")
 	}
 }
-

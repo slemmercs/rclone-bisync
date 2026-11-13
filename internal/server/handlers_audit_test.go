@@ -397,7 +397,6 @@ func TestHandleAuditReset(t *testing.T) {
 	}
 }
 
-
 func TestAuditReset(t *testing.T) {
 	srv, auditSvc := setupTestServerWithAudit(t)
 	defer auditSvc.Close()

@@ -212,4 +212,3 @@ func TestHandleConfigEncryption_NilService(t *testing.T) {
 		}
 	}
 }
-

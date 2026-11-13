@@ -115,4 +115,3 @@ func TestIsOAuthProvider(t *testing.T) {
 		}
 	}
 }
-

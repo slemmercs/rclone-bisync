@@ -368,4 +368,3 @@ func TestExplorerOpsTools_ResolveHelpers(t *testing.T) {
 		t.Errorf("expected nil patterns for nil container")
 	}
 }
-

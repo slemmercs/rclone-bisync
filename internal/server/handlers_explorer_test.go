@@ -736,4 +736,3 @@ func TestResolveExcludePatterns(t *testing.T) {
 		t.Errorf("expected local path %q, got %q", srv.Config.LocalPath, path)
 	}
 }
-

@@ -237,4 +237,3 @@ func TestDiagnostics_UnitChecks(t *testing.T) {
 		t.Errorf("expected warning when both services nil, got: %+v", remCheck)
 	}
 }
-

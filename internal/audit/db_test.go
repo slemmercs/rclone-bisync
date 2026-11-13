@@ -100,4 +100,3 @@ func TestRunMigrations_ClosedDB(t *testing.T) {
 		t.Error("expected error running migrations on closed DB")
 	}
 }
-

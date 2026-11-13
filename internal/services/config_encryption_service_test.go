@@ -368,4 +368,3 @@ func TestConfigEncryptionService_RestartDaemon(t *testing.T) {
 		t.Fatalf("unexpected error when client is nil: %v", err)
 	}
 }
-
