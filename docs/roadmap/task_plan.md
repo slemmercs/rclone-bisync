@@ -15,7 +15,7 @@ Extract and surface individual transferred files from bisync executions in the L
   - **Action**: Implement `ExtractTransferredFiles` supporting JSON objects and plain-text regex fallback, capped at 50. Populate `TransferredFiles` on `MonitorJobResult`.
   - **Verification**: `go test -count=1 -v ./internal/core/client -run TestExtractTransferredFiles`
 
-- [ ] Task 2: Sync Runner File Operation Ingestion & Capping (`internal/engine/runner/`)
+- [x] Task 2: Sync Runner File Operation Ingestion & Capping (`internal/engine/runner/`)
   - **Scope**: `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
   - **Action**: In `handleSyncSuccess`, record up to 50 `sync_file` log entries to `bisync.log` with `Object`, `Action`, and `Msg`. Add overflow notice and daemon log fallback.
   - **Verification**: `go test -count=1 -v ./internal/engine/runner -run TestSyncRunner`
@@ -40,3 +40,4 @@ Extract and surface individual transferred files from bisync executions in the L
 - 2026-11-13: Initialized task plan for surfacing synced files in Log Dock.
 - 2026-11-13: Completed Task 0 - Checked out feat/deep-path-nav-log-dock and fast-forward merged fix/bisync-transfer-stats-and-ledger.
 - 2026-11-13: Completed Task 1 - Implemented ExtractTransferredFiles in client/monitor.go parsing JSON objects and text lines, added SyncFileOp to models/api.go, and verified with go test.
+- 2026-11-13: Completed Task 2 - Ingested TransferredFiles into bisync.log as sync_file entries with 50-file capping, overflow warnings, and daemon log fallback in handleSyncSuccess; verified with comprehensive unit tests.

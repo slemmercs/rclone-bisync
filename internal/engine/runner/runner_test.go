@@ -19,6 +19,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/core/lock"
 	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 func TestSyncRunnerExecution(t *testing.T) {
@@ -672,5 +673,160 @@ func TestRunWithError(t *testing.T) {
 	}
 	if !strings.Contains(fmt.Sprint(syncEntry["msg"]), "Sync started") {
 		t.Fatalf("expected 'Sync started' in msg, got %v", syncEntry["msg"])
+	}
+}
+
+func TestSyncRunner_TransferredFilesIngestion(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "bisync.log")
+
+	cfg := &config.Config{
+		BaseDir:     tmpDir,
+		LogFile:     logPath,
+		ProfileID:   "drive",
+		ProfileName: "Google Drive",
+	}
+	r := NewSyncRunner(cfg)
+
+	monitorRes := client.MonitorJobResult{
+		Success:     true,
+		FilesSynced: 2,
+		TransferredFiles: []models.SyncFileOp{
+			{Path: "subfolder/a.txt", Action: "COPIED", Msg: "subfolder/a.txt: Copied (new)"},
+			{Path: "notes.pdf", Action: "REPLACED", Msg: "notes.pdf: Copied (replaced)"},
+		},
+	}
+
+	ok := r.handleSyncSuccess("run_files_1", 101, "dashboard", time.Now(), 1.2, monitorRes, false, false, false, true, state.NotificationState{})
+	if !ok {
+		t.Fatalf("expected handleSyncSuccess to return true")
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 3 { // 1 parent sync + 2 sync_file
+		t.Fatalf("expected 3 log entries, got %d: %s", len(lines), string(data))
+	}
+
+	var file1, file2 map[string]interface{}
+	if err := json.Unmarshal([]byte(lines[1]), &file1); err != nil {
+		t.Fatalf("failed to parse file1 JSON: %v", err)
+	}
+	if file1["type"] != "sync_file" || file1["object"] != "subfolder/a.txt" || file1["action"] != "COPIED" {
+		t.Fatalf("unexpected file1 entry: %+v", file1)
+	}
+
+	if err := json.Unmarshal([]byte(lines[2]), &file2); err != nil {
+		t.Fatalf("failed to parse file2 JSON: %v", err)
+	}
+	if file2["type"] != "sync_file" || file2["object"] != "notes.pdf" || file2["action"] != "REPLACED" {
+		t.Fatalf("unexpected file2 entry: %+v", file2)
+	}
+}
+
+func TestSyncRunner_TransferredFilesCappingAndOverflow(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "bisync.log")
+
+	cfg := &config.Config{
+		BaseDir:     tmpDir,
+		LogFile:     logPath,
+		ProfileID:   "backup",
+		ProfileName: "Backup",
+	}
+	r := NewSyncRunner(cfg)
+
+	// Generate 55 operations
+	ops := make([]models.SyncFileOp, 55)
+	for i := 0; i < 55; i++ {
+		ops[i] = models.SyncFileOp{
+			Path:   fmt.Sprintf("file_%d.txt", i),
+			Action: "COPIED",
+			Msg:    fmt.Sprintf("file_%d.txt: Copied (new)", i),
+		}
+	}
+
+	monitorRes := client.MonitorJobResult{
+		Success:          true,
+		FilesSynced:      55,
+		TransferredFiles: ops,
+	}
+
+	ok := r.handleSyncSuccess("run_overflow_1", 102, "dashboard", time.Now(), 3.5, monitorRes, false, false, false, true, state.NotificationState{})
+	if !ok {
+		t.Fatalf("expected handleSyncSuccess to return true")
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	// Expected: 1 parent sync + 50 sync_file + 1 sync_overflow = 52
+	if len(lines) != 52 {
+		t.Fatalf("expected 52 entries (1 parent + 50 capped files + 1 overflow), got %d", len(lines))
+	}
+
+	var overflowEntry map[string]interface{}
+	if err := json.Unmarshal([]byte(lines[51]), &overflowEntry); err != nil {
+		t.Fatalf("failed to parse overflow entry: %v", err)
+	}
+	if overflowEntry["type"] != "sync_overflow" {
+		t.Fatalf("expected type sync_overflow, got %v", overflowEntry["type"])
+	}
+	if !strings.Contains(fmt.Sprint(overflowEntry["msg"]), "5 more transferred files omitted") {
+		t.Fatalf("expected overflow count in msg, got %v", overflowEntry["msg"])
+	}
+}
+
+func TestSyncRunner_TransferredFilesDaemonLogFallback(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "bisync.log")
+	daemonLog := filepath.Join(tmpDir, "rclone-daemon.log")
+
+	// Write daemon log with transfers
+	rawDaemon := "2026/11/13 12:00:00 INFO  : fallback/item1.txt: Copied (new)\n2026/11/13 12:00:01 INFO  : fallback/item2.txt: Deleted\n"
+	if err := os.WriteFile(daemonLog, []byte(rawDaemon), 0644); err != nil {
+		t.Fatalf("failed to write daemon log: %v", err)
+	}
+
+	cfg := &config.Config{
+		BaseDir:     tmpDir,
+		LogFile:     logPath,
+		ProfileID:   "fallback-prof",
+		ProfileName: "Fallback",
+	}
+	r := NewSyncRunner(cfg)
+
+	// TransferredFiles empty, but FilesSynced = 2
+	monitorRes := client.MonitorJobResult{
+		Success:          true,
+		FilesSynced:      2,
+		TransferredFiles: nil,
+	}
+
+	ok := r.handleSyncSuccess("run_fallback_1", 103, "dashboard", time.Now(), 0.8, monitorRes, false, false, false, true, state.NotificationState{})
+	if !ok {
+		t.Fatalf("expected handleSyncSuccess to return true")
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 3 { // 1 parent sync + 2 fallback sync_file
+		t.Fatalf("expected 3 log entries from daemon log fallback, got %d: %s", len(lines), string(data))
+	}
+
+	var f1 map[string]interface{}
+	if err := json.Unmarshal([]byte(lines[1]), &f1); err != nil {
+		t.Fatalf("failed to parse fallback entry: %v", err)
+	}
+	if f1["object"] != "fallback/item1.txt" || f1["action"] != "COPIED" {
+		t.Fatalf("unexpected fallback file1: %+v", f1)
 	}
 }
