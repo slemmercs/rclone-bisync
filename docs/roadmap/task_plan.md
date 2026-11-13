@@ -25,7 +25,7 @@ Extract and surface individual transferred files from bisync executions in the L
   - **Action**: Add pagination pill controls (`[ < Page X of Y > ]`), entry count badge, and action badge styling for `sync_file` rows.
   - **Verification**: `./scripts/check.sh templates`
 
-- [ ] Task 4: Log Dock Pagination Engine & File Ops Filtering (`log_dock.js` & `logs.js`)
+- [x] Task 4: Log Dock Pagination Engine & File Ops Filtering (`log_dock.js` & `logs.js`)
   - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/js/logs.js`
   - **Action**: Add `loadDockNextPage()`, `loadDockPrevPage()`, and update `isFileOperationLog` to include `sync_file`. Ensure files remain strictly under 400 LOC.
   - **Verification**: `./scripts/check.sh loc 400`
@@ -42,3 +42,4 @@ Extract and surface individual transferred files from bisync executions in the L
 - 2026-11-13: Completed Task 1 - Implemented ExtractTransferredFiles in client/monitor.go parsing JSON objects and text lines, added SyncFileOp to models/api.go, and verified with go test.
 - 2026-11-13: Completed Task 2 - Ingested TransferredFiles into bisync.log as sync_file entries with 50-file capping, overflow warnings, and daemon log fallback in handleSyncSuccess; verified with comprehensive unit tests.
 - 2026-11-13: Completed Task 3 - Updated component_log_dock.html with pagination controls, safe helper bindings, sync_file action badges, overflow notice, and path navigation chips. Passed ./scripts/check.sh templates.
+- 2026-11-13: Completed Task 4 - Implemented pagination engine (loadDockNextPage, loadDockPrevPage, getDockTotalPages, isDockPrevDisabled, isDockNextDisabled), action badges (getDockActionBadgeClass, getDockActionLabel), sync_file recognition in isFileOperationLog, and navigateToExplorer alias in log_dock.js. Verified with ./scripts/check.sh loc 400.

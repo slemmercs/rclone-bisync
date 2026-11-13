@@ -15,7 +15,7 @@
                 <span class="truncate">Live Sync Log Dock</span>
             </div>
             <!-- Count Badge -->
-            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700/60" x-text="getFilteredDockLogs().length + ' entries'"></span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700/60" x-text="(typeof getDockTotalEntries === 'function' ? getDockTotalEntries() : getFilteredDockLogs().length) + ' entries'"></span>
             <!-- Pagination Controls if total pages > 1 -->
             <div class="flex items-center gap-1 text-[10px] font-mono bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5" x-show="(typeof getDockTotalPages === 'function' ? getDockTotalPages() : 1) > 1">
                 <button type="button" @click="typeof loadDockPrevPage === 'function' && loadDockPrevPage()" :disabled="isDockPrevDisabled()" class="text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer" title="Previous page">&lt;</button>
@@ -32,9 +32,9 @@
         <div class="flex items-center gap-2 shrink-0">
             <!-- Filter Pills -->
             <div class="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono">
-                <button type="button" @click="logDock.activeFilter = 'all'" :class="logDock.activeFilter === 'all' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer">All</button>
-                <button type="button" @click="logDock.activeFilter = 'file_ops'" :class="(logDock.activeFilter === 'file_ops' || logDock.activeFilter === 'mutations') ? 'bg-amber-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer" title="Transfers, deletes, uploads, conflicts">File Ops</button>
-                <button type="button" @click="logDock.activeFilter = 'errors'" :class="logDock.activeFilter === 'errors' ? 'bg-rose-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer">Errors</button>
+                <button type="button" @click="typeof setLogDockFilter === 'function' ? setLogDockFilter('all') : (logDock.activeFilter = 'all')" :class="logDock.activeFilter === 'all' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer">All</button>
+                <button type="button" @click="typeof setLogDockFilter === 'function' ? setLogDockFilter('file_ops') : (logDock.activeFilter = 'file_ops')" :class="(logDock.activeFilter === 'file_ops' || logDock.activeFilter === 'mutations') ? 'bg-amber-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer" title="Transfers, deletes, uploads, conflicts">File Ops</button>
+                <button type="button" @click="typeof setLogDockFilter === 'function' ? setLogDockFilter('errors') : (logDock.activeFilter = 'errors')" :class="logDock.activeFilter === 'errors' ? 'bg-rose-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer">Errors</button>
             </div>
 
             <!-- Auto-scroll Toggle -->
