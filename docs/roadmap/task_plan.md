@@ -9,7 +9,7 @@ Fix zero-transfer counting in bisync job completion by pulling group stats from 
   - **Scope**: `internal/core/client/monitor.go`, `internal/core/client/monitor_test.go`
   - **Verification**: `go test -count=1 -v ./internal/core/client -run TestMonitorJob`
 
-- [ ] Task 2: Mirror Object Path in Audit Log Message (`internal/services/audit_service.go`, `audit_service_test.go`)
+- [x] Task 2: Mirror Object Path in Audit Log Message (`internal/services/audit_service.go`, `audit_service_test.go`)
   - **Scope**: `internal/services/audit_service.go`, `internal/services/audit_service_test.go`
   - **Verification**: `go test -count=1 -v ./internal/services -run TestAuditService`
 
@@ -29,6 +29,7 @@ Fix zero-transfer counting in bisync job completion by pulling group stats from 
 
 - 2026-11-13: Initialized task plan from implementation_plan.md.
 - 2026-11-13: Completed Task 1 - Added group stats transfer extraction from `/core/stats` and stdout log parsing fallback in `MonitorJob` (`internal/core/client/monitor.go`), verified with `go test -count=1 -v ./internal/core/client -run TestMonitorJob`.
+- 2026-11-13: Completed Task 2 - Mirrored object target path into `Msg` in `RecordEvent` (`internal/services/audit_service.go`), verified with `go test -count=1 -v ./internal/services -run TestAuditService`.
 
 
 

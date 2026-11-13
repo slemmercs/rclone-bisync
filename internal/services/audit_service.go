@@ -70,11 +70,16 @@ func (s *AuditService) RecordEvent(profileID string, action audit.Action, actor 
 			objectTarget = p
 		}
 
+		msg := fmt.Sprintf("[%s] %s by %s", record.ProfileID, record.Action, record.Actor)
+		if objectTarget != "" {
+			msg = fmt.Sprintf("[%s] %s: %s by %s", record.ProfileID, record.Action, objectTarget, record.Actor)
+		}
+
 		logEntry := models.AuditLogRecord{
 			Time:      record.Timestamp,
 			Level:     "info",
 			Type:      "audit",
-			Msg:       fmt.Sprintf("[%s] %s by %s", record.ProfileID, record.Action, record.Actor),
+			Msg:       msg,
 			Object:    objectTarget,
 			SeqID:     record.SeqID,
 			ProfileID: record.ProfileID,
