@@ -2,9 +2,12 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
+	"net/http"
+	"strings"
 	"time"
 )
 
@@ -64,16 +67,7 @@ func (c *RcloneClient) MonitorJob(
 				success, _ := status["success"].(bool)
 				errorMsg, _ := status["error"].(string)
 
-				filesSynced := 0
-				if outputData, ok := status["output"].(map[string]interface{}); ok {
-					if transfers, ok := outputData["transfers"].(float64); ok {
-						filesSynced = int(transfers)
-					} else if stats, ok := outputData["stats"].(map[string]interface{}); ok {
-						if transfers, ok := stats["transfers"].(float64); ok {
-							filesSynced = int(transfers)
-						}
-					}
-				}
+				filesSynced := c.extractTransfers(ctx, status)
 
 				if success {
 					slog.Debug("Job completed successfully", "job_id", jobID, "elapsed_sec", elapsed.Seconds(), "files_transferred", filesSynced)
@@ -109,3 +103,57 @@ func (c *RcloneClient) MonitorJob(
 		}
 	}
 }
+
+// extractTransfers determines the number of transferred files by checking output data,
+// querying /core/stats with the job's group, or parsing the output log text.
+func (c *RcloneClient) extractTransfers(ctx context.Context, status map[string]interface{}) int {
+	outputData, _ := status["output"].(map[string]interface{})
+	if outputData != nil {
+		if transfers, ok := outputData["transfers"].(float64); ok && transfers > 0 {
+			return int(transfers)
+		}
+		if stats, ok := outputData["stats"].(map[string]interface{}); ok {
+			if transfers, ok := stats["transfers"].(float64); ok && transfers > 0 {
+				return int(transfers)
+			}
+		}
+	}
+
+	// 1. Authoritative: query /core/stats for the job's group if available
+	if group, ok := status["group"].(string); ok && group != "" {
+		if transfers := c.queryGroupTransfers(ctx, group); transfers > 0 {
+			return transfers
+		}
+	}
+
+	// 2. Fallback: parse copy operation occurrences in stdout log
+	if outputData != nil {
+		if outStr, ok := outputData["output"].(string); ok && outStr != "" {
+			count := strings.Count(outStr, "Copied (new)") + strings.Count(outStr, "Copied (replaced)")
+			if count > 0 {
+				return count
+			}
+		}
+	}
+
+	return 0
+}
+
+func (c *RcloneClient) queryGroupTransfers(ctx context.Context, group string) int {
+	resp, body, err := c.post(ctx, "core/stats", map[string]interface{}{"group": group}, 2*time.Second)
+	if err != nil || resp == nil || resp.StatusCode != http.StatusOK {
+		return 0
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return 0
+	}
+	if transfers, ok := raw["transfers"].(float64); ok && transfers > 0 {
+		return int(transfers)
+	}
+	if total, ok := raw["totalTransfers"].(float64); ok && total > 0 {
+		return int(total)
+	}
+	return 0
+}
+

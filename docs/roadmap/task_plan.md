@@ -1,37 +1,34 @@
-# Task Plan: Coverage Buffer (>86%), Multi-Upload, File Ops Filter, & File-Level Deep Nav
+# Task Plan: Fix Bisync Transfer Counting & Unified Ledger Visibility
 
 ## Goal
-Elevate test coverage to >86.0% (resolving the nightly deep quality GitHub Actions failure `84.9% < 85.0%`), and implement multi-file batch uploads, file-level deep navigation/pulsing in subdirectories, and strict "File Ops" log filtering.
+Fix zero-transfer counting in bisync job completion by pulling group stats from `/core/stats` (with log text fallback), enrich mirrored audit records with file paths, prevent identical file uploads from folding into single clusters in the Unified Ledger, and auto-refresh paginated logs on Explorer uploads.
 
 ## Tasks
 
-- [x] Task 1: Boost Unit Test Coverage Buffer (>86.0%) Across Models, Services, and Server
-  - **Scope**: `internal/models/provider_test.go`, `internal/services/explorer_ops_test.go`, `internal/services/explorer_preview_test.go`, `internal/server/handlers_explorer_test.go`
-  - **Verification**: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`
+- [x] Task 1: Accurate Transfer Counting in `MonitorJob` (`internal/core/client/monitor.go`, `monitor_test.go`)
+  - **Scope**: `internal/core/client/monitor.go`, `internal/core/client/monitor_test.go`
+  - **Verification**: `go test -count=1 -v ./internal/core/client -run TestMonitorJob`
 
-- [x] Task 2: Multi-File Selection & Desktop Drag-and-Drop Batch Upload
-  - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/js/explorer_actions.js`
+- [ ] Task 2: Mirror Object Path in Audit Log Message (`internal/services/audit_service.go`, `audit_service_test.go`)
+  - **Scope**: `internal/services/audit_service.go`, `internal/services/audit_service_test.go`
+  - **Verification**: `go test -count=1 -v ./internal/services -run TestAuditService`
+
+- [ ] Task 3: Distinct Clustering Key & Single-Row Action Badge (`dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`)
+  - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 3: Audit `item_path` Resolution, Subfolder Deep Navigation & Row Pulsing
-  - **Scope**: `internal/server/handlers_explorer.go`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/logs.js`
-  - **Verification**: `go test -count=1 ./internal/server -run TestHandleExplorerUpload && ./scripts/check.sh loc 400`
+- [ ] Task 4: Auto-refresh Paginated Bisync & Audit Logs on Upload (`dashboard/frontend/js/explorer_actions.js`)
+  - **Scope**: `dashboard/frontend/js/explorer_actions.js`
+  - **Verification**: `./scripts/check.sh loc 400`
 
-- [x] Task 4: Strict File/Folder Operation Log Filtering in Log Dock and Timeline Ledger
-  - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/logs.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
-
-- [x] Task 5: End-to-End Headless Smoke Tests & Full Quality Gate Pass
+- [ ] Task 5: End-to-End & Full Quality Gate Verification (`tests/e2e/dashboard_smoke_test.go`)
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
 - 2026-11-13: Initialized task plan from implementation_plan.md.
-- 2026-11-13: Completed Task 1 - Added unit tests in `models`, `services`, `server`, `audit`, `config`, and `core/client`, elevating test statement coverage to 86.0% under `-race` to safely guard against CI threshold failures. Verified with `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`.
-- 2026-11-13: Completed Task 2 - Added `multiple` attribute to explorer file inputs and upgraded `handleFileUpload` & `onDrop` for desktop file drops and batch uploading with progress toasts and LOC < 400 compliance.
-- 2026-11-13: Completed Task 3 - Included `item_path` in upload audit event records, prioritized full path resolution in `parseJsonLogLine` and `getEntryPath`, and supported entry object profiles in `jumpToExplorerPath` with LOC < 400 compliance.
-- 2026-11-13: Completed Task 4 - Implemented strict `isFileOperationLog` filtering in `log_dock.js` and `logs.js`, and added "File Ops" filter pills to `component_log_dock.html` and `pattern_timeline_ledger.html`. Verified with template validator, LOC ceiling checks (< 400 LOC), and E2E smoke tests.
-- 2026-11-13: Completed Task 5 - Updated `dashboard_smoke_test.go` with automated headless verification for `file_ops` filtering, deep subfolder navigation, `multiple` file input attributes, and desktop drag-and-drop handler existence. All quality gates passed (`./scripts/check.sh all`).
+- 2026-11-13: Completed Task 1 - Added group stats transfer extraction from `/core/stats` and stdout log parsing fallback in `MonitorJob` (`internal/core/client/monitor.go`), verified with `go test -count=1 -v ./internal/core/client -run TestMonitorJob`.
+
 
 
