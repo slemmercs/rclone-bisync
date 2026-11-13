@@ -54,7 +54,7 @@ document.addEventListener("alpine:init", () => {
         },
         currentLogLimit: 40,
         maxLogLimit: 300,
-        telemetryLogFilter: "all", // 'all' | 'sync' | 'audit'
+        telemetryLogFilter: "all", // 'all' | 'file_ops' | 'sync' | 'audit'
         actionLoading: null,
         configExpanded: false,
 
@@ -383,7 +383,7 @@ document.addEventListener("alpine:init", () => {
         window.RemotesModule, window.RemotesModalsModule, window.RemotesWizardModule,
         window.ExplorerModule, window.ExplorerActionsModule, window.ExplorerOperationsModule,
         window.ReviewModule, window.ReviewActionsModule,
-        window.LogsModule, window.AuditModule,
+        window.LogsModule, window.LogDockModule, window.AuditModule,
         window.SettingsModule, window.BandwidthModule,
         window.McpModule, window.PollingModule,
         window.SystemHealthModule,

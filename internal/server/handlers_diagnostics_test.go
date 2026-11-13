@@ -218,3 +218,22 @@ func TestHandleDiagnostics_ElevatedLatencyWarning(t *testing.T) {
 		t.Errorf("expected warning status for elevated latency, got %s", daemonCheck.Status)
 	}
 }
+
+func TestDiagnostics_UnitChecks(t *testing.T) {
+	srv := NewServer(&config.Config{}, nil, embed.FS{})
+
+	// 1. Safety check when canary service is nil
+	srv.CanaryService = nil
+	check := srv.checkSafetyProtection(t.Context())
+	if check.Status != models.DiagnosticStatusWarning || check.Message != "Canary service uninitialized" {
+		t.Errorf("unexpected check result for nil canary service: %+v", check)
+	}
+
+	// 2. Remotes health check when auth service and telemetry service are nil
+	srv.AuthService = nil
+	srv.TelemetryService = nil
+	remCheck := srv.checkRemotesHealth(t.Context())
+	if remCheck.Status != models.DiagnosticStatusWarning || remCheck.Message != "Remote probing services unavailable" {
+		t.Errorf("expected warning when both services nil, got: %+v", remCheck)
+	}
+}

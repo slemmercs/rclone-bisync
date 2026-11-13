@@ -53,6 +53,68 @@ func (r *SyncRunner) handleSyncSuccess(
 			StartTime:   startTime.Format(time.RFC3339),
 			EndTime:     time.Now().Format(time.RFC3339),
 		})
+
+		fileOps := monitorRes.TransferredFiles
+		if len(fileOps) == 0 && monitorRes.FilesSynced > 0 && r.Config != nil && r.Config.BaseDir != "" {
+			daemonLog := filepath.Join(r.Config.BaseDir, "rclone-daemon.log")
+			// #nosec G304 - reading configured daemon log file
+			if tailData, err := os.ReadFile(filepath.Clean(daemonLog)); err == nil && len(tailData) > 0 {
+				tailStr := string(tailData)
+				if len(tailStr) > 65536 {
+					tailStr = tailStr[len(tailStr)-65536:]
+				}
+				fileOps = client.ExtractTransferredFiles(tailStr, 50)
+			}
+		}
+
+		maxLogged := 50
+		for i, op := range fileOps {
+			if i >= maxLogged {
+				break
+			}
+			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:        time.Now().Format(time.RFC3339),
+				Level:       "info",
+				Type:        "sync_file",
+				ProfileID:   profID,
+				ProfileName: profName,
+				Msg:         r.formatLogMsg(op.Msg),
+				RunID:       runID,
+				JobID:       jobID,
+				Origin:      origin,
+				Status:      "SUCCESS",
+				Object:      op.Path,
+				Action:      op.Action,
+			})
+		}
+
+		if monitorRes.FilesSynced > len(fileOps) && len(fileOps) > 0 {
+			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:        time.Now().Format(time.RFC3339),
+				Level:       "info",
+				Type:        "sync_overflow",
+				ProfileID:   profID,
+				ProfileName: profName,
+				Msg:         r.formatLogMsg(fmt.Sprintf("... and %d more transferred files omitted from dock (capped at %d)", monitorRes.FilesSynced-len(fileOps), len(fileOps))),
+				RunID:       runID,
+				JobID:       jobID,
+				Origin:      origin,
+				Status:      "SUCCESS",
+			})
+		} else if len(fileOps) > maxLogged {
+			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
+				Time:        time.Now().Format(time.RFC3339),
+				Level:       "info",
+				Type:        "sync_overflow",
+				ProfileID:   profID,
+				ProfileName: profName,
+				Msg:         r.formatLogMsg(fmt.Sprintf("... and %d more transferred files omitted from dock (capped at %d)", len(fileOps)-maxLogged, maxLogged)),
+				RunID:       runID,
+				JobID:       jobID,
+				Origin:      origin,
+				Status:      "SUCCESS",
+			})
+		}
 	}
 	state.ClearPendingDeletions(r.Config.PendingDeletionsFile)
 	state.ClearRateLimitBackoff(r.Config.RateLimitBackoffFile)

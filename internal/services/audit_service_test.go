@@ -67,6 +67,9 @@ func TestAuditService_RecordAndVerify(t *testing.T) {
 	if !strings.Contains(string(logData), `"type":"audit"`) {
 		t.Fatalf("log does not contain mirrored audit event: %s", string(logData))
 	}
+	if !strings.Contains(string(logData), `[gdrive-personal] CONFLICT_RESOLVED: notes.txt by USER`) {
+		t.Fatalf("log does not contain mirrored audit message with path: %s", string(logData))
+	}
 }
 
 func TestAuditService_QueryAndExport(t *testing.T) {

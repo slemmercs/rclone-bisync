@@ -1026,9 +1026,12 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			let remoteLockToggled = false;
 			if (typeof app.toggleExplorerRemoteLock === 'function') {
 				const beforeLock = app.isExplorerRemoteLocked();
+				const origSave = app.saveGlobalSettings;
+				app.saveGlobalSettings = () => Promise.resolve();
 				app.toggleExplorerRemoteLock();
 				remoteLockToggled = app.isExplorerRemoteLocked() !== beforeLock;
 				app.toggleExplorerRemoteLock();
+				app.saveGlobalSettings = origSave;
 			}
 			const breadcrumbBarsCount = document.querySelectorAll('.no-scrollbar').length;
 
@@ -1138,6 +1141,365 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.TransferToRemoteBtn || !res.TransferToLocalBtn {
 			t.Errorf("expected directional transfer buttons: toRemote=%v toLocal=%v", res.TransferToRemoteBtn, res.TransferToLocalBtn)
+		}
+	})
+	// 10. Test Deep File Path Navigation & Pinned Log Audit Dock Engine
+	t.Run("DeepPathNavigationAndLogDock", func(t *testing.T) {
+		script := `(async () => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			// Test contextual path tokenization
+			const path1 = extractPathFromLogMsg("Copied (new) to: documents/reports/final.pdf");
+			const path2 = extractPathFromLogMsg("Deleting: old/backup.tar.gz");
+			const path3 = extractPathFromLogMsg("drive:data/photos/trip.jpg: Conflict identified");
+			const tokenizationValid = (path1 === "documents/reports/final.pdf" &&
+				path2 === "old/backup.tar.gz" &&
+				path3 === "data/photos/trip.jpg");
+
+			// Test getEntryPath
+			const ep1 = app.getEntryPath({ object: "files/data.csv" });
+			const ep2 = app.getEntryPath({ msg: "Transferred: notes/meeting.txt" });
+			const entryPathValid = (ep1 === "files/data.csv" && ep2 === "notes/meeting.txt");
+
+			// Test Log Dock toggle and height presets
+			if (typeof app.toggleLogDock !== 'function') return { error: "toggleLogDock missing" };
+			app.toggleLogDock(true);
+			const dockOpened = app.logDock?.open === true;
+			app.setLogDockHeight('expanded');
+			const dockExpanded = app.logDock?.heightPreset === 'expanded';
+			app.setLogDockHeight('docked');
+			const dockDocked = app.logDock?.heightPreset === 'docked';
+			app.setLogDockHeight('collapsed');
+			const dockCollapsed = app.logDock?.heightPreset === 'collapsed';
+			app.toggleLogDock(false);
+			const dockClosed = app.logDock?.open === false;
+
+			// Test Log Dock filtering with whitespace-padded levels and stringified JSON logs
+			app.telemetry.bisync_logs = [
+				{ timestamp: "2026-11-11T20:00:00Z", level: "NOTICE  ", msg: "Transferred: notes/a.txt" },
+				'{"time":"2026-11-11T20:00:01Z","level":"ERROR   ","msg":"Error reading data"}',
+				{ timestamp: "2026-11-11T20:00:02Z", level: "INFO    ", msg: "Engine idle" }
+			];
+			app.bisyncPaginatedLogs = [];
+			app.logDock.activeFilter = 'all';
+			const allLogsCount = app.getFilteredDockLogs().length;
+			app.logDock.activeFilter = 'mutations';
+			const mutationLogsCount = app.getFilteredDockLogs().length;
+			app.logDock.activeFilter = 'file_ops';
+			const fileOpsLogsCount = app.getFilteredDockLogs().length;
+			app.logDock.activeFilter = 'errors';
+			const errorLogsCount = app.getFilteredDockLogs().length;
+			const fetchDaemonLogsExists = typeof app.fetchDaemonLogs === 'function';
+
+			// Verify deep subfolder path navigation
+			await app.jumpToExplorerPath('documents/reports/q4/summary.pdf');
+			const deepNavDirValid = (app.explorer?.left?.path === 'documents/reports/q4');
+			const deepNavHighlightValid = (app.explorer?.highlightName === 'summary.pdf');
+
+			// Verify multi-file input attributes and onDrop handler
+			const uploadLeftMultiple = document.getElementById('explorer-upload-left')?.hasAttribute('multiple') === true;
+			const uploadRightMultiple = document.getElementById('explorer-upload-right')?.hasAttribute('multiple') === true;
+			const hasOnDrop = typeof app.onDrop === 'function';
+
+			// Test pulse row highlight styling
+			app.explorer.highlightName = 'sample.txt';
+			const highlightClass = app.getItemReviewRowClass('left', { Name: 'sample.txt' });
+			const nonHighlightClass = app.getItemReviewRowClass('left', { Name: 'other.txt' });
+			const highlightPulseActive = highlightClass.includes('animate-pulse');
+			const nonHighlightPulseInactive = !nonHighlightClass.includes('animate-pulse');
+			app.explorer.highlightName = null;
+
+			return {
+				tokenizationValid,
+				entryPathValid,
+				dockOpened,
+				dockExpanded,
+				dockDocked,
+				dockCollapsed,
+				dockClosed,
+				allLogsCount,
+				mutationLogsCount,
+				fileOpsLogsCount,
+				errorLogsCount,
+				deepNavDirValid,
+				deepNavHighlightValid,
+				uploadLeftMultiple,
+				uploadRightMultiple,
+				hasOnDrop,
+				fetchDaemonLogsExists,
+				highlightPulseActive,
+				nonHighlightPulseInactive
+			};
+		})()`
+
+		type DeepNavResult struct {
+			Error                     *string `json:"error"`
+			TokenizationValid         bool    `json:"tokenizationValid"`
+			EntryPathValid            bool    `json:"entryPathValid"`
+			DockOpened                bool    `json:"dockOpened"`
+			DockExpanded              bool    `json:"dockExpanded"`
+			DockDocked                bool    `json:"dockDocked"`
+			DockCollapsed             bool    `json:"dockCollapsed"`
+			DockClosed                bool    `json:"dockClosed"`
+			AllLogsCount              int     `json:"allLogsCount"`
+			MutationLogsCount         int     `json:"mutationLogsCount"`
+			FileOpsLogsCount          int     `json:"fileOpsLogsCount"`
+			ErrorLogsCount            int     `json:"errorLogsCount"`
+			DeepNavDirValid           bool    `json:"deepNavDirValid"`
+			DeepNavHighlightValid     bool    `json:"deepNavHighlightValid"`
+			UploadLeftMultiple        bool    `json:"uploadLeftMultiple"`
+			UploadRightMultiple       bool    `json:"uploadRightMultiple"`
+			HasOnDrop                 bool    `json:"hasOnDrop"`
+			FetchDaemonLogsExists     bool    `json:"fetchDaemonLogsExists"`
+			HighlightPulseActive      bool    `json:"highlightPulseActive"`
+			NonHighlightPulseInactive bool    `json:"nonHighlightPulseInactive"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DeepNavResult](script, chromedp.EvalAwaitPromise))
+		if err != nil {
+			t.Fatalf("failed evaluating Deep Path Nav script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Deep Path Nav check failed: %s", *res.Error)
+		}
+		if !res.TokenizationValid {
+			t.Errorf("expected extractPathFromLogMsg to properly tokenize paths")
+		}
+		if !res.EntryPathValid {
+			t.Errorf("expected getEntryPath to extract paths from object and msg")
+		}
+		if !res.DockOpened || !res.DockExpanded || !res.DockDocked || !res.DockCollapsed || !res.DockClosed {
+			t.Errorf("log dock toggle/preset mismatch: open=%v expanded=%v docked=%v collapsed=%v closed=%v",
+				res.DockOpened, res.DockExpanded, res.DockDocked, res.DockCollapsed, res.DockClosed)
+		}
+		if res.AllLogsCount != 3 || res.MutationLogsCount != 2 || res.ErrorLogsCount != 1 {
+			t.Errorf("unexpected filtered log dock counts: all=%d mutations=%d errors=%d",
+				res.AllLogsCount, res.MutationLogsCount, res.ErrorLogsCount)
+		}
+		if res.FileOpsLogsCount != 1 {
+			t.Errorf("unexpected file_ops log dock count: got %d, want 1", res.FileOpsLogsCount)
+		}
+		if !res.DeepNavDirValid || !res.DeepNavHighlightValid {
+			t.Errorf("deep path navigation failed: dirValid=%v, highlightValid=%v", res.DeepNavDirValid, res.DeepNavHighlightValid)
+		}
+		if !res.UploadLeftMultiple || !res.UploadRightMultiple {
+			t.Errorf("multi-file input attribute missing: left=%v, right=%v", res.UploadLeftMultiple, res.UploadRightMultiple)
+		}
+		if !res.HasOnDrop {
+			t.Errorf("expected onDrop drag-and-drop handler to exist on Alpine instance")
+		}
+		if !res.FetchDaemonLogsExists {
+			t.Errorf("expected fetchDaemonLogs method to exist on Alpine instance")
+		}
+		if !res.HighlightPulseActive || !res.NonHighlightPulseInactive {
+			t.Errorf("row pulse class mismatch: active=%v inactive=%v", res.HighlightPulseActive, res.NonHighlightPulseInactive)
+		}
+	})
+
+	// 11. Test Timeline Ledger Clustering & Auto-Refresh Hook
+	t.Run("AuditTimelineLedgerAndClustering", func(t *testing.T) {
+		script := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			// Test clusterLogEntries keeps distinct objects uncollapsed
+			const testAuditEntries = [
+				{ id: 1, timestamp: "2026-11-13T10:00:00Z", level: "NOTICE", msg: "[profile1] UPLOAD: fileA.txt", action: "UPLOAD", object: "fileA.txt", details: {} },
+				{ id: 2, timestamp: "2026-11-13T10:00:01Z", level: "NOTICE", msg: "[profile1] UPLOAD: fileB.txt", action: "UPLOAD", object: "fileB.txt", details: {} }
+			];
+			const clusters = app.clusterLogEntries(testAuditEntries);
+			const distinctCount = clusters.length;
+
+			// Test same object/action clusters
+			const testDuplicateEntries = [
+				{ id: 3, timestamp: "2026-11-13T10:00:00Z", level: "NOTICE", msg: "[profile1] UPLOAD: fileA.txt", action: "UPLOAD", object: "fileA.txt", details: {} },
+				{ id: 4, timestamp: "2026-11-13T10:00:02Z", level: "NOTICE", msg: "[profile1] UPLOAD: fileA.txt", action: "UPLOAD", object: "fileA.txt", details: {} }
+			];
+			const dupClusters = app.clusterLogEntries(testDuplicateEntries);
+			const dupCount = dupClusters.length;
+
+			// Test fetchBisyncLogs and fetchAuditRecords methods exist
+			const hasFetchBisyncLogs = typeof app.fetchBisyncLogs === 'function';
+			const hasFetchAuditRecords = typeof app.fetchAuditRecords === 'function';
+
+			return {
+				distinctCount,
+				dupCount,
+				hasFetchBisyncLogs,
+				hasFetchAuditRecords
+			};
+		})()`
+
+		type ClusterResult struct {
+			Error                *string `json:"error"`
+			DistinctCount        int     `json:"distinctCount"`
+			DupCount             int     `json:"dupCount"`
+			HasFetchBisyncLogs   bool    `json:"hasFetchBisyncLogs"`
+			HasFetchAuditRecords bool    `json:"hasFetchAuditRecords"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[ClusterResult](script))
+		if err != nil {
+			t.Fatalf("failed evaluating Audit Timeline Ledger script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Audit Timeline Ledger check failed: %s", *res.Error)
+		}
+		if res.DistinctCount != 2 {
+			t.Errorf("expected 2 distinct clusters for different objects, got %d", res.DistinctCount)
+		}
+		if res.DupCount != 1 {
+			t.Errorf("expected 1 cluster for identical object and action, got %d", res.DupCount)
+		}
+		if !res.HasFetchBisyncLogs || !res.HasFetchAuditRecords {
+			t.Errorf("expected fetchBisyncLogs and fetchAuditRecords to exist on Alpine instance")
+		}
+	})
+
+	// 12. Test Log Dock Pagination, Sync File Ops & Deep Navigation
+	t.Run("LogDockPaginationAndSyncFiles", func(t *testing.T) {
+		script := `(async () => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			const syncFileLog = {
+				timestamp: "2026-11-13T10:00:00Z",
+				level: "INFO",
+				type: "sync_file",
+				action: "COPY",
+				object: "docs/report.pdf",
+				msg: "Transferred: docs/report.pdf"
+			};
+			const syncOverflowLog = {
+				timestamp: "2026-11-13T10:00:01Z",
+				level: "NOTICE",
+				type: "sync_overflow",
+				msg: "Transferred files exceed display limit (50). View detailed logs in Audit."
+			};
+			const deleteFileLog = {
+				timestamp: "2026-11-13T10:00:02Z",
+				level: "INFO",
+				type: "sync_file",
+				action: "DELETE",
+				object: "trash/old.txt",
+				msg: "Deleted: trash/old.txt"
+			};
+
+			const syncFileIsOp = app.isFileOperationLog(syncFileLog);
+			const overflowIsOp = app.isFileOperationLog(syncOverflowLog);
+			const syncFilePath = app.getEntryPath(syncFileLog);
+
+			const copyBadgeClass = app.getDockActionBadgeClass(syncFileLog);
+			const copyLabel = app.getDockActionLabel(syncFileLog);
+			const deleteBadgeClass = app.getDockActionBadgeClass(deleteFileLog);
+			const deleteLabel = app.getDockActionLabel(deleteFileLog);
+
+			const badgeClassValid = copyBadgeClass.includes("emerald") && deleteBadgeClass.includes("rose");
+			const badgeLabelValid = copyLabel === "SYNC: COPY" && deleteLabel === "SYNC: DELETE";
+
+			const mockLogs = [];
+			for (let i = 1; i <= 65; i++) {
+				mockLogs.push({
+					id: "mock_" + i,
+					timestamp: "2026-11-13T10:00:" + String(i).padStart(2, "0") + "Z",
+					level: "INFO",
+					type: "sync_file",
+					action: "COPY",
+					object: "items/item_" + i + ".dat",
+					msg: "Copied items/item_" + i + ".dat"
+				});
+			}
+			app.telemetry.bisync_logs = mockLogs;
+			app.setLogDockFilter('all');
+			app.logDock.pageSize = 50;
+
+			const totalEntries = app.getDockTotalEntries();
+			const totalPages = app.getDockTotalPages();
+			const p1PrevDisabled = app.isDockPrevDisabled();
+			const p1NextDisabled = app.isDockNextDisabled();
+			const p1Count = app.getFilteredDockLogs().length;
+
+			app.loadDockNextPage();
+			const curPage = app.logDock.page;
+			const p2PrevDisabled = app.isDockPrevDisabled();
+			const p2NextDisabled = app.isDockNextDisabled();
+			const p2Count = app.getFilteredDockLogs().length;
+
+			app.loadDockPrevPage();
+			const backToP1 = app.logDock.page === 1;
+
+			app.logDock.page = 1;
+			app.logDock.selectedIdx = 49;
+			app.logDockStep(1);
+			const steppedToPage2 = app.logDock.page === 2 && app.logDock.selectedIdx === 0;
+
+			app.logDockStep(-1);
+			const steppedBackToPage1 = app.logDock.page === 1 && app.logDock.selectedIdx === 49;
+			const hasNavigateToExplorer = typeof app.navigateToExplorer === "function";
+
+			return {
+				syncFileIsOp, overflowIsOp, syncFilePath, badgeClassValid, badgeLabelValid,
+				totalEntries, totalPages, p1PrevDisabled, p1NextDisabled, p1Count,
+				curPage, p2PrevDisabled, p2NextDisabled, p2Count, backToP1,
+				steppedToPage2, steppedBackToPage1, hasNavigateToExplorer
+			};
+		})()`
+		type DockPaginationResult struct {
+			Error                 *string `json:"error"`
+			SyncFileIsOp          bool    `json:"syncFileIsOp"`
+			OverflowIsOp          bool    `json:"overflowIsOp"`
+			SyncFilePath          string  `json:"syncFilePath"`
+			BadgeClassValid       bool    `json:"badgeClassValid"`
+			BadgeLabelValid       bool    `json:"badgeLabelValid"`
+			TotalEntries          int     `json:"totalEntries"`
+			TotalPages            int     `json:"totalPages"`
+			P1PrevDisabled        bool    `json:"p1PrevDisabled"`
+			P1NextDisabled        bool    `json:"p1NextDisabled"`
+			P1Count               int     `json:"p1Count"`
+			CurPage               int     `json:"curPage"`
+			P2PrevDisabled        bool    `json:"p2PrevDisabled"`
+			P2NextDisabled        bool    `json:"p2NextDisabled"`
+			P2Count               int     `json:"p2Count"`
+			BackToP1              bool    `json:"backToP1"`
+			SteppedToPage2        bool    `json:"steppedToPage2"`
+			SteppedBackToPage1    bool    `json:"steppedBackToPage1"`
+			HasNavigateToExplorer bool    `json:"hasNavigateToExplorer"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DockPaginationResult](script, chromedp.EvalAwaitPromise))
+		if err != nil {
+			t.Fatalf("failed evaluating Log Dock Pagination script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Log Dock Pagination check failed: %s", *res.Error)
+		}
+		if !res.SyncFileIsOp || !res.OverflowIsOp {
+			t.Errorf("expected sync_file and sync_overflow to be recognized as file operations")
+		}
+		if res.SyncFilePath != "docs/report.pdf" {
+			t.Errorf("expected getEntryPath to return 'docs/report.pdf', got %q", res.SyncFilePath)
+		}
+		if !res.BadgeClassValid || !res.BadgeLabelValid {
+			t.Errorf("action badge class or label invalid: class=%v label=%v", res.BadgeClassValid, res.BadgeLabelValid)
+		}
+		if res.TotalEntries != 65 || res.TotalPages != 2 {
+			t.Errorf("pagination count mismatch: totalEntries=%d, totalPages=%d (expected 65 and 2)", res.TotalEntries, res.TotalPages)
+		}
+		if !res.P1PrevDisabled || res.P1NextDisabled || res.P1Count != 50 {
+			t.Errorf("page 1 state invalid: prevDisabled=%v, nextDisabled=%v, count=%d", res.P1PrevDisabled, res.P1NextDisabled, res.P1Count)
+		}
+		if res.CurPage != 2 || res.P2PrevDisabled || !res.P2NextDisabled || res.P2Count != 15 {
+			t.Errorf("page 2 state invalid: page=%d, prevDisabled=%v, nextDisabled=%v, count=%d", res.CurPage, res.P2PrevDisabled, res.P2NextDisabled, res.P2Count)
+		}
+		if !res.BackToP1 {
+			t.Errorf("expected loadDockPrevPage to navigate back to page 1")
+		}
+		if !res.SteppedToPage2 || !res.SteppedBackToPage1 {
+			t.Errorf("boundary step mismatch: steppedToPage2=%v steppedBackToPage1=%v", res.SteppedToPage2, res.SteppedBackToPage1)
+		}
+		if !res.HasNavigateToExplorer {
+			t.Errorf("expected navigateToExplorer helper method to exist")
 		}
 	})
 

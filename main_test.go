@@ -61,6 +61,14 @@ func TestEmbeddedFrontendFS(t *testing.T) {
 		t.Fatal("embedded profiles_history.js is empty")
 	}
 
+	dataLogDock, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/log_dock.js")
+	if err != nil {
+		t.Fatalf("expected dashboard/frontend/js/log_dock.js in embedded FS, got: %v", err)
+	}
+	if len(dataLogDock) == 0 {
+		t.Fatal("embedded log_dock.js is empty")
+	}
+
 	subFS, err := fs.Sub(frontendFS, "dashboard/frontend")
 	if err != nil {
 		t.Fatalf("failed sub fs: %v", err)

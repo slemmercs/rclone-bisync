@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -174,5 +175,40 @@ func TestHandleSaveDaemonPassphrase(t *testing.T) {
 
 	if wFail.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400 when decryption fails, got %d", wFail.Code)
+	}
+}
+
+func TestHandleConfigEncryption_NilService(t *testing.T) {
+	s := &Server{
+		Mux: http.NewServeMux(),
+	}
+	s.Mux.HandleFunc("GET /api/config/encryption", s.handleGetConfigEncryption)
+	s.Mux.HandleFunc("POST /api/config/encryption/set", s.handleSetConfigEncryption)
+	s.Mux.HandleFunc("POST /api/config/encryption/remove", s.handleRemoveConfigEncryption)
+	s.Mux.HandleFunc("POST /api/config/encryption/save-passphrase", s.handleSaveDaemonPassphrase)
+
+	endpoints := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodGet, "/api/config/encryption", ""},
+		{http.MethodPost, "/api/config/encryption/set", `{"password":"abc"}`},
+		{http.MethodPost, "/api/config/encryption/remove", `{"password":"abc"}`},
+		{http.MethodPost, "/api/config/encryption/save-passphrase", `{"password":"abc"}`},
+	}
+
+	for _, ep := range endpoints {
+		var req *http.Request
+		if ep.body != "" {
+			req = httptest.NewRequest(ep.method, ep.path, strings.NewReader(ep.body))
+		} else {
+			req = httptest.NewRequest(ep.method, ep.path, nil)
+		}
+		w := httptest.NewRecorder()
+		s.Mux.ServeHTTP(w, req)
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500 for nil service at %s %s, got %d", ep.method, ep.path, w.Code)
+		}
 	}
 }

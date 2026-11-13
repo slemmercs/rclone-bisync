@@ -6,13 +6,11 @@
 
 function normalizeLogMessage(msg) {
     if (!msg) return "";
-    return msg
-        .replace(/\[cid=[a-zA-Z0-9_-]+\]/g, "")
+    return msg.replace(/\[cid=[a-zA-Z0-9_-]+\]/g, "")
         .replace(/\b\d+(\.\d+)?\s*(s|ms|m|h|B|KB|MB|GB|TB|PB)\b/gi, "")
         .replace(/\b\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?\b/g, "")
         .replace(/\b\d+\s+(transferred|checked|deleted|matching|errors)\b/gi, "")
-        .replace(/\s+/g, " ")
-        .trim();
+        .replace(/\s+/g, " ").trim();
 }
 
 function clusterLogEntries(entries, foldEnabled, expandedMap) {
@@ -35,7 +33,8 @@ function clusterLogEntries(entries, foldEnabled, expandedMap) {
         const item = entries[i];
         const norm = normalizeLogMessage(item.msg || "");
         const prof = item.profile_id || item.profile_name || "";
-        const key = (item.level || "") + "::" + (item.type || "") + "::" + prof + "::" + norm;
+        const obj = item.object || "", act = item.action || "";
+        const key = `${item.level || ""}::${item.type || ""}::${prof}::${obj}::${act}::${norm}`;
 
         if (currentCluster && currentCluster.key === key && norm.length > 5) {
             currentCluster.count++;
@@ -63,8 +62,12 @@ function clusterLogEntries(entries, foldEnabled, expandedMap) {
     }
     return clusters;
 }
+window.clusterLogEntries = clusterLogEntries;
 
 window.LogsModule = {
+    clusterLogEntries(entries, fold = this.foldRepetitive, map = this.expandedClusters) {
+        return clusterLogEntries(entries, fold, map);
+    },
     bisyncLogPage: 1,
     bisyncLogLimit: 50,
     bisyncLogTotal: 0,
@@ -106,11 +109,10 @@ window.LogsModule = {
                 return false;
             });
         }
-        if (this.telemetryLogFilter === "sync") {
-            return logs.filter(l => l.type !== "audit");
-        }
-        if (this.telemetryLogFilter === "audit") {
-            return logs.filter(l => l.type === "audit");
+        if (this.telemetryLogFilter === "sync") return logs.filter(l => l.type !== "audit");
+        if (this.telemetryLogFilter === "audit") return logs.filter(l => l.type === "audit");
+        if (this.telemetryLogFilter === "file_ops" || this.telemetryLogFilter === "mutations") {
+            return logs.filter(l => typeof this.isFileOperationLog === "function" ? this.isFileOperationLog(l) : Boolean(this.getEntryPath(l)));
         }
         return logs;
     },
@@ -175,49 +177,24 @@ window.LogsModule = {
         }
     },
 
-    nextBisyncPage() {
-        if (this.bisyncLogPage < this.bisyncLogTotalPages) {
-            this.fetchBisyncLogs(this.bisyncLogPage + 1);
-        }
-    },
+    nextBisyncPage() { if (this.bisyncLogPage < this.bisyncLogTotalPages) this.fetchBisyncLogs(this.bisyncLogPage + 1); },
+    prevBisyncPage() { if (this.bisyncLogPage > 1) this.fetchBisyncLogs(this.bisyncLogPage - 1); },
 
-    prevBisyncPage() {
-        if (this.bisyncLogPage > 1) {
-            this.fetchBisyncLogs(this.bisyncLogPage - 1);
-        }
-    },
-
-    toggleCluster(clusterId) {
-        this.expandedClusters[clusterId] = !this.expandedClusters[clusterId];
-    },
-
+    toggleCluster(clusterId) { this.expandedClusters[clusterId] = !this.expandedClusters[clusterId]; },
     expandAllClusters() {
         const map = {};
-        this.clusteredBisyncLogs.forEach(c => {
-            if (c.isCluster) map[c.id] = true;
-        });
-        this.clusteredDaemonModalLogs.forEach(c => {
-            if (c.isCluster) map[c.id] = true;
-        });
+        this.clusteredBisyncLogs.forEach(c => { if (c.isCluster) map[c.id] = true; });
+        this.clusteredDaemonModalLogs.forEach(c => { if (c.isCluster) map[c.id] = true; });
         this.expandedClusters = map;
     },
-
-    collapseAllClusters() {
-        this.expandedClusters = {};
-    },
-
+    collapseAllClusters() { this.expandedClusters = {}; },
     get areAllClustersExpanded() {
         const clusters = this.clusteredBisyncLogs.filter(c => c.isCluster);
-        if (clusters.length === 0) return false;
-        return clusters.every(c => !!this.expandedClusters[c.id]);
+        return clusters.length > 0 && clusters.every(c => !!this.expandedClusters[c.id]);
     },
-
     toggleAllClusters() {
-        if (this.areAllClustersExpanded) {
-            this.collapseAllClusters();
-        } else {
-            this.expandAllClusters();
-        }
+        if (this.areAllClustersExpanded) this.collapseAllClusters();
+        else this.expandAllClusters();
     },
 
     get filteredDeletions() {
@@ -253,15 +230,9 @@ window.LogsModule = {
         }
     },
 
-    async openDaemonModal(entry) {
-        this.showDaemonModal = true;
+    async fetchDaemonLogs(entry = null) {
         this.daemonModalLoading = true;
         this.daemonModalRun = entry || null;
-        this.daemonModalLogs = [];
-        this.daemonModalSearch = "";
-        this.daemonModalLevelFilter = "all";
-        this.daemonModalCopied = false;
-        this.daemonModalCopiedJSON = false;
         this.daemonModalError = null;
 
         let url = "/api/logs/daemon?limit=500";
@@ -274,14 +245,8 @@ window.LogsModule = {
 
         try {
             const data = await window.API.get(url);
-            if (data && data.error) {
-                this.daemonModalError = data.error;
-            }
-            if (data && Array.isArray(data.logs)) {
-                this.daemonModalLogs = unwrapAndParseLogLines(data.logs);
-            } else {
-                this.daemonModalLogs = [];
-            }
+            if (data && data.error) this.daemonModalError = data.error;
+            this.daemonModalLogs = (data && Array.isArray(data.logs)) ? unwrapAndParseLogLines(data.logs) : [];
         } catch (err) {
             console.error("Failed to fetch daemon logs:", err);
             const msg = err && err.message ? err.message : "Failed to connect to daemon log endpoint";
@@ -290,6 +255,15 @@ window.LogsModule = {
         } finally {
             this.daemonModalLoading = false;
         }
+    },
+
+    async openDaemonModal(entry) {
+        this.showDaemonModal = true;
+        this.daemonModalSearch = "";
+        this.daemonModalLevelFilter = "all";
+        this.daemonModalCopied = false;
+        this.daemonModalCopiedJSON = false;
+        await this.fetchDaemonLogs(entry);
     },
 
     closeDaemonModal() {
@@ -316,6 +290,7 @@ window.LogsModule = {
     },
 
     confirmResync() {
+        const proceed = () => this.triggerAction("force_resync");
         if (typeof this.askConfirmation === "function") {
             this.askConfirmation({
                 title: "Force Resync Confirmation",
@@ -323,12 +298,85 @@ window.LogsModule = {
                 confirmText: "Rebuild & Resync",
                 confirmClass: "bg-amber-600 hover:bg-amber-500 shadow-amber-950/40",
                 icon: "warning",
-                onConfirm: () => {
-                    this.triggerAction("force_resync");
-                }
+                onConfirm: proceed
             });
         } else if (confirm("⚠ FORCE RESYNC ⚠\n\nAre you sure you want to rebuild baseline sync states?\nThis will take significantly longer.")) {
-            this.triggerAction("force_resync");
+            proceed();
+        }
+    },
+
+    getEntryPath(entry) {
+        if (!entry) return null;
+        if (entry.object) return entry.object;
+        if (entry.details) {
+            if (entry.details.item_path) return entry.details.item_path;
+            if (entry.details.path && entry.details.filename) {
+                return `${entry.details.path}/${entry.details.filename}`.replace(/^\/+/, "");
+            }
+            if (entry.details.path) return entry.details.path;
+            if (entry.details.object) return entry.details.object;
+            if (entry.details.file) return entry.details.file;
+        }
+        if (entry.msg && typeof extractPathFromLogMsg === "function") {
+            return extractPathFromLogMsg(entry.msg);
+        }
+        return null;
+    },
+
+    async jumpToExplorerPath(targetPath, profileId = null) {
+        if (!targetPath) return;
+        const clean = String(targetPath).trim().replace(/^["'`\s]+|["'`\s]+$/g, "").replace(/\\/g, "/").replace(/^\/+/, "");
+        if (!clean) return;
+
+        const lastSlash = clean.lastIndexOf("/");
+        const dir = lastSlash >= 0 ? clean.substring(0, lastSlash) : "";
+        const filename = lastSlash >= 0 ? clean.substring(lastSlash + 1) : clean;
+
+        if (typeof this.closeDaemonModal === "function") this.closeDaemonModal();
+        else this.showDaemonModal = false;
+
+        const targetProfileId = (profileId && typeof profileId === "object") ? (profileId.profile_id || null) : profileId;
+        if (targetProfileId && this.profilesData && this.profilesData.activeId !== targetProfileId && typeof this.selectProfile === "function") {
+            await this.selectProfile(targetProfileId, dir);
+        }
+
+        if (typeof this.switchTab === "function") this.switchTab("explorer");
+        else this.currentTab = "explorer";
+
+        if (this.explorer) {
+            this.explorer.highlightPath = clean;
+            this.explorer.highlightName = filename;
+            setTimeout(() => {
+                if (this.explorer && this.explorer.highlightName === filename) this.explorer.highlightName = null;
+            }, 6000);
+
+            if (this.explorer.left) this.explorer.left.path = dir;
+            if (this.explorer.right) this.explorer.right.path = dir;
+
+            const p1 = (this.explorer.left && typeof this.fetchExplorerDirectory === "function")
+                ? this.fetchExplorerDirectory("left", this.explorer.left.target, dir) : Promise.resolve();
+            const p2 = (this.explorer.right && typeof this.fetchExplorerDirectory === "function")
+                ? this.fetchExplorerDirectory("right", this.explorer.right.target, dir) : Promise.resolve();
+            await Promise.allSettled([p1, p2]);
+        }
+
+        const notifyOrPulse = () => this.scrollToHighlightedRow(filename);
+        if (typeof this.$nextTick === "function") this.$nextTick(notifyOrPulse);
+        else setTimeout(notifyOrPulse, 50);
+    },
+
+    scrollToHighlightedRow(filename) {
+        if (!filename) return;
+        const selector = `[data-item-name="${CSS.escape ? CSS.escape(filename) : filename}"]`;
+        const els = document.querySelectorAll(selector);
+        els.forEach(el => {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.remove("row-pulse-ring");
+            void el.offsetWidth;
+            el.classList.add("row-pulse-ring");
+        });
+        if (els.length === 0 && typeof this.showToast === "function") {
+            this.showToast(`Navigated to folder. Item "${filename}" may be remote-only or excluded.`, "info");
         }
     },
 

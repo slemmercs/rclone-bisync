@@ -230,6 +230,13 @@ type MCPStatus struct {
 	StartedAt string `json:"started_at,omitempty"`
 }
 
+// SyncFileOp represents an individual file operation detected during sync execution.
+type SyncFileOp struct {
+	Path   string `json:"path"`
+	Action string `json:"action"`
+	Msg    string `json:"msg"`
+}
+
 type BisyncLogEntry struct {
 	Time        string  `json:"time"`
 	Level       string  `json:"level"`
@@ -240,12 +247,14 @@ type BisyncLogEntry struct {
 	RunID       string  `json:"run_id"`
 	JobID       int     `json:"job_id,omitempty"`
 	Origin      string  `json:"origin,omitempty"`
-	Status      string  `json:"status"`               // SUCCESS, FAULT, ABORTED
+	Status      string  `json:"status,omitempty"`     // SUCCESS, FAULT, ABORTED
 	ErrorType   string  `json:"error_type,omitempty"` // TOO_MANY_DELETES, RATE_LIMIT, etc.
-	DurationSec float64 `json:"duration_sec"`
-	FilesSynced int     `json:"files_synced"`
-	StartTime   string  `json:"start_time"` // RFC3339
-	EndTime     string  `json:"end_time"`   // RFC3339
+	DurationSec float64 `json:"duration_sec,omitempty"`
+	FilesSynced int     `json:"files_synced,omitempty"`
+	StartTime   string  `json:"start_time,omitempty"` // RFC3339
+	EndTime     string  `json:"end_time,omitempty"`   // RFC3339
+	Object      string  `json:"object,omitempty"`
+	Action      string  `json:"action,omitempty"`
 }
 
 type PaginatedLogsResponse struct {

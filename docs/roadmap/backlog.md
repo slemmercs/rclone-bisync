@@ -7,28 +7,16 @@ This backlog maintains the tactical, prioritized engineering queue for **Bisync 
 ## Document Alignment
 
 - **Strategic Horizons & Vision**: Refer to [`ROADMAP.md`](./ROADMAP.md) for architectural direction and long-term milestones.
-- **Historical Delivered Features**: Refer to [GitHub Releases](https://github.com/slemmercs/rclone-bisync/releases) for complete changelogs of all released versions (`v1.0.0-beta.1`–`beta.27`).
+- **Historical Delivered Features**: Refer to [GitHub Releases](https://github.com/slemmercs/rclone-bisync/releases) for complete changelogs of all released versions (`v1.0.0-beta.1`–`beta.31`).
 - **Active Sprint Planning**: Active micro-tasks are tracked in [`task_plan.md`](./task_plan.md) and designed in [`implementation_plan.md`](./implementation_plan.md).
 
 ---
 
 ## Prioritized Work Queue
 
-### 1. Configuration Snapshot & One-Click Rollback Engine
+### 1. Homelab Reverse Proxy Security Hardening & OpenTelemetry (OTel/OTLP)
 - **Estimate**: 5–7h | 4 SP
-- **Priority**: Active / Sprint Ready
-- **Objective**: Server-side configuration safety for profiles and global settings.
-- **Scope & Architecture**:
-  - **3-Layer Safety Pipeline**: Automated configuration backup, SHA-256 integrity verification, and JSON/env schema validation before applying updates.
-  - **Atomic Snapshots**: Save timestamped snapshots in `config_snapshots/` prior to any profile edit or global config change.
-  - **Rollback API & Visual Diff**: REST endpoints (`/api/config/snapshots`, `/api/config/rollback/{id}`) and modal diff viewer in `modal_global_settings.html` to instantly revert breaking changes.
-- **Key Files**: `internal/profiles/store.go`, `internal/server/handlers_config.go`, `dashboard/frontend/partials/modals/modal_global_settings.html`.
-
----
-
-### 2. Homelab Reverse Proxy Security Hardening & OpenTelemetry (OTel/OTLP)
-- **Estimate**: 5–7h | 4 SP
-- **Priority**: Sprint Ready
+- **Priority**: Active / In-Flight (Sprint Priority)
 - **Objective**: Production self-hosted deployment security and standards-based observability.
 - **Scope & Architecture**:
   - **Reverse Proxy Header Normalization**: Parse and sanitize `X-Forwarded-For`, `X-Real-IP`, and `X-Forwarded-Proto` guarded by configurable trusted CIDR proxy subnet checks.
@@ -38,31 +26,36 @@ This backlog maintains the tactical, prioritized engineering queue for **Bisync 
 
 ---
 
-### 3. Unified Operational Log Ledger, Run ID Correlation & Deep Path Navigation
-- **Estimate**: 4–5h | 3 SP
+### 2. Queued Dual-Pane File Explorer Direct Upload
+- **Estimate**: 5–6h | 4 SP
 - **Priority**: Sequenced
-- **Objective**: High-density structured operational event visibility aligned with the Audit Ledger.
+- **Objective**: Direct file upload capabilities with zero sync lock collisions.
 - **Scope & Architecture**:
-  - **Table Layout Restructuring**: Transform `bisync.log` card in `view_telemetry.html` into a structured table format matching `view_audit.html` (`TIME`, `LEVEL`, `SOURCE`, `RUN ID`, `MESSAGE`, `ACTIONS`).
-  - **Run ID & Review ID Correlation**: Clickable Run ID chips (`#run-...`) jumping directly to filtered Audit Ledger records and correlated daemon execution traces; Review IDs (`@rev-...`) linking to conflict reviews.
-  - **Deep Path Navigation**: Contextual path tokenizer recognizing file references (`Duplicate ignored`, `Deleted`, `Transferring`) with deep links that switch to File Explorer, load the directory, and highlight the file row.
+  - **Dual-Pane Upload Targets**: Support uploading to both Local (jailed) and Remote directories via file selector and drag-and-drop dropzones.
+  - **Non-Blocking Asynchronous Upload Queue**: Automatically queues file uploads during active synchronization (`telemetry.is_syncing === true` or POSIX flock contention) in a floating dock instead of rejecting them with HTTP 409.
+  - **Sequential Auto-Resume**: Automatically triggers sequential uploads once active sync runs finish and lock contention releases.
+  - **Mid-Upload Lock Protection**: Advisory upload coordination delaying scheduled sync runs while active multipart streams are in-flight.
 - **Design Reference**: [`docs/design/operational_visibility_and_queued_upload_specification.md`](../design/operational_visibility_and_queued_upload_specification.md)
 
 ---
 
-### 4. Remote Cloud Web Link Navigation ("Open on Remote in New Tab")
-- **Estimate**: 2–3h | 2 SP
-- **Priority**: Sequenced
-- **Objective**: Instant one-click navigation to cloud provider web interfaces.
-- **Scope & Architecture**:
-  - **Rclone RC Public Link Integration**: Connect to Rclone RC `operations/publiclink` to retrieve canonical web URLs for cloud files and directories (Google Drive, OneDrive).
-  - **Explorer & Log Integration**: "Open on Remote" quick-action icon embedded in remote File Explorer table rows and rendered next to remote path chips in the unified log ledger.
-  - **Graceful Degradation**: Dynamic capability detection hiding external link actions on storage tiers lacking web interfaces (local, SFTP, raw S3) without throwing errors.
-- **Design Reference**: [`docs/design/operational_visibility_and_queued_upload_specification.md`](../design/operational_visibility_and_queued_upload_specification.md)
+## Recently Delivered Epics (beta.28 – beta.32)
 
----
+### [Delivered in beta.32] Deep File Path Navigation & Pinned Log Audit Dock
+- Contextual path tokenizer extracting file mutations from logs, synchronized dual-pane profile switching & directory loading, transient pulse row highlight animation, and IDE-style collapsible pinned Log Audit Dock with height presets and N/P keyboard stepping.
 
-### 5. Queued Dual-Pane File Explorer Direct Upload
+### [Delivered in beta.28] Configuration Snapshot & One-Click Rollback Engine
+- Automated configuration backup, SHA-256 integrity verification, timestamped JSON snapshots under `config_snapshots/`, and one-click rollback REST API.
+
+### [Delivered in beta.29] Unified Operational Log Ledger & Run ID Correlation
+- High-density table viewer in `view_telemetry.html` aligning `bisync.log` events with Audit Ledger records, Run ID correlation chips (`#run-...`), and daemon trace inspection.
+
+### [Delivered in beta.30] Remote Cloud Web Link Navigation ("Open on Remote")
+- Canonical cloud URL resolution via Rclone RC `operations/publiclink` with capability filtering for Google Drive and OneDrive items.
+
+### [Delivered in beta.31] FullRemoteTarget Local Path Preservation & Go 1.26.11 Security Patch
+- Pure filesystem path preservation for local/empty remote configurations, Go 1.26.11 standard library vulnerability patch (`GO-2026-6859`), and elevated test coverage (>85% under race detection).
+
 - **Estimate**: 5–6h | 4 SP
 - **Priority**: Sequenced
 - **Objective**: Direct file upload capabilities with zero sync lock collisions.

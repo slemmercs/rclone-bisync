@@ -88,3 +88,15 @@ func TestOpenDB_DefaultPath(t *testing.T) {
 	}
 	defer db.Close()
 }
+
+func TestRunMigrations_ClosedDB(t *testing.T) {
+	tmpDir := t.TempDir()
+	db, err := OpenDB(filepath.Join(tmpDir, "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+	if err := RunMigrations(db); err == nil {
+		t.Error("expected error running migrations on closed DB")
+	}
+}

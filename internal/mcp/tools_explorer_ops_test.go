@@ -341,3 +341,30 @@ func TestExplorerOpsTools_PurgeConfirmation(t *testing.T) {
 		t.Fatalf("expected directory to be deleted from disk")
 	}
 }
+
+func TestExplorerOpsTools_ResolveHelpers(t *testing.T) {
+	srv, tmpDir, db, mockRC := setupExplorerMCPTest(t)
+	defer db.Close()
+	defer mockRC.Close()
+
+	// Default fallback to config.LocalPath
+	lp := srv.resolveLocalPath("")
+	if lp != tmpDir {
+		t.Errorf("expected local path %q, got %q", tmpDir, lp)
+	}
+
+	// Nil patterns when no profile
+	patterns := srv.resolveExcludePatterns("")
+	if len(patterns) != 0 {
+		t.Errorf("expected nil exclude patterns, got: %v", patterns)
+	}
+
+	// With nil container
+	nilSrv := &Server{}
+	if nilSrv.resolveLocalPath("foo") != "" {
+		t.Errorf("expected empty string for nil container")
+	}
+	if nilSrv.resolveExcludePatterns("foo") != nil {
+		t.Errorf("expected nil patterns for nil container")
+	}
+}

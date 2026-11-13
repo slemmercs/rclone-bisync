@@ -340,6 +340,38 @@ func TestResources_Read(t *testing.T) {
 	if len(contents) == 0 {
 		t.Fatal("expected contents for conflict session resource")
 	}
+
+	// 6. Resource error edge cases
+	// Empty history ID
+	if _, err := srv.handleResourceHistoryByID(ctx, mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "bisync://history/"},
+	}); err == nil {
+		t.Error("expected error for empty history ID")
+	}
+
+	// Fallback to ProfileService when AuditService is nil
+	ctr.AuditService = nil
+	if contents, err := srv.handleResourceHistoryByID(ctx, mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "bisync://history/prof-res-1"},
+	}); err != nil || len(contents) == 0 {
+		t.Errorf("expected ProfileService history fallback, got: %v", err)
+	}
+
+	// Invalid conflict session ID (path traversal)
+	if _, err := srv.handleResourceConflictSession(ctx, mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "bisync://conflicts/../escape"},
+	}); err == nil {
+		t.Error("expected error for traversal in conflict session ID")
+	}
+
+	// Nil ReviewService
+	ctr.ReviewService = nil
+	if _, err := srv.handleResourceConflictSession(ctx, mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "bisync://conflicts/sess-res-1"},
+	}); err == nil {
+		t.Error("expected error for nil ReviewService")
+	}
+
 }
 
 func TestValidateFlags(t *testing.T) {

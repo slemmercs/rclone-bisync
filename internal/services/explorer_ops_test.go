@@ -503,3 +503,76 @@ func TestExplorerOps_CopyDir_IdenticalBlocked(t *testing.T) {
 		t.Fatalf("expected identical error, got: %+v", resp)
 	}
 }
+
+func TestExplorerOps_UploadFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{LocalPath: tmpDir}
+	expSvc := NewExplorerService(cfg, nil, nil)
+
+	// 1. Invalid filename
+	resp, _ := expSvc.UploadFile(context.Background(), "local", "", "../escape.txt", strings.NewReader("data"), 4, tmpDir)
+	if resp.Status != "error" || !strings.Contains(resp.Error, "Invalid filename") {
+		t.Fatalf("expected invalid filename error, got: %+v", resp)
+	}
+
+	// 2. Canary file blocked
+	resp, _ = expSvc.UploadFile(context.Background(), "local", "", "RCLONE_TEST", strings.NewReader("data"), 4, tmpDir)
+	if resp.Status != "error" || !strings.Contains(resp.Error, "Canary test file") {
+		t.Fatalf("expected canary upload blocked, got: %+v", resp)
+	}
+
+	// 3. Directory traversal in target dir
+	resp, _ = expSvc.UploadFile(context.Background(), "local", "../escape_dir", "file.txt", strings.NewReader("data"), 4, tmpDir)
+	if resp.Status != "error" || !strings.Contains(resp.Error, "Directory traversal forbidden") {
+		t.Fatalf("expected traversal forbidden, got: %+v", resp)
+	}
+
+	// 4. Non-existent directory
+	resp, _ = expSvc.UploadFile(context.Background(), "local", "missing_subdir", "file.txt", strings.NewReader("data"), 4, tmpDir)
+	if resp.Status != "error" || !strings.Contains(resp.Error, "Target directory does not exist") {
+		t.Fatalf("expected non-existent dir error, got: %+v", resp)
+	}
+
+	// 5. Successful local upload to root
+	resp, err := expSvc.UploadFile(context.Background(), "local", "", "uploaded.txt", strings.NewReader("hello world"), 11, tmpDir)
+	if err != nil || resp.Status != "success" {
+		t.Fatalf("expected local upload success, got: %+v, err: %v", resp, err)
+	}
+	content, _ := os.ReadFile(filepath.Join(tmpDir, "uploaded.txt"))
+	if string(content) != "hello world" {
+		t.Fatalf("expected file content 'hello world', got %q", string(content))
+	}
+
+	// 6. Successful local upload to existing subfolder
+	subDir := filepath.Join(tmpDir, "subfolder")
+	_ = os.Mkdir(subDir, 0755)
+	resp, err = expSvc.UploadFile(context.Background(), "local", "subfolder", "nested.txt", strings.NewReader("nested payload"), 14, tmpDir)
+	if err != nil || resp.Status != "success" {
+		t.Fatalf("expected local upload to subfolder success, got: %+v, err: %v", resp, err)
+	}
+	nestedContent, _ := os.ReadFile(filepath.Join(subDir, "nested.txt"))
+	if string(nestedContent) != "nested payload" {
+		t.Fatalf("expected nested content, got %q", string(nestedContent))
+	}
+
+	// 7. Remote upload with nil client
+	resp, _ = expSvc.UploadFile(context.Background(), "myremote:", "", "remote.txt", strings.NewReader("data"), 4)
+	if resp.Status != "error" || !strings.Contains(resp.Error, "client not configured") {
+		t.Fatalf("expected client not configured error, got: %+v", resp)
+	}
+
+	// 8. Remote upload with mocked client
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer ts.Close()
+
+	rcClient := client.NewRcloneClient(ts.URL, "", "")
+	expRemote := NewExplorerService(cfg, rcClient, nil)
+	respRemote, err := expRemote.UploadFile(context.Background(), "myremote:", "remote_sub", "cloud.txt", strings.NewReader("cloud data"), 10)
+	if err != nil || respRemote.Status != "success" {
+		t.Fatalf("expected remote upload success, got: %+v, err: %v", respRemote, err)
+	}
+}

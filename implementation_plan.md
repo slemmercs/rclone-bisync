@@ -1,69 +1,87 @@
-# Implementation Plan: Cockpit UI/UX Usability Polish & Bug Fixes
+# Implementation Plan: Emit Synced Files in Log Dock with On-Demand Pagination
 
 ## Overview
-Deliver a targeted usability and bug-fix overhaul addressing the 5 user-reported issues in the Bisync Hub cockpit:
-1. Enable an inline expandable MCP Tool Registry accordion within the System Health modal's MCP Agent Server tab displaying all 24 registered tools and resources with tool search and safety mode badges.
-2. Resolve missing OAuth vs Custom Credentials segmented toggle in Remote Creation Wizard Step 2 by exposing `SupportsOAuth` on backend `ProviderCatalogItem` and adding frontend provider prefix matching fallback.
-3. Add full abort/cancellation capability to Remote Creation Wizard Step 3 during provisioning via an explicit "Cancel Provisioning" button, window close handler, and `POST /api/remotes/auth/oauth-stop`.
-4. Surface active remote names and clickable linkouts (`switchTab('remotes')`) directly in the Fleet onboarding hero card's "Remotes Ready" badge and remote summary pills.
-5. Consolidate the two stacked bars in the Storage Remotes view ("Authentication Health Overview" and "Configured Remotes") into a single cohesive control deck.
+Capture, record, and navigate individual file operations transferred during Rclone bisync runs within the Live Sync Log Dock and Unified Timeline Ledger, backed by on-demand log pagination and deep file jumping.
+
+When a sync execution completes (initial resync or scheduled bi-directional run), operators currently see only an aggregate summary (e.g. `Resync succeeded in 2.0s (5 file(s) transferred)`). The specific files transferred are hidden within correlated daemon logs, preventing the Live Sync Log Dock's "File Ops" filter from exposing them and blocking operators from using one-click deep navigation to inspect newly synced files in the dual-pane Directory Explorer.
+
+This implementation captures individual file transfers directly from the Rclone job output or daemon stream at sync completion, records up to 50 individual file operations into `bisync.log` with distinct `Object`, `Action`, and `Type: "sync_file"` metadata, and introduces on-demand pagination controls in the Log Dock to seamlessly load and step through historical pages of log entries without UI degradation or log explosion.
+
+---
 
 ## Types
-- `internal/models/provider.go`:
-  - Add `SupportsOAuth bool `json:"supports_oauth"`` to `ProviderCatalogItem` struct.
 
-## Files
-- Existing files to modify:
-  - `internal/models/provider.go`: Add `SupportsOAuth bool `json:"supports_oauth"`` to `ProviderCatalogItem`.
-  - `internal/services/remote_wizard_service.go`: Set `SupportsOAuth` during catalog assembly using `remoteauth.IsOAuthProvider(p.Name) || remoteauth.IsOAuthProvider(p.Prefix)`.
-  - `dashboard/frontend/partials/modals/modal_system_health.html`: Make the MCP Tool Registry card interactive (`cursor-pointer`, active highlight, chevron), embed the 24-tool catalog inline accordion with search and parameter details.
-  - `dashboard/frontend/js/system_health.js`: Add `mcpToolsExpanded: false`, `mcpToolsSearch: ""`, and filtering helper `filteredMcpTools`.
-  - `dashboard/frontend/partials/modals/modal_create_remote.html`: Add frontend OAuth check fallback `isOAuthProvider(createRemoteModal.selectedProvider)`, add Cancel button in Step 3 when `createRemoteModal.saving` is true, and enable Back/Cancel navigation.
-  - `dashboard/frontend/js/remotes_wizard.js`: Add `isOAuthProvider(p)`, add `cancelProvisioning()` method calling `window.API.post("/api/remotes/auth/oauth-stop")` and aborting in-flight request, update `closeCreateRemoteWizard()` to abort if saving.
-  - `dashboard/frontend/partials/view_fleet.html`: Make Step 1 readiness badge clickable (`@click="switchTab('remotes')"`), display active ready remote badges (e.g. `drive:`, `s3:`), and add linkout button.
-  - `dashboard/frontend/partials/view_remotes.html`: Merge the Authentication Health Bar and Configured Remotes Control Bar into a single unified header bar.
-  - `tests/e2e/dashboard_smoke_test.go`: Add E2E tests for the new interactions.
+### 1. `internal/models/api.go`
+```go
+type SyncFileOp struct {
+Path   string `json:"path"`   // Relative file path (e.g. "subfolder/nested.txt")
+Action string `json:"action"` // Operation type: "COPIED", "REPLACED", "DELETED", "CONFLICT"
+Msg    string `json:"msg"`    // Human-readable message (e.g. "subfolder/nested.txt: Copied (new)")
+}
 
-## Functions
-- `internal/services/remote_wizard_service.go`:
-  - `GetProvidersCatalog(ctx context.Context, forceRefresh bool)`: Enrich catalog items with `SupportsOAuth`.
-- `dashboard/frontend/js/system_health.js`:
-  - `toggleMcpToolCatalog()`: Toggles inline accordion visibility.
-  - `filteredMcpTools`: Filter registered tools by name and description query.
-- `dashboard/frontend/js/remotes_wizard.js`:
-  - `isOAuthProvider(p)`: Helper checking `p.supports_oauth` or common OAuth provider prefixes (`drive`, `onedrive`, `dropbox`, `box`, `pcloud`, `yandex`, etc.).
-  - `cancelProvisioning()`: Aborts in-flight create remote request and calls `/api/remotes/auth/oauth-stop`.
+type BisyncLogEntry struct {
+Time        string  `json:"time"`
+Level       string  `json:"level"`
+Type        string  `json:"type,omitempty"` // "sync", "sync_file", "audit"
+ProfileID   string  `json:"profile_id,omitempty"`
+ProfileName string  `json:"profile_name,omitempty"`
+Msg         string  `json:"msg"`
+RunID       string  `json:"run_id"`
+JobID       int     `json:"job_id,omitempty"`
+Origin      string  `json:"origin,omitempty"`
+Status      string  `json:"status,omitempty"`     // SUCCESS, FAULT, ABORTED
+ErrorType   string  `json:"error_type,omitempty"` // TOO_MANY_DELETES, RATE_LIMIT, etc.
+DurationSec float64 `json:"duration_sec,omitempty"`
+FilesSynced int     `json:"files_synced,omitempty"`
+StartTime   string  `json:"start_time,omitempty"` // RFC3339
+EndTime     string  `json:"end_time,omitempty"`   // RFC3339
+Object      string  `json:"object,omitempty"`     // Relative path for deep navigation
+Action      string  `json:"action,omitempty"`     // Operation action badge
+}
+```
 
-## Classes
-- None (zero class inheritance; standard Alpine.js reactive objects and idiomatic Go structs).
+### 2. `internal/core/client/monitor.go`
+```go
+type MonitorJobResult struct {
+Success          bool
+ErrorType        string
+ErrorMessage     string
+FilesSynced      int
+TransferredFiles []models.SyncFileOp
+}
+```
 
-## Dependencies
-- None (native Go standard library and Alpine.js zero-build architecture).
+---
 
-## Testing
-- `internal/services/remote_wizard_service_test.go`: Verify `SupportsOAuth` is populated correctly for `drive` and `s3`.
-- `tests/e2e/dashboard_smoke_test.go`:
-  - Verify clicking MCP Tool Registry expands the inline tool list.
-  - Verify selecting Google Drive displays the OAuth vs Custom toggle in Step 2.
-  - Verify Cancel button appears during Step 3 provisioning and halts the action.
-  - Verify clicking Fleet onboarding ready badge navigates to `remotes` tab.
-  - Verify Remotes view has a single consolidated control bar.
+## Proposed Changes
 
-## Explorer Breadcrumb & Header Path Squashing Fix
-- Problem: In `dashboard/frontend/partials/view_explorer.html`, unlocking the remote selector renders `<select>` and lock button into the same single horizontal row as the target badge, Canary pill, New Folder, and Upload actions. This exhausts row width on dual panes (550-650px wide), squashing the breadcrumb `<div class="overflow-x-auto">` down to ~30px and displaying a truncated horizontal scrollbar right under the remote name.
-- Solution:
-  1. Add `.no-scrollbar` utility in `dashboard/frontend/css/design-tokens.css` to hide horizontal scrollbar bars on overflowed breadcrumb trails.
-  2. Structure each explorer pane header into a clean two-tier layout:
-     - Tier 1: Pane Header Bar containing Target badge (`LOCAL`/`REMOTE`), Remote selector / lock pill, Canary pill, Touch, New Folder, and Upload.
-     - Tier 2: Dedicated Breadcrumb Location Bar containing Folder icon, full-width interactive breadcrumb trail, and Copy Path button.
-  3. Ensure symmetric support for both left and right panes.
+### Phase 1: Transfer File Parser & Extraction (`internal/models`, `internal/core/client`)
+- Add `SyncFileOp` to `internal/models/api.go`.
+- Implement `ExtractTransferredFiles(outputStr string, maxEntries int) []models.SyncFileOp` in `internal/core/client/monitor.go`.
+- Update `MonitorJob` to populate `TransferredFiles` on `MonitorJobResult`.
+- Unit tests in `internal/core/client/monitor_test.go`.
 
-- Quality Gate: `./scripts/check.sh all` passing 7/7 stages.
+### Phase 2: Ingestion & 50-Item Capping in Runner (`internal/engine/runner`)
+- In `handleSyncSuccess` in `internal/engine/runner/runner_handlers.go`, emit up to 50 individual `sync_file` records to `bisync.log`.
+- Emit overflow notification if files exceed 50.
+- Fallback to reading `rclone-daemon.log` if job output buffer was omitted.
+- Unit tests in `internal/engine/runner/runner_test.go`.
 
-## Implementation Order
-1. Backend & Model: Update `internal/models/provider.go` and `internal/services/remote_wizard_service.go` to expose `supports_oauth`.
-2. Wizard Step 2 & 3: Fix OAuth toggle detection in `modal_create_remote.html` and `remotes_wizard.js`; implement `cancelProvisioning()` with `stopOAuth()`.
-3. System Health MCP Accordion: Implement inline expandable tool catalog in `modal_system_health.html` and `system_health.js`.
-4. Fleet Hero Onboarding: Add ready remote tags and clickable tab switch in `view_fleet.html`.
-5. Remotes Control Deck: Consolidate the two stacked bars into one unified bar in `view_remotes.html`.
-6. E2E Tests & Pre-commit Quality Gate: Update headless Chrome assertions and verify `./scripts/check.sh all`.
+### Phase 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
+- Add pagination buttons (`[ < Page X of Y > ]`), entry counter, and badge styling in Log Dock.
+- Validate template with `./scripts/check.sh templates`.
+
+### Phase 4: Frontend Log Dock Engine & Stepping (`log_dock.js`, `logs.js`)
+- Add `loadDockNextPage()` / `loadDockPrevPage()` in `dashboard/frontend/js/log_dock.js`.
+- Include `type === "sync_file"` in `isFileOperationLog`.
+- Verify LOC under 400 with `./scripts/check.sh loc 400`.
+
+### Phase 5: Verification & End-to-End Tests (`dashboard_smoke_test.go`)
+- Validate Log Dock pagination, sync file item jumping, and full test suite (`./scripts/check.sh all`).
+
+---
+
+## Safety & Error Handling
+- **Cap Protection**: Strict capping at 50 file entries per sync run protects against log file explosion.
+- **Fail-Safe Fallback**: If output parsing fails, summary logging remains intact and job execution is unaffected.
+- **Confinement & Jail**: All deep navigation paths remain verified within profile boundaries.

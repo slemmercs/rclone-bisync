@@ -911,3 +911,25 @@ func TestWaitForHealthyAndReconnectGrace(t *testing.T) {
 		t.Fatalf("expected WaitForHealthy to succeed after server recovered, got %v, err: %v", ok, err)
 	}
 }
+
+func TestQuit(t *testing.T) {
+	quitReceived := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/core/quit" {
+			quitReceived = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	if err := c.Quit(context.Background()); err != nil {
+		t.Fatalf("expected Quit to succeed: %v", err)
+	}
+	if !quitReceived {
+		t.Fatal("expected server to receive /core/quit")
+	}
+}

@@ -18,23 +18,9 @@ window.ExplorerActionsModule = {
         }
         if (this.deleteConfirmMode === "none") {
             this.executeDeleteItem(paneKey, item);
-        } else if (this.deleteConfirmMode === "single") {
-            this.deleteModal = {
-                show: true,
-                step: 2,
-                paneKey,
-                item,
-                deleting: false
-            };
         } else {
-            // Default: double confirmation
-            this.deleteModal = {
-                show: true,
-                step: 1,
-                paneKey,
-                item,
-                deleting: false
-            };
+            const step = this.deleteConfirmMode === "single" ? 2 : 1;
+            this.deleteModal = { show: true, step, paneKey, item, deleting: false };
         }
     },
 
@@ -73,6 +59,8 @@ window.ExplorerActionsModule = {
                 this.showToast(`Deleted "${item.Name}" successfully`, "success");
                 this.cancelDelete();
                 this.fetchExplorerDirectory(paneKey, remote, this.explorer[paneKey].path);
+                if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1, true);
+                if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             } else {
                 this.showToast(`Delete failed: ${data.error || 'Unknown error'}`, "error");
             }
@@ -119,6 +107,12 @@ window.ExplorerActionsModule = {
         this.explorer.isDragOverLeft = false;
         this.explorer.isDragOverRight = false;
 
+        const droppedFiles = event?.dataTransfer?.files;
+        if (droppedFiles && droppedFiles.length > 0) {
+            this.handleFileUpload(targetPaneKey, { target: { files: droppedFiles } });
+            return;
+        }
+
         const item = this.explorer.draggedItem;
         const srcPane = this.explorer.draggedSourcePane;
         this.explorer.draggedItem = null;
@@ -154,6 +148,8 @@ window.ExplorerActionsModule = {
             if (data.status === "success") {
                 this.showToast(`Transferred "${item.Name}" successfully!`, "success");
                 this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
+                if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1, true);
+                if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             } else {
                 this.showToast(`Transfer failed: ${data.error || 'Unknown error'}`, "error");
             }
@@ -226,8 +222,7 @@ window.ExplorerActionsModule = {
         const previewExtensions = [
             '.txt', '.md', '.markdown', '.log', '.conf', '.ini', '.env', '.csv',
             '.json', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.js', '.ts', '.go', '.sh', '.bash', '.py', '.rs', '.sql',
-            '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico',
-            '.pdf'
+            '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.pdf'
         ];
         return previewExtensions.some(ext => name.endsWith(ext));
     },
@@ -315,51 +310,55 @@ window.ExplorerActionsModule = {
     },
 
     async handleFileUpload(paneKey, event) {
-        const files = event?.target?.files;
-        if (!files || files.length === 0) return;
-        const file = files[0];
+        const fileList = event?.target?.files;
+        if (!fileList || fileList.length === 0) return;
+        const files = Array.from(fileList);
         const pane = this.explorer[paneKey];
         const remote = pane.target || (paneKey === 'left' ? 'local' : '');
         const path = pane.path || "";
         const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
+        const total = files.length;
+        if (this.showToast) this.showToast(total === 1 ? `Uploading ${files[0].name}...` : `Uploading ${total} files...`, "info");
 
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("remote", remote);
-        formData.append("path", path);
-        if (profileId) {
-            formData.append("profile_id", profileId);
+        let okCount = 0, failCount = 0, lastError = "";
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("remote", remote);
+            formData.append("path", path);
+            if (profileId) formData.append("profile_id", profileId);
+
+            try {
+                const res = await fetch("/api/explorer/upload", {
+                    method: "POST",
+                    headers: { "X-Dashboard-Request": "1" },
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.status === "success") okCount++;
+                else { failCount++; lastError = data.error || "Unknown error"; }
+            } catch (err) {
+                failCount++;
+                lastError = err.message;
+            }
         }
 
-        if (typeof this.showToast === "function") {
-            this.showToast(`Uploading ${file.name}...`, "info");
-        }
+        if (event?.target && "value" in event.target) event.target.value = "";
 
-        try {
-            const res = await fetch("/api/explorer/upload", {
-                method: "POST",
-                headers: {
-                    "X-Dashboard-Request": "1"
-                },
-                body: formData
-            });
-            const data = await res.json();
-            if (data.status === "success") {
-                if (typeof this.showToast === "function") {
-                    this.showToast(`Uploaded "${file.name}" successfully`, "success");
-                }
-                this.fetchExplorerDirectory(paneKey, remote, path);
-            } else {
-                if (typeof this.showToast === "function") {
-                    this.showToast(`Upload failed: ${data.error || 'Unknown error'}`, "error");
+        if (okCount > 0) {
+            if (files[0]?.name) this.explorer.highlightName = files[0].name;
+            this.fetchExplorerDirectory(paneKey, remote, path);
+            if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1, true);
+            if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
+            if (this.showToast) {
+                if (failCount === 0) {
+                    this.showToast(total === 1 ? `Uploaded "${files[0].name}" successfully` : `Uploaded ${total} files successfully`, "success");
+                } else {
+                    this.showToast(`Uploaded ${okCount}/${total} files (${failCount} failed: ${lastError})`, "warning");
                 }
             }
-        } catch (err) {
-            if (typeof this.showToast === "function") {
-                this.showToast(`Upload error: ${err.message}`, "error");
-            }
-        } finally {
-            if (event.target) event.target.value = "";
+        } else if (failCount > 0 && this.showToast) {
+            this.showToast(`Upload failed: ${lastError}`, "error");
         }
     },
 
