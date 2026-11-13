@@ -1145,7 +1145,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 	})
 	// 10. Test Deep File Path Navigation & Pinned Log Audit Dock Engine
 	t.Run("DeepPathNavigationAndLogDock", func(t *testing.T) {
-		script := `(() => {
+		script := `(async () => {
 			const app = Alpine.$data(document.querySelector('[x-data]'));
 			if (!app) return { error: "Alpine root not found" };
 
@@ -1186,9 +1186,21 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			const allLogsCount = app.getFilteredDockLogs().length;
 			app.logDock.activeFilter = 'mutations';
 			const mutationLogsCount = app.getFilteredDockLogs().length;
+			app.logDock.activeFilter = 'file_ops';
+			const fileOpsLogsCount = app.getFilteredDockLogs().length;
 			app.logDock.activeFilter = 'errors';
 			const errorLogsCount = app.getFilteredDockLogs().length;
 			const fetchDaemonLogsExists = typeof app.fetchDaemonLogs === 'function';
+
+			// Verify deep subfolder path navigation
+			await app.jumpToExplorerPath('documents/reports/q4/summary.pdf');
+			const deepNavDirValid = (app.explorer?.left?.path === 'documents/reports/q4');
+			const deepNavHighlightValid = (app.explorer?.highlightName === 'summary.pdf');
+
+			// Verify multi-file input attributes and onDrop handler
+			const uploadLeftMultiple = document.getElementById('explorer-upload-left')?.hasAttribute('multiple') === true;
+			const uploadRightMultiple = document.getElementById('explorer-upload-right')?.hasAttribute('multiple') === true;
+			const hasOnDrop = typeof app.onDrop === 'function';
 
 			// Test pulse row highlight styling
 			app.explorer.highlightName = 'sample.txt';
@@ -1208,7 +1220,13 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				dockClosed,
 				allLogsCount,
 				mutationLogsCount,
+				fileOpsLogsCount,
 				errorLogsCount,
+				deepNavDirValid,
+				deepNavHighlightValid,
+				uploadLeftMultiple,
+				uploadRightMultiple,
+				hasOnDrop,
 				fetchDaemonLogsExists,
 				highlightPulseActive,
 				nonHighlightPulseInactive
@@ -1226,13 +1244,19 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			DockClosed                bool    `json:"dockClosed"`
 			AllLogsCount              int     `json:"allLogsCount"`
 			MutationLogsCount         int     `json:"mutationLogsCount"`
+			FileOpsLogsCount          int     `json:"fileOpsLogsCount"`
 			ErrorLogsCount            int     `json:"errorLogsCount"`
+			DeepNavDirValid           bool    `json:"deepNavDirValid"`
+			DeepNavHighlightValid     bool    `json:"deepNavHighlightValid"`
+			UploadLeftMultiple        bool    `json:"uploadLeftMultiple"`
+			UploadRightMultiple       bool    `json:"uploadRightMultiple"`
+			HasOnDrop                 bool    `json:"hasOnDrop"`
 			FetchDaemonLogsExists     bool    `json:"fetchDaemonLogsExists"`
 			HighlightPulseActive      bool    `json:"highlightPulseActive"`
 			NonHighlightPulseInactive bool    `json:"nonHighlightPulseInactive"`
 		}
 
-		res, err := chromedp.Run(ctx, chromedp.Evaluate[DeepNavResult](script))
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DeepNavResult](script, chromedp.EvalAwaitPromise))
 		if err != nil {
 			t.Fatalf("failed evaluating Deep Path Nav script: %v", err)
 		}
@@ -1252,6 +1276,18 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		if res.AllLogsCount != 3 || res.MutationLogsCount != 2 || res.ErrorLogsCount != 1 {
 			t.Errorf("unexpected filtered log dock counts: all=%d mutations=%d errors=%d",
 				res.AllLogsCount, res.MutationLogsCount, res.ErrorLogsCount)
+		}
+		if res.FileOpsLogsCount != 1 {
+			t.Errorf("unexpected file_ops log dock count: got %d, want 1", res.FileOpsLogsCount)
+		}
+		if !res.DeepNavDirValid || !res.DeepNavHighlightValid {
+			t.Errorf("deep path navigation failed: dirValid=%v, highlightValid=%v", res.DeepNavDirValid, res.DeepNavHighlightValid)
+		}
+		if !res.UploadLeftMultiple || !res.UploadRightMultiple {
+			t.Errorf("multi-file input attribute missing: left=%v, right=%v", res.UploadLeftMultiple, res.UploadRightMultiple)
+		}
+		if !res.HasOnDrop {
+			t.Errorf("expected onDrop drag-and-drop handler to exist on Alpine instance")
 		}
 		if !res.FetchDaemonLogsExists {
 			t.Errorf("expected fetchDaemonLogs method to exist on Alpine instance")

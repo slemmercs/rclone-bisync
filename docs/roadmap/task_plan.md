@@ -21,7 +21,7 @@ Elevate test coverage to >86.0% (resolving the nightly deep quality GitHub Actio
   - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/logs.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 5: End-to-End Headless Smoke Tests & Full Quality Gate Pass
+- [x] Task 5: End-to-End Headless Smoke Tests & Full Quality Gate Pass
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all`
 
@@ -29,11 +29,9 @@ Elevate test coverage to >86.0% (resolving the nightly deep quality GitHub Actio
 
 - 2026-11-13: Initialized task plan from implementation_plan.md.
 - 2026-11-13: Completed Task 1 - Added unit tests in `models`, `services`, `server`, `audit`, `config`, and `core/client`, elevating test statement coverage to 86.0% under `-race` to safely guard against CI threshold failures. Verified with `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`.
-
 - 2026-11-13: Completed Task 2 - Added `multiple` attribute to explorer file inputs and upgraded `handleFileUpload` & `onDrop` for desktop file drops and batch uploading with progress toasts and LOC < 400 compliance.
-
 - 2026-11-13: Completed Task 3 - Included `item_path` in upload audit event records, prioritized full path resolution in `parseJsonLogLine` and `getEntryPath`, and supported entry object profiles in `jumpToExplorerPath` with LOC < 400 compliance.
-
 - 2026-11-13: Completed Task 4 - Implemented strict `isFileOperationLog` filtering in `log_dock.js` and `logs.js`, and added "File Ops" filter pills to `component_log_dock.html` and `pattern_timeline_ledger.html`. Verified with template validator, LOC ceiling checks (< 400 LOC), and E2E smoke tests.
+- 2026-11-13: Completed Task 5 - Updated `dashboard_smoke_test.go` with automated headless verification for `file_ops` filtering, deep subfolder navigation, `multiple` file input attributes, and desktop drag-and-drop handler existence. All quality gates passed (`./scripts/check.sh all`).
 
 
