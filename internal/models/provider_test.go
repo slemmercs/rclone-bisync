@@ -88,3 +88,31 @@ func TestRemoteRequestsJSON(t *testing.T) {
 		t.Errorf("expected name gdrive-test, got %s", parsedDel.Name)
 	}
 }
+
+func TestIsOAuthProvider(t *testing.T) {
+	tests := []struct {
+		provider string
+		expected bool
+	}{
+		{"drive", true},
+		{"DRIVE", true},
+		{"  onedrive  ", true},
+		{"dropbox", true},
+		{"box", true},
+		{"pcloud", true},
+		{"google photos", true},
+		{"s3", false},
+		{"b2", false},
+		{"sftp", false},
+		{"local", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		got := IsOAuthProvider(tt.provider)
+		if got != tt.expected {
+			t.Errorf("IsOAuthProvider(%q) = %v; want %v", tt.provider, got, tt.expected)
+		}
+	}
+}
+

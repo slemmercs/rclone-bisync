@@ -359,6 +359,45 @@ func TestRemoteDedupe_ZeroDeletedNoAudit(t *testing.T) {
 	}
 }
 
+func TestHandleAuditReset(t *testing.T) {
+	srv, auditSvc := setupTestServerWithAudit(t)
+	defer auditSvc.Close()
+
+	// 1. Method not allowed for GET
+	reqGet := httptest.NewRequest(http.MethodGet, "/api/audit/reset", nil)
+	wGet := httptest.NewRecorder()
+	srv.ServeHTTP(wGet, reqGet)
+	if wGet.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405 Method Not Allowed, got %d", wGet.Code)
+	}
+
+	// 2. Nil service returns error in body
+	nilSrv := NewServer(&config.Config{}, nil, nil)
+	reqNil := httptest.NewRequest(http.MethodPost, "/api/audit/reset", nil)
+	reqNil.Header.Set("X-Dashboard-Request", "1")
+	wNil := httptest.NewRecorder()
+	nilSrv.ServeHTTP(wNil, reqNil)
+	if !strings.Contains(wNil.Body.String(), "Audit service is not available") {
+		t.Fatalf("expected error message on nil service, got: %s", wNil.Body.String())
+	}
+
+	// 3. Successful reset
+	_, _ = auditSvc.RecordEvent("p1", audit.ActionSyncExecuted, "SYSTEM", nil)
+	reqPost := httptest.NewRequest(http.MethodPost, "/api/audit/reset", nil)
+	reqPost.Header.Set("X-Dashboard-Request", "1")
+	wPost := httptest.NewRecorder()
+	srv.ServeHTTP(wPost, reqPost)
+	if wPost.Code != http.StatusOK {
+		t.Fatalf("expected 200 on reset, got %d", wPost.Code)
+	}
+	var res map[string]any
+	_ = json.Unmarshal(wPost.Body.Bytes(), &res)
+	if res["status"] != "success" {
+		t.Fatalf("expected status success, got: %+v", res)
+	}
+}
+
+
 func TestAuditReset(t *testing.T) {
 	srv, auditSvc := setupTestServerWithAudit(t)
 	defer auditSvc.Close()

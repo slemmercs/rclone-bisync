@@ -1,26 +1,33 @@
-# Task Plan: System Health Modal Log Loading & Pinned Log Dock Normalization
+# Task Plan: Coverage Buffer (>86%), Multi-Upload, File Ops Filter, & File-Level Deep Nav
 
 ## Goal
-Fix empty log display in the System Health Center modal and normalize structured log ingestion (`bisync_logs` / `daemon_logs`) and mutation classification in the Pinned Log Audit Dock.
+Elevate test coverage to >86.0% (resolving the nightly deep quality GitHub Actions failure `84.9% < 85.0%`), and implement multi-file batch uploads, file-level deep navigation/pulsing in subdirectories, and strict "File Ops" log filtering.
 
 ## Tasks
 
-- [x] Task 1: Normalize System Health Modal Daemon Logs Fetching & Display
-  - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/modals/modal_system_health.html`
+- [x] Task 1: Boost Unit Test Coverage Buffer (>86.0%) Across Models, Services, and Server
+  - **Scope**: `internal/models/provider_test.go`, `internal/services/explorer_ops_test.go`, `internal/services/explorer_preview_test.go`, `internal/server/handlers_explorer_test.go`
+  - **Verification**: `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`
+
+- [ ] Task 2: Multi-File Selection & Desktop Drag-and-Drop Batch Upload
+  - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/js/explorer_actions.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 2: Fix Pinned Log Dock Ingestion, Level Padding Normalization, and Mutation Path Recognition
-  - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`
+- [ ] Task 3: Audit `item_path` Resolution, Subfolder Deep Navigation & Row Pulsing
+  - **Scope**: `internal/server/handlers_explorer.go`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/logs.js`
+  - **Verification**: `go test -count=1 ./internal/server -run TestHandleExplorerUpload && ./scripts/check.sh loc 400`
+
+- [ ] Task 4: Strict File/Folder Operation Log Filtering in Log Dock and Timeline Ledger
+  - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/logs.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 3: Automated E2E Verification, LOC Audit & Pre-Commit Quality Gate
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, documentation
+- [ ] Task 5: End-to-End Headless Smoke Tests & Full Quality Gate Pass
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-11: Initialized task plan from implementation_plan.md.
-- 2026-11-11: Completed Task 1 - Added `fetchDaemonLogs` to `logs.js`, refactored `openDaemonModal`, added deep path navigation chips and empty filter states to `modal_system_health.html`. Verified with `./scripts/check.sh templates` and `./scripts/check.sh loc 400`.
-- 2026-11-11: Completed Task 2 - Normalized log ingestion to use parsed bisync logs, trimmed log levels for error/mutation filtering, recognized detected paths as mutations, and bound uniform timestamps in `log_dock.js` and `component_log_dock.html`. Verified with `./scripts/check.sh templates` and `./scripts/check.sh loc 400`.
-- 2026-11-11: Completed Task 3 - Enhanced `parseJsonLogLine` in `utils.js` to accept raw objects, trimmed padded levels, updated E2E smoke tests with padded levels and stringified JSON logs, and verified all 7 quality gate checks in `./scripts/check.sh all`.
+- 2026-11-13: Initialized task plan from implementation_plan.md.
+- 2026-11-13: Completed Task 1 - Added unit tests in `models`, `services`, `server`, `audit`, `config`, and `core/client`, elevating test statement coverage to 86.0% under `-race` to safely guard against CI threshold failures. Verified with `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`.
+
 

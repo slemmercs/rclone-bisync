@@ -195,20 +195,65 @@ func TestExplorerPreview_RemoteClientNil(t *testing.T) {
 func TestDetectMimeType(t *testing.T) {
 	cases := []struct {
 		filename string
+		sample   []byte
 		expected string
 	}{
-		{"test.pdf", "application/pdf"},
-		{"test.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
-		{"test.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-		{"test.zip", "application/zip"},
-		{"test.md", "text/markdown; charset=utf-8"},
-		{"test.json", "application/json"},
+		{"test.pdf", nil, "application/pdf"},
+		{"test.docx", nil, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+		{"test.xlsx", nil, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+		{"test.pptx", nil, "application/vnd.openxmlformats-officedocument.presentationml.presentation"},
+		{"test.zip", nil, "application/zip"},
+		{"test.tar", nil, "application/octet-stream"},
+		{"test.md", nil, "text/markdown; charset=utf-8"},
+		{"test.json", nil, "application/json"},
+		{"test.yaml", nil, "text/yaml; charset=utf-8"},
+		{"test.txt", nil, "text/plain; charset=utf-8"},
+		{"test.sh", nil, "text/x-shellscript; charset=utf-8"},
+		{"test.go", nil, "text/x-go; charset=utf-8"},
+		{"test.js", nil, "application/javascript"},
+		{"test.ts", nil, "application/typescript"},
+		{"test.css", nil, "text/css; charset=utf-8"},
+		{"test.html", nil, "text/html; charset=utf-8"},
+		{"test.csv", nil, "text/csv; charset=utf-8"},
+		{"test.xml", nil, "text/xml; charset=utf-8"},
+		{"test.svg", nil, "image/svg+xml"},
+		{"test.py", nil, "text/x-python; charset=utf-8"},
+		{"test.rs", nil, "text/x-rust; charset=utf-8"},
+		{"test.sql", nil, "text/x-sql; charset=utf-8"},
+		{"unknown.custom", []byte("<!DOCTYPE html><html></html>"), "text/html; charset=utf-8"},
+		{"unknown.custom", nil, "application/octet-stream"},
 	}
 
 	for _, tc := range cases {
-		got := DetectMimeType(tc.filename, nil)
+		got := DetectMimeType(tc.filename, tc.sample)
 		if got != tc.expected {
-			t.Errorf("DetectMimeType(%q) = %q, expected %q", tc.filename, got, tc.expected)
+			t.Errorf("DetectMimeType(%q, sample=%v) = %q, expected %q", tc.filename, tc.sample != nil, got, tc.expected)
+		}
+	}
+}
+
+func TestIsBinaryData(t *testing.T) {
+	tests := []struct {
+		mime     string
+		data     []byte
+		expected bool
+	}{
+		{"application/pdf", nil, true},
+		{"application/zip", nil, true},
+		{"application/octet-stream", nil, true},
+		{"text/plain", []byte("hello"), false},
+		{"application/json", []byte("{}"), false},
+		{"application/xml", []byte("<a/>"), false},
+		{"application/javascript", []byte("console.log(1)"), false},
+		{"application/unknown", []byte("text data"), false},
+		{"application/unknown", []byte{0x00, 0x01}, true},
+		{"application/unknown", []byte{0xff, 0xfe, 0xfd}, true},
+	}
+
+	for _, tt := range tests {
+		got := isBinaryData(tt.mime, tt.data)
+		if got != tt.expected {
+			t.Errorf("isBinaryData(%q, %v) = %v; want %v", tt.mime, tt.data, got, tt.expected)
 		}
 	}
 }

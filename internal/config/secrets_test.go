@@ -100,3 +100,11 @@ func TestFormatSecretValue(t *testing.T) {
 		t.Errorf("expected escaped quotes and slashes, got %q", got)
 	}
 }
+
+func TestUpdateRemoveSecret_ValidationErrors(t *testing.T) {
+	// Unwritable / invalid directory path
+	if err := UpdateSecret("/dev/null/sub/file.env", "KEY", "VAL"); err == nil {
+		t.Error("expected error creating directory under /dev/null")
+	}
+}
+

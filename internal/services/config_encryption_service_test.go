@@ -3,12 +3,15 @@ package services
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
@@ -318,3 +321,51 @@ func TestConfigEncryptionService_PassphrasePersistenceAndWarning(t *testing.T) {
 		t.Errorf("expected error when runner fails password validation, got nil")
 	}
 }
+
+func TestConfigEncryptionService_RestartDaemon(t *testing.T) {
+	// 1. Systemctl runner success
+	runnerCalled := false
+	mockRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
+		runnerCalled = true
+		if name == "systemctl" && len(args) >= 3 && args[2] == "rclone-daemon.service" {
+			return "", nil
+		}
+		return "", fmt.Errorf("unexpected command")
+	}
+
+	svc := NewConfigEncryptionService(&config.Config{}, nil, mockRunner)
+	if err := svc.RestartDaemon(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !runnerCalled {
+		t.Errorf("expected systemctl runner to be invoked")
+	}
+
+	// 2. Runner fails, falls back to Client.Quit
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/core/quit" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	rcClient := client.NewRcloneClient(ts.URL, "", "")
+	failingRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
+		return "", fmt.Errorf("systemctl not available")
+	}
+
+	fallbackSvc := NewConfigEncryptionService(&config.Config{}, rcClient, failingRunner)
+	if err := fallbackSvc.RestartDaemon(context.Background()); err != nil {
+		t.Fatalf("unexpected error during fallback restart: %v", err)
+	}
+
+	// 3. Client nil and runner fails
+	nilClientSvc := NewConfigEncryptionService(&config.Config{}, nil, failingRunner)
+	if err := nilClientSvc.RestartDaemon(context.Background()); err != nil {
+		t.Fatalf("unexpected error when client is nil: %v", err)
+	}
+}
+

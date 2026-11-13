@@ -706,3 +706,34 @@ func TestExplorerAudit_Operations(t *testing.T) {
 	// Clean up created file in profileLocal
 	_ = os.Remove(filepath.Join(profileLocal, "audit_upload.txt"))
 }
+
+func TestResolveExcludePatterns(t *testing.T) {
+	srv, _, _ := setupTestServerWithProfilesAndExplorer(t)
+
+	// 1. Profile with exclude patterns
+	patterns := srv.resolveExcludePatterns("prof_onedrive")
+	if len(patterns) != 2 || patterns[0] != "Personal Vault/**" || patterns[1] != "*.tmp" {
+		t.Errorf("unexpected patterns for prof_onedrive: %v", patterns)
+	}
+
+	// 2. Non-existent profile, but config has --exclude flags
+	srv.Config.RcloneCommonArgs = []string{"--fast-list", "--exclude", "*.log", "--exclude", "node_modules/**"}
+	patternsFromConfig := srv.resolveExcludePatterns("non_existent")
+	if len(patternsFromConfig) != 2 || patternsFromConfig[0] != "*.log" || patternsFromConfig[1] != "node_modules/**" {
+		t.Errorf("unexpected patterns from config: %v", patternsFromConfig)
+	}
+
+	// 3. No profile, empty common args
+	srv.Config.RcloneCommonArgs = nil
+	patternsNil := srv.resolveExcludePatterns("")
+	if len(patternsNil) != 0 {
+		t.Errorf("expected empty patterns, got: %v", patternsNil)
+	}
+
+	// 4. resolveLocalPath fallback when profile missing
+	path := srv.resolveLocalPath("non_existent")
+	if path != srv.Config.LocalPath {
+		t.Errorf("expected local path %q, got %q", srv.Config.LocalPath, path)
+	}
+}
+
