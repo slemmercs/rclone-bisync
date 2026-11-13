@@ -21,7 +21,7 @@ Fix zero-transfer counting in bisync job completion by pulling group stats from 
   - **Scope**: `dashboard/frontend/js/explorer_actions.js`
   - **Verification**: `./scripts/check.sh loc 400`
 
-- [ ] Task 5: End-to-End & Full Quality Gate Verification (`tests/e2e/dashboard_smoke_test.go`)
+- [x] Task 5: End-to-End & Full Quality Gate Verification (`tests/e2e/dashboard_smoke_test.go`)
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Verification**: `./scripts/check.sh all`
 
@@ -32,6 +32,7 @@ Fix zero-transfer counting in bisync job completion by pulling group stats from 
 - 2026-11-13: Completed Task 2 - Mirrored object target path into `Msg` in `RecordEvent` (`internal/services/audit_service.go`), verified with `go test -count=1 -v ./internal/services -run TestAuditService`.
 - 2026-11-13: Completed Task 3 - Distinct clustering key including object/action in `clusterLogEntries` and action badges rendered on single rows and subEntries, verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400`.
 - 2026-11-13: Completed Task 4 - Immediate auto-refresh of paginated bisync logs and audit records on upload/delete/copy in `dashboard/frontend/js/explorer_actions.js`, verified with `./scripts/check.sh loc 400` (394 LOC).
+- 2026-11-13: Completed Task 5 - Verified end-to-end headless Chrome smoke test covering audit timeline clustering, action badges, and upload refresh hooks; formatted files and verified all 7 quality gate checks via `./scripts/check.sh all` (OK: 7/7).
 
 
 

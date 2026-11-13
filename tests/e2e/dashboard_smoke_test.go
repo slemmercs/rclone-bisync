@@ -1297,6 +1297,66 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 	})
 
+	// 11. Test Timeline Ledger Clustering & Auto-Refresh Hook
+	t.Run("AuditTimelineLedgerAndClustering", func(t *testing.T) {
+		script := `(() => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			// Test clusterLogEntries keeps distinct objects uncollapsed
+			const testAuditEntries = [
+				{ id: 1, timestamp: "2026-11-13T10:00:00Z", level: "NOTICE", msg: "[profile1] UPLOAD: fileA.txt", action: "UPLOAD", object: "fileA.txt", details: {} },
+				{ id: 2, timestamp: "2026-11-13T10:00:01Z", level: "NOTICE", msg: "[profile1] UPLOAD: fileB.txt", action: "UPLOAD", object: "fileB.txt", details: {} }
+			];
+			const clusters = app.clusterLogEntries(testAuditEntries);
+			const distinctCount = clusters.length;
+
+			// Test same object/action clusters
+			const testDuplicateEntries = [
+				{ id: 3, timestamp: "2026-11-13T10:00:00Z", level: "NOTICE", msg: "[profile1] UPLOAD: fileA.txt", action: "UPLOAD", object: "fileA.txt", details: {} },
+				{ id: 4, timestamp: "2026-11-13T10:00:02Z", level: "NOTICE", msg: "[profile1] UPLOAD: fileA.txt", action: "UPLOAD", object: "fileA.txt", details: {} }
+			];
+			const dupClusters = app.clusterLogEntries(testDuplicateEntries);
+			const dupCount = dupClusters.length;
+
+			// Test fetchBisyncLogs and fetchAuditRecords methods exist
+			const hasFetchBisyncLogs = typeof app.fetchBisyncLogs === 'function';
+			const hasFetchAuditRecords = typeof app.fetchAuditRecords === 'function';
+
+			return {
+				distinctCount,
+				dupCount,
+				hasFetchBisyncLogs,
+				hasFetchAuditRecords
+			};
+		})()`
+
+		type ClusterResult struct {
+			Error                *string `json:"error"`
+			DistinctCount        int     `json:"distinctCount"`
+			DupCount             int     `json:"dupCount"`
+			HasFetchBisyncLogs   bool    `json:"hasFetchBisyncLogs"`
+			HasFetchAuditRecords bool    `json:"hasFetchAuditRecords"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[ClusterResult](script))
+		if err != nil {
+			t.Fatalf("failed evaluating Audit Timeline Ledger script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Audit Timeline Ledger check failed: %s", *res.Error)
+		}
+		if res.DistinctCount != 2 {
+			t.Errorf("expected 2 distinct clusters for different objects, got %d", res.DistinctCount)
+		}
+		if res.DupCount != 1 {
+			t.Errorf("expected 1 cluster for identical object and action, got %d", res.DupCount)
+		}
+		if !res.HasFetchBisyncLogs || !res.HasFetchAuditRecords {
+			t.Errorf("expected fetchBisyncLogs and fetchAuditRecords to exist on Alpine instance")
+		}
+	})
+
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
 	defer mu.Unlock()

@@ -147,4 +147,3 @@ Bisync successful`,
 		t.Fatalf("expected 3 files synced from output text fallback, got %d", res.FilesSynced)
 	}
 }
-

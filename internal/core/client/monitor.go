@@ -156,4 +156,3 @@ func (c *RcloneClient) queryGroupTransfers(ctx context.Context, group string) in
 	}
 	return 0
 }
-

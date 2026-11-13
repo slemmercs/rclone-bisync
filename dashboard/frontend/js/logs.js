@@ -6,13 +6,11 @@
 
 function normalizeLogMessage(msg) {
     if (!msg) return "";
-    return msg
-        .replace(/\[cid=[a-zA-Z0-9_-]+\]/g, "")
+    return msg.replace(/\[cid=[a-zA-Z0-9_-]+\]/g, "")
         .replace(/\b\d+(\.\d+)?\s*(s|ms|m|h|B|KB|MB|GB|TB|PB)\b/gi, "")
         .replace(/\b\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?\b/g, "")
         .replace(/\b\d+\s+(transferred|checked|deleted|matching|errors)\b/gi, "")
-        .replace(/\s+/g, " ")
-        .trim();
+        .replace(/\s+/g, " ").trim();
 }
 
 function clusterLogEntries(entries, foldEnabled, expandedMap) {
@@ -35,8 +33,7 @@ function clusterLogEntries(entries, foldEnabled, expandedMap) {
         const item = entries[i];
         const norm = normalizeLogMessage(item.msg || "");
         const prof = item.profile_id || item.profile_name || "";
-        const obj = item.object || "";
-        const act = item.action || "";
+        const obj = item.object || "", act = item.action || "";
         const key = `${item.level || ""}::${item.type || ""}::${prof}::${obj}::${act}::${norm}`;
 
         if (currentCluster && currentCluster.key === key && norm.length > 5) {
@@ -65,8 +62,12 @@ function clusterLogEntries(entries, foldEnabled, expandedMap) {
     }
     return clusters;
 }
+window.clusterLogEntries = clusterLogEntries;
 
 window.LogsModule = {
+    clusterLogEntries(entries, fold = this.foldRepetitive, map = this.expandedClusters) {
+        return clusterLogEntries(entries, fold, map);
+    },
     bisyncLogPage: 1,
     bisyncLogLimit: 50,
     bisyncLogTotal: 0,
