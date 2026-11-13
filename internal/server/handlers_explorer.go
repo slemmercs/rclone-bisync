@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"path"
 	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/audit"
@@ -174,12 +175,17 @@ func (s *Server) handleExplorerUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if res.Status == "success" && s.AuditService != nil {
+		itemPath := header.Filename
+		if targetPath != "" {
+			itemPath = path.Join(targetPath, header.Filename)
+		}
 		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionWorkspaceFileUploaded, s.resolveActor(r), map[string]any{
-			"remote":   remote,
-			"path":     targetPath,
-			"filename": header.Filename,
-			"size":     header.Size,
-			"source":   "WORKSPACE_STAGING",
+			"remote":    remote,
+			"path":      targetPath,
+			"filename":  header.Filename,
+			"item_path": itemPath,
+			"size":      header.Size,
+			"source":    "WORKSPACE_STAGING",
 		})
 	}
 	writeJSON(w, http.StatusOK, res)

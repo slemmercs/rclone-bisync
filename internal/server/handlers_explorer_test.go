@@ -677,8 +677,8 @@ func TestExplorerAudit_Operations(t *testing.T) {
 		switch r.Action {
 		case audit.ActionWorkspaceFileUploaded:
 			foundUpload = true
-			if !strings.Contains(string(r.Details), "audit_upload.txt") {
-				t.Errorf("expected details to contain audit_upload.txt, got %s", string(r.Details))
+			if !strings.Contains(string(r.Details), "audit_upload.txt") || !strings.Contains(string(r.Details), `"item_path"`) {
+				t.Errorf("expected details to contain audit_upload.txt and item_path, got %s", string(r.Details))
 			}
 		case audit.ActionWorkspaceItemCopied:
 			foundCopy = true

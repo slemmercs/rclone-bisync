@@ -306,8 +306,14 @@ window.LogsModule = {
     getEntryPath(entry) {
         if (!entry) return null;
         if (entry.object) return entry.object;
-        if (entry.details && (entry.details.path || entry.details.item_path)) {
-            return entry.details.path || entry.details.item_path;
+        if (entry.details) {
+            if (entry.details.item_path) return entry.details.item_path;
+            if (entry.details.path && entry.details.filename) {
+                return `${entry.details.path}/${entry.details.filename}`.replace(/^\/+/, "");
+            }
+            if (entry.details.path) return entry.details.path;
+            if (entry.details.object) return entry.details.object;
+            if (entry.details.file) return entry.details.file;
         }
         if (entry.msg && typeof extractPathFromLogMsg === "function") {
             return extractPathFromLogMsg(entry.msg);
@@ -327,8 +333,9 @@ window.LogsModule = {
         if (typeof this.closeDaemonModal === "function") this.closeDaemonModal();
         else this.showDaemonModal = false;
 
-        if (profileId && this.profilesData && this.profilesData.activeId !== profileId && typeof this.selectProfile === "function") {
-            await this.selectProfile(profileId, dir);
+        const targetProfileId = (profileId && typeof profileId === "object") ? (profileId.profile_id || null) : profileId;
+        if (targetProfileId && this.profilesData && this.profilesData.activeId !== targetProfileId && typeof this.selectProfile === "function") {
+            await this.selectProfile(targetProfileId, dir);
         }
 
         if (typeof this.switchTab === "function") this.switchTab("explorer");

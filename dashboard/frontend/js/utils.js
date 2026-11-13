@@ -6,12 +6,7 @@
 // Helper to escape HTML characters for security
 function escapeHtml(str) {
     if (str === null || str === undefined) return "";
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // Resolves visual badge metadata for execution caller origins (CLI, CRON, UI, MCP)
@@ -222,7 +217,7 @@ function parseJsonLogLine(rawLine) {
             actor: parsed.actor || null,
             hash: parsed.hash || null,
             prev_hash: parsed.prev_hash || null,
-            object: parsed.object || (parsed.details && (parsed.details.item_path || parsed.details.path || parsed.details.object || parsed.details.file)) || extractPathFromLogMsg(cleanMsg) || null,
+            object: parsed.object || (parsed.details && (parsed.details.item_path || (parsed.details.path && parsed.details.filename ? `${parsed.details.path}/${parsed.details.filename}`.replace(/^\/+/, '') : null) || parsed.details.path || parsed.details.object || parsed.details.file)) || extractPathFromLogMsg(cleanMsg) || null,
             objectType: parsed.objectType || null,
             source: parsed.source || null,
             details: parsed.details || structuredDetails,

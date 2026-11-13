@@ -13,7 +13,7 @@ Elevate test coverage to >86.0% (resolving the nightly deep quality GitHub Actio
   - **Scope**: `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/js/explorer_actions.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 3: Audit `item_path` Resolution, Subfolder Deep Navigation & Row Pulsing
+- [x] Task 3: Audit `item_path` Resolution, Subfolder Deep Navigation & Row Pulsing
   - **Scope**: `internal/server/handlers_explorer.go`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/logs.js`
   - **Verification**: `go test -count=1 ./internal/server -run TestHandleExplorerUpload && ./scripts/check.sh loc 400`
 
@@ -31,5 +31,7 @@ Elevate test coverage to >86.0% (resolving the nightly deep quality GitHub Actio
 - 2026-11-13: Completed Task 1 - Added unit tests in `models`, `services`, `server`, `audit`, `config`, and `core/client`, elevating test statement coverage to 86.0% under `-race` to safely guard against CI threshold failures. Verified with `MIN_COVERAGE=85.0 RUN_RACE=true ./scripts/check.sh test`.
 
 - 2026-11-13: Completed Task 2 - Added `multiple` attribute to explorer file inputs and upgraded `handleFileUpload` & `onDrop` for desktop file drops and batch uploading with progress toasts and LOC < 400 compliance.
+
+- 2026-11-13: Completed Task 3 - Included `item_path` in upload audit event records, prioritized full path resolution in `parseJsonLogLine` and `getEntryPath`, and supported entry object profiles in `jumpToExplorerPath` with LOC < 400 compliance.
 
 
