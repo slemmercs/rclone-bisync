@@ -51,6 +51,27 @@ window.LogDockModule = {
         }
     },
 
+    isFileOperationLog(entry) {
+        if (!entry) return false;
+        const msg = String(entry.msg || "").trim().toLowerCase();
+        if (msg.includes("0 file(s) transferred") || msg.includes("0 files transferred") ||
+            msg.includes("dry-run banner") || msg.includes("starting rclone") || msg.includes("daemon started")) {
+            return false;
+        }
+        const fileActions = [
+            "WORKSPACE_FILE_UPLOADED", "WORKSPACE_ITEM_COPIED", "WORKSPACE_ITEM_MOVED",
+            "WORKSPACE_ITEM_DELETED", "WORKSPACE_DIR_CREATED", "WORKSPACE_DIR_PURGED",
+            "CONFLICT_RESOLVED", "DELETION_ACCEPTED", "DELETION_RESTORED",
+            "ITEM_RESTORED", "FILE_DELETED", "FILE_TRANSFER", "FILE_DIFF"
+        ];
+        if (entry.action && fileActions.includes(String(entry.action).toUpperCase())) return true;
+        const path = typeof this.getEntryPath === "function" ? this.getEntryPath(entry) : (entry.object || null);
+        if (path) return true;
+        return (msg.includes("transfer") || msg.includes("delet") || msg.includes("conflict") ||
+                msg.includes("copi") || msg.includes("copy") || msg.includes("mov") ||
+                msg.includes("upload") || msg.includes("purged") || msg.includes("restor"));
+    },
+
     getFilteredDockLogs() {
         let sourceLogs = [];
         if (Array.isArray(this.filteredBisyncLogs) && this.filteredBisyncLogs.length > 0) {
@@ -63,16 +84,14 @@ window.LogDockModule = {
         }
 
         let logs = sourceLogs;
-        if (this.logDock.activeFilter === "mutations") {
+        if (this.logDock.activeFilter === "file_ops") {
+            logs = sourceLogs.filter(l => this.isFileOperationLog(l));
+        } else if (this.logDock.activeFilter === "mutations") {
             logs = sourceLogs.filter(l => {
                 if (!l) return false;
                 const lvl = String(l.level || "").trim().toUpperCase();
                 if (lvl === "ERROR" || lvl === "NOTICE") return true;
-                const path = typeof this.getEntryPath === "function" ? this.getEntryPath(l) : (l.object || null);
-                if (path) return true;
-                const msg = String(l.msg || "").toLowerCase();
-                return msg.includes("transfer") || msg.includes("delete") || msg.includes("conflict") ||
-                       msg.includes("copy") || msg.includes("move") || msg.includes("updated");
+                return this.isFileOperationLog(l);
             });
         } else if (this.logDock.activeFilter === "errors") {
             logs = sourceLogs.filter(l => String(l?.level || "").trim().toUpperCase() === "ERROR");

@@ -106,11 +106,10 @@ window.LogsModule = {
                 return false;
             });
         }
-        if (this.telemetryLogFilter === "sync") {
-            return logs.filter(l => l.type !== "audit");
-        }
-        if (this.telemetryLogFilter === "audit") {
-            return logs.filter(l => l.type === "audit");
+        if (this.telemetryLogFilter === "sync") return logs.filter(l => l.type !== "audit");
+        if (this.telemetryLogFilter === "audit") return logs.filter(l => l.type === "audit");
+        if (this.telemetryLogFilter === "file_ops" || this.telemetryLogFilter === "mutations") {
+            return logs.filter(l => typeof this.isFileOperationLog === "function" ? this.isFileOperationLog(l) : Boolean(this.getEntryPath(l)));
         }
         return logs;
     },

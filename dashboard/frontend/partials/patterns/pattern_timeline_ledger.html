@@ -10,6 +10,7 @@
             <!-- Filter Pills -->
             <div class="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono ml-2">
                 <button @click="telemetryLogFilter = 'all'" :class="telemetryLogFilter === 'all' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all">All</button>
+                <button @click="telemetryLogFilter = 'file_ops'" :class="(telemetryLogFilter === 'file_ops' || telemetryLogFilter === 'mutations') ? 'bg-amber-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all" title="Transfers, deletes, uploads, conflicts">File Ops</button>
                 <button @click="telemetryLogFilter = 'sync'" :class="telemetryLogFilter === 'sync' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all">Sync</button>
                 <button @click="telemetryLogFilter = 'audit'" :class="telemetryLogFilter === 'audit' ? 'bg-purple-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all">Audit</button>
             </div>

@@ -54,7 +54,7 @@ document.addEventListener("alpine:init", () => {
         },
         currentLogLimit: 40,
         maxLogLimit: 300,
-        telemetryLogFilter: "all", // 'all' | 'sync' | 'audit'
+        telemetryLogFilter: "all", // 'all' | 'file_ops' | 'sync' | 'audit'
         actionLoading: null,
         configExpanded: false,
 

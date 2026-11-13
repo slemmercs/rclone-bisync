@@ -17,7 +17,7 @@ Elevate test coverage to >86.0% (resolving the nightly deep quality GitHub Actio
   - **Scope**: `internal/server/handlers_explorer.go`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/js/logs.js`
   - **Verification**: `go test -count=1 ./internal/server -run TestHandleExplorerUpload && ./scripts/check.sh loc 400`
 
-- [ ] Task 4: Strict File/Folder Operation Log Filtering in Log Dock and Timeline Ledger
+- [x] Task 4: Strict File/Folder Operation Log Filtering in Log Dock and Timeline Ledger
   - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/logs.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
@@ -33,5 +33,7 @@ Elevate test coverage to >86.0% (resolving the nightly deep quality GitHub Actio
 - 2026-11-13: Completed Task 2 - Added `multiple` attribute to explorer file inputs and upgraded `handleFileUpload` & `onDrop` for desktop file drops and batch uploading with progress toasts and LOC < 400 compliance.
 
 - 2026-11-13: Completed Task 3 - Included `item_path` in upload audit event records, prioritized full path resolution in `parseJsonLogLine` and `getEntryPath`, and supported entry object profiles in `jumpToExplorerPath` with LOC < 400 compliance.
+
+- 2026-11-13: Completed Task 4 - Implemented strict `isFileOperationLog` filtering in `log_dock.js` and `logs.js`, and added "File Ops" filter pills to `component_log_dock.html` and `pattern_timeline_ledger.html`. Verified with template validator, LOC ceiling checks (< 400 LOC), and E2E smoke tests.
 
 

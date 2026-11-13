@@ -27,7 +27,7 @@
             <!-- Filter Pills -->
             <div class="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono">
                 <button type="button" @click="logDock.activeFilter = 'all'" :class="logDock.activeFilter === 'all' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer">All</button>
-                <button type="button" @click="logDock.activeFilter = 'mutations'" :class="logDock.activeFilter === 'mutations' ? 'bg-amber-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer" title="Transfers, deletes, conflicts">Mutations</button>
+                <button type="button" @click="logDock.activeFilter = 'file_ops'" :class="(logDock.activeFilter === 'file_ops' || logDock.activeFilter === 'mutations') ? 'bg-amber-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer" title="Transfers, deletes, uploads, conflicts">File Ops</button>
                 <button type="button" @click="logDock.activeFilter = 'errors'" :class="logDock.activeFilter === 'errors' ? 'bg-rose-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'" class="px-2 py-0.5 rounded transition-all cursor-pointer">Errors</button>
             </div>
 
