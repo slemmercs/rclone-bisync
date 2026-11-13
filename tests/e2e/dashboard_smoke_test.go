@@ -1357,6 +1357,152 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 	})
 
+	// 12. Test Log Dock Pagination, Sync File Ops & Deep Navigation
+	t.Run("LogDockPaginationAndSyncFiles", func(t *testing.T) {
+		script := `(async () => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			const syncFileLog = {
+				timestamp: "2026-11-13T10:00:00Z",
+				level: "INFO",
+				type: "sync_file",
+				action: "COPY",
+				object: "docs/report.pdf",
+				msg: "Transferred: docs/report.pdf"
+			};
+			const syncOverflowLog = {
+				timestamp: "2026-11-13T10:00:01Z",
+				level: "NOTICE",
+				type: "sync_overflow",
+				msg: "Transferred files exceed display limit (50). View detailed logs in Audit."
+			};
+			const deleteFileLog = {
+				timestamp: "2026-11-13T10:00:02Z",
+				level: "INFO",
+				type: "sync_file",
+				action: "DELETE",
+				object: "trash/old.txt",
+				msg: "Deleted: trash/old.txt"
+			};
+
+			const syncFileIsOp = app.isFileOperationLog(syncFileLog);
+			const overflowIsOp = app.isFileOperationLog(syncOverflowLog);
+			const syncFilePath = app.getEntryPath(syncFileLog);
+
+			const copyBadgeClass = app.getDockActionBadgeClass(syncFileLog);
+			const copyLabel = app.getDockActionLabel(syncFileLog);
+			const deleteBadgeClass = app.getDockActionBadgeClass(deleteFileLog);
+			const deleteLabel = app.getDockActionLabel(deleteFileLog);
+
+			const badgeClassValid = copyBadgeClass.includes("emerald") && deleteBadgeClass.includes("rose");
+			const badgeLabelValid = copyLabel === "SYNC: COPY" && deleteLabel === "SYNC: DELETE";
+
+			const mockLogs = [];
+			for (let i = 1; i <= 65; i++) {
+				mockLogs.push({
+					id: "mock_" + i,
+					timestamp: "2026-11-13T10:00:" + String(i).padStart(2, "0") + "Z",
+					level: "INFO",
+					type: "sync_file",
+					action: "COPY",
+					object: "items/item_" + i + ".dat",
+					msg: "Copied items/item_" + i + ".dat"
+				});
+			}
+			app.telemetry.bisync_logs = mockLogs;
+			app.setLogDockFilter('all');
+			app.logDock.pageSize = 50;
+
+			const totalEntries = app.getDockTotalEntries();
+			const totalPages = app.getDockTotalPages();
+			const p1PrevDisabled = app.isDockPrevDisabled();
+			const p1NextDisabled = app.isDockNextDisabled();
+			const p1Count = app.getFilteredDockLogs().length;
+
+			app.loadDockNextPage();
+			const curPage = app.logDock.page;
+			const p2PrevDisabled = app.isDockPrevDisabled();
+			const p2NextDisabled = app.isDockNextDisabled();
+			const p2Count = app.getFilteredDockLogs().length;
+
+			app.loadDockPrevPage();
+			const backToP1 = app.logDock.page === 1;
+
+			app.logDock.page = 1;
+			app.logDock.selectedIdx = 49;
+			app.logDockStep(1);
+			const steppedToPage2 = app.logDock.page === 2 && app.logDock.selectedIdx === 0;
+
+			app.logDockStep(-1);
+			const steppedBackToPage1 = app.logDock.page === 1 && app.logDock.selectedIdx === 49;
+			const hasNavigateToExplorer = typeof app.navigateToExplorer === "function";
+
+			return {
+				syncFileIsOp, overflowIsOp, syncFilePath, badgeClassValid, badgeLabelValid,
+				totalEntries, totalPages, p1PrevDisabled, p1NextDisabled, p1Count,
+				curPage, p2PrevDisabled, p2NextDisabled, p2Count, backToP1,
+				steppedToPage2, steppedBackToPage1, hasNavigateToExplorer
+			};
+		})()`
+		type DockPaginationResult struct {
+			Error                 *string `json:"error"`
+			SyncFileIsOp          bool    `json:"syncFileIsOp"`
+			OverflowIsOp          bool    `json:"overflowIsOp"`
+			SyncFilePath          string  `json:"syncFilePath"`
+			BadgeClassValid       bool    `json:"badgeClassValid"`
+			BadgeLabelValid       bool    `json:"badgeLabelValid"`
+			TotalEntries          int     `json:"totalEntries"`
+			TotalPages            int     `json:"totalPages"`
+			P1PrevDisabled        bool    `json:"p1PrevDisabled"`
+			P1NextDisabled        bool    `json:"p1NextDisabled"`
+			P1Count               int     `json:"p1Count"`
+			CurPage               int     `json:"curPage"`
+			P2PrevDisabled        bool    `json:"p2PrevDisabled"`
+			P2NextDisabled        bool    `json:"p2NextDisabled"`
+			P2Count               int     `json:"p2Count"`
+			BackToP1              bool    `json:"backToP1"`
+			SteppedToPage2        bool    `json:"steppedToPage2"`
+			SteppedBackToPage1    bool    `json:"steppedBackToPage1"`
+			HasNavigateToExplorer bool    `json:"hasNavigateToExplorer"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DockPaginationResult](script, chromedp.EvalAwaitPromise))
+		if err != nil {
+			t.Fatalf("failed evaluating Log Dock Pagination script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Log Dock Pagination check failed: %s", *res.Error)
+		}
+		if !res.SyncFileIsOp || !res.OverflowIsOp {
+			t.Errorf("expected sync_file and sync_overflow to be recognized as file operations")
+		}
+		if res.SyncFilePath != "docs/report.pdf" {
+			t.Errorf("expected getEntryPath to return 'docs/report.pdf', got %q", res.SyncFilePath)
+		}
+		if !res.BadgeClassValid || !res.BadgeLabelValid {
+			t.Errorf("action badge class or label invalid: class=%v label=%v", res.BadgeClassValid, res.BadgeLabelValid)
+		}
+		if res.TotalEntries != 65 || res.TotalPages != 2 {
+			t.Errorf("pagination count mismatch: totalEntries=%d, totalPages=%d (expected 65 and 2)", res.TotalEntries, res.TotalPages)
+		}
+		if !res.P1PrevDisabled || res.P1NextDisabled || res.P1Count != 50 {
+			t.Errorf("page 1 state invalid: prevDisabled=%v, nextDisabled=%v, count=%d", res.P1PrevDisabled, res.P1NextDisabled, res.P1Count)
+		}
+		if res.CurPage != 2 || res.P2PrevDisabled || !res.P2NextDisabled || res.P2Count != 15 {
+			t.Errorf("page 2 state invalid: page=%d, prevDisabled=%v, nextDisabled=%v, count=%d", res.CurPage, res.P2PrevDisabled, res.P2NextDisabled, res.P2Count)
+		}
+		if !res.BackToP1 {
+			t.Errorf("expected loadDockPrevPage to navigate back to page 1")
+		}
+		if !res.SteppedToPage2 || !res.SteppedBackToPage1 {
+			t.Errorf("boundary step mismatch: steppedToPage2=%v steppedBackToPage1=%v", res.SteppedToPage2, res.SteppedBackToPage1)
+		}
+		if !res.HasNavigateToExplorer {
+			t.Errorf("expected navigateToExplorer helper method to exist")
+		}
+	})
+
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()
 	defer mu.Unlock()

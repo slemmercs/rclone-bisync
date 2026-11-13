@@ -30,7 +30,7 @@ Extract and surface individual transferred files from bisync executions in the L
   - **Action**: Add `loadDockNextPage()`, `loadDockPrevPage()`, and update `isFileOperationLog` to include `sync_file`. Ensure files remain strictly under 400 LOC.
   - **Verification**: `./scripts/check.sh loc 400`
 
-- [ ] Task 5: End-to-End Verification & Full Quality Gates (`dashboard_smoke_test.go`)
+- [x] Task 5: End-to-End Verification & Full Quality Gates (`dashboard_smoke_test.go`)
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
   - **Action**: Verify Log Dock pagination, `sync_file` path chip rendering, and deep explorer navigation in headless Chrome.
   - **Verification**: `./scripts/check.sh all`
@@ -43,3 +43,4 @@ Extract and surface individual transferred files from bisync executions in the L
 - 2026-11-13: Completed Task 2 - Ingested TransferredFiles into bisync.log as sync_file entries with 50-file capping, overflow warnings, and daemon log fallback in handleSyncSuccess; verified with comprehensive unit tests.
 - 2026-11-13: Completed Task 3 - Updated component_log_dock.html with pagination controls, safe helper bindings, sync_file action badges, overflow notice, and path navigation chips. Passed ./scripts/check.sh templates.
 - 2026-11-13: Completed Task 4 - Implemented pagination engine (loadDockNextPage, loadDockPrevPage, getDockTotalPages, isDockPrevDisabled, isDockNextDisabled), action badges (getDockActionBadgeClass, getDockActionLabel), sync_file recognition in isFileOperationLog, and navigateToExplorer alias in log_dock.js. Verified with ./scripts/check.sh loc 400.
+- 2026-11-13: Completed Task 5 - Verified Log Dock pagination, action badge styling, sync_file file op recognition, and page boundary stepping in dashboard_smoke_test.go. All 7/7 repository quality gates passed cleanly via ./scripts/check.sh all.
