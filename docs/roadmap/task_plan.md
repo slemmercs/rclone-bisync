@@ -1,38 +1,42 @@
-# Task Plan: Fix Bisync Transfer Counting & Unified Ledger Visibility
+# Task Plan: Emit Synced Files in Log Dock with On-Demand Pagination
 
 ## Goal
-Fix zero-transfer counting in bisync job completion by pulling group stats from `/core/stats` (with log text fallback), enrich mirrored audit records with file paths, prevent identical file uploads from folding into single clusters in the Unified Ledger, and auto-refresh paginated logs on Explorer uploads.
+Extract and surface individual transferred files from bisync executions in the Live Sync Log Dock with deep navigation pills, 50-file capping safety, and on-demand pagination controls.
 
 ## Tasks
 
-- [x] Task 1: Accurate Transfer Counting in `MonitorJob` (`internal/core/client/monitor.go`, `monitor_test.go`)
-  - **Scope**: `internal/core/client/monitor.go`, `internal/core/client/monitor_test.go`
-  - **Verification**: `go test -count=1 -v ./internal/core/client -run TestMonitorJob`
+- [x] Task 0: Branch Switch & Merge Prerequisite
+  - **Scope**: Git worktree (`feat/deep-path-nav-log-dock`)
+  - **Action**: Fast-forward merge `fix/bisync-transfer-stats-and-ledger` into `feat/deep-path-nav-log-dock`.
+  - **Verification**: `git status && git log -n 3 --oneline`
 
-- [x] Task 2: Mirror Object Path in Audit Log Message (`internal/services/audit_service.go`, `audit_service_test.go`)
-  - **Scope**: `internal/services/audit_service.go`, `internal/services/audit_service_test.go`
-  - **Verification**: `go test -count=1 -v ./internal/services -run TestAuditService`
+- [x] Task 1: Transfer File Parser & Client Extraction (`internal/core/client/`)
+  - **Scope**: `internal/models/api.go`, `internal/core/client/monitor.go`, `internal/core/client/monitor_test.go`
+  - **Action**: Implement `ExtractTransferredFiles` supporting JSON objects and plain-text regex fallback, capped at 50. Populate `TransferredFiles` on `MonitorJobResult`.
+  - **Verification**: `go test -count=1 -v ./internal/core/client -run TestExtractTransferredFiles`
 
-- [x] Task 3: Distinct Clustering Key & Single-Row Action Badge (`dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`)
-  - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+- [ ] Task 2: Sync Runner File Operation Ingestion & Capping (`internal/engine/runner/`)
+  - **Scope**: `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
+  - **Action**: In `handleSyncSuccess`, record up to 50 `sync_file` log entries to `bisync.log` with `Object`, `Action`, and `Msg`. Add overflow notice and daemon log fallback.
+  - **Verification**: `go test -count=1 -v ./internal/engine/runner -run TestSyncRunner`
 
-- [x] Task 4: Auto-refresh Paginated Bisync & Audit Logs on Upload (`dashboard/frontend/js/explorer_actions.js`)
-  - **Scope**: `dashboard/frontend/js/explorer_actions.js`
+- [ ] Task 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
+  - **Scope**: `dashboard/frontend/partials/components/component_log_dock.html`
+  - **Action**: Add pagination pill controls (`[ < Page X of Y > ]`), entry count badge, and action badge styling for `sync_file` rows.
+  - **Verification**: `./scripts/check.sh templates`
+
+- [ ] Task 4: Log Dock Pagination Engine & File Ops Filtering (`log_dock.js` & `logs.js`)
+  - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/js/logs.js`
+  - **Action**: Add `loadDockNextPage()`, `loadDockPrevPage()`, and update `isFileOperationLog` to include `sync_file`. Ensure files remain strictly under 400 LOC.
   - **Verification**: `./scripts/check.sh loc 400`
 
-- [x] Task 5: End-to-End & Full Quality Gate Verification (`tests/e2e/dashboard_smoke_test.go`)
+- [ ] Task 5: End-to-End Verification & Full Quality Gates (`dashboard_smoke_test.go`)
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`
+  - **Action**: Verify Log Dock pagination, `sync_file` path chip rendering, and deep explorer navigation in headless Chrome.
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-13: Initialized task plan from implementation_plan.md.
-- 2026-11-13: Completed Task 1 - Added group stats transfer extraction from `/core/stats` and stdout log parsing fallback in `MonitorJob` (`internal/core/client/monitor.go`), verified with `go test -count=1 -v ./internal/core/client -run TestMonitorJob`.
-- 2026-11-13: Completed Task 2 - Mirrored object target path into `Msg` in `RecordEvent` (`internal/services/audit_service.go`), verified with `go test -count=1 -v ./internal/services -run TestAuditService`.
-- 2026-11-13: Completed Task 3 - Distinct clustering key including object/action in `clusterLogEntries` and action badges rendered on single rows and subEntries, verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400`.
-- 2026-11-13: Completed Task 4 - Immediate auto-refresh of paginated bisync logs and audit records on upload/delete/copy in `dashboard/frontend/js/explorer_actions.js`, verified with `./scripts/check.sh loc 400` (394 LOC).
-- 2026-11-13: Completed Task 5 - Verified end-to-end headless Chrome smoke test covering audit timeline clustering, action badges, and upload refresh hooks; formatted files and verified all 7 quality gate checks via `./scripts/check.sh all` (OK: 7/7).
-
-
-
+- 2026-11-13: Initialized task plan for surfacing synced files in Log Dock.
+- 2026-11-13: Completed Task 0 - Checked out feat/deep-path-nav-log-dock and fast-forward merged fix/bisync-transfer-stats-and-ledger.
+- 2026-11-13: Completed Task 1 - Implemented ExtractTransferredFiles in client/monitor.go parsing JSON objects and text lines, added SyncFileOp to models/api.go, and verified with go test.

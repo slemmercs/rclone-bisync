@@ -1,65 +1,87 @@
-# Implementation Plan: Fix Bisync Transfer Counting & Unified Ledger Visibility
+# Implementation Plan: Emit Synced Files in Log Dock with On-Demand Pagination
 
 ## Overview
-Resolve two critical synchronization and observability defects:
-1. **Accurate Transfer Counting**: In Rclone `/sync/bisync`, `/job/status` does not populate `output.transfers` or `output.stats`. The authoritative transfer stats are recorded under the job's group in `/core/stats`, with fallback parsing of `output.output` log text for `"Copied (new)"` and `"Copied (replaced)"`. `MonitorJob` in `internal/core/client/monitor.go` must query group stats from `/core/stats` or parse output log text when `filesSynced == 0`.
-2. **Unified Ledger File Upload Visibility**:
-   - In `internal/services/audit_service.go`, mirror audit events into `bisync.log` with target object paths embedded in `Msg` (`[profile] ACTION: path by actor`) so searches for the filename succeed.
-   - In `dashboard/frontend/js/logs.js`, ensure `clusterLogEntries` incorporates `item.object` into the cluster key to prevent dissimilar file uploads from collapsing into a single folded row.
-   - In `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, display the `action` badge on unclustered rows.
-   - In `dashboard/frontend/js/explorer_actions.js`, trigger `fetchBisyncLogs(1, true)` and `fetchAuditRecords()` upon successful upload so paginated ledgers update immediately.
+Capture, record, and navigate individual file operations transferred during Rclone bisync runs within the Live Sync Log Dock and Unified Timeline Ledger, backed by on-demand log pagination and deep file jumping.
+
+When a sync execution completes (initial resync or scheduled bi-directional run), operators currently see only an aggregate summary (e.g. `Resync succeeded in 2.0s (5 file(s) transferred)`). The specific files transferred are hidden within correlated daemon logs, preventing the Live Sync Log Dock's "File Ops" filter from exposing them and blocking operators from using one-click deep navigation to inspect newly synced files in the dual-pane Directory Explorer.
+
+This implementation captures individual file transfers directly from the Rclone job output or daemon stream at sync completion, records up to 50 individual file operations into `bisync.log` with distinct `Object`, `Action`, and `Type: "sync_file"` metadata, and introduces on-demand pagination controls in the Log Dock to seamlessly load and step through historical pages of log entries without UI degradation or log explosion.
+
+---
+
+## Types
+
+### 1. `internal/models/api.go`
+```go
+type SyncFileOp struct {
+Path   string `json:"path"`   // Relative file path (e.g. "subfolder/nested.txt")
+Action string `json:"action"` // Operation type: "COPIED", "REPLACED", "DELETED", "CONFLICT"
+Msg    string `json:"msg"`    // Human-readable message (e.g. "subfolder/nested.txt: Copied (new)")
+}
+
+type BisyncLogEntry struct {
+Time        string  `json:"time"`
+Level       string  `json:"level"`
+Type        string  `json:"type,omitempty"` // "sync", "sync_file", "audit"
+ProfileID   string  `json:"profile_id,omitempty"`
+ProfileName string  `json:"profile_name,omitempty"`
+Msg         string  `json:"msg"`
+RunID       string  `json:"run_id"`
+JobID       int     `json:"job_id,omitempty"`
+Origin      string  `json:"origin,omitempty"`
+Status      string  `json:"status,omitempty"`     // SUCCESS, FAULT, ABORTED
+ErrorType   string  `json:"error_type,omitempty"` // TOO_MANY_DELETES, RATE_LIMIT, etc.
+DurationSec float64 `json:"duration_sec,omitempty"`
+FilesSynced int     `json:"files_synced,omitempty"`
+StartTime   string  `json:"start_time,omitempty"` // RFC3339
+EndTime     string  `json:"end_time,omitempty"`   // RFC3339
+Object      string  `json:"object,omitempty"`     // Relative path for deep navigation
+Action      string  `json:"action,omitempty"`     // Operation action badge
+}
+```
+
+### 2. `internal/core/client/monitor.go`
+```go
+type MonitorJobResult struct {
+Success          bool
+ErrorType        string
+ErrorMessage     string
+FilesSynced      int
+TransferredFiles []models.SyncFileOp
+}
+```
 
 ---
 
 ## Proposed Changes
 
-### Phase 1: Transfer Counting in `MonitorJob` (`internal/core/client`)
-- In `internal/core/client/monitor.go`:
-  - When `status["finished"] == true` and `filesSynced == 0`:
-    - If `status["group"]` is a non-empty string, call `c.getGroupTransfers(ctx, group)` via `/core/stats`.
-    - If still 0, parse `outputData["output"]` string counting occurrences of `"msg":"Copied (new)"`, `"msg":"Copied (replaced)"`, `Copied (new)`, and `Copied (replaced)`.
-- In `internal/core/client/monitor_test.go`:
-  - Unit tests verifying transfer extraction from `/core/stats` group and from `output["output"]`.
+### Phase 1: Transfer File Parser & Extraction (`internal/models`, `internal/core/client`)
+- Add `SyncFileOp` to `internal/models/api.go`.
+- Implement `ExtractTransferredFiles(outputStr string, maxEntries int) []models.SyncFileOp` in `internal/core/client/monitor.go`.
+- Update `MonitorJob` to populate `TransferredFiles` on `MonitorJobResult`.
+- Unit tests in `internal/core/client/monitor_test.go`.
 
-### Phase 2: Audit Event Mirroring with Object Path (`internal/services`)
-- In `internal/services/audit_service.go`:
-  - Format `logEntry.Msg` with `objectTarget` when present:
-    `fmt.Sprintf("[%s] %s: %s by %s", record.ProfileID, record.Action, objectTarget, record.Actor)`.
-  - Fallback to `fmt.Sprintf("[%s] %s by %s", record.ProfileID, record.Action, record.Actor)` when `objectTarget` is empty.
-- In `internal/services/audit_service_test.go`:
-  - Unit tests verifying mirrored audit log line includes target path in message.
+### Phase 2: Ingestion & 50-Item Capping in Runner (`internal/engine/runner`)
+- In `handleSyncSuccess` in `internal/engine/runner/runner_handlers.go`, emit up to 50 individual `sync_file` records to `bisync.log`.
+- Emit overflow notification if files exceed 50.
+- Fallback to reading `rclone-daemon.log` if job output buffer was omitted.
+- Unit tests in `internal/engine/runner/runner_test.go`.
 
-### Phase 3: Non-Collapsing File Ops Clusters & Unified Ledger Action Badges
-- In `dashboard/frontend/js/logs.js`:
-  - In `clusterLogEntries`, include `item.object || ""` in the clustering `key`. This ensures different uploaded or modified files are never lumped into an ambiguous folded cluster.
-  - Keep `dashboard/frontend/js/logs.js` strictly under 400 LOC.
-- In `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`:
-  - In single entry row (`!cluster.isCluster`), render `<span class="px-1 py-0.2 rounded bg-purple-950/60 text-purple-300 text-[9px] font-semibold uppercase shrink-0" x-text="cluster.entry.action"></span>` when `cluster.entry.action` is present.
+### Phase 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
+- Add pagination buttons (`[ < Page X of Y > ]`), entry counter, and badge styling in Log Dock.
+- Validate template with `./scripts/check.sh templates`.
 
-### Phase 4: Paginated Log Invalidation on Explorer Upload
-- In `dashboard/frontend/js/explorer_actions.js`:
-  - After upload loop completes successfully (`okCount > 0`):
-    - Trigger `if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1, true);`
-    - Trigger `if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();`
-  - Keep `dashboard/frontend/js/explorer_actions.js` strictly under 400 LOC.
+### Phase 4: Frontend Log Dock Engine & Stepping (`log_dock.js`, `logs.js`)
+- Add `loadDockNextPage()` / `loadDockPrevPage()` in `dashboard/frontend/js/log_dock.js`.
+- Include `type === "sync_file"` in `isFileOperationLog`.
+- Verify LOC under 400 with `./scripts/check.sh loc 400`.
+
+### Phase 5: Verification & End-to-End Tests (`dashboard_smoke_test.go`)
+- Validate Log Dock pagination, sync file item jumping, and full test suite (`./scripts/check.sh all`).
 
 ---
 
 ## Safety & Error Handling
-
-- **Non-blocking Transfer Probe**: The `/core/stats` lookup in `MonitorJob` must never fail the job if `/core/stats` is inaccessible; it only logs a debug warning and falls back to string parsing.
-- **Strict LOC Limit**: All files must strictly remain under 400 lines (`./scripts/check.sh loc 400`).
-- **Canary & Jail Integrity**: Canary files and jail confinement remain unmodified.
-
----
-
-## Verification Plan
-
-- `go test -count=1 -v ./internal/core/client -run TestMonitorJob`
-- `go test -count=1 -v ./internal/services -run TestAuditService`
-- `./scripts/check.sh templates`
-- `./scripts/check.sh loc 400`
-- `go test -count=1 ./tests/e2e -run TestDashboard_HeadlessChromeSmoke`
-- `./scripts/check.sh all`
-
-
+- **Cap Protection**: Strict capping at 50 file entries per sync run protects against log file explosion.
+- **Fail-Safe Fallback**: If output parsing fails, summary logging remains intact and job execution is unaffected.
+- **Confinement & Jail**: All deep navigation paths remain verified within profile boundaries.
