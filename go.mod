@@ -6,7 +6,7 @@ require (
 	github.com/chromedp/chromedp v0.23.0
 	github.com/mark3labs/mcp-go v1.5.0
 	github.com/pressly/goose/v3 v3.29.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 	modernc.org/sqlite v1.62.0
 )
 
