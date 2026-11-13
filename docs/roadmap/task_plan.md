@@ -20,7 +20,7 @@ Extract and surface individual transferred files from bisync executions in the L
   - **Action**: In `handleSyncSuccess`, record up to 50 `sync_file` log entries to `bisync.log` with `Object`, `Action`, and `Msg`. Add overflow notice and daemon log fallback.
   - **Verification**: `go test -count=1 -v ./internal/engine/runner -run TestSyncRunner`
 
-- [ ] Task 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
+- [x] Task 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
   - **Scope**: `dashboard/frontend/partials/components/component_log_dock.html`
   - **Action**: Add pagination pill controls (`[ < Page X of Y > ]`), entry count badge, and action badge styling for `sync_file` rows.
   - **Verification**: `./scripts/check.sh templates`
@@ -41,3 +41,4 @@ Extract and surface individual transferred files from bisync executions in the L
 - 2026-11-13: Completed Task 0 - Checked out feat/deep-path-nav-log-dock and fast-forward merged fix/bisync-transfer-stats-and-ledger.
 - 2026-11-13: Completed Task 1 - Implemented ExtractTransferredFiles in client/monitor.go parsing JSON objects and text lines, added SyncFileOp to models/api.go, and verified with go test.
 - 2026-11-13: Completed Task 2 - Ingested TransferredFiles into bisync.log as sync_file entries with 50-file capping, overflow warnings, and daemon log fallback in handleSyncSuccess; verified with comprehensive unit tests.
+- 2026-11-13: Completed Task 3 - Updated component_log_dock.html with pagination controls, safe helper bindings, sync_file action badges, overflow notice, and path navigation chips. Passed ./scripts/check.sh templates.
