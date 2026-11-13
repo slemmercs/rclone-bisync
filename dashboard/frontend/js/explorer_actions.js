@@ -59,6 +59,8 @@ window.ExplorerActionsModule = {
                 this.showToast(`Deleted "${item.Name}" successfully`, "success");
                 this.cancelDelete();
                 this.fetchExplorerDirectory(paneKey, remote, this.explorer[paneKey].path);
+                if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1, true);
+                if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             } else {
                 this.showToast(`Delete failed: ${data.error || 'Unknown error'}`, "error");
             }
@@ -146,6 +148,8 @@ window.ExplorerActionsModule = {
             if (data.status === "success") {
                 this.showToast(`Transferred "${item.Name}" successfully!`, "success");
                 this.fetchExplorerDirectory(targetPaneKey, dst_remote, dst_path);
+                if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1, true);
+                if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             } else {
                 this.showToast(`Transfer failed: ${data.error || 'Unknown error'}`, "error");
             }
@@ -218,8 +222,7 @@ window.ExplorerActionsModule = {
         const previewExtensions = [
             '.txt', '.md', '.markdown', '.log', '.conf', '.ini', '.env', '.csv',
             '.json', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.js', '.ts', '.go', '.sh', '.bash', '.py', '.rs', '.sql',
-            '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico',
-            '.pdf'
+            '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.pdf'
         ];
         return previewExtensions.some(ext => name.endsWith(ext));
     },
@@ -345,6 +348,8 @@ window.ExplorerActionsModule = {
         if (okCount > 0) {
             if (files[0]?.name) this.explorer.highlightName = files[0].name;
             this.fetchExplorerDirectory(paneKey, remote, path);
+            if (typeof this.fetchBisyncLogs === "function") this.fetchBisyncLogs(1, true);
+            if (typeof this.fetchAuditRecords === "function") this.fetchAuditRecords();
             if (this.showToast) {
                 if (failCount === 0) {
                     this.showToast(total === 1 ? `Uploaded "${files[0].name}" successfully` : `Uploaded ${total} files successfully`, "success");

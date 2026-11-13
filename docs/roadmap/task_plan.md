@@ -17,7 +17,7 @@ Fix zero-transfer counting in bisync job completion by pulling group stats from 
   - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 4: Auto-refresh Paginated Bisync & Audit Logs on Upload (`dashboard/frontend/js/explorer_actions.js`)
+- [x] Task 4: Auto-refresh Paginated Bisync & Audit Logs on Upload (`dashboard/frontend/js/explorer_actions.js`)
   - **Scope**: `dashboard/frontend/js/explorer_actions.js`
   - **Verification**: `./scripts/check.sh loc 400`
 
@@ -31,6 +31,7 @@ Fix zero-transfer counting in bisync job completion by pulling group stats from 
 - 2026-11-13: Completed Task 1 - Added group stats transfer extraction from `/core/stats` and stdout log parsing fallback in `MonitorJob` (`internal/core/client/monitor.go`), verified with `go test -count=1 -v ./internal/core/client -run TestMonitorJob`.
 - 2026-11-13: Completed Task 2 - Mirrored object target path into `Msg` in `RecordEvent` (`internal/services/audit_service.go`), verified with `go test -count=1 -v ./internal/services -run TestAuditService`.
 - 2026-11-13: Completed Task 3 - Distinct clustering key including object/action in `clusterLogEntries` and action badges rendered on single rows and subEntries, verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400`.
+- 2026-11-13: Completed Task 4 - Immediate auto-refresh of paginated bisync logs and audit records on upload/delete/copy in `dashboard/frontend/js/explorer_actions.js`, verified with `./scripts/check.sh loc 400` (394 LOC).
 
 
 
