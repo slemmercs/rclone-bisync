@@ -13,7 +13,7 @@ Fix zero-transfer counting in bisync job completion by pulling group stats from 
   - **Scope**: `internal/services/audit_service.go`, `internal/services/audit_service_test.go`
   - **Verification**: `go test -count=1 -v ./internal/services -run TestAuditService`
 
-- [ ] Task 3: Distinct Clustering Key & Single-Row Action Badge (`dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`)
+- [x] Task 3: Distinct Clustering Key & Single-Row Action Badge (`dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`)
   - **Scope**: `dashboard/frontend/js/logs.js`, `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
@@ -30,6 +30,7 @@ Fix zero-transfer counting in bisync job completion by pulling group stats from 
 - 2026-11-13: Initialized task plan from implementation_plan.md.
 - 2026-11-13: Completed Task 1 - Added group stats transfer extraction from `/core/stats` and stdout log parsing fallback in `MonitorJob` (`internal/core/client/monitor.go`), verified with `go test -count=1 -v ./internal/core/client -run TestMonitorJob`.
 - 2026-11-13: Completed Task 2 - Mirrored object target path into `Msg` in `RecordEvent` (`internal/services/audit_service.go`), verified with `go test -count=1 -v ./internal/services -run TestAuditService`.
+- 2026-11-13: Completed Task 3 - Distinct clustering key including object/action in `clusterLogEntries` and action badges rendered on single rows and subEntries, verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400`.
 
 
 

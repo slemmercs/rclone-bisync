@@ -35,7 +35,9 @@ function clusterLogEntries(entries, foldEnabled, expandedMap) {
         const item = entries[i];
         const norm = normalizeLogMessage(item.msg || "");
         const prof = item.profile_id || item.profile_name || "";
-        const key = (item.level || "") + "::" + (item.type || "") + "::" + prof + "::" + norm;
+        const obj = item.object || "";
+        const act = item.action || "";
+        const key = `${item.level || ""}::${item.type || ""}::${prof}::${obj}::${act}::${norm}`;
 
         if (currentCluster && currentCluster.key === key && norm.length > 5) {
             currentCluster.count++;
