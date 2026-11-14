@@ -25,7 +25,7 @@ Decompose 10 priority files approaching the 400 LOC ceiling across backend and f
   - **Scope**: `dashboard/frontend/js/logs_clustering.js`, `dashboard/frontend/js/logs_daemon.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 6: Frontend Explorer & App State Modularization (`dashboard/frontend/js/`)
+- [x] Task 6: Frontend Explorer & App State Modularization (`dashboard/frontend/js/`)
   - **Scope**: `dashboard/frontend/js/explorer_preview.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
@@ -41,6 +41,7 @@ Decompose 10 priority files approaching the 400 LOC ceiling across backend and f
 - 2026-11-14: Completed Task 3 - Enhanced sync run logging with run-level action metadata (`Action: "SYNC_EXECUTED"`, `Action: "SYNC_STARTED"`, `Action: "SYNC_FAILED"`, `Action: "SYNC_ABORTED"`), and linked audit milestone metadata (`SeqID`, `Actor`) directly into `BisyncLogEntry`. Verified with `go test -count=1 ./internal/engine/runner/...`.
 - 2026-11-14: Completed Task 4 - Extracted `dashboard/frontend/js/dedupe_parser.js` (69 LOC) to slim `dashboard/frontend/js/utils.js` from 391 to 350 LOC, unpacked nested audit telemetry details into top-level properties in `parseJsonLogLine`, registered the new module in `index.html`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e smoke tests.
 - 2026-11-14: Completed Task 5 - Extracted `dashboard/frontend/js/logs_clustering.js` (223 LOC) and `dashboard/frontend/js/logs_daemon.js` (123 LOC), slimming `dashboard/frontend/js/logs.js` from 397 to 244 LOC. Implemented run-level event consolidation `consolidateRunEntries` merging multiple run lifecycle traces into single actionable run rows with child auditability. Registered both modules in `index.html` and `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
+- 2026-11-14: Completed Task 6 - Extracted `dashboard/frontend/js/explorer_preview.js` (117 LOC) slimming `explorer_actions.js` from 394 to 309 LOC, and extracted `dashboard/frontend/js/app_state.js` (205 LOC) slimming `app.js` from 392 to 202 LOC. Registered both modules in `index.html` and `composeDashboard` in `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
 
 
 
