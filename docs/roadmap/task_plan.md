@@ -15,7 +15,7 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
   - **Action**: Support `dedupe_both` for coordinated remote + local dedupe with jail confinement, and suppress stdout spam to `bisync.log` during dry-runs (`mode == "list"`).
   - **Verification**: `go test -count=1 -v ./internal/server -run TestHandleRemoteDedupe`
 
-- [ ] Task 3: Server-Side Log Type Filtering & Dense Pagination (`internal/server/`, `internal/services/`)
+- [x] Task 3: Server-Side Log Type Filtering & Dense Pagination (`internal/server/`, `internal/services/`)
   - **Scope**: `internal/server/handlers_telemetry.go`, `internal/services/tailer.go`, `internal/server/handlers_telemetry_test.go`
   - **Action**: Add `exclude_types` query parameter to `/api/logs/bisync` to filter entries before pagination calculation.
   - **Verification**: `go test -count=1 -v ./internal/server -run TestHandleBisyncLogs`
@@ -50,4 +50,6 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
 - 2026-11-14: Completed Task 1 - Implemented CompareItems in ExplorerService with cross-backend hash negotiation and equivalence clustering (N >= 2), registered POST /api/browse/compare endpoint, and verified with unit tests.
 
 - 2026-11-14: Completed Task 2 - Supported dedupe_both coordinated paired deduplication with jail confinement, suppressed stdout noise in bisync.log during dry-runs (mode == "list"), and verified with unit tests.
+- 2026-11-14: Completed Task 3 - Implemented server-side log type filtering (exclude_types, type, level) with pre-pagination filtering in services.TailJSONLogPaginatedFiltered, ensuring dense pages without gaps. Verified with unit tests.
+
 

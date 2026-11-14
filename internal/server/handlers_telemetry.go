@@ -241,11 +241,39 @@ func (s *Server) handleBisyncLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var filter services.LogFilter
+	if exStr := q.Get("exclude_types"); exStr != "" {
+		for _, part := range strings.Split(exStr, ",") {
+			if t := strings.TrimSpace(strings.ToLower(part)); t != "" {
+				filter.ExcludeTypes = append(filter.ExcludeTypes, t)
+			}
+		}
+	}
+	for _, part := range q["exclude_type"] {
+		if t := strings.TrimSpace(strings.ToLower(part)); t != "" {
+			filter.ExcludeTypes = append(filter.ExcludeTypes, t)
+		}
+	}
+	if tStr := q.Get("type"); tStr != "" {
+		for _, part := range strings.Split(tStr, ",") {
+			if t := strings.TrimSpace(strings.ToLower(part)); t != "" {
+				filter.Types = append(filter.Types, t)
+			}
+		}
+	}
+	if lvlStr := q.Get("level"); lvlStr != "" {
+		for _, part := range strings.Split(lvlStr, ",") {
+			if l := strings.TrimSpace(strings.ToLower(part)); l != "" {
+				filter.Levels = append(filter.Levels, l)
+			}
+		}
+	}
+
 	logFile := ""
 	if s.Config != nil {
 		logFile = s.Config.LogFile
 	}
 
-	res := services.TailJSONLogPaginated(logFile, page, limit)
+	res := services.TailJSONLogPaginatedFiltered(logFile, page, limit, filter)
 	writeJSON(w, http.StatusOK, res)
 }

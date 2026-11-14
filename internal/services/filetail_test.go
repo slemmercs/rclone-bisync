@@ -119,3 +119,54 @@ func TestTailJSONLogPaginated(t *testing.T) {
 		t.Fatalf("unexpected p3: len=%d, Page=%d", len(p3.Logs), p3.Page)
 	}
 }
+
+func TestTailJSONLogPaginatedFiltered(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "paginated_filtered.log")
+
+	var sb strings.Builder
+	for i := 1; i <= 30; i++ {
+		sb.WriteString(`{"time":"2026-10-27T10:00:00Z","level":"info","type":"sync","msg":"sync entry"}` + "\n")
+		sb.WriteString(`{"time":"2026-10-27T10:01:00Z","level":"debug","type":"daemon","msg":"daemon heartbeat"}` + "\n")
+		sb.WriteString(`{"time":"2026-10-27T10:02:00Z","level":"notice","type":"http_access","msg":"http_access"}` + "\n")
+	}
+	if err := os.WriteFile(logPath, []byte(sb.String()), 0600); err != nil {
+		t.Fatalf("failed to write test log: %v", err)
+	}
+
+	// 1. Exclude daemon and http_access -> exactly 30 sync entries
+	resSync := TailJSONLogPaginatedFiltered(logPath, 1, 20, LogFilter{
+		ExcludeTypes: []string{"daemon", "http_access"},
+	})
+	if resSync.Total != 30 {
+		t.Fatalf("expected 30 sync entries, got %d", resSync.Total)
+	}
+	if resSync.TotalPages != 2 {
+		t.Fatalf("expected 2 total pages, got %d", resSync.TotalPages)
+	}
+	if len(resSync.Logs) != 20 {
+		t.Fatalf("expected 20 entries on page 1, got %d", len(resSync.Logs))
+	}
+	for _, l := range resSync.Logs {
+		if strings.Contains(l, `"daemon"`) || strings.Contains(l, `"http_access"`) {
+			t.Fatalf("found excluded type in logs: %s", l)
+		}
+	}
+
+	// 2. Include only daemon
+	resDaemon := TailJSONLogPaginatedFiltered(logPath, 1, 50, LogFilter{
+		Types: []string{"daemon"},
+	})
+	if resDaemon.Total != 30 || len(resDaemon.Logs) != 30 {
+		t.Fatalf("expected 30 daemon entries, got total=%d len=%d", resDaemon.Total, len(resDaemon.Logs))
+	}
+
+	// 3. Level filter
+	resLevel := TailJSONLogPaginatedFiltered(logPath, 1, 50, LogFilter{
+		Levels: []string{"notice"},
+	})
+	if resLevel.Total != 30 {
+		t.Fatalf("expected 30 notice level entries, got %d", resLevel.Total)
+	}
+}
+

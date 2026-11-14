@@ -132,10 +132,88 @@ func TailJSONLog(filepathStr string, entriesCount int) []string {
 	return entries
 }
 
+// LogFilter defines criteria for filtering log entries before pagination calculation.
+type LogFilter struct {
+	Types        []string
+	ExcludeTypes []string
+	Levels       []string
+}
+
+// filterLogEntry checks if an entry matches the filter criteria.
+func filterLogEntry(entryStr string, filter LogFilter) bool {
+	if len(filter.Types) == 0 && len(filter.ExcludeTypes) == 0 && len(filter.Levels) == 0 {
+		return true
+	}
+
+	var m map[string]interface{}
+	entryType := "sync"
+	entryLevel := ""
+	if err := json.Unmarshal([]byte(entryStr), &m); err == nil {
+		if t, ok := m["type"].(string); ok && t != "" {
+			entryType = strings.ToLower(t)
+		} else if orig, ok := m["origin"].(string); ok && orig != "" {
+			entryType = strings.ToLower(orig)
+		} else if msg, ok := m["msg"].(string); ok && msg == "http_access" {
+			entryType = "http_access"
+		} else if _, hasMethod := m["method"]; hasMethod {
+			entryType = "http_access"
+		}
+		if lvl, ok := m["level"].(string); ok {
+			entryLevel = strings.ToLower(strings.TrimSpace(lvl))
+		}
+	} else {
+		if strings.Contains(entryStr, "GET /api/") || strings.Contains(entryStr, "HEAD /api/") {
+			entryType = "http_access"
+		}
+	}
+
+	if len(filter.ExcludeTypes) > 0 {
+		for _, ex := range filter.ExcludeTypes {
+			if strings.EqualFold(entryType, ex) {
+				return false
+			}
+		}
+	}
+
+	if len(filter.Types) > 0 {
+		matched := false
+		for _, inc := range filter.Types {
+			if strings.EqualFold(entryType, inc) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	if len(filter.Levels) > 0 {
+		matched := false
+		for _, inc := range filter.Levels {
+			if strings.EqualFold(entryLevel, inc) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	return true
+}
+
 // TailJSONLogPaginated reads log file, unwrapping nested JSON strings and masking secrets,
 // and returns paginated entries along with total count and page metadata.
 // Page 1 contains the most recent entries in chronological order.
 func TailJSONLogPaginated(filepathStr string, page, limit int) models.PaginatedLogsResponse {
+	return TailJSONLogPaginatedFiltered(filepathStr, page, limit, LogFilter{})
+}
+
+// TailJSONLogPaginatedFiltered filters log entries by type and level before calculating pagination,
+// ensuring completely dense pages without gaps.
+func TailJSONLogPaginatedFiltered(filepathStr string, page, limit int, filter LogFilter) models.PaginatedLogsResponse {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -165,8 +243,15 @@ func TailJSONLogPaginated(filepathStr string, page, limit int) models.PaginatedL
 		}
 	}
 
-	allEntries := TailJSONLog(filepathStr, 2000)
-	total := len(allEntries)
+	allEntries := TailJSONLog(filepathStr, 5000)
+	filtered := make([]string, 0, len(allEntries))
+	for _, entry := range allEntries {
+		if filterLogEntry(entry, filter) {
+			filtered = append(filtered, entry)
+		}
+	}
+
+	total := len(filtered)
 	if total == 0 {
 		return models.PaginatedLogsResponse{
 			Page:       1,
@@ -196,7 +281,7 @@ func TailJSONLogPaginated(filepathStr string, page, limit int) models.PaginatedL
 		end = 0
 	}
 
-	sliced := allEntries[start:end]
+	sliced := filtered[start:end]
 	return models.PaginatedLogsResponse{
 		Page:       page,
 		Limit:      limit,

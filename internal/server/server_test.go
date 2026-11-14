@@ -1414,6 +1414,64 @@ func TestHandleBisyncLogs_Paginated(t *testing.T) {
 		t.Fatalf("unexpected paginated response: %+v", resp)
 	}
 }
+
+func TestHandleBisyncLogs_FilteringAndDensePagination(t *testing.T) {
+	tmpDir := t.TempDir()
+	logFile := filepath.Join(tmpDir, "bisync.log")
+	cfg := &config.Config{
+		BaseDir: tmpDir,
+		LogFile: logFile,
+	}
+
+	var sb strings.Builder
+	for i := 1; i <= 25; i++ {
+		sb.WriteString(fmt.Sprintf(`{"time":"2026-10-27T10:00:00Z","level":"info","type":"sync","msg":"sync run %d"}`+"\n", i))
+		sb.WriteString(fmt.Sprintf(`{"time":"2026-10-27T10:01:00Z","level":"debug","type":"daemon","msg":"daemon heartbeat %d"}`+"\n", i))
+	}
+	_ = os.WriteFile(logFile, []byte(sb.String()), 0600)
+
+	srv := NewServer(cfg, nil, embed.FS{})
+
+	// 1. Without filter: total 50 items
+	reqAll := httptest.NewRequest("GET", "/api/logs/bisync?page=1&limit=20", nil)
+	recAll := httptest.NewRecorder()
+	srv.ServeHTTP(recAll, reqAll)
+
+	var respAll models.PaginatedLogsResponse
+	_ = json.Unmarshal(recAll.Body.Bytes(), &respAll)
+	if respAll.Total != 50 || respAll.TotalPages != 3 {
+		t.Fatalf("expected 50 total entries, got %d", respAll.Total)
+	}
+
+	// 2. With exclude_types=daemon: total 25 items, dense pages
+	reqFiltered := httptest.NewRequest("GET", "/api/logs/bisync?page=1&limit=20&exclude_types=daemon", nil)
+	recFiltered := httptest.NewRecorder()
+	srv.ServeHTTP(recFiltered, reqFiltered)
+
+	var respFiltered models.PaginatedLogsResponse
+	_ = json.Unmarshal(recFiltered.Body.Bytes(), &respFiltered)
+	if respFiltered.Total != 25 {
+		t.Fatalf("expected 25 filtered entries, got %d", respFiltered.Total)
+	}
+	if respFiltered.TotalPages != 2 {
+		t.Fatalf("expected 2 total pages, got %d", respFiltered.TotalPages)
+	}
+	if len(respFiltered.Logs) != 20 {
+		t.Fatalf("expected 20 entries on page 1, got %d", len(respFiltered.Logs))
+	}
+
+	// 3. With type=daemon: total 25 items
+	reqType := httptest.NewRequest("GET", "/api/logs/bisync?page=1&limit=20&type=daemon", nil)
+	recType := httptest.NewRecorder()
+	srv.ServeHTTP(recType, reqType)
+
+	var respType models.PaginatedLogsResponse
+	_ = json.Unmarshal(recType.Body.Bytes(), &respType)
+	if respType.Total != 25 || respType.TotalPages != 2 {
+		t.Fatalf("expected 25 daemon entries, got %d", respType.Total)
+	}
+}
+
 func TestServer_ResolveActor(t *testing.T) {
 	srv := &Server{}
 
