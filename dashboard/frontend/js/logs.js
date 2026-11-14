@@ -75,6 +75,7 @@ window.LogsModule = {
     bisyncPaginatedLogs: [],
     bisyncLogLoading: false,
     foldRepetitive: true,
+    includeFileTransfers: false,
     telemetryProfileFilter: "all",
     expandedClusters: {},
 
@@ -92,6 +93,9 @@ window.LogsModule = {
     get filteredBisyncLogs() {
         let logs = this.parsedBisyncLogs;
         logs = logs.filter(l => !l.is_read_only_access && l.type !== "http_access");
+        if (!this.includeFileTransfers && this.telemetryLogFilter !== "file_ops" && this.telemetryLogFilter !== "mutations") {
+            logs = logs.filter(l => l.type !== "sync_file" && l.type !== "sync_overflow");
+        }
         if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") {
             const selected = (this.telemetryProfileFilter || "").toLowerCase().trim();
             const profObj = (this.profilesData?.list || []).find(p => (p.id || "").toLowerCase() === selected || (p.name || "").toLowerCase() === selected);
@@ -102,11 +106,10 @@ window.LogsModule = {
                 const pid = (l.profile_id || "").toLowerCase().trim();
                 const pname = (l.profile_name || "").toLowerCase().trim();
                 const msg = (l.msg || "").toLowerCase();
-                if (pid && (pid === targetId || pid === targetName)) return true;
-                if (pname && (pname === targetId || pname === targetName)) return true;
-                if (targetName && msg.includes(`[${targetName}]`)) return true;
-                if (targetId && msg.includes(`[${targetId}]`)) return true;
-                return false;
+                return (pid && (pid === targetId || pid === targetName)) ||
+                       (pname && (pname === targetId || pname === targetName)) ||
+                       (targetName && msg.includes(`[${targetName}]`)) ||
+                       (targetId && msg.includes(`[${targetId}]`));
             });
         }
         if (this.telemetryLogFilter === "sync") return logs.filter(l => l.type !== "audit");
@@ -153,8 +156,8 @@ window.LogsModule = {
     get daemonModalCounts() {
         const logs = this.daemonModalLogs || [];
         let errors = 0, warnings = 0, info = 0;
-        for (let i = 0; i < logs.length; i++) {
-            const lvl = (logs[i].level || "").toLowerCase().trim();
+        for (const l of logs) {
+            const lvl = (l.level || "").toLowerCase().trim();
             if (lvl === "error") errors++;
             else if (lvl === "warning" || lvl === "warn") warnings++;
             else if (lvl === "info" || lvl === "notice") info++;
@@ -165,7 +168,14 @@ window.LogsModule = {
     async fetchBisyncLogs(page = 1, silent = false) {
         if (!silent) this.bisyncLogLoading = true;
         try {
-            const data = await window.API.get(`/api/logs/bisync?page=${page}&limit=${this.bisyncLogLimit}`);
+            let url = `/api/logs/bisync?page=${page}&limit=${this.bisyncLogLimit}`;
+            if (!this.includeFileTransfers && this.telemetryLogFilter !== "file_ops" && this.telemetryLogFilter !== "mutations") {
+                url += "&exclude_types=sync_file,sync_overflow";
+            }
+            if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") {
+                url += `&profile_id=${encodeURIComponent(this.telemetryProfileFilter)}`;
+            }
+            const data = await window.API.get(url);
             this.bisyncPaginatedLogs = (data.logs || []).map(parseJsonLogLine).filter(Boolean);
             this.bisyncLogPage = data.page || 1;
             this.bisyncLogTotal = data.total || 0;
@@ -237,10 +247,9 @@ window.LogsModule = {
 
         let url = "/api/logs/daemon?limit=500";
         if (entry) {
-            if (entry.run_id) url += `&run_id=${encodeURIComponent(entry.run_id)}`;
-            if (entry.job_id) url += `&job_id=${encodeURIComponent(entry.job_id)}`;
-            if (entry.start_time) url += `&start_time=${encodeURIComponent(entry.start_time)}`;
-            if (entry.end_time) url += `&end_time=${encodeURIComponent(entry.end_time)}`;
+            ["run_id", "job_id", "start_time", "end_time"].forEach(k => {
+                if (entry[k]) url += `&${k}=${encodeURIComponent(entry[k])}`;
+            });
         }
 
         try {
@@ -261,16 +270,14 @@ window.LogsModule = {
         this.showDaemonModal = true;
         this.daemonModalSearch = "";
         this.daemonModalLevelFilter = "all";
-        this.daemonModalCopied = false;
-        this.daemonModalCopiedJSON = false;
+        this.daemonModalCopied = this.daemonModalCopiedJSON = false;
         await this.fetchDaemonLogs(entry);
     },
 
     closeDaemonModal() {
         this.showDaemonModal = false;
-        this.daemonModalRun = null;
+        this.daemonModalRun = this.daemonModalError = null;
         this.daemonModalLogs = [];
-        this.daemonModalError = null;
     },
 
     copyDaemonLogs() {
@@ -282,8 +289,7 @@ window.LogsModule = {
     },
 
     copyDaemonLogsJSON() {
-        const json = JSON.stringify(this.daemonModalLogs, null, 2);
-        navigator.clipboard.writeText(json).then(() => {
+        navigator.clipboard.writeText(JSON.stringify(this.daemonModalLogs, null, 2)).then(() => {
             this.daemonModalCopiedJSON = true;
             setTimeout(() => { this.daemonModalCopiedJSON = false; }, 2000);
         });
@@ -308,18 +314,13 @@ window.LogsModule = {
     getEntryPath(entry) {
         if (!entry) return null;
         if (entry.object) return entry.object;
-        if (entry.details) {
-            if (entry.details.item_path) return entry.details.item_path;
-            if (entry.details.path && entry.details.filename) {
-                return `${entry.details.path}/${entry.details.filename}`.replace(/^\/+/, "");
-            }
-            if (entry.details.path) return entry.details.path;
-            if (entry.details.object) return entry.details.object;
-            if (entry.details.file) return entry.details.file;
+        const d = entry.details;
+        if (d) {
+            if (d.item_path) return d.item_path;
+            if (d.path && d.filename) return `${d.path}/${d.filename}`.replace(/^\/+/, "");
+            if (d.path || d.object || d.file) return d.path || d.object || d.file;
         }
-        if (entry.msg && typeof extractPathFromLogMsg === "function") {
-            return extractPathFromLogMsg(entry.msg);
-        }
+        if (entry.msg && typeof extractPathFromLogMsg === "function") return extractPathFromLogMsg(entry.msg);
         return null;
     },
 

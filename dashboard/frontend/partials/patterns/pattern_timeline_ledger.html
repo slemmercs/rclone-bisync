@@ -4,8 +4,8 @@
     <div class="ds-card-header flex-wrap">
         <div class="flex items-center gap-2">
             <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
-            <span class="text-xs font-mono font-semibold text-slate-200 tracking-wider">bisync.log (Unified Ledger)</span>
-            <span class="text-[9px] font-mono text-slate-500 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">Newest first</span>
+            <span class="text-xs font-mono font-semibold text-slate-200 tracking-wider">Unified Log Ledger</span>
+            <span class="text-[9px] font-mono text-slate-500 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">bisync.log • Newest first</span>
             
             <!-- Filter Pills -->
             <div class="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono ml-2">
@@ -17,7 +17,7 @@
 
             <!-- Profile Dropdown Filter -->
             <div class="flex items-center ml-1">
-                <select x-model="telemetryProfileFilter" class="bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-mono rounded px-2 py-0.5 focus:ring-0 focus:border-indigo-500">
+                <select x-model="telemetryProfileFilter" @change="fetchBisyncLogs(1)" class="bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-mono rounded px-2 py-0.5 focus:ring-0 focus:border-indigo-500">
                     <option value="all">All Profiles</option>
                     <template x-for="p in (profilesData?.list || [])" :key="p.id">
                         <option :value="p.id" x-text="p.name || p.id"></option>
@@ -27,6 +27,11 @@
         </div>
 
         <div class="flex items-center gap-3">
+            <!-- File Transfers Suppression Toggle -->
+            <label class="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 cursor-pointer select-none" title="Show individual per-file transfer records (sync_file)">
+                <input type="checkbox" x-model="includeFileTransfers" @change="fetchBisyncLogs(1)" class="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0 w-3.5 h-3.5">
+                <span>File Transfers</span>
+            </label>
             <!-- Inline Log Folding Controls -->
             <label class="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 cursor-pointer select-none">
                 <input type="checkbox" x-model="foldRepetitive" class="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0 w-3.5 h-3.5">
@@ -64,6 +69,10 @@
                             <template x-if="!cluster.entry.profile_name && cluster.entry.profile_id && cluster.entry.profile_id !== 'default' && !cluster.entry.msg.startsWith('[')">
                                 <span class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 font-mono text-[9px] border border-indigo-800/50 shrink-0" x-text="'[' + cluster.entry.profile_id + ']'"></span>
                             </template>
+                            <template x-if="cluster.entry.run_id">
+                                <span class="px-1.5 py-0.2 rounded bg-slate-900/90 text-slate-400 font-mono text-[9px] border border-slate-800 shrink-0" x-text="'run:' + (cluster.entry.run_id.length > 8 ? cluster.entry.run_id.substring(0, 8) : cluster.entry.run_id)" :title="'Run ID: ' + cluster.entry.run_id"></span>
+                            </template>
+
                             <template x-if="cluster.entry.action">
                                 <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0" :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(cluster.entry.action) : 'bg-slate-800 text-slate-300 border-slate-700'" x-text="cluster.entry.action"></span>
                             </template>
@@ -107,6 +116,10 @@
                                 <template x-if="cluster.entry.origin_badge">
                                     <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border shrink-0 font-semibold tracking-wider" :class="cluster.entry.origin_badge.class" x-text="cluster.entry.origin_badge.label" :title="'Triggered via ' + cluster.entry.origin_badge.label"></span>
                                 </template>
+                                <template x-if="cluster.entry.run_id">
+                                    <span class="px-1.5 py-0.2 rounded bg-slate-900/90 text-slate-400 font-mono text-[9px] border border-slate-800 shrink-0" x-text="'run:' + (cluster.entry.run_id.length > 8 ? cluster.entry.run_id.substring(0, 8) : cluster.entry.run_id)" :title="'Run ID: ' + cluster.entry.run_id"></span>
+                                </template>
+
                                 <span class="text-slate-200 truncate font-semibold" x-text="cluster.entry.msg"></span>
                             </div>
                             <div class="flex items-center gap-2 shrink-0">

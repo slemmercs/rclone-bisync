@@ -35,7 +35,7 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
   - **Action**: Add folder picker, duplicate collision jump-to-file buttons, paired dedupe toggle (default on), and post-dedupe 1-click resync banner with mirroring advice.
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 7: Unified Log Ledger Streamlining & Log Dock Server-Side Pagination (`dashboard/frontend/`)
+- [x] Task 7: Unified Log Ledger Streamlining & Log Dock Server-Side Pagination (`dashboard/frontend/`)
   - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/js/log_dock.js`
   - **Action**: Rename to "Unified Log Ledger", exclude `sync_file` records, add 1-row-per-job clustering, and wire true server-side pagination to `log_dock.js`.
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
@@ -56,6 +56,8 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
 - 2026-11-14: Completed Task 5 - Built Explorer multi-select checkboxes across both panes, Compare action toolbar controls, and modal_compare.html with hash equivalence clustering, verdict banners, and copyable hashes. Verified with template validator, LOC check, and headless Chrome smoke tests.
 
 - 2026-11-14: Completed Task 6 - Built Dedupe folder browser drawer with dynamic directory loading, paired bidirectional dedupe toggle with profile linking, collision row jump-to-file buttons to Explorer, and post-dedupe 1-click Resync CTA. Verified with templates check, LOC gate, and headless Chrome smoke tests.
+
+- 2026-11-14: Completed Task 7 - Renamed to Unified Log Ledger, added default sync_file exclusion with user-facing File Transfers toggle, added correlated run ID badges, and implemented true server-side pagination with fetchDockPage in LogDockModule. Verified with templates check, LOC gate, and headless Chrome smoke tests.
 
 
 

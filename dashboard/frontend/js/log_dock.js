@@ -12,7 +12,12 @@ window.LogDockModule = {
         autoScroll: true,
         limit: 100,
         page: 1,
-        pageSize: 50
+        pageSize: 50,
+        useServerPagination: false,
+        serverLogs: null,
+        totalPages: 1,
+        total: null,
+        loading: false
     },
 
     _logDockInitialized: false,
@@ -115,7 +120,37 @@ window.LogDockModule = {
         return sourceLogs;
     },
 
+    async fetchDockPage(page = null) {
+        if (page !== null) this.logDock.page = page;
+        this.logDock.loading = true;
+        try {
+            const p = this.logDock.page || 1;
+            const limit = this.logDock.pageSize || 50;
+            let url = `/api/logs/bisync?page=${p}&limit=${limit}`;
+            if (this.logDock.activeFilter === "errors") url += "&level=ERROR";
+            else if (this.logDock.activeFilter === "file_ops") url += "&type=sync_file,sync_overflow,audit";
+            else if (this.logDock.activeFilter === "all" && !this.includeFileTransfers) url += "&exclude_types=sync_file,sync_overflow";
+            if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") url += `&profile_id=${encodeURIComponent(this.telemetryProfileFilter)}`;
+
+            const data = await window.API.get(url);
+            if (data && Array.isArray(data.logs)) {
+                const mapper = typeof parseJsonLogLine === "function" ? parseJsonLogLine : (l) => ({ msg: l });
+                this.logDock.serverLogs = data.logs.map(mapper).filter(Boolean).reverse();
+                this.logDock.total = data.total || 0;
+                this.logDock.totalPages = data.total_pages || 1;
+                this.logDock.useServerPagination = true;
+            }
+        } catch (err) {
+            console.error("Failed to fetch dock page:", err);
+        } finally {
+            this.logDock.loading = false;
+        }
+    },
+
     getFilteredDockLogs() {
+        if (this.logDock.useServerPagination && this.logDock.serverLogs) {
+            return this.logDock.serverLogs;
+        }
         const logs = this.getFilteredDockLogsRaw();
         const pageSize = this.logDock.pageSize || 50;
         const totalPages = Math.max(1, Math.ceil(logs.length / pageSize));
@@ -126,26 +161,38 @@ window.LogDockModule = {
     },
 
     getDockTotalEntries() {
+        if (this.logDock.useServerPagination && this.logDock.total != null) {
+            return this.logDock.total;
+        }
         return this.getFilteredDockLogsRaw().length;
     },
 
     getDockTotalPages() {
+        if (this.logDock.useServerPagination && this.logDock.totalPages != null) {
+            return Math.max(1, this.logDock.totalPages);
+        }
         const total = this.getFilteredDockLogsRaw().length;
         const size = this.logDock.pageSize || 50;
         return Math.max(1, Math.ceil(total / size));
     },
 
-    loadDockNextPage() {
+    async loadDockNextPage() {
         if (!this.isDockNextDisabled()) {
             this.logDock.page = (this.logDock.page || 1) + 1;
             this.logDock.selectedIdx = -1;
+            if (this.logDock.useServerPagination && typeof this.fetchDockPage === "function") {
+                await this.fetchDockPage();
+            }
         }
     },
 
-    loadDockPrevPage() {
+    async loadDockPrevPage() {
         if (!this.isDockPrevDisabled()) {
             this.logDock.page = Math.max(1, (this.logDock.page || 1) - 1);
             this.logDock.selectedIdx = -1;
+            if (this.logDock.useServerPagination && typeof this.fetchDockPage === "function") {
+                await this.fetchDockPage();
+            }
         }
     },
 

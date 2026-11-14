@@ -1265,6 +1265,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			await app.jumpToExplorerPath('documents/reports/q4/summary.pdf');
 			const deepNavDirValid = (app.explorer?.left?.path === 'documents/reports/q4');
 			const deepNavHighlightValid = (app.explorer?.highlightName === 'summary.pdf');
+			const actualLeftPath = app.explorer?.left?.path || "";
 
 			// Verify multi-file input attributes and onDrop handler
 			const uploadLeftMultiple = document.getElementById('explorer-upload-left')?.hasAttribute('multiple') === true;
@@ -1293,6 +1294,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				errorLogsCount,
 				deepNavDirValid,
 				deepNavHighlightValid,
+				actualLeftPath,
 				uploadLeftMultiple,
 				uploadRightMultiple,
 				hasOnDrop,
@@ -1317,6 +1319,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			ErrorLogsCount            int     `json:"errorLogsCount"`
 			DeepNavDirValid           bool    `json:"deepNavDirValid"`
 			DeepNavHighlightValid     bool    `json:"deepNavHighlightValid"`
+			ActualLeftPath            string  `json:"actualLeftPath"`
 			UploadLeftMultiple        bool    `json:"uploadLeftMultiple"`
 			UploadRightMultiple       bool    `json:"uploadRightMultiple"`
 			HasOnDrop                 bool    `json:"hasOnDrop"`
@@ -1350,7 +1353,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			t.Errorf("unexpected file_ops log dock count: got %d, want 1", res.FileOpsLogsCount)
 		}
 		if !res.DeepNavDirValid || !res.DeepNavHighlightValid {
-			t.Errorf("deep path navigation failed: dirValid=%v, highlightValid=%v", res.DeepNavDirValid, res.DeepNavHighlightValid)
+			t.Errorf("deep path navigation failed: dirValid=%v, highlightValid=%v, actualLeftPath=%q", res.DeepNavDirValid, res.DeepNavHighlightValid, res.ActualLeftPath)
 		}
 		if !res.UploadLeftMultiple || !res.UploadRightMultiple {
 			t.Errorf("multi-file input attribute missing: left=%v, right=%v", res.UploadLeftMultiple, res.UploadRightMultiple)
@@ -1506,34 +1509,39 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.logDockStep(-1);
 			const steppedBackToPage1 = app.logDock.page === 1 && app.logDock.selectedIdx === 49;
 			const hasNavigateToExplorer = typeof app.navigateToExplorer === "function";
+			const hasFetchDockPage = typeof app.fetchDockPage === "function";
+			const defaultFileTransfersSuppressed = (app.includeFileTransfers === false);
 
 			return {
 				syncFileIsOp, overflowIsOp, syncFilePath, badgeClassValid, badgeLabelValid,
 				totalEntries, totalPages, p1PrevDisabled, p1NextDisabled, p1Count,
 				curPage, p2PrevDisabled, p2NextDisabled, p2Count, backToP1,
-				steppedToPage2, steppedBackToPage1, hasNavigateToExplorer
+				steppedToPage2, steppedBackToPage1, hasNavigateToExplorer,
+				hasFetchDockPage, defaultFileTransfersSuppressed
 			};
 		})()`
 		type DockPaginationResult struct {
-			Error                 *string `json:"error"`
-			SyncFileIsOp          bool    `json:"syncFileIsOp"`
-			OverflowIsOp          bool    `json:"overflowIsOp"`
-			SyncFilePath          string  `json:"syncFilePath"`
-			BadgeClassValid       bool    `json:"badgeClassValid"`
-			BadgeLabelValid       bool    `json:"badgeLabelValid"`
-			TotalEntries          int     `json:"totalEntries"`
-			TotalPages            int     `json:"totalPages"`
-			P1PrevDisabled        bool    `json:"p1PrevDisabled"`
-			P1NextDisabled        bool    `json:"p1NextDisabled"`
-			P1Count               int     `json:"p1Count"`
-			CurPage               int     `json:"curPage"`
-			P2PrevDisabled        bool    `json:"p2PrevDisabled"`
-			P2NextDisabled        bool    `json:"p2NextDisabled"`
-			P2Count               int     `json:"p2Count"`
-			BackToP1              bool    `json:"backToP1"`
-			SteppedToPage2        bool    `json:"steppedToPage2"`
-			SteppedBackToPage1    bool    `json:"steppedBackToPage1"`
-			HasNavigateToExplorer bool    `json:"hasNavigateToExplorer"`
+			Error                          *string `json:"error"`
+			SyncFileIsOp                   bool    `json:"syncFileIsOp"`
+			OverflowIsOp                   bool    `json:"overflowIsOp"`
+			SyncFilePath                   string  `json:"syncFilePath"`
+			BadgeClassValid                bool    `json:"badgeClassValid"`
+			BadgeLabelValid                bool    `json:"badgeLabelValid"`
+			TotalEntries                   int     `json:"totalEntries"`
+			TotalPages                     int     `json:"totalPages"`
+			P1PrevDisabled                 bool    `json:"p1PrevDisabled"`
+			P1NextDisabled                 bool    `json:"p1NextDisabled"`
+			P1Count                        int     `json:"p1Count"`
+			CurPage                        int     `json:"curPage"`
+			P2PrevDisabled                 bool    `json:"p2PrevDisabled"`
+			P2NextDisabled                 bool    `json:"p2NextDisabled"`
+			P2Count                        int     `json:"p2Count"`
+			BackToP1                       bool    `json:"backToP1"`
+			SteppedToPage2                 bool    `json:"steppedToPage2"`
+			SteppedBackToPage1             bool    `json:"steppedBackToPage1"`
+			HasNavigateToExplorer          bool    `json:"hasNavigateToExplorer"`
+			HasFetchDockPage               bool    `json:"hasFetchDockPage"`
+			DefaultFileTransfersSuppressed bool    `json:"defaultFileTransfersSuppressed"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[DockPaginationResult](script, chromedp.EvalAwaitPromise))
@@ -1569,6 +1577,12 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.HasNavigateToExplorer {
 			t.Errorf("expected navigateToExplorer helper method to exist")
+		}
+		if !res.HasFetchDockPage {
+			t.Errorf("expected fetchDockPage helper method to exist")
+		}
+		if !res.DefaultFileTransfersSuppressed {
+			t.Errorf("expected includeFileTransfers to default to false")
 		}
 	})
 
