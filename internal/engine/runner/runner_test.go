@@ -355,6 +355,12 @@ func TestSyncRunner_AuditExecuted_And_Aborted(t *testing.T) {
 	if !strings.Contains(logContent, "SYNC_EXECUTED") {
 		t.Errorf("expected bisync.log to contain SYNC_EXECUTED: %s", logContent)
 	}
+	if !strings.Contains(logContent, `"action":"SYNC_EXECUTED"`) {
+		t.Errorf("expected bisync.log to contain sync entry with action:SYNC_EXECUTED: %s", logContent)
+	}
+	if !strings.Contains(logContent, `"actor":"USER"`) {
+		t.Errorf("expected bisync.log to contain sync entry with actor:USER: %s", logContent)
+	}
 
 	// Act 1b: 0-transfer routine background run (origin: "daemon") must NOT append to audit ledger
 	srv0 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

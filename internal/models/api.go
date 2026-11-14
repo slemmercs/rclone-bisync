@@ -1,7 +1,5 @@
 package models
 
-import "encoding/json"
-
 type ActionRequest struct {
 	Action    string `json:"action"`
 	ProfileID string `json:"profile_id,omitempty"`
@@ -13,80 +11,6 @@ type ActionResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
-type BrowseRequest struct {
-	Remote    string `json:"remote"`
-	Path      string `json:"path"`
-	ProfileID string `json:"profile_id,omitempty"`
-}
-
-type BrowseItem struct {
-	Path     string `json:"Path,omitempty"`
-	Name     string `json:"Name"`
-	Size     int64  `json:"Size"`
-	Mtime    string `json:"Mtime,omitempty"`
-	ModTime  string `json:"ModTime,omitempty"`
-	MimeType string `json:"MimeType,omitempty"`
-	IsDir    bool   `json:"IsDir"`
-}
-
-type BrowseResponse struct {
-	Remote    string                   `json:"remote"`
-	Path      string                   `json:"path"`
-	Items     []map[string]interface{} `json:"items"`
-	HasCanary bool                     `json:"has_canary"`
-	Error     string                   `json:"error,omitempty"`
-}
-
-type CanaryResponse struct {
-	Status string `json:"status"`
-	Remote string `json:"remote,omitempty"`
-	Path   string `json:"path,omitempty"`
-	Msg    string `json:"msg,omitempty"`
-	Error  string `json:"error,omitempty"`
-}
-
-type CopyRequest struct {
-	SrcRemote string `json:"src_remote"`
-	SrcPath   string `json:"src_path"`
-	DstRemote string `json:"dst_remote"`
-	DstPath   string `json:"dst_path"`
-	IsDir     bool   `json:"is_dir"`
-	ProfileID string `json:"profile_id,omitempty"`
-}
-
-type CopyResponse struct {
-	Status string `json:"status"`
-	Msg    string `json:"msg,omitempty"`
-	Src    string `json:"src,omitempty"`
-	Dst    string `json:"dst,omitempty"`
-	Error  string `json:"error,omitempty"`
-}
-
-// UploadResponse represents the result of a file upload operation.
-type UploadResponse struct {
-	Status string `json:"status"`
-	Msg    string `json:"msg,omitempty"`
-	Remote string `json:"remote,omitempty"`
-	Path   string `json:"path,omitempty"`
-	Size   int64  `json:"size,omitempty"`
-	Error  string `json:"error,omitempty"`
-}
-
-type DeleteRequest struct {
-	Remote    string `json:"remote"`
-	Path      string `json:"path"`
-	IsDir     bool   `json:"is_dir"`
-	ProfileID string `json:"profile_id,omitempty"`
-}
-
-type DeleteResponse struct {
-	Status string `json:"status"`
-	Msg    string `json:"msg,omitempty"`
-	Remote string `json:"remote,omitempty"`
-	Path   string `json:"path,omitempty"`
-	Fs     string `json:"fs,omitempty"`
-	Error  string `json:"error,omitempty"`
-}
 
 type RemotesResponse struct {
 	Remotes      []map[string]interface{} `json:"remotes"`
@@ -139,16 +63,6 @@ func NewErrorResponse(msg string) ErrorResponse {
 	}
 }
 
-type PendingDeletionsResponse struct {
-	HasDeletions bool          `json:"has_deletions"`
-	TotalCount   int           `json:"total_count"`
-	Source       string        `json:"source,omitempty"`
-	TargetAction string        `json:"target_action,omitempty"`
-	Message      string        `json:"message,omitempty"`
-	Files        []interface{} `json:"files"`
-	Error        string        `json:"error,omitempty"`
-	AbortedAt    *float64      `json:"aborted_at,omitempty"`
-}
 
 type TransferStats struct {
 	Bytes        int64                    `json:"bytes"`
@@ -255,142 +169,8 @@ type BisyncLogEntry struct {
 	EndTime     string  `json:"end_time,omitempty"`   // RFC3339
 	Object      string  `json:"object,omitempty"`
 	Action      string  `json:"action,omitempty"`
+	SeqID       int64   `json:"seq_id,omitempty"`
+	Actor       string  `json:"actor,omitempty"`
 }
 
-type PaginatedLogsResponse struct {
-	Page       int      `json:"page"`
-	Limit      int      `json:"limit"`
-	Total      int      `json:"total"`
-	TotalPages int      `json:"total_pages"`
-	Logs       []string `json:"logs"`
-}
 
-// AuditLogRecord represents a cryptographically verified milestone logged in the unified bisync.log stream.
-
-type DedupeRequest struct {
-	Remote     string `json:"remote"`
-	Path       string `json:"path"`
-	Mode       string `json:"mode"` // "list", "oldest", "newest"
-	ByHash     bool   `json:"by_hash"`
-	DedupeBoth bool   `json:"dedupe_both"`
-	ProfileID  string `json:"profile_id,omitempty"`
-}
-
-type DedupeResponse struct {
-	Status      string `json:"status"`
-	RunID       string `json:"run_id,omitempty"`
-	Remote      string `json:"remote"`
-	Path        string `json:"path"`
-	Mode        string `json:"mode"`
-	ByHash      bool   `json:"by_hash,omitempty"`
-	Output      string `json:"output"`
-	LocalPath   string `json:"local_path,omitempty"`
-	LocalOutput string `json:"local_output,omitempty"`
-	Collisions  int    `json:"collisions"`
-	Deleted     int    `json:"deleted"`
-	Error       string `json:"error,omitempty"`
-}
-
-// CompareItemRequest specifies a single item target to hash and compare.
-type CompareItemRequest struct {
-	Remote    string `json:"remote"` // "local" or configured remote name (e.g. "gdrive")
-	Path      string `json:"path"`   // Relative file path
-	ProfileID string `json:"profile_id,omitempty"`
-}
-
-// CompareItemResult holds the hash and size metadata for a compared file.
-type CompareItemResult struct {
-	Remote      string            `json:"remote"`
-	Path        string            `json:"path"`
-	Name        string            `json:"name"`
-	Size        int64             `json:"size"`
-	ModTime     string            `json:"mod_time"`
-	Hashes      map[string]string `json:"hashes"` // e.g. {"md5": "...", "sha1": "..."}
-	PrimaryHash string            `json:"primary_hash"`
-	Error       string            `json:"error,omitempty"`
-}
-
-// FileCompareResponse represents the comparison outcome between two or more files.
-type FileCompareResponse struct {
-	Status    string              `json:"status"` // "success" or "error"
-	Matches   bool                `json:"matches"`
-	Algorithm string              `json:"algorithm"` // e.g. "sha256", "sha1", "md5", "quickxorhash", "none"
-	Clusters  [][]int             `json:"clusters"`  // Indices of items grouped by matching hash
-	Items     []CompareItemResult `json:"items"`
-	Error     string              `json:"error,omitempty"`
-}
-
-type AuditLogRecord struct {
-	Time      string          `json:"time"`
-	Level     string          `json:"level"`
-	Type      string          `json:"type"` // "audit"
-	Msg       string          `json:"msg"`
-	Object    string          `json:"object,omitempty"`
-	SeqID     int64           `json:"seq_id"`
-	ProfileID string          `json:"profile_id"`
-	Action    string          `json:"action"`
-	Actor     string          `json:"actor"`
-	Hash      string          `json:"hash"`
-	PrevHash  string          `json:"prev_hash"`
-	Details   json.RawMessage `json:"details,omitempty"`
-}
-
-type DaemonLogsQuery struct {
-	RunID     string `json:"run_id"`
-	JobID     int    `json:"job_id"`
-	StartTime string `json:"start_time"` // RFC3339
-	EndTime   string `json:"end_time"`   // RFC3339
-	Limit     int    `json:"limit"`
-}
-
-type DaemonLogsResponse struct {
-	RunID      string   `json:"run_id,omitempty"`
-	JobID      int      `json:"job_id,omitempty"`
-	Count      int      `json:"count"`
-	Logs       []string `json:"logs"`
-	Correlated bool     `json:"correlated"`
-	Error      string   `json:"error,omitempty"`
-}
-
-// DiagnosticCheckStatus represents the outcome of a diagnostic evaluation.
-type DiagnosticCheckStatus string
-
-const (
-	DiagnosticStatusPass    DiagnosticCheckStatus = "pass"
-	DiagnosticStatusWarning DiagnosticCheckStatus = "warning"
-	DiagnosticStatusFail    DiagnosticCheckStatus = "fail"
-)
-
-// DiagnosticCheck represents an individual operational health evaluation.
-type DiagnosticCheck struct {
-	ID          string                `json:"id"`
-	Category    string                `json:"category"` // "daemon", "storage", "remotes", "safety", "system"
-	Name        string                `json:"name"`
-	Status      DiagnosticCheckStatus `json:"status"`
-	Message     string                `json:"message"`
-	Detail      string                `json:"detail,omitempty"`
-	ActionTitle string                `json:"action_title,omitempty"`
-	ActionURL   string                `json:"action_url,omitempty"`
-}
-
-// DiagnosticSystemInfo summarizes host environment and runtime metadata.
-type DiagnosticSystemInfo struct {
-	Version     string `json:"version"`
-	GoVersion   string `json:"go_version"`
-	OS          string `json:"os"`
-	Arch        string `json:"arch"`
-	PID         int    `json:"pid"`
-	UptimeSec   int64  `json:"uptime_sec"`
-	BaseDir     string `json:"base_dir"`
-	LogFilePath string `json:"log_file_path"`
-	IsSystemd   bool   `json:"is_systemd"`
-}
-
-// DiagnosticsResponse represents the response payload for GET /api/diagnostics.
-type DiagnosticsResponse struct {
-	Status     string               `json:"status"`  // "ok", "warning", "error"
-	Summary    map[string]int       `json:"summary"` // counts of pass, warning, fail
-	Checks     []DiagnosticCheck    `json:"checks"`
-	SystemInfo DiagnosticSystemInfo `json:"system_info"`
-	Timestamp  string               `json:"timestamp"`
-}

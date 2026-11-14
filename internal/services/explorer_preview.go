@@ -1,17 +1,13 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
-	"mime"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -33,74 +29,6 @@ func (e *ExplorerService) PreviewItem(ctx context.Context, remote, path string, 
 	}
 
 	return e.previewRemoteFile(ctx, remoteClean, cleanPath)
-}
-
-// DownloadStream returns an open io.ReadCloser, filename, and file size for direct downloading.
-func (e *ExplorerService) DownloadStream(ctx context.Context, remote, path string, localBase ...string) (io.ReadCloser, string, int64, error) {
-	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
-	remoteClean := strings.TrimSpace(remote)
-
-	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := ""
-		if len(localBase) > 0 && localBase[0] != "" {
-			rawBase = localBase[0]
-		} else if e.Config != nil {
-			rawBase = e.Config.LocalPath
-		}
-		if rawBase == "" {
-			rawBase = "~/gdrive"
-		}
-
-		_, targetAbs, safe := IsLocalPathJailed(rawBase, cleanPath)
-		if !safe {
-			return nil, "", 0, fmt.Errorf("access denied: path traversal detected")
-		}
-
-		fi, err := os.Stat(targetAbs)
-		if err != nil {
-			return nil, "", 0, fmt.Errorf("file not found: %w", err)
-		}
-		if fi.IsDir() {
-			return nil, "", 0, fmt.Errorf("cannot download directory")
-		}
-
-		// #nosec G304 - targetAbs is strictly verified by IsLocalPathJailed
-		f, err := os.Open(targetAbs)
-		if err != nil {
-			return nil, "", 0, fmt.Errorf("failed to open file: %w", err)
-		}
-		return f, filepath.Base(targetAbs), fi.Size(), nil
-	}
-
-	if e.Client == nil {
-		return nil, "", 0, fmt.Errorf("rclone client is not configured")
-	}
-
-	item, err := e.Client.StatItem(ctx, remoteClean, cleanPath)
-	if err != nil {
-		return nil, "", 0, fmt.Errorf("failed to stat remote item: %w", err)
-	}
-
-	if isDir, _ := item["IsDir"].(bool); isDir {
-		return nil, "", 0, fmt.Errorf("cannot download directory")
-	}
-
-	var size int64
-	if s, ok := item["Size"].(float64); ok {
-		size = int64(s)
-	}
-
-	name, _ := item["Name"].(string)
-	if name == "" {
-		name = filepath.Base(cleanPath)
-	}
-
-	stream, _, err := e.Client.CatStream(ctx, remoteClean, cleanPath, 0, 0)
-	if err != nil {
-		return nil, "", 0, fmt.Errorf("failed to open remote stream: %w", err)
-	}
-
-	return stream, name, size, nil
 }
 
 func (e *ExplorerService) previewLocalFile(cleanPath string, localBase ...string) (*models.FilePreviewResponse, error) {
@@ -287,91 +215,3 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 	return resp, nil
 }
 
-// DetectMimeType determines the appropriate MIME type from file extension or initial bytes.
-func DetectMimeType(fileName string, sample []byte) string {
-	ext := strings.ToLower(filepath.Ext(fileName))
-	switch ext {
-	case ".md", ".markdown":
-		return "text/markdown; charset=utf-8"
-	case ".json":
-		return "application/json"
-	case ".yaml", ".yml":
-		return "text/yaml; charset=utf-8"
-	case ".log", ".txt", ".conf", ".ini", ".env":
-		return "text/plain; charset=utf-8"
-	case ".sh", ".bash":
-		return "text/x-shellscript; charset=utf-8"
-	case ".go":
-		return "text/x-go; charset=utf-8"
-	case ".js":
-		return "application/javascript"
-	case ".ts":
-		return "application/typescript"
-	case ".css":
-		return "text/css; charset=utf-8"
-	case ".html", ".htm":
-		return "text/html; charset=utf-8"
-	case ".csv":
-		return "text/csv; charset=utf-8"
-	case ".xml":
-		return "text/xml; charset=utf-8"
-	case ".svg":
-		return "image/svg+xml"
-	case ".pdf":
-		return "application/pdf"
-	case ".docx":
-		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-	case ".xlsx":
-		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-	case ".pptx":
-		return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-	case ".zip":
-		return "application/zip"
-	case ".tar", ".gz", ".tgz", ".bz2", ".xz", ".7z", ".rar":
-		return "application/octet-stream"
-	case ".py":
-		return "text/x-python; charset=utf-8"
-	case ".rs":
-		return "text/x-rust; charset=utf-8"
-	case ".sql":
-		return "text/x-sql; charset=utf-8"
-	}
-
-	if detected := mime.TypeByExtension(ext); detected != "" {
-		return detected
-	}
-
-	if len(sample) > 0 {
-		return http.DetectContentType(sample)
-	}
-
-	return "application/octet-stream"
-}
-
-func isBinaryData(mimeType string, data []byte) bool {
-	// Office documents, archives, PDFs, executables, and octet streams are strictly binary
-	if strings.Contains(mimeType, "openxmlformats") ||
-		strings.Contains(mimeType, "msword") ||
-		strings.Contains(mimeType, "ms-excel") ||
-		strings.Contains(mimeType, "ms-powerpoint") ||
-		strings.Contains(mimeType, "zip") ||
-		strings.Contains(mimeType, "pdf") ||
-		strings.Contains(mimeType, "octet-stream") ||
-		strings.Contains(mimeType, "tar") ||
-		strings.Contains(mimeType, "compressed") ||
-		strings.Contains(mimeType, "x-executable") {
-		return true
-	}
-
-	if strings.HasPrefix(mimeType, "text/") ||
-		strings.Contains(mimeType, "json") ||
-		strings.Contains(mimeType, "xml") ||
-		strings.Contains(mimeType, "javascript") ||
-		strings.Contains(mimeType, "yaml") {
-		return false
-	}
-	if bytes.IndexByte(data, 0) != -1 {
-		return true
-	}
-	return !utf8.Valid(data)
-}

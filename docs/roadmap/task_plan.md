@@ -1,60 +1,48 @@
-# Task Plan: Dual-Pane Explorer Stability, Ad-Hoc File Comparison, Paired Dedupe & Unified Ledger Streamlining
+# Task Plan: Architecture Modularization & Unified Log Ledger Run-Level Consolidation
 
 ## Goal
-Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cross-backend negotiation, support paired dual-pass dedupe with folder browsing and post-dedupe resync, streamline the Unified Log Ledger, enable true log dock pagination, eliminate breadcrumb scrollbars, and expand widescreen responsiveness.
+Decompose 10 priority files approaching the 400 LOC ceiling across backend and frontend into focused single-responsibility modules, while consolidating Unified Log Ledger entries so sync runs display as a single unified action row with interactive deep-linking badges.
 
 ## Tasks
 
-- [x] Task 1: Backend Ad-Hoc File Checksum Comparison (`internal/models/`, `internal/services/`, `internal/server/`)
-  - **Scope**: `internal/models/api.go`, `internal/services/explorer_service.go`, `internal/services/explorer_service_test.go`, `internal/server/routes.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_explorer_test.go`
-  - **Action**: Define compare models, implement `CompareItems` in `ExplorerService` with hash negotiation and equivalence clustering, register `POST /api/browse/compare`, and add comprehensive unit tests.
-  - **Verification**: `go test -count=1 -v ./internal/services -run TestCompareItems && go test -count=1 -v ./internal/server -run TestHandleBrowseCompare`
+- [x] Task 1: Backend Go Models & Profile Store Decomposition (`internal/models/`, `internal/profiles/`)
+  - **Scope**: `internal/models/api_explorer.go`, `internal/models/api_diagnostics.go`, `internal/models/api_logs.go`, `internal/models/api.go`, `internal/profiles/store_history.go`, `internal/profiles/store.go`
+  - **Verification**: `go test -count=1 ./internal/models/... && go test -count=1 ./internal/profiles/...`
 
-- [x] Task 2: Paired Deduplication Engine & Suppression of Dry-Run Noise (`internal/server/handlers_auth.go`)
-  - **Scope**: `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
-  - **Action**: Support `dedupe_both` for coordinated remote + local dedupe with jail confinement, and suppress stdout spam to `bisync.log` during dry-runs (`mode == "list"`).
-  - **Verification**: `go test -count=1 -v ./internal/server -run TestHandleRemoteDedupe`
+- [x] Task 2: Backend Handlers, Config, Services & MCP Tools Decomposition (`internal/server/`, `internal/config/`, `internal/services/`, `internal/mcp/`)
+  - **Scope**: `internal/server/handlers_dedupe.go`, `internal/server/handlers_auth.go`, `internal/config/env.go`, `internal/config/config.go`, `internal/services/explorer_download.go`, `internal/services/mime_types.go`, `internal/services/explorer_preview.go`, `internal/mcp/tools_review.go`, `internal/mcp/tools_dedupe.go`, `internal/mcp/tools_write.go`
+  - **Verification**: `go test -count=1 ./internal/server/... && go test -count=1 ./internal/config/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/mcp/...`
 
-- [x] Task 3: Server-Side Log Type Filtering & Dense Pagination (`internal/server/`, `internal/services/`)
-  - **Scope**: `internal/server/handlers_telemetry.go`, `internal/services/tailer.go`, `internal/server/handlers_telemetry_test.go`
-  - **Action**: Add `exclude_types` query parameter to `/api/logs/bisync` to filter entries before pagination calculation.
-  - **Verification**: `go test -count=1 -v ./internal/server -run TestHandleBisyncLogs`
+- [x] Task 3: Backend Logging Consolidation & Run Action Metadata (`internal/engine/runner/`, `internal/core/client/`)
+  - **Scope**: `internal/engine/runner/runner.go`, `internal/engine/runner/runner_audit.go`, `internal/engine/runner/runner_handlers.go`, `internal/models/api.go`, `internal/core/client/monitor.go`
+  - **Verification**: `go test -count=1 ./internal/engine/runner/...`
 
-- [x] Task 4: Explorer Navigation Stability & Middle-Truncated Breadcrumbs (`dashboard/frontend/`)
-  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/partials/view_explorer.html`
-  - **Action**: Fix `fetchProfiles` background path clobbering; implement middle-truncated breadcrumbs without scrollbars.
+- [x] Task 4: Frontend Utility & Parser Modularization (`dashboard/frontend/js/`)
+  - **Scope**: `dashboard/frontend/js/dedupe_parser.js`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 5: Frontend Multi-Select & Checksum Comparison Modal (`dashboard/frontend/`)
-  - **Scope**: `dashboard/frontend/js/explorer_compare.js`, `dashboard/frontend/partials/modals/modal_compare.html`, `dashboard/frontend/partials/components/component_explorer_toolbar.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/index.html`
-  - **Action**: Implement multi-file selection state, compare modal with hash clustering, and register module in `index.html`.
+- [ ] Task 5: Frontend Action Consolidation & Log Clustering (`dashboard/frontend/js/`)
+  - **Scope**: `dashboard/frontend/js/logs_clustering.js`, `dashboard/frontend/js/logs_daemon.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 6: Dedupe Modal Enhancements & Post-Dedupe Resync CTA (`dashboard/frontend/`)
-  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/remotes_modals.js`
-  - **Action**: Add folder picker, duplicate collision jump-to-file buttons, paired dedupe toggle (default on), and post-dedupe 1-click resync banner with mirroring advice.
+- [ ] Task 6: Frontend Explorer & App State Modularization (`dashboard/frontend/js/`)
+  - **Scope**: `dashboard/frontend/js/explorer_preview.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 7: Unified Log Ledger Streamlining & Log Dock Server-Side Pagination (`dashboard/frontend/`)
-  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/js/log_dock.js`
-  - **Action**: Rename to "Unified Log Ledger", exclude `sync_file` records, add 1-row-per-job clustering, and wire true server-side pagination to `log_dock.js`.
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
-
-- [x] Task 8: Layout Expansion & Full Pre-Commit Verification (`dashboard/frontend/`, Repository-Wide)
-  - **Scope**: `dashboard/frontend/index.html`, full test suite
-  - **Action**: Expand widescreen fluid layout (`max-w-[1720px] 2xl:max-w-[1920px]`) and run all quality stages.
-  - **Verification**: `./scripts/check.sh all`
+- [ ] Task 7: Interactive Ledger Badges & Full Pre-Commit Gate (`pattern_timeline_ledger.html`, Repository-Wide)
+  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, full test & check suite
+  - **Verification**: `./scripts/check.sh all && ./scripts/check.sh loc 400`
 
 ## Status Updates
+
 - 2026-11-14: Initialized task plan based on approved implementation plan.
-- 2026-11-14: Completed Task 1 - Implemented CompareItems in ExplorerService with cross-backend hash negotiation and equivalence clustering (N >= 2), registered POST /api/browse/compare endpoint, and verified with unit tests.
-- 2026-11-14: Completed Task 2 - Supported dedupe_both coordinated paired deduplication with jail confinement, suppressed stdout noise in bisync.log during dry-runs (mode == "list"), and verified with unit tests.
-- 2026-11-14: Completed Task 3 - Implemented server-side log type filtering (exclude_types, type, level) with pre-pagination filtering in services.TailJSONLogPaginatedFiltered, ensuring dense pages without gaps. Verified with unit tests.
-- 2026-11-14: Completed Task 4 - Prevented background fetchProfiles() path clobbering by checking uninitialized state, and implemented middle-collapsed breadcrumb navigation (root / … / parent / current) with tooltip previews and zero scrollbars. Verified with template validator, LOC check, and headless Chrome smoke tests.
-- 2026-11-14: Completed Task 5 - Built Explorer multi-select checkboxes across both panes, Compare action toolbar controls, and modal_compare.html with hash equivalence clustering, verdict banners, and copyable hashes. Verified with template validator, LOC check, and headless Chrome smoke tests.
-- 2026-11-14: Completed Task 6 - Built Dedupe folder browser drawer with dynamic directory loading, paired bidirectional dedupe toggle with profile linking, collision row jump-to-file buttons to Explorer, and post-dedupe 1-click Resync CTA. Verified with templates check, LOC gate, and headless Chrome smoke tests.
-- 2026-11-14: Completed Task 7 - Renamed to Unified Log Ledger, added default sync_file exclusion with user-facing File Transfers toggle, added correlated run ID badges, and implemented true server-side pagination with fetchDockPage in LogDockModule. Verified with templates check, LOC gate, and headless Chrome smoke tests.
-- 2026-11-14: Completed Task 8 - Expanded outer dashboard container to widescreen max-w-[1720px] 2xl:max-w-[1920px] in index.html, formatted all Go files, ensured gosec compliance, preserved active subdirectories in syncExplorerWithActiveProfile, maintained strict <400 LOC limits, and verified all 7 quality gate stages passed cleanly.
+- 2026-11-14: Completed Task 1 - Decomposed `internal/models/api.go` (from 396 to 174 LOC) into `api_explorer.go`, `api_diagnostics.go`, `api_logs.go`, and decomposed `internal/profiles/store.go` (from 395 to 320 LOC) by extracting `store_history.go`. Verified with unit tests.
+- 2026-11-14: Completed Task 2 - Decomposed `internal/server/handlers_auth.go` (366 to 200 LOC) by extracting `handlers_dedupe.go`, `internal/config/config.go` (378 to 266 LOC) by extracting `env.go`, `internal/services/explorer_preview.go` (377 to 217 LOC) by extracting `explorer_download.go` and `mime_types.go`, and `internal/mcp/tools_write.go` (386 to 130 LOC) by extracting `tools_review.go` and `tools_dedupe.go`. Verified with unit tests across all four packages.
+- 2026-11-14: Completed Task 3 - Enhanced sync run logging with run-level action metadata (`Action: "SYNC_EXECUTED"`, `Action: "SYNC_STARTED"`, `Action: "SYNC_FAILED"`, `Action: "SYNC_ABORTED"`), and linked audit milestone metadata (`SeqID`, `Actor`) directly into `BisyncLogEntry`. Verified with `go test -count=1 ./internal/engine/runner/...`.
+- 2026-11-14: Completed Task 4 - Extracted `dashboard/frontend/js/dedupe_parser.js` (69 LOC) to slim `dashboard/frontend/js/utils.js` from 391 to 350 LOC, unpacked nested audit telemetry details into top-level properties in `parseJsonLogLine`, registered the new module in `index.html`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e smoke tests.
+
+
+
 
 
 
