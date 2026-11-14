@@ -736,3 +736,78 @@ func TestResolveExcludePatterns(t *testing.T) {
 		t.Errorf("expected local path %q, got %q", srv.Config.LocalPath, path)
 	}
 }
+
+func TestHandleBrowseCompare(t *testing.T) {
+	srv, defaultLocal, _ := setupTestServerWithProfilesAndExplorer(t)
+
+	// Create test files
+	f1 := filepath.Join(defaultLocal, "compare1.txt")
+	f2 := filepath.Join(defaultLocal, "compare2.txt")
+	f3 := filepath.Join(defaultLocal, "compare3.txt")
+
+	_ = os.WriteFile(f1, []byte("same data"), 0644)
+	_ = os.WriteFile(f2, []byte("same data"), 0644)
+	_ = os.WriteFile(f3, []byte("other data"), 0644)
+
+	// 1. Success matching comparison
+	reqBody, _ := json.Marshal(map[string]interface{}{
+		"items": []models.CompareItemRequest{
+			{Remote: "local", Path: "compare1.txt"},
+			{Remote: "local", Path: "compare2.txt"},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/browse/compare", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Dashboard-Request", "1")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var res models.FileCompareResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if !res.Matches || res.Algorithm != "sha256" || len(res.Clusters) != 1 {
+		t.Fatalf("expected matching result with 1 cluster, got: %+v", res)
+	}
+
+	// 2. Traversal attempt
+	reqTravBody, _ := json.Marshal(map[string]interface{}{
+		"items": []models.CompareItemRequest{
+			{Remote: "local", Path: "../outside.txt"},
+			{Remote: "local", Path: "compare1.txt"},
+		},
+	})
+	reqTrav := httptest.NewRequest(http.MethodPost, "/api/browse/compare", bytes.NewReader(reqTravBody))
+	reqTrav.Header.Set("Content-Type", "application/json")
+	reqTrav.Header.Set("X-Dashboard-Request", "1")
+	recTrav := httptest.NewRecorder()
+	srv.ServeHTTP(recTrav, reqTrav)
+
+	var resTrav models.FileCompareResponse
+	_ = json.Unmarshal(recTrav.Body.Bytes(), &resTrav)
+	if resTrav.Matches {
+		t.Errorf("expected traversal comparison to not match")
+	}
+
+	// 3. Less than 2 items
+	reqFewBody, _ := json.Marshal(map[string]interface{}{
+		"items": []models.CompareItemRequest{
+			{Remote: "local", Path: "compare1.txt"},
+		},
+	})
+	reqFew := httptest.NewRequest(http.MethodPost, "/api/browse/compare", bytes.NewReader(reqFewBody))
+	reqFew.Header.Set("Content-Type", "application/json")
+	reqFew.Header.Set("X-Dashboard-Request", "1")
+	recFew := httptest.NewRecorder()
+	srv.ServeHTTP(recFew, reqFew)
+
+	var resFew models.FileCompareResponse
+	_ = json.Unmarshal(recFew.Body.Bytes(), &resFew)
+	if resFew.Status != "error" {
+		t.Errorf("expected error for <2 items, got: %+v", resFew)
+	}
+}
+

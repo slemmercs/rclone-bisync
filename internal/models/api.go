@@ -285,6 +285,36 @@ type DedupeResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
+// CompareItemRequest specifies a single item target to hash and compare.
+type CompareItemRequest struct {
+	Remote    string `json:"remote"` // "local" or configured remote name (e.g. "gdrive")
+	Path      string `json:"path"`   // Relative file path
+	ProfileID string `json:"profile_id,omitempty"`
+}
+
+// CompareItemResult holds the hash and size metadata for a compared file.
+type CompareItemResult struct {
+	Remote      string            `json:"remote"`
+	Path        string            `json:"path"`
+	Name        string            `json:"name"`
+	Size        int64             `json:"size"`
+	ModTime     string            `json:"mod_time"`
+	Hashes      map[string]string `json:"hashes"` // e.g. {"md5": "...", "sha1": "..."}
+	PrimaryHash string            `json:"primary_hash"`
+	Error       string            `json:"error,omitempty"`
+}
+
+// FileCompareResponse represents the comparison outcome between two or more files.
+type FileCompareResponse struct {
+	Status    string              `json:"status"` // "success" or "error"
+	Matches   bool                `json:"matches"`
+	Algorithm string              `json:"algorithm"` // e.g. "sha256", "sha1", "md5", "quickxorhash", "none"
+	Clusters  [][]int             `json:"clusters"`  // Indices of items grouped by matching hash
+	Items     []CompareItemResult `json:"items"`
+	Error     string              `json:"error,omitempty"`
+}
+
+
 type AuditLogRecord struct {
 	Time      string          `json:"time"`
 	Level     string          `json:"level"`

@@ -1,46 +1,51 @@
-# Task Plan: Emit Synced Files in Log Dock with On-Demand Pagination
+# Task Plan: Dual-Pane Explorer Stability, Ad-Hoc File Comparison, Paired Dedupe & Unified Ledger Streamlining
 
 ## Goal
-Extract and surface individual transferred files from bisync executions in the Live Sync Log Dock with deep navigation pills, 50-file capping safety, and on-demand pagination controls.
+Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cross-backend negotiation, support paired dual-pass dedupe with folder browsing and post-dedupe resync, streamline the Unified Log Ledger, enable true log dock pagination, eliminate breadcrumb scrollbars, and expand widescreen responsiveness.
 
 ## Tasks
 
-- [x] Task 0: Branch Switch & Merge Prerequisite
-  - **Scope**: Git worktree (`feat/deep-path-nav-log-dock`)
-  - **Action**: Fast-forward merge `fix/bisync-transfer-stats-and-ledger` into `feat/deep-path-nav-log-dock`.
-  - **Verification**: `git status && git log -n 3 --oneline`
+- [x] Task 1: Backend Ad-Hoc File Checksum Comparison (`internal/models/`, `internal/services/`, `internal/server/`)
+  - **Scope**: `internal/models/api.go`, `internal/services/explorer_service.go`, `internal/services/explorer_service_test.go`, `internal/server/routes.go`, `internal/server/handlers_explorer.go`, `internal/server/handlers_explorer_test.go`
+  - **Action**: Define compare models, implement `CompareItems` in `ExplorerService` with hash negotiation and equivalence clustering, register `POST /api/browse/compare`, and add comprehensive unit tests.
+  - **Verification**: `go test -count=1 -v ./internal/services -run TestCompareItems && go test -count=1 -v ./internal/server -run TestHandleBrowseCompare`
 
-- [x] Task 1: Transfer File Parser & Client Extraction (`internal/core/client/`)
-  - **Scope**: `internal/models/api.go`, `internal/core/client/monitor.go`, `internal/core/client/monitor_test.go`
-  - **Action**: Implement `ExtractTransferredFiles` supporting JSON objects and plain-text regex fallback, capped at 50. Populate `TransferredFiles` on `MonitorJobResult`.
-  - **Verification**: `go test -count=1 -v ./internal/core/client -run TestExtractTransferredFiles`
+- [ ] Task 2: Paired Deduplication Engine & Suppression of Dry-Run Noise (`internal/server/handlers_auth.go`)
+  - **Scope**: `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
+  - **Action**: Support `dedupe_both` for coordinated remote + local dedupe with jail confinement, and suppress stdout spam to `bisync.log` during dry-runs (`mode == "list"`).
+  - **Verification**: `go test -count=1 -v ./internal/server -run TestHandleRemoteDedupe`
 
-- [x] Task 2: Sync Runner File Operation Ingestion & Capping (`internal/engine/runner/`)
-  - **Scope**: `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
-  - **Action**: In `handleSyncSuccess`, record up to 50 `sync_file` log entries to `bisync.log` with `Object`, `Action`, and `Msg`. Add overflow notice and daemon log fallback.
-  - **Verification**: `go test -count=1 -v ./internal/engine/runner -run TestSyncRunner`
+- [ ] Task 3: Server-Side Log Type Filtering & Dense Pagination (`internal/server/`, `internal/services/`)
+  - **Scope**: `internal/server/handlers_telemetry.go`, `internal/services/tailer.go`, `internal/server/handlers_telemetry_test.go`
+  - **Action**: Add `exclude_types` query parameter to `/api/logs/bisync` to filter entries before pagination calculation.
+  - **Verification**: `go test -count=1 -v ./internal/server -run TestHandleBisyncLogs`
 
-- [x] Task 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
-  - **Scope**: `dashboard/frontend/partials/components/component_log_dock.html`
-  - **Action**: Add pagination pill controls (`[ < Page X of Y > ]`), entry count badge, and action badge styling for `sync_file` rows.
-  - **Verification**: `./scripts/check.sh templates`
+- [ ] Task 4: Explorer Navigation Stability & Middle-Truncated Breadcrumbs (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/partials/view_explorer.html`
+  - **Action**: Fix `fetchProfiles` background path clobbering; implement middle-truncated breadcrumbs without scrollbars.
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 4: Log Dock Pagination Engine & File Ops Filtering (`log_dock.js` & `logs.js`)
-  - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/js/logs.js`
-  - **Action**: Add `loadDockNextPage()`, `loadDockPrevPage()`, and update `isFileOperationLog` to include `sync_file`. Ensure files remain strictly under 400 LOC.
-  - **Verification**: `./scripts/check.sh loc 400`
+- [ ] Task 5: Frontend Multi-Select & Checksum Comparison Modal (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/js/explorer_compare.js`, `dashboard/frontend/partials/modals/modal_compare.html`, `dashboard/frontend/partials/components/component_explorer_toolbar.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/index.html`
+  - **Action**: Implement multi-file selection state, compare modal with hash clustering, and register module in `index.html`.
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 5: End-to-End Verification & Full Quality Gates (`dashboard_smoke_test.go`)
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
-  - **Action**: Verify Log Dock pagination, `sync_file` path chip rendering, and deep explorer navigation in headless Chrome.
+- [ ] Task 6: Dedupe Modal Enhancements & Post-Dedupe Resync CTA (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/remotes_modals.js`
+  - **Action**: Add folder picker, duplicate collision jump-to-file buttons, paired dedupe toggle (default on), and post-dedupe 1-click resync banner with mirroring advice.
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+
+- [ ] Task 7: Unified Log Ledger Streamlining & Log Dock Server-Side Pagination (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/js/log_dock.js`
+  - **Action**: Rename to "Unified Log Ledger", exclude `sync_file` records, add 1-row-per-job clustering, and wire true server-side pagination to `log_dock.js`.
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+
+- [ ] Task 8: Layout Expansion & Full Pre-Commit Verification (`dashboard/frontend/`, Repository-Wide)
+  - **Scope**: `dashboard/frontend/index.html`, full test suite
+  - **Action**: Expand widescreen fluid layout (`max-w-[1720px] 2xl:max-w-[1920px]`) and run all quality stages.
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
+- 2026-11-14: Initialized task plan based on approved implementation plan.
+- 2026-11-14: Completed Task 1 - Implemented CompareItems in ExplorerService with cross-backend hash negotiation and equivalence clustering (N >= 2), registered POST /api/browse/compare endpoint, and verified with unit tests.
 
-- 2026-11-13: Initialized task plan for surfacing synced files in Log Dock.
-- 2026-11-13: Completed Task 0 - Checked out feat/deep-path-nav-log-dock and fast-forward merged fix/bisync-transfer-stats-and-ledger.
-- 2026-11-13: Completed Task 1 - Implemented ExtractTransferredFiles in client/monitor.go parsing JSON objects and text lines, added SyncFileOp to models/api.go, and verified with go test.
-- 2026-11-13: Completed Task 2 - Ingested TransferredFiles into bisync.log as sync_file entries with 50-file capping, overflow warnings, and daemon log fallback in handleSyncSuccess; verified with comprehensive unit tests.
-- 2026-11-13: Completed Task 3 - Updated component_log_dock.html with pagination controls, safe helper bindings, sync_file action badges, overflow notice, and path navigation chips. Passed ./scripts/check.sh templates.
-- 2026-11-13: Completed Task 4 - Implemented pagination engine (loadDockNextPage, loadDockPrevPage, getDockTotalPages, isDockPrevDisabled, isDockNextDisabled), action badges (getDockActionBadgeClass, getDockActionLabel), sync_file recognition in isFileOperationLog, and navigateToExplorer alias in log_dock.js. Verified with ./scripts/check.sh loc 400.
-- 2026-11-13: Completed Task 5 - Verified Log Dock pagination, action badge styling, sync_file file op recognition, and page boundary stepping in dashboard_smoke_test.go. All 7/7 repository quality gates passed cleanly via ./scripts/check.sh all.

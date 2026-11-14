@@ -36,6 +36,8 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("POST /api/browse/canary", s.handleProvisionCanary)
 	s.Mux.HandleFunc("POST /api/browse/copy", s.handleCopyItem)
 	s.Mux.HandleFunc("POST /api/browse/delete", s.handleDeleteItem)
+	s.Mux.HandleFunc("POST /api/browse/compare", s.handleBrowseCompare)
+
 	s.registerOperationsRoutes()
 
 	// Review & Conflict Resolution Endpoints
