@@ -88,15 +88,47 @@ window.LogDockModule = {
                 msg.includes("upload") || msg.includes("purged") || msg.includes("restor"));
     },
 
-    getFilteredDockLogsRaw() {
-        let sourceLogs = [];
-        if (Array.isArray(this.filteredBisyncLogs) && this.filteredBisyncLogs.length > 0) {
-            sourceLogs = this.filteredBisyncLogs;
-        } else if (Array.isArray(this.parsedBisyncLogs) && this.parsedBisyncLogs.length > 0) {
-            sourceLogs = this.parsedBisyncLogs;
-        } else if (this.telemetry && Array.isArray(this.telemetry.bisync_logs)) {
+    get rawDockLogs() {
+        if (this.logDock.useServerPagination && this.logDock.serverLogs) {
+            return this.logDock.serverLogs;
+        }
+        let logs = [];
+        if (this.telemetry && Array.isArray(this.telemetry.bisync_logs) && this.telemetry.bisync_logs.length > 0) {
             const mapper = typeof parseJsonLogLine === "function" ? parseJsonLogLine : (l) => ({ msg: l });
-            sourceLogs = (this.telemetry.bisync_logs || []).map(l => typeof l === "string" ? mapper(l) : l).filter(Boolean);
+            logs = this.telemetry.bisync_logs.map(l => (typeof l === "string" ? mapper(l) : l)).filter(Boolean);
+        } else if (Array.isArray(this.bisyncPaginatedLogs) && this.bisyncPaginatedLogs.length > 0) {
+            logs = [...this.bisyncPaginatedLogs];
+        } else if (Array.isArray(this.parsedBisyncLogs) && this.parsedBisyncLogs.length > 0) {
+            logs = [...this.parsedBisyncLogs];
+        }
+        if (logs.length > 1) {
+            const t0 = new Date(logs[0].time || logs[0].timestamp || 0).getTime();
+            const tN = new Date(logs[logs.length - 1].time || logs[logs.length - 1].timestamp || 0).getTime();
+            if (t0 < tN) {
+                logs = logs.slice().reverse();
+            }
+        }
+        return logs.filter(l => l && !l.is_read_only_access && l.type !== "http_access");
+    },
+
+    getFilteredDockLogsRaw() {
+        let sourceLogs = this.rawDockLogs;
+
+        if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") {
+            const selected = (this.telemetryProfileFilter || "").toLowerCase().trim();
+            const profObj = (this.profilesData?.list || []).find(p => (p.id || "").toLowerCase() === selected || (p.name || "").toLowerCase() === selected);
+            const targetId = (profObj?.id || selected).toLowerCase();
+            const targetName = (profObj?.name || "").toLowerCase();
+
+            sourceLogs = sourceLogs.filter(l => {
+                const pid = (l.profile_id || "").toLowerCase().trim();
+                const pname = (l.profile_name || "").toLowerCase().trim();
+                const msg = (l.msg || "").toLowerCase();
+                return (pid && (pid === targetId || pid === targetName)) ||
+                       (pname && (pname === targetId || pname === targetName)) ||
+                       (targetName && msg.includes(`[${targetName}]`)) ||
+                       (targetId && msg.includes(`[${targetId}]`));
+            });
         }
 
         if (this.logDock.activeFilter !== this._lastActiveFilter) {
@@ -129,7 +161,6 @@ window.LogDockModule = {
             let url = `/api/logs/bisync?page=${p}&limit=${limit}`;
             if (this.logDock.activeFilter === "errors") url += "&level=ERROR";
             else if (this.logDock.activeFilter === "file_ops") url += "&type=sync_file,sync_overflow,audit";
-            else if (this.logDock.activeFilter === "all" && !this.includeFileTransfers) url += "&exclude_types=sync_file,sync_overflow";
             if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") url += `&profile_id=${encodeURIComponent(this.telemetryProfileFilter)}`;
 
             const data = await window.API.get(url);
