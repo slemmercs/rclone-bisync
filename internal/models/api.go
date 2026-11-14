@@ -268,21 +268,27 @@ type PaginatedLogsResponse struct {
 // AuditLogRecord represents a cryptographically verified milestone logged in the unified bisync.log stream.
 
 type DedupeRequest struct {
-	Remote string `json:"remote"`
-	Path   string `json:"path"`
-	Mode   string `json:"mode"` // "list", "oldest", "newest"
-	ByHash bool   `json:"by_hash"`
+	Remote     string `json:"remote"`
+	Path       string `json:"path"`
+	Mode       string `json:"mode"` // "list", "oldest", "newest"
+	ByHash     bool   `json:"by_hash"`
+	DedupeBoth bool   `json:"dedupe_both"`
+	ProfileID  string `json:"profile_id,omitempty"`
 }
 
 type DedupeResponse struct {
-	Status string `json:"status"`
-	RunID  string `json:"run_id,omitempty"`
-	Remote string `json:"remote"`
-	Path   string `json:"path"`
-	Mode   string `json:"mode"`
-	ByHash bool   `json:"by_hash,omitempty"`
-	Output string `json:"output"`
-	Error  string `json:"error,omitempty"`
+	Status      string `json:"status"`
+	RunID       string `json:"run_id,omitempty"`
+	Remote      string `json:"remote"`
+	Path        string `json:"path"`
+	Mode        string `json:"mode"`
+	ByHash      bool   `json:"by_hash,omitempty"`
+	Output      string `json:"output"`
+	LocalPath   string `json:"local_path,omitempty"`
+	LocalOutput string `json:"local_output,omitempty"`
+	Collisions  int    `json:"collisions"`
+	Deleted     int    `json:"deleted"`
+	Error       string `json:"error,omitempty"`
 }
 
 // CompareItemRequest specifies a single item target to hash and compare.

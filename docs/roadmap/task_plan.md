@@ -10,7 +10,7 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
   - **Action**: Define compare models, implement `CompareItems` in `ExplorerService` with hash negotiation and equivalence clustering, register `POST /api/browse/compare`, and add comprehensive unit tests.
   - **Verification**: `go test -count=1 -v ./internal/services -run TestCompareItems && go test -count=1 -v ./internal/server -run TestHandleBrowseCompare`
 
-- [ ] Task 2: Paired Deduplication Engine & Suppression of Dry-Run Noise (`internal/server/handlers_auth.go`)
+- [x] Task 2: Paired Deduplication Engine & Suppression of Dry-Run Noise (`internal/server/handlers_auth.go`)
   - **Scope**: `internal/server/handlers_auth.go`, `internal/server/handlers_audit_test.go`
   - **Action**: Support `dedupe_both` for coordinated remote + local dedupe with jail confinement, and suppress stdout spam to `bisync.log` during dry-runs (`mode == "list"`).
   - **Verification**: `go test -count=1 -v ./internal/server -run TestHandleRemoteDedupe`
@@ -48,4 +48,6 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
 ## Status Updates
 - 2026-11-14: Initialized task plan based on approved implementation plan.
 - 2026-11-14: Completed Task 1 - Implemented CompareItems in ExplorerService with cross-backend hash negotiation and equivalence clustering (N >= 2), registered POST /api/browse/compare endpoint, and verified with unit tests.
+
+- 2026-11-14: Completed Task 2 - Supported dedupe_both coordinated paired deduplication with jail confinement, suppressed stdout noise in bisync.log during dry-runs (mode == "list"), and verified with unit tests.
 

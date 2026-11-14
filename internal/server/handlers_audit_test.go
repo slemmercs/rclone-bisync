@@ -469,3 +469,88 @@ func TestAuditReset(t *testing.T) {
 		t.Fatalf("expected error status, got: %+v", nilResp)
 	}
 }
+
+func TestHandleRemoteDedupe_PairedDedupeAndDryRunNoiseSuppression(t *testing.T) {
+	srv, auditSvc := setupTestServerWithAudit(t)
+	defer auditSvc.Close()
+
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "docs")
+	_ = os.MkdirAll(subDir, 0755)
+
+	pStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+	_ = pStore.Save(&profiles.Profile{
+		ID:        "prof_paired",
+		Name:      "Paired Profile",
+		Remote:    "gdrive",
+		LocalPath: tmpDir,
+	}, "init paired profile")
+	srv.ProfileService = profiles.NewService(pStore, nil, nil)
+
+	// 1. Dry run with dedupe_both
+	payloadDry, _ := json.Marshal(models.DedupeRequest{
+		Remote:     "gdrive",
+		Path:       "docs",
+		Mode:       "list",
+		ByHash:     true,
+		DedupeBoth: true,
+		ProfileID:  "prof_paired",
+	})
+	reqDry := httptest.NewRequest(http.MethodPost, "/api/remotes/dedupe", strings.NewReader(string(payloadDry)))
+	reqDry.Header.Set("X-Dashboard-Request", "1")
+	wDry := httptest.NewRecorder()
+	srv.ServeHTTP(wDry, reqDry)
+
+	if wDry.Code != http.StatusOK {
+		t.Fatalf("expected 200, got: %d (%s)", wDry.Code, wDry.Body.String())
+	}
+	var respDry models.DedupeResponse
+	if err := json.Unmarshal(wDry.Body.Bytes(), &respDry); err != nil {
+		t.Fatalf("failed to parse json: %v", err)
+	}
+	if respDry.Status != "success" || respDry.LocalPath != subDir || respDry.LocalOutput == "" {
+		t.Fatalf("expected paired dedupe response, got: %+v", respDry)
+	}
+
+	records, total, err := auditSvc.Query(audit.Filter{Action: audit.ActionDedupeExecuted})
+	if err != nil || total != 0 || len(records) != 0 {
+		t.Fatalf("expected 0 DEDUPE_EXECUTED records for dry-run, got total=%d", total)
+	}
+
+	// 2. Simulated mutation with dedupe_both
+	payloadMut, _ := json.Marshal(models.DedupeRequest{
+		Remote:     "gdrive",
+		Path:       "docs",
+		Mode:       "oldest",
+		ByHash:     true,
+		DedupeBoth: true,
+		ProfileID:  "prof_paired",
+	})
+	reqMut := httptest.NewRequest(http.MethodPost, "/api/remotes/dedupe", strings.NewReader(string(payloadMut)))
+	reqMut.Header.Set("X-Dashboard-Request", "1")
+	wMut := httptest.NewRecorder()
+	srv.ServeHTTP(wMut, reqMut)
+
+	if wMut.Code != http.StatusOK {
+		t.Fatalf("expected 200, got: %d (%s)", wMut.Code, wMut.Body.String())
+	}
+	var respMut models.DedupeResponse
+	if err := json.Unmarshal(wMut.Body.Bytes(), &respMut); err != nil {
+		t.Fatalf("failed to parse json: %v", err)
+	}
+	if respMut.Status != "success" || respMut.Deleted < 2 {
+		t.Fatalf("expected successful mutation response with deletions, got: %+v", respMut)
+	}
+
+	recordsMut, totalMut, err := auditSvc.Query(audit.Filter{Action: audit.ActionDedupeExecuted})
+	if err != nil || totalMut != 1 || len(recordsMut) != 1 {
+		t.Fatalf("expected 1 DEDUPE_EXECUTED record, got %d", totalMut)
+	}
+	if !strings.Contains(string(recordsMut[0].Details), `"dedupe_both":true`) {
+		t.Errorf("expected dedupe_both in audit details, got: %s", string(recordsMut[0].Details))
+	}
+}
+
