@@ -125,6 +125,3 @@ func (s *Server) handleTriggerSync(ctx context.Context, req mcp.CallToolRequest)
 		"message":    fmt.Sprintf("Sync triggered successfully for profile %s", profileID),
 	})
 }
-
-
-

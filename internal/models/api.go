@@ -11,7 +11,6 @@ type ActionResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
-
 type RemotesResponse struct {
 	Remotes      []map[string]interface{} `json:"remotes"`
 	Count        int                      `json:"count"`
@@ -62,7 +61,6 @@ func NewErrorResponse(msg string) ErrorResponse {
 		Error:  msg,
 	}
 }
-
 
 type TransferStats struct {
 	Bytes        int64                    `json:"bytes"`
@@ -172,5 +170,3 @@ type BisyncLogEntry struct {
 	SeqID       int64   `json:"seq_id,omitempty"`
 	Actor       string  `json:"actor,omitempty"`
 }
-
-

@@ -195,6 +195,3 @@ func (s *Server) handleOAuthStop(w http.ResponseWriter, r *http.Request) {
 		Msg:    "OAuth processes stopped",
 	})
 }
-
-
-

@@ -127,11 +127,14 @@ window.ExplorerModule = {
         async fetchExplorerDirectory(paneKey, target, path = "") {
             const pane = this.explorer[paneKey];
             if (!pane) return;
+            const reqSeq = (pane._reqSeq || 0) + 1;
+            pane._reqSeq = reqSeq;
             pane.loading = true;
             pane.error = null;
             try {
                 const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
                 const data = await window.API.post("/api/browse", { remote: target, path: path, profile_id: profileId });
+                if (pane._reqSeq !== reqSeq) return;
                 if (data.error) {
                     pane.error = data.error;
                     pane.items = [];
@@ -146,10 +149,13 @@ window.ExplorerModule = {
                     pane.totalSize = pane.items.reduce((acc, item) => (item.Size > 0 ? acc + item.Size : acc), 0);
                 }
             } catch (err) {
+                if (pane._reqSeq !== reqSeq) return;
                 pane.error = err.message || "Failed to load directory";
                 pane.items = [];
             } finally {
-                pane.loading = false;
+                if (pane._reqSeq === reqSeq) {
+                    pane.loading = false;
+                }
             }
         },
 

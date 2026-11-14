@@ -245,7 +245,6 @@ func (s *Store) Delete(id string) error {
 	})
 }
 
-
 // BootstrapDefault creates a "default" profile if the store is empty.
 func (s *Store) BootstrapDefault(localPath, remote string) (*Profile, error) {
 	s.mu.Lock()

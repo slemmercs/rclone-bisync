@@ -64,17 +64,42 @@
                                 <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border shrink-0 font-semibold tracking-wider" :class="cluster.entry.origin_badge.class" x-text="cluster.entry.origin_badge.label" :title="'Triggered via ' + cluster.entry.origin_badge.label"></span>
                             </template>
                             <template x-if="cluster.entry.profile_name && !cluster.entry.msg.startsWith('[')">
-                                <span class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 font-mono text-[9px] border border-indigo-800/50 shrink-0" x-text="'[' + cluster.entry.profile_name + ']'"></span>
+                                <button type="button" @click.stop="telemetryProfileFilter = (cluster.entry.profile_id || cluster.entry.profile_name); fetchBisyncLogs(1);"
+                                        class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 hover:text-white hover:border-indigo-600 font-mono text-[9px] border border-indigo-800/50 shrink-0 transition-colors cursor-pointer"
+                                        :title="'Filter ledger by profile: ' + cluster.entry.profile_name"
+                                        x-text="'[' + cluster.entry.profile_name + ']'">
+                                </button>
                             </template>
                             <template x-if="!cluster.entry.profile_name && cluster.entry.profile_id && cluster.entry.profile_id !== 'default' && !cluster.entry.msg.startsWith('[')">
-                                <span class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 font-mono text-[9px] border border-indigo-800/50 shrink-0" x-text="'[' + cluster.entry.profile_id + ']'"></span>
+                                <button type="button" @click.stop="telemetryProfileFilter = cluster.entry.profile_id; fetchBisyncLogs(1);"
+                                        class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 hover:text-white hover:border-indigo-600 font-mono text-[9px] border border-indigo-800/50 shrink-0 transition-colors cursor-pointer"
+                                        :title="'Filter ledger by profile: ' + cluster.entry.profile_id"
+                                        x-text="'[' + cluster.entry.profile_id + ']'">
+                                </button>
                             </template>
                             <template x-if="cluster.entry.run_id">
-                                <span class="px-1.5 py-0.2 rounded bg-slate-900/90 text-slate-400 font-mono text-[9px] border border-slate-800 shrink-0" x-text="'run:' + (cluster.entry.run_id.length > 8 ? cluster.entry.run_id.substring(0, 8) : cluster.entry.run_id)" :title="'Run ID: ' + cluster.entry.run_id"></span>
+                                <button type="button" @click.stop="openDaemonModal(cluster.entry)"
+                                        class="px-1.5 py-0.2 rounded bg-slate-900/90 text-slate-400 hover:text-indigo-300 hover:border-indigo-700/60 font-mono text-[9px] border border-slate-800 shrink-0 transition-colors cursor-pointer"
+                                        :title="'View daemon logs for run: ' + cluster.entry.run_id"
+                                        x-text="'run:' + (cluster.entry.run_id.length > 8 ? cluster.entry.run_id.substring(0, 8) : cluster.entry.run_id)">
+                                </button>
                             </template>
 
                             <template x-if="cluster.entry.action">
-                                <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0" :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(cluster.entry.action) : 'bg-slate-800 text-slate-300 border-slate-700'" x-text="cluster.entry.action"></span>
+                                <template x-if="cluster.entry.seq_id">
+                                    <button type="button" @click.stop="openAuditDrawer(cluster.entry)"
+                                            class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0 transition-all hover:scale-105 cursor-pointer shadow-sm"
+                                            :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(cluster.entry.action) : 'bg-slate-800 text-slate-300 border-slate-700'"
+                                            :title="'Inspect audit block #' + cluster.entry.seq_id"
+                                            x-text="cluster.entry.action">
+                                    </button>
+                                </template>
+                                <template x-if="!cluster.entry.seq_id">
+                                    <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0"
+                                          :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(cluster.entry.action) : 'bg-slate-800 text-slate-300 border-slate-700'"
+                                          x-text="cluster.entry.action">
+                                    </span>
+                                </template>
                             </template>
                             <template x-if="cluster.entry.duration_sec != null">
                                 <span class="text-slate-400 text-[10px] bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800 shrink-0 tabular-nums" x-text="cluster.entry.duration_sec.toFixed(1) + 's'"></span>
@@ -117,7 +142,27 @@
                                     <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border shrink-0 font-semibold tracking-wider" :class="cluster.entry.origin_badge.class" x-text="cluster.entry.origin_badge.label" :title="'Triggered via ' + cluster.entry.origin_badge.label"></span>
                                 </template>
                                 <template x-if="cluster.entry.run_id">
-                                    <span class="px-1.5 py-0.2 rounded bg-slate-900/90 text-slate-400 font-mono text-[9px] border border-slate-800 shrink-0" x-text="'run:' + (cluster.entry.run_id.length > 8 ? cluster.entry.run_id.substring(0, 8) : cluster.entry.run_id)" :title="'Run ID: ' + cluster.entry.run_id"></span>
+                                    <button type="button" @click.stop="openDaemonModal(cluster.entry)"
+                                            class="px-1.5 py-0.2 rounded bg-slate-900/90 text-slate-400 hover:text-indigo-300 hover:border-indigo-700/60 font-mono text-[9px] border border-slate-800 shrink-0 transition-colors cursor-pointer"
+                                            :title="'View daemon logs for run: ' + cluster.entry.run_id"
+                                            x-text="'run:' + (cluster.entry.run_id.length > 8 ? cluster.entry.run_id.substring(0, 8) : cluster.entry.run_id)">
+                                    </button>
+                                </template>
+                                <template x-if="cluster.entry.action">
+                                    <template x-if="cluster.entry.seq_id">
+                                        <button type="button" @click.stop="openAuditDrawer(cluster.entry)"
+                                                class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0 transition-all hover:scale-105 cursor-pointer shadow-sm"
+                                                :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(cluster.entry.action) : 'bg-slate-800 text-slate-300 border-slate-700'"
+                                                :title="'Inspect audit block #' + cluster.entry.seq_id"
+                                                x-text="cluster.entry.action">
+                                        </button>
+                                    </template>
+                                    <template x-if="!cluster.entry.seq_id">
+                                        <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0"
+                                              :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(cluster.entry.action) : 'bg-slate-800 text-slate-300 border-slate-700'"
+                                              x-text="cluster.entry.action">
+                                        </span>
+                                    </template>
                                 </template>
 
                                 <span class="text-slate-200 truncate font-semibold" x-text="cluster.entry.msg"></span>
@@ -148,8 +193,28 @@
                                         <template x-if="!getEntryPath(subEntry) && subEntry.object">
                                             <span class="px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 font-mono text-[9px] border border-indigo-800/50 truncate max-w-[280px] shrink-0" :title="subEntry.object" x-text="subEntry.object"></span>
                                         </template>
+                                        <template x-if="subEntry.run_id">
+                                            <button type="button" @click.stop="openDaemonModal(subEntry)"
+                                                    class="px-1.5 py-0.2 rounded bg-slate-900/90 text-slate-400 hover:text-indigo-300 hover:border-indigo-700/60 font-mono text-[9px] border border-slate-800 shrink-0 transition-colors cursor-pointer"
+                                                    :title="'View daemon logs for run: ' + subEntry.run_id"
+                                                    x-text="'run:' + (subEntry.run_id.length > 8 ? subEntry.run_id.substring(0, 8) : subEntry.run_id)">
+                                            </button>
+                                        </template>
                                         <template x-if="subEntry.action">
-                                            <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0" :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(subEntry.action) : 'bg-slate-800 text-slate-300 border-slate-700'" x-text="subEntry.action"></span>
+                                            <template x-if="subEntry.seq_id">
+                                                <button type="button" @click.stop="openAuditDrawer(subEntry)"
+                                                        class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0 transition-all hover:scale-105 cursor-pointer shadow-sm"
+                                                        :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(subEntry.action) : 'bg-slate-800 text-slate-300 border-slate-700'"
+                                                        :title="'Inspect audit block #' + subEntry.seq_id"
+                                                        x-text="subEntry.action">
+                                                </button>
+                                            </template>
+                                            <template x-if="!subEntry.seq_id">
+                                                <span class="px-1.5 py-0.2 rounded font-mono text-[9px] border uppercase tracking-wider shrink-0"
+                                                      :class="typeof getAuditActionBadgeClass === 'function' ? getAuditActionBadgeClass(subEntry.action) : 'bg-slate-800 text-slate-300 border-slate-700'"
+                                                      x-text="subEntry.action">
+                                                </span>
+                                            </template>
                                         </template>
                                         <span class="text-slate-300 truncate" x-text="subEntry.msg"></span>
                                     </div>

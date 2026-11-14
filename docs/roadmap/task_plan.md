@@ -29,7 +29,7 @@ Decompose 10 priority files approaching the 400 LOC ceiling across backend and f
   - **Scope**: `dashboard/frontend/js/explorer_preview.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 7: Interactive Ledger Badges & Full Pre-Commit Gate (`pattern_timeline_ledger.html`, Repository-Wide)
+- [x] Task 7: Interactive Ledger Badges & Full Pre-Commit Gate (`pattern_timeline_ledger.html`, Repository-Wide)
   - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, full test & check suite
   - **Verification**: `./scripts/check.sh all && ./scripts/check.sh loc 400`
 
@@ -42,6 +42,7 @@ Decompose 10 priority files approaching the 400 LOC ceiling across backend and f
 - 2026-11-14: Completed Task 4 - Extracted `dashboard/frontend/js/dedupe_parser.js` (69 LOC) to slim `dashboard/frontend/js/utils.js` from 391 to 350 LOC, unpacked nested audit telemetry details into top-level properties in `parseJsonLogLine`, registered the new module in `index.html`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e smoke tests.
 - 2026-11-14: Completed Task 5 - Extracted `dashboard/frontend/js/logs_clustering.js` (223 LOC) and `dashboard/frontend/js/logs_daemon.js` (123 LOC), slimming `dashboard/frontend/js/logs.js` from 397 to 244 LOC. Implemented run-level event consolidation `consolidateRunEntries` merging multiple run lifecycle traces into single actionable run rows with child auditability. Registered both modules in `index.html` and `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
 - 2026-11-14: Completed Task 6 - Extracted `dashboard/frontend/js/explorer_preview.js` (117 LOC) slimming `explorer_actions.js` from 394 to 309 LOC, and extracted `dashboard/frontend/js/app_state.js` (205 LOC) slimming `app.js` from 392 to 202 LOC. Registered both modules in `index.html` and `composeDashboard` in `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
+- 2026-11-14: Completed Task 7 - Wired interactive deep-linking ledger badges (`SYNC_EXECUTED` / `seq_id` to audit block drawer, `run_id` to daemon log modal, profile badge to instant filter) in `pattern_timeline_ledger.html`. Implemented async request sequence guards in `explorer.js` eliminating network race conditions. Formatted Go files with `gofmt -s -w`. Passed all 7 pre-commit quality gate stages (`./scripts/check.sh all`) and LOC ceiling check (`./scripts/check.sh loc 400`).
 
 
 

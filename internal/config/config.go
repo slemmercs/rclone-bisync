@@ -89,7 +89,6 @@ type Config struct {
 	Features map[string]bool
 }
 
-
 // LoadConfig discovers configuration files and loads runtime settings.
 func LoadConfig(searchDirs ...string) (*Config, error) {
 	home, _ := os.UserHomeDir()
