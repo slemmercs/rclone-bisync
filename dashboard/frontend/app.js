@@ -383,7 +383,7 @@ document.addEventListener("alpine:init", () => {
         window.RemotesModule, window.RemotesModalsModule, window.RemotesWizardModule,
         window.ExplorerModule, window.ExplorerActionsModule, window.ExplorerOperationsModule, window.ExplorerCompareModule,
         window.ReviewModule, window.ReviewActionsModule,
-        window.LogsModule, window.LogDockModule, window.AuditModule,
+        window.LogsClusteringModule, window.LogsModule, window.LogsDaemonModule, window.LogDockModule, window.AuditModule,
         window.SettingsModule, window.BandwidthModule,
         window.McpModule, window.PollingModule,
         window.SystemHealthModule,
