@@ -30,7 +30,7 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
   - **Action**: Implement multi-file selection state, compare modal with hash clustering, and register module in `index.html`.
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 6: Dedupe Modal Enhancements & Post-Dedupe Resync CTA (`dashboard/frontend/`)
+- [x] Task 6: Dedupe Modal Enhancements & Post-Dedupe Resync CTA (`dashboard/frontend/`)
   - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/remotes_modals.js`
   - **Action**: Add folder picker, duplicate collision jump-to-file buttons, paired dedupe toggle (default on), and post-dedupe 1-click resync banner with mirroring advice.
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
@@ -54,6 +54,8 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
 - 2026-11-14: Completed Task 4 - Prevented background fetchProfiles() path clobbering by checking uninitialized state, and implemented middle-collapsed breadcrumb navigation (root / … / parent / current) with tooltip previews and zero scrollbars. Verified with template validator, LOC check, and headless Chrome smoke tests.
 
 - 2026-11-14: Completed Task 5 - Built Explorer multi-select checkboxes across both panes, Compare action toolbar controls, and modal_compare.html with hash equivalence clustering, verdict banners, and copyable hashes. Verified with template validator, LOC check, and headless Chrome smoke tests.
+
+- 2026-11-14: Completed Task 6 - Built Dedupe folder browser drawer with dynamic directory loading, paired bidirectional dedupe toggle with profile linking, collision row jump-to-file buttons to Explorer, and post-dedupe 1-click Resync CTA. Verified with templates check, LOC gate, and headless Chrome smoke tests.
 
 
 

@@ -44,7 +44,12 @@
                 </div>
                 <div class="space-y-1.5">
                     <label class="block text-xs font-semibold text-slate-300">Target Folder (Optional):</label>
-                    <input type="text" x-model="dedupeModal.path" placeholder="e.g. Photos (empty for root)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono transition-colors">
+                    <div class="flex items-center gap-1.5">
+                        <input type="text" x-model="dedupeModal.path" placeholder="e.g. Photos (empty for root)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono transition-colors">
+                        <button type="button" @click="toggleDedupeFolderBrowser()" class="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1 shrink-0" :class="dedupeModal.folderBrowserOpen ? 'border-amber-500 text-amber-300 bg-amber-950/40' : ''" title="Browse folders on target">
+                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="space-y-1.5">
                     <label class="block text-xs font-semibold text-slate-300">Resolution Strategy:</label>
@@ -55,6 +60,55 @@
                     </select>
                 </div>
             </div>
+            <!-- Interactive Folder Browser Drawer -->
+            <div x-show="dedupeModal.folderBrowserOpen" class="p-3 bg-slate-950/90 border border-slate-800 rounded-xl space-y-2">
+                <div class="flex items-center justify-between gap-2 text-xs border-b border-slate-800/80 pb-2">
+                    <div class="flex items-center gap-1.5 text-slate-400 font-mono text-[11px] min-w-0">
+                        <span class="text-amber-400 font-semibold">Folder:</span>
+                        <span class="truncate text-slate-200" x-text="dedupeModal.path ? '/' + dedupeModal.path : '/ (Root)'"></span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button x-show="dedupeModal.path" type="button" @click="navigateDedupeParent()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium flex items-center gap-1 transition-colors">
+                            <span>↑ Up</span>
+                        </button>
+                        <button x-show="dedupeModal.path" type="button" @click="selectDedupeFolder('')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] transition-colors">
+                            Root
+                        </button>
+                    </div>
+                </div>
+                <div x-show="isDedupeFoldersLoading()" class="py-4 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                    <svg class="w-3.5 h-3.5 animate-spin text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    <span>Loading folders...</span>
+                </div>
+                <div x-show="!isDedupeFoldersLoading()" class="max-h-36 overflow-y-auto space-y-1">
+                    <template x-if="!dedupeModal.folders || dedupeModal.folders.length === 0">
+                        <div class="py-2 text-center text-slate-500 text-[11px]">No subfolders found in this directory.</div>
+                    </template>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 font-mono text-xs">
+                        <template x-for="f in dedupeModal.folders" :key="f.Path || f.Name">
+                            <button type="button" @click="selectDedupeFolder(f.Name)" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800/80 text-left text-slate-300 hover:text-amber-300 flex items-center gap-1.5 transition-colors truncate border border-slate-800/40 cursor-pointer">
+                                <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                                <span class="truncate" x-text="f.Name"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paired Dedupe Toggle -->
+            <template x-if="activeProfile">
+                <div class="p-3 bg-indigo-950/30 border border-indigo-700/40 rounded-xl flex items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <input type="checkbox" id="dedupe-both-toggle" x-model="dedupeModal.dedupeBoth" class="rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0 w-4 h-4 shrink-0 cursor-pointer">
+                        <label for="dedupe-both-toggle" class="cursor-pointer min-w-0">
+                            <div class="font-semibold text-indigo-200">Paired Bidirectional Dedupe (Remote + Local)</div>
+                            <div class="text-[11px] text-slate-400 truncate">Deduplicates cloud files, then automatically runs pass 2 on paired local directory (<span class="font-mono text-indigo-300" x-text="activeProfile.local_path || 'local'"></span>)</div>
+                        </label>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-700/60 uppercase shrink-0">Profile Linked</span>
+                </div>
+            </template>
+
 
             <!-- Backend Guidance -->
             <div x-show="dedupeModal.isOnedrive" class="p-2.5 rounded-lg bg-sky-950/40 border border-sky-600/40 text-[11px] text-sky-300 flex items-center gap-2">
@@ -113,7 +167,12 @@
                         <div class="space-y-1.5">
                             <template x-for="item in dedupeModal.parsedOutput.items" :key="item.path">
                                 <div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800/60 flex items-center justify-between gap-3 text-xs">
-                                    <span class="font-mono text-slate-200 select-all truncate text-[11px]" x-text="item.path"></span>
+                                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                                        <button type="button" @click="jumpToExplorerFile(item.path, dedupeModal.remote)" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-amber-300 rounded text-[10px] transition-colors flex items-center gap-1 cursor-pointer shrink-0" title="Inspect file directory in Explorer">
+                                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                        </button>
+                                        <span class="font-mono text-slate-200 select-all truncate text-[11px]" x-text="item.path"></span>
+                                    </div>
                                     <div class="flex items-center gap-1.5 shrink-0">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20" x-text="item.found + ' copies'"></span>
                                         <template x-if="item.deleted > 0"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" x-text="item.deleted + ' deleted'"></span></template>
@@ -128,6 +187,18 @@
                     <div x-show="dedupeModal.output && dedupeModal.parsedOutput?.items?.length === 0 && !dedupeModal.parsedOutput?.errors?.length" class="text-emerald-400 text-center py-4 text-xs font-medium">
                         No duplicate files found. All files are unique.
                     </div>
+                    <template x-if="dedupeModal.parsedOutput?.totalDeleted > 0 && activeProfile">
+                        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+                            <div class="flex items-center gap-2 text-amber-200 min-w-0">
+                                <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                                <span>Duplicates removed. Resync baseline to align bisync cache with cleaned storage.</span>
+                            </div>
+                            <button type="button" @click="triggerProfileSync(activeProfile.id, false, true, false); closeDedupeModal()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs transition-colors shrink-0 shadow cursor-pointer">
+                                Run Resync (--resync)
+                            </button>
+                        </div>
+                    </template>
+
                 </div>
 
                 <!-- Raw Console Fallback -->

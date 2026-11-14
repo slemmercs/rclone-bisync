@@ -718,6 +718,26 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.closeCompareModal();
 			const compareModalClosed = !app.compareState?.modalOpen;
 
+			// Test Dedupe Modal & Enhancements (paired switch, folder browser, collision jump)
+			if (typeof app.openDedupeModal !== 'function') return { error: "openDedupeModal missing" };
+			const origLeftPath = app.explorer?.left?.path || "";
+			const origRightPath = app.explorer?.right?.path || "";
+			app.openDedupeModal('drive');
+			const dedupeModalOpen = Boolean(app.dedupeModal?.show);
+			app.dedupeModal.dedupeBoth = true;
+			const dedupePairedActive = Boolean(app.dedupeModal?.dedupeBoth);
+			if (typeof app.toggleDedupeFolderBrowser === 'function') {
+				app.toggleDedupeFolderBrowser();
+			}
+			const folderBrowserOpened = Boolean(app.dedupeModal?.folderBrowserOpen);
+			if (typeof app.jumpToExplorerFile === 'function') {
+				app.jumpToExplorerFile('folder/sub/collision.txt', 'drive');
+			}
+			const dedupeModalClosed = !app.dedupeModal?.show;
+			// Restore explorer paths so subsequent deep navigation subtests remain isolated
+			if (app.explorer?.left) app.explorer.left.path = origLeftPath;
+			if (app.explorer?.right) app.explorer.right.path = origRightPath;
+
 			return {
 				popoverOpen,
 				popoverClosed,
@@ -741,7 +761,11 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				uploadLeftInputExists,
 				uploadRightInputExists,
 				compareModalOpen,
-				compareModalClosed
+				compareModalClosed,
+				dedupeModalOpen,
+				dedupePairedActive,
+				folderBrowserOpened,
+				dedupeModalClosed
 			};
 		})()`
 
@@ -770,6 +794,10 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			UploadRightInputExists bool    `json:"uploadRightInputExists"`
 			CompareModalOpen       bool    `json:"compareModalOpen"`
 			CompareModalClosed     bool    `json:"compareModalClosed"`
+			DedupeModalOpen        bool    `json:"dedupeModalOpen"`
+			DedupePairedActive     bool    `json:"dedupePairedActive"`
+			FolderBrowserOpened    bool    `json:"folderBrowserOpened"`
+			DedupeModalClosed      bool    `json:"dedupeModalClosed"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[M1Result](script))
@@ -805,6 +833,15 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.CompareModalOpen || !res.CompareModalClosed {
 			t.Errorf("compare modal mismatch: open=%v closed=%v", res.CompareModalOpen, res.CompareModalClosed)
+		}
+		if !res.DedupeModalOpen || !res.DedupeModalClosed {
+			t.Errorf("dedupe modal open/close mismatch: open=%v closed=%v", res.DedupeModalOpen, res.DedupeModalClosed)
+		}
+		if !res.DedupePairedActive {
+			t.Errorf("expected paired dedupe switch to default active when profile is linked")
+		}
+		if !res.FolderBrowserOpened {
+			t.Errorf("expected dedupe folder browser to open on toggle")
 		}
 		if !res.EncryptionWarningShown {
 			t.Errorf("expected empty passphrase encryption removal to trigger warning toast")
