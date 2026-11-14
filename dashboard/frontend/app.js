@@ -381,7 +381,7 @@ document.addEventListener("alpine:init", () => {
         window.ProviderOptionsModule,
         window.FlagsBuilderModule, window.ProfilesHistoryModule,
         window.RemotesModule, window.RemotesModalsModule, window.RemotesWizardModule,
-        window.ExplorerModule, window.ExplorerActionsModule, window.ExplorerOperationsModule,
+        window.ExplorerModule, window.ExplorerActionsModule, window.ExplorerOperationsModule, window.ExplorerCompareModule,
         window.ReviewModule, window.ReviewActionsModule,
         window.LogsModule, window.LogDockModule, window.AuditModule,
         window.SettingsModule, window.BandwidthModule,

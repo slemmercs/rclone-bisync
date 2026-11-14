@@ -25,7 +25,7 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
   - **Action**: Fix `fetchProfiles` background path clobbering; implement middle-truncated breadcrumbs without scrollbars.
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 5: Frontend Multi-Select & Checksum Comparison Modal (`dashboard/frontend/`)
+- [x] Task 5: Frontend Multi-Select & Checksum Comparison Modal (`dashboard/frontend/`)
   - **Scope**: `dashboard/frontend/js/explorer_compare.js`, `dashboard/frontend/partials/modals/modal_compare.html`, `dashboard/frontend/partials/components/component_explorer_toolbar.html`, `dashboard/frontend/partials/view_explorer.html`, `dashboard/frontend/index.html`
   - **Action**: Implement multi-file selection state, compare modal with hash clustering, and register module in `index.html`.
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
@@ -52,6 +52,8 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
 - 2026-11-14: Completed Task 2 - Supported dedupe_both coordinated paired deduplication with jail confinement, suppressed stdout noise in bisync.log during dry-runs (mode == "list"), and verified with unit tests.
 - 2026-11-14: Completed Task 3 - Implemented server-side log type filtering (exclude_types, type, level) with pre-pagination filtering in services.TailJSONLogPaginatedFiltered, ensuring dense pages without gaps. Verified with unit tests.
 - 2026-11-14: Completed Task 4 - Prevented background fetchProfiles() path clobbering by checking uninitialized state, and implemented middle-collapsed breadcrumb navigation (root / … / parent / current) with tooltip previews and zero scrollbars. Verified with template validator, LOC check, and headless Chrome smoke tests.
+
+- 2026-11-14: Completed Task 5 - Built Explorer multi-select checkboxes across both panes, Compare action toolbar controls, and modal_compare.html with hash equivalence clustering, verdict banners, and copyable hashes. Verified with template validator, LOC check, and headless Chrome smoke tests.
 
 
 

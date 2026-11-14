@@ -693,6 +693,31 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			const uploadLeftInputExists = Boolean(document.getElementById('explorer-upload-left'));
 			const uploadRightInputExists = Boolean(document.getElementById('explorer-upload-right'));
 
+			// Test Checksum Compare Module
+			if (typeof app.openCompareModal !== 'function') return { error: "openCompareModal missing" };
+			app.compareState = {
+				selectedItems: [
+					{ remote: 'local', path: 'file1.txt', name: 'file1.txt', size: 100 },
+					{ remote: 'drive', path: 'file1.txt', name: 'file1.txt', size: 100 }
+				],
+				modalOpen: true,
+				loading: false,
+				error: null,
+				response: {
+					status: 'success',
+					matches: true,
+					algorithm: 'sha256',
+					clusters: [[0, 1]],
+					items: [
+						{ remote: 'local', path: 'file1.txt', name: 'file1.txt', size: 100, primary_hash: 'abcdef1234567890' },
+						{ remote: 'drive', path: 'file1.txt', name: 'file1.txt', size: 100, primary_hash: 'abcdef1234567890' }
+					]
+				}
+			};
+			const compareModalOpen = Boolean(app.compareState?.modalOpen);
+			app.closeCompareModal();
+			const compareModalClosed = !app.compareState?.modalOpen;
+
 			return {
 				popoverOpen,
 				popoverClosed,
@@ -714,7 +739,9 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				inlineCopyCount,
 				inlineDeleteCount,
 				uploadLeftInputExists,
-				uploadRightInputExists
+				uploadRightInputExists,
+				compareModalOpen,
+				compareModalClosed
 			};
 		})()`
 
@@ -741,6 +768,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			InlineDeleteCount      int     `json:"inlineDeleteCount"`
 			UploadLeftInputExists  bool    `json:"uploadLeftInputExists"`
 			UploadRightInputExists bool    `json:"uploadRightInputExists"`
+			CompareModalOpen       bool    `json:"compareModalOpen"`
+			CompareModalClosed     bool    `json:"compareModalClosed"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[M1Result](script))
@@ -773,6 +802,9 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.ContextMenuOpen || res.ContextMenuItemName != "test.txt" || !res.ContextMenuClosed {
 			t.Errorf("context menu mismatch: open=%v name=%q closed=%v", res.ContextMenuOpen, res.ContextMenuItemName, res.ContextMenuClosed)
+		}
+		if !res.CompareModalOpen || !res.CompareModalClosed {
+			t.Errorf("compare modal mismatch: open=%v closed=%v", res.CompareModalOpen, res.CompareModalClosed)
 		}
 		if !res.EncryptionWarningShown {
 			t.Errorf("expected empty passphrase encryption removal to trigger warning toast")
