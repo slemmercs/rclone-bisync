@@ -320,7 +320,6 @@ type FileCompareResponse struct {
 	Error     string              `json:"error,omitempty"`
 }
 
-
 type AuditLogRecord struct {
 	Time      string          `json:"time"`
 	Level     string          `json:"level"`

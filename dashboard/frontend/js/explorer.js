@@ -55,14 +55,14 @@ window.ExplorerModule = {
         const remotePath = (p.remote_path || "").replace(/^\/+/, "");
         if (!this.explorer.isSwapped) {
             this.explorer.left.target = "local";
-            this.explorer.left.path = "";
+            if (!this.explorer.left.path) this.explorer.left.path = "";
             if (remote) this.explorer.right.target = remote;
-            this.explorer.right.path = remotePath;
+            if (remotePath && !this.explorer.right.path) this.explorer.right.path = remotePath;
         } else {
             if (remote) this.explorer.left.target = remote;
-            this.explorer.left.path = remotePath;
+            if (remotePath && !this.explorer.left.path) this.explorer.left.path = remotePath;
             this.explorer.right.target = "local";
-            this.explorer.right.path = "";
+            if (!this.explorer.right.path) this.explorer.right.path = "";
         }
         this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
         this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);

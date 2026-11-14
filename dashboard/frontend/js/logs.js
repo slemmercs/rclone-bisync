@@ -333,23 +333,21 @@ window.LogsModule = {
         const dir = lastSlash >= 0 ? clean.substring(0, lastSlash) : "";
         const filename = lastSlash >= 0 ? clean.substring(lastSlash + 1) : clean;
 
-        if (typeof this.closeDaemonModal === "function") this.closeDaemonModal();
-        else this.showDaemonModal = false;
+        if (typeof this.closeDaemonModal === "function") this.closeDaemonModal(); else this.showDaemonModal = false;
 
         const targetProfileId = (profileId && typeof profileId === "object") ? (profileId.profile_id || null) : profileId;
         if (targetProfileId && this.profilesData && this.profilesData.activeId !== targetProfileId && typeof this.selectProfile === "function") {
             await this.selectProfile(targetProfileId, dir);
         }
 
-        if (typeof this.switchTab === "function") this.switchTab("explorer");
-        else this.currentTab = "explorer";
+        if (this.currentTab !== "explorer") {
+            if (typeof this.switchTab === "function") this.switchTab("explorer"); else this.currentTab = "explorer";
+        }
 
         if (this.explorer) {
             this.explorer.highlightPath = clean;
             this.explorer.highlightName = filename;
-            setTimeout(() => {
-                if (this.explorer && this.explorer.highlightName === filename) this.explorer.highlightName = null;
-            }, 6000);
+            setTimeout(() => { if (this.explorer && this.explorer.highlightName === filename) this.explorer.highlightName = null; }, 6000);
 
             if (this.explorer.left) this.explorer.left.path = dir;
             if (this.explorer.right) this.explorer.right.path = dir;

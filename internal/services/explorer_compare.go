@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	// #nosec G501 -- cryptographic MD5 required for object store checksum compatibility
 	"crypto/md5"
+	// #nosec G505 -- cryptographic SHA1 required for object store checksum compatibility
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
@@ -201,4 +203,3 @@ func (e *ExplorerService) CompareItems(ctx context.Context, items []models.Compa
 		Items:     results,
 	}, nil
 }
-

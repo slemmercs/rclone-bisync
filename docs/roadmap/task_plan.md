@@ -40,7 +40,7 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
   - **Action**: Rename to "Unified Log Ledger", exclude `sync_file` records, add 1-row-per-job clustering, and wire true server-side pagination to `log_dock.js`.
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 8: Layout Expansion & Full Pre-Commit Verification (`dashboard/frontend/`, Repository-Wide)
+- [x] Task 8: Layout Expansion & Full Pre-Commit Verification (`dashboard/frontend/`, Repository-Wide)
   - **Scope**: `dashboard/frontend/index.html`, full test suite
   - **Action**: Expand widescreen fluid layout (`max-w-[1720px] 2xl:max-w-[1920px]`) and run all quality stages.
   - **Verification**: `./scripts/check.sh all`
@@ -48,16 +48,13 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
 ## Status Updates
 - 2026-11-14: Initialized task plan based on approved implementation plan.
 - 2026-11-14: Completed Task 1 - Implemented CompareItems in ExplorerService with cross-backend hash negotiation and equivalence clustering (N >= 2), registered POST /api/browse/compare endpoint, and verified with unit tests.
-
 - 2026-11-14: Completed Task 2 - Supported dedupe_both coordinated paired deduplication with jail confinement, suppressed stdout noise in bisync.log during dry-runs (mode == "list"), and verified with unit tests.
 - 2026-11-14: Completed Task 3 - Implemented server-side log type filtering (exclude_types, type, level) with pre-pagination filtering in services.TailJSONLogPaginatedFiltered, ensuring dense pages without gaps. Verified with unit tests.
 - 2026-11-14: Completed Task 4 - Prevented background fetchProfiles() path clobbering by checking uninitialized state, and implemented middle-collapsed breadcrumb navigation (root / … / parent / current) with tooltip previews and zero scrollbars. Verified with template validator, LOC check, and headless Chrome smoke tests.
-
 - 2026-11-14: Completed Task 5 - Built Explorer multi-select checkboxes across both panes, Compare action toolbar controls, and modal_compare.html with hash equivalence clustering, verdict banners, and copyable hashes. Verified with template validator, LOC check, and headless Chrome smoke tests.
-
 - 2026-11-14: Completed Task 6 - Built Dedupe folder browser drawer with dynamic directory loading, paired bidirectional dedupe toggle with profile linking, collision row jump-to-file buttons to Explorer, and post-dedupe 1-click Resync CTA. Verified with templates check, LOC gate, and headless Chrome smoke tests.
-
 - 2026-11-14: Completed Task 7 - Renamed to Unified Log Ledger, added default sync_file exclusion with user-facing File Transfers toggle, added correlated run ID badges, and implemented true server-side pagination with fetchDockPage in LogDockModule. Verified with templates check, LOC gate, and headless Chrome smoke tests.
+- 2026-11-14: Completed Task 8 - Expanded outer dashboard container to widescreen max-w-[1720px] 2xl:max-w-[1920px] in index.html, formatted all Go files, ensured gosec compliance, preserved active subdirectories in syncExplorerWithActiveProfile, maintained strict <400 LOC limits, and verified all 7 quality gate stages passed cleanly.
 
 
 

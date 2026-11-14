@@ -169,4 +169,3 @@ func TestTailJSONLogPaginatedFiltered(t *testing.T) {
 		t.Fatalf("expected 30 notice level entries, got %d", resLevel.Total)
 	}
 }
-

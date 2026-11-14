@@ -810,4 +810,3 @@ func TestHandleBrowseCompare(t *testing.T) {
 		t.Errorf("expected error for <2 items, got: %+v", resFew)
 	}
 }
-
