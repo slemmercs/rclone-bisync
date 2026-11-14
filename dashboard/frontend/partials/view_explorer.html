@@ -60,12 +60,12 @@
                     </div>
                     <!-- Breadcrumb Location Bar -->
                     <div class="px-3.5 py-1.5 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400 min-w-0 shrink-0">
-                        <div class="flex items-center gap-1 min-w-0 overflow-x-auto py-0.5 no-scrollbar flex-1">
+                        <div class="flex items-center gap-1 min-w-0 overflow-x-auto py-0.5 no-scrollbar flex-1" :title="getPaneDisplayPath('left')">
                             <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
-                            <template x-for="(crumb, idx) in getBreadcrumbs('left')" :key="crumb.path">
-                                <div class="flex items-center shrink-0">
+                            <template x-for="(crumb, idx) in getBreadcrumbs('left')" :key="crumb.path + crumb.name">
+                                <div class="flex items-center shrink-0 min-w-0">
                                     <span x-show="idx > 0" class="text-slate-600 px-1 select-none">/</span>
-                                    <button @click="fetchExplorerDirectory('left', explorer.left.target, crumb.path)" class="hover:text-white transition-colors underline-offset-2 hover:underline" :class="idx === getBreadcrumbs('left').length - 1 ? 'text-indigo-300 font-bold' : 'text-slate-400'" x-text="crumb.name"></button>
+                                    <button @click="fetchExplorerDirectory('left', explorer.left.target, crumb.path)" class="hover:text-white transition-colors underline-offset-2 hover:underline truncate max-w-[120px] sm:max-w-[180px]" :class="[idx === getBreadcrumbs('left').length - 1 ? 'text-indigo-300 font-bold' : 'text-slate-400', crumb.isEllipsis ? 'text-slate-500 hover:text-slate-300 font-semibold px-0.5' : '']" :title="crumb.title || crumb.name" x-text="crumb.name"></button>
                                 </div>
                             </template>
                         </div>
@@ -234,12 +234,12 @@
                     </div>
                     <!-- Breadcrumb Location Bar -->
                     <div class="px-3.5 py-1.5 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs font-mono text-slate-400 min-w-0 shrink-0">
-                        <div class="flex items-center gap-1 min-w-0 overflow-x-auto py-0.5 no-scrollbar flex-1">
+                        <div class="flex items-center gap-1 min-w-0 overflow-x-auto py-0.5 no-scrollbar flex-1" :title="getPaneDisplayPath('right')">
                             <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
-                            <template x-for="(crumb, idx) in getBreadcrumbs('right')" :key="crumb.path">
-                                <div class="flex items-center shrink-0">
+                            <template x-for="(crumb, idx) in getBreadcrumbs('right')" :key="crumb.path + crumb.name">
+                                <div class="flex items-center shrink-0 min-w-0">
                                     <span x-show="idx > 0" class="text-slate-600 px-1 select-none">/</span>
-                                    <button @click="fetchExplorerDirectory('right', explorer.right.target, crumb.path)" class="hover:text-white transition-colors underline-offset-2 hover:underline" :class="idx === getBreadcrumbs('right').length - 1 ? 'text-emerald-400 font-bold' : 'text-slate-400'" x-text="crumb.name"></button>
+                                    <button @click="fetchExplorerDirectory('right', explorer.right.target, crumb.path)" class="hover:text-white transition-colors underline-offset-2 hover:underline truncate max-w-[120px] sm:max-w-[180px]" :class="[idx === getBreadcrumbs('right').length - 1 ? 'text-emerald-400 font-bold' : 'text-slate-400', crumb.isEllipsis ? 'text-slate-500 hover:text-slate-300 font-semibold px-0.5' : '']" :title="crumb.title || crumb.name" x-text="crumb.name"></button>
                                 </div>
                             </template>
                         </div>

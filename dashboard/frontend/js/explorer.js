@@ -184,16 +184,35 @@ window.ExplorerModule = {
             const pane = this.explorer[paneKey];
             if (!pane) return [];
             const rootLabel = pane.target === "local" ? "~" : `${pane.target}:`;
-            const crumbs = [{ name: rootLabel, path: "" }];
-            if (!pane.path) return crumbs;
+            const allCrumbs = [{ name: rootLabel, path: "" }];
+            if (!pane.path) return allCrumbs;
 
             const parts = pane.path.split("/").filter(Boolean);
             let cumulative = "";
             for (const part of parts) {
                 cumulative = cumulative ? `${cumulative}/${part}` : part;
-                crumbs.push({ name: part, path: cumulative });
+                allCrumbs.push({ name: part, path: cumulative });
             }
-            return crumbs;
+
+            if (allCrumbs.length <= 4) {
+                return allCrumbs;
+            }
+
+            // Middle collapse deep paths: root / … / parent / current
+            const rootCrumb = allCrumbs[0];
+            const parentCrumb = allCrumbs[allCrumbs.length - 2];
+            const currentCrumb = allCrumbs[allCrumbs.length - 1];
+            const middleCrumbs = allCrumbs.slice(1, allCrumbs.length - 2);
+            const hiddenPath = middleCrumbs.map(c => c.name).join("/");
+
+            const ellipsisCrumb = {
+                name: "…",
+                path: middleCrumbs[middleCrumbs.length - 1].path,
+                title: `Hidden folders: /${hiddenPath}`,
+                isEllipsis: true
+            };
+
+            return [rootCrumb, ellipsisCrumb, parentCrumb, currentCrumb];
         },
 
         getPaneTargetLabel(paneKey) {
@@ -207,9 +226,10 @@ window.ExplorerModule = {
             if (!pane) return "";
             if (pane.target === "local") {
                 const p = this.activeProfile;
-                return (p && p.local_path) || this.telemetry.config?.LOCAL_PATH || "~/gdrive";
+                const base = (p && p.local_path) || this.telemetry.config?.LOCAL_PATH || this.telemetry.config?.LOCALPATH || "~/gdrive";
+                return pane.path ? `${base.replace(/\/+$/, "")}/${pane.path}` : base;
             }
-            return `${pane.target}:${pane.path || ""}`;
+            return pane.path ? `${pane.target}:${pane.path}` : `${pane.target}:`;
         },
 
         async copyPanePath(paneKey) {

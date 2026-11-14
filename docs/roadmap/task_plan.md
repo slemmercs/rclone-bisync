@@ -20,7 +20,7 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
   - **Action**: Add `exclude_types` query parameter to `/api/logs/bisync` to filter entries before pagination calculation.
   - **Verification**: `go test -count=1 -v ./internal/server -run TestHandleBisyncLogs`
 
-- [ ] Task 4: Explorer Navigation Stability & Middle-Truncated Breadcrumbs (`dashboard/frontend/`)
+- [x] Task 4: Explorer Navigation Stability & Middle-Truncated Breadcrumbs (`dashboard/frontend/`)
   - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/explorer.js`, `dashboard/frontend/partials/view_explorer.html`
   - **Action**: Fix `fetchProfiles` background path clobbering; implement middle-truncated breadcrumbs without scrollbars.
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
@@ -51,5 +51,7 @@ Resolve explorer navigation reset, add multi-file ad-hoc hash comparison with cr
 
 - 2026-11-14: Completed Task 2 - Supported dedupe_both coordinated paired deduplication with jail confinement, suppressed stdout noise in bisync.log during dry-runs (mode == "list"), and verified with unit tests.
 - 2026-11-14: Completed Task 3 - Implemented server-side log type filtering (exclude_types, type, level) with pre-pagination filtering in services.TailJSONLogPaginatedFiltered, ensuring dense pages without gaps. Verified with unit tests.
+- 2026-11-14: Completed Task 4 - Prevented background fetchProfiles() path clobbering by checking uninitialized state, and implemented middle-collapsed breadcrumb navigation (root / … / parent / current) with tooltip previews and zero scrollbars. Verified with template validator, LOC check, and headless Chrome smoke tests.
+
 
 
