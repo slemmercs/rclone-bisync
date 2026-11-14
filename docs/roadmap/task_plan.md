@@ -1,46 +1,51 @@
-# Task Plan: Emit Synced Files in Log Dock with On-Demand Pagination
+# Task Plan: Architecture Modularization & Unified Log Ledger Run-Level Consolidation
 
 ## Goal
-Extract and surface individual transferred files from bisync executions in the Live Sync Log Dock with deep navigation pills, 50-file capping safety, and on-demand pagination controls.
+Decompose 10 priority files approaching the 400 LOC ceiling across backend and frontend into focused single-responsibility modules, while consolidating Unified Log Ledger entries so sync runs display as a single unified action row with interactive deep-linking badges.
 
 ## Tasks
 
-- [x] Task 0: Branch Switch & Merge Prerequisite
-  - **Scope**: Git worktree (`feat/deep-path-nav-log-dock`)
-  - **Action**: Fast-forward merge `fix/bisync-transfer-stats-and-ledger` into `feat/deep-path-nav-log-dock`.
-  - **Verification**: `git status && git log -n 3 --oneline`
+- [x] Task 1: Backend Go Models & Profile Store Decomposition (`internal/models/`, `internal/profiles/`)
+  - **Scope**: `internal/models/api_explorer.go`, `internal/models/api_diagnostics.go`, `internal/models/api_logs.go`, `internal/models/api.go`, `internal/profiles/store_history.go`, `internal/profiles/store.go`
+  - **Verification**: `go test -count=1 ./internal/models/... && go test -count=1 ./internal/profiles/...`
 
-- [x] Task 1: Transfer File Parser & Client Extraction (`internal/core/client/`)
-  - **Scope**: `internal/models/api.go`, `internal/core/client/monitor.go`, `internal/core/client/monitor_test.go`
-  - **Action**: Implement `ExtractTransferredFiles` supporting JSON objects and plain-text regex fallback, capped at 50. Populate `TransferredFiles` on `MonitorJobResult`.
-  - **Verification**: `go test -count=1 -v ./internal/core/client -run TestExtractTransferredFiles`
+- [x] Task 2: Backend Handlers, Config, Services & MCP Tools Decomposition (`internal/server/`, `internal/config/`, `internal/services/`, `internal/mcp/`)
+  - **Scope**: `internal/server/handlers_dedupe.go`, `internal/server/handlers_auth.go`, `internal/config/env.go`, `internal/config/config.go`, `internal/services/explorer_download.go`, `internal/services/mime_types.go`, `internal/services/explorer_preview.go`, `internal/mcp/tools_review.go`, `internal/mcp/tools_dedupe.go`, `internal/mcp/tools_write.go`
+  - **Verification**: `go test -count=1 ./internal/server/... && go test -count=1 ./internal/config/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/mcp/...`
 
-- [x] Task 2: Sync Runner File Operation Ingestion & Capping (`internal/engine/runner/`)
-  - **Scope**: `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`
-  - **Action**: In `handleSyncSuccess`, record up to 50 `sync_file` log entries to `bisync.log` with `Object`, `Action`, and `Msg`. Add overflow notice and daemon log fallback.
-  - **Verification**: `go test -count=1 -v ./internal/engine/runner -run TestSyncRunner`
+- [x] Task 3: Backend Logging Consolidation & Run Action Metadata (`internal/engine/runner/`, `internal/core/client/`)
+  - **Scope**: `internal/engine/runner/runner.go`, `internal/engine/runner/runner_audit.go`, `internal/engine/runner/runner_handlers.go`, `internal/models/api.go`, `internal/core/client/monitor.go`
+  - **Verification**: `go test -count=1 ./internal/engine/runner/...`
 
-- [x] Task 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
-  - **Scope**: `dashboard/frontend/partials/components/component_log_dock.html`
-  - **Action**: Add pagination pill controls (`[ < Page X of Y > ]`), entry count badge, and action badge styling for `sync_file` rows.
-  - **Verification**: `./scripts/check.sh templates`
+- [x] Task 4: Frontend Utility & Parser Modularization (`dashboard/frontend/js/`)
+  - **Scope**: `dashboard/frontend/js/dedupe_parser.js`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/index.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 4: Log Dock Pagination Engine & File Ops Filtering (`log_dock.js` & `logs.js`)
-  - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/js/logs.js`
-  - **Action**: Add `loadDockNextPage()`, `loadDockPrevPage()`, and update `isFileOperationLog` to include `sync_file`. Ensure files remain strictly under 400 LOC.
-  - **Verification**: `./scripts/check.sh loc 400`
+- [x] Task 5: Frontend Action Consolidation & Log Clustering (`dashboard/frontend/js/`)
+  - **Scope**: `dashboard/frontend/js/logs_clustering.js`, `dashboard/frontend/js/logs_daemon.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/index.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 5: End-to-End Verification & Full Quality Gates (`dashboard_smoke_test.go`)
-  - **Scope**: `tests/e2e/dashboard_smoke_test.go`
-  - **Action**: Verify Log Dock pagination, `sync_file` path chip rendering, and deep explorer navigation in headless Chrome.
-  - **Verification**: `./scripts/check.sh all`
+- [x] Task 6: Frontend Explorer & App State Modularization (`dashboard/frontend/js/`)
+  - **Scope**: `dashboard/frontend/js/explorer_preview.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+
+- [x] Task 7: Interactive Ledger Badges & Full Pre-Commit Gate (`pattern_timeline_ledger.html`, Repository-Wide)
+  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, full test & check suite
+  - **Verification**: `./scripts/check.sh all && ./scripts/check.sh loc 400`
 
 ## Status Updates
 
-- 2026-11-13: Initialized task plan for surfacing synced files in Log Dock.
-- 2026-11-13: Completed Task 0 - Checked out feat/deep-path-nav-log-dock and fast-forward merged fix/bisync-transfer-stats-and-ledger.
-- 2026-11-13: Completed Task 1 - Implemented ExtractTransferredFiles in client/monitor.go parsing JSON objects and text lines, added SyncFileOp to models/api.go, and verified with go test.
-- 2026-11-13: Completed Task 2 - Ingested TransferredFiles into bisync.log as sync_file entries with 50-file capping, overflow warnings, and daemon log fallback in handleSyncSuccess; verified with comprehensive unit tests.
-- 2026-11-13: Completed Task 3 - Updated component_log_dock.html with pagination controls, safe helper bindings, sync_file action badges, overflow notice, and path navigation chips. Passed ./scripts/check.sh templates.
-- 2026-11-13: Completed Task 4 - Implemented pagination engine (loadDockNextPage, loadDockPrevPage, getDockTotalPages, isDockPrevDisabled, isDockNextDisabled), action badges (getDockActionBadgeClass, getDockActionLabel), sync_file recognition in isFileOperationLog, and navigateToExplorer alias in log_dock.js. Verified with ./scripts/check.sh loc 400.
-- 2026-11-13: Completed Task 5 - Verified Log Dock pagination, action badge styling, sync_file file op recognition, and page boundary stepping in dashboard_smoke_test.go. All 7/7 repository quality gates passed cleanly via ./scripts/check.sh all.
+- 2026-11-14: Initialized task plan based on approved implementation plan.
+- 2026-11-14: Completed Task 1 - Decomposed `internal/models/api.go` (from 396 to 174 LOC) into `api_explorer.go`, `api_diagnostics.go`, `api_logs.go`, and decomposed `internal/profiles/store.go` (from 395 to 320 LOC) by extracting `store_history.go`. Verified with unit tests.
+- 2026-11-14: Completed Task 2 - Decomposed `internal/server/handlers_auth.go` (366 to 200 LOC) by extracting `handlers_dedupe.go`, `internal/config/config.go` (378 to 266 LOC) by extracting `env.go`, `internal/services/explorer_preview.go` (377 to 217 LOC) by extracting `explorer_download.go` and `mime_types.go`, and `internal/mcp/tools_write.go` (386 to 130 LOC) by extracting `tools_review.go` and `tools_dedupe.go`. Verified with unit tests across all four packages.
+- 2026-11-14: Completed Task 3 - Enhanced sync run logging with run-level action metadata (`Action: "SYNC_EXECUTED"`, `Action: "SYNC_STARTED"`, `Action: "SYNC_FAILED"`, `Action: "SYNC_ABORTED"`), and linked audit milestone metadata (`SeqID`, `Actor`) directly into `BisyncLogEntry`. Verified with `go test -count=1 ./internal/engine/runner/...`.
+- 2026-11-14: Completed Task 4 - Extracted `dashboard/frontend/js/dedupe_parser.js` (69 LOC) to slim `dashboard/frontend/js/utils.js` from 391 to 350 LOC, unpacked nested audit telemetry details into top-level properties in `parseJsonLogLine`, registered the new module in `index.html`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e smoke tests.
+- 2026-11-14: Completed Task 5 - Extracted `dashboard/frontend/js/logs_clustering.js` (223 LOC) and `dashboard/frontend/js/logs_daemon.js` (123 LOC), slimming `dashboard/frontend/js/logs.js` from 397 to 244 LOC. Implemented run-level event consolidation `consolidateRunEntries` merging multiple run lifecycle traces into single actionable run rows with child auditability. Registered both modules in `index.html` and `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
+- 2026-11-14: Completed Task 6 - Extracted `dashboard/frontend/js/explorer_preview.js` (117 LOC) slimming `explorer_actions.js` from 394 to 309 LOC, and extracted `dashboard/frontend/js/app_state.js` (205 LOC) slimming `app.js` from 392 to 202 LOC. Registered both modules in `index.html` and `composeDashboard` in `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
+- 2026-11-14: Completed Task 7 - Wired interactive deep-linking ledger badges (`SYNC_EXECUTED` / `seq_id` to audit block drawer, `run_id` to daemon log modal, profile badge to instant filter) in `pattern_timeline_ledger.html`. Implemented async request sequence guards in `explorer.js` eliminating network race conditions. Formatted Go files with `gofmt -s -w`. Passed all 7 pre-commit quality gate stages (`./scripts/check.sh all`) and LOC ceiling check (`./scripts/check.sh loc 400`).
+
+
+
+
+
+

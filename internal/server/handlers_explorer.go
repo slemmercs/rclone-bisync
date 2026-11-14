@@ -190,3 +190,34 @@ func (s *Server) handleExplorerUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, res)
 }
+
+func (s *Server) handleBrowseCompare(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Items     []models.CompareItemRequest `json:"items"`
+		ProfileID string                      `json:"profile_id,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, models.FileCompareResponse{
+			Status: "error",
+			Error:  "Invalid request body",
+		})
+		return
+	}
+	if len(req.Items) < 2 {
+		writeJSON(w, http.StatusOK, models.FileCompareResponse{
+			Status: "error",
+			Error:  "At least two items are required for comparison",
+		})
+		return
+	}
+	localBase := s.resolveLocalPath(req.ProfileID)
+	res, err := s.ExplorerService.CompareItems(r.Context(), req.Items, localBase)
+	if err != nil {
+		writeJSON(w, http.StatusOK, models.FileCompareResponse{
+			Status: "error",
+			Error:  err.Error(),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}

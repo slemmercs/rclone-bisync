@@ -4,9 +4,9 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 )
 
-func (r *SyncRunner) recordAuditExecuted(runID string, jobID int, origin string, durationSec float64, filesSynced int, resync, force, dryRun bool) {
+func (r *SyncRunner) recordAuditExecuted(runID string, jobID int, origin string, durationSec float64, filesSynced int, resync, force, dryRun bool) *audit.AuditRecord {
 	if r.Audit == nil {
-		return
+		return nil
 	}
 	profileID := "default"
 	if r.Config != nil && r.Config.ProfileID != "" {
@@ -18,7 +18,7 @@ func (r *SyncRunner) recordAuditExecuted(runID string, jobID int, origin string,
 	if origin == "dashboard" || origin == "cli" {
 		actor = "USER"
 	}
-	_, _ = r.Audit.RecordEvent(profileID, audit.ActionSyncExecuted, actor, map[string]any{
+	rec, _ := r.Audit.RecordEvent(profileID, audit.ActionSyncExecuted, actor, map[string]any{
 		"run_id":       runID,
 		"job_id":       jobID,
 		"origin":       origin,
@@ -28,4 +28,5 @@ func (r *SyncRunner) recordAuditExecuted(runID string, jobID int, origin string,
 		"force":        force,
 		"dry_run":      dryRun,
 	})
+	return rec
 }

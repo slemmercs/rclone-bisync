@@ -202,6 +202,26 @@ function parseJsonLogLine(rawLine) {
             }
         }
 
+        const details = parsed.details || structuredDetails;
+        let runId = parsed.run_id || null;
+        let jobId = parsed.job_id || null;
+        let origin = parsed.origin || null;
+        let durationSec = parsed.duration_sec !== undefined ? parsed.duration_sec : null;
+        let filesSynced = parsed.files_synced !== undefined ? parsed.files_synced : null;
+        let status = parsed.status || null;
+        let errorType = parsed.error_type || null;
+
+        if (details && typeof details === "object") {
+            if (!runId && details.run_id) runId = details.run_id;
+            if (!jobId && details.job_id) jobId = details.job_id;
+            if (!origin && details.origin) origin = details.origin;
+            if (durationSec === null && details.duration_seconds !== undefined) durationSec = details.duration_seconds;
+            if (durationSec === null && details.duration_sec !== undefined) durationSec = details.duration_sec;
+            if (filesSynced === null && details.files_synced !== undefined) filesSynced = details.files_synced;
+            if (!status && details.status) status = details.status;
+            if (!errorType && details.error_type) errorType = details.error_type;
+        }
+
         return {
             time: timeStr,
             level: rawLevel.toUpperCase().padEnd(7),
@@ -210,27 +230,27 @@ function parseJsonLogLine(rawLine) {
             type: isHttpAccess ? "http_access" : (parsed.type || "sync"),
             is_http_access: isHttpAccess,
             is_read_only_access: isReadOnlyAccess,
-            seq_id: parsed.seq_id || null,
+            seq_id: parsed.seq_id || (details && details.seq_id) || null,
             profile_id: profileId,
             profile_name: profileName,
-            action: parsed.action || null,
-            actor: parsed.actor || null,
-            hash: parsed.hash || null,
-            prev_hash: parsed.prev_hash || null,
-            object: parsed.object || (parsed.details && (parsed.details.item_path || (parsed.details.path && parsed.details.filename ? `${parsed.details.path}/${parsed.details.filename}`.replace(/^\/+/, '') : null) || parsed.details.path || parsed.details.object || parsed.details.file)) || extractPathFromLogMsg(cleanMsg) || null,
-            objectType: parsed.objectType || null,
-            source: parsed.source || null,
-            details: parsed.details || structuredDetails,
-            origin: parsed.origin || null,
-            origin_badge: getOriginBadge(parsed.origin),
-            run_id: parsed.run_id || null,
-            job_id: parsed.job_id || null,
-            status: parsed.status || null,
-            error_type: parsed.error_type || null,
-            duration_sec: parsed.duration_sec !== undefined ? parsed.duration_sec : null,
-            files_synced: parsed.files_synced !== undefined ? parsed.files_synced : null,
-            start_time: parsed.start_time || null,
-            end_time: parsed.end_time || null,
+            action: parsed.action || (details && details.action) || null,
+            actor: parsed.actor || (details && details.actor) || null,
+            hash: parsed.hash || (details && details.hash) || null,
+            prev_hash: parsed.prev_hash || (details && details.prev_hash) || null,
+            object: parsed.object || (details && (details.item_path || (details.path && details.filename ? `${details.path}/${details.filename}`.replace(/^\/+/, '') : null) || details.path || details.object || details.file)) || extractPathFromLogMsg(cleanMsg) || null,
+            objectType: parsed.objectType || (details && details.objectType) || null,
+            source: parsed.source || (details && details.source) || null,
+            details: details,
+            origin: origin,
+            origin_badge: getOriginBadge(origin),
+            run_id: runId,
+            job_id: jobId,
+            status: status,
+            error_type: errorType,
+            duration_sec: durationSec,
+            files_synced: filesSynced,
+            start_time: parsed.start_time || (details && details.start_time) || null,
+            end_time: parsed.end_time || (details && details.end_time) || null,
             isJson: true,
             raw: rawLine
         };
@@ -312,67 +332,6 @@ function normalizeStatus(rawStatus) {
     if (["REVIEW REQUIRED", "NEEDS REVIEW", "MANUAL APPROVAL", "REVIEW", "CONFLICT", "PENDING APPROVAL"].includes(s)) return APPROVED_STATUS_LABELS.REVIEW_REQUIRED;
     if (["IDLE", "STANDBY", "READY"].includes(s)) return APPROVED_STATUS_LABELS.IDLE;
     return rawStatus;
-}
-
-function parseDedupeOutput(raw) {
-    if (!raw || typeof raw !== "string") {
-        return { totalCollisions: 0, totalDeleted: 0, items: [], notices: [], errors: [], raw: "" };
-    }
-    const lines = raw.split("\n");
-    const itemMap = {};
-    const notices = [];
-    const errors = [];
-    let totalCollisions = 0;
-    let totalDeleted = 0;
-
-    for (let line of lines) {
-        line = line.trim();
-        if (!line) continue;
-
-        if (line.includes("Can't have duplicate names here") || line.includes("Perhaps you wanted --by-hash")) {
-            notices.push("Backend enforces unique filenames per directory. Use 'Cross-Folder Hash' mode to find identical files.");
-            continue;
-        }
-
-        if (line.includes("ERROR :") || line.includes("Failed to dedupe") || line.includes("Error:")) {
-            errors.push(line.replace(/^.*ERROR\s*:\s*/, "").replace(/^.*Error:\s*/, "").trim());
-            continue;
-        }
-
-        let m = line.match(/(?:NOTICE:\s+)?(.*?):\s+Found\s+(\d+)\s+files\s+with\s+duplicate/i);
-        if (m) {
-            const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
-            const count = parseInt(m[2], 10) || 2;
-            if (!itemMap[p]) { itemMap[p] = { path: p, found: count, deleted: 0, isDir: false }; totalCollisions++; }
-            else { itemMap[p].found = count; }
-            continue;
-        }
-        m = line.match(/(?:NOTICE:\s+)?(.*?):\s+Deleted\s+(\d+)\s+extra\s+copies/i);
-        if (m) {
-            const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
-            const count = parseInt(m[2], 10) || 1;
-            if (!itemMap[p]) { itemMap[p] = { path: p, found: count + 1, deleted: count, isDir: false }; totalCollisions++; }
-            else { itemMap[p].deleted = count; }
-            totalDeleted += count;
-            continue;
-        }
-        m = line.match(/(.*?):\s+(\d+)\s+duplicates\s+of\s+this\s+directory/i);
-        if (m) {
-            const p = m[1].replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:NOTICE:\s+)?/, "").trim();
-            const count = parseInt(m[2], 10) || 2;
-            if (!itemMap[p]) { itemMap[p] = { path: p, found: count, deleted: 0, isDir: true }; totalCollisions++; }
-            continue;
-        }
-    }
-
-    return {
-        totalCollisions,
-        totalDeleted,
-        items: Object.values(itemMap),
-        notices,
-        errors,
-        raw
-    };
 }
 
 function getStatusBadgeClass(rawStatus) {

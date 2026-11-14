@@ -36,6 +36,25 @@ func (r *SyncRunner) handleSyncSuccess(
 	} else if resync {
 		action = "Resync"
 	}
+
+	var seqID int64
+	actor := "SYSTEM"
+	if origin == "dashboard" || origin == "cli" {
+		actor = "USER"
+	}
+
+	// Emit SYNC_EXECUTED when actual file transfers occurred (FilesSynced > 0),
+	// or when resync was performed, or for explicit user-initiated sync runs (dashboard/cli).
+	// Routine 0-transfer daemon/background runs remain purely in bisync.log telemetry.
+	if monitorRes.FilesSynced > 0 || resync || origin == "dashboard" || origin == "cli" {
+		if rec := r.recordAuditExecuted(runID, jobID, origin, duration, monitorRes.FilesSynced, resync, force, dryRun); rec != nil {
+			seqID = rec.SeqID
+			if rec.Actor != "" {
+				actor = rec.Actor
+			}
+		}
+	}
+
 	if r.Logger != nil {
 		_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 			Time:        time.Now().Format(time.RFC3339),
@@ -48,10 +67,13 @@ func (r *SyncRunner) handleSyncSuccess(
 			JobID:       jobID,
 			Origin:      origin,
 			Status:      "SUCCESS",
+			Action:      "SYNC_EXECUTED",
 			DurationSec: duration,
 			FilesSynced: monitorRes.FilesSynced,
 			StartTime:   startTime.Format(time.RFC3339),
 			EndTime:     time.Now().Format(time.RFC3339),
+			SeqID:       seqID,
+			Actor:       actor,
 		})
 
 		fileOps := monitorRes.TransferredFiles
@@ -141,13 +163,6 @@ func (r *SyncRunner) handleSyncSuccess(
 		_ = r.Notifier.SendDesktop(r.notificationTitle("Rclone Bisync Successful"), fmt.Sprintf("Synced %d files in %.1fs", monitorRes.FilesSynced, duration), "normal")
 	}
 
-	// Emit SYNC_EXECUTED when actual file transfers occurred (FilesSynced > 0),
-	// or when resync was performed, or for explicit user-initiated sync runs (dashboard/cli).
-	// Routine 0-transfer daemon/background runs remain purely in bisync.log telemetry.
-	if monitorRes.FilesSynced > 0 || resync || origin == "dashboard" || origin == "cli" {
-		r.recordAuditExecuted(runID, jobID, origin, duration, monitorRes.FilesSynced, resync, force, dryRun)
-	}
-
 	return true
 }
 
@@ -185,6 +200,7 @@ func (r *SyncRunner) handleSyncFailure(
 			JobID:       jobID,
 			Origin:      origin,
 			Status:      "FAULT",
+			Action:      "SYNC_FAILED",
 			ErrorType:   errType,
 			DurationSec: duration,
 			FilesSynced: monitorRes.FilesSynced,

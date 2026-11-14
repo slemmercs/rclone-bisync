@@ -40,6 +40,15 @@
         <button @click="syncCurrentDirectory('right')" :disabled="isExplorerLoading()" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-500/30 cursor-pointer" title="Transfer current remote directory contents to local">
             <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg><span>Transfer to Local ←</span>
         </button>
+        <template x-if="compareState && compareState.selectedItems && compareState.selectedItems.length > 0">
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button @click="openCompareModal()" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 border shadow-sm cursor-pointer" :class="compareState.selectedItems.length >= 2 ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 animate-pulse' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'" :title="compareState.selectedItems.length >= 2 ? 'Compare cryptographic hashes' : 'Select at least 2 files to compare'">
+                    <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>
+                    <span>Compare (<span x-text="compareState.selectedItems.length"></span>)</span>
+                </button>
+                <button @click="clearCompareSelection()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg text-xs font-medium transition-colors border border-slate-700/60 cursor-pointer" title="Clear selection">✕</button>
+            </div>
+        </template>
         <button @click="refreshExplorer()" :disabled="isExplorerLoading()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-700/60">
             <svg class="w-3.5 h-3.5 shrink-0" :class="{ 'animate-spin': isExplorerLoading() }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
             <span>Refresh</span>

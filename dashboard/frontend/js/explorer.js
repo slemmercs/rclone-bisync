@@ -55,14 +55,14 @@ window.ExplorerModule = {
         const remotePath = (p.remote_path || "").replace(/^\/+/, "");
         if (!this.explorer.isSwapped) {
             this.explorer.left.target = "local";
-            this.explorer.left.path = "";
+            if (!this.explorer.left.path) this.explorer.left.path = "";
             if (remote) this.explorer.right.target = remote;
-            this.explorer.right.path = remotePath;
+            if (remotePath && !this.explorer.right.path) this.explorer.right.path = remotePath;
         } else {
             if (remote) this.explorer.left.target = remote;
-            this.explorer.left.path = remotePath;
+            if (remotePath && !this.explorer.left.path) this.explorer.left.path = remotePath;
             this.explorer.right.target = "local";
-            this.explorer.right.path = "";
+            if (!this.explorer.right.path) this.explorer.right.path = "";
         }
         this.fetchExplorerDirectory("left", this.explorer.left.target, this.explorer.left.path);
         this.fetchExplorerDirectory("right", this.explorer.right.target, this.explorer.right.path);
@@ -127,11 +127,14 @@ window.ExplorerModule = {
         async fetchExplorerDirectory(paneKey, target, path = "") {
             const pane = this.explorer[paneKey];
             if (!pane) return;
+            const reqSeq = (pane._reqSeq || 0) + 1;
+            pane._reqSeq = reqSeq;
             pane.loading = true;
             pane.error = null;
             try {
                 const profileId = this.profilesData?.activeId || (this.activeProfile ? this.activeProfile.id : "");
                 const data = await window.API.post("/api/browse", { remote: target, path: path, profile_id: profileId });
+                if (pane._reqSeq !== reqSeq) return;
                 if (data.error) {
                     pane.error = data.error;
                     pane.items = [];
@@ -146,10 +149,13 @@ window.ExplorerModule = {
                     pane.totalSize = pane.items.reduce((acc, item) => (item.Size > 0 ? acc + item.Size : acc), 0);
                 }
             } catch (err) {
+                if (pane._reqSeq !== reqSeq) return;
                 pane.error = err.message || "Failed to load directory";
                 pane.items = [];
             } finally {
-                pane.loading = false;
+                if (pane._reqSeq === reqSeq) {
+                    pane.loading = false;
+                }
             }
         },
 
@@ -184,16 +190,35 @@ window.ExplorerModule = {
             const pane = this.explorer[paneKey];
             if (!pane) return [];
             const rootLabel = pane.target === "local" ? "~" : `${pane.target}:`;
-            const crumbs = [{ name: rootLabel, path: "" }];
-            if (!pane.path) return crumbs;
+            const allCrumbs = [{ name: rootLabel, path: "" }];
+            if (!pane.path) return allCrumbs;
 
             const parts = pane.path.split("/").filter(Boolean);
             let cumulative = "";
             for (const part of parts) {
                 cumulative = cumulative ? `${cumulative}/${part}` : part;
-                crumbs.push({ name: part, path: cumulative });
+                allCrumbs.push({ name: part, path: cumulative });
             }
-            return crumbs;
+
+            if (allCrumbs.length <= 4) {
+                return allCrumbs;
+            }
+
+            // Middle collapse deep paths: root / … / parent / current
+            const rootCrumb = allCrumbs[0];
+            const parentCrumb = allCrumbs[allCrumbs.length - 2];
+            const currentCrumb = allCrumbs[allCrumbs.length - 1];
+            const middleCrumbs = allCrumbs.slice(1, allCrumbs.length - 2);
+            const hiddenPath = middleCrumbs.map(c => c.name).join("/");
+
+            const ellipsisCrumb = {
+                name: "…",
+                path: middleCrumbs[middleCrumbs.length - 1].path,
+                title: `Hidden folders: /${hiddenPath}`,
+                isEllipsis: true
+            };
+
+            return [rootCrumb, ellipsisCrumb, parentCrumb, currentCrumb];
         },
 
         getPaneTargetLabel(paneKey) {
@@ -207,9 +232,10 @@ window.ExplorerModule = {
             if (!pane) return "";
             if (pane.target === "local") {
                 const p = this.activeProfile;
-                return (p && p.local_path) || this.telemetry.config?.LOCAL_PATH || "~/gdrive";
+                const base = (p && p.local_path) || this.telemetry.config?.LOCAL_PATH || this.telemetry.config?.LOCALPATH || "~/gdrive";
+                return pane.path ? `${base.replace(/\/+$/, "")}/${pane.path}` : base;
             }
-            return `${pane.target}:${pane.path || ""}`;
+            return pane.path ? `${pane.target}:${pane.path}` : `${pane.target}:`;
         },
 
         async copyPanePath(paneKey) {

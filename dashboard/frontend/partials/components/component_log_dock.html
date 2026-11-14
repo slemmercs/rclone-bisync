@@ -16,8 +16,8 @@
             </div>
             <!-- Count Badge -->
             <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700/60" x-text="(typeof getDockTotalEntries === 'function' ? getDockTotalEntries() : getFilteredDockLogs().length) + ' entries'"></span>
-            <!-- Pagination Controls if total pages > 1 -->
-            <div class="flex items-center gap-1 text-[10px] font-mono bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5" x-show="(typeof getDockTotalPages === 'function' ? getDockTotalPages() : 1) > 1">
+            <!-- Pagination Controls -->
+            <div class="flex items-center gap-1 text-[10px] font-mono bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5">
                 <button type="button" @click="typeof loadDockPrevPage === 'function' && loadDockPrevPage()" :disabled="isDockPrevDisabled()" class="text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer" title="Previous page">&lt;</button>
                 <span class="text-slate-400" x-text="'Page ' + (logDock.page || 1) + ' of ' + (typeof getDockTotalPages === 'function' ? getDockTotalPages() : 1)"></span>
                 <button type="button" @click="typeof loadDockNextPage === 'function' && loadDockNextPage()" :disabled="isDockNextDisabled()" class="text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer" title="Next page">&gt;</button>

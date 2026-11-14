@@ -4,69 +4,10 @@
  * inline log deduplication/folding, correlated run modals, and deletion state.
  */
 
-function normalizeLogMessage(msg) {
-    if (!msg) return "";
-    return msg.replace(/\[cid=[a-zA-Z0-9_-]+\]/g, "")
-        .replace(/\b\d+(\.\d+)?\s*(s|ms|m|h|B|KB|MB|GB|TB|PB)\b/gi, "")
-        .replace(/\b\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?\b/g, "")
-        .replace(/\b\d+\s+(transferred|checked|deleted|matching|errors)\b/gi, "")
-        .replace(/\s+/g, " ").trim();
-}
-
-function clusterLogEntries(entries, foldEnabled, expandedMap) {
-    if (!Array.isArray(entries) || entries.length === 0) return [];
-    if (!foldEnabled) {
-        return entries.map((entry, idx) => ({
-            id: "entry-" + idx,
-            entry: entry,
-            count: 1,
-            isCluster: false,
-            expanded: false,
-            entries: [entry]
-        }));
-    }
-
-    const clusters = [];
-    let currentCluster = null;
-
-    for (let i = 0; i < entries.length; i++) {
-        const item = entries[i];
-        const norm = normalizeLogMessage(item.msg || "");
-        const prof = item.profile_id || item.profile_name || "";
-        const obj = item.object || "", act = item.action || "";
-        const key = `${item.level || ""}::${item.type || ""}::${prof}::${obj}::${act}::${norm}`;
-
-        if (currentCluster && currentCluster.key === key && norm.length > 5) {
-            currentCluster.count++;
-            currentCluster.entries.push(item);
-        } else {
-            if (currentCluster) {
-                currentCluster.isCluster = currentCluster.count > 1;
-                clusters.push(currentCluster);
-            }
-            const clusterId = "cluster-" + clusters.length + "-" + i;
-            currentCluster = {
-                id: clusterId,
-                key: key,
-                entry: item,
-                count: 1,
-                isCluster: false,
-                expanded: !!(expandedMap && expandedMap[clusterId]),
-                entries: [item]
-            };
-        }
-    }
-    if (currentCluster) {
-        currentCluster.isCluster = currentCluster.count > 1;
-        clusters.push(currentCluster);
-    }
-    return clusters;
-}
-window.clusterLogEntries = clusterLogEntries;
-
 window.LogsModule = {
     clusterLogEntries(entries, fold = this.foldRepetitive, map = this.expandedClusters) {
-        return clusterLogEntries(entries, fold, map);
+        const clusterFn = typeof clusterLogEntries === "function" ? clusterLogEntries : window.clusterLogEntries;
+        return typeof clusterFn === "function" ? clusterFn(entries, fold, map) : entries;
     },
     bisyncLogPage: 1,
     bisyncLogLimit: 50,
@@ -75,6 +16,7 @@ window.LogsModule = {
     bisyncPaginatedLogs: [],
     bisyncLogLoading: false,
     foldRepetitive: true,
+    includeFileTransfers: false,
     telemetryProfileFilter: "all",
     expandedClusters: {},
 
@@ -92,6 +34,9 @@ window.LogsModule = {
     get filteredBisyncLogs() {
         let logs = this.parsedBisyncLogs;
         logs = logs.filter(l => !l.is_read_only_access && l.type !== "http_access");
+        if (!this.includeFileTransfers && this.telemetryLogFilter !== "file_ops" && this.telemetryLogFilter !== "mutations") {
+            logs = logs.filter(l => l.type !== "sync_file" && l.type !== "sync_overflow");
+        }
         if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") {
             const selected = (this.telemetryProfileFilter || "").toLowerCase().trim();
             const profObj = (this.profilesData?.list || []).find(p => (p.id || "").toLowerCase() === selected || (p.name || "").toLowerCase() === selected);
@@ -102,11 +47,10 @@ window.LogsModule = {
                 const pid = (l.profile_id || "").toLowerCase().trim();
                 const pname = (l.profile_name || "").toLowerCase().trim();
                 const msg = (l.msg || "").toLowerCase();
-                if (pid && (pid === targetId || pid === targetName)) return true;
-                if (pname && (pname === targetId || pname === targetName)) return true;
-                if (targetName && msg.includes(`[${targetName}]`)) return true;
-                if (targetId && msg.includes(`[${targetId}]`)) return true;
-                return false;
+                return (pid && (pid === targetId || pid === targetName)) ||
+                       (pname && (pname === targetId || pname === targetName)) ||
+                       (targetName && msg.includes(`[${targetName}]`)) ||
+                       (targetId && msg.includes(`[${targetId}]`));
             });
         }
         if (this.telemetryLogFilter === "sync") return logs.filter(l => l.type !== "audit");
@@ -114,58 +58,26 @@ window.LogsModule = {
         if (this.telemetryLogFilter === "file_ops" || this.telemetryLogFilter === "mutations") {
             return logs.filter(l => typeof this.isFileOperationLog === "function" ? this.isFileOperationLog(l) : Boolean(this.getEntryPath(l)));
         }
-        return logs;
+        const consolidateFn = typeof consolidateRunEntries === "function" ? consolidateRunEntries : window.consolidateRunEntries;
+        return typeof consolidateFn === "function" ? consolidateFn(logs, this.profilesData?.list || []) : logs;
     },
 
     get clusteredBisyncLogs() {
-        return clusterLogEntries(this.filteredBisyncLogs, this.foldRepetitive, this.expandedClusters);
-    },
-
-    get parsedDaemonLogs() {
-        return unwrapAndParseLogLines(this.telemetry.daemon_logs || []);
-    },
-
-    get filteredDaemonModalLogs() {
-        let logs = this.daemonModalLogs || [];
-        const q = (this.daemonModalSearch || "").toLowerCase().trim();
-        const filter = this.daemonModalLevelFilter;
-
-        if (filter !== "all") {
-            logs = logs.filter(l => {
-                const lvl = (l.level || "").toLowerCase().trim();
-                if (filter === "error") return lvl === "error";
-                if (filter === "warning") return lvl === "warning" || lvl === "warn";
-                if (filter === "info") return lvl === "info" || lvl === "notice";
-                return true;
-            });
-        }
-
-        if (q) {
-            logs = logs.filter(l => (l.msg || "").toLowerCase().includes(q) || (l.object || "").toLowerCase().includes(q) || (l.source || "").toLowerCase().includes(q));
-        }
-        return logs;
-    },
-
-    get clusteredDaemonModalLogs() {
-        return clusterLogEntries(this.filteredDaemonModalLogs, this.foldRepetitive, this.expandedClusters);
-    },
-
-    get daemonModalCounts() {
-        const logs = this.daemonModalLogs || [];
-        let errors = 0, warnings = 0, info = 0;
-        for (let i = 0; i < logs.length; i++) {
-            const lvl = (logs[i].level || "").toLowerCase().trim();
-            if (lvl === "error") errors++;
-            else if (lvl === "warning" || lvl === "warn") warnings++;
-            else if (lvl === "info" || lvl === "notice") info++;
-        }
-        return { total: logs.length, errors, warnings, info };
+        const clusterFn = typeof clusterLogEntries === "function" ? clusterLogEntries : window.clusterLogEntries;
+        return typeof clusterFn === "function" ? clusterFn(this.filteredBisyncLogs, this.foldRepetitive, this.expandedClusters) : this.filteredBisyncLogs;
     },
 
     async fetchBisyncLogs(page = 1, silent = false) {
         if (!silent) this.bisyncLogLoading = true;
         try {
-            const data = await window.API.get(`/api/logs/bisync?page=${page}&limit=${this.bisyncLogLimit}`);
+            let url = `/api/logs/bisync?page=${page}&limit=${this.bisyncLogLimit}`;
+            if (!this.includeFileTransfers && this.telemetryLogFilter !== "file_ops" && this.telemetryLogFilter !== "mutations") {
+                url += "&exclude_types=sync_file,sync_overflow";
+            }
+            if (this.telemetryProfileFilter && this.telemetryProfileFilter !== "all") {
+                url += `&profile_id=${encodeURIComponent(this.telemetryProfileFilter)}`;
+            }
+            const data = await window.API.get(url);
             this.bisyncPaginatedLogs = (data.logs || []).map(parseJsonLogLine).filter(Boolean);
             this.bisyncLogPage = data.page || 1;
             this.bisyncLogTotal = data.total || 0;
@@ -230,65 +142,6 @@ window.LogsModule = {
         }
     },
 
-    async fetchDaemonLogs(entry = null) {
-        this.daemonModalLoading = true;
-        this.daemonModalRun = entry || null;
-        this.daemonModalError = null;
-
-        let url = "/api/logs/daemon?limit=500";
-        if (entry) {
-            if (entry.run_id) url += `&run_id=${encodeURIComponent(entry.run_id)}`;
-            if (entry.job_id) url += `&job_id=${encodeURIComponent(entry.job_id)}`;
-            if (entry.start_time) url += `&start_time=${encodeURIComponent(entry.start_time)}`;
-            if (entry.end_time) url += `&end_time=${encodeURIComponent(entry.end_time)}`;
-        }
-
-        try {
-            const data = await window.API.get(url);
-            if (data && data.error) this.daemonModalError = data.error;
-            this.daemonModalLogs = (data && Array.isArray(data.logs)) ? unwrapAndParseLogLines(data.logs) : [];
-        } catch (err) {
-            console.error("Failed to fetch daemon logs:", err);
-            const msg = err && err.message ? err.message : "Failed to connect to daemon log endpoint";
-            this.daemonModalError = `Unable to retrieve daemon logs: ${msg}`;
-            this.daemonModalLogs = [];
-        } finally {
-            this.daemonModalLoading = false;
-        }
-    },
-
-    async openDaemonModal(entry) {
-        this.showDaemonModal = true;
-        this.daemonModalSearch = "";
-        this.daemonModalLevelFilter = "all";
-        this.daemonModalCopied = false;
-        this.daemonModalCopiedJSON = false;
-        await this.fetchDaemonLogs(entry);
-    },
-
-    closeDaemonModal() {
-        this.showDaemonModal = false;
-        this.daemonModalRun = null;
-        this.daemonModalLogs = [];
-        this.daemonModalError = null;
-    },
-
-    copyDaemonLogs() {
-        const text = this.daemonModalLogs.map(l => l.raw || `[${l.time}] ${l.level} ${l.msg}`).join("\n");
-        navigator.clipboard.writeText(text).then(() => {
-            this.daemonModalCopied = true;
-            setTimeout(() => { this.daemonModalCopied = false; }, 2000);
-        });
-    },
-
-    copyDaemonLogsJSON() {
-        const json = JSON.stringify(this.daemonModalLogs, null, 2);
-        navigator.clipboard.writeText(json).then(() => {
-            this.daemonModalCopiedJSON = true;
-            setTimeout(() => { this.daemonModalCopiedJSON = false; }, 2000);
-        });
-    },
-
     confirmResync() {
         const proceed = () => this.triggerAction("force_resync");
         if (typeof this.askConfirmation === "function") {
@@ -308,18 +161,13 @@ window.LogsModule = {
     getEntryPath(entry) {
         if (!entry) return null;
         if (entry.object) return entry.object;
-        if (entry.details) {
-            if (entry.details.item_path) return entry.details.item_path;
-            if (entry.details.path && entry.details.filename) {
-                return `${entry.details.path}/${entry.details.filename}`.replace(/^\/+/, "");
-            }
-            if (entry.details.path) return entry.details.path;
-            if (entry.details.object) return entry.details.object;
-            if (entry.details.file) return entry.details.file;
+        const d = entry.details;
+        if (d) {
+            if (d.item_path) return d.item_path;
+            if (d.path && d.filename) return `${d.path}/${d.filename}`.replace(/^\/+/, "");
+            if (d.path || d.object || d.file) return d.path || d.object || d.file;
         }
-        if (entry.msg && typeof extractPathFromLogMsg === "function") {
-            return extractPathFromLogMsg(entry.msg);
-        }
+        if (entry.msg && typeof extractPathFromLogMsg === "function") return extractPathFromLogMsg(entry.msg);
         return null;
     },
 
@@ -332,23 +180,21 @@ window.LogsModule = {
         const dir = lastSlash >= 0 ? clean.substring(0, lastSlash) : "";
         const filename = lastSlash >= 0 ? clean.substring(lastSlash + 1) : clean;
 
-        if (typeof this.closeDaemonModal === "function") this.closeDaemonModal();
-        else this.showDaemonModal = false;
+        if (typeof this.closeDaemonModal === "function") this.closeDaemonModal(); else this.showDaemonModal = false;
 
         const targetProfileId = (profileId && typeof profileId === "object") ? (profileId.profile_id || null) : profileId;
         if (targetProfileId && this.profilesData && this.profilesData.activeId !== targetProfileId && typeof this.selectProfile === "function") {
             await this.selectProfile(targetProfileId, dir);
         }
 
-        if (typeof this.switchTab === "function") this.switchTab("explorer");
-        else this.currentTab = "explorer";
+        if (this.currentTab !== "explorer") {
+            if (typeof this.switchTab === "function") this.switchTab("explorer"); else this.currentTab = "explorer";
+        }
 
         if (this.explorer) {
             this.explorer.highlightPath = clean;
             this.explorer.highlightName = filename;
-            setTimeout(() => {
-                if (this.explorer && this.explorer.highlightName === filename) this.explorer.highlightName = null;
-            }, 6000);
+            setTimeout(() => { if (this.explorer && this.explorer.highlightName === filename) this.explorer.highlightName = null; }, 6000);
 
             if (this.explorer.left) this.explorer.left.path = dir;
             if (this.explorer.right) this.explorer.right.path = dir;

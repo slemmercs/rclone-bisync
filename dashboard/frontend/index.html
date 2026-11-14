@@ -13,7 +13,7 @@
 </head>
 <body x-data="dashboard" x-init="initDashboard()" class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
 
-    <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div class="max-w-[1720px] 2xl:max-w-[1920px] mx-auto p-4 sm:p-6 lg:p-8">
         <!-- Header: 2-Tier Architecture -->
         <header id="app-header" class="pb-3 mb-6 border-b border-slate-800">
             <!-- Tier 1: Global Context Bar -->
@@ -240,6 +240,7 @@
     {{ template "modal_mcp" . }}
     {{ template "modal_system_health" . }}
     {{ template "modal_file_preview" . }}
+    {{ template "modal_compare" . }}
     {{ template "modal_explorer_move" . }}
     {{ template "modal_explorer_mkdir" . }}
     {{ template "modal_upload_dock" . }}
@@ -251,12 +252,14 @@
 
     <!-- Modular Frontend Scripts -->
     <script src="/static/js/utils.js?v=22"></script>
+    <script src="/static/js/dedupe_parser.js?v=24"></script>
     <script src="/static/js/api.js?v=22"></script>
     <script src="/static/js/provider_options.js?v=24"></script>
     <script src="/static/js/profiles.js?v=22"></script>
     <script src="/static/js/profiles_modal.js?v=22"></script>
     <script src="/static/js/flags_builder.js?v=22"></script>
     <script src="/static/js/profiles_history.js?v=22"></script>
+    <script src="/static/js/app_state.js?v=24"></script>
     <script src="/static/js/fleet.js?v=22"></script>
     <script src="/static/js/settings.js?v=22"></script>
     <script src="/static/js/bandwidth.js?v=24"></script>
@@ -271,11 +274,15 @@
     <script src="/static/js/remotes_modals.js?v=22"></script>
     <script src="/static/js/remotes_wizard.js?v=24"></script>
     <script src="/static/js/explorer_actions.js?v=22"></script>
+    <script src="/static/js/explorer_preview.js?v=24"></script>
     <script src="/static/js/explorer_operations.js?v=24"></script>
+    <script src="/static/js/explorer_compare.js?v=26"></script>
     <script src="/static/js/explorer.js?v=22"></script>
     <script src="/static/js/review.js?v=22"></script>
     <script src="/static/js/review_actions.js?v=22"></script>
+    <script src="/static/js/logs_clustering.js?v=24"></script>
     <script src="/static/js/logs.js?v=22"></script>
+    <script src="/static/js/logs_daemon.js?v=24"></script>
     <script src="/static/js/log_dock.js?v=22"></script>
     <script src="/static/js/audit.js?v=22"></script>
     <script src="/static/js/polling.js?v=22"></script>
