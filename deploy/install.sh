@@ -53,6 +53,26 @@ Exit Codes:
 EOF
 }
 
+# --- Semantic Version Comparison Helper ---
+# Returns: 0 if equal, 1 if v1 > v2, 2 if v1 < v2
+compare_semver() {
+    local v1="${1#v}"
+    local v2="${2#v}"
+    if [[ "$v1" == "$v2" ]]; then echo "0"; return 0; fi
+    local IFS=.
+    local i ver1=($v1) ver2=($v2)
+    for ((i=0; i<3; i++)); do
+        local n1=${ver1[i]:-0}
+        local n2=${ver2[i]:-0}
+        n1=${n1%%-*}
+        n2=${n2%%-*}
+        if ((10#$n1 > 10#$n2)); then echo "1"; return 0; fi
+        if ((10#$n1 < 10#$n2)); then echo "2"; return 0; fi
+    done
+    echo "0"
+}
+
+
 
 # --- CLI Options Defaults ---
 INSTALL_RCLONE=false
@@ -173,29 +193,54 @@ else
 fi
 
 # --- 2. Install / Verify Rclone Binary ---
-log_step "2/6: Verifying Rclone binary..."
-if command -v rclone >/dev/null 2>&1; then
-    RCLONE_PATH="$(command -v rclone)"
-    RCLONE_VER="$(rclone version 2>/dev/null | head -n 1 | awk '{print $2}' | sed 's/^v//' || echo "unknown")"
-    log_success "Found existing Rclone installation at $RCLONE_PATH ($RCLONE_VER), skipping installation."
-else
-    if [[ "$INSTALL_RCLONE" == "true" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log_info "[DRY-RUN] Would download and run official Rclone installer"
-        else
-            log_info "Rclone not found. Installing via official script..."
-            curl https://rclone.org/install.sh | bash || true
-            if ! command -v rclone >/dev/null 2>&1; then
-                log_error "Rclone installation failed or binary not found in PATH."
+validate_rclone_installation() {
+    log_step "2/6: Verifying Rclone binary and version compatibility..."
+    if command -v rclone >/dev/null 2>&1; then
+        RCLONE_PATH="$(command -v rclone)"
+        RCLONE_VER="$(rclone version 2>/dev/null | head -n 1 | awk '{print $2}' | sed 's/^v//' || echo "unknown")"
+
+        # Check minimum version constraint
+        if [[ -n "$MIN_RCLONE_VERSION" && "$RCLONE_VER" != "unknown" ]]; then
+            local cmp
+            cmp="$(compare_semver "$RCLONE_VER" "$MIN_RCLONE_VERSION")"
+            if [[ "$cmp" == "2" ]]; then
+                log_error "Detected Rclone version $RCLONE_VER is below required minimum $MIN_RCLONE_VERSION."
                 exit 1
             fi
         fi
+
+        # Check maximum version constraint
+        if [[ -n "$MAX_RCLONE_VERSION" && "$RCLONE_VER" != "unknown" ]]; then
+            local cmp
+            cmp="$(compare_semver "$RCLONE_VER" "$MAX_RCLONE_VERSION")"
+            if [[ "$cmp" == "1" ]]; then
+                log_error "Detected Rclone version $RCLONE_VER exceeds maximum supported version $MAX_RCLONE_VERSION."
+                exit 1
+            fi
+        fi
+
+        log_success "Found existing Rclone installation at $RCLONE_PATH ($RCLONE_VER), skipping installation."
     else
-        log_error "Rclone is not installed and --install-rclone was not specified."
-        log_error "Please install Rclone manually or run with: sudo bash $0 --install-rclone"
-        exit 1
+        if [[ "$INSTALL_RCLONE" == "true" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                log_info "[DRY-RUN] Would download and run official Rclone installer"
+            else
+                log_info "Rclone not found. Installing via official script..."
+                curl https://rclone.org/install.sh | bash || true
+                if ! command -v rclone >/dev/null 2>&1; then
+                    log_error "Rclone installation failed or binary not found in PATH."
+                    exit 1
+                fi
+            fi
+        else
+            log_error "Rclone is not installed and --install-rclone was not specified."
+            log_error "Please install Rclone manually or run with: sudo bash $0 --install-rclone"
+            exit 1
+        fi
     fi
-fi
+}
+validate_rclone_installation
+
 
 if [[ "$DRY_RUN" == "true" ]]; then
     log_success "[DRY-RUN] Pre-flight verification completed successfully."

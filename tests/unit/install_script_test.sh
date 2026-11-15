@@ -148,6 +148,42 @@ assert_equals "0" "$DETECT_STATUS" "Dry run exits 0 when rclone found"
 assert_contains "$DETECT_OUTPUT" "1.76.0" "Detected version 1.76.0 reported"
 assert_contains "$DETECT_OUTPUT" "skipping installation" "Skips re-installing when already present"
 
+# Test 7: Min Rclone version constraint enforcement
+echo "[Test 7] --min-rclone-version constraints"
+set +e
+MIN_FAIL_OUTPUT=$(env PATH="$TMP_BIN_DIR/bin" SUDO_USER="nobody" bash -c "
+    bash \"$INSTALL_SCRIPT\" --dry-run --min-rclone-version 1.80.0
+" 2>&1)
+MIN_FAIL_STATUS=$?
+
+MIN_PASS_OUTPUT=$(env PATH="$TMP_BIN_DIR/bin" SUDO_USER="nobody" bash -c "
+    bash \"$INSTALL_SCRIPT\" --dry-run --min-rclone-version 1.70.0
+" 2>&1)
+MIN_PASS_STATUS=$?
+set -e
+
+assert_equals "1" "$MIN_FAIL_STATUS" "Exits 1 when rclone version < min-version"
+assert_contains "$MIN_FAIL_OUTPUT" "is below required minimum 1.80.0" "Reports minimum version error"
+assert_equals "0" "$MIN_PASS_STATUS" "Exits 0 when rclone version >= min-version"
+
+# Test 8: Max Rclone version constraint enforcement
+echo "[Test 8] --max-rclone-version constraints"
+set +e
+MAX_FAIL_OUTPUT=$(env PATH="$TMP_BIN_DIR/bin" SUDO_USER="nobody" bash -c "
+    bash \"$INSTALL_SCRIPT\" --dry-run --max-rclone-version 1.70.0
+" 2>&1)
+MAX_FAIL_STATUS=$?
+
+MAX_PASS_OUTPUT=$(env PATH="$TMP_BIN_DIR/bin" SUDO_USER="nobody" bash -c "
+    bash \"$INSTALL_SCRIPT\" --dry-run --max-rclone-version 1.80.0
+" 2>&1)
+MAX_PASS_STATUS=$?
+set -e
+
+assert_equals "1" "$MAX_FAIL_STATUS" "Exits 1 when rclone version > max-version"
+assert_contains "$MAX_FAIL_OUTPUT" "exceeds maximum supported version 1.70.0" "Reports maximum version error"
+assert_equals "0" "$MAX_PASS_STATUS" "Exits 0 when rclone version <= max-version"
+
 echo "=================================================="
 echo "📊 Results: $PASSED_COUNT passed, $FAILED_COUNT failed."
 echo "=================================================="

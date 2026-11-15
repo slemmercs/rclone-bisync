@@ -13,7 +13,7 @@ Transform `deploy/install.sh` into an enterprise-grade, idempotent installer for
   - **Scope**: `deploy/install.sh`
   - **Verification**: `bash deploy/install.sh --help && bash tests/unit/install_script_test.sh`
 
-- [ ] Task 3: Implement Rclone Detection, Semantic Version Inspection & Fail-Fast Safeguards (`deploy/install.sh`)
+- [x] Task 3: Implement Rclone Detection, Semantic Version Inspection & Fail-Fast Safeguards (`deploy/install.sh`)
   - **Scope**: `deploy/install.sh`
   - **Verification**: `bash tests/unit/install_script_test.sh`
 
