@@ -1,93 +1,78 @@
-# Implementation Plan: Architecture Modularization & Unified Log Ledger Run-Level Consolidation
+# Implementation Plan: Enterprise-Grade Bisync Hub Installer
 
-## Proposed Changes
+## Overview
+Transform `deploy/install.sh` into an enterprise-grade, idempotent installer for Bisync Hub featuring robust CLI option parsing, explicit opt-in Rclone installation flags, semantic version inspection with extensible boundary validation, multi-distro dependency resolution, and strict fail-fast error handling.
 
-### High-Level Strategy & Architecture Impact
-1. **Architectural File Modularization (<400 LOC Ceiling)**:
-   Decompose 10 priority files nearing the 400 LOC ceiling into cohesive, single-responsibility modules:
-   - Backend Go files:
-     - `internal/models/api.go` (396 LOC) $\rightarrow$ `api_explorer.go`, `api_diagnostics.go`, `api_logs.go`, and core `api.go`.
-     - `internal/profiles/store.go` (395 LOC) $\rightarrow$ `store_history.go` (snapshot history & rollback) and `store.go`.
-     - `internal/server/handlers_auth.go` (366 LOC) $\rightarrow$ `handlers_dedupe.go` (dedupe HTTP handler) and `handlers_auth.go`.
-     - `internal/config/config.go` (378 LOC) $\rightarrow$ `env.go` (environment variable parsers) and `config.go`.
-     - `internal/services/explorer_preview.go` (377 LOC) $\rightarrow$ `explorer_download.go`, `mime_types.go`, and `explorer_preview.go`.
-     - `internal/mcp/tools_write.go` (386 LOC) $\rightarrow$ `tools_review.go`, `tools_dedupe.go`, and `tools_write.go`.
-   - Frontend JS files:
-     - `dashboard/frontend/js/utils.js` (391 LOC) $\rightarrow$ `dedupe_parser.js` and `utils.js`.
-     - `dashboard/frontend/app.js` (392 LOC) $\rightarrow$ `app_state.js` and `app.js`.
-     - `dashboard/frontend/js/explorer_actions.js` (394 LOC) $\rightarrow$ `explorer_preview.js` and `explorer_actions.js`.
-     - `dashboard/frontend/js/logs.js` (392 LOC) $\rightarrow$ `logs_clustering.js`, `logs_daemon.js`, and `logs.js`.
+The current `deploy/install.sh` unconditionally downloads and executes Rclone's external installation script via `curl | bash` on every run, overwriting any existing Rclone binaries without user consent or version checks. It also runs a blind `apt-get update` regardless of whether prerequisites already exist, lacks CLI argument parsing (`--help`, `--install-rclone`, `--dry-run`), and assumes a Debian/Ubuntu-only package management environment.
 
-2. **Unified Log Ledger Consolidation & Interactive Deep-Link Badges**:
-   - Synthesize multiple log lifecycle traces of a sync execution (`run_id`) into a single primary row.
-   - Combine the audit milestone (`action: SYNC_EXECUTED`, `seq_id`, `actor`) and telemetry (`run_id`, `duration_sec`, `files_synced`, `origin`).
-   - Unpack nested `parsed.details` in `utils.js` so audit records have top-level `run_id`, `duration_sec`, etc.
-   - Convert all badges on the consolidated ledger line to interactive navigation triggers:
-     - `action` (`SYNC_EXECUTED`): opens Audit Drawer (`openAuditDrawer(entry)`).
-     - `run_id` (`run:sync_261`): opens Correlated Daemon Logs modal (`openDaemonModal(entry)`).
-     - `profile` (`[prof_sandbox]`): sets profile filter.
-     - `duration`: displays elapsed time pill.
-     - `files_synced`: displays transferred count pill.
-     - `origin` (`UI`, `CLI`, `CRON`): displays source badge.
-   - Suppress redundant polling `slog.Debug` traces from polluting `bisync.log`.
+This implementation re-engineers `deploy/install.sh` into a POSIX-compliant, defensive Bash installer adhering to enterprise software distribution standards. It introduces strict pre-flight checks, selective dependency installation, color-coded structured logging (with `NO_COLOR` support), safe secrets generation for unconfigured deployments, dynamic systemd user service provisioning with DBus validation, and a self-contained test suite ensuring zero regressions under `< 350 LOC`.
 
-### Affected Components & Packages
+---
 
-- `internal/models/`:
-  - `api_explorer.go`: File browsing, transfer, deletion, compare, and canary DTOs.
-  - `api_diagnostics.go`: Diagnostic status enums, check structs, and diagnostics response.
-  - `api_logs.go`: Paginated logs, daemon logs, audit records, and dedupe request/responses.
-  - `api.go`: Core action, health, remotes, telemetry, and BisyncLogEntry.
-- `internal/profiles/`:
-  - `store_history.go`: `GetHistory` and `Rollback` methods.
-  - `store.go`: Core profile persistence, locks, and validation.
-- `internal/server/`:
-  - `handlers_dedupe.go`: `handleDedupe` handler.
-  - `handlers_auth.go`: Auth, profile actions, and tokens.
-- `internal/config/`:
-  - `env.go`: `str2bool`, `getEnv`, `getEnvInt`, `getEnvFloat`, `getEnvBool`, `splitArgs`, `LoadEnvFile`.
-  - `config.go`: Config struct and core initialization.
-- `internal/services/`:
-  - `explorer_download.go`: `DownloadStream`.
-  - `mime_types.go`: `DetectMimeType`, `isBinaryData`.
-  - `explorer_preview.go`: `PreviewItem`.
-- `internal/mcp/`:
-  - `tools_review.go`: `bisync_resolve_review` and `handleResolveReview`.
-  - `tools_dedupe.go`: `bisync_dedupe_by_hash` and `handleDedupeByHash`.
-  - `tools_write.go`: Core write tools (`bisync_delete_item`, `bisync_purge_dir`, `bisync_copy_item`, etc.).
-- `internal/engine/runner/`:
-  - `runner_handlers.go`: Tag `RecordSyncRun` with `Action: "SYNC_EXECUTED"` and unify completion emission.
-- `internal/core/client/`:
-  - `monitor.go`: Streamline debug polling output to avoid `bisync.log` pollution.
-- `dashboard/frontend/`:
-  - `js/dedupe_parser.js`: `parseDedupeOutput`, `extractPathFromLogMsg`.
-  - `js/app_state.js`: Baseline Alpine.js reactive state factory.
-  - `js/explorer_preview.js`: Explorer preview modal and download logic.
-  - `js/logs_clustering.js`: Run/job level consolidation and message normalization.
-  - `js/logs_daemon.js`: Daemon log inspection modal handlers and exports.
-  - `js/utils.js`: Unpack `parsed.details` in `parseJsonLogLine`.
-  - `partials/patterns/pattern_timeline_ledger.html`: Consolidated row layout with interactive badges.
-  - `index.html`: Register new modules.
+## Types
+Since this change operates in Bash (`deploy/install.sh`), type contracts are defined via strict Shell variable constraints, standard exit codes, and structured CLI options:
 
-### Safety & Error Handling
+### Exit Codes
+- `0`: Success — Bisync Hub installed, services active and healthy.
+- `1`: General fatal error or missing prerequisite (e.g. Rclone missing without `--install-rclone`).
+- `2`: Invalid CLI option or missing argument.
+- `3`: Missing root / `sudo` privileges.
+- `4`: Unsupported operating system or architecture.
+- `5`: Systemd user daemon initialization failure.
 
-- **Zero Breaking Changes**: Package-internal Go splits maintain identical exported APIs, method receivers, and struct definitions.
-- **Path Confinement**: Explorer preview, downloads, and dedupe retain strict jail confinement (`filepath.Rel` and `strings.HasPrefix(.., "..")`).
-- **Audit Immutability**: Cryptographic hash chaining in SQLite audit ledger remains fully intact.
-- **Frontend Isolation**: Sub-modules attach to `window` and merge cleanly into Alpine data model.
+### Configuration Struct (Shell State Representation)
+```bash
+INSTALL_RCLONE=false          # Flag: -i, --install-rclone (default: false)
+DRY_RUN=false                 # Flag: -n, --dry-run (default: false)
+SKIP_SERVICES=false           # Flag: --skip-services (default: false)
+DASHBOARD_PORT=8080           # Flag: --port <port> (default: 8080)
+TARGET_DIR=""                 # Flag: -d, --target-dir <path> (default: $REAL_HOME/rclone-bisync)
+MIN_RCLONE_VERSION=""         # Flag: --min-rclone-version <semver> (hook placeholder)
+MAX_RCLONE_VERSION=""         # Flag: --max-rclone-version <semver> (hook placeholder)
+NON_INTERACTIVE=false         # Flag: -y, --yes, --non-interactive (default: false)
+```
+
+---
+
+## Files
+
+### Modified Files
+- `deploy/install.sh`:
+  - Complete re-architecture of the installation script incorporating structured CLI flags, Rclone presence detection, semantic versioning extraction and validation hooks, multi-distro prerequisite checking, atomic configuration staging, and robust systemd health validation.
+  - Target line count budget: strictly $\le$ 350 LOC.
+
+### New Test Files
+- `tests/unit/install_script_test.sh`:
+  - Dedicated unit and regression test suite for `deploy/install.sh`.
+  - Tests argument parsing (`--help`, unknown flags, `--install-rclone`), version extraction regexes, semver comparison edge cases, mock missing Rclone fail-fast behavior, and dry-run safety.
+
+---
+
+## Functions
+
+### Shell Functions in `deploy/install.sh`
+
+1. **`print_usage()`**: Emits formatted CLI help documentation with available options, environment variables, exit codes, and usage examples to stdout. Supports running without `sudo`.
+2. **`log_info()`, `log_success()`, `log_warn()`, `log_error()`, `log_step()`**: Standardized, colored, timestamped output adhering to 12-factor CLI specifications. Supports `NO_COLOR=1`.
+3. **`parse_arguments()`**: Parses CLI arguments (`-h|--help`, `-i|--install-rclone`, `-n|--dry-run`, `-d|--target-dir`, `--port`, `--skip-services`, `--min-rclone-version`, `-y|--non-interactive`).
+4. **`detect_real_user()`**: Resolves the true invoking user (`SUDO_USER` vs `LOGNAME` vs `id -un`) and home directory via `getent passwd`.
+5. **`ensure_prerequisites()`**: Checks if `curl` is present on PATH. If missing, detects package manager (`apt-get`, `dnf`, `yum`, `pacman`, `zypper`) and installs `curl`.
+6. **`extract_rclone_version()`**: Executes `<binary_path> version` and extracts clean semantic version string (e.g. `v1.76.0` $\rightarrow$ `1.76.0`).
+7. **`compare_semver()`**: Pure Bash numerical 3-part semantic version comparison returning `0` (equal), `1` ($v1 > v2$), or `2` ($v1 < v2$).
+8. **`validate_rclone_installation()`**:
+   - Probes `command -v rclone`.
+   - If installed: extracts version, prints `Found existing Rclone installation: <path> (<version>)`, evaluates against `MIN_RCLONE_VERSION` / `MAX_RCLONE_VERSION` hooks, and skips installation.
+   - If not installed and `--install-rclone` is passed: executes official install script, verifies success, and captures version.
+   - If not installed and `--install-rclone` is NOT passed: halts immediately with `exit 1` and informative guidance.
+9. **`generate_secure_secrets()`**: Copies `rc-secrets.env.example` to `rc-secrets.env` if not already present, replacing default `RC_PASS` with a cryptographically generated 24-character random secret.
+10. **`configure_and_start_services()`**: Copies and templates systemd user service units, sets up DBus session variables, reloads user daemon, and performs a 5-step health polling loop.
+
+---
 
 ## Verification Plan
 
-- Unit tests:
-  - `go test -count=1 ./internal/models/...`
-  - `go test -count=1 ./internal/profiles/...`
-  - `go test -count=1 ./internal/server/...`
-  - `go test -count=1 ./internal/config/...`
-  - `go test -count=1 ./internal/services/...`
-  - `go test -count=1 ./internal/mcp/...`
-  - `go test -count=1 ./internal/engine/runner/...`
-- Full Quality Gate:
-  - `./scripts/check.sh loc 400` (all Go and JS files strictly < 400 lines)
-  - `./scripts/check.sh templates`
-  - `./scripts/check.sh all` (all 7 quality stages)
+- `bash tests/unit/install_script_test.sh`
+- `bash -n deploy/install.sh`
+- `./scripts/check.sh fmt`
+- `./scripts/check-loc.sh 400 deploy/install.sh`
 

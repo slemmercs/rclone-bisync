@@ -1,87 +1,77 @@
-# Implementation Plan: Emit Synced Files in Log Dock with On-Demand Pagination
+# Implementation Plan: Enterprise-Grade Bisync Hub Installer
 
 ## Overview
-Capture, record, and navigate individual file operations transferred during Rclone bisync runs within the Live Sync Log Dock and Unified Timeline Ledger, backed by on-demand log pagination and deep file jumping.
+Transform `deploy/install.sh` into an enterprise-grade, idempotent installer for Bisync Hub featuring robust CLI option parsing, explicit opt-in Rclone installation flags, semantic version inspection with extensible boundary validation, multi-distro dependency resolution, and strict fail-fast error handling.
 
-When a sync execution completes (initial resync or scheduled bi-directional run), operators currently see only an aggregate summary (e.g. `Resync succeeded in 2.0s (5 file(s) transferred)`). The specific files transferred are hidden within correlated daemon logs, preventing the Live Sync Log Dock's "File Ops" filter from exposing them and blocking operators from using one-click deep navigation to inspect newly synced files in the dual-pane Directory Explorer.
+The current `deploy/install.sh` unconditionally downloads and executes Rclone's external installation script via `curl | bash` on every run, overwriting any existing Rclone binaries without user consent or version checks. It also runs a blind `apt-get update` regardless of whether prerequisites already exist, lacks CLI argument parsing (`--help`, `--install-rclone`, `--dry-run`), and assumes a Debian/Ubuntu-only package management environment.
 
-This implementation captures individual file transfers directly from the Rclone job output or daemon stream at sync completion, records up to 50 individual file operations into `bisync.log` with distinct `Object`, `Action`, and `Type: "sync_file"` metadata, and introduces on-demand pagination controls in the Log Dock to seamlessly load and step through historical pages of log entries without UI degradation or log explosion.
+This implementation re-engineers `deploy/install.sh` into a POSIX-compliant, defensive Bash installer adhering to enterprise software distribution standards. It introduces strict pre-flight checks, selective dependency installation, color-coded structured logging (with `NO_COLOR` support), safe secrets generation for unconfigured deployments, dynamic systemd user service provisioning with DBus validation, and a self-contained test suite ensuring zero regressions under `< 350 LOC`.
 
 ---
 
 ## Types
+Since this change operates in Bash (`deploy/install.sh`), type contracts are defined via strict Shell variable constraints, standard exit codes, and structured CLI options:
 
-### 1. `internal/models/api.go`
-```go
-type SyncFileOp struct {
-Path   string `json:"path"`   // Relative file path (e.g. "subfolder/nested.txt")
-Action string `json:"action"` // Operation type: "COPIED", "REPLACED", "DELETED", "CONFLICT"
-Msg    string `json:"msg"`    // Human-readable message (e.g. "subfolder/nested.txt: Copied (new)")
-}
+### Exit Codes
+- `0`: Success — Bisync Hub installed, services active and healthy.
+- `1`: General fatal error or missing prerequisite (e.g. Rclone missing without `--install-rclone`).
+- `2`: Invalid CLI option or missing argument.
+- `3`: Missing root / `sudo` privileges.
+- `4`: Unsupported operating system or architecture.
+- `5`: Systemd user daemon initialization failure.
 
-type BisyncLogEntry struct {
-Time        string  `json:"time"`
-Level       string  `json:"level"`
-Type        string  `json:"type,omitempty"` // "sync", "sync_file", "audit"
-ProfileID   string  `json:"profile_id,omitempty"`
-ProfileName string  `json:"profile_name,omitempty"`
-Msg         string  `json:"msg"`
-RunID       string  `json:"run_id"`
-JobID       int     `json:"job_id,omitempty"`
-Origin      string  `json:"origin,omitempty"`
-Status      string  `json:"status,omitempty"`     // SUCCESS, FAULT, ABORTED
-ErrorType   string  `json:"error_type,omitempty"` // TOO_MANY_DELETES, RATE_LIMIT, etc.
-DurationSec float64 `json:"duration_sec,omitempty"`
-FilesSynced int     `json:"files_synced,omitempty"`
-StartTime   string  `json:"start_time,omitempty"` // RFC3339
-EndTime     string  `json:"end_time,omitempty"`   // RFC3339
-Object      string  `json:"object,omitempty"`     // Relative path for deep navigation
-Action      string  `json:"action,omitempty"`     // Operation action badge
-}
-```
-
-### 2. `internal/core/client/monitor.go`
-```go
-type MonitorJobResult struct {
-Success          bool
-ErrorType        string
-ErrorMessage     string
-FilesSynced      int
-TransferredFiles []models.SyncFileOp
-}
+### Configuration Struct (Shell State Representation)
+```bash
+INSTALL_RCLONE=false          # Flag: -i, --install-rclone (default: false)
+DRY_RUN=false                 # Flag: -n, --dry-run (default: false)
+SKIP_SERVICES=false           # Flag: --skip-services (default: false)
+DASHBOARD_PORT=8080           # Flag: --port <port> (default: 8080)
+TARGET_DIR=""                 # Flag: -d, --target-dir <path> (default: $REAL_HOME/rclone-bisync)
+MIN_RCLONE_VERSION=""         # Flag: --min-rclone-version <semver> (hook placeholder)
+MAX_RCLONE_VERSION=""         # Flag: --max-rclone-version <semver> (hook placeholder)
+NON_INTERACTIVE=false         # Flag: -y, --yes, --non-interactive (default: false)
 ```
 
 ---
 
-## Proposed Changes
+## Files
 
-### Phase 1: Transfer File Parser & Extraction (`internal/models`, `internal/core/client`)
-- Add `SyncFileOp` to `internal/models/api.go`.
-- Implement `ExtractTransferredFiles(outputStr string, maxEntries int) []models.SyncFileOp` in `internal/core/client/monitor.go`.
-- Update `MonitorJob` to populate `TransferredFiles` on `MonitorJobResult`.
-- Unit tests in `internal/core/client/monitor_test.go`.
+### Modified Files
+- `deploy/install.sh`:
+  - Complete re-architecture of the installation script incorporating structured CLI flags, Rclone presence detection, semantic versioning extraction and validation hooks, multi-distro prerequisite checking, atomic configuration staging, and robust systemd health validation.
+  - Target line count budget: strictly $\le$ 350 LOC.
 
-### Phase 2: Ingestion & 50-Item Capping in Runner (`internal/engine/runner`)
-- In `handleSyncSuccess` in `internal/engine/runner/runner_handlers.go`, emit up to 50 individual `sync_file` records to `bisync.log`.
-- Emit overflow notification if files exceed 50.
-- Fallback to reading `rclone-daemon.log` if job output buffer was omitted.
-- Unit tests in `internal/engine/runner/runner_test.go`.
-
-### Phase 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
-- Add pagination buttons (`[ < Page X of Y > ]`), entry counter, and badge styling in Log Dock.
-- Validate template with `./scripts/check.sh templates`.
-
-### Phase 4: Frontend Log Dock Engine & Stepping (`log_dock.js`, `logs.js`)
-- Add `loadDockNextPage()` / `loadDockPrevPage()` in `dashboard/frontend/js/log_dock.js`.
-- Include `type === "sync_file"` in `isFileOperationLog`.
-- Verify LOC under 400 with `./scripts/check.sh loc 400`.
-
-### Phase 5: Verification & End-to-End Tests (`dashboard_smoke_test.go`)
-- Validate Log Dock pagination, sync file item jumping, and full test suite (`./scripts/check.sh all`).
+### New Test Files
+- `tests/unit/install_script_test.sh`:
+  - Dedicated unit and regression test suite for `deploy/install.sh`.
+  - Tests argument parsing (`--help`, unknown flags, `--install-rclone`), version extraction regexes, semver comparison edge cases, mock missing Rclone fail-fast behavior, and dry-run safety.
 
 ---
 
-## Safety & Error Handling
-- **Cap Protection**: Strict capping at 50 file entries per sync run protects against log file explosion.
-- **Fail-Safe Fallback**: If output parsing fails, summary logging remains intact and job execution is unaffected.
-- **Confinement & Jail**: All deep navigation paths remain verified within profile boundaries.
+## Functions
+
+### Shell Functions in `deploy/install.sh`
+
+1. **`print_usage()`**: Emits formatted CLI help documentation with available options, environment variables, exit codes, and usage examples to stdout. Supports running without `sudo`.
+2. **`log_info()`, `log_success()`, `log_warn()`, `log_error()`, `log_step()`**: Standardized, colored, timestamped output adhering to 12-factor CLI specifications. Supports `NO_COLOR=1`.
+3. **`parse_arguments()`**: Parses CLI arguments (`-h|--help`, `-i|--install-rclone`, `-n|--dry-run`, `-d|--target-dir`, `--port`, `--skip-services`, `--min-rclone-version`, `-y|--non-interactive`).
+4. **`detect_real_user()`**: Resolves the true invoking user (`SUDO_USER` vs `LOGNAME` vs `id -un`) and home directory via `getent passwd`.
+5. **`ensure_prerequisites()`**: Checks if `curl` is present on PATH. If missing, detects package manager (`apt-get`, `dnf`, `yum`, `pacman`, `zypper`) and installs `curl`.
+6. **`extract_rclone_version()`**: Executes `<binary_path> version` and extracts clean semantic version string (e.g. `v1.76.0` $\rightarrow$ `1.76.0`).
+7. **`compare_semver()`**: Pure Bash numerical 3-part semantic version comparison returning `0` (equal), `1` ($v1 > v2$), or `2` ($v1 < v2$).
+8. **`validate_rclone_installation()`**:
+   - Probes `command -v rclone`.
+   - If installed: extracts version, prints `Found existing Rclone installation: <path> (<version>)`, evaluates against `MIN_RCLONE_VERSION` / `MAX_RCLONE_VERSION` hooks, and skips installation.
+   - If not installed and `--install-rclone` is passed: executes official install script, verifies success, and captures version.
+   - If not installed and `--install-rclone` is NOT passed: halts immediately with `exit 1` and informative guidance.
+9. **`generate_secure_secrets()`**: Copies `rc-secrets.env.example` to `rc-secrets.env` if not already present, replacing default `RC_PASS` with a cryptographically generated 24-character random secret.
+10. **`configure_and_start_services()`**: Copies and templates systemd user service units, sets up DBus session variables, reloads user daemon, and performs a 5-step health polling loop.
+
+---
+
+## Verification Plan
+
+- `bash tests/unit/install_script_test.sh`
+- `bash -n deploy/install.sh`
+- `./scripts/check.sh fmt`
+- `./scripts/check-loc.sh 400 deploy/install.sh`
