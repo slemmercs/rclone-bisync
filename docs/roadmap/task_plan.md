@@ -1,48 +1,34 @@
-# Task Plan: Architecture Modularization & Unified Log Ledger Run-Level Consolidation
+# Task Plan: Deduplication Workspace Redesign & Link/Whitespace Edge-Case Resolution
 
 ## Goal
-Decompose 10 priority files approaching the 400 LOC ceiling across backend and frontend into focused single-responsibility modules, while consolidating Unified Log Ledger entries so sync runs display as a single unified action row with interactive deep-linking badges.
+Resolve Google Drive link/shortcut and trailing-space path navigation edge cases, and redesign the Deduplication modal into an expansive 3-section workspace (Configuration & Scope rail, Collision queue ledger, and Inbuilt File Explorer with duplicate candidate inspector) strictly adhering to the <400 LOC ceiling.
 
 ## Tasks
 
-- [x] Task 1: Backend Go Models & Profile Store Decomposition (`internal/models/`, `internal/profiles/`)
-  - **Scope**: `internal/models/api_explorer.go`, `internal/models/api_diagnostics.go`, `internal/models/api_logs.go`, `internal/models/api.go`, `internal/profiles/store_history.go`, `internal/profiles/store.go`
-  - **Verification**: `go test -count=1 ./internal/models/... && go test -count=1 ./internal/profiles/...`
+- [ ] Task 1: Backend Trailing Whitespace & Transparent Link/Shortcut Auto-Recovery (`internal/services/`, `internal/models/`)
+  - **Scope**: `internal/services/explorer_service.go`, `internal/services/explorer_service_test.go`, `internal/models/api_explorer.go`
+  - **Verification**: `go test -count=1 ./internal/services/... -run TestBrowsePath`
 
-- [x] Task 2: Backend Handlers, Config, Services & MCP Tools Decomposition (`internal/server/`, `internal/config/`, `internal/services/`, `internal/mcp/`)
-  - **Scope**: `internal/server/handlers_dedupe.go`, `internal/server/handlers_auth.go`, `internal/config/env.go`, `internal/config/config.go`, `internal/services/explorer_download.go`, `internal/services/mime_types.go`, `internal/services/explorer_preview.go`, `internal/mcp/tools_review.go`, `internal/mcp/tools_dedupe.go`, `internal/mcp/tools_write.go`
-  - **Verification**: `go test -count=1 ./internal/server/... && go test -count=1 ./internal/config/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/mcp/...`
-
-- [x] Task 3: Backend Logging Consolidation & Run Action Metadata (`internal/engine/runner/`, `internal/core/client/`)
-  - **Scope**: `internal/engine/runner/runner.go`, `internal/engine/runner/runner_audit.go`, `internal/engine/runner/runner_handlers.go`, `internal/models/api.go`, `internal/core/client/monitor.go`
-  - **Verification**: `go test -count=1 ./internal/engine/runner/...`
-
-- [x] Task 4: Frontend Utility & Parser Modularization (`dashboard/frontend/js/`)
-  - **Scope**: `dashboard/frontend/js/dedupe_parser.js`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/index.html`
+- [ ] Task 2: Deduplication Parser Detail Extraction (`dashboard/frontend/js/dedupe_parser.js`)
+  - **Scope**: `dashboard/frontend/js/dedupe_parser.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 5: Frontend Action Consolidation & Log Clustering (`dashboard/frontend/js/`)
-  - **Scope**: `dashboard/frontend/js/logs_clustering.js`, `dashboard/frontend/js/logs_daemon.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/index.html`
+- [ ] Task 3: Deduplication Workspace Module Extraction (`dashboard/frontend/js/dedupe_workspace.js`, `remotes_modals.js`)
+  - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/js/remotes_modals.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 6: Frontend Explorer & App State Modularization (`dashboard/frontend/js/`)
-  - **Scope**: `dashboard/frontend/js/explorer_preview.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
+- [ ] Task 4: Deduplication Modal 3-Section UI/UX Redesign (`dashboard/frontend/partials/modals/modal_dedupe.html`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [x] Task 7: Interactive Ledger Badges & Full Pre-Commit Gate (`pattern_timeline_ledger.html`, Repository-Wide)
-  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, full test & check suite
+- [ ] Task 5: End-to-End Headless Chrome Testing & Full Quality Gate (`tests/e2e/dashboard_smoke_test.go`, full gate)
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, repository pre-commit checks
   - **Verification**: `./scripts/check.sh all && ./scripts/check.sh loc 400`
 
 ## Status Updates
 
-- 2026-11-14: Initialized task plan based on approved implementation plan.
-- 2026-11-14: Completed Task 1 - Decomposed `internal/models/api.go` (from 396 to 174 LOC) into `api_explorer.go`, `api_diagnostics.go`, `api_logs.go`, and decomposed `internal/profiles/store.go` (from 395 to 320 LOC) by extracting `store_history.go`. Verified with unit tests.
-- 2026-11-14: Completed Task 2 - Decomposed `internal/server/handlers_auth.go` (366 to 200 LOC) by extracting `handlers_dedupe.go`, `internal/config/config.go` (378 to 266 LOC) by extracting `env.go`, `internal/services/explorer_preview.go` (377 to 217 LOC) by extracting `explorer_download.go` and `mime_types.go`, and `internal/mcp/tools_write.go` (386 to 130 LOC) by extracting `tools_review.go` and `tools_dedupe.go`. Verified with unit tests across all four packages.
-- 2026-11-14: Completed Task 3 - Enhanced sync run logging with run-level action metadata (`Action: "SYNC_EXECUTED"`, `Action: "SYNC_STARTED"`, `Action: "SYNC_FAILED"`, `Action: "SYNC_ABORTED"`), and linked audit milestone metadata (`SeqID`, `Actor`) directly into `BisyncLogEntry`. Verified with `go test -count=1 ./internal/engine/runner/...`.
-- 2026-11-14: Completed Task 4 - Extracted `dashboard/frontend/js/dedupe_parser.js` (69 LOC) to slim `dashboard/frontend/js/utils.js` from 391 to 350 LOC, unpacked nested audit telemetry details into top-level properties in `parseJsonLogLine`, registered the new module in `index.html`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e smoke tests.
-- 2026-11-14: Completed Task 5 - Extracted `dashboard/frontend/js/logs_clustering.js` (223 LOC) and `dashboard/frontend/js/logs_daemon.js` (123 LOC), slimming `dashboard/frontend/js/logs.js` from 397 to 244 LOC. Implemented run-level event consolidation `consolidateRunEntries` merging multiple run lifecycle traces into single actionable run rows with child auditability. Registered both modules in `index.html` and `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
-- 2026-11-14: Completed Task 6 - Extracted `dashboard/frontend/js/explorer_preview.js` (117 LOC) slimming `explorer_actions.js` from 394 to 309 LOC, and extracted `dashboard/frontend/js/app_state.js` (205 LOC) slimming `app.js` from 392 to 202 LOC. Registered both modules in `index.html` and `composeDashboard` in `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
-- 2026-11-14: Completed Task 7 - Wired interactive deep-linking ledger badges (`SYNC_EXECUTED` / `seq_id` to audit block drawer, `run_id` to daemon log modal, profile badge to instant filter) in `pattern_timeline_ledger.html`. Implemented async request sequence guards in `explorer.js` eliminating network race conditions. Formatted Go files with `gofmt -s -w`. Passed all 7 pre-commit quality gate stages (`./scripts/check.sh all`) and LOC ceiling check (`./scripts/check.sh loc 400`).
+- 2026-11-15: Initialized plan from approved `implementation_plan.md` on branch `fix/dedupe-workspace-redesign-and-link-edge-case`.
+
 
 
 

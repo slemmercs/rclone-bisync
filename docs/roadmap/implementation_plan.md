@@ -1,93 +1,56 @@
-# Implementation Plan: Architecture Modularization & Unified Log Ledger Run-Level Consolidation
+# Implementation Plan: Deduplication Workspace Redesign & Link/Whitespace Edge-Case Resolution
 
 ## Proposed Changes
 
 ### High-Level Strategy & Architecture Impact
-1. **Architectural File Modularization (<400 LOC Ceiling)**:
-   Decompose 10 priority files nearing the 400 LOC ceiling into cohesive, single-responsibility modules:
-   - Backend Go files:
-     - `internal/models/api.go` (396 LOC) $\rightarrow$ `api_explorer.go`, `api_diagnostics.go`, `api_logs.go`, and core `api.go`.
-     - `internal/profiles/store.go` (395 LOC) $\rightarrow$ `store_history.go` (snapshot history & rollback) and `store.go`.
-     - `internal/server/handlers_auth.go` (366 LOC) $\rightarrow$ `handlers_dedupe.go` (dedupe HTTP handler) and `handlers_auth.go`.
-     - `internal/config/config.go` (378 LOC) $\rightarrow$ `env.go` (environment variable parsers) and `config.go`.
-     - `internal/services/explorer_preview.go` (377 LOC) $\rightarrow$ `explorer_download.go`, `mime_types.go`, and `explorer_preview.go`.
-     - `internal/mcp/tools_write.go` (386 LOC) $\rightarrow$ `tools_review.go`, `tools_dedupe.go`, and `tools_write.go`.
-   - Frontend JS files:
-     - `dashboard/frontend/js/utils.js` (391 LOC) $\rightarrow$ `dedupe_parser.js` and `utils.js`.
-     - `dashboard/frontend/app.js` (392 LOC) $\rightarrow$ `app_state.js` and `app.js`.
-     - `dashboard/frontend/js/explorer_actions.js` (394 LOC) $\rightarrow$ `explorer_preview.js` and `explorer_actions.js`.
-     - `dashboard/frontend/js/logs.js` (392 LOC) $\rightarrow$ `logs_clustering.js`, `logs_daemon.js`, and `logs.js`.
+1. **Google Drive Link & Trailing Whitespace Edge-Case Resolution**:
+   - In `internal/services/explorer_service.go`, replace aggressive `strings.TrimSpace(path)` trimming with slash-only trimming `strings.Trim(path, "/")` so that folders with legitimate trailing spaces (e.g. `"MOHU Szemétszállítás "`) are preserved accurately.
+   - Implement graceful 404 transparent auto-resolution in `BrowsePath`: when Rclone returns `directory not found` for a remote path, the backend automatically queries the parent directory, detects if a matching folder exists with trailing whitespace or as a Google Drive shortcut, resolves it, and returns its contents with the recovered path transparently.
+   - Tag items with `IsShortcut: true` when Rclone reports composite IDs (e.g. `<shortcut_id>\t<target_id>`) or mime type `application/vnd.google-apps.shortcut`.
 
-2. **Unified Log Ledger Consolidation & Interactive Deep-Link Badges**:
-   - Synthesize multiple log lifecycle traces of a sync execution (`run_id`) into a single primary row.
-   - Combine the audit milestone (`action: SYNC_EXECUTED`, `seq_id`, `actor`) and telemetry (`run_id`, `duration_sec`, `files_synced`, `origin`).
-   - Unpack nested `parsed.details` in `utils.js` so audit records have top-level `run_id`, `duration_sec`, etc.
-   - Convert all badges on the consolidated ledger line to interactive navigation triggers:
-     - `action` (`SYNC_EXECUTED`): opens Audit Drawer (`openAuditDrawer(entry)`).
-     - `run_id` (`run:sync_261`): opens Correlated Daemon Logs modal (`openDaemonModal(entry)`).
-     - `profile` (`[prof_sandbox]`): sets profile filter.
-     - `duration`: displays elapsed time pill.
-     - `files_synced`: displays transferred count pill.
-     - `origin` (`UI`, `CLI`, `CRON`): displays source badge.
-   - Suppress redundant polling `slog.Debug` traces from polluting `bisync.log`.
+2. **Deduplication Workspace 3-Section Redesign**:
+   - Redesign `modal_dedupe.html` from a cramped single-column dialog into an expansive, responsive 3-section workspace (`max-w-6xl` / `max-w-7xl`):
+     - **Section 1 (Left Rail, ~280px)**: Configuration & Scope (Target remote, folder selector with browser chips, match mode, resolution strategy, paired bidirectional dedupe toggle, execution triggers, and metrics summary).
+     - **Section 2 (Center Panel, ~360px)**: Collision Queue / Ledger (Search/filter bar, collision cards showing filename, path, copies, size, and `🔗 Shortcut` indicator; clicking an item selects it).
+     - **Section 3 (Right Panel, ~520px+)**: Inbuilt File Explorer & Duplicate Inspector (Mini-breadcrumbs, duplicate candidate comparison cards with `KEEP` vs `DELETE` recommendation badges, directory contents mini-explorer, preview/download actions, and in-situ 404 recovery fallback).
+
+3. **Frontend Modularization (<400 LOC Ceiling)**:
+   - Extract deduplication workspace logic from `dashboard/frontend/js/remotes_modals.js` into `dashboard/frontend/js/dedupe_workspace.js` (~220 LOC), keeping both modules well below the strict 400 LOC ceiling.
+   - Register `dedupe_workspace.js` in `dashboard/frontend/index.html` and `app.js`.
 
 ### Affected Components & Packages
 
-- `internal/models/`:
-  - `api_explorer.go`: File browsing, transfer, deletion, compare, and canary DTOs.
-  - `api_diagnostics.go`: Diagnostic status enums, check structs, and diagnostics response.
-  - `api_logs.go`: Paginated logs, daemon logs, audit records, and dedupe request/responses.
-  - `api.go`: Core action, health, remotes, telemetry, and BisyncLogEntry.
-- `internal/profiles/`:
-  - `store_history.go`: `GetHistory` and `Rollback` methods.
-  - `store.go`: Core profile persistence, locks, and validation.
-- `internal/server/`:
-  - `handlers_dedupe.go`: `handleDedupe` handler.
-  - `handlers_auth.go`: Auth, profile actions, and tokens.
-- `internal/config/`:
-  - `env.go`: `str2bool`, `getEnv`, `getEnvInt`, `getEnvFloat`, `getEnvBool`, `splitArgs`, `LoadEnvFile`.
-  - `config.go`: Config struct and core initialization.
 - `internal/services/`:
-  - `explorer_download.go`: `DownloadStream`.
-  - `mime_types.go`: `DetectMimeType`, `isBinaryData`.
-  - `explorer_preview.go`: `PreviewItem`.
-- `internal/mcp/`:
-  - `tools_review.go`: `bisync_resolve_review` and `handleResolveReview`.
-  - `tools_dedupe.go`: `bisync_dedupe_by_hash` and `handleDedupeByHash`.
-  - `tools_write.go`: Core write tools (`bisync_delete_item`, `bisync_purge_dir`, `bisync_copy_item`, etc.).
-- `internal/engine/runner/`:
-  - `runner_handlers.go`: Tag `RecordSyncRun` with `Action: "SYNC_EXECUTED"` and unify completion emission.
-- `internal/core/client/`:
-  - `monitor.go`: Streamline debug polling output to avoid `bisync.log` pollution.
+  - `explorer_service.go`: Preserve folder whitespace; add parent-lookup fallback for 404 directory errors; tag shortcut metadata.
+  - `explorer_service_test.go`: Add unit tests for whitespace preservation and shortcut detection.
+- `internal/models/`:
+  - `api_explorer.go`: Add `IsShortcut` boolean field to directory listing item models.
 - `dashboard/frontend/`:
-  - `js/dedupe_parser.js`: `parseDedupeOutput`, `extractPathFromLogMsg`.
-  - `js/app_state.js`: Baseline Alpine.js reactive state factory.
-  - `js/explorer_preview.js`: Explorer preview modal and download logic.
-  - `js/logs_clustering.js`: Run/job level consolidation and message normalization.
-  - `js/logs_daemon.js`: Daemon log inspection modal handlers and exports.
-  - `js/utils.js`: Unpack `parsed.details` in `parseJsonLogLine`.
-  - `partials/patterns/pattern_timeline_ledger.html`: Consolidated row layout with interactive badges.
-  - `index.html`: Register new modules.
+  - `partials/modals/modal_dedupe.html`: Complete 3-section responsive layout overhaul.
+  - `js/dedupe_workspace.js`: New modular deduplication workspace state and action handlers (master-detail selection, candidate comparison, inbuilt folder browsing).
+  - `js/remotes_modals.js`: Remove dedupe modal logic, delegating to `dedupe_workspace.js`.
+  - `js/dedupe_parser.js`: Parse duplicate timestamps, IDs, and hashes for side-by-side inspection.
+  - `index.html`: Register `dedupe_workspace.js`.
+  - `app.js`: Include `DedupeWorkspaceModule` in dashboard state composition.
+- `tests/e2e/`:
+  - `dashboard_smoke_test.go`: Add E2E tests for 3-section dedupe workspace navigation and inbuilt folder exploration.
 
 ### Safety & Error Handling
 
-- **Zero Breaking Changes**: Package-internal Go splits maintain identical exported APIs, method receivers, and struct definitions.
-- **Path Confinement**: Explorer preview, downloads, and dedupe retain strict jail confinement (`filepath.Rel` and `strings.HasPrefix(.., "..")`).
-- **Audit Immutability**: Cryptographic hash chaining in SQLite audit ledger remains fully intact.
-- **Frontend Isolation**: Sub-modules attach to `window` and merge cleanly into Alpine data model.
+- **Non-Destructive Dry-Run Preservation**: "Preview (Dry Run)" remains the safe default (`--dedupe-mode list`), requiring explicit user confirmation before any file mutation.
+- **Path Confinement & Jail Bounds**: Inbuilt explorer within the dedupe modal strictly uses existing `/api/browse` endpoint with path traversal safeguards (`..` checks and root confinement).
+- **Graceful Error Recovery**: If an explorer path fails to load (e.g. broken shortcut or invalid link), Section 3 displays a recovery card with options to browse parent folder or retry without throwing raw JSON errors.
 
 ## Verification Plan
 
 - Unit tests:
-  - `go test -count=1 ./internal/models/...`
-  - `go test -count=1 ./internal/profiles/...`
+  - `go test -count=1 ./internal/services/... -run TestBrowsePath_WhitespacePreservation`
   - `go test -count=1 ./internal/server/...`
-  - `go test -count=1 ./internal/config/...`
-  - `go test -count=1 ./internal/services/...`
-  - `go test -count=1 ./internal/mcp/...`
-  - `go test -count=1 ./internal/engine/runner/...`
 - Full Quality Gate:
-  - `./scripts/check.sh loc 400` (all Go and JS files strictly < 400 lines)
   - `./scripts/check.sh templates`
-  - `./scripts/check.sh all` (all 7 quality stages)
+  - `./scripts/check.sh loc 400`
+  - `./scripts/check.sh all`
+- End-to-End Headless Chrome Testing:
+  - Verify dedupe preview scan, collision selection, candidate comparison card rendering (`KEEP`/`DELETE`), and embedded directory browsing.
+
 
