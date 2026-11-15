@@ -20,7 +20,8 @@ Architecture Decision Records (ADRs) document significant technical, architectur
 | [ADR-007](ADR-007-Cascading-Operational-Flags-Hierarchy.md) | 3-Tier Cascading Operational Flags Hierarchy | Accepted | 2026-10-30 | Configuration & Operations |
 | [ADR-008](ADR-008-WAL-Resilient-Interactive-Conflict-Review.md) | Write-Ahead Log (WAL) Resilient Interactive Conflict Review | Accepted | 2026-10-30 | Reliability & State |
 | [ADR-009](ADR-009-Remote-Deduplication-With-Provider-Safeguards.md) | Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization | Accepted | 2026-10-30 | Storage & Providers |
-| [ADR-010](ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md) | Zero-Build Component Design System & Responsive Telemetry Architecture | Accepted | 2026-10-30 | Frontend & UX |
+| [ADR-010](ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md) | Zero-Build Component Design System & Responsive Telemetry Architecture | Superseded | 2026-10-30 | Frontend & UX |
+| [ADR-011](ADR-011-Modern-Frontend-Component-Architecture-And-Precompiled-Single-Binary.md) | Modern Frontend Component Architecture & Pre-Compiled Single Binary Embeddings | Accepted | 2026-11-15 | Frontend & Architecture |
 
 ---
 
