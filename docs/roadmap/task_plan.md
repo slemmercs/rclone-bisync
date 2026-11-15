@@ -9,7 +9,7 @@ Transform `deploy/install.sh` into an enterprise-grade, idempotent installer for
   - **Scope**: `tests/unit/install_script_test.sh`
   - **Verification**: `bash tests/unit/install_script_test.sh`
 
-- [ ] Task 2: Implement Enterprise CLI Argument Parsing & Help System (`deploy/install.sh`)
+- [x] Task 2: Implement Enterprise CLI Argument Parsing & Help System (`deploy/install.sh`)
   - **Scope**: `deploy/install.sh`
   - **Verification**: `bash deploy/install.sh --help && bash tests/unit/install_script_test.sh`
 

@@ -1,34 +1,207 @@
 #!/bin/bash
+# ==============================================================================
+# Bisync Hub Enterprise Installer
+# Automated, idempotent provisioning for Bisync Hub and systemd user services.
+# ==============================================================================
+set -euo pipefail
 
-# --- Bisync Hub Installation Script ---
-set -e
+# --- Color & Formatting Setup ---
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+    C_RESET="\033[0m"
+    C_BOLD="\033[1m"
+    C_GREEN="\033[32m"
+    C_BLUE="\033[34m"
+    C_YELLOW="\033[33m"
+    C_RED="\033[31m"
+else
+    C_RESET=""
+    C_BOLD=""
+    C_GREEN=""
+    C_BLUE=""
+    C_YELLOW=""
+    C_RED=""
+fi
 
-if [[ "$EUID" -ne 0 ]]; then
-  echo "This script must be run with sudo. Run: sudo bash $0"
-  exit 1
+log_info()    { echo -e "${C_BLUE}ℹ${C_RESET} $*"; }
+log_step()    { echo -e "${C_BOLD}==>${C_RESET} $*"; }
+log_success() { echo -e "${C_GREEN}✔${C_RESET} $*"; }
+log_warn()    { echo -e "${C_YELLOW}⚠${C_RESET} $*"; }
+log_error()   { echo -e "${C_RED}✖${C_RESET} $*" >&2; }
+
+print_usage() {
+    cat <<EOF
+Usage: sudo bash deploy/install.sh [OPTIONS]
+
+Enterprise automated installer for Bisync Hub.
+
+Options:
+  -h, --help                  Show this help documentation and exit
+  -i, --install-rclone        Install official Rclone binary if not found in PATH
+  -n, --dry-run               Simulate installation without making system changes
+      --skip-services         Compile and stage files without starting systemd services
+  -d, --target-dir <path>     Installation destination (default: \$HOME/rclone-bisync)
+      --port <port>           Dashboard web service port (default: 8080)
+      --min-rclone-version <v> Enforce minimum required Rclone semver (e.g. 1.60.0)
+      --max-rclone-version <v> Enforce maximum compatible Rclone semver
+  -y, --yes, --non-interactive Run unattended without interactive prompts
+
+Exit Codes:
+  0: Success
+  1: Fatal error or missing prerequisite
+  2: Invalid CLI option or missing argument
+  3: Missing root / sudo privileges
+EOF
+}
+
+
+# --- CLI Options Defaults ---
+INSTALL_RCLONE=false
+DRY_RUN=false
+SKIP_SERVICES=false
+DASHBOARD_PORT=8080
+TARGET_DIR=""
+MIN_RCLONE_VERSION=""
+MAX_RCLONE_VERSION=""
+NON_INTERACTIVE=false
+
+# --- Parse Arguments ---
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            print_usage
+            exit 0
+            ;;
+        -i|--install-rclone)
+            INSTALL_RCLONE=true
+            shift
+            ;;
+        -n|--dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --skip-services)
+            SKIP_SERVICES=true
+            shift
+            ;;
+        -d|--target-dir)
+            if [[ -z "${2:-}" || "$2" == -* ]]; then
+                log_error "Option '$1' requires a path argument."
+                exit 2
+            fi
+            TARGET_DIR="$2"
+            shift 2
+            ;;
+        --port)
+            if [[ -z "${2:-}" || "$2" == -* ]]; then
+                log_error "Option '$1' requires a port argument."
+                exit 2
+            fi
+            DASHBOARD_PORT="$2"
+            shift 2
+            ;;
+        --min-rclone-version)
+            if [[ -z "${2:-}" || "$2" == -* ]]; then
+                log_error "Option '$1' requires a version argument."
+                exit 2
+            fi
+            MIN_RCLONE_VERSION="$2"
+            shift 2
+            ;;
+        --max-rclone-version)
+            if [[ -z "${2:-}" || "$2" == -* ]]; then
+                log_error "Option '$1' requires a version argument."
+                exit 2
+            fi
+            MAX_RCLONE_VERSION="$2"
+            shift 2
+            ;;
+        -y|--yes|--non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            echo "Run 'deploy/install.sh --help' for usage."
+            exit 2
+            ;;
+    esac
+done
+
+# --- Root Privilege Guard ---
+if [[ "$EUID" -ne 0 && "$DRY_RUN" != "true" ]]; then
+    log_error "This script must be run with sudo. Run: sudo bash $0 [OPTIONS]"
+    exit 3
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-REAL_USER="${SUDO_USER:-$(id -un)}"
-REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
-RCLONE_DIR="$REAL_HOME/rclone-bisync"
+REAL_USER="${SUDO_USER:-${LOGNAME:-$(id -un)}}"
+REAL_HOME="$(getent passwd "$REAL_USER" 2>/dev/null | cut -d: -f6 || echo "$HOME")"
+if [[ -z "$REAL_HOME" ]]; then
+    REAL_HOME="$HOME"
+fi
+
+if [[ -z "$TARGET_DIR" ]]; then
+    RCLONE_DIR="$REAL_HOME/rclone-bisync"
+else
+    RCLONE_DIR="$TARGET_DIR"
+fi
+
 SYSTEMD_USER_DIR="$REAL_HOME/.config/systemd/user"
 SHORTCUT_DIR="$REAL_HOME/.local/share/applications"
 
-echo "Starting installation for $REAL_USER..."
-echo "Repository root resolved to: $REPO_ROOT"
-echo "----------------------------------------------------"
+log_step "Starting Bisync Hub installation for $REAL_USER..."
+log_info "Repository root resolved to: $REPO_ROOT"
+log_info "Target directory: $RCLONE_DIR"
+if [[ "$DRY_RUN" == "true" ]]; then
+    log_warn "Running in DRY-RUN mode. No filesystem or systemd modifications will be applied."
+fi
 
 # --- 1. Install System Prerequisites ---
-echo "Installing system prerequisites (curl, build tools if needed)..."
-apt-get update
-apt-get install -y curl
+log_step "1/6: Verifying system prerequisites..."
+if ! command -v curl >/dev/null 2>&1; then
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would install curl via package manager"
+    else
+        log_info "curl not found, installing via apt-get..."
+        apt-get update
+        apt-get install -y curl
+    fi
+else
+    log_info "System prerequisite 'curl' already present."
+fi
 
-# --- 2. Install Rclone Binary ---
-echo "Installing/Updating Rclone binary..."
-curl https://rclone.org/install.sh | bash || true
+# --- 2. Install / Verify Rclone Binary ---
+log_step "2/6: Verifying Rclone binary..."
+if command -v rclone >/dev/null 2>&1; then
+    RCLONE_PATH="$(command -v rclone)"
+    RCLONE_VER="$(rclone version 2>/dev/null | head -n 1 | awk '{print $2}' | sed 's/^v//' || echo "unknown")"
+    log_success "Found existing Rclone installation at $RCLONE_PATH ($RCLONE_VER), skipping installation."
+else
+    if [[ "$INSTALL_RCLONE" == "true" ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "[DRY-RUN] Would download and run official Rclone installer"
+        else
+            log_info "Rclone not found. Installing via official script..."
+            curl https://rclone.org/install.sh | bash || true
+            if ! command -v rclone >/dev/null 2>&1; then
+                log_error "Rclone installation failed or binary not found in PATH."
+                exit 1
+            fi
+        fi
+    else
+        log_error "Rclone is not installed and --install-rclone was not specified."
+        log_error "Please install Rclone manually or run with: sudo bash $0 --install-rclone"
+        exit 1
+    fi
+fi
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    log_success "[DRY-RUN] Pre-flight verification completed successfully."
+    exit 0
+fi
+
 
 # --- 3. Setup Layout & Build Native Go Single-Binary ---
 echo "Creating directory layout: $RCLONE_DIR"
