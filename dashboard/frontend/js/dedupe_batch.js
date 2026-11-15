@@ -10,11 +10,39 @@ window.DedupeBatchModule = {
         stagedActions: {},
         applying: false,
         triggerResync: true,
-        drawerOpen: false
+        drawerOpen: false,
+        progress: {
+            total: 0,
+            completed: 0,
+            percent: 0,
+            currentAction: "",
+            status: "idle"
+        }
     },
 
     isDedupeBatchApplying() {
         return Boolean(this.dedupeBatch?.applying);
+    },
+
+    toggleStagedDrawer() {
+        this.dedupeBatch.drawerOpen = !this.dedupeBatch.drawerOpen;
+    },
+
+    getStagedEntries() {
+        return Object.entries(this.dedupeBatch?.stagedActions || {}).map(([key, item]) => ({
+            key,
+            ...item
+        }));
+    },
+
+    getStagedCounts() {
+        const list = Object.values(this.dedupeBatch?.stagedActions || {});
+        return {
+            total: list.length,
+            delete: list.filter(a => a.action === 'delete').length,
+            rename: list.filter(a => a.action === 'rename').length,
+            keep: list.filter(a => a.action === 'keep').length
+        };
     },
 
     getCandidateKey(collision, cand) {
@@ -52,10 +80,15 @@ window.DedupeBatchModule = {
         const copy = { ...this.dedupeBatch.stagedActions };
         delete copy[key];
         this.dedupeBatch.stagedActions = copy;
+        if (Object.keys(copy).length === 0) {
+            this.dedupeBatch.drawerOpen = false;
+        }
     },
 
     clearStagedDedupeActions() {
         this.dedupeBatch.stagedActions = {};
+        this.dedupeBatch.drawerOpen = false;
+        this.dedupeBatch.progress = { total: 0, completed: 0, percent: 0, currentAction: "", status: "idle" };
     },
 
     getStagedDedupeAction(collision, cand) {
@@ -142,6 +175,14 @@ window.DedupeBatchModule = {
             return;
         }
         this.dedupeBatch.applying = true;
+        this.dedupeBatch.drawerOpen = true;
+        this.dedupeBatch.progress = {
+            total: list.length,
+            completed: 0,
+            percent: 20,
+            currentAction: `Submitting batch of ${list.length} resolution actions...`,
+            status: "applying"
+        };
         try {
             const payload = {
                 remote: this.dedupeModal.remote,
@@ -153,6 +194,13 @@ window.DedupeBatchModule = {
             const data = await window.API.post("/api/remotes/dedupe/batch", payload);
             if (data.status === "error") {
                 const errMsg = data.error || (data.errors && data.errors[0]) || 'Unknown error';
+                this.dedupeBatch.progress = {
+                    total: list.length,
+                    completed: 0,
+                    percent: 100,
+                    currentAction: `Batch failed: ${errMsg}`,
+                    status: "error"
+                };
                 if (typeof this.showToast === "function") {
                     this.showToast(`Batch failed: ${errMsg}`, "error");
                 }
@@ -166,10 +214,17 @@ window.DedupeBatchModule = {
             } else {
                 const succ = data.success_count || 0;
                 const fail = data.failure_count || 0;
+                this.dedupeBatch.progress = {
+                    total: list.length,
+                    completed: succ,
+                    percent: 100,
+                    currentAction: `Completed! ${succ} succeeded, ${fail} failed.`,
+                    status: fail > 0 ? "error" : "complete"
+                };
                 if (typeof this.showToast === "function") {
                     this.showToast(`Batch applied: ${succ} succeeded, ${fail} failed`, fail > 0 ? "warning" : "success");
                 }
-                this.clearStagedDedupeActions();
+                this.dedupeBatch.stagedActions = {};
                 if (this.dedupeModal) {
                     let out = (this.dedupeModal.output || "") + `\nBatch execution applied: ${succ} succeeded, ${fail} failed.`;
                     if (data.errors && data.errors.length > 0) {
@@ -189,6 +244,13 @@ window.DedupeBatchModule = {
             }
         } catch (err) {
             console.error("Batch apply failed:", err);
+            this.dedupeBatch.progress = {
+                total: list.length,
+                completed: 0,
+                percent: 100,
+                currentAction: `Batch error: ${err.message}`,
+                status: "error"
+            };
             if (typeof this.showToast === "function") {
                 this.showToast(`Batch error: ${err.message}`, "error");
             }

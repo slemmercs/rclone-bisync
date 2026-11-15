@@ -312,10 +312,16 @@
                     <span x-text="dedupeModal.output || 'No deduplication output yet. Click Preview (Dry Run) or Run Deduplication.'"></span>
                 </div>
 
+                <!-- Staged Actions Review Slide-Up Drawer -->
+                {{template "modal_dedupe_drawer" .}}
+
                 <!-- Staged Actions Review Bar -->
                 <div x-show="getStagedDedupeCount() > 0" class="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 shrink-0">
                     <div class="flex items-center gap-3 min-w-0">
-                        <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-xs font-bold" x-text="getStagedDedupeCount() + ' staged'"></span>
+                        <button type="button" @click="toggleStagedDrawer()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer" title="Toggle Staged Actions Drawer">
+                            <span x-text="getStagedDedupeCount() + ' staged'"></span>
+                            <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': dedupeBatch.drawerOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                        </button>
                         <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
                             <input type="checkbox" x-model="dedupeBatch.triggerResync" class="rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0">
                             <span>Queue Resync (--resync)</span>

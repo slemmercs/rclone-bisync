@@ -13,9 +13,9 @@ Resolve 7 user-reported issues: isolate preview/dedupe modal dismissal, clamp Rc
   - **Scope**: `internal/core/client/fs_read.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_preview_test.go`, `internal/core/client/fs_read_test.go`
   - **Verification**: `go test -count=1 ./internal/core/client/... ./internal/services/... -run "Test.*Preview.*|Test.*Cat.*"`
 
-- [ ] Task 3: Staged Actions Review Drawer & Live Batch Progress (`dashboard/frontend/`)
-  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/dedupe_batch.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
+- [x] Task 3: Staged Actions Review Drawer & Live Batch Progress (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/partials/modals/modal_dedupe_drawer.html`, `dashboard/frontend/js/dedupe_batch.js`
+  - **Verification**: `./scripts/check.sh templates`
 
 - [ ] Task 4: Granular Audit Taxonomy & Per-File Logging in Log Dock (`internal/audit/`, `internal/services/`, `dashboard/frontend/`)
   - **Scope**: `internal/audit/taxonomy.go`, `internal/services/dedupe_service.go`, `internal/services/dedupe_service_test.go`, `dashboard/frontend/partials/components/ui_components.html`
@@ -30,6 +30,7 @@ Resolve 7 user-reported issues: isolate preview/dedupe modal dismissal, clamp Rc
 - 2026-11-15: Initialized plan for deduplication & preview UX hardening, audit granularity, and correlated log visibility.
 - 2026-11-15: Completed Task 1 - Modal Stacking, Z-Index & Dismissal Isolation. Elevated `modal_confirm.html` to `z-[70]` and `modal_file_preview.html` to `z-[60]`, guarded ESC and click-away handlers in `modal_dedupe.html` so child prompt and preview dismissals do not close the parent Deduplication Workspace, and stopped ESC event bubbling in preview modal. Verified with templates check and LOC verification.
 - 2026-11-15: Completed Task 2 - Rclone 2MB RC Ceiling Hard-Clamping & Preview Resilience. Clamped `maxLimit` and `count` to `RcloneGetFileMaxBytes` (2MB) in `CatStream`, resolved the `MaxTextPreviewSize + 1` overflow that caused HTTP 500 errors against Rclone RC, integrated `DownloadStream` image preview with fallback to clamped `CatFile`, and expanded `isLimitExceededError` detection with clean truncated preview guidance. Verified with client and service test suites.
+- 2026-11-15: Completed Task 3 - Staged Actions Review Drawer & Live Batch Progress. Built `modal_dedupe_drawer.html` partial with animated slide-up review list, action badges (delete/rename/keep), candidate unstage buttons, and animated live batch progress indicator; updated `dedupe_batch.js` with drawer state toggle, staged counts, and progress tracking; preserved strict <400 LOC modularity. Verified with templates check and server tests.
 
 
 
