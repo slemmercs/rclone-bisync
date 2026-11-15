@@ -134,9 +134,24 @@ The application compiles into a self-contained single binary with no external ru
 git clone https://github.com/csaba/rclone-bisync.git
 cd rclone-bisync
 
-# Run the installer
+# Run the installer (uses existing Rclone on PATH)
 sudo bash deploy/install.sh
+
+# Or install Rclone automatically if not already present
+sudo bash deploy/install.sh --install-rclone
 ```
+
+### Installer Options
+
+| Flag | Description | Default |
+| :--- | :--- | :--- |
+| `-i, --install-rclone` | Install official Rclone binary if missing | `false` |
+| `-n, --dry-run` | Validate pre-flight checks without modifying system | `false` |
+| `-d, --target-dir <path>` | Custom destination directory | `$HOME/rclone-bisync` |
+| `--port <port>` | Cockpit web dashboard HTTP port | `8080` |
+| `--skip-services` | Compile and stage without starting systemd units | `false` |
+| `-y, --non-interactive` | Unattended execution | `false` |
+| `-h, --help` | Display installer CLI usage | |
 
 Launch the cockpit web interface:
 
