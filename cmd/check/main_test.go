@@ -135,6 +135,16 @@ func TestCheckLOC(t *testing.T) {
 	if err := checkLOC(tmpDir, 10, false); err != nil {
 		t.Fatalf("expected _test.go files to be ignored, got: %v", err)
 	}
+
+	// 4. Non-Go files (e.g. JS, HTML, Vue) should be ignored by checkLOC
+	longJSFile := filepath.Join(tmpDir, "bundle.js")
+	if err := os.WriteFile(longJSFile, []byte(longContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := checkLOC(tmpDir, 10, false); err != nil {
+		t.Fatalf("expected non-Go files to be ignored by checkLOC, got: %v", err)
+	}
 }
 
 func TestCheckFmtAndScripts(t *testing.T) {
@@ -177,6 +187,8 @@ func TestShouldSkip(t *testing.T) {
 		{"site/index.html", true},
 		{"_site/assets/style.css", true},
 		{".build/bin", true},
+		{"dist/app.css", true},
+		{"dashboard/frontend/dist/index.html", true},
 		{"internal/services/service.go", false},
 		{"dashboard/frontend/app.js", false},
 	}

@@ -12,7 +12,7 @@ Modernize Bisync Hub's engineering governance and architectural rules by droppin
   - **Scope**: `.clinerules`
   - **Verification**: `grep -E "Zero Runtime Dependencies|Cohesive Components|Component Encapsulation" .clinerules`
 
-- [ ] Task 2: Update Check Engine (`cmd/check/`) & Verify Check Scripts
+- [x] Task 2: Update Check Engine (`cmd/check/`) & Verify Check Scripts
   - **Scope**: `cmd/check/checks.go`, `cmd/check/main_test.go`
   - **Verification**: `go test -count=1 ./cmd/check/... && ./scripts/check.sh loc`
 
@@ -28,6 +28,7 @@ Modernize Bisync Hub's engineering governance and architectural rules by droppin
 
 - 2026-11-15: Initialized plan for Frontend Architecture & Governance Modernization from implementation_plan.md.
 - 2026-11-15: Completed Task 1 - Update `.clinerules` with Modernized Governance. Added Scope Separation to Section 1.7 distinguishing Go service limits from frontend cohesive components, updated Section 2.1 with Zero Runtime Dependencies and single binary invariants, modernized Section 2.4 to mandate Component Encapsulation and typed contracts, and updated Review and Audit checklists. Verified with grep filter.
+- 2026-11-15: Completed Task 2 - Update Check Engine (`cmd/check/`) & Verify Check Scripts. Added `dist` to `skipDirs`, focused `checkLOC` exclusively on Go source files (excluding `_test.go`), expanded unit tests in `cmd/check/main_test.go` to test non-Go exclusion and `dist` directory skipping, and verified with `go test -count=1 ./cmd/check/...` and `./scripts/check.sh loc`.
 
 
 
