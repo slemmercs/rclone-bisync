@@ -11,10 +11,11 @@ const (
 	ActionReviewDismissed  Action = "REVIEW_SESSION_DISMISSED"
 
 	// Sync Operations
-	ActionSyncExecuted     Action = "SYNC_EXECUTED"
-	ActionSyncAborted      Action = "SYNC_ABORTED"
-	ActionRollbackExecuted Action = "ROLLBACK_EXECUTED"
-	ActionDedupeExecuted   Action = "DEDUPE_EXECUTED"
+	ActionSyncExecuted        Action = "SYNC_EXECUTED"
+	ActionSyncAborted         Action = "SYNC_ABORTED"
+	ActionRollbackExecuted    Action = "ROLLBACK_EXECUTED"
+	ActionDedupeExecuted      Action = "DEDUPE_EXECUTED"
+	ActionDedupeBatchExecuted Action = "DEDUPE_BATCH_EXECUTED"
 
 	// Configuration & Remote Auth Lifecycle
 	ActionConfigUpdated     Action = "CONFIG_UPDATED"

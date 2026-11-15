@@ -1,42 +1,53 @@
-# Task Plan: Deep Path Navigation & Pinned Log Audit Dock
+# Task Plan: Google Drive Deduplication Fixes, In-App Modals & Streaming Resilience
 
 ## Goal
-Implement deep path navigation from log entries into the Dual-Pane File Explorer with synchronized navigation, highlighted target rows, and a persistent IDE-style collapsible bottom dock for rapid batch inspection.
+Fix live Google Drive deduplication failures: resolve the path-truncation batch rename failure, prevent erroneous `--resync` triggers when dedupe batches fail, surface granular failure reasons, replace native browser `prompt()` with in-app dark-themed dialogs, fix blank dedupe directory explorer caused by Alpine `:key` collisions, lift streaming size caps (>2MB) on previews and downloads, and cache scan results across modal operations.
 
 ## Tasks
 
-- [x] Task 1: Contextual Tokenizer Core (`utils.js`)
-  - **Scope**: `dashboard/frontend/js/utils.js`
-  - **Verification**: `go test -count=1 -v ./tests/e2e -run TestDashboard_Smoke`
+- [x] Task 1: Dedupe Batch Engine Path Concatenation, Resync Safety & Detailed Error Reporting (`internal/services/`)
+  - **Scope**: `internal/services/dedupe_service.go`, `internal/services/dedupe_service_test.go`
+  - **Verification**: `go test -count=1 ./internal/services/... -run "Test.*DedupeBatch.*"`
 
-- [x] Task 2: Concurrency & Async Navigation Engine (`profiles.js` & `logs.js`)
-  - **Scope**: `dashboard/frontend/js/profiles.js`, `dashboard/frontend/js/logs.js`
-  - **Verification**: `go test -count=1 -v ./tests/e2e -run TestDashboard_Smoke`
+- [x] Task 2: Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/js/dedupe_batch.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [x] Task 3: Visual Row Highlighting & Explorer Row Data Binding (`review_actions.js` & `view_explorer.html`)
-  - **Scope**: `dashboard/frontend/js/review_actions.js`, `dashboard/frontend/partials/view_explorer.html`
-  - **Verification**: `./scripts/check.sh templates`
+- [x] Task 3: Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/dedupe_workspace.js`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [x] Task 4: Pinned Log Audit Dock Engine (`log_dock.js` & `component_log_dock.html`)
-  - **Scope**: `dashboard/frontend/js/log_dock.js`, `dashboard/frontend/partials/components/component_log_dock.html`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+- [x] Task 4: Large File (>2MB) Preview & Download Support with Rclone RC-Serve / MaxSize (`internal/core/client/`, `internal/services/`, `deploy/`)
+  - **Scope**: `internal/core/client/fs_read.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_download.go`, `internal/services/explorer_preview_test.go`, `deploy/systemd/rclone-daemon.service`
+  - **Verification**: `go test -count=1 ./internal/services/... -run "Test.*Preview.*|Test.*Download.*"`
 
-- [x] Task 5: Ledger & Daemon Modal Integration (`pattern_timeline_ledger.html` & `modal_daemon.html`)
-  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, `dashboard/frontend/partials/modals/modal_daemon.html`
-  - **Verification**: `./scripts/check.sh templates`
-
-- [x] Task 6: Roadmap Documentation, E2E Headless Smoke Tests & Pre-Commit Quality Gate
-  - **Scope**: `docs/roadmap/backlog.md`, `docs/roadmap/ROADMAP.md`, `tests/e2e/dashboard_smoke_test.go`
+- [x] Task 5: Dedupe Scan Session Caching & Full Quality Pre-Flight (`dashboard/frontend/`, `scripts/`)
+  - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/js/dedupe_explorer.js`, full quality checks
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-11: Initialized task plan from implementation_plan.md.
-- 2026-11-11: Completed Task 1 - Implemented contextual path tokenizer `extractPathFromLogMsg` and integrated with `parseJsonLogLine` in `dashboard/frontend/js/utils.js`. Verified with LOC gate (<400 LOC) and E2E headless smoke tests.
-- 2026-11-11: Completed Task 2 - Implemented async `selectProfile` with `overrideDir` bypass in `dashboard/frontend/js/profiles.js` and dual-pane `jumpToExplorerPath` & `scrollToHighlightedRow` in `dashboard/frontend/js/logs.js`. Verified with LOC gate and E2E smoke tests.
-- 2026-11-11: Completed Task 3 - Bound `:data-item-name="item.Name"` attributes to explorer left and right pane rows, updated `getItemReviewRowClass` with pulse animation, and added `@keyframes rowPulse` to `design-tokens.css`. Verified with template validator, LOC gate, and E2E smoke tests.
-- 2026-11-11: Completed Task 4 - Created `dashboard/frontend/js/log_dock.js` and `component_log_dock.html`, registered in `index.html` and `app.js`, added dock button to `component_explorer_toolbar.html`, and embedded in `view_explorer.html`. Verified with template validator, LOC gate, and E2E smoke tests.
-- 2026-11-11: Completed Task 5 - Integrated interactive path chips and `jumpToExplorerPath` deep navigation triggers into `pattern_timeline_ledger.html` and `modal_daemon.html` across single and clustered log rows. Verified with template validator, LOC gate, and E2E smoke tests.
-- 2026-11-11: Completed Task 6 - Added headless Chrome E2E test `DeepPathNavigationAndLogDock` verifying contextual path tokenization, log dock toggle/filtering/stepping, and row pulse highlights. Updated `backlog.md` and `ROADMAP.md` for `v1.0.0-beta.32` delivery. Passed all 7 pre-commit quality gate stages (`./scripts/check.sh all`).
+- 2026-11-15: Initialized plan for Google Drive dedupe fixes, in-app modals, and streaming resilience.
+- 2026-11-15: Completed Task 1 - Dedupe Batch Engine Path Concatenation, Resync Safety & Detailed Error Reporting. Resolved `req.Path` subdirectory path concatenation for batch actions, prevented erroneous `--resync` triggers when 0 actions succeed, populated concrete error details in `resp.Error`, and recorded audit logging for both successful and failed dedupe batches. Verified with unit tests.
+- 2026-11-15: Completed Task 2 - Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics. Replaced browser native `prompt()` with dark-themed in-app input dialog via `askPrompt` in `modal_confirm.html`, surfaced granular per-action errors in toasts and dedupe execution console output. Verified with templates check and headless Chrome E2E smoke tests.
+- 2026-11-15: Completed Task 3 - Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions. Implemented composite row keys (`getDedupeExplorerRowKey`) preventing duplicate DOM key collision on Google Drive duplicates, added `DUPLICATE` badges, candidate staged status badges, and inline Keep/Rename/Delete/Preview actions for direct folder browsing resolution. Verified with templates check, headless Chrome E2E smoke tests, and LOC audit.
+- 2026-11-15: Completed Task 4 - Large File (>2MB) Preview & Download Support with Rclone RC-Serve / MaxSize. Forwarded explicit `maxSize` to `/operations/getfile` instead of Rclone's default 2MB limit, added `DownloadStream` supporting direct streaming via `--rc-serve` with fallback to `CatStream(maxSize)`, gracefully handled preview limit exceeded errors returning `Truncated: true` with direct download guidance, and added `--rc-serve` to systemd service unit. Verified with targeted client/service tests, full test suite pass, and LOC audit.
+- 2026-11-15: Completed Task 5 - Dedupe Scan Session Caching & Full Quality Pre-Flight. Implemented persistent `sessionStorage` scan result caching with TTL and force-refresh controls in dedupe workspace, modularized dedupe explorer logic into `dedupe_explorer.js` and `modal_dedupe_explorer.html` maintaining strict <400 LOC limits, and passed all 7 stages of `./scripts/check.sh all` plus headless Chrome E2E smoke tests.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

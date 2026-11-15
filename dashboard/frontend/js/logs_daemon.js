@@ -48,6 +48,43 @@ window.LogsDaemonModule = {
         }
         return { total: logs.length, errors, warnings, info };
     },
+    get daemonModalRunFlags() {
+        const run = this.daemonModalRun;
+        const details = run?.details || {};
+        let resync = !!(run?.resync || details.resync);
+        let dryRun = !!(run?.dry_run || run?.dryRun || details.dry_run || details.dryRun);
+        let force = !!(run?.force || details.force);
+
+        const runMsg = (run?.msg || "").toLowerCase();
+        const runAction = (run?.action || "").toLowerCase();
+        if (!resync && (runMsg.includes("resync started") || runAction === "resync")) resync = true;
+        if (!dryRun && (runMsg.includes("dry run started") || runAction === "dry run")) dryRun = true;
+
+        if (Array.isArray(run?.sub_entries)) {
+            for (const sub of run.sub_entries) {
+                const subDetails = sub.details || {};
+                if (!resync && (sub.resync || subDetails.resync)) resync = true;
+                if (!dryRun && (sub.dry_run || sub.dryRun || subDetails.dry_run || subDetails.dryRun)) dryRun = true;
+                if (!force && (sub.force || subDetails.force)) force = true;
+                const subMsg = (sub.msg || "").toLowerCase();
+                if (!resync && subMsg.includes("resync started")) resync = true;
+                if (!dryRun && subMsg.includes("dry run started")) dryRun = true;
+            }
+        }
+
+        const logs = this.daemonModalLogs || [];
+        const scanLimit = Math.min(logs.length, 30);
+        for (let i = 0; i < scanLimit; i++) {
+            if (resync && dryRun && force) break;
+            const text = (logs[i].msg || "").toLowerCase();
+            if (!resync && (text.includes("--resync") || text.includes("resync started"))) resync = true;
+            if (!dryRun && (text.includes("--dry-run") || text.includes("dry run started"))) dryRun = true;
+            if (!force && text.includes("--force")) force = true;
+        }
+
+        return { resync, dryRun, force };
+    },
+
 
     async fetchDaemonLogs(entry = null) {
         this.daemonModalLoading = true;

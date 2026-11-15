@@ -42,8 +42,12 @@ func (c *RcloneClient) StatItem(ctx context.Context, remote, path string) (map[s
 	return res.Item, nil
 }
 
+// RcloneGetFileMaxBytes defines the hardcoded ceiling in Rclone's /operations/getfile RC endpoint (2,097,152 bytes = 2MB).
+const RcloneGetFileMaxBytes int64 = 2 * 1024 * 1024
+
 // CatStream opens a streaming reader using /operations/getfile with base64 decoding for inspecting or downloading remote files.
-func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offset, count int64) (io.ReadCloser, int64, error) {
+// An optional maxSize parameter specifies the limit, strictly clamped to Rclone's built-in 2MB limit on /operations/getfile.
+func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offset, count int64, maxSize ...int64) (io.ReadCloser, int64, error) {
 	fs := NormalizeFs(remote)
 	cleanPath := strings.Trim(path, "/")
 
@@ -56,7 +60,23 @@ func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offse
 		payload["offset"] = offset
 	}
 	if count > 0 {
-		payload["count"] = count
+		if count > RcloneGetFileMaxBytes {
+			payload["count"] = RcloneGetFileMaxBytes
+		} else {
+			payload["count"] = count
+		}
+	}
+	var maxLimit int64
+	if len(maxSize) > 0 && maxSize[0] > 0 {
+		maxLimit = maxSize[0]
+	} else if count > 0 {
+		maxLimit = count
+	}
+	if maxLimit > RcloneGetFileMaxBytes {
+		maxLimit = RcloneGetFileMaxBytes
+	}
+	if maxLimit > 0 {
+		payload["maxSize"] = maxLimit
 	}
 
 	resp, body, err := c.post(ctx, "operations/getfile", payload, 30*time.Second)
@@ -83,8 +103,8 @@ func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offse
 }
 
 // CatFile calls CatStream and reads up to count bytes directly into a byte buffer.
-func (c *RcloneClient) CatFile(ctx context.Context, remote, path string, offset, count int64) ([]byte, error) {
-	stream, _, err := c.CatStream(ctx, remote, path, offset, count)
+func (c *RcloneClient) CatFile(ctx context.Context, remote, path string, offset, count int64, maxSize ...int64) ([]byte, error) {
+	stream, _, err := c.CatStream(ctx, remote, path, offset, count, maxSize...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,4 +114,40 @@ func (c *RcloneClient) CatFile(ctx context.Context, remote, path string, offset,
 		return io.ReadAll(io.LimitReader(stream, count))
 	}
 	return io.ReadAll(stream)
+}
+
+// DownloadStream opens a streaming reader for a file. If direct HTTP download via --rc-serve is available,
+// it streams directly from Rclone's HTTP endpoint; otherwise it falls back to CatStream with explicit maxSize.
+func (c *RcloneClient) DownloadStream(ctx context.Context, remote, path string, size int64) (io.ReadCloser, int64, error) {
+	fs := NormalizeFs(remote)
+	cleanPath := strings.Trim(path, "/")
+
+	// Attempt direct streaming if RC server serves files via --rc-serve
+	if c.APIURL != "" {
+		serveURL := fmt.Sprintf("%s/[%s]/%s", c.APIURL, fs, cleanPath)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, serveURL, nil)
+		if err == nil {
+			if c.Username != "" || c.Password != "" {
+				req.SetBasicAuth(c.Username, c.Password)
+			}
+			tr := http.DefaultTransport
+			if c.HTTPClient != nil && c.HTTPClient.Transport != nil {
+				tr = c.HTTPClient.Transport
+			}
+			streamClient := &http.Client{
+				Transport: tr,
+				Timeout:   0,
+			}
+			resp, err := streamClient.Do(req)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				return resp.Body, resp.ContentLength, nil
+			}
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+		}
+	}
+
+	// Fallback to /operations/getfile with explicit maxSize
+	return c.CatStream(ctx, remote, path, 0, 0, size)
 }

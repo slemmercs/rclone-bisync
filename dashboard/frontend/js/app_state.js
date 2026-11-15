@@ -55,6 +55,10 @@ window.AppStateModule = {
         confirmClass: "bg-indigo-600 hover:bg-indigo-500",
         icon: "warning",
         transfer: null,
+        showInput: false,
+        inputLabel: "",
+        inputValue: "",
+        inputPlaceholder: "",
         onConfirm: null
     },
 
@@ -65,22 +69,62 @@ window.AppStateModule = {
         this.confirmModal.confirmClass = confirmClass;
         this.confirmModal.icon = icon;
         this.confirmModal.transfer = transfer;
+        this.confirmModal.showInput = false;
+        this.confirmModal.inputLabel = "";
+        this.confirmModal.inputValue = "";
+        this.confirmModal.inputPlaceholder = "";
         this.confirmModal.onConfirm = onConfirm;
         this.confirmModal.show = true;
     },
 
+    askPrompt({ title, message, inputLabel = "Filename", inputValue = "", inputPlaceholder = "", confirmText = "Save", confirmClass = "bg-amber-600 hover:bg-amber-500", icon = "warning", onConfirm }) {
+        this.confirmModal.title = title;
+        this.confirmModal.message = message;
+        this.confirmModal.confirmText = confirmText;
+        this.confirmModal.confirmClass = confirmClass;
+        this.confirmModal.icon = icon;
+        this.confirmModal.transfer = null;
+        this.confirmModal.showInput = true;
+        this.confirmModal.inputLabel = inputLabel;
+        this.confirmModal.inputValue = inputValue;
+        this.confirmModal.inputPlaceholder = inputPlaceholder;
+        this.confirmModal.onConfirm = onConfirm;
+        this.confirmModal.show = true;
+        if (typeof this.$nextTick === "function") {
+            this.$nextTick(() => {
+                const input = document.getElementById("confirmModalInput");
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            });
+        }
+    },
+
     handleConfirmModal() {
+        this.confirmModal.closedAt = Date.now();
         const fn = this.confirmModal.onConfirm;
+        const inputVal = this.confirmModal.inputValue;
+        const hadInput = this.confirmModal.showInput;
         this.confirmModal.show = false;
+        this.confirmModal.showInput = false;
+        this.confirmModal.inputValue = "";
         this.confirmModal.onConfirm = null;
         this.confirmModal.transfer = null;
         if (typeof fn === "function") {
-            fn();
+            if (hadInput) {
+                fn(inputVal);
+            } else {
+                fn();
+            }
         }
     },
 
     cancelConfirmModal() {
+        this.confirmModal.closedAt = Date.now();
         this.confirmModal.show = false;
+        this.confirmModal.showInput = false;
+        this.confirmModal.inputValue = "";
         this.confirmModal.onConfirm = null;
         this.confirmModal.transfer = null;
     },

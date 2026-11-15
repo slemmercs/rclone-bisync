@@ -1,48 +1,56 @@
-# Task Plan: Architecture Modularization & Unified Log Ledger Run-Level Consolidation
+# Task Plan: Deduplication & Preview UX Hardening, Audit Granularity & Correlated Log Visibility
 
 ## Goal
-Decompose 10 priority files approaching the 400 LOC ceiling across backend and frontend into focused single-responsibility modules, while consolidating Unified Log Ledger entries so sync runs display as a single unified action row with interactive deep-linking badges.
+Resolve 7 user-reported issues: isolate preview/dedupe modal dismissal, clamp Rclone `operations/getfile` maxSize to 2MB with graceful preview fallbacks, elevate rename prompt z-index above dedupe workspace, add staged actions review drawer and batch progress indicator, record granular per-file deletion logs and `DEDUPE_BATCH_EXECUTED` audit events, and show `--resync` badges in correlated daemon logs.
 
 ## Tasks
 
-- [x] Task 1: Backend Go Models & Profile Store Decomposition (`internal/models/`, `internal/profiles/`)
-  - **Scope**: `internal/models/api_explorer.go`, `internal/models/api_diagnostics.go`, `internal/models/api_logs.go`, `internal/models/api.go`, `internal/profiles/store_history.go`, `internal/profiles/store.go`
-  - **Verification**: `go test -count=1 ./internal/models/... && go test -count=1 ./internal/profiles/...`
+- [x] Task 1: Modal Stacking, Z-Index & Dismissal Isolation (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/partials/modals/modal_file_preview.html`, `dashboard/frontend/partials/modals/modal_dedupe.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [x] Task 2: Backend Handlers, Config, Services & MCP Tools Decomposition (`internal/server/`, `internal/config/`, `internal/services/`, `internal/mcp/`)
-  - **Scope**: `internal/server/handlers_dedupe.go`, `internal/server/handlers_auth.go`, `internal/config/env.go`, `internal/config/config.go`, `internal/services/explorer_download.go`, `internal/services/mime_types.go`, `internal/services/explorer_preview.go`, `internal/mcp/tools_review.go`, `internal/mcp/tools_dedupe.go`, `internal/mcp/tools_write.go`
-  - **Verification**: `go test -count=1 ./internal/server/... && go test -count=1 ./internal/config/... && go test -count=1 ./internal/services/... && go test -count=1 ./internal/mcp/...`
+- [x] Task 2: Rclone 2MB RC Ceiling Hard-Clamping & Preview Resilience (`internal/core/client/`, `internal/services/`)
+  - **Scope**: `internal/core/client/fs_read.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_preview_test.go`, `internal/core/client/fs_read_test.go`
+  - **Verification**: `go test -count=1 ./internal/core/client/... ./internal/services/... -run "Test.*Preview.*|Test.*Cat.*"`
 
-- [x] Task 3: Backend Logging Consolidation & Run Action Metadata (`internal/engine/runner/`, `internal/core/client/`)
-  - **Scope**: `internal/engine/runner/runner.go`, `internal/engine/runner/runner_audit.go`, `internal/engine/runner/runner_handlers.go`, `internal/models/api.go`, `internal/core/client/monitor.go`
-  - **Verification**: `go test -count=1 ./internal/engine/runner/...`
+- [x] Task 3: Staged Actions Review Drawer & Live Batch Progress (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/partials/modals/modal_dedupe_drawer.html`, `dashboard/frontend/js/dedupe_batch.js`
+  - **Verification**: `./scripts/check.sh templates`
 
-- [x] Task 4: Frontend Utility & Parser Modularization (`dashboard/frontend/js/`)
-  - **Scope**: `dashboard/frontend/js/dedupe_parser.js`, `dashboard/frontend/js/utils.js`, `dashboard/frontend/index.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+- [x] Task 4: Granular Audit Taxonomy & Per-File Logging in Log Dock (`internal/audit/`, `internal/services/`, `dashboard/frontend/`)
+  - **Scope**: `internal/audit/taxonomy.go`, `internal/services/dedupe_service.go`, `internal/services/dedupe_service_test.go`, `dashboard/frontend/partials/components/ui_components.html`
+  - **Verification**: `go test -count=1 ./internal/services/... -run "Test.*Dedupe.*"`
 
-- [x] Task 5: Frontend Action Consolidation & Log Clustering (`dashboard/frontend/js/`)
-  - **Scope**: `dashboard/frontend/js/logs_clustering.js`, `dashboard/frontend/js/logs_daemon.js`, `dashboard/frontend/js/logs.js`, `dashboard/frontend/index.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
+- [x] Task 5: Correlated Daemon Log Badges (`RESYNC`, `DRY RUN`, `FORCE`) & Full Quality Gate
+  - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`, `dashboard/frontend/js/logs_daemon.js`, `./scripts/check.sh all`
+  - **Verification**: `./scripts/check.sh all`
 
-- [x] Task 6: Frontend Explorer & App State Modularization (`dashboard/frontend/js/`)
-  - **Scope**: `dashboard/frontend/js/explorer_preview.js`, `dashboard/frontend/js/explorer_actions.js`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/app.js`, `dashboard/frontend/index.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
-
-- [x] Task 7: Interactive Ledger Badges & Full Pre-Commit Gate (`pattern_timeline_ledger.html`, Repository-Wide)
-  - **Scope**: `dashboard/frontend/partials/patterns/pattern_timeline_ledger.html`, full test & check suite
-  - **Verification**: `./scripts/check.sh all && ./scripts/check.sh loc 400`
+- [x] Task 6: Rename Confirmation Isolation & Modal Cooldown Protection (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/js/app_state.js`, `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/partials/modals/modal_dedupe_explorer.html`
+  - **Verification**: `./scripts/check.sh templates && go test -count=1 ./tests/e2e/...`
 
 ## Status Updates
 
-- 2026-11-14: Initialized task plan based on approved implementation plan.
-- 2026-11-14: Completed Task 1 - Decomposed `internal/models/api.go` (from 396 to 174 LOC) into `api_explorer.go`, `api_diagnostics.go`, `api_logs.go`, and decomposed `internal/profiles/store.go` (from 395 to 320 LOC) by extracting `store_history.go`. Verified with unit tests.
-- 2026-11-14: Completed Task 2 - Decomposed `internal/server/handlers_auth.go` (366 to 200 LOC) by extracting `handlers_dedupe.go`, `internal/config/config.go` (378 to 266 LOC) by extracting `env.go`, `internal/services/explorer_preview.go` (377 to 217 LOC) by extracting `explorer_download.go` and `mime_types.go`, and `internal/mcp/tools_write.go` (386 to 130 LOC) by extracting `tools_review.go` and `tools_dedupe.go`. Verified with unit tests across all four packages.
-- 2026-11-14: Completed Task 3 - Enhanced sync run logging with run-level action metadata (`Action: "SYNC_EXECUTED"`, `Action: "SYNC_STARTED"`, `Action: "SYNC_FAILED"`, `Action: "SYNC_ABORTED"`), and linked audit milestone metadata (`SeqID`, `Actor`) directly into `BisyncLogEntry`. Verified with `go test -count=1 ./internal/engine/runner/...`.
-- 2026-11-14: Completed Task 4 - Extracted `dashboard/frontend/js/dedupe_parser.js` (69 LOC) to slim `dashboard/frontend/js/utils.js` from 391 to 350 LOC, unpacked nested audit telemetry details into top-level properties in `parseJsonLogLine`, registered the new module in `index.html`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e smoke tests.
-- 2026-11-14: Completed Task 5 - Extracted `dashboard/frontend/js/logs_clustering.js` (223 LOC) and `dashboard/frontend/js/logs_daemon.js` (123 LOC), slimming `dashboard/frontend/js/logs.js` from 397 to 244 LOC. Implemented run-level event consolidation `consolidateRunEntries` merging multiple run lifecycle traces into single actionable run rows with child auditability. Registered both modules in `index.html` and `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
-- 2026-11-14: Completed Task 6 - Extracted `dashboard/frontend/js/explorer_preview.js` (117 LOC) slimming `explorer_actions.js` from 394 to 309 LOC, and extracted `dashboard/frontend/js/app_state.js` (205 LOC) slimming `app.js` from 392 to 202 LOC. Registered both modules in `index.html` and `composeDashboard` in `app.js`. Verified with `./scripts/check.sh templates && ./scripts/check.sh loc 400` and e2e tests.
-- 2026-11-14: Completed Task 7 - Wired interactive deep-linking ledger badges (`SYNC_EXECUTED` / `seq_id` to audit block drawer, `run_id` to daemon log modal, profile badge to instant filter) in `pattern_timeline_ledger.html`. Implemented async request sequence guards in `explorer.js` eliminating network race conditions. Formatted Go files with `gofmt -s -w`. Passed all 7 pre-commit quality gate stages (`./scripts/check.sh all`) and LOC ceiling check (`./scripts/check.sh loc 400`).
+- 2026-11-15: Initialized plan for deduplication & preview UX hardening, audit granularity, and correlated log visibility.
+- 2026-11-15: Completed Task 1 - Modal Stacking, Z-Index & Dismissal Isolation. Elevated `modal_confirm.html` to `z-[70]` and `modal_file_preview.html` to `z-[60]`, guarded ESC and click-away handlers in `modal_dedupe.html` so child prompt and preview dismissals do not close the parent Deduplication Workspace, and stopped ESC event bubbling in preview modal. Verified with templates check and LOC verification.
+- 2026-11-15: Completed Task 2 - Rclone 2MB RC Ceiling Hard-Clamping & Preview Resilience. Clamped `maxLimit` and `count` to `RcloneGetFileMaxBytes` (2MB) in `CatStream`, resolved the `MaxTextPreviewSize + 1` overflow that caused HTTP 500 errors against Rclone RC, integrated `DownloadStream` image preview with fallback to clamped `CatFile`, and expanded `isLimitExceededError` detection with clean truncated preview guidance. Verified with client and service test suites.
+- 2026-11-15: Completed Task 3 - Staged Actions Review Drawer & Live Batch Progress. Built `modal_dedupe_drawer.html` partial with animated slide-up review list, action badges (delete/rename/keep), candidate unstage buttons, and animated live batch progress indicator; updated `dedupe_batch.js` with drawer state toggle, staged counts, and progress tracking; preserved strict <400 LOC modularity. Verified with templates check and server tests.
+- 2026-11-15: Completed Task 4 - Granular Audit Taxonomy & Per-File Logging in Log Dock. Added `ActionDedupeBatchExecuted` in `internal/audit/taxonomy.go`, emitted per-file deletion and rename `BisyncLogEntry` events during batch execution so individual files show in the Log Dock and correlated logs, rendered dedicated `DEDUPE_BATCH_EXECUTED` summary card in `ui_components.html`, added filter option in `view_audit.html`, and verified with end-to-end audit ledger and log streaming tests.
+- 2026-11-15: Completed Task 5 - Correlated Daemon Log Badges (`RESYNC`, `DRY RUN`, `FORCE`) & Full Quality Gate. Added reactive `daemonModalRunFlags` getter in `logs_daemon.js` inspecting execution metadata and daemon log output, styled `RESYNC`, `DRY RUN`, and `FORCE` badges in `modal_daemon.html`, formatted Go test suites, and verified with all 7 checks of `./scripts/check.sh all` and headless Chrome E2E tests passing.
+- 2026-11-15: Completed Task 6 - Rename Confirmation Isolation & Modal Cooldown Protection. Recorded `confirmModal.closedAt = Date.now()` in `handleConfirmModal()` prior to resetting modal state, prevented Enter keydown propagation on prompt input with `.prevent.stop`, stopped mousedown/mouseup bubbling on prompt modal card and action buttons, added `.stop` to candidate dedupe buttons in both Candidates view and Directory Explorer view, and widened cooldown threshold to 400ms. Verified with `./scripts/check.sh all` and headless Chrome E2E tests.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

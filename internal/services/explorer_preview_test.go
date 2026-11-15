@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -255,5 +256,227 @@ func TestIsBinaryData(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("isBinaryData(%q, %v) = %v; want %v", tt.mime, tt.data, got, tt.expected)
 		}
+	}
+}
+
+func TestExplorerPreview_RemoteLimitExceeded(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/operations/stat":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"item": {
+					"Path": "oversized.txt",
+					"Name": "oversized.txt",
+					"Size": 10485760,
+					"MimeType": "text/plain",
+					"IsDir": false
+				}
+			}`))
+		case "/operations/getfile":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"maxSize cannot exceed built-in maximum of 2097152 bytes"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	prev, err := svc.PreviewItem(context.Background(), "remote:", "oversized.txt")
+	if err != nil {
+		t.Fatalf("expected graceful truncation, got error: %v", err)
+	}
+	if !prev.Truncated {
+		t.Errorf("expected Truncated=true, got false")
+	}
+	if !strings.Contains(prev.Error, "preview limit") {
+		t.Errorf("expected preview limit error notice, got: %q", prev.Error)
+	}
+}
+
+func TestExplorerPreview_DuplicateCollisionFallback(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/operations/stat":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"item": {
+					"Path": "folder/duplicate.txt",
+					"Name": "duplicate.txt",
+					"Size": 1024,
+					"MimeType": "text/plain",
+					"IsDir": false
+				}
+			}`))
+		case "/operations/getfile":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"failed to getfile: found more than one file with the same name","status":500}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	resp, err := svc.PreviewItem(context.Background(), "gdrive:", "folder/duplicate.txt")
+	if err != nil {
+		t.Fatalf("expected nil error for duplicate preview fallback, got %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected non-nil response")
+	}
+	if !resp.IsDuplicateCollision {
+		t.Errorf("expected IsDuplicateCollision to be true, got false")
+	}
+	if !strings.Contains(resp.Error, "Deduplication Workspace") {
+		t.Errorf("expected guidance in error, got: %q", resp.Error)
+	}
+}
+
+func TestExplorerPreview_StatDuplicateCollision(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"operations/stat failed: duplicate object found","status":500}`))
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	resp, err := svc.PreviewItem(context.Background(), "gdrive:", "duplicate.txt")
+	if err != nil {
+		t.Fatalf("expected nil error for duplicate preview stat fallback, got %v", err)
+	}
+	if resp == nil || !resp.IsDuplicateCollision {
+		t.Fatalf("expected IsDuplicateCollision response, got %+v", resp)
+	}
+}
+
+func TestExplorerDownload_DuplicateCollisionReturnsError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/operations/stat":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"item": {
+					"Path": "file.txt",
+					"Name": "file.txt",
+					"Size": 500,
+					"IsDir": false
+				}
+			}`))
+		case "/operations/getfile":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"duplicate object found in remote directory","status":500}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	stream, _, _, err := svc.DownloadStream(context.Background(), "gdrive:", "file.txt")
+	if stream != nil {
+		stream.Close()
+	}
+	if err == nil {
+		t.Fatal("expected error on duplicate download, got nil")
+	}
+	if !isDuplicateError(err) {
+		t.Errorf("expected duplicate error, got: %v", err)
+	}
+}
+
+func TestExplorerPreview_LimitExceededFallback(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/operations/stat":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"item": {
+					"Path": "huge_file.txt",
+					"Name": "huge_file.txt",
+					"Size": 104857600,
+					"MimeType": "text/plain",
+					"IsDir": false
+				}
+			}`))
+		case "/operations/getfile":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"file exceeds maximum limit: 2097152 bytes","status":500}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	resp, err := svc.PreviewItem(context.Background(), "myremote:", "huge_file.txt")
+	if err != nil {
+		t.Fatalf("expected nil error for limit exceeded preview, got %v", err)
+	}
+	if resp == nil || !resp.Truncated || !strings.Contains(resp.Error, "exceeds maximum preview limit") {
+		t.Errorf("expected truncated preview response with download guidance, got %+v", resp)
+	}
+}
+
+func TestExplorerDownload_LargeFileMaxSize(t *testing.T) {
+	var capturedMaxSize float64
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/operations/stat":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"item": {
+					"Path": "video.mp4",
+					"Name": "video.mp4",
+					"Size": 52428800,
+					"IsDir": false
+				}
+			}`))
+		case "/operations/getfile":
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if m, ok := body["maxSize"].(float64); ok {
+				capturedMaxSize = m
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"result":"dmlkZW8="}`)) // "video"
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	stream, name, size, err := svc.DownloadStream(context.Background(), "myremote:", "video.mp4")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer stream.Close()
+
+	if name != "video.mp4" || size != 52428800 {
+		t.Errorf("expected name video.mp4, size 52428800; got name %s, size %d", name, size)
+	}
+	if capturedMaxSize != float64(client.RcloneGetFileMaxBytes) {
+		t.Errorf("expected captured maxSize clamped to %d; got %v", client.RcloneGetFileMaxBytes, capturedMaxSize)
 	}
 }

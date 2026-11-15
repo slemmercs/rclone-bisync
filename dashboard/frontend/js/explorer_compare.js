@@ -23,13 +23,26 @@ window.ExplorerCompareModule = {
         return path;
     },
 
+    getItemKey(item, paneKey) {
+        if (!item) return "";
+        const pane = this.explorer && this.explorer[paneKey];
+        const remote = pane ? (pane.target || (paneKey === "left" ? "local" : "")) : "";
+        const path = this.getItemRelativePath(item, paneKey);
+        if (item.ID) return `${remote}::id::${item.ID}`;
+        return `${remote}::${path}::${item.ModTime || ""}::${item.Size != null ? item.Size : 0}::${item.IsDir ? "dir" : "file"}`;
+    },
+
     isItemSelected(item, paneKey) {
         if (!item || item.IsDir || item.Name === "RCLONE_TEST") return false;
         const pane = this.explorer[paneKey];
         if (!pane) return false;
         const remote = pane.target || (paneKey === "left" ? "local" : "");
         const path = this.getItemRelativePath(item, paneKey);
-        return this.compareState.selectedItems.some(i => i.remote === remote && i.path === path);
+        const key = this.getItemKey(item, paneKey);
+        return this.compareState.selectedItems.some(i => {
+            if (i.key && key) return i.key === key;
+            return i.remote === remote && i.path === path;
+        });
     },
 
     toggleSelectItem(item, paneKey) {
@@ -38,11 +51,17 @@ window.ExplorerCompareModule = {
         if (!pane) return;
         const remote = pane.target || (paneKey === "left" ? "local" : "");
         const path = this.getItemRelativePath(item, paneKey);
-        const idx = this.compareState.selectedItems.findIndex(i => i.remote === remote && i.path === path);
+        const key = this.getItemKey(item, paneKey);
+        const idx = this.compareState.selectedItems.findIndex(i => {
+            if (i.key && key) return i.key === key;
+            return i.remote === remote && i.path === path;
+        });
         if (idx >= 0) {
             this.compareState.selectedItems.splice(idx, 1);
         } else {
             this.compareState.selectedItems.push({
+                key,
+                id: item.ID || "",
                 remote,
                 path,
                 name: item.Name,

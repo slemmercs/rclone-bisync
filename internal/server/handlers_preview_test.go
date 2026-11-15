@@ -12,6 +12,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/app"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -169,5 +170,50 @@ func TestHandleDownload_MissingPathAndDirectory(t *testing.T) {
 	s.Mux.ServeHTTP(wDir, reqDir)
 	if wDir.Code != http.StatusBadRequest {
 		t.Errorf("expected status 400 when downloading directory, got %d", wDir.Code)
+	}
+}
+
+func TestHandlePreviewAndDownload_DuplicateConflict(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"failed: found more than one file with the same name","status":500}`))
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	cfg := &config.Config{}
+	svc := services.NewExplorerService(cfg, cl, nil)
+
+	s := &Server{
+		Config:          cfg,
+		ExplorerService: svc,
+		Mux:             http.NewServeMux(),
+	}
+	s.Mux.HandleFunc("GET /api/explorer/preview", s.handleExplorerPreview)
+	s.Mux.HandleFunc("GET /api/explorer/download", s.handleExplorerDownload)
+
+	// 1. Preview for duplicate returns 200 with IsDuplicateCollision flag
+	reqPrev := httptest.NewRequest(http.MethodGet, "/api/explorer/preview?remote=remote:&path=dup.txt", nil)
+	wPrev := httptest.NewRecorder()
+	s.Mux.ServeHTTP(wPrev, reqPrev)
+
+	if wPrev.Code != http.StatusOK {
+		t.Fatalf("expected status 200 with duplicate preview flag, got %d: %s", wPrev.Code, wPrev.Body.String())
+	}
+	var res models.FilePreviewResponse
+	if err := json.Unmarshal(wPrev.Body.Bytes(), &res); err != nil {
+		t.Fatalf("failed to parse json: %v", err)
+	}
+	if !res.IsDuplicateCollision {
+		t.Errorf("expected IsDuplicateCollision true, got %+v", res)
+	}
+
+	// 2. Download for duplicate returns 409 Conflict
+	reqDown := httptest.NewRequest(http.MethodGet, "/api/explorer/download?remote=remote:&path=dup.txt", nil)
+	wDown := httptest.NewRecorder()
+	s.Mux.ServeHTTP(wDown, reqDown)
+
+	if wDown.Code != http.StatusConflict {
+		t.Fatalf("expected status 409 Conflict for duplicate file download, got %d: %s", wDown.Code, wDown.Body.String())
 	}
 }

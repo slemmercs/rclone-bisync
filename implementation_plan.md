@@ -1,87 +1,75 @@
-# Implementation Plan: Emit Synced Files in Log Dock with On-Demand Pagination
-
-## Overview
-Capture, record, and navigate individual file operations transferred during Rclone bisync runs within the Live Sync Log Dock and Unified Timeline Ledger, backed by on-demand log pagination and deep file jumping.
-
-When a sync execution completes (initial resync or scheduled bi-directional run), operators currently see only an aggregate summary (e.g. `Resync succeeded in 2.0s (5 file(s) transferred)`). The specific files transferred are hidden within correlated daemon logs, preventing the Live Sync Log Dock's "File Ops" filter from exposing them and blocking operators from using one-click deep navigation to inspect newly synced files in the dual-pane Directory Explorer.
-
-This implementation captures individual file transfers directly from the Rclone job output or daemon stream at sync completion, records up to 50 individual file operations into `bisync.log` with distinct `Object`, `Action`, and `Type: "sync_file"` metadata, and introduces on-demand pagination controls in the Log Dock to seamlessly load and step through historical pages of log entries without UI degradation or log explosion.
-
----
-
-## Types
-
-### 1. `internal/models/api.go`
-```go
-type SyncFileOp struct {
-Path   string `json:"path"`   // Relative file path (e.g. "subfolder/nested.txt")
-Action string `json:"action"` // Operation type: "COPIED", "REPLACED", "DELETED", "CONFLICT"
-Msg    string `json:"msg"`    // Human-readable message (e.g. "subfolder/nested.txt: Copied (new)")
-}
-
-type BisyncLogEntry struct {
-Time        string  `json:"time"`
-Level       string  `json:"level"`
-Type        string  `json:"type,omitempty"` // "sync", "sync_file", "audit"
-ProfileID   string  `json:"profile_id,omitempty"`
-ProfileName string  `json:"profile_name,omitempty"`
-Msg         string  `json:"msg"`
-RunID       string  `json:"run_id"`
-JobID       int     `json:"job_id,omitempty"`
-Origin      string  `json:"origin,omitempty"`
-Status      string  `json:"status,omitempty"`     // SUCCESS, FAULT, ABORTED
-ErrorType   string  `json:"error_type,omitempty"` // TOO_MANY_DELETES, RATE_LIMIT, etc.
-DurationSec float64 `json:"duration_sec,omitempty"`
-FilesSynced int     `json:"files_synced,omitempty"`
-StartTime   string  `json:"start_time,omitempty"` // RFC3339
-EndTime     string  `json:"end_time,omitempty"`   // RFC3339
-Object      string  `json:"object,omitempty"`     // Relative path for deep navigation
-Action      string  `json:"action,omitempty"`     // Operation action badge
-}
-```
-
-### 2. `internal/core/client/monitor.go`
-```go
-type MonitorJobResult struct {
-Success          bool
-ErrorType        string
-ErrorMessage     string
-FilesSynced      int
-TransferredFiles []models.SyncFileOp
-}
-```
-
----
+# Implementation Plan: Google Drive Deduplication Fixes, In-App Modals & Streaming Resilience
 
 ## Proposed Changes
 
-### Phase 1: Transfer File Parser & Extraction (`internal/models`, `internal/core/client`)
-- Add `SyncFileOp` to `internal/models/api.go`.
-- Implement `ExtractTransferredFiles(outputStr string, maxEntries int) []models.SyncFileOp` in `internal/core/client/monitor.go`.
-- Update `MonitorJob` to populate `TransferredFiles` on `MonitorJobResult`.
-- Unit tests in `internal/core/client/monitor_test.go`.
+Deliver complete resolution for live Google Drive deduplication failures: resolve the path-truncation batch rename failure, prevent erroneous `--resync` triggers when dedupe batches fail, surface granular failure reasons, replace native browser `prompt()` with in-app dark-themed dialogs, fix blank dedupe directory explorer caused by Alpine `:key` collisions, lift streaming size caps (>2MB) on previews and downloads, and cache scan results across modal operations.
 
-### Phase 2: Ingestion & 50-Item Capping in Runner (`internal/engine/runner`)
-- In `handleSyncSuccess` in `internal/engine/runner/runner_handlers.go`, emit up to 50 individual `sync_file` records to `bisync.log`.
-- Emit overflow notification if files exceed 50.
-- Fallback to reading `rclone-daemon.log` if job output buffer was omitted.
-- Unit tests in `internal/engine/runner/runner_test.go`.
+### 1. Dedupe Batch Engine Path Concatenation, Resync Safety & Error Reporting
+- In `internal/services/dedupe_service.go`:
+  - Combine target directory `req.Path` with candidate `action.Path` when not already prefixed:
+    ```go
+    cleanPath := strings.Trim(strings.TrimSpace(action.Path), "/")
+    reqPath := strings.Trim(strings.TrimSpace(req.Path), "/")
+    if reqPath != "" && !strings.HasPrefix(cleanPath, reqPath+"/") && cleanPath != reqPath {
+        cleanPath = fmt.Sprintf("%s/%s", reqPath, cleanPath)
+    }
+    ```
+  - Derive `dstPath` relative to the resolved directory:
+    ```go
+    dstDir := filepath.Dir(cleanPath)
+    dstPath := newName
+    if dstDir != "." && dstDir != "" {
+        dstPath = fmt.Sprintf("%s/%s", strings.Trim(dstDir, "/"), newName)
+    }
+    ```
+  - Guard resync execution: only trigger `TriggerSyncWithOptions` if `req.TriggerResync && resp.SuccessCount > 0`.
+  - Provide concrete error messages: if all actions fail, populate `resp.Error` with `resp.Errors[0]` instead of generic `"All staged dedupe actions failed"`.
+  - Record dedupe attempt in audit ledger (`DEDUPE_EXECUTED`) even on partial failure or failure with complete diagnostic metadata.
 
-### Phase 3: Log Dock Template & Pagination Controls (`component_log_dock.html`)
-- Add pagination buttons (`[ < Page X of Y > ]`), entry counter, and badge styling in Log Dock.
-- Validate template with `./scripts/check.sh templates`.
+### 2. Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics
+- In `dashboard/frontend/partials/modals/modal_confirm.html`:
+  - Add conditional text input field (`confirmModal.showInput`) with label, placeholder, and two-way binding (`confirmModal.inputValue`).
+  - Style with Tailwind dark theme (Slate-950 input, Amber border focus, Enter to submit, Escape to dismiss).
+- In `dashboard/frontend/js/app_state.js`:
+  - Implement `askPrompt({ title, message, inputLabel, inputValue, placeholder, confirmText, confirmClass, onConfirm })`.
+- In `dashboard/frontend/js/dedupe_batch.js`:
+  - Replace `prompt(...)` with `this.askPrompt(...)`.
+  - Surface granular errors from `data.errors` in UI toasts and append error traces into `this.dedupeModal.output`.
 
-### Phase 4: Frontend Log Dock Engine & Stepping (`log_dock.js`, `logs.js`)
-- Add `loadDockNextPage()` / `loadDockPrevPage()` in `dashboard/frontend/js/log_dock.js`.
-- Include `type === "sync_file"` in `isFileOperationLog`.
-- Verify LOC under 400 with `./scripts/check.sh loc 400`.
+### 3. Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions
+- In `dashboard/frontend/partials/modals/modal_dedupe.html`:
+  - Replace `:key="item.Path || item.Name"` in the directory explorer loop with `:key="getDedupeExplorerItemRowKey(item, idx)"` to prevent DOM key collisions on duplicate files.
+  - Add amber `DUPLICATE` badges and inline quick actions (**Keep**, **Rename**, **Delete**, **Preview**) on colliding rows.
+- In `dashboard/frontend/js/dedupe_workspace.js`:
+  - Implement `getDedupeExplorerItemRowKey(item, idx)`.
+  - Add dedupe directory inline action handlers.
 
-### Phase 5: Verification & End-to-End Tests (`dashboard_smoke_test.go`)
-- Validate Log Dock pagination, sync file item jumping, and full test suite (`./scripts/check.sh all`).
+### 4. Large File (>2MB) Preview & Download Support
+- In `internal/core/client/fs_read.go`:
+  - Forward explicit `maxSize` to `/operations/getfile` instead of defaulting to Rclone's 2MB limit.
+- In `internal/services/explorer_preview.go`:
+  - Forward `MaxImagePreviewSize` as `maxSize` for images.
+  - Catch `"exceeds maximum limit"` gracefully and return HTTP 200 with `Truncated: true` and direct download guidance.
+- In `internal/services/explorer_download.go`:
+  - Pass file size as `maxSize` to `CatStream` and support direct streaming when `--rc-serve` is enabled.
+- In `deploy/systemd/rclone-daemon.service`:
+  - Add `--rc-serve` flag to daemon command.
 
----
+### 5. Dedupe Scan Session Caching & Quality Pre-Flight
+- In `dashboard/frontend/js/dedupe_workspace.js`:
+  - Cache scan results in `this._dedupeCache` by `${remote}:${path}` with a 15-minute TTL.
+- Validate through `./scripts/check.sh all` and `./scripts/check-loc.sh 400`.
 
-## Safety & Error Handling
-- **Cap Protection**: Strict capping at 50 file entries per sync run protects against log file explosion.
-- **Fail-Safe Fallback**: If output parsing fails, summary logging remains intact and job execution is unaffected.
-- **Confinement & Jail**: All deep navigation paths remain verified within profile boundaries.
+## Verification Plan
+
+- Unit Tests:
+  - `go test -count=1 ./internal/services/... -run "Test.*DedupeBatch.*|Test.*Preview.*|Test.*Download.*"`
+  - `go test -count=1 ./internal/server/...`
+- E2E and Quality gates:
+  - `./scripts/check.sh templates`
+  - `./scripts/check-loc.sh 400`
+  - `./scripts/check.sh all`
+
+
+
+

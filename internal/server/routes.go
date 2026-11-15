@@ -26,6 +26,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("GET /api/remotes/auth", s.handleRemotesAuth)
 	s.Mux.HandleFunc("POST /api/remotes/auth/check", s.handleRemotesAuthCheck)
 	s.Mux.HandleFunc("POST /api/remotes/dedupe", s.handleRemoteDedupe)
+	s.Mux.HandleFunc("POST /api/remotes/dedupe/batch", s.handleRemoteDedupeBatch)
 	s.Mux.HandleFunc("GET /api/remotes/auth/audit", s.handleRemotesAuthAudit)
 	s.Mux.HandleFunc("POST /api/remotes/auth/oauth-stop", s.handleOAuthStop)
 	s.Mux.HandleFunc("POST /api/remotes/{name}/reconnect", s.handleRemoteReconnect)

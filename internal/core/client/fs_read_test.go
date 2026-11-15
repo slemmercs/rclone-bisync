@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -76,5 +77,94 @@ func TestRcloneClient_CatStreamAndFile(t *testing.T) {
 	}
 	if string(data) != "Hello" {
 		t.Errorf("expected 'Hello', got '%s'", string(data))
+	}
+}
+
+func TestRcloneClient_CatStreamMaxSize(t *testing.T) {
+	var capturedMaxSize float64
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/operations/getfile" {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if m, ok := body["maxSize"].(float64); ok {
+				capturedMaxSize = m
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"result":"ZGF0YQ=="}`)) // "data"
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	cl := NewRcloneClient(ts.URL, "", "")
+
+	// Explicit maxSize clamped to Rclone 2MB built-in limit
+	stream, _, err := cl.CatStream(context.Background(), "remote:", "large.bin", 0, 0, 10*1024*1024)
+	if err != nil {
+		t.Fatalf("CatStream error: %v", err)
+	}
+	_ = stream.Close()
+	if capturedMaxSize != float64(RcloneGetFileMaxBytes) {
+		t.Errorf("expected clamped maxSize %d, got %v", RcloneGetFileMaxBytes, capturedMaxSize)
+	}
+
+	// Inferred from count clamped to Rclone 2MB built-in limit
+	capturedMaxSize = 0
+	stream, _, err = cl.CatStream(context.Background(), "remote:", "large.bin", 0, 5*1024*1024)
+	if err != nil {
+		t.Fatalf("CatStream error: %v", err)
+	}
+	_ = stream.Close()
+	if capturedMaxSize != float64(RcloneGetFileMaxBytes) {
+		t.Errorf("expected clamped maxSize %d from count, got %v", RcloneGetFileMaxBytes, capturedMaxSize)
+	}
+}
+
+func TestRcloneClient_DownloadStream(t *testing.T) {
+	directServeCalled := false
+	getfileCalled := false
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/[myremote:]/served.txt" {
+			directServeCalled = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("direct served stream content"))
+			return
+		}
+		if r.URL.Path == "/operations/getfile" {
+			getfileCalled = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"result":"ZmFsbGJhY2sgY29udGVudA=="}`)) // "fallback content"
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	cl := NewRcloneClient(ts.URL, "", "")
+
+	// 1. Direct serve success
+	stream, _, err := cl.DownloadStream(context.Background(), "myremote:", "served.txt", 1024)
+	if err != nil {
+		t.Fatalf("DownloadStream direct error: %v", err)
+	}
+	body, _ := io.ReadAll(stream)
+	_ = stream.Close()
+	if !directServeCalled || string(body) != "direct served stream content" {
+		t.Errorf("expected direct serve, got %s (called=%v)", string(body), directServeCalled)
+	}
+
+	// 2. Direct serve 404 falls back to getfile
+	streamFallback, _, err := cl.DownloadStream(context.Background(), "myremote:", "other.txt", 1024)
+	if err != nil {
+		t.Fatalf("DownloadStream fallback error: %v", err)
+	}
+	bodyFallback, _ := io.ReadAll(streamFallback)
+	_ = streamFallback.Close()
+	if !getfileCalled || string(bodyFallback) != "fallback content" {
+		t.Errorf("expected getfile fallback, got %s (called=%v)", string(bodyFallback), getfileCalled)
 	}
 }

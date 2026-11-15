@@ -350,5 +350,46 @@ window.ExplorerModule = {
 
         isDeleteModalDeleting() {
             return Boolean(this.deleteModal?.deleting);
+        },
+
+        getItemKey(item, paneKey) {
+            if (!item) return "";
+            const pane = this.explorer && this.explorer[paneKey];
+            const remote = pane ? (pane.target || (paneKey === "left" ? "local" : "")) : "";
+            const relPath = typeof this.getItemRelativePath === "function" ? this.getItemRelativePath(item, paneKey) : (item.Path || item.Name || "");
+            if (item.ID) return `${remote}::id::${item.ID}`;
+            return `${remote}::${relPath}::${item.ModTime || ""}::${item.Size != null ? item.Size : 0}::${item.IsDir ? "dir" : "file"}`;
+        },
+
+        getItemRowKey(item, idx, paneKey) {
+            if (!item) return `row_${idx}`;
+            return `${this.getItemKey(item, paneKey)}_${idx}`;
+        },
+
+        isDuplicateItem(paneKey, item) {
+            if (!item || item.IsDir || item.Name === 'RCLONE_TEST') return false;
+            if (item.CollisionCount > 0 || item.IsDuplicateCollision) return true;
+            const items = this.explorer?.[paneKey]?.items;
+            if (!items || items.length < 2) return false;
+            let count = 0;
+            for (let i = 0; i < items.length; i++) {
+                if (!items[i].IsDir && items[i].Name === item.Name) {
+                    count++;
+                    if (count > 1) return true;
+                }
+            }
+            return false;
+        },
+
+        getDuplicateCount(paneKey, item) {
+            if (!item || item.IsDir) return 0;
+            if (item.CollisionCount > 0) return item.CollisionCount;
+            const items = this.explorer?.[paneKey]?.items;
+            if (!items) return 0;
+            let count = 0;
+            for (let i = 0; i < items.length; i++) {
+                if (!items[i].IsDir && items[i].Name === item.Name) count++;
+            }
+            return count > 1 ? count : 0;
         }
 };

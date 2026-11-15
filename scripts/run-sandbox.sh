@@ -53,8 +53,10 @@ printf "id,name,value\n1,alpha,100\n2,beta,200\n" > "$SANDBOX_DIR/local/data.csv
 echo "Nested file inside subfolder" > "$SANDBOX_DIR/local/subfolder/nested.txt"
 touch "$SANDBOX_DIR/local/RCLONE_TEST"
 
+mkdir -p "$SANDBOX_DIR/remote_storage/duplicates"
 printf "# Remote markdown file\nStored on sandbox remote storage.\n" > "$SANDBOX_DIR/remote_storage/remote_file.md"
 printf '{"archived": true, "version": "1.0"}\n' > "$SANDBOX_DIR/remote_storage/backup_docs/archive_info.json"
+printf "Quarterly Report duplicate test data\n" > "$SANDBOX_DIR/remote_storage/duplicates/report.txt"
 touch "$SANDBOX_DIR/remote_storage/RCLONE_TEST"
 
 # 4. Generate isolated rclone config with alias remote

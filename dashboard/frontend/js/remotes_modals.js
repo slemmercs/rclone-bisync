@@ -1,7 +1,7 @@
 /**
  * Storage Remotes Modals & Wizards Module for Bisync Hub Dashboard
  * Handles Reconnect flow, OAuth stop/cancel, Auth Audit modal,
- * Google Drive OAuth Migration Wizard, and Remote Deduplication modal & execution.
+ * and Google Drive OAuth Migration Wizard.
  */
 
 window.RemotesModalsModule = {
@@ -18,7 +18,6 @@ window.RemotesModalsModule = {
         success: null
     },
     reconnectModal: { show: false, remote: "", loading: false, authUrl: null, msg: null, error: null },
-    dedupeModal: { show: false, remote: "", path: "", mode: "oldest", executing: false, output: "" },
     auditModal: {
         show: false,
         loading: false,
@@ -142,165 +141,5 @@ window.RemotesModalsModule = {
     },
 
     isMigrationLoading() { return Boolean(this.migrationModal?.loading); },
-    cannotSaveMigration() { return Boolean(this.migrationModal?.loading || !this.migrationModal?.clientId?.trim()); },
-    isDedupeExecuting() { return Boolean(this.dedupeModal?.executing); },
-    isDedupeFoldersLoading() { return Boolean(this.dedupeModal?.loadingFolders); },
-
-    openDedupeModal(remoteName) {
-        const clean = (remoteName || "").replace(/:$/, "").trim();
-        const p = (this.explorer?.right?.target === clean) ? (this.explorer?.right?.path || "") : "";
-        const rObj = (this.remotesData?.remotes || []).find(r => (r.name || "").replace(/:$/, "").trim() === clean);
-        const rType = (rObj?.type || "").toLowerCase();
-        const isOnedrive = clean.toLowerCase().includes("onedrive") || rType === "onedrive";
-        const hasPairedProfile = Boolean(this.activeProfile && (
-            (this.activeProfile.remote || "").replace(/:$/, "").trim() === clean ||
-            clean === "local"
-        ));
-        this.dedupeModal = {
-            show: true,
-            remote: clean,
-            path: p,
-            mode: "oldest",
-            byHash: isOnedrive,
-            isOnedrive: isOnedrive,
-            dedupeBoth: hasPairedProfile,
-            folderBrowserOpen: false,
-            folders: [],
-            loadingFolders: false,
-            executing: false,
-            runId: null,
-            output: "",
-            parsedOutput: null,
-            showRawOutput: false
-        };
-    },
-
-    closeDedupeModal() {
-        this.dedupeModal.show = false;
-    },
-
-    async toggleDedupeFolderBrowser() {
-        this.dedupeModal.folderBrowserOpen = !this.dedupeModal.folderBrowserOpen;
-        if (this.dedupeModal.folderBrowserOpen && (!this.dedupeModal.folders || this.dedupeModal.folders.length === 0)) {
-            await this.loadDedupeFolders(this.dedupeModal.path || "");
-        }
-    },
-
-    async loadDedupeFolders(folderPath) {
-        this.dedupeModal.loadingFolders = true;
-        try {
-            const profileId = this.activeProfile ? this.activeProfile.id : "";
-            const cleanPath = (folderPath || "").replace(/^\/+|\/+$/g, "");
-            const res = await window.API.post("/api/browse", {
-                remote: this.dedupeModal.remote,
-                path: cleanPath,
-                profile_id: profileId
-            });
-            if (res && res.items) {
-                this.dedupeModal.folders = res.items.filter(item => item.IsDir);
-            } else {
-                this.dedupeModal.folders = [];
-            }
-        } catch (err) {
-            console.error("Failed to load dedupe folders:", err);
-            this.dedupeModal.folders = [];
-        } finally {
-            this.dedupeModal.loadingFolders = false;
-        }
-    },
-
-    selectDedupeFolder(folderName) {
-        let current = (this.dedupeModal.path || "").trim().replace(/^\/+|\/+$/g, "");
-        if (!folderName) {
-            this.dedupeModal.path = "";
-        } else if (!current) {
-            this.dedupeModal.path = folderName;
-        } else {
-            this.dedupeModal.path = `${current}/${folderName}`;
-        }
-        this.loadDedupeFolders(this.dedupeModal.path);
-    },
-
-    navigateDedupeParent() {
-        let current = (this.dedupeModal.path || "").trim().replace(/^\/+|\/+$/g, "");
-        if (!current) return;
-        const parts = current.split("/");
-        parts.pop();
-        this.dedupeModal.path = parts.join("/");
-        this.loadDedupeFolders(this.dedupeModal.path);
-    },
-
-    jumpToExplorerFile(filePath, remote) {
-        if (!filePath) return;
-        this.closeDedupeModal();
-        if (typeof this.switchTab === "function") this.switchTab("explorer");
-        const clean = (remote || "").replace(/:$/, "").trim();
-        const parts = filePath.replace(/^\/+/, "").split("/");
-        parts.pop();
-        const dirPath = parts.join("/");
-
-        let paneKey = "right";
-        if (clean === "local" || (this.explorer?.left?.target || "").replace(/:$/, "").trim() === clean) {
-            paneKey = "left";
-        }
-        if (this.explorer && this.explorer[paneKey]) {
-            this.explorer[paneKey].path = dirPath;
-            if (typeof this.fetchDirectory === "function") {
-                this.fetchDirectory(paneKey);
-            }
-        }
-        if (typeof this.showToast === "function") {
-            this.showToast(`Navigated to folder in ${paneKey === "left" ? "Left" : "Right"} Pane`, "info");
-        }
-    },
-
-    viewDedupeLogs() {
-        const runId = this.dedupeModal?.runId;
-        if (!runId) return;
-        const meta = { run_id: runId, remote: this.dedupeModal.remote, path: this.dedupeModal.path, type: "dedupe" };
-        this.closeDedupeModal();
-        if (typeof this.openDaemonModal === "function") this.openDaemonModal(meta);
-    },
-
-    async runDedupe(isDryRun = false) {
-        if (this.dedupeModal.executing) return;
-        const mode = isDryRun ? "list" : this.dedupeModal.mode;
-        const byHash = Boolean(this.dedupeModal.byHash);
-        const dedupeBoth = Boolean(this.dedupeModal.dedupeBoth);
-        const desc = byHash ? "checksum hash (--by-hash)" : "same-folder duplicate names";
-        const scopeDesc = dedupeBoth ? " (paired passes: remote + local)" : "";
-        this.dedupeModal.executing = true;
-        this.dedupeModal.runId = null;
-        this.dedupeModal.parsedOutput = null;
-        this.dedupeModal.output = (isDryRun ? "Scanning duplicates on " : "Executing deduplication on ") + `${this.dedupeModal.remote}:${this.dedupeModal.path || '/'}${scopeDesc} via ${desc} (mode=${mode})...\n`;
-
-        try {
-            const payload = {
-                remote: this.dedupeModal.remote,
-                path: this.dedupeModal.path,
-                mode,
-                by_hash: byHash,
-                dedupe_both: dedupeBoth,
-                profile_id: this.activeProfile ? this.activeProfile.id : ""
-            };
-            const data = await window.API.post("/api/remotes/dedupe", payload);
-            if (data.status === "error") {
-                this.dedupeModal.output += `\nError: ${data.error || 'Deduplication failed'}`;
-                this.dedupeModal.parsedOutput = parseDedupeOutput(this.dedupeModal.output);
-                this.showToast(`Dedupe failed: ${data.error || 'Unknown error'}`, "error");
-            } else {
-                this.dedupeModal.runId = data.run_id || null;
-                this.dedupeModal.output = data.output || "No duplicates found. All files are unique.";
-                this.dedupeModal.parsedOutput = parseDedupeOutput(this.dedupeModal.output);
-                this.showToast(isDryRun ? "Duplicate scan complete (preview only)" : "Deduplication complete!", "success");
-                if (!isDryRun && typeof this.fetchRemotes === "function") this.fetchRemotes(true);
-            }
-        } catch (err) {
-            this.dedupeModal.output += `\nRequest failed: ${err.message}`;
-            this.dedupeModal.parsedOutput = parseDedupeOutput(this.dedupeModal.output);
-            this.showToast(`Request failed: ${err.message}`, "error");
-        } finally {
-            this.dedupeModal.executing = false;
-        }
-    }
+    cannotSaveMigration() { return Boolean(this.migrationModal?.loading || !this.migrationModal?.clientId?.trim()); }
 };

@@ -157,6 +157,82 @@ func TestExplorerService_BrowsePath(t *testing.T) {
 	if len(resRemote.Items) != 1 {
 		t.Fatalf("expected 1 remote item, got: %d", len(resRemote.Items))
 	}
+
+	// 7. Local browsing with trailing whitespace preserved
+	whitespaceDir := filepath.Join(tmpDir, "MOHU Szemétszállítás ")
+	_ = os.MkdirAll(whitespaceDir, 0755)
+	_ = os.WriteFile(filepath.Join(whitespaceDir, "szamla.pdf"), []byte("data"), 0644)
+	resWhitespace := expSvc.BrowsePath(context.Background(), "local", "MOHU Szemétszállítás ")
+	if resWhitespace.Error != "" {
+		t.Fatalf("unexpected error browsing directory with trailing whitespace: %s", resWhitespace.Error)
+	}
+	if len(resWhitespace.Items) != 1 {
+		t.Fatalf("expected 1 item inside trailing-whitespace directory, got: %d", len(resWhitespace.Items))
+	}
+
+	// 8. Local browsing auto-recovery (trimmed query resolves to folder with trailing space)
+	resRecoveredLocal := expSvc.BrowsePath(context.Background(), "local", "MOHU Szemétszállítás")
+	if resRecoveredLocal.Error != "" {
+		t.Fatalf("expected auto-recovery for trailing-whitespace directory on local: %s", resRecoveredLocal.Error)
+	}
+	if len(resRecoveredLocal.Items) != 1 {
+		t.Fatalf("expected 1 item inside auto-recovered directory, got: %d", len(resRecoveredLocal.Items))
+	}
+
+	// 9. Remote browsing auto-recovery & shortcut tagging
+	mockAutoRec := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		bodyStr := string(body)
+		if strings.Contains(bodyStr, `"remote":"folder_shortcut"`) || strings.Contains(bodyStr, `"remote":"docs_trimmed"`) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"directory not found"}`))
+			return
+		}
+		if strings.Contains(bodyStr, `"remote":""`) {
+			// Parent listing returning a shortcut item and trailing-whitespace folder
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"list":[
+				{"Path":"folder_shortcut","Name":"folder_shortcut","Size":-1,"IsDir":true,"MimeType":"application/vnd.google-apps.shortcut","ID":"123\t456"},
+				{"Path":"docs_trimmed ","Name":"docs_trimmed ","Size":-1,"IsDir":true,"MimeType":"inode/directory"}
+			]}`))
+			return
+		}
+		if strings.Contains(bodyStr, `"remote":"docs_trimmed "`) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"list":[{"Path":"docs_trimmed /file.pdf","Name":"file.pdf","Size":500,"IsDir":false}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"list":[]}`))
+	}))
+	defer mockAutoRec.Close()
+
+	rcClientRec := client.NewRcloneClient(mockAutoRec.URL, "user", "pass")
+	expWithRec := NewExplorerService(cfg, rcClientRec, nil)
+
+	// Browse parent to check shortcut tagging
+	resParent := expWithRec.BrowsePath(context.Background(), "gdrive", "")
+	if resParent.Error != "" {
+		t.Fatalf("unexpected parent browse error: %s", resParent.Error)
+	}
+	if len(resParent.Items) != 2 {
+		t.Fatalf("expected 2 items, got: %d", len(resParent.Items))
+	}
+	if isSc, ok := resParent.Items[0]["IsShortcut"].(bool); !ok || !isSc {
+		t.Fatal("expected item 0 to be tagged with IsShortcut: true")
+	}
+
+	// Query trimmed name, verify auto-recovery transparently resolves to "docs_trimmed "
+	resAutoRec := expWithRec.BrowsePath(context.Background(), "gdrive", "docs_trimmed")
+	if resAutoRec.Error != "" {
+		t.Fatalf("expected transparent auto-recovery, got error: %s", resAutoRec.Error)
+	}
+	if resAutoRec.Path != "docs_trimmed " {
+		t.Fatalf("expected recovered path 'docs_trimmed ', got: %s", resAutoRec.Path)
+	}
+	if len(resAutoRec.Items) != 1 {
+		t.Fatalf("expected 1 item in recovered directory, got: %d", len(resAutoRec.Items))
+	}
 }
 func TestExplorerService_CopyItem(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "copy-test-*")

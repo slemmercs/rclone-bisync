@@ -52,6 +52,9 @@ func (e *ExplorerService) DownloadStream(ctx context.Context, remote, path strin
 
 	item, err := e.Client.StatItem(ctx, remoteClean, cleanPath)
 	if err != nil {
+		if isDuplicateError(err) {
+			return nil, "", 0, fmt.Errorf("duplicate files found on remote: %w", err)
+		}
 		return nil, "", 0, fmt.Errorf("failed to stat remote item: %w", err)
 	}
 
@@ -69,8 +72,16 @@ func (e *ExplorerService) DownloadStream(ctx context.Context, remote, path strin
 		name = filepath.Base(cleanPath)
 	}
 
-	stream, _, err := e.Client.CatStream(ctx, remoteClean, cleanPath, 0, 0)
+	downloadMaxSize := size
+	if downloadMaxSize <= 0 {
+		downloadMaxSize = 10 * 1024 * 1024 * 1024 // 10 GB fallback ceiling
+	}
+
+	stream, _, err := e.Client.DownloadStream(ctx, remoteClean, cleanPath, downloadMaxSize)
 	if err != nil {
+		if isDuplicateError(err) {
+			return nil, "", 0, fmt.Errorf("duplicate files found on remote: %w", err)
+		}
 		return nil, "", 0, fmt.Errorf("failed to open remote stream: %w", err)
 	}
 

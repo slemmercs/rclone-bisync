@@ -34,7 +34,10 @@ func NewExplorerService(cfg *config.Config, rcClient *client.RcloneClient, canar
 
 // BrowsePath lists directory items and verifies canary presence, enforcing path jails for local FS.
 func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, localBase ...string) client.DirectoryListing {
-	cleanPath := strings.Trim(strings.TrimSpace(path), "/")
+	cleanPath := strings.Trim(path, "/")
+	if strings.TrimSpace(cleanPath) == "" {
+		cleanPath = ""
+	}
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
@@ -67,6 +70,34 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 		}
 
 		fi, err := os.Stat(targetDir)
+		if os.IsNotExist(err) && cleanPath != "" {
+			// Auto-recovery: check if parent directory has a matching folder (e.g. with trailing whitespace)
+			parentRel := filepath.Dir(cleanPath)
+			if parentRel == "." {
+				parentRel = ""
+			}
+			_, parentAbs, parentOk := isLocalPathJailed(rawBase, parentRel)
+			if parentOk {
+				if parentEntries, pErr := os.ReadDir(parentAbs); pErr == nil {
+					targetBaseName := filepath.Base(cleanPath)
+					trimmedTarget := strings.TrimSpace(targetBaseName)
+					for _, pe := range parentEntries {
+						if pe.IsDir() && (strings.TrimSpace(pe.Name()) == trimmedTarget || strings.EqualFold(strings.TrimSpace(pe.Name()), trimmedTarget)) {
+							if parentRel != "" {
+								cleanPath = parentRel + "/" + pe.Name()
+							} else {
+								cleanPath = pe.Name()
+							}
+							_, targetDir, ok = isLocalPathJailed(rawBase, cleanPath)
+							if ok {
+								fi, err = os.Stat(targetDir)
+							}
+							break
+						}
+					}
+				}
+			}
+		}
 		if os.IsNotExist(err) {
 			return client.DirectoryListing{
 				Remote: "local",
@@ -119,14 +150,20 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 				mimeType = "inode/directory"
 			}
 
-			items = append(items, map[string]interface{}{
+			isSymlink := (entry.Type() & os.ModeSymlink) != 0
+
+			itemMap := map[string]interface{}{
 				"Path":     itemRelPath,
 				"Name":     entry.Name(),
 				"Size":     size,
 				"MimeType": mimeType,
 				"ModTime":  info.ModTime().UTC().Format(time.RFC3339),
 				"IsDir":    isDir,
-			})
+			}
+			if isSymlink {
+				itemMap["IsShortcut"] = true
+			}
+			items = append(items, itemMap)
 
 			if entry.Name() == "RCLONE_TEST" {
 				hasCanary = true
@@ -164,6 +201,53 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 		}
 	}
 	listing := e.Client.ListDirectory(ctx, remoteClean, cleanPath)
+	if listing.Error != "" && cleanPath != "" && strings.Contains(strings.ToLower(listing.Error), "not found") {
+		// Attempt transparent auto-resolution by inspecting the parent directory
+		parentPath := ""
+		targetName := cleanPath
+		if lastSlash := strings.LastIndex(cleanPath, "/"); lastSlash != -1 {
+			parentPath = cleanPath[:lastSlash]
+			targetName = cleanPath[lastSlash+1:]
+		}
+
+		parentListing := e.Client.ListDirectory(ctx, remoteClean, parentPath)
+		if parentListing.Error == "" && len(parentListing.Items) > 0 {
+			var matchedItem map[string]interface{}
+			trimmedTarget := strings.TrimSpace(targetName)
+			for _, item := range parentListing.Items {
+				isDir, _ := item["IsDir"].(bool)
+				mime, _ := item["MimeType"].(string)
+				id, _ := item["ID"].(string)
+				isShortcut := mime == "application/vnd.google-apps.shortcut" || strings.Contains(id, "\t")
+				if !isDir && !isShortcut {
+					continue
+				}
+				name, _ := item["Name"].(string)
+				if name == targetName || strings.TrimSpace(name) == trimmedTarget || strings.EqualFold(strings.TrimSpace(name), trimmedTarget) {
+					matchedItem = item
+					break
+				}
+			}
+
+			if matchedItem != nil {
+				actualPath, _ := matchedItem["Path"].(string)
+				if actualPath == "" {
+					actualName, _ := matchedItem["Name"].(string)
+					if parentPath != "" {
+						actualPath = parentPath + "/" + actualName
+					} else {
+						actualPath = actualName
+					}
+				}
+				recovered := e.Client.ListDirectory(ctx, remoteClean, actualPath)
+				if recovered.Error == "" {
+					recovered.Path = actualPath
+					listing = recovered
+				}
+			}
+		}
+	}
+
 	if len(listing.Items) > 0 {
 		filtered := make([]map[string]interface{}, 0, len(listing.Items))
 		for _, item := range listing.Items {
@@ -171,6 +255,11 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 			pathStr, _ := item["Path"].(string)
 			if name == ".review_backups" || strings.HasPrefix(pathStr, ".review_backups") {
 				continue
+			}
+			mime, _ := item["MimeType"].(string)
+			id, _ := item["ID"].(string)
+			if mime == "application/vnd.google-apps.shortcut" || strings.Contains(id, "\t") {
+				item["IsShortcut"] = true
 			}
 			filtered = append(filtered, item)
 		}

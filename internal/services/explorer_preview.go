@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
@@ -136,6 +137,15 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 
 	item, err := e.Client.StatItem(ctx, remote, cleanPath)
 	if err != nil {
+		if isDuplicateError(err) {
+			return &models.FilePreviewResponse{
+				Remote:               remote,
+				Path:                 cleanPath,
+				Name:                 filepath.Base(cleanPath),
+				IsDuplicateCollision: true,
+				Error:                "Multiple duplicate files exist with this name on remote storage. File preview is ambiguous until duplicates are resolved via the Deduplication Workspace.",
+			}, nil
+		}
 		return nil, fmt.Errorf("failed to stat remote item: %w", err)
 	}
 
@@ -178,21 +188,55 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 			resp.Error = "image exceeds maximum preview size of 5MB"
 			return resp, nil
 		}
-		imgData, err := e.Client.CatFile(ctx, remote, cleanPath, 0, MaxImagePreviewSize)
+		// Attempt direct streaming first (supports >2MB if --rc-serve is active)
+		stream, _, streamErr := e.Client.DownloadStream(ctx, remote, cleanPath, MaxImagePreviewSize)
+		if streamErr == nil && stream != nil {
+			defer stream.Close()
+			imgData, readErr := io.ReadAll(io.LimitReader(stream, MaxImagePreviewSize))
+			if readErr == nil && len(imgData) > 0 {
+				resp.DataURL = fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(imgData))
+				return resp, nil
+			}
+		}
+		// Fallback to CatFile clamped to Rclone's 2MB built-in ceiling
+		imgData, err := e.Client.CatFile(ctx, remote, cleanPath, 0, client.RcloneGetFileMaxBytes, client.RcloneGetFileMaxBytes)
 		if err != nil {
+			if isDuplicateError(err) {
+				resp.IsDuplicateCollision = true
+				resp.Error = "Multiple duplicate files exist with this name on remote storage. Preview stream is ambiguous until duplicates are resolved via the Deduplication Workspace."
+				return resp, nil
+			}
+			if isLimitExceededError(err) {
+				resp.Truncated = true
+				resp.Error = "Image exceeds Rclone 2MB preview ceiling; download the file to view full resolution."
+				return resp, nil
+			}
 			return nil, fmt.Errorf("failed to read remote image: %w", err)
 		}
 		resp.DataURL = fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(imgData))
 		return resp, nil
 	}
 
-	readCount := int64(MaxTextPreviewSize + 1)
+	readCount := int64(MaxTextPreviewSize)
 	if size > 0 && size < readCount {
 		readCount = size
 	}
+	if size > MaxTextPreviewSize {
+		resp.Truncated = true
+	}
 
-	buf, err := e.Client.CatFile(ctx, remote, cleanPath, 0, readCount)
+	buf, err := e.Client.CatFile(ctx, remote, cleanPath, 0, readCount, readCount)
 	if err != nil {
+		if isDuplicateError(err) {
+			resp.IsDuplicateCollision = true
+			resp.Error = "Multiple duplicate files exist with this name on remote storage. Preview stream is ambiguous until duplicates are resolved via the Deduplication Workspace."
+			return resp, nil
+		}
+		if isLimitExceededError(err) {
+			resp.Truncated = true
+			resp.Error = "file exceeds maximum preview limit; download the file to inspect full content"
+			return resp, nil
+		}
 		return nil, fmt.Errorf("failed to read remote file: %w", err)
 	}
 
@@ -205,7 +249,7 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 		return resp, nil
 	}
 
-	if int64(len(buf)) > MaxTextPreviewSize {
+	if int64(len(buf)) >= MaxTextPreviewSize && size > MaxTextPreviewSize {
 		resp.Truncated = true
 		resp.Content = string(buf[:MaxTextPreviewSize])
 	} else {
@@ -213,4 +257,30 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 	}
 
 	return resp, nil
+}
+
+// isDuplicateError detects whether an rclone or filesystem error indicates ambiguous duplicate identical filenames.
+func isDuplicateError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "found more than one file") ||
+		strings.Contains(msg, "duplicate object found") ||
+		strings.Contains(msg, "duplicate file")
+}
+
+// isLimitExceededError detects whether an rclone error indicates the file exceeded the operations/getfile maxSize ceiling.
+func isLimitExceededError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "exceeds maximum limit") ||
+		strings.Contains(msg, "maximum limit exceeded") ||
+		strings.Contains(msg, "limit exceeded") ||
+		strings.Contains(msg, "cannot exceed built-in maximum") ||
+		strings.Contains(msg, "maxsize cannot exceed") ||
+		strings.Contains(msg, "larger than maxsize") ||
+		strings.Contains(msg, "larger than max")
 }

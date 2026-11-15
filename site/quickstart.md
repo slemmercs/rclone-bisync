@@ -16,8 +16,26 @@ Get up and running with Bisync Hub in less than 5 minutes.
 Execute the automated installer to download the latest signed binary and setup basic system integration:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | bash
+# Standard installation (uses existing Rclone installation on system PATH)
+curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | sudo bash
+
+# Or opt-in to automatic Rclone binary installation if not present
+curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | sudo bash -s -- --install-rclone
 ```
+
+### Installer CLI Flags
+
+| Option | Description | Default |
+| :--- | :--- | :--- |
+| `-i, --install-rclone` | Install official Rclone binary if not found in PATH | `false` |
+| `-n, --dry-run` | Simulate installation without modifying system | `false` |
+| `-d, --target-dir <path>` | Installation target directory | `$HOME/rclone-bisync` |
+| `--port <port>` | Dashboard HTTP service port | `8080` |
+| `--skip-services` | Stage files and compile without starting systemd units | `false` |
+| `--min-rclone-version <v>` | Minimum required Rclone semver | |
+| `--max-rclone-version <v>` | Maximum compatible Rclone semver | |
+| `-y, --non-interactive` | Run non-interactively | `false` |
+
 
 ### Manual Binary Download
 Alternatively, download the target binary directly from GitHub Releases:

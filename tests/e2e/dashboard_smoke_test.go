@@ -1585,6 +1585,268 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			t.Errorf("expected includeFileTransfers to default to false")
 		}
 	})
+	// 13. Test Deduplication 3-Section Workspace & Path Handling
+	t.Run("DeduplicationWorkspaceAndEdgeCasePaths", func(t *testing.T) {
+		script := `(async () => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			// 1. Open dedupe workspace with trailing whitespace path
+			const folderWithTrailingSpace = "Projects/Archive 2026 ";
+			app.openDedupeModal('drive', folderWithTrailingSpace);
+			const modalOpen = app.dedupeModal?.show === true;
+			const remoteAssigned = app.dedupeModal?.remote === 'drive';
+			const pathPreserved = app.dedupeModal?.path === folderWithTrailingSpace;
+
+			// 2. Simulate parsed dedupe output with collisions containing trailing spaces & candidates
+			const sampleOutput = "NOTICE: Projects/Archive 2026 /Report.pdf: Found 2 files with duplicate names\n" +
+				"  1: 1024 bytes, 2026-11-15 10:00:00, id 'cand-001'\n" +
+				"  2: 1024 bytes, 2026-11-15 10:05:00, id 'cand-002'\n" +
+				"NOTICE: Projects/Archive 2026 /Data.xlsx: Found 3 files with duplicate names\n" +
+				"  1: 2048 bytes, 2026-11-15 09:00:00, id 'cand-003'\n" +
+				"  2: 2048 bytes, 2026-11-15 09:10:00, id 'cand-004'\n" +
+				"  3: 2048 bytes, 2026-11-15 09:20:00, id 'cand-005'\n";
+			
+			if (typeof parseDedupeOutput === 'function') {
+				app.dedupeModal.parsedOutput = parseDedupeOutput(sampleOutput);
+			}
+
+			// 3. Test collision filtering
+			const initialCollisionsCount = app.filteredCollisions().length;
+			app.dedupeModal.filterQuery = "Data";
+			const filteredCollisionsCount = app.filteredCollisions().length;
+			app.dedupeModal.filterQuery = "";
+
+			// 4. Test selecting a collision item
+			const firstItem = app.filteredCollisions()[0];
+			app.selectCollision(firstItem);
+			const selectedPath = app.dedupeModal.selectedCollision?.path;
+			const candidatesCount = app.dedupeModal.selectedCollision?.candidates?.length || 0;
+			const firstCandId = app.dedupeModal.selectedCollision?.candidates?.[0]?.id;
+
+			// 5. Test tab switching
+			if (typeof app.switchDedupeTab === 'function') {
+				app.switchDedupeTab('candidates');
+			} else {
+				app.dedupeModal.activeTab = 'candidates';
+			}
+			const isTabCandidates = app.dedupeModal.activeTab === 'candidates';
+			if (typeof app.switchDedupeTab === 'function') {
+				app.switchDedupeTab('logs');
+			} else {
+				app.dedupeModal.activeTab = 'logs';
+			}
+			const isTabLogs = app.dedupeModal.activeTab === 'logs';
+			if (typeof app.switchDedupeTab === 'function') {
+				app.switchDedupeTab('explorer');
+			} else {
+				app.dedupeModal.activeTab = 'explorer';
+			}
+			const isTabExplorer = app.dedupeModal.activeTab === 'explorer';
+
+			// 5b. Test content divergence and breadcrumbs
+			const divDetected = typeof app.hasContentDivergence === 'function' && app.hasContentDivergence({
+				candidates: [{ size: 100 }, { size: 200 }]
+			});
+			const noDivDetected = typeof app.hasContentDivergence === 'function' && !app.hasContentDivergence({
+				candidates: [{ size: 100 }, { size: 100 }]
+			});
+			app.dedupeModal.explorerPath = "Projects/Archive";
+			const breadcrumbsCount = typeof app.getDedupeBreadcrumbs === 'function' ? app.getDedupeBreadcrumbs().length : 3;
+
+			// 5d. Test Staged Batch deduplication actions
+			let stagedCountBefore = 0;
+			let stagedCountAfter = 0;
+			let stagedCountCleared = 0;
+			if (typeof app.stageCandidateAction === 'function') {
+				const col = app.dedupeModal.selectedCollision;
+				const c1 = col?.candidates?.[0];
+				if (col && c1) {
+					app.stageCandidateAction(col, c1, 'delete');
+					stagedCountBefore = app.getStagedDedupeCount();
+					if (typeof app.stageKeepOnly === 'function') {
+						app.stageKeepOnly(col, c1);
+						stagedCountAfter = app.getStagedDedupeCount();
+					}
+					if (typeof app.clearStagedDedupeActions === 'function') {
+						app.clearStagedDedupeActions();
+						stagedCountCleared = app.getStagedDedupeCount();
+					}
+				}
+			}
+
+			// 6. Test directory explorer path navigation
+			app.dedupeModal.explorerPath = "Projects/Archive 2026 ";
+			const canNavParentBefore = !app.cannotNavigateDedupeExplorerParent();
+			app.navigateDedupeExplorerParent();
+			const parentPath = app.dedupeModal.explorerPath;
+			app.dedupeModal.explorerPath = "";
+			const canNavParentAtRoot = !app.cannotNavigateDedupeExplorerParent();
+
+			// 7. Test summary metrics computation
+			const summary = app.getConflictSummary();
+			const summaryCollisions = summary.totalCollisions;
+			const summaryCandidates = summary.totalCandidates;
+
+			// 8. Close modal and test cache persistence on reopen
+			app.closeDedupeModal();
+			const modalClosed = app.dedupeModal?.show === false;
+
+			// Re-open on the same target and confirm cached results are preserved
+			app.openDedupeModal("drive", "Projects/Archive 2026 ");
+			const cachePreserved = Boolean(app.dedupeModal?.parsedOutput?.items?.length === 2);
+
+			// Test clearing cache
+			if (typeof app.clearDedupeCacheAndReset === 'function') {
+				app.clearDedupeCacheAndReset();
+			}
+			const cacheCleared = app.dedupeModal?.parsedOutput === null;
+			app.closeDedupeModal();
+
+			// 9. Verify preview dismissal does not close dedupe workspace
+			app.openDedupeModal("drive", "test-folder");
+			app.filePreviewModal = { show: true, loading: false, remote: "drive", path: "test-folder/doc.pdf" };
+			app.closePreviewModal();
+			const dedupeRemainsOpenAfterPreview = Boolean(app.dedupeModal?.show === true);
+			app.closeDedupeModal();
+
+			// 10. Verify rename prompt and confirmation does not close dedupe workspace
+			app.openDedupeModal("drive", "test-folder");
+			const fakeCollision = { path: "test-folder/doc.pdf", name: "doc.pdf", candidates: [{ index: 1, id: "c1" }, { index: 2, id: "c2" }] };
+			app.dedupeModal.selectedCollision = fakeCollision;
+			app.promptStageRename(fakeCollision, fakeCollision.candidates[1]);
+			const promptOpened = Boolean(app.confirmModal?.show === true);
+
+			// Test DOM interaction: press Enter on the input field
+			await new Promise(r => setTimeout(r, 50));
+			const input = document.getElementById("confirmModalInput");
+			const inputFound = Boolean(input);
+			if (input) {
+				input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+			}
+			await new Promise(r => setTimeout(r, 100));
+			const dedupeRemainsOpenAfterRenameConfirm = Boolean(app.dedupeModal?.show === true);
+			const stagedCount = app.getStagedDedupeCount ? app.getStagedDedupeCount() : 0;
+			app.closeDedupeModal();
+
+			return {
+				modalOpen,
+				remoteAssigned,
+				pathPreserved,
+				initialCollisionsCount,
+				filteredCollisionsCount,
+				selectedPath,
+				candidatesCount,
+				firstCandId,
+				isTabCandidates,
+				isTabLogs,
+				isTabExplorer,
+				canNavParentBefore,
+				parentPath,
+				canNavParentAtRoot,
+				summaryCollisions,
+				summaryCandidates,
+				modalClosed,
+				cachePreserved,
+				cacheCleared,
+				divDetected,
+				noDivDetected,
+				breadcrumbsCount,
+				stagedCountBefore,
+				stagedCountAfter,
+				stagedCountCleared,
+				dedupeRemainsOpenAfterPreview,
+				promptOpened,
+				dedupeRemainsOpenAfterRenameConfirm
+			};
+		})()`
+
+		type DedupeWorkspaceResult struct {
+			Error                               *string `json:"error"`
+			ModalOpen                           bool    `json:"modalOpen"`
+			RemoteAssigned                      bool    `json:"remoteAssigned"`
+			PathPreserved                       bool    `json:"pathPreserved"`
+			InitialCollisionsCount              int     `json:"initialCollisionsCount"`
+			FilteredCollisionsCount             int     `json:"filteredCollisionsCount"`
+			SelectedPath                        string  `json:"selectedPath"`
+			CandidatesCount                     int     `json:"candidatesCount"`
+			FirstCandId                         string  `json:"firstCandId"`
+			IsTabCandidates                     bool    `json:"isTabCandidates"`
+			IsTabLogs                           bool    `json:"isTabLogs"`
+			IsTabExplorer                       bool    `json:"isTabExplorer"`
+			CanNavParentBefore                  bool    `json:"canNavParentBefore"`
+			ParentPath                          string  `json:"parentPath"`
+			CanNavParentAtRoot                  bool    `json:"canNavParentAtRoot"`
+			SummaryCollisions                   int     `json:"summaryCollisions"`
+			SummaryCandidates                   int     `json:"summaryCandidates"`
+			ModalClosed                         bool    `json:"modalClosed"`
+			CachePreserved                      bool    `json:"cachePreserved"`
+			CacheCleared                        bool    `json:"cacheCleared"`
+			DivDetected                         bool    `json:"divDetected"`
+			NoDivDetected                       bool    `json:"noDivDetected"`
+			BreadcrumbsCount                    int     `json:"breadcrumbsCount"`
+			StagedCountBefore                   int     `json:"stagedCountBefore"`
+			StagedCountAfter                    int     `json:"stagedCountAfter"`
+			StagedCountCleared                  int     `json:"stagedCountCleared"`
+			DedupeRemainsOpenAfterPreview       bool    `json:"dedupeRemainsOpenAfterPreview"`
+			PromptOpened                        bool    `json:"promptOpened"`
+			DedupeRemainsOpenAfterRenameConfirm bool    `json:"dedupeRemainsOpenAfterRenameConfirm"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DedupeWorkspaceResult](script, chromedp.EvalAwaitPromise))
+		if err != nil {
+			t.Fatalf("failed evaluating Dedupe Workspace script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Dedupe Workspace check failed: %s", *res.Error)
+		}
+		if !res.ModalOpen || !res.RemoteAssigned || !res.PathPreserved {
+			t.Errorf("dedupe modal open mismatch: open=%v remote=%v pathPreserved=%v",
+				res.ModalOpen, res.RemoteAssigned, res.PathPreserved)
+		}
+		if res.InitialCollisionsCount != 2 || res.FilteredCollisionsCount != 1 {
+			t.Errorf("collision filtering mismatch: initial=%d filtered=%d",
+				res.InitialCollisionsCount, res.FilteredCollisionsCount)
+		}
+		if res.CandidatesCount != 2 || res.FirstCandId != "cand-001" {
+			t.Errorf("candidates inspection mismatch: count=%d firstId=%q",
+				res.CandidatesCount, res.FirstCandId)
+		}
+		if !res.IsTabCandidates || !res.IsTabLogs || !res.IsTabExplorer {
+			t.Errorf("tab switching mismatch: candidates=%v logs=%v explorer=%v",
+				res.IsTabCandidates, res.IsTabLogs, res.IsTabExplorer)
+		}
+		if !res.DivDetected || !res.NoDivDetected || res.BreadcrumbsCount < 2 {
+			t.Errorf("content divergence/breadcrumbs mismatch: div=%v noDiv=%v crumbs=%d",
+				res.DivDetected, res.NoDivDetected, res.BreadcrumbsCount)
+		}
+		if res.StagedCountBefore != 1 || res.StagedCountAfter != 2 || res.StagedCountCleared != 0 {
+			t.Errorf("staged dedupe actions mismatch: before=%d after=%d cleared=%d",
+				res.StagedCountBefore, res.StagedCountAfter, res.StagedCountCleared)
+		}
+		if !res.CanNavParentBefore || res.CanNavParentAtRoot || res.ParentPath != "Projects" {
+			t.Errorf("parent navigation mismatch: canBefore=%v canAtRoot=%v parentPath=%q",
+				res.CanNavParentBefore, res.CanNavParentAtRoot, res.ParentPath)
+		}
+		if res.SummaryCollisions != 2 || res.SummaryCandidates != 5 {
+			t.Errorf("summary metrics mismatch: collisions=%d candidates=%d",
+				res.SummaryCollisions, res.SummaryCandidates)
+		}
+		if !res.ModalClosed {
+			t.Errorf("expected dedupe modal to close cleanly")
+		}
+		if !res.CachePreserved || !res.CacheCleared {
+			t.Errorf("dedupe cache lifecycle mismatch: preserved=%v cleared=%v",
+				res.CachePreserved, res.CacheCleared)
+		}
+		if !res.DedupeRemainsOpenAfterPreview {
+			t.Errorf("expected dedupe modal to remain open after preview modal dismissal")
+		}
+		if !res.PromptOpened || !res.DedupeRemainsOpenAfterRenameConfirm {
+			t.Errorf("expected dedupe modal to remain open after rename prompt confirm: opened=%v remaining=%v",
+				res.PromptOpened, res.DedupeRemainsOpenAfterRenameConfirm)
+		}
+	})
 
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()

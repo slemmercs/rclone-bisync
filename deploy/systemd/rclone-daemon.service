@@ -16,6 +16,7 @@ ExecStart=/usr/bin/rclone rcd \
     --rc-addr localhost:${RC_PORT} \
     --rc-user=${RC_USER} \
     --rc-pass=${RC_PASS} \
+    --rc-serve \
     --log-level INFO \
     --log-file %h/rclone-bisync/rclone-daemon.log \
     --log-file-max-size 10M \

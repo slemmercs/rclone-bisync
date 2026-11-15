@@ -1,224 +1,346 @@
 {{ define "modal_dedupe" }}
-<!-- Remote Hash Deduplication Modal -->
-<div x-show="dedupeModal.show" x-cloak @keydown.escape.window="dedupeModal.show = false" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div @click.away="if (!dedupeModal.executing) dedupeModal.show = false" class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
-        <!-- Header -->
-        <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
-            <div class="flex items-center gap-3">
-                <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+<!-- Remote Hash Deduplication Workspace Modal -->
+<div x-show="dedupeModal.show" x-cloak
+     @click.self="if (!dedupeModal.executing && !filePreviewModal.show && !confirmModal.show && Date.now() - (filePreviewModal.closedAt || 0) > 400 && Date.now() - (confirmModal.closedAt || 0) > 400) closeDedupeModal()"
+     @keydown.escape.window="if (dedupeModal.show && !dedupeModal.executing && !filePreviewModal.show && !confirmModal.show && Date.now() - (filePreviewModal.closedAt || 0) > 400 && Date.now() - (confirmModal.closedAt || 0) > 400) closeDedupeModal()"
+     x-transition.opacity.duration.200ms
+     class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+    <div @click.stop @mousedown.stop class="bg-slate-900 border border-slate-800 rounded-2xl max-w-7xl w-full shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+        <!-- Workspace Header -->
+        <div class="px-5 py-3 border-b border-slate-800 flex justify-between items-center bg-slate-950/60 shrink-0">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
                     <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
                 </div>
-                <div>
-                    <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                        <span>Remote Deduplication</span>
-                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-700/60 font-semibold" x-text="dedupeModal.remote + ':'"></span>
-                    </h3>
-                    <div class="text-xs text-slate-400 mt-0.5">Resolve file & directory duplicate collisions using native Rclone dedupe</div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h3 class="text-sm font-bold text-white tracking-wide">Deduplication Workspace</h3>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-700/60 font-semibold" x-text="dedupeModal.remote + ':' + (dedupeModal.path || '')"></span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 truncate">Inspect duplicate files, review collision candidates, and purge redundant copies</div>
                 </div>
             </div>
-            <button @click="if (!dedupeModal.executing) dedupeModal.show = false" class="text-slate-400 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800">
-                <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
+            <div class="flex items-center gap-3">
+                <template x-if="dedupeModal.parsedOutput">
+                    <div class="hidden sm:flex items-center gap-2 text-xs">
+                        <span class="px-2 py-1 rounded bg-slate-800 text-slate-300 font-mono text-[11px]" x-text="'Collisions: ' + (getConflictSummary().totalCollisions)"></span>
+                        <span class="px-2 py-1 rounded bg-rose-950/40 border border-rose-800/40 text-rose-300 font-mono text-[11px]" x-show="getConflictSummary().totalDeleted > 0" x-text="'Deleted: ' + (getConflictSummary().totalDeleted)"></span>
+                    </div>
+                </template>
+                <button type="button" @click.stop="if (!dedupeModal.executing) closeDedupeModal()" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer" title="Close Workspace">
+                    <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
         </div>
 
-        <!-- Body -->
-        <div class="p-5 overflow-y-auto space-y-4 flex-1">
-            <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1">
-                <div class="flex items-center gap-2 text-amber-400 font-semibold">
-                    <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12.01" x2="12.01" y1="16" y2="16"/></svg>
-                    <span>Baseline Protection Safeguard</span>
-                </div>
-                <p class="text-[11px] text-slate-400 leading-relaxed">
-                    Deduplication removes cloud file collisions. Same-Folder mode resolves duplicate filenames in the same directory (safe default). Cross-Folder Hash mode consolidates identical checksums across different subdirectories.
-                </p>
-            </div>
+        <!-- 3-Section Workspace Body -->
+        <div class="flex-1 flex flex-col md:flex-row overflow-hidden divide-y md:divide-y-0 md:divide-x divide-slate-800">
+            <!-- SECTION 1: Settings Rail -->
+            <div class="w-full md:w-80 shrink-0 flex flex-col bg-slate-950/40 p-4 overflow-y-auto space-y-4">
 
-            <!-- Parameters Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div class="space-y-1.5">
-                    <label class="block text-xs font-semibold text-slate-300">Match Mode:</label>
-                    <select :value="dedupeModal.byHash ? 'true' : 'false'" @change="dedupeModal.byHash = ($event.target.value === 'true')" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-medium">
-                        <option value="false">Same-Folder Names (Safe Default)</option>
-                        <option value="true">Cross-Folder Hash (--by-hash)</option>
-                    </select>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="block text-xs font-semibold text-slate-300">Target Folder (Optional):</label>
-                    <div class="flex items-center gap-1.5">
-                        <input type="text" x-model="dedupeModal.path" placeholder="e.g. Photos (empty for root)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono transition-colors">
-                        <button type="button" @click="toggleDedupeFolderBrowser()" class="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium border border-slate-700/60 transition-colors flex items-center gap-1 shrink-0" :class="dedupeModal.folderBrowserOpen ? 'border-amber-500 text-amber-300 bg-amber-950/40' : ''" title="Browse folders on target">
-                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                        </button>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Match Mode</label>
+                        <select :value="dedupeModal.byHash ? 'true' : 'false'" @change="dedupeModal.byHash = ($event.target.value === 'true')" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-medium">
+                            <option value="false">Same-Folder Names (Safe Default)</option>
+                            <option value="true">Cross-Folder Hash (--by-hash)</option>
+                        </select>
+                        <p class="text-[10px] text-slate-400 mt-1">Same-folder resolves duplicate filenames; hash checks checksums.</p>
                     </div>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="block text-xs font-semibold text-slate-300">Resolution Strategy:</label>
-                    <select x-model="dedupeModal.mode" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-medium">
-                        <option value="oldest">Keep Oldest (preserve creation)</option>
-                        <option value="newest">Keep Newest (preserve latest)</option>
-                        <option value="list">Audit / List Only (Safe Preview)</option>
-                    </select>
-                </div>
-            </div>
-            <!-- Interactive Folder Browser Drawer -->
-            <div x-show="dedupeModal.folderBrowserOpen" class="p-3 bg-slate-950/90 border border-slate-800 rounded-xl space-y-2">
-                <div class="flex items-center justify-between gap-2 text-xs border-b border-slate-800/80 pb-2">
-                    <div class="flex items-center gap-1.5 text-slate-400 font-mono text-[11px] min-w-0">
-                        <span class="text-amber-400 font-semibold">Folder:</span>
-                        <span class="truncate text-slate-200" x-text="dedupeModal.path ? '/' + dedupeModal.path : '/ (Root)'"></span>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Resolution Strategy</label>
+                        <select x-model="dedupeModal.mode" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-medium">
+                            <option value="oldest">Keep Oldest (Purge newer duplicates)</option>
+                            <option value="newest">Keep Newest (Purge older duplicates)</option>
+                            <option value="rename">Rename (Keep all, rename with index)</option>
+                            <option value="largest">Keep Largest (Purge smaller files)</option>
+                            <option value="smallest">Keep Smallest (Purge larger files)</option>
+                            <option value="list">List Only (Scan duplicates safely)</option>
+                        </select>
                     </div>
-                    <div class="flex items-center gap-1 shrink-0">
-                        <button x-show="dedupeModal.path" type="button" @click="navigateDedupeParent()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium flex items-center gap-1 transition-colors">
-                            <span>↑ Up</span>
-                        </button>
-                        <button x-show="dedupeModal.path" type="button" @click="selectDedupeFolder('')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] transition-colors">
-                            Root
-                        </button>
-                    </div>
-                </div>
-                <div x-show="isDedupeFoldersLoading()" class="py-4 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
-                    <svg class="w-3.5 h-3.5 animate-spin text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                    <span>Loading folders...</span>
-                </div>
-                <div x-show="!isDedupeFoldersLoading()" class="max-h-36 overflow-y-auto space-y-1">
-                    <template x-if="!dedupeModal.folders || dedupeModal.folders.length === 0">
-                        <div class="py-2 text-center text-slate-500 text-[11px]">No subfolders found in this directory.</div>
-                    </template>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 font-mono text-xs">
-                        <template x-for="f in dedupeModal.folders" :key="f.Path || f.Name">
-                            <button type="button" @click="selectDedupeFolder(f.Name)" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800/80 text-left text-slate-300 hover:text-amber-300 flex items-center gap-1.5 transition-colors truncate border border-slate-800/40 cursor-pointer">
-                                <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                                <span class="truncate" x-text="f.Name"></span>
+
+                    <!-- Target Directory Path with Picker -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Target Directory</label>
+                        <div class="flex items-center gap-1.5">
+                            <input type="text" x-model="dedupeModal.path" placeholder="Root directory (empty for all)" class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-500" />
+                            <button type="button" @click="toggleDedupeFolderBrowser()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 text-xs flex items-center gap-1 cursor-pointer" title="Browse target folder">
+                                <svg class="w-3.5 h-3.5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
                             </button>
-                        </template>
+                        </div>
+                        <!-- Folder Picker Dropdown -->
+                        <div x-show="dedupeModal.folderBrowserOpen" x-cloak class="mt-2 p-2 bg-slate-900 border border-slate-800 rounded-xl space-y-1.5 max-h-36 overflow-y-auto">
+                            <div class="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800/80 pb-1">
+                                <span class="font-mono truncate" x-text="dedupeModal.path || '/'"></span>
+                                <button type="button" @click="navigateDedupeParent()" class="text-amber-400 hover:underline cursor-pointer">.. (Up)</button>
+                            </div>
+                            <div x-show="isDedupeFoldersLoading()" class="text-center py-2 text-[11px] text-slate-500">Loading subfolders...</div>
+                            <template x-for="f in dedupeModal.folders" :key="f.Path">
+                                <button type="button" @click="selectDedupeFolder(f.Name)" class="w-full text-left px-2 py-1 rounded hover:bg-slate-800 text-slate-300 text-[11px] font-mono truncate flex items-center gap-1.5">
+                                    <svg class="w-3 h-3 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                    <span x-text="f.Name"></span>
+                                </button>
+                            </template>
+                            <div x-show="!isDedupeFoldersLoading() && (!dedupeModal.folders || dedupeModal.folders.length === 0)" class="text-slate-500 text-[11px] text-center py-1">No subdirectories found</div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- Paired Dedupe Toggle -->
-            <template x-if="activeProfile">
-                <div class="p-3 bg-indigo-950/30 border border-indigo-700/40 rounded-xl flex items-center justify-between gap-3 text-xs">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <input type="checkbox" id="dedupe-both-toggle" x-model="dedupeModal.dedupeBoth" class="rounded border-slate-700 bg-slate-900 text-indigo-500 focus:ring-0 focus:ring-offset-0 w-4 h-4 shrink-0 cursor-pointer">
-                        <label for="dedupe-both-toggle" class="cursor-pointer min-w-0">
-                            <div class="font-semibold text-indigo-200">Paired Bidirectional Dedupe (Remote + Local)</div>
-                            <div class="text-[11px] text-slate-400 truncate">Deduplicates cloud files, then automatically runs pass 2 on paired local directory (<span class="font-mono text-indigo-300" x-text="activeProfile.local_path || 'local'"></span>)</div>
+                    <!-- Paired Sync Pass Toggle -->
+                    <div class="pt-1 border-t border-slate-800/60">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" x-model="dedupeModal.dedupeBoth" class="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-amber-500/20 w-3.5 h-3.5">
+                            <span class="text-xs text-slate-300 font-medium">Paired Pass (Remote + Local)</span>
                         </label>
+                        <p class="text-[10px] text-slate-400 mt-0.5 ml-5.5">Deduplicate both endpoints of active sync profile.</p>
                     </div>
-                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-700/60 uppercase shrink-0">Profile Linked</span>
                 </div>
-            </template>
 
+                <!-- Execution Actions -->
+                <div class="pt-2 border-t border-slate-800/80 space-y-2">
+                    <button type="button" @click="runDedupe(true)" :disabled="isDedupeExecuting()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer">
+                        <svg class="w-3.5 h-3.5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <span>Preview (Dry Run)</span>
+                    </button>
+                    <button type="button" @click="runDedupe(false)" :disabled="isDedupeExecuting()" class="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-amber-950/40 disabled:opacity-50 cursor-pointer">
+                        <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': dedupeModal.executing }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+                        <span x-text="dedupeModal.executing ? 'Deduplicating...' : 'Run Deduplication'"></span>
+                    </button>
+                </div>
 
-            <!-- Backend Guidance -->
-            <div x-show="dedupeModal.isOnedrive" class="p-2.5 rounded-lg bg-sky-950/40 border border-sky-600/40 text-[11px] text-sky-300 flex items-center gap-2">
-                <svg class="w-4 h-4 text-sky-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span><strong>OneDrive Storage:</strong> OneDrive enforces unique file names per folder. Running in <strong>Cross-Folder Hash</strong> mode. Personal Vault is excluded.</span>
-            </div>
-
-            <!-- Root Scope Warning -->
-            <div x-show="!dedupeModal.path" class="p-2.5 rounded-lg bg-amber-950/40 border border-amber-600/40 text-[11px] text-amber-300 flex items-center gap-2">
-                <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <span><strong>Target is Root:</strong> Deduplication will scan across your <strong>entire cloud account</strong>. Specify a subfolder to isolate changes.</span>
-            </div>
-
-            <!-- Structured Output / Terminal Preview -->
-            <div class="border border-slate-800 rounded-xl bg-slate-950 overflow-hidden font-sans text-xs">
-                <div class="bg-slate-950/90 px-3 py-2 border-b border-slate-800 flex justify-between items-center text-[11px]">
-                    <div class="flex items-center gap-2">
-                        <span class="flex items-center gap-1.5 font-bold uppercase tracking-wider text-slate-300">
-                            <svg class="w-3.5 h-3.5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
-                            <span>Execution Output</span>
-                        </span>
-                        <template x-if="dedupeModal.parsedOutput?.totalCollisions > 0">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30" x-text="dedupeModal.parsedOutput.totalCollisions + ' Collisions'"></span>
-                        </template>
-                        <template x-if="dedupeModal.parsedOutput?.totalDeleted > 0">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" x-text="dedupeModal.parsedOutput.totalDeleted + ' Removed'"></span>
-                        </template>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span x-show="dedupeModal.executing" class="text-amber-400 animate-pulse text-[10px]">Processing...</span>
-                        <template x-if="dedupeModal.runId">
-                            <button type="button" @click="viewDedupeLogs()" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-medium underline flex items-center gap-1">
-                                <span>Correlated Log</span>
-                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                            </button>
-                        </template>
-                        <button x-show="dedupeModal.output" type="button" @click="dedupeModal.showRawOutput = !dedupeModal.showRawOutput" class="text-[10px] text-slate-400 hover:text-slate-200 font-medium">
-                            <span x-text="dedupeModal.showRawOutput ? 'Cards View' : 'Raw Console'"></span>
+                <!-- Summary Stats Widget -->
+                <div x-show="dedupeModal.parsedOutput" class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2 text-xs">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold text-slate-200 text-[11px] uppercase tracking-wider">Collision Summary</div>
+                        <button type="button" @click="clearDedupeCacheAndReset()" class="text-[10px] text-slate-400 hover:text-amber-400 transition-colors cursor-pointer" title="Clear scan cache and reset">
+                            Clear Scan
                         </button>
                     </div>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="p-1.5 bg-slate-950 rounded-lg border border-slate-800/60">
+                            <div class="text-[10px] text-slate-400">Collisions</div>
+                            <div class="text-sm font-bold text-amber-300 font-mono" x-text="getConflictSummary().totalCollisions">0</div>
+                        </div>
+                        <div class="p-1.5 bg-slate-950 rounded-lg border border-slate-800/60">
+                            <div class="text-[10px] text-slate-400">Copies</div>
+                            <div class="text-sm font-bold text-indigo-300 font-mono" x-text="getConflictSummary().totalCandidates">0</div>
+                        </div>
+                        <div class="p-1.5 bg-slate-950 rounded-lg border border-slate-800/60">
+                            <div class="text-[10px] text-slate-400">Deleted</div>
+                            <div class="text-sm font-bold text-rose-400 font-mono" x-text="getConflictSummary().totalDeleted">0</div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Structured Collision List -->
-                <div x-show="!dedupeModal.showRawOutput && !dedupeModal.executing" class="p-3 max-h-56 overflow-y-auto space-y-2">
-                    <template x-if="dedupeModal.parsedOutput?.notices?.length > 0">
-                        <template x-for="n in dedupeModal.parsedOutput.notices" :key="n">
-                            <div class="p-2 rounded bg-sky-950/30 border border-sky-800/40 text-[11px] text-sky-300" x-text="n"></div>
-                        </template>
+                <!-- Resync Callout -->
+                <template x-if="dedupeModal.parsedOutput?.totalDeleted > 0 && activeProfile">
+                    <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+                        <div class="text-amber-200 text-[11px]">Duplicates removed. Align bisync baseline:</div>
+                        <button type="button" @click="triggerProfileSync(activeProfile.id, false, true, false); closeDedupeModal()" class="w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-[11px] transition-colors cursor-pointer">
+                            Run Resync (--resync)
+                        </button>
+                    </div>
+                </template>
+            </div>
+
+
+            <!-- SECTION 2: Collision Queue Rail -->
+            <div class="w-full md:w-80 shrink-0 flex flex-col bg-slate-900/60 overflow-hidden">
+                <div class="p-3 border-b border-slate-800 space-y-2 bg-slate-950/40 shrink-0">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                            <span>Collision Ledger</span>
+                            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]" x-text="filteredCollisions().length"></span>
+                        </span>
+                        <span x-show="dedupeModal.executing" class="text-amber-400 animate-pulse text-[10px] font-mono">Scanning...</span>
+                    </div>
+                    <input type="text" x-model="dedupeModal.filterQuery" placeholder="Filter collisions by name or path..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono">
+                </div>
+                <div class="flex-1 overflow-y-auto p-2 space-y-1.5">
+                    <template x-for="item in filteredCollisions()" :key="item.path">
+                        <div @click="selectCollision(item)" class="p-2.5 rounded-xl border text-xs cursor-pointer transition-all" :class="dedupeModal.selectedCollision?.path === item.path ? 'bg-amber-500/10 border-amber-500/70 shadow-sm shadow-amber-950/30' : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-semibold text-slate-200 truncate" x-text="item.name || item.path"></div>
+                                    <div class="text-[10px] font-mono text-slate-400 truncate mt-0.5" x-text="item.dir ? ('/' + item.dir) : '/'"></div>
+                                </div>
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0" :class="item.found > 1 ? 'bg-amber-950/80 text-amber-300 border border-amber-800/60' : 'bg-slate-800 text-slate-300'" x-text="(item.found || (item.candidates ? item.candidates.length : 1)) + ' copies'"></span>
+                            </div>
+                            <div class="flex items-center gap-2 mt-1.5 text-[10px]">
+                                <span x-show="item.deleted > 0" class="text-rose-400 font-mono" x-text="item.deleted + ' deleted'"></span>
+                                <span x-show="item.action" class="text-slate-400 italic" x-text="item.action"></span>
+                            </div>
+                        </div>
                     </template>
-                    <template x-if="dedupeModal.parsedOutput?.errors?.length > 0">
-                        <template x-for="e in dedupeModal.parsedOutput.errors" :key="e">
-                            <div class="p-2 rounded bg-rose-950/40 border border-rose-800/50 text-[11px] text-rose-300 font-mono" x-text="e"></div>
+                    <div x-show="!dedupeModal.parsedOutput || filteredCollisions().length === 0" class="text-center py-8 text-slate-500 text-xs px-4">
+                        <svg class="w-8 h-8 text-slate-700 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m10 13-2 2 2 2"/><path d="m14 17 2-2-2-2"/></svg>
+                        <div x-text="dedupeModal.parsedOutput ? 'No collisions match filter' : 'Click Preview (Dry Run) to scan for duplicate files'"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: Duplicate & Directory Inspector -->
+            <div class="flex-1 flex flex-col bg-slate-950/20 overflow-hidden">
+                <!-- Inspector Tabs Header -->
+                <div class="px-4 py-2 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-3 shrink-0">
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" @click="switchDedupeTab('candidates')" class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer" :class="dedupeModal.activeTab === 'candidates' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'">
+                            Candidate Copies
+                        </button>
+                        <button type="button" @click="switchDedupeTab('explorer')" class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer" :class="dedupeModal.activeTab === 'explorer' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'">
+                            Directory Explorer
+                        </button>
+                        <button type="button" @click="switchDedupeTab('logs')" class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer" :class="dedupeModal.activeTab === 'logs' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'">
+                            Raw Output
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <template x-if="dedupeModal.selectedCollision">
+                            <button type="button" @click="jumpToExplorerFile(dedupeModal.selectedCollision.path, dedupeModal.remote)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors" title="Open folder in Dual-Pane File Explorer">
+                                <svg class="w-3.5 h-3.5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                <span>Inspect in Explorer</span>
+                            </button>
                         </template>
-                    </template>
-                    <template x-if="dedupeModal.parsedOutput?.items?.length > 0">
-                        <div class="space-y-1.5">
-                            <template x-for="item in dedupeModal.parsedOutput.items" :key="item.path">
-                                <div class="p-2 rounded-lg bg-slate-900/60 border border-slate-800/60 flex items-center justify-between gap-3 text-xs">
-                                    <div class="flex items-center gap-2 min-w-0 flex-1">
-                                        <button type="button" @click="jumpToExplorerFile(item.path, dedupeModal.remote)" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-amber-300 rounded text-[10px] transition-colors flex items-center gap-1 cursor-pointer shrink-0" title="Inspect file directory in Explorer">
-                                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                        </button>
-                                        <span class="font-mono text-slate-200 select-all truncate text-[11px]" x-text="item.path"></span>
-                                    </div>
-                                    <div class="flex items-center gap-1.5 shrink-0">
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20" x-text="item.found + ' copies'"></span>
-                                        <template x-if="item.deleted > 0"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" x-text="item.deleted + ' deleted'"></span></template>
+                        <template x-if="dedupeModal.runId">
+                            <button type="button" @click="viewDedupeLogs()" class="px-2.5 py-1 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 border border-indigo-700/50 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors" title="Correlated daemon execution logs">
+                                <span>Daemon Logs</span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Tab 1: Candidates View -->
+                <div x-show="dedupeModal.activeTab === 'candidates'" class="flex-1 overflow-y-auto p-4 space-y-3">
+                    <template x-if="dedupeModal.selectedCollision">
+                        <div class="space-y-3">
+                            <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800/80 flex items-center justify-between gap-3 text-xs">
+                                <div class="min-w-0">
+                                    <div class="font-bold text-white text-sm truncate" x-text="dedupeModal.selectedCollision.name || dedupeModal.selectedCollision.path"></div>
+                                    <div class="text-[11px] font-mono text-slate-400 truncate mt-0.5" x-text="'Path: ' + dedupeModal.selectedCollision.path"></div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono text-xs font-semibold shrink-0" x-text="(dedupeModal.selectedCollision.found || (dedupeModal.selectedCollision.candidates ? dedupeModal.selectedCollision.candidates.length : 1)) + ' Duplicate Copies'"></span>
+                            </div>
+
+                            <template x-if="hasContentDivergence(dedupeModal.selectedCollision)">
+                                <div class="p-3 bg-amber-500/10 border border-amber-500/40 rounded-xl text-xs flex items-start gap-2.5 text-amber-200">
+                                    <svg class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-amber-300">Different File Sizes / Checksums Detected</div>
+                                        <div class="text-[11px] text-amber-200/90 mt-0.5">These duplicate copies have differing content. Deduplicating will discard differing data. Mode <span class="font-mono font-bold uppercase text-amber-300" x-text="dedupeModal.mode"></span> will keep one copy and permanently delete the others.</div>
                                     </div>
                                 </div>
                             </template>
-                        </div>
-                    </template>
-                    <div x-show="!dedupeModal.output" class="text-slate-600 italic text-center py-4 text-xs font-mono">
-                        Click "Preview (Dry Run)" to scan without modifying files, or "Run Deduplication" to clean collisions.
-                    </div>
-                    <div x-show="dedupeModal.output && dedupeModal.parsedOutput?.items?.length === 0 && !dedupeModal.parsedOutput?.errors?.length" class="text-emerald-400 text-center py-4 text-xs font-medium">
-                        No duplicate files found. All files are unique.
-                    </div>
-                    <template x-if="dedupeModal.parsedOutput?.totalDeleted > 0 && activeProfile">
-                        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
-                            <div class="flex items-center gap-2 text-amber-200 min-w-0">
-                                <svg class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
-                                <span>Duplicates removed. Resync baseline to align bisync cache with cleaned storage.</span>
+
+                            <div class="space-y-2">
+                                <template x-for="(cand, idx) in (dedupeModal.selectedCollision.candidates || [])" :key="cand.id || idx">
+                                    <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800/70 flex items-center justify-between gap-3 text-xs hover:border-slate-700 transition-colors">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center font-mono font-bold text-[11px] text-slate-300 shrink-0" x-text="cand.index || (idx + 1)"></div>
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-medium text-slate-200" x-text="'Copy #' + (cand.index || (idx + 1))"></span>
+                                                    <template x-if="idx === 0 && dedupeModal.mode === 'oldest'">
+                                                        <span class="px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/50 text-[10px] font-mono">Kept (Oldest)</span>
+                                                    </template>
+                                                    <template x-if="idx === (dedupeModal.selectedCollision.candidates.length - 1) && dedupeModal.mode === 'newest'">
+                                                        <span class="px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/50 text-[10px] font-mono">Kept (Newest)</span>
+                                                    </template>
+                                                </div>
+                                                <div class="text-[11px] font-mono text-slate-400 flex items-center gap-3 mt-0.5 flex-wrap">
+                                                    <span x-show="cand.size !== undefined" x-text="'Size: ' + (typeof formatBytes === 'function' ? formatBytes(cand.size) : cand.size + ' B')"></span>
+                                                    <span x-show="cand.modtime" x-text="'Modified: ' + (typeof formatDate === 'function' ? formatDate(cand.modtime) : cand.modtime)"></span>
+                                                    <span x-show="cand.id" class="truncate max-w-[12rem]" x-text="'ID: ' + cand.id"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <template x-if="!getStagedDedupeAction(dedupeModal.selectedCollision, cand)">
+                                                <div class="flex items-center gap-1" @click.stop>
+                                                    <button type="button" @click.stop="stageKeepOnly(dedupeModal.selectedCollision, cand)" class="px-2 py-0.5 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 rounded text-[11px] font-medium transition-colors cursor-pointer" title="Keep this copy and stage delete on other copies">
+                                                        Keep
+                                                    </button>
+                                                    <button type="button" @click.stop="promptStageRename(dedupeModal.selectedCollision, cand)" class="px-2 py-0.5 bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border border-amber-700/50 rounded text-[11px] font-medium transition-colors cursor-pointer" title="Rename this copy to resolve duplicate">
+                                                        Rename
+                                                    </button>
+                                                    <button type="button" @click.stop="stageCandidateAction(dedupeModal.selectedCollision, cand, 'delete')" class="px-2 py-0.5 bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-700/50 rounded text-[11px] font-medium transition-colors cursor-pointer" title="Stage deletion of this copy">
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </template>
+                                            <template x-if="getStagedDedupeAction(dedupeModal.selectedCollision, cand)">
+                                                <div class="flex items-center gap-1" @click.stop>
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border"
+                                                        :class="{
+                                                            'bg-emerald-950/90 text-emerald-300 border-emerald-600/60': getStagedDedupeAction(dedupeModal.selectedCollision, cand).action === 'keep',
+                                                            'bg-rose-950/90 text-rose-300 border-rose-600/60': getStagedDedupeAction(dedupeModal.selectedCollision, cand).action === 'delete',
+                                                            'bg-amber-950/90 text-amber-300 border-amber-600/60': getStagedDedupeAction(dedupeModal.selectedCollision, cand).action === 'rename'
+                                                        }"
+                                                        x-text="getStagedDedupeAction(dedupeModal.selectedCollision, cand).action + (getStagedDedupeAction(dedupeModal.selectedCollision, cand).new_name ? (' -> ' + getStagedDedupeAction(dedupeModal.selectedCollision, cand).new_name) : '')">
+                                                    </span>
+                                                    <button type="button" @click.stop="unstageCandidateAction(getCandidateKey(dedupeModal.selectedCollision, cand))" class="p-0.5 text-slate-400 hover:text-rose-300 cursor-pointer" title="Remove staged action">
+                                                        <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                                    </button>
+                                                </div>
+                                            </template>
+                                            <template x-if="isItemPreviewable(dedupeModal.selectedCollision)">
+                                                <button type="button" @click.stop="previewDedupeCandidate(dedupeModal.selectedCollision, cand)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium flex items-center gap-1 shrink-0 transition-colors cursor-pointer" title="Preview this copy">
+                                                    <svg class="w-3 h-3 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                    <span>Preview</span>
+                                                </button>
+                                            </template>
+                                            <button type="button" @click.stop="jumpToExplorerFile(dedupeModal.selectedCollision.path, dedupeModal.remote, cand.id)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium flex items-center gap-1 shrink-0 transition-colors cursor-pointer" title="Inspect this copy in Explorer">
+                                                <svg class="w-3 h-3 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" x2="3"/></svg>
+                                                <span>Locate</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="!dedupeModal.selectedCollision.candidates || dedupeModal.selectedCollision.candidates.length === 0" class="p-4 rounded-xl bg-slate-900/30 border border-slate-800 text-center text-slate-500 text-xs">
+                                    No candidate file metadata extracted for this collision group.
+                                </div>
                             </div>
-                            <button type="button" @click="triggerProfileSync(activeProfile.id, false, true, false); closeDedupeModal()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs transition-colors shrink-0 shadow cursor-pointer">
-                                Run Resync (--resync)
-                            </button>
                         </div>
                     </template>
-
+                    <div x-show="!dedupeModal.selectedCollision" class="text-center py-16 text-slate-500 text-xs space-y-2">
+                        <svg class="w-10 h-10 text-slate-700 mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="8" height="18" x="3" y="3" rx="1"/><rect width="8" height="18" x="13" y="3" rx="1"/></svg>
+                        <div>Select a collision item from the ledger to inspect duplicate candidate copies.</div>
+                    </div>
                 </div>
 
-                <!-- Raw Console Fallback -->
-                <div x-show="dedupeModal.showRawOutput || dedupeModal.executing" class="p-3 max-h-56 overflow-y-auto font-mono text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed select-all min-h-[5rem]">
-                    <span x-text="dedupeModal.output || 'Preparing deduplication request...'"></span>
+                <!-- Tab 2: Directory Explorer View -->
+                {{template "modal_dedupe_explorer" .}}
+
+
+                <!-- Tab 3: Raw Output View -->
+                <div x-show="dedupeModal.activeTab === 'logs'" class="flex-1 p-3 overflow-y-auto font-mono text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed select-all bg-slate-950/60">
+                    <span x-text="dedupeModal.output || 'No deduplication output yet. Click Preview (Dry Run) or Run Deduplication.'"></span>
                 </div>
-            </div>
-        </div>
-        <!-- Footer -->
-        <div class="p-4 border-t border-slate-800 bg-slate-950/50 flex flex-col-reverse sm:flex-row justify-between items-center gap-2.5">
-            <button @click="if (!dedupeModal.executing) dedupeModal.show = false" :disabled="isDedupeExecuting()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-700 transition-colors disabled:opacity-50">Close</button>
-            <div class="flex items-center gap-2">
-                <button @click="runDedupe(true)" :disabled="isDedupeExecuting()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-50">
-                    <svg class="w-3.5 h-3.5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    <span>Preview (Dry Run)</span>
-                </button>
-                <button @click="runDedupe(false)" :disabled="isDedupeExecuting()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-lg shadow-amber-950/40 disabled:opacity-50">
-                    <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': dedupeModal.executing }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
-                    <span x-text="dedupeModal.executing ? 'Deduplicating...' : 'Run Deduplication'"></span>
-                </button>
+
+                <!-- Staged Actions Review Slide-Up Drawer -->
+                {{template "modal_dedupe_drawer" .}}
+
+                <!-- Staged Actions Review Bar -->
+                <div x-show="getStagedDedupeCount() > 0" class="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 shrink-0">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <button type="button" @click="toggleStagedDrawer()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer" title="Toggle Staged Actions Drawer">
+                            <span x-text="getStagedDedupeCount() + ' staged'"></span>
+                            <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': dedupeBatch.drawerOpen }" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                        </button>
+                        <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
+                            <input type="checkbox" x-model="dedupeBatch.triggerResync" class="rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0">
+                            <span>Queue Resync (--resync)</span>
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button type="button" @click="clearStagedDedupeActions()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-medium cursor-pointer transition-colors">
+                            Clear
+                        </button>
+                        <button type="button" @click="applyStagedDedupeBatch()" :disabled="isDedupeBatchApplying()" class="px-3.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors shadow-sm">
+                            <svg x-show="dedupeBatch.applying" class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                            <span x-text="dedupeBatch.applying ? 'Applying...' : 'Apply Staged Actions'"></span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

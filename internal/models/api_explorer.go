@@ -9,13 +9,14 @@ type BrowseRequest struct {
 
 // BrowseItem represents a directory entry in the explorer.
 type BrowseItem struct {
-	Path     string `json:"Path,omitempty"`
-	Name     string `json:"Name"`
-	Size     int64  `json:"Size"`
-	Mtime    string `json:"Mtime,omitempty"`
-	ModTime  string `json:"ModTime,omitempty"`
-	MimeType string `json:"MimeType,omitempty"`
-	IsDir    bool   `json:"IsDir"`
+	Path       string `json:"Path,omitempty"`
+	Name       string `json:"Name"`
+	Size       int64  `json:"Size"`
+	Mtime      string `json:"Mtime,omitempty"`
+	ModTime    string `json:"ModTime,omitempty"`
+	MimeType   string `json:"MimeType,omitempty"`
+	IsDir      bool   `json:"IsDir"`
+	IsShortcut bool   `json:"IsShortcut,omitempty"`
 }
 
 // BrowseResponse represents directory listing results.

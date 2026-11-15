@@ -38,6 +38,8 @@ func (s *Server) handleExplorerPreview(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusNotFound
 		} else if strings.Contains(errLower, "cannot preview directory") {
 			status = http.StatusBadRequest
+		} else if strings.Contains(errLower, "duplicate") || strings.Contains(errLower, "found more than one file") {
+			status = http.StatusConflict
 		}
 		writeJSON(w, status, map[string]string{"error": err.Error()})
 		return
@@ -73,6 +75,8 @@ func (s *Server) handleExplorerDownload(w http.ResponseWriter, r *http.Request) 
 			status = http.StatusNotFound
 		} else if strings.Contains(errLower, "cannot download directory") {
 			status = http.StatusBadRequest
+		} else if strings.Contains(errLower, "duplicate") || strings.Contains(errLower, "found more than one file") {
+			status = http.StatusConflict
 		}
 		writeJSON(w, status, map[string]string{"error": err.Error()})
 		return
