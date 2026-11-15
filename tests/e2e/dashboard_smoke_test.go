@@ -1585,6 +1585,147 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			t.Errorf("expected includeFileTransfers to default to false")
 		}
 	})
+	// 13. Test Deduplication 3-Section Workspace & Path Handling
+	t.Run("DeduplicationWorkspaceAndEdgeCasePaths", func(t *testing.T) {
+		script := `(async () => {
+			const app = Alpine.$data(document.querySelector('[x-data]'));
+			if (!app) return { error: "Alpine root not found" };
+
+			// 1. Open dedupe workspace with trailing whitespace path
+			const folderWithTrailingSpace = "Projects/Archive 2026 ";
+			app.openDedupeModal('drive', folderWithTrailingSpace);
+			const modalOpen = app.dedupeModal?.show === true;
+			const remoteAssigned = app.dedupeModal?.remote === 'drive';
+			const pathPreserved = app.dedupeModal?.path === folderWithTrailingSpace;
+
+			// 2. Simulate parsed dedupe output with collisions containing trailing spaces & candidates
+			const sampleOutput = "NOTICE: Projects/Archive 2026 /Report.pdf: Found 2 files with duplicate names\n" +
+				"  1: 1024 bytes, 2026-11-15 10:00:00, id 'cand-001'\n" +
+				"  2: 1024 bytes, 2026-11-15 10:05:00, id 'cand-002'\n" +
+				"NOTICE: Projects/Archive 2026 /Data.xlsx: Found 3 files with duplicate names\n" +
+				"  1: 2048 bytes, 2026-11-15 09:00:00, id 'cand-003'\n" +
+				"  2: 2048 bytes, 2026-11-15 09:10:00, id 'cand-004'\n" +
+				"  3: 2048 bytes, 2026-11-15 09:20:00, id 'cand-005'\n";
+			
+			if (typeof parseDedupeOutput === 'function') {
+				app.dedupeModal.parsedOutput = parseDedupeOutput(sampleOutput);
+			}
+
+			// 3. Test collision filtering
+			const initialCollisionsCount = app.filteredCollisions().length;
+			app.dedupeModal.filterQuery = "Data";
+			const filteredCollisionsCount = app.filteredCollisions().length;
+			app.dedupeModal.filterQuery = "";
+
+			// 4. Test selecting a collision item
+			const firstItem = app.filteredCollisions()[0];
+			app.selectCollision(firstItem);
+			const selectedPath = app.dedupeModal.selectedCollision?.path;
+			const candidatesCount = app.dedupeModal.selectedCollision?.candidates?.length || 0;
+			const firstCandId = app.dedupeModal.selectedCollision?.candidates?.[0]?.id;
+
+			// 5. Test tab switching
+			app.dedupeModal.activeTab = 'candidates';
+			const isTabCandidates = app.dedupeModal.activeTab === 'candidates';
+			app.dedupeModal.activeTab = 'logs';
+			const isTabLogs = app.dedupeModal.activeTab === 'logs';
+			app.dedupeModal.activeTab = 'explorer';
+			const isTabExplorer = app.dedupeModal.activeTab === 'explorer';
+
+			// 6. Test directory explorer path navigation
+			app.dedupeModal.explorerPath = "Projects/Archive 2026 ";
+			const canNavParentBefore = !app.cannotNavigateDedupeExplorerParent();
+			app.navigateDedupeExplorerParent();
+			const parentPath = app.dedupeModal.explorerPath;
+			app.dedupeModal.explorerPath = "";
+			const canNavParentAtRoot = !app.cannotNavigateDedupeExplorerParent();
+
+			// 7. Test summary metrics computation
+			const summary = app.getConflictSummary();
+			const summaryCollisions = summary.totalCollisions;
+			const summaryCandidates = summary.totalCandidates;
+
+			// 8. Close modal
+			app.closeDedupeModal();
+			const modalClosed = app.dedupeModal?.show === false;
+
+			return {
+				modalOpen,
+				remoteAssigned,
+				pathPreserved,
+				initialCollisionsCount,
+				filteredCollisionsCount,
+				selectedPath,
+				candidatesCount,
+				firstCandId,
+				isTabCandidates,
+				isTabLogs,
+				isTabExplorer,
+				canNavParentBefore,
+				parentPath,
+				canNavParentAtRoot,
+				summaryCollisions,
+				summaryCandidates,
+				modalClosed
+			};
+		})()`
+
+		type DedupeWorkspaceResult struct {
+			Error                   *string `json:"error"`
+			ModalOpen               bool    `json:"modalOpen"`
+			RemoteAssigned          bool    `json:"remoteAssigned"`
+			PathPreserved           bool    `json:"pathPreserved"`
+			InitialCollisionsCount  int     `json:"initialCollisionsCount"`
+			FilteredCollisionsCount int     `json:"filteredCollisionsCount"`
+			SelectedPath            string  `json:"selectedPath"`
+			CandidatesCount         int     `json:"candidatesCount"`
+			FirstCandId             string  `json:"firstCandId"`
+			IsTabCandidates         bool    `json:"isTabCandidates"`
+			IsTabLogs               bool    `json:"isTabLogs"`
+			IsTabExplorer           bool    `json:"isTabExplorer"`
+			CanNavParentBefore      bool    `json:"canNavParentBefore"`
+			ParentPath              string  `json:"parentPath"`
+			CanNavParentAtRoot      bool    `json:"canNavParentAtRoot"`
+			SummaryCollisions       int     `json:"summaryCollisions"`
+			SummaryCandidates       int     `json:"summaryCandidates"`
+			ModalClosed             bool    `json:"modalClosed"`
+		}
+
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[DedupeWorkspaceResult](script, chromedp.EvalAwaitPromise))
+		if err != nil {
+			t.Fatalf("failed evaluating Dedupe Workspace script: %v", err)
+		}
+		if res.Error != nil {
+			t.Fatalf("Dedupe Workspace check failed: %s", *res.Error)
+		}
+		if !res.ModalOpen || !res.RemoteAssigned || !res.PathPreserved {
+			t.Errorf("dedupe modal open mismatch: open=%v remote=%v pathPreserved=%v",
+				res.ModalOpen, res.RemoteAssigned, res.PathPreserved)
+		}
+		if res.InitialCollisionsCount != 2 || res.FilteredCollisionsCount != 1 {
+			t.Errorf("collision filtering mismatch: initial=%d filtered=%d",
+				res.InitialCollisionsCount, res.FilteredCollisionsCount)
+		}
+		if res.CandidatesCount != 2 || res.FirstCandId != "cand-001" {
+			t.Errorf("candidates inspection mismatch: count=%d firstId=%q",
+				res.CandidatesCount, res.FirstCandId)
+		}
+		if !res.IsTabCandidates || !res.IsTabLogs || !res.IsTabExplorer {
+			t.Errorf("tab switching mismatch: candidates=%v logs=%v explorer=%v",
+				res.IsTabCandidates, res.IsTabLogs, res.IsTabExplorer)
+		}
+		if !res.CanNavParentBefore || res.CanNavParentAtRoot || res.ParentPath != "Projects" {
+			t.Errorf("parent navigation mismatch: canBefore=%v canAtRoot=%v parentPath=%q",
+				res.CanNavParentBefore, res.CanNavParentAtRoot, res.ParentPath)
+		}
+		if res.SummaryCollisions != 2 || res.SummaryCandidates != 5 {
+			t.Errorf("summary metrics mismatch: collisions=%d candidates=%d",
+				res.SummaryCollisions, res.SummaryCandidates)
+		}
+		if !res.ModalClosed {
+			t.Errorf("expected dedupe modal to close cleanly")
+		}
+	})
 
 	// 6. Check for any runtime JavaScript console errors or exceptions
 	mu.Lock()

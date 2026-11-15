@@ -41,9 +41,11 @@ window.DedupeWorkspaceModule = {
         return !this.dedupeModal?.explorerPath;
     },
 
-    openDedupeModal(remoteName) {
+    openDedupeModal(remoteName, initialPath) {
         const clean = (remoteName || "").replace(/:$/, "").trim();
-        const p = (this.explorer?.right?.target === clean) ? (this.explorer?.right?.path || "") : "";
+        const p = (initialPath !== undefined && initialPath !== null)
+            ? String(initialPath)
+            : ((this.explorer?.right?.target === clean) ? (this.explorer?.right?.path || "") : "");
         const rObj = (this.remotesData?.remotes || []).find(r => (r.name || "").replace(/:$/, "").trim() === clean);
         const rType = (rObj?.type || "").toLowerCase();
         const isOnedrive = clean.toLowerCase().includes("onedrive") || rType === "onedrive";
