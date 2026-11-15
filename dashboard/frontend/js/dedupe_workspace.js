@@ -37,6 +37,10 @@ window.DedupeWorkspaceModule = {
         return Boolean(this.dedupeModal?.loadingFolders);
     },
 
+    cannotNavigateDedupeExplorerParent() {
+        return !this.dedupeModal?.explorerPath;
+    },
+
     openDedupeModal(remoteName) {
         const clean = (remoteName || "").replace(/:$/, "").trim();
         const p = (this.explorer?.right?.target === clean) ? (this.explorer?.right?.path || "") : "";

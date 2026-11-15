@@ -17,7 +17,7 @@ Resolve Google Drive link/shortcut and trailing-space path navigation edge cases
   - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/js/remotes_modals.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 4: Deduplication Modal 3-Section UI/UX Redesign (`dashboard/frontend/partials/modals/modal_dedupe.html`)
+- [x] Task 4: Deduplication Modal 3-Section UI/UX Redesign (`dashboard/frontend/partials/modals/modal_dedupe.html`)
   - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
@@ -31,6 +31,7 @@ Resolve Google Drive link/shortcut and trailing-space path navigation edge cases
 - 2026-11-15: Completed Task 1 - Preserved folder segment trailing whitespace across `ExplorerService.BrowsePath` and dedupe handlers. Implemented transparent auto-resolution for 404 remote and local directories with trailing spaces or shortcut aliases. Added shortcut detection (`IsShortcut: true`) for composite Google Drive IDs and symlinks. Verified with unit tests (`TestExplorerService_BrowsePath`).
 - 2026-11-15: Completed Task 2 - Enhanced `parseDedupeOutput` in `dashboard/frontend/js/dedupe_parser.js` to extract candidate item paths, clean names, parent directories, and candidate detail records (`size`, `modtime`, `id`, `index`). Exported both for browser and CommonJS module environments. Verified via `./scripts/check.sh templates && ./scripts/check.sh loc 400` and `./...` tests.
 - 2026-11-15: Completed Task 3 - Extracted deduplication modal and execution logic from `dashboard/frontend/js/remotes_modals.js` (now 145 LOC) into dedicated `dashboard/frontend/js/dedupe_workspace.js` (287 LOC). Added collision selection, quick filtering, directory browsing, candidate switching, and summary stats. Registered in `dashboard/frontend/app.js` and `dashboard/frontend/index.html`. Verified via `./scripts/check.sh templates && ./scripts/check.sh loc 400` and `go test -count=1 ./tests/e2e`.
+- 2026-11-15: Completed Task 4 - Redesigned `dashboard/frontend/partials/modals/modal_dedupe.html` into a responsive 3-section workspace (`max-w-7xl`, 298 LOC) featuring: Section 1 Settings & Execution Rail (strategy, match mode, path picker, paired pass, summary stats), Section 2 Collision Queue Rail (search filter, collision ledger, copy badges), and Section 3 Candidate & Inbuilt Directory Explorer Inspector (candidate metadata table, embedded directory browser, raw log tab). Passed `./scripts/check.sh templates && ./scripts/check.sh loc 400` and `go test -count=1 ./tests/e2e`.
 
 
 
