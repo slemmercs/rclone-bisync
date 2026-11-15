@@ -1,71 +1,75 @@
-# Implementation Plan: Deduplication Edge-Cases, Smart Safety Recommendations & Staged Batch Review Engine
+# Implementation Plan: Google Drive Deduplication Fixes, In-App Modals & Streaming Resilience
 
 ## Proposed Changes
 
-Deliver an enterprise-grade deduplication workflow that eliminates Google Drive duplicate stream collisions (HTTP 500), fixes UI directory explorer stalling and multi-select collisions, alerts users to data-loss content divergence on same-name duplicates, and introduces a transactional Staged Batch Review & Resync Bridge.
+Deliver complete resolution for live Google Drive deduplication failures: resolve the path-truncation batch rename failure, prevent erroneous `--resync` triggers when dedupe batches fail, surface granular failure reasons, replace native browser `prompt()` with in-app dark-themed dialogs, fix blank dedupe directory explorer caused by Alpine `:key` collisions, lift streaming size caps (>2MB) on previews and downloads, and cache scan results across modal operations.
 
-### 1. Backend Duplicate Stream Interception & Safe Error Handling
-- In `internal/models/api_explorer.go`:
-  - Add `IsDuplicateCollision bool` and `CollisionCount int` to `FilePreviewResponse`.
-- In `internal/services/explorer_preview.go`:
-  - Catch `"found more than one file"` when calling `CatFile` on Google Drive.
-  - Return a valid `FilePreviewResponse` with `IsDuplicateCollision: true`, file metadata, and actionable guidance rather than propagating an unhandled error.
-- In `internal/services/explorer_download.go` & `internal/server/handlers_preview.go`:
-  - Catch `"found more than one file"` and return HTTP 409 Conflict with a structured error payload advising deduplication resolution instead of HTTP 500.
-
-### 2. Deduplication Batch Execution Engine & Endpoints
-- In `internal/models/api_dedupe.go`:
-  - Define `DedupeStageAction`, `DedupeBatchApplyRequest`, and `DedupeBatchApplyResponse`.
+### 1. Dedupe Batch Engine Path Concatenation, Resync Safety & Error Reporting
 - In `internal/services/dedupe_service.go`:
-  - Implement `ExecuteDedupeBatch(ctx, req, localBase)` to execute staged renames and deletions transactionally, with canary checks, jail bounds, and audit ledger tracking.
-  - If `TriggerResync` is requested, invoke profile resync safely.
-- In `internal/server/handlers_dedupe.go` and `routes.go`:
-  - Add `POST /api/remotes/dedupe/batch` handler with confirmation token safeguards.
+  - Combine target directory `req.Path` with candidate `action.Path` when not already prefixed:
+    ```go
+    cleanPath := strings.Trim(strings.TrimSpace(action.Path), "/")
+    reqPath := strings.Trim(strings.TrimSpace(req.Path), "/")
+    if reqPath != "" && !strings.HasPrefix(cleanPath, reqPath+"/") && cleanPath != reqPath {
+        cleanPath = fmt.Sprintf("%s/%s", reqPath, cleanPath)
+    }
+    ```
+  - Derive `dstPath` relative to the resolved directory:
+    ```go
+    dstDir := filepath.Dir(cleanPath)
+    dstPath := newName
+    if dstDir != "." && dstDir != "" {
+        dstPath = fmt.Sprintf("%s/%s", strings.Trim(dstDir, "/"), newName)
+    }
+    ```
+  - Guard resync execution: only trigger `TriggerSyncWithOptions` if `req.TriggerResync && resp.SuccessCount > 0`.
+  - Provide concrete error messages: if all actions fail, populate `resp.Error` with `resp.Errors[0]` instead of generic `"All staged dedupe actions failed"`.
+  - Record dedupe attempt in audit ledger (`DEDUPE_EXECUTED`) even on partial failure or failure with complete diagnostic metadata.
 
-### 3. Frontend UID Disambiguation & Explorer Target Row Highlighting
-- In `dashboard/frontend/js/explorer.js`:
-  - In `fetchExplorerDirectory`, assign a unique `_uid` (`item.ID || (item.Path + '_' + item.Size + '_' + item.ModTime + '_' + index)`) to every item.
-  - Identify duplicate names within the same folder and mark `item.IsDuplicate = true`.
-  - Support `highlightedFile` with auto-scroll via `$nextTick`.
-- In `dashboard/frontend/js/explorer_compare.js`:
-  - Update `isItemSelected` and `toggleSelectItem` to track selection by `_uid` rather than path, preventing duplicate filename collision.
-- In `dashboard/frontend/partials/view_explorer.html`:
-  - Display `⚠️ Duplicate` badge for duplicate items.
-  - Add highlight animation for `highlightedFile`.
+### 2. Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics
+- In `dashboard/frontend/partials/modals/modal_confirm.html`:
+  - Add conditional text input field (`confirmModal.showInput`) with label, placeholder, and two-way binding (`confirmModal.inputValue`).
+  - Style with Tailwind dark theme (Slate-950 input, Amber border focus, Enter to submit, Escape to dismiss).
+- In `dashboard/frontend/js/app_state.js`:
+  - Implement `askPrompt({ title, message, inputLabel, inputValue, placeholder, confirmText, confirmClass, onConfirm })`.
+- In `dashboard/frontend/js/dedupe_batch.js`:
+  - Replace `prompt(...)` with `this.askPrompt(...)`.
+  - Surface granular errors from `data.errors` in UI toasts and append error traces into `this.dedupeModal.output`.
 
-### 4. Dedupe Workspace Directory Explorer Resilience & Content Divergence Detection
-- In `dashboard/frontend/js/dedupe_workspace.js`:
-  - Implement `switchDedupeTab(tabName)` with automatic loading of directory contents.
-  - Add `hasContentDivergence(collision)` comparing candidate sizes and hashes.
-  - Fix `jumpToExplorerFile` to call `await this.fetchExplorerDirectory(paneKey, targetRemote, dirPath)` and set `highlightedFile`.
-  - Gracefully display explorer errors with retry and parent navigation buttons.
+### 3. Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions
 - In `dashboard/frontend/partials/modals/modal_dedupe.html`:
-  - Render Content Divergence warning alert when sizes differ across duplicate candidates.
-  - Clarify Same-Folder Names vs Cross-Folder Hashes with explanatory tooltips.
-
-### 5. Staged Batch Review UI & Post-Dedupe Resync Bridge
+  - Replace `:key="item.Path || item.Name"` in the directory explorer loop with `:key="getDedupeExplorerItemRowKey(item, idx)"` to prevent DOM key collisions on duplicate files.
+  - Add amber `DUPLICATE` badges and inline quick actions (**Keep**, **Rename**, **Delete**, **Preview**) on colliding rows.
 - In `dashboard/frontend/js/dedupe_workspace.js`:
-  - Implement staging queue methods: `stageCandidateAction`, `removeStagedAction`, `clearStagedActions`, `applyStagedBatch`.
-  - Connect "Compare Copies" to `ExplorerCompareModule.compareDirect(...)`.
-- In `dashboard/frontend/partials/modals/modal_dedupe.html`:
-  - Add inline "Stage Rename" and "Stage Delete" action controls to candidate cards.
-  - Add Staged Review Drawer showing pending operations, execution button, and post-batch resync button.
-- In `dashboard/frontend/partials/modals/modal_preview.html`:
-  - Render dedupe resolution quick-link when preview encounters duplicate collision.
+  - Implement `getDedupeExplorerItemRowKey(item, idx)`.
+  - Add dedupe directory inline action handlers.
 
-### 6. Local Sandbox Fixtures & Verification
-- In `scripts/run-sandbox.sh`:
-  - Seed hash-duplicate and duplicate-named files in test folders for offline testing.
+### 4. Large File (>2MB) Preview & Download Support
+- In `internal/core/client/fs_read.go`:
+  - Forward explicit `maxSize` to `/operations/getfile` instead of defaulting to Rclone's 2MB limit.
+- In `internal/services/explorer_preview.go`:
+  - Forward `MaxImagePreviewSize` as `maxSize` for images.
+  - Catch `"exceeds maximum limit"` gracefully and return HTTP 200 with `Truncated: true` and direct download guidance.
+- In `internal/services/explorer_download.go`:
+  - Pass file size as `maxSize` to `CatStream` and support direct streaming when `--rc-serve` is enabled.
+- In `deploy/systemd/rclone-daemon.service`:
+  - Add `--rc-serve` flag to daemon command.
+
+### 5. Dedupe Scan Session Caching & Quality Pre-Flight
+- In `dashboard/frontend/js/dedupe_workspace.js`:
+  - Cache scan results in `this._dedupeCache` by `${remote}:${path}` with a 15-minute TTL.
+- Validate through `./scripts/check.sh all` and `./scripts/check-loc.sh 400`.
 
 ## Verification Plan
 
-- Unit tests:
-  - `go test -count=1 ./internal/services/... -run "Test.*Preview|Test.*Dedupe"`
+- Unit Tests:
+  - `go test -count=1 ./internal/services/... -run "Test.*DedupeBatch.*|Test.*Preview.*|Test.*Download.*"`
   - `go test -count=1 ./internal/server/...`
 - E2E and Quality gates:
   - `./scripts/check.sh templates`
   - `./scripts/check-loc.sh 400`
   - `./scripts/check.sh all`
+
 
 
 

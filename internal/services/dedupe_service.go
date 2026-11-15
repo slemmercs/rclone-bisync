@@ -48,12 +48,16 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 		return models.DedupeBatchApplyResponse{Status: "error", Error: "explorer service is unavailable"}, nil
 	}
 
+	reqPath := strings.Trim(strings.TrimSpace(req.Path), "/")
 	for _, action := range req.Actions {
 		cleanPath := strings.Trim(strings.TrimSpace(action.Path), "/")
 		if cleanPath == "" {
 			resp.FailureCount++
 			resp.Errors = append(resp.Errors, "empty path in action")
 			continue
+		}
+		if reqPath != "" && !strings.HasPrefix(cleanPath, reqPath+"/") && cleanPath != reqPath {
+			cleanPath = fmt.Sprintf("%s/%s", reqPath, cleanPath)
 		}
 		if strings.Contains(cleanPath, "..") {
 			resp.FailureCount++
@@ -96,7 +100,7 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 
 			dstDir := filepath.Dir(cleanPath)
 			dstPath := newName
-			if dstDir != "." && dstDir != "" {
+			if dstDir != "." && dstDir != "" && dstDir != "/" {
 				dstPath = fmt.Sprintf("%s/%s", strings.Trim(dstDir, "/"), newName)
 			}
 
@@ -130,12 +134,19 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 		profileID = remoteClean
 	}
 
-	if resp.SuccessCount > 0 && s.AuditService != nil {
+	if s.AuditService != nil {
 		if s.AuditService.Logger != nil {
-			summary := fmt.Sprintf("[%s] Dedupe batch resolution applied: %d succeeded, %d failed.", profileID, resp.SuccessCount, resp.FailureCount)
+			var level, summary string
+			if resp.SuccessCount > 0 {
+				level = "notice"
+				summary = fmt.Sprintf("[%s] Dedupe batch resolution applied: %d succeeded, %d failed.", profileID, resp.SuccessCount, resp.FailureCount)
+			} else {
+				level = "error"
+				summary = fmt.Sprintf("[%s] Dedupe batch resolution failed: %d failed out of %d.", profileID, resp.FailureCount, len(req.Actions))
+			}
 			_ = s.AuditService.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
-				Level:       "notice",
+				Level:       level,
 				Type:        "dedupe",
 				Msg:         summary,
 				RunID:       runID,
@@ -145,18 +156,23 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 				Action:      "DEDUPE_BATCH_APPLIED",
 			})
 		}
-		_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, "system", map[string]any{
-			"run_id":        runID,
-			"remote":        remoteClean,
-			"path":          req.Path,
-			"success_count": resp.SuccessCount,
-			"failure_count": resp.FailureCount,
-			"total_actions": len(req.Actions),
-		})
+		if resp.SuccessCount > 0 {
+			_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, "system", map[string]any{
+				"run_id":        runID,
+				"remote":        remoteClean,
+				"path":          req.Path,
+				"success_count": resp.SuccessCount,
+				"failure_count": resp.FailureCount,
+				"total_actions": len(req.Actions),
+			})
+		}
 	}
 
 	if req.TriggerResync {
-		if s.ProfileService != nil && req.ProfileID != "" {
+		if resp.SuccessCount == 0 {
+			resp.ResyncQueued = false
+			resp.ResyncMessage = "Resync skipped: no dedupe actions succeeded"
+		} else if s.ProfileService != nil && req.ProfileID != "" {
 			err := s.ProfileService.TriggerSyncWithOptions(ctx, req.ProfileID, profiles.SyncOptions{
 				Resync: true,
 				Origin: "dedupe_batch",
@@ -176,9 +192,20 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 
 	if resp.FailureCount > 0 && resp.SuccessCount == 0 {
 		resp.Status = "error"
-		resp.Error = "All staged dedupe actions failed"
+		if len(resp.Errors) > 0 {
+			resp.Error = fmt.Sprintf("All staged dedupe actions failed: %s", resp.Errors[0])
+		} else {
+			resp.Error = "All staged dedupe actions failed"
+		}
 	} else if resp.FailureCount > 0 {
 		resp.Status = "partial_success"
+		if len(resp.Errors) > 0 {
+			resp.Error = fmt.Sprintf("%d of %d actions failed: %s", resp.FailureCount, len(req.Actions), resp.Errors[0])
+		} else {
+			resp.Error = fmt.Sprintf("%d of %d actions failed", resp.FailureCount, len(req.Actions))
+		}
+	} else {
+		resp.Status = "success"
 	}
 
 	return resp, nil

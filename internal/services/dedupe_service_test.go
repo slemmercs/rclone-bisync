@@ -105,6 +105,95 @@ func TestDedupeBatch_CanaryProtection(t *testing.T) {
 	}
 }
 
+func TestDedupeBatch_SubdirectoryPathConcatenation(t *testing.T) {
+	// Arrange
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "Google Photos", "2015")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+
+	file1 := filepath.Join(subDir, "SAM_0805-01.jpeg")
+	file2 := filepath.Join(subDir, "SAM_0805-02.jpeg")
+	_ = os.WriteFile(file1, []byte("photo1"), 0600)
+	_ = os.WriteFile(file2, []byte("photo2"), 0600)
+
+	cfg := &config.Config{LocalPath: tmpDir}
+	expSvc := NewExplorerService(cfg, nil, nil)
+	dedupeSvc := NewDedupeService(cfg, expSvc, nil, nil)
+
+	req := models.DedupeBatchApplyRequest{
+		Remote:        "local",
+		Path:          "Google Photos/2015",
+		TriggerResync: true,
+		Actions: []models.DedupeStageAction{
+			{Path: "SAM_0805-01.jpeg", Action: "keep"},
+			{Path: "SAM_0805-02.jpeg", Action: "rename", NewName: "SAM_0805-02-copy2.jpeg"},
+		},
+	}
+
+	// Act
+	resp, err := dedupeSvc.ExecuteDedupeBatch(context.Background(), req, tmpDir)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Errorf("expected success status, got: %s (error: %s)", resp.Status, resp.Error)
+	}
+	if resp.SuccessCount != 2 {
+		t.Errorf("expected 2 successes, got: %d", resp.SuccessCount)
+	}
+	if resp.FailureCount != 0 {
+		t.Errorf("expected 0 failures, got: %d (errors: %v)", resp.FailureCount, resp.Errors)
+	}
+
+	// Verify the renamed file exists in the subdirectory
+	renamedFile := filepath.Join(subDir, "SAM_0805-02-copy2.jpeg")
+	if _, err := os.Stat(renamedFile); err != nil {
+		t.Errorf("expected renamed file %s to exist: %v", renamedFile, err)
+	}
+}
+
+func TestDedupeBatch_ResyncSkippedOnAllFailures(t *testing.T) {
+	// Arrange
+	tmpDir := t.TempDir()
+	cfg := &config.Config{LocalPath: tmpDir}
+	expSvc := NewExplorerService(cfg, nil, nil)
+	dedupeSvc := NewDedupeService(cfg, expSvc, nil, nil)
+
+	req := models.DedupeBatchApplyRequest{
+		Remote:        "local",
+		Path:          "nonexistent",
+		TriggerResync: true,
+		ProfileID:     "test-profile",
+		Actions: []models.DedupeStageAction{
+			{Path: "missing_file.txt", Action: "delete"},
+		},
+	}
+
+	// Act
+	resp, err := dedupeSvc.ExecuteDedupeBatch(context.Background(), req, tmpDir)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Status != "error" {
+		t.Errorf("expected error status, got: %s", resp.Status)
+	}
+	if resp.ResyncQueued {
+		t.Errorf("expected ResyncQueued to be false when all actions fail")
+	}
+	if resp.ResyncMessage != "Resync skipped: no dedupe actions succeeded" {
+		t.Errorf("unexpected resync message: %s", resp.ResyncMessage)
+	}
+	if len(resp.Errors) == 0 {
+		t.Errorf("expected detailed error in resp.Errors")
+	}
+}
+
 func TestDedupeBatch_PathTraversal(t *testing.T) {
 	// Arrange
 	tmpDir := t.TempDir()
@@ -132,3 +221,4 @@ func TestDedupeBatch_PathTraversal(t *testing.T) {
 		t.Errorf("expected 2 failures for path traversal, got: %d", resp.FailureCount)
 	}
 }
+

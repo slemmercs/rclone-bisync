@@ -1,45 +1,36 @@
-# Task Plan: Deduplication Edge-Cases, Smart Safety Recommendations & Staged Batch Review Engine
+# Task Plan: Google Drive Deduplication Fixes, In-App Modals & Streaming Resilience
 
 ## Goal
-Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer navigation/selection desync, alert users to content divergence across same-name copies, and introduce a transactional Staged Batch Review & Resync Bridge.
+Fix live Google Drive deduplication failures: resolve the path-truncation batch rename failure, prevent erroneous `--resync` triggers when dedupe batches fail, surface granular failure reasons, replace native browser `prompt()` with in-app dark-themed dialogs, fix blank dedupe directory explorer caused by Alpine `:key` collisions, lift streaming size caps (>2MB) on previews and downloads, and cache scan results across modal operations.
 
 ## Tasks
 
-- [x] Task 1: Backend Duplicate Stream Interception & Safe Error Mapping (`internal/models/`, `internal/services/`, `internal/server/`)
-  - **Scope**: `internal/models/api_explorer.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_download.go`, `internal/server/handlers_preview.go`, `internal/services/explorer_preview_test.go`
-  - **Verification**: `go test -count=1 ./internal/services/... ./internal/server/... -run "Test.*Preview|Test.*Download"`
+- [x] Task 1: Dedupe Batch Engine Path Concatenation, Resync Safety & Detailed Error Reporting (`internal/services/`)
+  - **Scope**: `internal/services/dedupe_service.go`, `internal/services/dedupe_service_test.go`
+  - **Verification**: `go test -count=1 ./internal/services/... -run "Test.*DedupeBatch.*"`
 
-- [x] Task 2: Backend Dedupe Batch Execution Engine & Endpoints (`internal/models/`, `internal/services/`, `internal/server/`)
-  - **Scope**: `internal/models/api_dedupe.go`, `internal/services/dedupe_service.go`, `internal/server/handlers_dedupe.go`, `internal/server/routes.go`, tests
-  - **Verification**: `go test -count=1 ./internal/services/... ./internal/server/... -run "Test.*DedupeBatch"`
-
-- [x] Task 3: Frontend UID Disambiguation & Explorer Target Row Highlighting (`dashboard/frontend/`)
-  - **Scope**: `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_compare.js`, `dashboard/frontend/partials/view_explorer.html`
+- [ ] Task 2: Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/js/dedupe_batch.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [x] Task 4: Dedupe Directory Explorer Resilience & Content Divergence Detection (`dashboard/frontend/`)
-  - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/partials/modals/modal_dedupe.html`
+- [ ] Task 3: Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/dedupe_workspace.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [x] Task 5: Staged Batch Review UI & Post-Dedupe Resync Bridge (`dashboard/frontend/`)
-  - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/partials/modals/modal_preview.html`
-  - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
+- [ ] Task 4: Large File (>2MB) Preview & Download Support with Rclone RC-Serve / MaxSize (`internal/core/client/`, `internal/services/`, `deploy/`)
+  - **Scope**: `internal/core/client/fs_read.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_download.go`, `internal/services/explorer_preview_test.go`, `deploy/systemd/rclone-daemon.service`
+  - **Verification**: `go test -count=1 ./internal/services/... -run "Test.*Preview.*|Test.*Download.*"`
 
-- [x] Task 6: Local Sandbox Fixtures & Full Quality Pre-Flight (`scripts/`, `tests/`)
-  - **Scope**: `scripts/run-sandbox.sh`, `tests/e2e/dashboard_smoke_test.go`, full gate
+- [ ] Task 5: Dedupe Scan Session Caching & Full Quality Pre-Flight (`dashboard/frontend/`, `scripts/`)
+  - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, full quality checks
   - **Verification**: `./scripts/check.sh all && ./scripts/check-loc.sh 400`
 
 ## Status Updates
 
-- 2026-11-15: Initialized plan from approved `implementation_plan.md` on branch `fix/dedupe-workspace-redesign-and-link-edge-case`.
+- 2026-11-15: Initialized plan for Google Drive dedupe fixes, in-app modals, and streaming resilience.
+- 2026-11-15: Completed Task 1 - Dedupe Batch Engine Path Concatenation, Resync Safety & Detailed Error Reporting. Resolved `req.Path` subdirectory path concatenation for batch actions, prevented erroneous `--resync` triggers when 0 actions succeed, populated concrete error details in `resp.Error`, and recorded audit logging for both successful and failed dedupe batches. Verified with unit tests.
 
-- 2026-11-15: Completed Task 1 - Backend duplicate stream interception and safe error mapping implemented. Intercepted Google Drive duplicate collisions ("found more than one file" / "duplicate object found") in `ExplorerService.PreviewItem` returning 200 with `IsDuplicateCollision: true` and actionable deduplication instructions instead of 500 error; mapped duplicate download attempts in `ExplorerService.DownloadStream` and `handleExplorerDownload` to 409 Conflict. Verified with targeted unit and HTTP handler tests.
-- 2026-11-15: Completed Task 2 - Backend Dedupe Batch Execution Engine & Endpoints implemented. Created `internal/models/api_dedupe.go`, `internal/services/dedupe_service.go`, and `POST /api/remotes/dedupe/batch` in `handlers_dedupe.go` and `routes.go`. Enabled transactional staging resolutions (keep, rename, delete) with canary guard, jail bounds, immutable audit ledger event recording, and optional post-dedupe resync trigger. Verified with unit and HTTP handler tests.
-- 2026-11-15: Completed Task 3 - Frontend UID Disambiguation & Explorer Target Row Highlighting implemented. Added composite key generation (`getItemKey`, `getItemRowKey`), multi-selection disambiguation, `isDuplicateItem` detection and badges with click-to-resolve, context menu integration, and target row UID pulse highlighting (`this.explorer.highlightId`). Verified with template check, E2E headless chrome smoke test, and LOC inspection.
 
-- 2026-11-15: Completed Task 4 - Dedupe Directory Explorer Resilience & Content Divergence Detection implemented. Added `switchDedupeTab`, `hasContentDivergence`, `getDedupeBreadcrumbs`, parent directory row navigation, and error retry state handling. Verified with templates check, headless Chrome smoke tests, and LOC audit.
-- 2026-11-15: Completed Task 5 - Staged Batch Review UI & Post-Dedupe Resync Bridge implemented. Added `DedupeBatchModule` (`dashboard/frontend/js/dedupe_batch.js`), candidate card inline staging actions (Keep, Rename, Delete), Staged Actions Review Bar with resync queuing checkbox, and preview modal duplicate collision quick-link. Verified with templates check, headless Chrome smoke tests, and LOC audit.
-- 2026-11-15: Completed Task 6 - Local Sandbox Fixtures & Full Quality Pre-Flight. Added duplicate collision test fixtures to `scripts/run-sandbox.sh`, ran `gofmt` code formatting across all models and services, and passed the full quality gate (`./scripts/check.sh all`) across all 7 verification stages with clean LOC boundaries.
 
 
 
