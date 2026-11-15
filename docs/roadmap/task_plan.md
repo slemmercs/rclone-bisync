@@ -9,7 +9,7 @@ Fix live Google Drive deduplication failures: resolve the path-truncation batch 
   - **Scope**: `internal/services/dedupe_service.go`, `internal/services/dedupe_service_test.go`
   - **Verification**: `go test -count=1 ./internal/services/... -run "Test.*DedupeBatch.*"`
 
-- [ ] Task 2: Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics (`dashboard/frontend/`)
+- [x] Task 2: Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics (`dashboard/frontend/`)
   - **Scope**: `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/js/dedupe_batch.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
@@ -29,6 +29,8 @@ Fix live Google Drive deduplication failures: resolve the path-truncation batch 
 
 - 2026-11-15: Initialized plan for Google Drive dedupe fixes, in-app modals, and streaming resilience.
 - 2026-11-15: Completed Task 1 - Dedupe Batch Engine Path Concatenation, Resync Safety & Detailed Error Reporting. Resolved `req.Path` subdirectory path concatenation for batch actions, prevented erroneous `--resync` triggers when 0 actions succeed, populated concrete error details in `resp.Error`, and recorded audit logging for both successful and failed dedupe batches. Verified with unit tests.
+- 2026-11-15: Completed Task 2 - Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics. Replaced browser native `prompt()` with dark-themed in-app input dialog via `askPrompt` in `modal_confirm.html`, surfaced granular per-action errors in toasts and dedupe execution console output. Verified with templates check and headless Chrome E2E smoke tests.
+
 
 
 

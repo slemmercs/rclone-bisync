@@ -34,6 +34,19 @@
         <!-- Body / Message -->
         <div class="text-xs text-slate-300 leading-relaxed whitespace-pre-line bg-slate-950/50 border border-slate-800/80 rounded-xl p-3.5 font-mono" x-text="confirmModal.message"></div>
 
+        <!-- Prompt Input Field (when showInput is true) -->
+        <template x-if="confirmModal.showInput">
+            <div class="space-y-1.5 pt-1">
+                <label for="confirmModalInput" class="block text-[11px] font-semibold text-slate-400 tracking-wide" x-text="confirmModal.inputLabel || 'Value'"></label>
+                <input id="confirmModalInput"
+                       type="text"
+                       x-model="confirmModal.inputValue"
+                       :placeholder="confirmModal.inputPlaceholder || ''"
+                       @keydown.enter.prevent="handleConfirmModal()"
+                       class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-slate-500 transition-colors focus:outline-none shadow-inner" />
+            </div>
+        </template>
+
         <!-- Visual Transfer Path Preview (Directory Copy) -->
         <template x-if="confirmModal.transfer">
             <div class="p-3 bg-slate-950/90 border border-slate-800 rounded-xl space-y-2 text-xs font-mono">

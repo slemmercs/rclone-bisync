@@ -108,11 +108,31 @@ window.DedupeBatchModule = {
         const ext = currentName.includes(".") ? ("." + currentName.split(".").pop()) : "";
         const base = ext ? currentName.slice(0, -ext.length) : currentName;
         const suggestion = `${base}-copy${cand.index || 2}${ext}`;
-        const newName = prompt(`Enter new filename for Copy #${cand.index || 1}:`, suggestion);
-        if (!newName || newName.trim() === "" || newName.trim() === currentName) {
-            return;
+
+        if (typeof this.askPrompt === "function") {
+            this.askPrompt({
+                title: `Rename Copy #${cand.index || 1}`,
+                message: `Provide a new filename for the duplicate candidate:\n${collision.path || collision.name || ''}`,
+                inputLabel: "New Filename",
+                inputValue: suggestion,
+                inputPlaceholder: "e.g. photo-copy2.jpg",
+                confirmText: "Stage Rename",
+                confirmClass: "bg-amber-600 hover:bg-amber-500",
+                icon: "warning",
+                onConfirm: (newName) => {
+                    if (!newName || !newName.trim() || newName.trim() === currentName) {
+                        return;
+                    }
+                    this.stageCandidateAction(collision, cand, "rename", newName.trim());
+                }
+            });
+        } else {
+            const newName = prompt(`Enter new filename for Copy #${cand.index || 1}:`, suggestion);
+            if (!newName || !newName.trim() || newName.trim() === currentName) {
+                return;
+            }
+            this.stageCandidateAction(collision, cand, "rename", newName.trim());
         }
-        this.stageCandidateAction(collision, cand, "rename", newName.trim());
     },
 
     async applyStagedDedupeBatch() {
@@ -132,8 +152,16 @@ window.DedupeBatchModule = {
             };
             const data = await window.API.post("/api/remotes/dedupe/batch", payload);
             if (data.status === "error") {
+                const errMsg = data.error || (data.errors && data.errors[0]) || 'Unknown error';
                 if (typeof this.showToast === "function") {
-                    this.showToast(`Batch failed: ${data.error || 'Unknown error'}`, "error");
+                    this.showToast(`Batch failed: ${errMsg}`, "error");
+                }
+                if (this.dedupeModal) {
+                    let errDetails = `\n[ERROR] Batch deduplication failed: ${errMsg}`;
+                    if (data.errors && data.errors.length > 0) {
+                        errDetails += "\n" + data.errors.map(e => `  - ${e}`).join("\n");
+                    }
+                    this.dedupeModal.output = (this.dedupeModal.output || "") + errDetails;
                 }
             } else {
                 const succ = data.success_count || 0;
@@ -143,7 +171,11 @@ window.DedupeBatchModule = {
                 }
                 this.clearStagedDedupeActions();
                 if (this.dedupeModal) {
-                    this.dedupeModal.output = (this.dedupeModal.output || "") + `\nBatch execution applied ${succ} actions (${fail} failed).`;
+                    let out = (this.dedupeModal.output || "") + `\nBatch execution applied: ${succ} succeeded, ${fail} failed.`;
+                    if (data.errors && data.errors.length > 0) {
+                        out += "\nFailures encountered:\n" + data.errors.map(e => `  - ${e}`).join("\n");
+                    }
+                    this.dedupeModal.output = out;
                 }
                 if (data.resync_queued && typeof this.showToast === "function") {
                     this.showToast(`Profile resync queued: ${data.resync_message || ''}`, "info");
