@@ -89,7 +89,10 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 	var pairedLocalOut string
 	if req.DedupeBoth && matchedProfile != nil && !strings.EqualFold(remoteClean, "local") {
 		localBase := s.resolveLocalPath(matchedProfile.ID)
-		cleanSubPath := strings.Trim(strings.TrimSpace(req.Path), "/")
+		cleanSubPath := strings.Trim(req.Path, "/")
+		if strings.TrimSpace(cleanSubPath) == "" {
+			cleanSubPath = ""
+		}
 		_, targetDir, ok := services.IsLocalPathJailed(localBase, cleanSubPath)
 		if ok {
 			pairedLocalPath = targetDir

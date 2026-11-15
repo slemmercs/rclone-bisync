@@ -5,7 +5,7 @@ Resolve Google Drive link/shortcut and trailing-space path navigation edge cases
 
 ## Tasks
 
-- [ ] Task 1: Backend Trailing Whitespace & Transparent Link/Shortcut Auto-Recovery (`internal/services/`, `internal/models/`)
+- [x] Task 1: Backend Trailing Whitespace & Transparent Link/Shortcut Auto-Recovery (`internal/services/`, `internal/models/`)
   - **Scope**: `internal/services/explorer_service.go`, `internal/services/explorer_service_test.go`, `internal/models/api_explorer.go`
   - **Verification**: `go test -count=1 ./internal/services/... -run TestBrowsePath`
 
@@ -28,6 +28,7 @@ Resolve Google Drive link/shortcut and trailing-space path navigation edge cases
 ## Status Updates
 
 - 2026-11-15: Initialized plan from approved `implementation_plan.md` on branch `fix/dedupe-workspace-redesign-and-link-edge-case`.
+- 2026-11-15: Completed Task 1 - Preserved folder segment trailing whitespace across `ExplorerService.BrowsePath` and dedupe handlers. Implemented transparent auto-resolution for 404 remote and local directories with trailing spaces or shortcut aliases. Added shortcut detection (`IsShortcut: true`) for composite Google Drive IDs and symlinks. Verified with unit tests (`TestExplorerService_BrowsePath`).
 
 
 
