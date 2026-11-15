@@ -8,10 +8,14 @@ Resolve live Google Drive deduplication issues identified in testing:
 3. Staged dedupe review drawer & live progress: provide an interactive staged actions review drawer with per-action unstaging controls and animated chunked batch progress tracking.
 4. Granular audit taxonomy & file logging: introduce `DEDUPE_BATCH_EXECUTED` taxonomy, emit per-file deletion and rename events to the bisync log stream so deleted files show up in the Log Dock and correlated logs.
 5. Correlated daemon log badges: display `--resync`, `--dry-run`, and `--force` operational flags prominently in the correlated logs modal header.
+6. Rename Confirmation Isolation: Ensure `handleConfirmModal()` sets `confirmModal.closedAt = Date.now()` prior to closing, stop Enter keydown bubbling on input with `.stop`, stop mousedown/mouseup propagation on prompt dialog buttons and cards, and add `.stop` to inline candidate dedupe action buttons so confirming rename cannot trigger backdrop click or bleed through to parent dedupe workspace.
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/partials/modals/modal_confirm.html`: Set stacking priority to `z-[70]`.
+- `dashboard/frontend/js/app_state.js`: Record `confirmModal.closedAt = Date.now()` in `handleConfirmModal()` before resetting state.
+- `dashboard/frontend/partials/modals/modal_confirm.html`: Add `.stop` to `@keydown.enter.prevent`, add `@mousedown.stop @mouseup.stop` to card and buttons.
+- `dashboard/frontend/partials/modals/modal_dedupe.html`: Add `@click.stop` to candidate action buttons and expand cooldown threshold to 400ms.
+- `dashboard/frontend/partials/modals/modal_dedupe_explorer.html`: Add `@click.stop` to explorer candidate dedupe buttons.
 - `dashboard/frontend/partials/modals/modal_file_preview.html`: Set stacking priority to `z-[60]`, stop ESC bubbling.
 - `dashboard/frontend/partials/modals/modal_dedupe.html`: Guard ESC and click-away listeners so child modals do not trigger dedupe dismissal; add slide-up staged actions drawer.
 - `dashboard/frontend/partials/modals/modal_daemon.html`: Add operational flags badges (`RESYNC`, `DRY RUN`, `FORCE`).

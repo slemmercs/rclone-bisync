@@ -1710,6 +1710,25 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			const dedupeRemainsOpenAfterPreview = Boolean(app.dedupeModal?.show === true);
 			app.closeDedupeModal();
 
+			// 10. Verify rename prompt and confirmation does not close dedupe workspace
+			app.openDedupeModal("drive", "test-folder");
+			const fakeCollision = { path: "test-folder/doc.pdf", name: "doc.pdf", candidates: [{ index: 1, id: "c1" }, { index: 2, id: "c2" }] };
+			app.dedupeModal.selectedCollision = fakeCollision;
+			app.promptStageRename(fakeCollision, fakeCollision.candidates[1]);
+			const promptOpened = Boolean(app.confirmModal?.show === true);
+
+			// Test DOM interaction: press Enter on the input field
+			await new Promise(r => setTimeout(r, 50));
+			const input = document.getElementById("confirmModalInput");
+			const inputFound = Boolean(input);
+			if (input) {
+				input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+			}
+			await new Promise(r => setTimeout(r, 100));
+			const dedupeRemainsOpenAfterRenameConfirm = Boolean(app.dedupeModal?.show === true);
+			const stagedCount = app.getStagedDedupeCount ? app.getStagedDedupeCount() : 0;
+			app.closeDedupeModal();
+
 			return {
 				modalOpen,
 				remoteAssigned,
@@ -1736,38 +1755,42 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				stagedCountBefore,
 				stagedCountAfter,
 				stagedCountCleared,
-				dedupeRemainsOpenAfterPreview
+				dedupeRemainsOpenAfterPreview,
+				promptOpened,
+				dedupeRemainsOpenAfterRenameConfirm
 			};
 		})()`
 
 		type DedupeWorkspaceResult struct {
-			Error                         *string `json:"error"`
-			ModalOpen                     bool    `json:"modalOpen"`
-			RemoteAssigned                bool    `json:"remoteAssigned"`
-			PathPreserved                 bool    `json:"pathPreserved"`
-			InitialCollisionsCount        int     `json:"initialCollisionsCount"`
-			FilteredCollisionsCount       int     `json:"filteredCollisionsCount"`
-			SelectedPath                  string  `json:"selectedPath"`
-			CandidatesCount               int     `json:"candidatesCount"`
-			FirstCandId                   string  `json:"firstCandId"`
-			IsTabCandidates               bool    `json:"isTabCandidates"`
-			IsTabLogs                     bool    `json:"isTabLogs"`
-			IsTabExplorer                 bool    `json:"isTabExplorer"`
-			CanNavParentBefore            bool    `json:"canNavParentBefore"`
-			ParentPath                    string  `json:"parentPath"`
-			CanNavParentAtRoot            bool    `json:"canNavParentAtRoot"`
-			SummaryCollisions             int     `json:"summaryCollisions"`
-			SummaryCandidates             int     `json:"summaryCandidates"`
-			ModalClosed                   bool    `json:"modalClosed"`
-			CachePreserved                bool    `json:"cachePreserved"`
-			CacheCleared                  bool    `json:"cacheCleared"`
-			DivDetected                   bool    `json:"divDetected"`
-			NoDivDetected                 bool    `json:"noDivDetected"`
-			BreadcrumbsCount              int     `json:"breadcrumbsCount"`
-			StagedCountBefore             int     `json:"stagedCountBefore"`
-			StagedCountAfter              int     `json:"stagedCountAfter"`
-			StagedCountCleared            int     `json:"stagedCountCleared"`
-			DedupeRemainsOpenAfterPreview bool    `json:"dedupeRemainsOpenAfterPreview"`
+			Error                               *string `json:"error"`
+			ModalOpen                           bool    `json:"modalOpen"`
+			RemoteAssigned                      bool    `json:"remoteAssigned"`
+			PathPreserved                       bool    `json:"pathPreserved"`
+			InitialCollisionsCount              int     `json:"initialCollisionsCount"`
+			FilteredCollisionsCount             int     `json:"filteredCollisionsCount"`
+			SelectedPath                        string  `json:"selectedPath"`
+			CandidatesCount                     int     `json:"candidatesCount"`
+			FirstCandId                         string  `json:"firstCandId"`
+			IsTabCandidates                     bool    `json:"isTabCandidates"`
+			IsTabLogs                           bool    `json:"isTabLogs"`
+			IsTabExplorer                       bool    `json:"isTabExplorer"`
+			CanNavParentBefore                  bool    `json:"canNavParentBefore"`
+			ParentPath                          string  `json:"parentPath"`
+			CanNavParentAtRoot                  bool    `json:"canNavParentAtRoot"`
+			SummaryCollisions                   int     `json:"summaryCollisions"`
+			SummaryCandidates                   int     `json:"summaryCandidates"`
+			ModalClosed                         bool    `json:"modalClosed"`
+			CachePreserved                      bool    `json:"cachePreserved"`
+			CacheCleared                        bool    `json:"cacheCleared"`
+			DivDetected                         bool    `json:"divDetected"`
+			NoDivDetected                       bool    `json:"noDivDetected"`
+			BreadcrumbsCount                    int     `json:"breadcrumbsCount"`
+			StagedCountBefore                   int     `json:"stagedCountBefore"`
+			StagedCountAfter                    int     `json:"stagedCountAfter"`
+			StagedCountCleared                  int     `json:"stagedCountCleared"`
+			DedupeRemainsOpenAfterPreview       bool    `json:"dedupeRemainsOpenAfterPreview"`
+			PromptOpened                        bool    `json:"promptOpened"`
+			DedupeRemainsOpenAfterRenameConfirm bool    `json:"dedupeRemainsOpenAfterRenameConfirm"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[DedupeWorkspaceResult](script, chromedp.EvalAwaitPromise))
@@ -1818,6 +1841,10 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.DedupeRemainsOpenAfterPreview {
 			t.Errorf("expected dedupe modal to remain open after preview modal dismissal")
+		}
+		if !res.PromptOpened || !res.DedupeRemainsOpenAfterRenameConfirm {
+			t.Errorf("expected dedupe modal to remain open after rename prompt confirm: opened=%v remaining=%v",
+				res.PromptOpened, res.DedupeRemainsOpenAfterRenameConfirm)
 		}
 	})
 

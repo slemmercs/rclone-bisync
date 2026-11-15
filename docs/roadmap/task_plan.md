@@ -25,6 +25,10 @@ Resolve 7 user-reported issues: isolate preview/dedupe modal dismissal, clamp Rc
   - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`, `dashboard/frontend/js/logs_daemon.js`, `./scripts/check.sh all`
   - **Verification**: `./scripts/check.sh all`
 
+- [x] Task 6: Rename Confirmation Isolation & Modal Cooldown Protection (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/js/app_state.js`, `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/partials/modals/modal_dedupe_explorer.html`
+  - **Verification**: `./scripts/check.sh templates && go test -count=1 ./tests/e2e/...`
+
 ## Status Updates
 
 - 2026-11-15: Initialized plan for deduplication & preview UX hardening, audit granularity, and correlated log visibility.
@@ -33,6 +37,7 @@ Resolve 7 user-reported issues: isolate preview/dedupe modal dismissal, clamp Rc
 - 2026-11-15: Completed Task 3 - Staged Actions Review Drawer & Live Batch Progress. Built `modal_dedupe_drawer.html` partial with animated slide-up review list, action badges (delete/rename/keep), candidate unstage buttons, and animated live batch progress indicator; updated `dedupe_batch.js` with drawer state toggle, staged counts, and progress tracking; preserved strict <400 LOC modularity. Verified with templates check and server tests.
 - 2026-11-15: Completed Task 4 - Granular Audit Taxonomy & Per-File Logging in Log Dock. Added `ActionDedupeBatchExecuted` in `internal/audit/taxonomy.go`, emitted per-file deletion and rename `BisyncLogEntry` events during batch execution so individual files show in the Log Dock and correlated logs, rendered dedicated `DEDUPE_BATCH_EXECUTED` summary card in `ui_components.html`, added filter option in `view_audit.html`, and verified with end-to-end audit ledger and log streaming tests.
 - 2026-11-15: Completed Task 5 - Correlated Daemon Log Badges (`RESYNC`, `DRY RUN`, `FORCE`) & Full Quality Gate. Added reactive `daemonModalRunFlags` getter in `logs_daemon.js` inspecting execution metadata and daemon log output, styled `RESYNC`, `DRY RUN`, and `FORCE` badges in `modal_daemon.html`, formatted Go test suites, and verified with all 7 checks of `./scripts/check.sh all` and headless Chrome E2E tests passing.
+- 2026-11-15: Completed Task 6 - Rename Confirmation Isolation & Modal Cooldown Protection. Recorded `confirmModal.closedAt = Date.now()` in `handleConfirmModal()` prior to resetting modal state, prevented Enter keydown propagation on prompt input with `.prevent.stop`, stopped mousedown/mouseup bubbling on prompt modal card and action buttons, added `.stop` to candidate dedupe buttons in both Candidates view and Directory Explorer view, and widened cooldown threshold to 400ms. Verified with `./scripts/check.sh all` and headless Chrome E2E tests.
 
 
 

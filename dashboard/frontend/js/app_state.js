@@ -102,6 +102,7 @@ window.AppStateModule = {
     },
 
     handleConfirmModal() {
+        this.confirmModal.closedAt = Date.now();
         const fn = this.confirmModal.onConfirm;
         const inputVal = this.confirmModal.inputValue;
         const hadInput = this.confirmModal.showInput;
@@ -120,12 +121,12 @@ window.AppStateModule = {
     },
 
     cancelConfirmModal() {
+        this.confirmModal.closedAt = Date.now();
         this.confirmModal.show = false;
         this.confirmModal.showInput = false;
         this.confirmModal.inputValue = "";
         this.confirmModal.onConfirm = null;
         this.confirmModal.transfer = null;
-        this.confirmModal.closedAt = Date.now();
     },
 
     isEngineSyncing() {

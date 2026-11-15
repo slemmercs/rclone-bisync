@@ -60,24 +60,24 @@
                     <span x-show="item.ModTime" class="hidden sm:inline text-slate-500" x-text="typeof formatDate === 'function' ? formatDate(item.ModTime) : ''"></span>
                     <template x-if="!item.IsDir">
                         <div class="flex items-center gap-1" @click.stop>
-                            <button type="button" @click="previewDedupeExplorerItem(item)" class="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer" title="Preview file">
+                            <button type="button" @click.stop="previewDedupeExplorerItem(item)" class="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer" title="Preview file">
                                 <svg class="w-3.5 h-3.5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                             <template x-if="getCollisionForItem(item) && getCandidateForExplorerItem(item) && !getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item))">
                                 <div class="flex items-center gap-1">
-                                    <button type="button" @click="stageKeepOnly(getCollisionForItem(item), getCandidateForExplorerItem(item))" class="px-1.5 py-0.5 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Keep this copy and stage delete on duplicates">
+                                    <button type="button" @click.stop="stageKeepOnly(getCollisionForItem(item), getCandidateForExplorerItem(item))" class="px-1.5 py-0.5 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Keep this copy and stage delete on duplicates">
                                         Keep
                                     </button>
-                                    <button type="button" @click="promptStageRename(getCollisionForItem(item), getCandidateForExplorerItem(item))" class="px-1.5 py-0.5 bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border border-amber-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Rename this copy">
+                                    <button type="button" @click.stop="promptStageRename(getCollisionForItem(item), getCandidateForExplorerItem(item))" class="px-1.5 py-0.5 bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border border-amber-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Rename this copy">
                                         Rename
                                     </button>
-                                    <button type="button" @click="stageCandidateAction(getCollisionForItem(item), getCandidateForExplorerItem(item), 'delete')" class="px-1.5 py-0.5 bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Delete this copy">
+                                    <button type="button" @click.stop="stageCandidateAction(getCollisionForItem(item), getCandidateForExplorerItem(item), 'delete')" class="px-1.5 py-0.5 bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Delete this copy">
                                         Delete
                                     </button>
                                 </div>
                             </template>
                             <template x-if="getCollisionForItem(item) && getCandidateForExplorerItem(item) && getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item))">
-                                <button type="button" @click="unstageCandidateAction(getCandidateKey(getCollisionForItem(item), getCandidateForExplorerItem(item)))" class="p-0.5 text-slate-400 hover:text-rose-300 cursor-pointer" title="Clear staged action">
+                                <button type="button" @click.stop="unstageCandidateAction(getCandidateKey(getCollisionForItem(item), getCandidateForExplorerItem(item)))" class="p-0.5 text-slate-400 hover:text-rose-300 cursor-pointer" title="Clear staged action">
                                     <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                                 </button>
                             </template>
