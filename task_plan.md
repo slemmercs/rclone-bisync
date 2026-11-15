@@ -17,7 +17,7 @@ Transform `deploy/install.sh` into an enterprise-grade, idempotent installer for
   - **Scope**: `deploy/install.sh`
   - **Verification**: `bash tests/unit/install_script_test.sh`
 
-- [ ] Task 4: Implement Multi-Distro Prerequisite Resolution, Secure Secrets & Service Provisioning (`deploy/install.sh`)
+- [x] Task 4: Implement Multi-Distro Prerequisite Resolution, Secure Secrets & Service Provisioning (`deploy/install.sh`)
   - **Scope**: `deploy/install.sh`
   - **Verification**: `bash -n deploy/install.sh && bash tests/unit/install_script_test.sh`
 

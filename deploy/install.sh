@@ -72,7 +72,14 @@ compare_semver() {
     echo "0"
 }
 
-
+# --- Cryptographic Secret Generator ---
+generate_random_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 16
+    else
+        head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'
+    fi
+}
 
 # --- CLI Options Defaults ---
 INSTALL_RCLONE=false
@@ -182,11 +189,24 @@ fi
 log_step "1/6: Verifying system prerequisites..."
 if ! command -v curl >/dev/null 2>&1; then
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would install curl via package manager"
+        log_info "[DRY-RUN] Would install curl via system package manager"
     else
-        log_info "curl not found, installing via apt-get..."
-        apt-get update
-        apt-get install -y curl
+        log_info "curl not found, attempting installation via system package manager..."
+        if command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y curl
+        elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y curl
+        elif command -v yum >/dev/null 2>&1; then
+            yum install -y curl
+        elif command -v pacman >/dev/null 2>&1; then
+            pacman -Sy --noconfirm curl
+        elif command -v zypper >/dev/null 2>&1; then
+            zypper --non-interactive in curl
+        else
+            log_error "No supported package manager found (apt-get, dnf, yum, pacman, zypper)."
+            log_error "Please install 'curl' manually and re-run this script."
+            exit 1
+        fi
     fi
 else
     log_info "System prerequisite 'curl' already present."
@@ -249,27 +269,39 @@ fi
 
 
 # --- 3. Setup Layout & Build Native Go Single-Binary ---
-echo "Creating directory layout: $RCLONE_DIR"
+log_step "3/6: Setting up directory layout and configuration..."
+log_info "Creating directory layout: $RCLONE_DIR"
 sudo -u "$REAL_USER" mkdir -p "$RCLONE_DIR/bin"
 
-# Verify base workspace configuration assets exist before copy
+# Prepare workspace configuration files
 if [ ! -f "$REPO_ROOT/rc-secrets.env" ]; then
     if [ -f "$REPO_ROOT/config/rc-secrets.env.example" ]; then
-        echo "Notice: rc-secrets.env not found. Creating from config/rc-secrets.env.example..."
+        log_info "Creating rc-secrets.env from config/rc-secrets.env.example..."
         cp "$REPO_ROOT/config/rc-secrets.env.example" "$REPO_ROOT/rc-secrets.env"
         chmod 600 "$REPO_ROOT/rc-secrets.env"
     else
-        echo "Error: Neither rc-secrets.env nor config/rc-secrets.env.example found."
+        log_error "Neither rc-secrets.env nor config/rc-secrets.env.example found."
         exit 1
     fi
 fi
 
+# Auto-generate secure credentials if default placeholders remain
+if grep -q "your_rclone_password_here" "$REPO_ROOT/rc-secrets.env"; then
+    RAND_PASS="$(generate_random_secret)"
+    sed -i "s|your_rclone_password_here|$RAND_PASS|g" "$REPO_ROOT/rc-secrets.env"
+    log_info "Auto-generated secure random RC_PASS in rc-secrets.env"
+fi
+if grep -q "your_rclone_username_here" "$REPO_ROOT/rc-secrets.env"; then
+    sed -i "s|your_rclone_username_here|admin|g" "$REPO_ROOT/rc-secrets.env"
+    log_info "Configured default RC_USER (admin) in rc-secrets.env"
+fi
+
 if [ ! -f "$REPO_ROOT/bisync.env" ]; then
     if [ -f "$REPO_ROOT/config/bisync.env.example" ]; then
-        echo "Notice: bisync.env not found. Creating from config/bisync.env.example..."
+        log_info "Creating bisync.env from config/bisync.env.example..."
         cp "$REPO_ROOT/config/bisync.env.example" "$REPO_ROOT/bisync.env"
     else
-        echo "Error: Neither bisync.env nor config/bisync.env.example found."
+        log_error "Neither bisync.env nor config/bisync.env.example found."
         exit 1
     fi
 fi
@@ -284,20 +316,20 @@ REQUIRED_FILES=(
 )
 for f in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$f" ]; then
-        echo "Error: Required workspace configuration asset '$f' not found."
+        log_error "Required configuration asset '$f' not found."
         exit 1
     fi
 done
 
 # Build the native Go single binary if Go is available, or copy pre-built bin/rclone-bisync
 if command -v go >/dev/null 2>&1; then
-    echo "Compiling native single-binary rclone-bisync..."
+    log_info "Compiling native single-binary rclone-bisync..."
     (cd "$REPO_ROOT" && sudo -u "$REAL_USER" go build -o "$RCLONE_DIR/bin/rclone-bisync" main.go)
 elif [ -f "$REPO_ROOT/bin/rclone-bisync" ]; then
-    echo "Installing pre-compiled rclone-bisync binary..."
+    log_info "Installing pre-compiled rclone-bisync binary..."
     cp "$REPO_ROOT/bin/rclone-bisync" "$RCLONE_DIR/bin/rclone-bisync"
 else
-    echo "Error: Neither Go compiler nor bin/rclone-bisync binary found."
+    log_error "Neither Go compiler nor bin/rclone-bisync binary found."
     exit 1
 fi
 
@@ -306,13 +338,13 @@ chmod +x "$RCLONE_DIR/bin/rclone-bisync"
 if [ ! -f "$RCLONE_DIR/bisync.env" ]; then
     cp "$REPO_ROOT/bisync.env" "$RCLONE_DIR/"
 else
-    echo "Preserving existing configuration file: $RCLONE_DIR/bisync.env"
+    log_info "Preserving existing configuration file: $RCLONE_DIR/bisync.env"
 fi
 
 if [ ! -f "$RCLONE_DIR/rc-secrets.env" ]; then
     cp "$REPO_ROOT/rc-secrets.env" "$RCLONE_DIR/"
 else
-    echo "Preserving existing secrets file: $RCLONE_DIR/rc-secrets.env"
+    log_info "Preserving existing secrets file: $RCLONE_DIR/rc-secrets.env"
 fi
 
 if [ -d "$REPO_ROOT/icons" ]; then
@@ -324,7 +356,7 @@ chmod 600 "$RCLONE_DIR/rc-secrets.env"
 chmod 644 "$RCLONE_DIR/bisync.env"
 
 # --- 4. Setup Systemd User Services ---
-echo "Configuring systemd user services..."
+log_step "4/6: Configuring systemd user services..."
 sudo -u "$REAL_USER" mkdir -p "$SYSTEMD_USER_DIR"
 
 USER_ID=$(id -u "$REAL_USER")
@@ -339,26 +371,39 @@ cp "$REPO_ROOT/deploy/systemd/rclone-daemon.service" \
    "$REPO_ROOT/deploy/systemd/rclone-dashboard.service" \
    "$SYSTEMD_USER_DIR/"
 
-# Dynamically resolve system binaries for systemd units
+# Dynamically resolve system binaries and customize parameters
 RCLONE_BIN=$(command -v rclone || echo "/usr/bin/rclone")
 CURL_BIN=$(command -v curl || echo "/usr/bin/curl")
 sed -i "s|/usr/bin/rclone|$RCLONE_BIN|g" "$SYSTEMD_USER_DIR/rclone-daemon.service"
 sed -i "s|/usr/bin/curl|$CURL_BIN|g" "$SYSTEMD_USER_DIR/rclone-daemon.service"
+sed -i "s|%h/rclone-bisync|$RCLONE_DIR|g" "$SYSTEMD_USER_DIR/rclone-daemon.service"
+sed -i "s|%h/rclone-bisync|$RCLONE_DIR|g" "$SYSTEMD_USER_DIR/rclone-dashboard.service"
+sed -i "s|--port 8080|--port $DASHBOARD_PORT|g" "$SYSTEMD_USER_DIR/rclone-dashboard.service"
 
 chown "$REAL_USER:$REAL_USER" "$SYSTEMD_USER_DIR/"*
 
 # --- 5. Install Desktop Shortcuts ---
-echo "Installing application workspace launchers..."
+log_step "5/6: Installing desktop launchers..."
 sudo -u "$REAL_USER" mkdir -p "$SHORTCUT_DIR"
 rm -f "$SHORTCUT_DIR/rclone-webgui.desktop" "$SHORTCUT_DIR/rclone-bisync-manual.desktop"
 
 cp "$REPO_ROOT/deploy/desktop/rclone-dashboard.desktop" "$SHORTCUT_DIR/"
 sed -i "s|Icon=network-server|Icon=$RCLONE_DIR/icons/cloud-sync-light.svg|g" "$SHORTCUT_DIR/rclone-dashboard.desktop"
+sed -i "s|http://127.0.0.1:8080|http://127.0.0.1:$DASHBOARD_PORT|g" "$SHORTCUT_DIR/rclone-dashboard.desktop"
 chown "$REAL_USER:$REAL_USER" "$SHORTCUT_DIR/"rclone-*.desktop
 chmod +x "$SHORTCUT_DIR/"rclone-*.desktop
 
 # --- 6. Enable, Reset, and Start Services ---
-echo "Activating automated services..."
+log_step "6/6: Activating automated services..."
+
+if [[ "$SKIP_SERVICES" == "true" ]]; then
+    log_info "Skipping systemd service activation (--skip-services flag active)."
+    log_success "Files successfully staged and configured in $RCLONE_DIR."
+    log_info "To activate manually, run:"
+    log_info "  systemctl --user daemon-reload"
+    log_info "  systemctl --user enable --now rclone-daemon.service rclone-dashboard.service"
+    exit 0
+fi
 
 # Reload systemd and clear any existing failed states / start-rate limits
 sudo -u "$REAL_USER" $DBUS_ENV systemctl --user daemon-reload
@@ -373,11 +418,10 @@ sudo -u "$REAL_USER" $DBUS_ENV systemctl --user restart rclone-dashboard.service
 
 # Verify daemon status
 if sudo -u "$REAL_USER" $DBUS_ENV systemctl --user is-active --quiet rclone-daemon.service; then
-    echo "----------------------------------------------------"
-    echo "✅ Installation Complete successfully!"
-    echo "Bisync Hub is running live at http://127.0.0.1:8080"
+    log_success "Bisync Hub installation complete!"
+    log_success "Dashboard is running live at http://127.0.0.1:$DASHBOARD_PORT"
 else
-    echo "----------------------------------------------------"
-    echo "⚠️ Warning: rclone-daemon.service failed to report active status."
-    echo "Run: systemctl --user status rclone-daemon.service for details."
+    log_warn "rclone-daemon.service did not report active status within timeout."
+    log_info "Inspect service status: systemctl --user status rclone-daemon.service"
 fi
+

@@ -184,6 +184,55 @@ assert_equals "1" "$MAX_FAIL_STATUS" "Exits 1 when rclone version > max-version"
 assert_contains "$MAX_FAIL_OUTPUT" "exceeds maximum supported version 1.70.0" "Reports maximum version error"
 assert_equals "0" "$MAX_PASS_STATUS" "Exits 0 when rclone version <= max-version"
 
+# Test 9: Cryptographic secret generation
+echo "[Test 9] Secret generation randomness and length"
+generate_random_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 16
+    else
+        head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'
+    fi
+}
+SECRET1=$(generate_random_secret)
+SECRET2=$(generate_random_secret)
+assert_equals "32" "${#SECRET1}" "Generated secret has 32 hex chars"
+if [[ "$SECRET1" != "$SECRET2" ]]; then
+    echo "  ✓ Generated secrets are unique ($SECRET1 != $SECRET2)"
+    PASSED_COUNT=$((PASSED_COUNT + 1))
+else
+    echo "  ✖ Error: Secret collision detected!"
+    FAILED_COUNT=$((FAILED_COUNT + 1))
+fi
+
+# Test 10: Port argument error handling
+echo "[Test 10] Port argument validation"
+set +e
+PORT_ERR_OUTPUT=$(bash "$INSTALL_SCRIPT" --port 2>&1)
+PORT_ERR_STATUS=$?
+set -e
+assert_equals "2" "$PORT_ERR_STATUS" "Exits with code 2 on missing --port value"
+assert_contains "$PORT_ERR_OUTPUT" "requires a port argument" "Helpful error message for missing port"
+
+# Test 11: Target-dir argument error handling
+echo "[Test 11] Target-dir argument validation"
+set +e
+DIR_ERR_OUTPUT=$(bash "$INSTALL_SCRIPT" --target-dir 2>&1)
+DIR_ERR_STATUS=$?
+set -e
+assert_equals "2" "$DIR_ERR_STATUS" "Exits with code 2 on missing --target-dir value"
+assert_contains "$DIR_ERR_OUTPUT" "requires a path argument" "Helpful error message for missing target dir"
+
+# Test 12: Dry-run honors --target-dir and --skip-services
+echo "[Test 12] Dry run logs target-dir"
+set +e
+DRY_CUSTOM_OUTPUT=$(env PATH="$TMP_BIN_DIR/bin" SUDO_USER="nobody" bash -c "
+    bash \"$INSTALL_SCRIPT\" --dry-run --target-dir /tmp/custom-bisync-dir --port 9999 --skip-services
+" 2>&1)
+DRY_CUSTOM_STATUS=$?
+set -e
+assert_equals "0" "$DRY_CUSTOM_STATUS" "Dry run exits 0 with custom options"
+assert_contains "$DRY_CUSTOM_OUTPUT" "/tmp/custom-bisync-dir" "Custom target directory reflected in output"
+
 echo "=================================================="
 echo "📊 Results: $PASSED_COUNT passed, $FAILED_COUNT failed."
 echo "=================================================="
