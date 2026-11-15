@@ -631,193 +631,200 @@
   },"90": {
     "doc": "Quickstart Guide",
     "title": "1. Quick Installation",
-    "content": "Execute the automated installer to download the latest signed binary and setup basic system integration: . curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | bash . ",
+    "content": "Execute the automated installer to download the latest signed binary and setup basic system integration: . # Standard installation (uses existing Rclone installation on system PATH) curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | sudo bash # Or opt-in to automatic Rclone binary installation if not present curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | sudo bash -s -- --install-rclone . ",
     "url": "/rclone-bisync/quickstart.html#1-quick-installation",
     
     "relUrl": "/quickstart.html#1-quick-installation"
   },"91": {
+    "doc": "Quickstart Guide",
+    "title": "Installer CLI Flags",
+    "content": "| Option | Description | Default | . | -i, --install-rclone | Install official Rclone binary if not found in PATH | false | . | -n, --dry-run | Simulate installation without modifying system | false | . | -d, --target-dir &lt;path&gt; | Installation target directory | $HOME/rclone-bisync | . | --port &lt;port&gt; | Dashboard HTTP service port | 8080 | . | --skip-services | Stage files and compile without starting systemd units | false | . | --min-rclone-version &lt;v&gt; | Minimum required Rclone semver |   | . | --max-rclone-version &lt;v&gt; | Maximum compatible Rclone semver |   | . | -y, --non-interactive | Run non-interactively | false | . ",
+    "url": "/rclone-bisync/quickstart.html#installer-cli-flags",
+    
+    "relUrl": "/quickstart.html#installer-cli-flags"
+  },"92": {
     "doc": "Quickstart Guide",
     "title": "Manual Binary Download",
     "content": "Alternatively, download the target binary directly from GitHub Releases: . # Example for Linux x86_64 curl -LO https://github.com/slemmercs/rclone-bisync/releases/latest/download/bisync-hub-linux-amd64 chmod +x bisync-hub-linux-amd64 sudo mv bisync-hub-linux-amd64 /usr/local/bin/bisync-hub # Optional: create legacy symlink sudo ln -sf /usr/local/bin/bisync-hub /usr/local/bin/rclone-bisync . ",
     "url": "/rclone-bisync/quickstart.html#manual-binary-download",
     
     "relUrl": "/quickstart.html#manual-binary-download"
-  },"92": {
+  },"93": {
     "doc": "Quickstart Guide",
     "title": "2. Configuration (bisync.env)",
     "content": "Generate a starting configuration or customize bisync.env in your working directory: . # ------------------------------------------------------------------------------ # Bisync Hub Core Configuration # ------------------------------------------------------------------------------ PORT=8080 BIND_ADDR=127.0.0.1 # Sync Paths PATH1=/home/operator/data PATH2=onedrive:data_backup # Safety &amp; Circuit Breakers SAFETY_MAX_DELETE_COUNT=25 SAFETY_MAX_DELETE_RATIO=0.10 SAFETY_ENABLE_CANARY=true CANARY_FILENAME=RCLONE_TEST # Conflict Engine Settings CONFLICT_AUTO_RESOLVE_MIN_CONFIDENCE=0.85 CONFLICT_BACKUP_LOSERS=true # Notification Webhooks # WEBHOOK_URL=https://discord.com/api/webhooks/... ",
     "url": "/rclone-bisync/quickstart.html#2-configuration-bisyncenv",
     
     "relUrl": "/quickstart.html#2-configuration-bisyncenv"
-  },"93": {
+  },"94": {
     "doc": "Quickstart Guide",
     "title": "3. Starting the Server",
     "content": "Run the orchestrator interactively: . # Launch the real-time operational dashboard rclone-bisync dashboard --env-file bisync.env # Or test synchronization in dry-run simulation mode rclone-bisync sync --dry-run --env-file bisync.env . Open your browser to http://localhost:8080 to access the real-time operational dashboard, inspect remote mounts, check canary health, and review pending sync events. Storage Remotes Remote health checks &amp; OAuth indicators Dual-Pane Explorer Browse local and remote directories . ",
     "url": "/rclone-bisync/quickstart.html#3-starting-the-server",
     
     "relUrl": "/quickstart.html#3-starting-the-server"
-  },"94": {
+  },"95": {
     "doc": "Quickstart Guide",
     "title": "4. Running as a Systemd Service",
     "content": "For continuous 24/7 background operation on Linux: . # /etc/systemd/system/bisync-hub.service [Unit] Description=Bisync Hub Cloud Orchestrator After=network-online.target Wants=network-online.target [Service] Type=simple User=csaba WorkingDirectory=/home/csaba/sync ExecStart=/usr/local/bin/rclone-bisync dashboard --env-file /home/csaba/sync/bisync.env Restart=always RestartSec=10 [Install] WantedBy=multi-user.target . Enable and start the service: . sudo systemctl daemon-reload sudo systemctl enable --now bisync-hub . ",
     "url": "/rclone-bisync/quickstart.html#4-running-as-a-systemd-service",
     
     "relUrl": "/quickstart.html#4-running-as-a-systemd-service"
-  },"95": {
+  },"96": {
     "doc": "Quickstart Guide",
     "title": "5. Integrating with AI Agents (MCP)",
     "content": "Connect Claude Desktop, Cursor, or Cline directly to Bisync Hub via Model Context Protocol: . # Verify the MCP server works locally bisync-hub mcp --debug . Add Bisync Hub to your Cline settings (~/.cline/data/settings/cline_mcp_settings.json): . { \"mcpServers\": { \"rclone-bisync\": { \"command\": \"/usr/local/bin/bisync-hub\", \"args\": [\"mcp\"], \"disabled\": false } } } . Or run over streaming HTTP for distributed setups: . bisync-hub mcp --transport sse --port 8081 . ",
     "url": "/rclone-bisync/quickstart.html#5-integrating-with-ai-agents-mcp",
     
     "relUrl": "/quickstart.html#5-integrating-with-ai-agents-mcp"
-  },"96": {
+  },"97": {
     "doc": "Roadmap",
     "title": "Project Roadmap &amp; Capabilities",
     "content": "Bisync Hub is developed using disciplined, test-driven micro-iterations with strict zero-regression quality gates (&gt;80% test coverage target). ┌──────────────────────────────────────────────────────────────┐ │ SHIPPED &amp; AVAILABLE │ │ • Interactive Review &amp; Deletion Diff Modal │ │ • 4-Analyzer Heuristic Conflict Confidence Engine │ │ • Cryptographic Immutable Audit Ledger (SQLite + SHA-256) │ │ • Go CLI Quality Engine (cmd/check) &amp; License Guard │ │ • Decoupled Service Architecture (Strictly &lt;400 LOC) │ │ • Zero-Dependency Single Go Binary Distribution │ │ • Embedded Alpine.js / Tailwind CSS Management Cockpit │ │ • POSIX Advisory Locking &amp; Local Path Confinement Jails │ │ • Hybrid Fleet Overview &amp; Multi-Profile Workspace (`beta.10`)│ │ • Remote MD5 Hash Deduplication (`beta.12`) │ │ • Unified Logging Ledger &amp; Telemetry De-Noising (`beta.18`) │ │ • Native Model Context Protocol (MCP) Server (`beta.20`) │ │ • Tier 1 Curated Options &amp; Flags Builder (`beta.21`) │ │ • RC Argument Compilation &amp; Rename Tracking (`beta.22`) │ │ • Security Hardening &amp; MCP Inspector Cockpit (`beta.23`) │ │ • Sandbox Integration Suite &amp; POSIX Journal Locks (`beta.27`)│ └──────────────────────────────┬───────────────────────────────┘ │ ▼ ┌──────────────────────────────────────────────────────────────┐ │ NEAR-TERM STRATEGIC PRIORITIES │ │ 1. In-App User Guidance &amp; Interactive Diagnostic Manual │ │ 2. In-Dashboard Configuration Snapshot &amp; Rollback API │ │ 3. Homelab Reverse Proxy Hardening &amp; OpenTelemetry (OTel) │ │ 4. Remote Mount Lifecycle Manager &amp; Pooled Storage Engine │ └──────────────────────────────────────────────────────────────┘ . ",
     "url": "/rclone-bisync/roadmap.html#project-roadmap--capabilities",
     
     "relUrl": "/roadmap.html#project-roadmap--capabilities"
-  },"97": {
+  },"98": {
     "doc": "Roadmap",
     "title": "🟢 Shipped Capabilities (Available Now)",
     "content": "The following core modules are implemented, tested, and included in current binary releases: . ",
     "url": "/rclone-bisync/roadmap.html#-shipped-capabilities-available-now",
     
     "relUrl": "/roadmap.html#-shipped-capabilities-available-now"
-  },"98": {
+  },"99": {
     "doc": "Roadmap",
     "title": "1. Interactive Sync Review &amp; Mutation Inspection",
     "content": ". | Dry-Run Inspection Stream: Captures dry-run stdout/stderr, categorizing every action into + CREATE, ~ MODIFY, or - DELETE. | Operator Review Modal: Halts destructive execution when deletion thresholds are tripped, allowing granular per-file approval or full-run abort. | Rollback Resilience: Zero-byte hard link backups and recovery staging prevent accidental local wipes. | . ",
     "url": "/rclone-bisync/roadmap.html#1-interactive-sync-review--mutation-inspection",
     
     "relUrl": "/roadmap.html#1-interactive-sync-review--mutation-inspection"
-  },"99": {
+  },"100": {
     "doc": "Roadmap",
     "title": "2. Multi-Analyzer Heuristic Conflict Engine",
     "content": ". | 4 Parallel Heuristic Analyzers: . | SizeDivergenceAnalyzer (30% weight): Detects unexpected file truncations and major additions. | BinarySignatureAnalyzer (25% weight): Inspects MIME and magic bytes to reject corrupted partial writes. | ClockSkewAnalyzer (25% weight): Compensates for provider-specific API clock rounding (e.g. OneDrive 2-second timestamp windows and DST shifts). | VelocityAnalyzer (20% weight): Evaluates modification frequency to differentiate active work from background touches. | . | Graduated Confidence Bands: Automatically commits resolutions scoring $\\ge 85\\%$, stages backups for $60\\% - 84\\%$, and safely quarantines $&lt; 60\\%$ collisions for manual operator review. | . ",
     "url": "/rclone-bisync/roadmap.html#2-multi-analyzer-heuristic-conflict-engine",
     
     "relUrl": "/roadmap.html#2-multi-analyzer-heuristic-conflict-engine"
-  },"100": {
+  },"101": {
     "doc": "Roadmap",
     "title": "3. Cryptographic Immutable Audit Ledger",
     "content": ". | Append-Only SQLite Storage: Schema-level BEFORE UPDATE and BEFORE DELETE triggers prevent modifying or purging existing ledger entries. | SHA-256 Cryptographic Hash Chaining: Links each block to its predecessor (H_n = SHA256(H_{n-1} || payload || timestamp)), ensuring forensic tamper evidence. | In-Process POSIX Log Rotator: Thread-safe size-bounded rotation (bisync.log) with lazy initialization and dual-stream audit logging (\"type\": \"audit\"). | Interactive Audit Explorer: Dedicated Web UI tab with live cryptographic chain verification, actor/action filtering, and CSV/JSONL compliance export. | Recursive Secret Sanitization: Deep masking (security.RedactSecrets) strips all tokens, secrets, and auth headers before persistence. | . ",
     "url": "/rclone-bisync/roadmap.html#3-cryptographic-immutable-audit-ledger",
     
     "relUrl": "/roadmap.html#3-cryptographic-immutable-audit-ledger"
-  },"101": {
+  },"102": {
     "doc": "Roadmap",
     "title": "4. Production Go Architecture &amp; Embedded UI",
     "content": ". | Single Binary Artifact: Pure Go binary with embedded dashboard assets (go:embed). No Node.js, Python, or external runtime required. | Advisory POSIX Locking: Race-free process exclusion via syscall.Flock ensures zero metadata collisions between background daemons and interactive CLI invocations. | Path Confinement Jails: Directory traversal (../) prevention protects local storage roots. | Rclone Integration: Seamless inter-process communication with Rclone RC API and local filesystem synchronization. | . ",
     "url": "/rclone-bisync/roadmap.html#4-production-go-architecture--embedded-ui",
     
     "relUrl": "/roadmap.html#4-production-go-architecture--embedded-ui"
-  },"102": {
+  },"103": {
     "doc": "Roadmap",
     "title": "5. High-Performance Go Quality Engine (cmd/check) &amp; E2E Testing",
     "content": ". | Parallel Quality Gate: Concurrent Go CLI check runner validating formatting, templates, line-count budgets, linters, and tests in under 10 seconds. | Multi-Line HTML Attribute Tokenizer: True AST-style token parsing ignoring comments and detecting dotted boolean attributes (:disabled, :readonly). | Headless Chrome E2E Suite: Smoke tests using chromedp executing against the live embedded dashboard to verify real browser DOM reactivity. | Coverage Assurance: Statement coverage actively verified at 88.3% across all packages. | . ",
     "url": "/rclone-bisync/roadmap.html#5-high-performance-go-quality-engine-cmdcheck--e2e-testing",
     
     "relUrl": "/roadmap.html#5-high-performance-go-quality-engine-cmdcheck--e2e-testing"
-  },"103": {
+  },"104": {
     "doc": "Roadmap",
     "title": "6. Decoupled Service Architecture (Sub-400 LOC Enforcement)",
     "content": ". | Bounded Contexts: Core logic decoupled into focused domain engines (TelemetryService, CanaryService, DeletionService, ReviewService, ExplorerService, SyncService). | Strict Maintainability Limits: All Go files strictly enforced to remain under ~400 lines of code to prevent architectural drift. | . ",
     "url": "/rclone-bisync/roadmap.html#6-decoupled-service-architecture-sub-400-loc-enforcement",
     
     "relUrl": "/roadmap.html#6-decoupled-service-architecture-sub-400-loc-enforcement"
-  },"104": {
+  },"105": {
     "doc": "Roadmap",
     "title": "7. Multi-Profile Backend &amp; 3-Tier Operational Flags Engine",
     "content": ". | Independent Workload Scheduling: Spawns isolated runner goroutines per profile with dedicated advisory lock confinement (/tmp/rclone-bisync-&lt;id&gt;.lock) and SQLite state tracking. | 3-Tier Operational Flags Architecture: Fine-grained flag inheritance model (Execution Override &gt; Profile Override &gt; Global Default &gt; Hardcoded Fallback). | POSIX Shell Argument Tokenizer &amp; Security Blocklist: Safe tokenizer with hard blocklist preventing command injection and unauthorized override of daemon flags (--config, --rc, --use-mmap, --log-file, --json). | . ",
     "url": "/rclone-bisync/roadmap.html#7-multi-profile-backend--3-tier-operational-flags-engine",
     
     "relUrl": "/roadmap.html#7-multi-profile-backend--3-tier-operational-flags-engine"
-  },"105": {
+  },"106": {
     "doc": "Roadmap",
     "title": "8. Hybrid Fleet Overview &amp; Remote Hash Deduplication (beta.10–beta.12)",
     "content": ". | Fleet-Wide Command Deck: Centralized dashboard presenting real-time counters (Total, Healthy, Needs Review, Failing, Syncing), interactive profile cards, and global fleet settings. | Remote MD5 Checksum Deduplication: Safe interactive remote file deduplication (oldest, newest, list) with process locking and automated baseline cache resync preventing TOO_MANY_DELETES trips. | . ",
     "url": "/rclone-bisync/roadmap.html#8-hybrid-fleet-overview--remote-hash-deduplication-beta10beta12",
     
     "relUrl": "/roadmap.html#8-hybrid-fleet-overview--remote-hash-deduplication-beta10beta12"
-  },"106": {
+  },"107": {
     "doc": "Roadmap",
     "title": "9. Native Model Context Protocol (MCP) Server (beta.20)",
     "content": ". | Zero-Dependency Dual Transport: Native pure-Go MCP server operating over stdio for local agents and streaming sse over HTTP on --port 8081. | Confirmation Ticket Engine: Two-step confirmation loop with cryptographic parameter fingerprinting for destructive actions (trigger_sync with resync/force, resolve_review, dedupe_by_hash). | Token-Optimized Operations: High-signal default status (195 characters, ~98.5% token reduction), windowed explorer pagination, level-filtered log inspection, and bounded SQLite ledger records. | . ",
     "url": "/rclone-bisync/roadmap.html#9-native-model-context-protocol-mcp-server-beta20",
     
     "relUrl": "/roadmap.html#9-native-model-context-protocol-mcp-server-beta20"
-  },"107": {
+  },"108": {
     "doc": "Roadmap",
     "title": "10. Tier 1 Curated Options, Guided Flags Builder &amp; Audit Sync (beta.21)",
     "content": ". | Curated Cloud Provider Toggles: Curated high-impact bisync options for Google Drive (--drive-shared-with-me, --drive-skip-gdocs, --drive-use-trash), OneDrive, S3, and Dropbox with clean lean fallbacks for other remotes. | Explicit Boolean Serialization &amp; Compiler Support: Properly emits =false when unchecking boolean options and parses =value arguments into typed parameters in the CLI-to-RC compiler. | Guided + Add Flag Builder (flags_builder.js): Interactive row-by-row builder with autocomplete datalist, type-aware value inputs, validation tooltips, POSIX command-line tokenizer, and live generated rclone bisync command preview. | Dual Count/Percentage MaxDeleteValue: Type-safe model supporting both count thresholds (e.g., 42) and percentages (e.g., 10%), serialized seamlessly with backwards compatibility. | Audit Ledger Counter Sync &amp; Security Remediation: Instant ledger counter synchronization on load and polling, and resolved CodeQL quote sanitization escaping. | . ",
     "url": "/rclone-bisync/roadmap.html#10-tier-1-curated-options-guided-flags-builder--audit-sync-beta21",
     
     "relUrl": "/roadmap.html#10-tier-1-curated-options-guided-flags-builder--audit-sync-beta21"
-  },"108": {
+  },"109": {
     "doc": "Roadmap",
     "title": "11. RC Argument Compilation, Rename Tracking &amp; Review Invalidation (beta.22)",
     "content": ". | Rclone RC Parameter Compilation: Strips % from --max-delete and compiles typed values into both root payload and _config[\"MaxDelete\"] (fs.ConfigInfo.MaxDelete). | Rename Tracking Configuration: Remaps --track-renames (_config[\"TrackRenames\"]) and --track-renames-strategy (_config[\"TrackRenamesStrategy\"]). | Review Barrier Cache Invalidation: Guarantees in-memory review session cache (s.session = nil) clears immediately upon session file deletion or dismissal. | DOM Parsing Safety: Direct &lt;option&gt; elements in provider flags builder dropdown preventing browser parsing stripping. | End-to-End Headless Verification: Automated Chromium test suite checking dropdown preservation and multi-tab cockpit navigation. | . ",
     "url": "/rclone-bisync/roadmap.html#11-rc-argument-compilation-rename-tracking--review-invalidation-beta22",
     
     "relUrl": "/roadmap.html#11-rc-argument-compilation-rename-tracking--review-invalidation-beta22"
-  },"109": {
+  },"110": {
     "doc": "Roadmap",
     "title": "12. Security Hardening (CodeQL #24) &amp; MCP Inspector Cockpit (beta.23)",
     "content": ". | CodeQL #24 Path Injection Remediation: Strict character validation (^[a-zA-Z0-9_-]+$), directory containment checks, and HTTP 400 rejection for review session identifiers. | Configurable MCP Read-Only Mode (MCP_READ_ONLY): Direct environment variable configuration in bisync.env and --read-only CLI override. | Interactive MCP Inspector Modal: Clickable dashboard header pill opening real-time connection status, 1-click client configuration snippets (Claude Desktop, Cline, Cursor), and complete 11-tool catalog. | Explicit MCP Abort Diagnostics: Structured classified sync failure causes (TOO_MANY_DELETES, canary missing, lock contention) returned directly in tool calls with review barrier recovery guidance. | Profile &amp; Run-Scoped Log Filtering: Multi-profile log scoping and single-run trace isolation in bisync_get_logs. | Compiler Flag Validation Tool: Read-only bisync_validate_flags tool previewing compiled RC parameters and _config dictionaries without executing sync. | Explorer Pagination Metadata: Added total_count and has_more indicators to bisync_explore_path. | Unified Background Serving: Embedded the native MCP SSE server directly into the dashboard daemon service, consolidating systemd units and eliminating duplicate schedulers and multi-daemon file races. | . ",
     "url": "/rclone-bisync/roadmap.html#12-security-hardening-codeql-24--mcp-inspector-cockpit-beta23",
     
     "relUrl": "/roadmap.html#12-security-hardening-codeql-24--mcp-inspector-cockpit-beta23"
-  },"110": {
+  },"111": {
     "doc": "Roadmap",
     "title": "13. Architecture Hardening, Real Rclone Sandbox Suite &amp; Embedded MCP (beta.27)",
     "content": ". | POSIX Advisory File Locking: Race-free syscall.Flock concurrency protection across review sessions (active_review_session.json.flock) and write-ahead log (review.wal.flock). | Tier 4 Real Local Rclone Sandbox: Ephemeral dynamic-port integration tests against real rclone rcd instances with --config /dev/null, verifying trailing whitespace, 404 idempotency, and mixed directory/file conflict reviews. | REST Schema Governance: Standardized typed Go struct models (internal/models/api.go) across all configuration and telemetry endpoints. | Daemon Health Watchdog: Resilient background watchdog with exponential backoff surviving transient background RC daemon restarts. | Embedded MCP SSE Server: Unified single-process architecture embedding the MCP server on :8081 inside rclone-dashboard.service. | . ",
     "url": "/rclone-bisync/roadmap.html#13-architecture-hardening-real-rclone-sandbox-suite--embedded-mcp-beta27",
     
     "relUrl": "/roadmap.html#13-architecture-hardening-real-rclone-sandbox-suite--embedded-mcp-beta27"
-  },"111": {
+  },"112": {
     "doc": "Roadmap",
     "title": "🟡 Near-Term Strategic Priorities (In Development)",
     "content": "The following capabilities represent our immediate development milestones: . ",
     "url": "/rclone-bisync/roadmap.html#-near-term-strategic-priorities-in-development",
     
     "relUrl": "/roadmap.html#-near-term-strategic-priorities-in-development"
-  },"112": {
+  },"113": {
     "doc": "Roadmap",
     "title": "Priority 1: In-App User Guidance &amp; Diagnostic Manual",
     "content": ". | Objective: Enhance operational clarity and assisted recovery directly within the UI. | Architecture: . | Contextual Tooltips &amp; Policy Explanations: Inline tooltips and modal banners explaining safety triggers (TOO_MANY_DELETES, MANDATORY_SUBDIR, heuristic risk scores) in plain language. | In-Dashboard Reference Manual: A dedicated slide-over panel summarizing CLI commands, Rclone flags, and step-by-step conflict recovery workflows. | Interactive Diagnostics: Integrated troubleshooting guides for resolving OAuth token drops, path permissions issues, and systemd service status. | . | . ",
     "url": "/rclone-bisync/roadmap.html#priority-1-in-app-user-guidance--diagnostic-manual",
     
     "relUrl": "/roadmap.html#priority-1-in-app-user-guidance--diagnostic-manual"
-  },"113": {
+  },"114": {
     "doc": "Roadmap",
     "title": "Priority 2: In-Dashboard Configuration Snapshot &amp; Rollback Engine",
     "content": ". | Objective: Provide server-side configuration safety and instant rollback for global and profile settings. | Architecture: . | Visual Flag Editor: Adjust --buffer-size, --tpslimit, conflict strategies, and webhook endpoints safely from the UI. | 3-Layer Safety Pipeline: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying changes. | Atomic Configuration Snapshots: Snapshot profile state before applying structural edits or sync actions, archived in config_snapshots/ with timestamped revisions. | One-Click Rollback API: Visual comparison of active configuration against historical snapshots with one-click restoration to instantly revert breaking changes. | . | . ",
     "url": "/rclone-bisync/roadmap.html#priority-2-in-dashboard-configuration-snapshot--rollback-engine",
     
     "relUrl": "/roadmap.html#priority-2-in-dashboard-configuration-snapshot--rollback-engine"
-  },"114": {
+  },"115": {
     "doc": "Roadmap",
     "title": "Priority 3: Homelab Reverse Proxy Security Hardening &amp; OpenTelemetry (OTel)",
     "content": ". | Objective: Harden production homelab exposure behind reverse proxies with standards-based telemetry and trace support. | Architecture: . | Reverse Proxy Header Normalization: Support for standard proxy headers (X-Forwarded-For, X-Real-IP, X-Forwarded-Proto) with configurable trusted CIDR proxy subnets. | Authentication Integration: Optional HTTP basic authentication or forward-auth middleware support for secure exposure behind reverse proxies (Traefik, Caddy, Nginx). | OpenTelemetry Observability (OTel/OTLP): Native OpenTelemetry metrics and traces instrumentation exposing sync execution durations, cumulative transferred bytes, lock contention wait times, error counters, and daemon health via standard OTLP exporters. | . | . ",
     "url": "/rclone-bisync/roadmap.html#priority-3-homelab-reverse-proxy-security-hardening--opentelemetry-otel",
     
     "relUrl": "/roadmap.html#priority-3-homelab-reverse-proxy-security-hardening--opentelemetry-otel"
-  },"115": {
+  },"116": {
     "doc": "Roadmap",
     "title": "Priority 4: Remote Mount Lifecycle Manager &amp; Storage Pooling (internal/mount)",
     "content": ". | Objective: Turn fragile OS FUSE mounts into resilient, self-healing virtual storage endpoints. | Architecture: . | Stage A (Remote Mount Manager): Pure-Go daemon managing rclone mount subprocess lifecycles on Linux (FUSE) and Windows (WinFsp) with keepalive probes and clean unmount handlers (fusermount -u). | Stage B (Pooled Storage Engine): Provision stacked multi-cloud topologies (union + chunker + crypt) over RC /config/create. | Refer to Remote Mount Manager Design Specification. | . | . Google Drive OAuth Client ID, Secret &amp; scope setup OneDrive OAuth Personal &amp; Business Graph API setup . ",
     "url": "/rclone-bisync/roadmap.html#priority-4-remote-mount-lifecycle-manager--storage-pooling-internalmount",
     
     "relUrl": "/roadmap.html#priority-4-remote-mount-lifecycle-manager--storage-pooling-internalmount"
-  },"116": {
+  },"117": {
     "doc": "Roadmap",
     "title": "🔮 Future Vision &amp; Research",
     "content": ". | Peer-to-Peer State Coordination: Multi-node cluster coordination for organizations synchronizing across distributed branch offices. | Encrypted Remote Telemetry: Zero-knowledge telemetry syncing enabling multi-device sync status monitoring without exposing file metadata. | . ",
     "url": "/rclone-bisync/roadmap.html#-future-vision--research",
     
     "relUrl": "/roadmap.html#-future-vision--research"
-  },"117": {
+  },"118": {
     "doc": "Roadmap",
     "title": "Roadmap",
     "content": " ",
