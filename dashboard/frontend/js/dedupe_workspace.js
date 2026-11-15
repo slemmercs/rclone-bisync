@@ -133,13 +133,13 @@ window.DedupeWorkspaceModule = {
         this.loadDedupeFolders(this.dedupeModal.path);
     },
 
-    jumpToExplorerFile(filePath, remote) {
+    jumpToExplorerFile(filePath, remote, candidateId) {
         if (!filePath) return;
         this.closeDedupeModal();
         if (typeof this.switchTab === "function") this.switchTab("explorer");
         const clean = (remote || "").replace(/:$/, "").trim();
         const parts = filePath.replace(/^\/+/, "").split("/");
-        parts.pop();
+        const fileName = parts.pop();
         const dirPath = parts.join("/");
 
         let paneKey = "right";
@@ -148,12 +148,32 @@ window.DedupeWorkspaceModule = {
         }
         if (this.explorer && this.explorer[paneKey]) {
             this.explorer[paneKey].path = dirPath;
-            if (typeof this.fetchDirectory === "function") {
+            if (clean && clean !== "local") {
+                this.explorer[paneKey].target = clean;
+            }
+            this.explorer.highlightPath = filePath;
+            this.explorer.highlightName = fileName;
+            this.explorer.highlightId = candidateId || null;
+            setTimeout(() => {
+                if (this.explorer && this.explorer.highlightName === fileName) {
+                    this.explorer.highlightName = null;
+                    this.explorer.highlightId = null;
+                }
+            }, 6000);
+
+            if (typeof this.fetchExplorerDirectory === "function") {
+                this.fetchExplorerDirectory(paneKey, this.explorer[paneKey].target, dirPath);
+            } else if (typeof this.fetchDirectory === "function") {
                 this.fetchDirectory(paneKey);
+            }
+            if (typeof this.scrollToHighlightedRow === "function") {
+                const notify = () => this.scrollToHighlightedRow(fileName, candidateId);
+                if (typeof this.$nextTick === "function") this.$nextTick(notify);
+                else setTimeout(notify, 150);
             }
         }
         if (typeof this.showToast === "function") {
-            this.showToast(`Navigated to folder in ${paneKey === "left" ? "Left" : "Right"} Pane`, "info");
+            this.showToast(`Navigated to ${fileName || 'folder'} in ${paneKey === "left" ? "Left" : "Right"} Pane`, "info");
         }
     },
 

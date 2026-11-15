@@ -127,8 +127,8 @@
                         </div>
 
                         <!-- File & Folder Rows -->
-                        <template x-for="(item, idx) in getFilteredItems('left')" :key="(item.Path || item.Name) + '_' + idx">
-                            <div :data-item-name="item.Name" :draggable="item.Name !== 'RCLONE_TEST'" @dragstart="onDragStart('left', item, $event)" @contextmenu.prevent="openContextMenu('left', item, $event)" @dblclick="if (!item.IsDir && isItemPreviewable(item)) previewFile('left', item)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="[getItemReviewRowClass('left', item), isItemSelected(item, 'left') ? 'bg-indigo-950/40 border-l-2 border-indigo-500' : '']">
+                        <template x-for="(item, idx) in getFilteredItems('left')" :key="getItemRowKey(item, idx, 'left')">
+                            <div :data-item-name="item.Name" :data-item-id="item.ID || ''" :draggable="item.Name !== 'RCLONE_TEST'" @dragstart="onDragStart('left', item, $event)" @contextmenu.prevent="openContextMenu('left', item, $event)" @dblclick="if (!item.IsDir && isItemPreviewable(item)) previewFile('left', item)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="[getItemReviewRowClass('left', item), isItemSelected(item, 'left') ? 'bg-indigo-950/40 border-l-2 border-indigo-500' : '']">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
                                         <div class="flex items-center gap-2 min-w-0 truncate">
@@ -147,6 +147,7 @@
                                             <span class="text-slate-300 truncate" :class="[item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : (isItemExcluded(item) ? 'line-through text-slate-500' : ''), isItemPreviewable(item) ? 'hover:text-indigo-300 hover:underline cursor-pointer' : '']" @click="if (isItemPreviewable(item)) previewFile('left', item)" x-text="item.Name"></span>
                                             <span x-show="item.Name === 'RCLONE_TEST'" class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 select-none shrink-0" title="Safety Canary: deletion and renaming protected">CANARY</span>
                                             <span x-show="isItemExcluded(item)" class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0 select-none uppercase tracking-wider" title="Excluded from sync via profile rules">EXCLUDED</span>
+                                            <button type="button" x-show="isDuplicateItem('left', item)" draggable="false" @mousedown.stop @click.stop="openDedupeModal(explorer.left.target, explorer.left.path)" class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 select-none shrink-0 transition-colors cursor-pointer" :title="'Duplicate collision: ' + getDuplicateCount('left', item) + ' copies with same name in folder. Click to resolve.'">DUPLICATE</button>
                                             <template x-if="getItemReviewBadge('left', item)">
                                                 <span class="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold border shrink-0 tracking-wider" :class="getItemReviewBadge('left', item).class" :title="getItemReviewBadge('left', item).title" x-text="getItemReviewBadge('left', item).label"></span>
                                             </template>
@@ -302,8 +303,8 @@
                         </div>
 
                         <!-- File & Folder Rows -->
-                        <template x-for="(item, idx) in getFilteredItems('right')" :key="(item.ID || item.Path || item.Name) + '_' + idx">
-                            <div :data-item-name="item.Name" :draggable="item.Name !== 'RCLONE_TEST'" @dragstart="onDragStart('right', item, $event)" @contextmenu.prevent="openContextMenu('right', item, $event)" @dblclick="if (!item.IsDir && isItemPreviewable(item)) previewFile('right', item)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="[getItemReviewRowClass('right', item), isItemSelected(item, 'right') ? 'bg-emerald-950/40 border-l-2 border-emerald-500' : '']">
+                        <template x-for="(item, idx) in getFilteredItems('right')" :key="getItemRowKey(item, idx, 'right')">
+                            <div :data-item-name="item.Name" :data-item-id="item.ID || ''" :draggable="item.Name !== 'RCLONE_TEST'" @dragstart="onDragStart('right', item, $event)" @contextmenu.prevent="openContextMenu('right', item, $event)" @dblclick="if (!item.IsDir && isItemPreviewable(item)) previewFile('right', item)" class="px-3.5 py-2 hover:bg-slate-800/40 flex items-center justify-between gap-2 group transition-colors cursor-default select-none" :class="[getItemReviewRowClass('right', item), isItemSelected(item, 'right') ? 'bg-emerald-950/40 border-l-2 border-emerald-500' : '']">
                                 <div class="flex items-center gap-2 min-w-0 flex-1">
                                     <template x-if="item.IsDir">
                                         <div class="flex items-center gap-2 min-w-0 truncate">
@@ -322,6 +323,7 @@
                                             <span class="text-slate-300 truncate" :class="[item.Name === 'RCLONE_TEST' ? 'text-amber-300 font-bold' : (isItemExcluded(item) ? 'line-through text-slate-500' : ''), isItemPreviewable(item) ? 'hover:text-emerald-300 hover:underline cursor-pointer' : '']" @click="if (isItemPreviewable(item)) previewFile('right', item)" x-text="item.Name"></span>
                                             <span x-show="item.Name === 'RCLONE_TEST'" class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 select-none shrink-0" title="Safety Canary: deletion and renaming protected">CANARY</span>
                                             <span x-show="isItemExcluded(item)" class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0 select-none uppercase tracking-wider" title="Excluded from sync via profile rules">EXCLUDED</span>
+                                            <button type="button" x-show="isDuplicateItem('right', item)" draggable="false" @mousedown.stop @click.stop="openDedupeModal(explorer.right.target, explorer.right.path)" class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 select-none shrink-0 transition-colors cursor-pointer" :title="'Duplicate collision: ' + getDuplicateCount('right', item) + ' copies with same name in folder. Click to resolve.'">DUPLICATE</button>
                                             <template x-if="getItemReviewBadge('right', item)">
                                                 <span class="px-1.5 py-0.5 rounded text-[9px] font-sans font-bold border shrink-0 tracking-wider" :class="getItemReviewBadge('right', item).class" :title="getItemReviewBadge('right', item).title" x-text="getItemReviewBadge('right', item).label"></span>
                                             </template>

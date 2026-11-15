@@ -211,10 +211,21 @@ window.LogsModule = {
         else setTimeout(notifyOrPulse, 50);
     },
 
-    scrollToHighlightedRow(filename) {
-        if (!filename) return;
-        const selector = `[data-item-name="${CSS.escape ? CSS.escape(filename) : filename}"]`;
-        const els = document.querySelectorAll(selector);
+    scrollToHighlightedRow(filename, targetId) {
+        if (!filename && !targetId) return;
+        const id = targetId || this.explorer?.highlightId;
+        let els = [];
+        if (id) {
+            const idSelector = `[data-item-id="${CSS.escape ? CSS.escape(id) : id}"]`;
+            els = document.querySelectorAll(idSelector);
+        }
+        if (!els || els.length === 0) {
+            const name = filename || this.explorer?.highlightName;
+            if (name) {
+                const selector = `[data-item-name="${CSS.escape ? CSS.escape(name) : name}"]`;
+                els = document.querySelectorAll(selector);
+            }
+        }
         els.forEach(el => {
             el.scrollIntoView({ behavior: "smooth", block: "center" });
             el.classList.remove("row-pulse-ring");
@@ -222,7 +233,7 @@ window.LogsModule = {
             el.classList.add("row-pulse-ring");
         });
         if (els.length === 0 && typeof this.showToast === "function") {
-            this.showToast(`Navigated to folder. Item "${filename}" may be remote-only or excluded.`, "info");
+            this.showToast(`Navigated to folder. Item "${filename || 'target'}" may be remote-only or excluded.`, "info");
         }
     },
 
