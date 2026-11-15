@@ -179,3 +179,32 @@ func (s *Server) handleRemoteDedupe(w http.ResponseWriter, r *http.Request) {
 		Deleted:     deletedCount,
 	})
 }
+
+// handleRemoteDedupeBatch handles transactional batch resolution of staged duplicates.
+func (s *Server) handleRemoteDedupeBatch(w http.ResponseWriter, r *http.Request) {
+	var req models.DedupeBatchApplyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, models.DedupeBatchApplyResponse{Status: "error", Error: "Invalid request payload"})
+		return
+	}
+
+	remoteClean := strings.TrimSpace(req.Remote)
+	if remoteClean == "" {
+		writeJSON(w, http.StatusBadRequest, models.DedupeBatchApplyResponse{Status: "error", Error: "Remote parameter required"})
+		return
+	}
+
+	if s.DedupeService == nil {
+		s.DedupeService = services.NewDedupeService(s.Config, s.ExplorerService, s.AuditService, s.ProfileService)
+	}
+
+	localBase := s.resolveLocalPath(req.ProfileID)
+	resp, err := s.DedupeService.ExecuteDedupeBatch(r.Context(), req, localBase)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, models.DedupeBatchApplyResponse{Status: "error", Error: err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+

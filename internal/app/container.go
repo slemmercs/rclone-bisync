@@ -39,6 +39,7 @@ type Container struct {
 	ProfileExecutor         profiles.SyncExecutor
 	UploadDock              *services.UploadDock
 	RemoteWizardService     *services.RemoteWizardService
+	DedupeService           *services.DedupeService
 	started                 bool
 	stopped                 bool
 }
@@ -265,6 +266,11 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 	// 8. Initialize Remote Wizard Service
 	if c.RemoteWizardService == nil {
 		c.RemoteWizardService = services.NewRemoteWizardService(cfg, c.Client, c.Logger, c.ProfileService, c.TelemetryService)
+	}
+
+	// 9. Initialize Dedupe Service
+	if c.DedupeService == nil {
+		c.DedupeService = services.NewDedupeService(cfg, c.ExplorerService, c.AuditService, c.ProfileService)
 	}
 
 	return c, nil

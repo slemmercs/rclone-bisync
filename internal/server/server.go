@@ -40,6 +40,7 @@ type Server struct {
 	ProfileService          *profiles.Service
 	UploadDock              *services.UploadDock
 	RemoteWizardService     *services.RemoteWizardService
+	DedupeService           *services.DedupeService
 	FrontendFS              fs.FS
 	Mux                     *http.ServeMux
 	Version                 string
@@ -84,6 +85,7 @@ func NewServerWithContainer(container *app.Container, frontendFS fs.FS) *Server 
 		ProfileService:          container.ProfileService,
 		UploadDock:              container.UploadDock,
 		RemoteWizardService:     container.RemoteWizardService,
+		DedupeService:           container.DedupeService,
 		FrontendFS:              frontendFS,
 		Mux:                     http.NewServeMux(),
 		StartTime:               time.Now(),

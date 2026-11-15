@@ -9,7 +9,7 @@ Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer 
   - **Scope**: `internal/models/api_explorer.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_download.go`, `internal/server/handlers_preview.go`, `internal/services/explorer_preview_test.go`
   - **Verification**: `go test -count=1 ./internal/services/... ./internal/server/... -run "Test.*Preview|Test.*Download"`
 
-- [ ] Task 2: Backend Dedupe Batch Execution Engine & Endpoints (`internal/models/`, `internal/services/`, `internal/server/`)
+- [x] Task 2: Backend Dedupe Batch Execution Engine & Endpoints (`internal/models/`, `internal/services/`, `internal/server/`)
   - **Scope**: `internal/models/api_dedupe.go`, `internal/services/dedupe_service.go`, `internal/server/handlers_dedupe.go`, `internal/server/routes.go`, tests
   - **Verification**: `go test -count=1 ./internal/services/... ./internal/server/... -run "Test.*DedupeBatch"`
 
@@ -34,6 +34,8 @@ Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer 
 - 2026-11-15: Initialized plan from approved `implementation_plan.md` on branch `fix/dedupe-workspace-redesign-and-link-edge-case`.
 
 - 2026-11-15: Completed Task 1 - Backend duplicate stream interception and safe error mapping implemented. Intercepted Google Drive duplicate collisions ("found more than one file" / "duplicate object found") in `ExplorerService.PreviewItem` returning 200 with `IsDuplicateCollision: true` and actionable deduplication instructions instead of 500 error; mapped duplicate download attempts in `ExplorerService.DownloadStream` and `handleExplorerDownload` to 409 Conflict. Verified with targeted unit and HTTP handler tests.
+- 2026-11-15: Completed Task 2 - Backend Dedupe Batch Execution Engine & Endpoints implemented. Created `internal/models/api_dedupe.go`, `internal/services/dedupe_service.go`, and `POST /api/remotes/dedupe/batch` in `handlers_dedupe.go` and `routes.go`. Enabled transactional staging resolutions (keep, rename, delete) with canary guard, jail bounds, immutable audit ledger event recording, and optional post-dedupe resync trigger. Verified with unit and HTTP handler tests.
+
 
 
 
