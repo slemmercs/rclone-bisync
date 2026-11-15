@@ -2,10 +2,10 @@ package models
 
 // DedupeStageAction represents an individual staged resolution action for a duplicate item.
 type DedupeStageAction struct {
-	ID        string `json:"id,omitempty"`        // Remote item ID (especially for Google Drive)
-	Path      string `json:"path"`                // Current relative file path
-	Action    string `json:"action"`              // "delete", "rename", "keep"
-	NewName   string `json:"new_name,omitempty"`  // Target name when action is "rename"
+	ID        string `json:"id,omitempty"`       // Remote item ID (especially for Google Drive)
+	Path      string `json:"path"`               // Current relative file path
+	Action    string `json:"action"`             // "delete", "rename", "keep"
+	NewName   string `json:"new_name,omitempty"` // Target name when action is "rename"
 	Size      int64  `json:"size,omitempty"`
 	ModTime   string `json:"mod_time,omitempty"`
 	Candidate int    `json:"candidate,omitempty"` // Candidate index

@@ -207,4 +207,3 @@ func (s *Server) handleRemoteDedupeBatch(w http.ResponseWriter, r *http.Request)
 
 	writeJSON(w, http.StatusOK, resp)
 }
-

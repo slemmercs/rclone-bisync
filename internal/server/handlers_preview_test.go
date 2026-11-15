@@ -217,4 +217,3 @@ func TestHandlePreviewAndDownload_DuplicateConflict(t *testing.T) {
 		t.Fatalf("expected status 409 Conflict for duplicate file download, got %d: %s", wDown.Code, wDown.Body.String())
 	}
 }
-

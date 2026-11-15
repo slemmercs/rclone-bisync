@@ -25,7 +25,7 @@ Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer 
   - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/partials/modals/modal_preview.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [ ] Task 6: Local Sandbox Fixtures & Full Quality Pre-Flight (`scripts/`, `tests/`)
+- [x] Task 6: Local Sandbox Fixtures & Full Quality Pre-Flight (`scripts/`, `tests/`)
   - **Scope**: `scripts/run-sandbox.sh`, `tests/e2e/dashboard_smoke_test.go`, full gate
   - **Verification**: `./scripts/check.sh all && ./scripts/check-loc.sh 400`
 
@@ -39,6 +39,8 @@ Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer 
 
 - 2026-11-15: Completed Task 4 - Dedupe Directory Explorer Resilience & Content Divergence Detection implemented. Added `switchDedupeTab`, `hasContentDivergence`, `getDedupeBreadcrumbs`, parent directory row navigation, and error retry state handling. Verified with templates check, headless Chrome smoke tests, and LOC audit.
 - 2026-11-15: Completed Task 5 - Staged Batch Review UI & Post-Dedupe Resync Bridge implemented. Added `DedupeBatchModule` (`dashboard/frontend/js/dedupe_batch.js`), candidate card inline staging actions (Keep, Rename, Delete), Staged Actions Review Bar with resync queuing checkbox, and preview modal duplicate collision quick-link. Verified with templates check, headless Chrome smoke tests, and LOC audit.
+- 2026-11-15: Completed Task 6 - Local Sandbox Fixtures & Full Quality Pre-Flight. Added duplicate collision test fixtures to `scripts/run-sandbox.sh`, ran `gofmt` code formatting across all models and services, and passed the full quality gate (`./scripts/check.sh all`) across all 7 verification stages with clean LOC boundaries.
+
 
 
 

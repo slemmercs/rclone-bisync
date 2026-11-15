@@ -354,4 +354,3 @@ func TestExplorerDownload_DuplicateCollisionReturnsError(t *testing.T) {
 		t.Errorf("expected duplicate error, got: %v", err)
 	}
 }
-

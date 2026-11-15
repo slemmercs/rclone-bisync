@@ -234,7 +234,6 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 	return resp, nil
 }
 
-
 // isDuplicateError detects whether an rclone or filesystem error indicates ambiguous duplicate identical filenames.
 func isDuplicateError(err error) bool {
 	if err == nil {

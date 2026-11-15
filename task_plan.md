@@ -1,38 +1,54 @@
-# Task Plan: Enterprise-Grade Bisync Hub Installer
+# Task Plan: Deduplication Edge-Cases, Smart Safety Recommendations & Staged Batch Review Engine
 
 ## Goal
-Transform `deploy/install.sh` into an enterprise-grade, idempotent installer for Bisync Hub featuring robust CLI option parsing, explicit opt-in Rclone installation flags, semantic version inspection with extensible boundary validation, multi-distro dependency resolution, and strict fail-fast error handling.
+Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer navigation/selection desync, alert users to content divergence across same-name copies, and introduce a transactional Staged Batch Review & Resync Bridge.
 
 ## Tasks
 
-- [x] Task 1: Create Test Harness & Unit Tests for Installer (`tests/unit/install_script_test.sh`)
-  - **Scope**: `tests/unit/install_script_test.sh`
-  - **Verification**: `bash tests/unit/install_script_test.sh`
+- [x] Task 1: Backend Duplicate Stream Interception & Safe Error Mapping (`internal/models/`, `internal/services/`, `internal/server/`)
+  - **Scope**: `internal/models/api_explorer.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_download.go`, `internal/server/handlers_preview.go`, `internal/services/explorer_preview_test.go`
+  - **Verification**: `go test -count=1 ./internal/services/... ./internal/server/... -run "Test.*Preview|Test.*Download"`
 
-- [x] Task 2: Implement Enterprise CLI Argument Parsing & Help System (`deploy/install.sh`)
-  - **Scope**: `deploy/install.sh`
-  - **Verification**: `bash deploy/install.sh --help && bash tests/unit/install_script_test.sh`
+- [x] Task 2: Backend Dedupe Batch Execution Engine & Endpoints (`internal/models/`, `internal/services/`, `internal/server/`)
+  - **Scope**: `internal/models/api_dedupe.go`, `internal/services/dedupe_service.go`, `internal/server/handlers_dedupe.go`, `internal/server/routes.go`, tests
+  - **Verification**: `go test -count=1 ./internal/services/... ./internal/server/... -run "Test.*DedupeBatch"`
 
-- [x] Task 3: Implement Rclone Detection, Semantic Version Inspection & Fail-Fast Safeguards (`deploy/install.sh`)
-  - **Scope**: `deploy/install.sh`
-  - **Verification**: `bash tests/unit/install_script_test.sh`
+- [x] Task 3: Frontend UID Disambiguation & Explorer Target Row Highlighting (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_compare.js`, `dashboard/frontend/partials/view_explorer.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [x] Task 4: Implement Multi-Distro Prerequisite Resolution, Secure Secrets & Service Provisioning (`deploy/install.sh`)
-  - **Scope**: `deploy/install.sh`
-  - **Verification**: `bash -n deploy/install.sh && bash tests/unit/install_script_test.sh`
+- [x] Task 4: Dedupe Directory Explorer Resilience & Content Divergence Detection (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/partials/modals/modal_dedupe.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [x] Task 5: Final End-to-End Quality Gate, LOC Audit & Docs Synchronization (`deploy/install.sh`, `README.md`, `site/quickstart.md`)
-  - **Scope**: `deploy/install.sh`, `README.md`, `site/quickstart.md`
-  - **Verification**: `./scripts/check.sh fmt && ./scripts/check.sh loc 400 && bash tests/unit/install_script_test.sh`
+- [x] Task 5: Staged Batch Review UI & Post-Dedupe Resync Bridge (`dashboard/frontend/`)
+  - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/partials/modals/modal_preview.html`
+  - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
+
+- [x] Task 6: Local Sandbox Fixtures & Full Quality Pre-Flight (`scripts/`, `tests/`)
+  - **Scope**: `scripts/run-sandbox.sh`, `tests/e2e/dashboard_smoke_test.go`, full gate
+  - **Verification**: `./scripts/check.sh all && ./scripts/check-loc.sh 400`
 
 ## Status Updates
 
-- 2026-11-15: Initialized plan from implementation_plan.md on branch feat/enterprise-install-script-and-rclone-versioning.
-- 2026-11-15: Task 1 complete - Created unit/regression test harness (`tests/unit/install_script_test.sh`).
-- 2026-11-15: Task 2 complete - Implemented CLI flag parsing, root guards, and help documentation in `deploy/install.sh`.
-- 2026-11-15: Task 3 complete - Implemented Rclone presence detection, semantic versioning, and fail-fast behavior.
-- 2026-11-15: Task 4 complete - Implemented multi-distro dependency resolution, secure secrets generation, and service provisioning.
-- 2026-11-15: Task 5 complete - Passed full test suites, LOC gates, and synchronized documentation in README.md and site/quickstart.md.
+- 2026-11-15: Initialized plan from approved `implementation_plan.md` on branch `fix/dedupe-workspace-redesign-and-link-edge-case`.
+
+- 2026-11-15: Completed Task 1 - Backend duplicate stream interception and safe error mapping implemented. Intercepted Google Drive duplicate collisions ("found more than one file" / "duplicate object found") in `ExplorerService.PreviewItem` returning 200 with `IsDuplicateCollision: true` and actionable deduplication instructions instead of 500 error; mapped duplicate download attempts in `ExplorerService.DownloadStream` and `handleExplorerDownload` to 409 Conflict. Verified with targeted unit and HTTP handler tests.
+- 2026-11-15: Completed Task 2 - Backend Dedupe Batch Execution Engine & Endpoints implemented. Created `internal/models/api_dedupe.go`, `internal/services/dedupe_service.go`, and `POST /api/remotes/dedupe/batch` in `handlers_dedupe.go` and `routes.go`. Enabled transactional staging resolutions (keep, rename, delete) with canary guard, jail bounds, immutable audit ledger event recording, and optional post-dedupe resync trigger. Verified with unit and HTTP handler tests.
+- 2026-11-15: Completed Task 3 - Frontend UID Disambiguation & Explorer Target Row Highlighting implemented. Added composite key generation (`getItemKey`, `getItemRowKey`), multi-selection disambiguation, `isDuplicateItem` detection and badges with click-to-resolve, context menu integration, and target row UID pulse highlighting (`this.explorer.highlightId`). Verified with template check, E2E headless chrome smoke test, and LOC inspection.
+
+- 2026-11-15: Completed Task 4 - Dedupe Directory Explorer Resilience & Content Divergence Detection implemented. Added `switchDedupeTab`, `hasContentDivergence`, `getDedupeBreadcrumbs`, parent directory row navigation, and error retry state handling. Verified with templates check, headless Chrome smoke tests, and LOC audit.
+- 2026-11-15: Completed Task 5 - Staged Batch Review UI & Post-Dedupe Resync Bridge implemented. Added `DedupeBatchModule` (`dashboard/frontend/js/dedupe_batch.js`), candidate card inline staging actions (Keep, Rename, Delete), Staged Actions Review Bar with resync queuing checkbox, and preview modal duplicate collision quick-link. Verified with templates check, headless Chrome smoke tests, and LOC audit.
+- 2026-11-15: Completed Task 6 - Local Sandbox Fixtures & Full Quality Pre-Flight. Added duplicate collision test fixtures to `scripts/run-sandbox.sh`, ran `gofmt` code formatting across all models and services, and passed the full quality gate (`./scripts/check.sh all`) across all 7 verification stages with clean LOC boundaries.
+
+
+
+
+
+
+
+
+
 
 
 
