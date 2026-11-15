@@ -21,7 +21,7 @@ Resolve 7 user-reported issues: isolate preview/dedupe modal dismissal, clamp Rc
   - **Scope**: `internal/audit/taxonomy.go`, `internal/services/dedupe_service.go`, `internal/services/dedupe_service_test.go`, `dashboard/frontend/partials/components/ui_components.html`
   - **Verification**: `go test -count=1 ./internal/services/... -run "Test.*Dedupe.*"`
 
-- [ ] Task 5: Correlated Daemon Log Badges (`RESYNC`, `DRY RUN`, `FORCE`) & Full Quality Gate
+- [x] Task 5: Correlated Daemon Log Badges (`RESYNC`, `DRY RUN`, `FORCE`) & Full Quality Gate
   - **Scope**: `dashboard/frontend/partials/modals/modal_daemon.html`, `dashboard/frontend/js/logs_daemon.js`, `./scripts/check.sh all`
   - **Verification**: `./scripts/check.sh all`
 
@@ -32,6 +32,7 @@ Resolve 7 user-reported issues: isolate preview/dedupe modal dismissal, clamp Rc
 - 2026-11-15: Completed Task 2 - Rclone 2MB RC Ceiling Hard-Clamping & Preview Resilience. Clamped `maxLimit` and `count` to `RcloneGetFileMaxBytes` (2MB) in `CatStream`, resolved the `MaxTextPreviewSize + 1` overflow that caused HTTP 500 errors against Rclone RC, integrated `DownloadStream` image preview with fallback to clamped `CatFile`, and expanded `isLimitExceededError` detection with clean truncated preview guidance. Verified with client and service test suites.
 - 2026-11-15: Completed Task 3 - Staged Actions Review Drawer & Live Batch Progress. Built `modal_dedupe_drawer.html` partial with animated slide-up review list, action badges (delete/rename/keep), candidate unstage buttons, and animated live batch progress indicator; updated `dedupe_batch.js` with drawer state toggle, staged counts, and progress tracking; preserved strict <400 LOC modularity. Verified with templates check and server tests.
 - 2026-11-15: Completed Task 4 - Granular Audit Taxonomy & Per-File Logging in Log Dock. Added `ActionDedupeBatchExecuted` in `internal/audit/taxonomy.go`, emitted per-file deletion and rename `BisyncLogEntry` events during batch execution so individual files show in the Log Dock and correlated logs, rendered dedicated `DEDUPE_BATCH_EXECUTED` summary card in `ui_components.html`, added filter option in `view_audit.html`, and verified with end-to-end audit ledger and log streaming tests.
+- 2026-11-15: Completed Task 5 - Correlated Daemon Log Badges (`RESYNC`, `DRY RUN`, `FORCE`) & Full Quality Gate. Added reactive `daemonModalRunFlags` getter in `logs_daemon.js` inspecting execution metadata and daemon log output, styled `RESYNC`, `DRY RUN`, and `FORCE` badges in `modal_daemon.html`, formatted Go test suites, and verified with all 7 checks of `./scripts/check.sh all` and headless Chrome E2E tests passing.
 
 
 

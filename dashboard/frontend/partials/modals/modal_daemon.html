@@ -9,10 +9,19 @@
                         <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
                     </div>
                     <div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
                             <h3 class="text-sm font-bold text-white uppercase tracking-wider" x-text="daemonModalRun?.type === 'dedupe' || (daemonModalRun?.run_id && daemonModalRun.run_id.startsWith('dedupe-')) ? 'Correlated Deduplication Logs' : 'Correlated Daemon Logs'">Correlated Daemon Logs</h3>
                             <span x-show="daemonModalRun?.run_id" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60" x-text="daemonModalRun?.run_id"></span>
                             <span x-show="daemonModalRun?.job_id" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60" x-text="'Job: #' + daemonModalRun?.job_id"></span>
+                            <template x-if="daemonModalRunFlags?.resync">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono" title="Executed with --resync">RESYNC</span>
+                            </template>
+                            <template x-if="daemonModalRunFlags?.dryRun">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-300 border border-sky-500/30 font-mono" title="Executed with --dry-run">DRY RUN</span>
+                            </template>
+                            <template x-if="daemonModalRunFlags?.force">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/30 font-mono" title="Executed with --force">FORCE</span>
+                            </template>
                         </div>
                         <div class="text-xs text-slate-400 mt-0.5 flex items-center gap-3 font-mono">
                             <span x-text="daemonModalRun?.remote ? (daemonModalRun.remote + ':' + (daemonModalRun.path || '')) : (daemonModalRun ? `${daemonModalRun.duration_sec != null ? daemonModalRun.duration_sec.toFixed(1) + 's' : ''} ${daemonModalRun.files_synced != null ? '• ' + daemonModalRun.files_synced + ' transferred' : ''}` : 'Continuous stream')"></span>

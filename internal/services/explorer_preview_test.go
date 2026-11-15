@@ -299,7 +299,6 @@ func TestExplorerPreview_RemoteLimitExceeded(t *testing.T) {
 	}
 }
 
-
 func TestExplorerPreview_DuplicateCollisionFallback(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
