@@ -100,25 +100,25 @@ func TestRcloneClient_CatStreamMaxSize(t *testing.T) {
 
 	cl := NewRcloneClient(ts.URL, "", "")
 
-	// Explicit maxSize
+	// Explicit maxSize clamped to Rclone 2MB built-in limit
 	stream, _, err := cl.CatStream(context.Background(), "remote:", "large.bin", 0, 0, 10*1024*1024)
 	if err != nil {
 		t.Fatalf("CatStream error: %v", err)
 	}
 	_ = stream.Close()
-	if capturedMaxSize != 10*1024*1024 {
-		t.Errorf("expected maxSize %d, got %v", 10*1024*1024, capturedMaxSize)
+	if capturedMaxSize != float64(RcloneGetFileMaxBytes) {
+		t.Errorf("expected clamped maxSize %d, got %v", RcloneGetFileMaxBytes, capturedMaxSize)
 	}
 
-	// Inferred from count
+	// Inferred from count clamped to Rclone 2MB built-in limit
 	capturedMaxSize = 0
 	stream, _, err = cl.CatStream(context.Background(), "remote:", "large.bin", 0, 5*1024*1024)
 	if err != nil {
 		t.Fatalf("CatStream error: %v", err)
 	}
 	_ = stream.Close()
-	if capturedMaxSize != 5*1024*1024 {
-		t.Errorf("expected maxSize %d from count, got %v", 5*1024*1024, capturedMaxSize)
+	if capturedMaxSize != float64(RcloneGetFileMaxBytes) {
+		t.Errorf("expected clamped maxSize %d from count, got %v", RcloneGetFileMaxBytes, capturedMaxSize)
 	}
 }
 

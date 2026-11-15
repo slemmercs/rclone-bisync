@@ -259,6 +259,47 @@ func TestIsBinaryData(t *testing.T) {
 	}
 }
 
+func TestExplorerPreview_RemoteLimitExceeded(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/operations/stat":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"item": {
+					"Path": "oversized.txt",
+					"Name": "oversized.txt",
+					"Size": 10485760,
+					"MimeType": "text/plain",
+					"IsDir": false
+				}
+			}`))
+		case "/operations/getfile":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"maxSize cannot exceed built-in maximum of 2097152 bytes"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	prev, err := svc.PreviewItem(context.Background(), "remote:", "oversized.txt")
+	if err != nil {
+		t.Fatalf("expected graceful truncation, got error: %v", err)
+	}
+	if !prev.Truncated {
+		t.Errorf("expected Truncated=true, got false")
+	}
+	if !strings.Contains(prev.Error, "preview limit") {
+		t.Errorf("expected preview limit error notice, got: %q", prev.Error)
+	}
+}
+
+
 func TestExplorerPreview_DuplicateCollisionFallback(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

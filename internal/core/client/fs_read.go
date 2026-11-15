@@ -42,8 +42,11 @@ func (c *RcloneClient) StatItem(ctx context.Context, remote, path string) (map[s
 	return res.Item, nil
 }
 
+// RcloneGetFileMaxBytes defines the hardcoded ceiling in Rclone's /operations/getfile RC endpoint (2,097,152 bytes = 2MB).
+const RcloneGetFileMaxBytes int64 = 2 * 1024 * 1024
+
 // CatStream opens a streaming reader using /operations/getfile with base64 decoding for inspecting or downloading remote files.
-// An optional maxSize parameter overrides Rclone's default 2MB limit on /operations/getfile.
+// An optional maxSize parameter specifies the limit, strictly clamped to Rclone's built-in 2MB limit on /operations/getfile.
 func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offset, count int64, maxSize ...int64) (io.ReadCloser, int64, error) {
 	fs := NormalizeFs(remote)
 	cleanPath := strings.Trim(path, "/")
@@ -57,13 +60,20 @@ func (c *RcloneClient) CatStream(ctx context.Context, remote, path string, offse
 		payload["offset"] = offset
 	}
 	if count > 0 {
-		payload["count"] = count
+		if count > RcloneGetFileMaxBytes {
+			payload["count"] = RcloneGetFileMaxBytes
+		} else {
+			payload["count"] = count
+		}
 	}
 	var maxLimit int64
 	if len(maxSize) > 0 && maxSize[0] > 0 {
 		maxLimit = maxSize[0]
 	} else if count > 0 {
 		maxLimit = count
+	}
+	if maxLimit > RcloneGetFileMaxBytes {
+		maxLimit = RcloneGetFileMaxBytes
 	}
 	if maxLimit > 0 {
 		payload["maxSize"] = maxLimit
