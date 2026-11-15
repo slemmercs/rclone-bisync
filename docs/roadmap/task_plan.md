@@ -17,7 +17,7 @@ Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer 
   - **Scope**: `dashboard/frontend/js/explorer.js`, `dashboard/frontend/js/explorer_compare.js`, `dashboard/frontend/partials/view_explorer.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [ ] Task 4: Dedupe Directory Explorer Resilience & Content Divergence Detection (`dashboard/frontend/`)
+- [x] Task 4: Dedupe Directory Explorer Resilience & Content Divergence Detection (`dashboard/frontend/`)
   - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/partials/modals/modal_dedupe.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
@@ -36,6 +36,8 @@ Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer 
 - 2026-11-15: Completed Task 1 - Backend duplicate stream interception and safe error mapping implemented. Intercepted Google Drive duplicate collisions ("found more than one file" / "duplicate object found") in `ExplorerService.PreviewItem` returning 200 with `IsDuplicateCollision: true` and actionable deduplication instructions instead of 500 error; mapped duplicate download attempts in `ExplorerService.DownloadStream` and `handleExplorerDownload` to 409 Conflict. Verified with targeted unit and HTTP handler tests.
 - 2026-11-15: Completed Task 2 - Backend Dedupe Batch Execution Engine & Endpoints implemented. Created `internal/models/api_dedupe.go`, `internal/services/dedupe_service.go`, and `POST /api/remotes/dedupe/batch` in `handlers_dedupe.go` and `routes.go`. Enabled transactional staging resolutions (keep, rename, delete) with canary guard, jail bounds, immutable audit ledger event recording, and optional post-dedupe resync trigger. Verified with unit and HTTP handler tests.
 - 2026-11-15: Completed Task 3 - Frontend UID Disambiguation & Explorer Target Row Highlighting implemented. Added composite key generation (`getItemKey`, `getItemRowKey`), multi-selection disambiguation, `isDuplicateItem` detection and badges with click-to-resolve, context menu integration, and target row UID pulse highlighting (`this.explorer.highlightId`). Verified with template check, E2E headless chrome smoke test, and LOC inspection.
+
+- 2026-11-15: Completed Task 4 - Dedupe Directory Explorer Resilience & Content Divergence Detection implemented. Added `switchDedupeTab`, `hasContentDivergence`, `getDedupeBreadcrumbs`, parent directory row navigation, and error retry state handling. Verified with templates check, headless Chrome smoke tests, and LOC audit.
 
 
 

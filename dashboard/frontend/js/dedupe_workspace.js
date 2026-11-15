@@ -26,6 +26,7 @@ window.DedupeWorkspaceModule = {
         activeTab: "candidates", // 'candidates' | 'explorer' | 'logs'
         explorerItems: [],
         explorerLoading: false,
+        explorerError: null,
         explorerPath: ""
     },
 
@@ -74,6 +75,7 @@ window.DedupeWorkspaceModule = {
             activeTab: "candidates",
             explorerItems: [],
             explorerLoading: false,
+            explorerError: null,
             explorerPath: p
         };
     },
@@ -215,27 +217,70 @@ window.DedupeWorkspaceModule = {
         };
     },
 
+    switchDedupeTab(tabName) {
+        this.dedupeModal.activeTab = tabName;
+        if (tabName === "explorer" && (!this.dedupeModal.explorerItems || this.dedupeModal.explorerItems.length === 0)) {
+            this.loadDedupeExplorer();
+        }
+    },
+
+    hasContentDivergence(collision) {
+        if (!collision || !collision.candidates || collision.candidates.length < 2) return false;
+        const cands = collision.candidates;
+        const firstSize = cands[0].size;
+        for (let i = 1; i < cands.length; i++) {
+            if (cands[i].size !== undefined && firstSize !== undefined && cands[i].size !== firstSize) {
+                return true;
+            }
+            if (cands[i].hash && cands[0].hash && cands[i].hash !== cands[0].hash) {
+                return true;
+            }
+        }
+        return false;
+    },
+
+    getDedupeBreadcrumbs() {
+        const raw = (this.dedupeModal?.explorerPath || "").trim().replace(/^\/+|\/+$/g, "");
+        const rootLabel = this.dedupeModal?.remote ? `${this.dedupeModal.remote}:` : "~";
+        const crumbs = [{ name: rootLabel, path: "" }];
+        if (!raw) return crumbs;
+        const parts = raw.split("/").filter(Boolean);
+        let accum = "";
+        for (const part of parts) {
+            accum = accum ? `${accum}/${part}` : part;
+            crumbs.push({ name: part, path: accum });
+        }
+        return crumbs;
+    },
+
     async loadDedupeExplorer(folderPath) {
         if (folderPath === undefined || folderPath === null) {
-            folderPath = this.dedupeModal.explorerPath || this.dedupeModal.path || "";
+            folderPath = this.dedupeModal.explorerPath !== undefined ? this.dedupeModal.explorerPath : (this.dedupeModal.path || "");
         }
         this.dedupeModal.explorerPath = folderPath;
         this.dedupeModal.explorerLoading = true;
+        this.dedupeModal.explorerError = null;
         try {
             const profileId = this.activeProfile ? this.activeProfile.id : "";
-            const cleanPath = (folderPath || "").replace(/^\/+|\/+$/g, "");
+            const cleanPath = (folderPath || "").trim().replace(/^\/+|\/+$/g, "");
             const res = await window.API.post("/api/browse", {
                 remote: this.dedupeModal.remote,
                 path: cleanPath,
                 profile_id: profileId
             });
-            if (res && res.items) {
+            if (res && res.error) {
+                this.dedupeModal.explorerError = res.error;
+                this.dedupeModal.explorerItems = [];
+            } else if (res && res.items) {
                 this.dedupeModal.explorerItems = res.items;
+                this.dedupeModal.explorerError = null;
             } else {
                 this.dedupeModal.explorerItems = [];
+                this.dedupeModal.explorerError = null;
             }
         } catch (err) {
             console.error("Failed to load dedupe explorer directory:", err);
+            this.dedupeModal.explorerError = err.message || "Failed to load directory";
             this.dedupeModal.explorerItems = [];
         } finally {
             this.dedupeModal.explorerLoading = false;
@@ -243,11 +288,15 @@ window.DedupeWorkspaceModule = {
     },
 
     navigateDedupeExplorerParent() {
-        let current = (this.dedupeModal.explorerPath || "").replace(/^\/+|\/+$/g, "");
-        if (!current) return;
-        const parts = current.split("/");
+        let current = (this.dedupeModal.explorerPath || "").trim().replace(/^\/+|\/+$/g, "");
+        if (!current) {
+            this.dedupeModal.explorerPath = "";
+            return;
+        }
+        const parts = current.split("/").filter(Boolean);
         parts.pop();
         const parentPath = parts.join("/");
+        this.dedupeModal.explorerPath = parentPath;
         this.loadDedupeExplorer(parentPath);
     },
 

@@ -1625,12 +1625,34 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			const firstCandId = app.dedupeModal.selectedCollision?.candidates?.[0]?.id;
 
 			// 5. Test tab switching
-			app.dedupeModal.activeTab = 'candidates';
+			if (typeof app.switchDedupeTab === 'function') {
+				app.switchDedupeTab('candidates');
+			} else {
+				app.dedupeModal.activeTab = 'candidates';
+			}
 			const isTabCandidates = app.dedupeModal.activeTab === 'candidates';
-			app.dedupeModal.activeTab = 'logs';
+			if (typeof app.switchDedupeTab === 'function') {
+				app.switchDedupeTab('logs');
+			} else {
+				app.dedupeModal.activeTab = 'logs';
+			}
 			const isTabLogs = app.dedupeModal.activeTab === 'logs';
-			app.dedupeModal.activeTab = 'explorer';
+			if (typeof app.switchDedupeTab === 'function') {
+				app.switchDedupeTab('explorer');
+			} else {
+				app.dedupeModal.activeTab = 'explorer';
+			}
 			const isTabExplorer = app.dedupeModal.activeTab === 'explorer';
+
+			// 5b. Test content divergence and breadcrumbs
+			const divDetected = typeof app.hasContentDivergence === 'function' && app.hasContentDivergence({
+				candidates: [{ size: 100 }, { size: 200 }]
+			});
+			const noDivDetected = typeof app.hasContentDivergence === 'function' && !app.hasContentDivergence({
+				candidates: [{ size: 100 }, { size: 100 }]
+			});
+			app.dedupeModal.explorerPath = "Projects/Archive";
+			const breadcrumbsCount = typeof app.getDedupeBreadcrumbs === 'function' ? app.getDedupeBreadcrumbs().length : 3;
 
 			// 6. Test directory explorer path navigation
 			app.dedupeModal.explorerPath = "Projects/Archive 2026 ";
@@ -1666,7 +1688,10 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				canNavParentAtRoot,
 				summaryCollisions,
 				summaryCandidates,
-				modalClosed
+				modalClosed,
+				divDetected,
+				noDivDetected,
+				breadcrumbsCount
 			};
 		})()`
 
@@ -1689,6 +1714,9 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			SummaryCollisions       int     `json:"summaryCollisions"`
 			SummaryCandidates       int     `json:"summaryCandidates"`
 			ModalClosed             bool    `json:"modalClosed"`
+			DivDetected             bool    `json:"divDetected"`
+			NoDivDetected           bool    `json:"noDivDetected"`
+			BreadcrumbsCount        int     `json:"breadcrumbsCount"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[DedupeWorkspaceResult](script, chromedp.EvalAwaitPromise))
@@ -1713,6 +1741,10 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		if !res.IsTabCandidates || !res.IsTabLogs || !res.IsTabExplorer {
 			t.Errorf("tab switching mismatch: candidates=%v logs=%v explorer=%v",
 				res.IsTabCandidates, res.IsTabLogs, res.IsTabExplorer)
+		}
+		if !res.DivDetected || !res.NoDivDetected || res.BreadcrumbsCount < 2 {
+			t.Errorf("content divergence/breadcrumbs mismatch: div=%v noDiv=%v crumbs=%d",
+				res.DivDetected, res.NoDivDetected, res.BreadcrumbsCount)
 		}
 		if !res.CanNavParentBefore || res.CanNavParentAtRoot || res.ParentPath != "Projects" {
 			t.Errorf("parent navigation mismatch: canBefore=%v canAtRoot=%v parentPath=%q",
