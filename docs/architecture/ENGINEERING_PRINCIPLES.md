@@ -17,7 +17,7 @@ Avoid embedding business logic in:
 - UI code and frontend templates
 - Background job wrappers
 
-Services should remain testable and reusable with clear dependency injection boundaries. The application ships as a **Single Binary First**, embedding frontend assets via Go's standard `embed` package without external runtime dependencies.
+Services should remain testable and reusable with clear dependency injection boundaries. The application ships as a **Single Binary First**, embedding pre-compiled frontend assets (`dashboard/frontend/dist/*`) via Go's standard `embed` package without external runtime dependencies.
 
 ---
 
@@ -30,26 +30,39 @@ Prefer:
 - Typed Go structs defined in centralized schema packages (`internal/models`)
 - Defined interfaces with minimal method sets
 - Versioned schemas for persistent state and API communication
+- Strict frontend TypeScript interfaces mirroring Go backend models (`internal/models/`) to avoid contract drift and loose runtime property assumptions
 
 Avoid:
 
 - Unstructured maps (`map[string]interface{}`) in core API payloads
 - Anonymous payloads
 - Implicit runtime contracts
+- Untyped frontend state dictionaries and loose global mutations
 
 ---
 
 # 3. Small Cohesive Components
 
-Each package and module should have a single, well-defined responsibility.
+Each package, service, and component should have a single, well-defined responsibility.
 
-Avoid:
+### Go Backend (`internal/`, `cmd/`)
 
-- God objects and monolithic services exceeding ~400–500 lines of code (LOC)
-- Multi-purpose services spanning unrelated domains
-- Cross-domain circular coupling
+Domain services must maintain focused architectural boundaries to avoid becoming "God Objects":
 
-When components grow beyond a single responsibility or exceed file length thresholds, decompose them into cohesive domain packages or focused helper modules.
+- **Sub-400 LOC Guideline**: Production Go backend files adhere to the ~400–500 LOC threshold to maintain modularity and readability.
+- **Single Domain Responsibility**: Avoid multi-purpose services spanning unrelated domains. Core logic belongs in dedicated services (`TelemetryService`, `CanaryService`, `DeletionService`, `ReviewService`, `ExplorerService`, `SyncService`).
+- **No Circular Coupling**: Maintain strict unidirectional dependencies between packages.
+
+When Go services grow beyond a single responsibility or approach line-count thresholds, decompose them into cohesive domain packages or focused helper modules.
+
+### Frontend (`dashboard/frontend/`)
+
+Frontend components are evaluated on **component cohesion and single responsibility**, rather than an arbitrary flat line-count ceiling:
+
+- **Cohesive Single-File Components**: A Single-File Component containing its template, scoped styles, and typed state logic is preferred over artificial file fragmentation.
+- **Component Scoping**: Eliminate global window object mutation and unbundled script tags. Encapsulate local UI state within components.
+- **Typed Store Governance**: Cross-cutting application state (active profiles, notifications, health telemetry) lives in dedicated, typed stores (e.g., Pinia / scoped Alpine stores).
+- **Zero Runtime Compilers**: Pre-compile styles and templates ahead-of-time into static distribution assets (`dist/`), ensuring zero browser performance overhead and eliminating runtime JIT compilers.
 
 ---
 
