@@ -17,7 +17,7 @@ Fix live Google Drive deduplication failures: resolve the path-truncation batch 
   - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/dedupe_workspace.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [ ] Task 4: Large File (>2MB) Preview & Download Support with Rclone RC-Serve / MaxSize (`internal/core/client/`, `internal/services/`, `deploy/`)
+- [x] Task 4: Large File (>2MB) Preview & Download Support with Rclone RC-Serve / MaxSize (`internal/core/client/`, `internal/services/`, `deploy/`)
   - **Scope**: `internal/core/client/fs_read.go`, `internal/services/explorer_preview.go`, `internal/services/explorer_download.go`, `internal/services/explorer_preview_test.go`, `deploy/systemd/rclone-daemon.service`
   - **Verification**: `go test -count=1 ./internal/services/... -run "Test.*Preview.*|Test.*Download.*"`
 
@@ -31,6 +31,8 @@ Fix live Google Drive deduplication failures: resolve the path-truncation batch 
 - 2026-11-15: Completed Task 1 - Dedupe Batch Engine Path Concatenation, Resync Safety & Detailed Error Reporting. Resolved `req.Path` subdirectory path concatenation for batch actions, prevented erroneous `--resync` triggers when 0 actions succeed, populated concrete error details in `resp.Error`, and recorded audit logging for both successful and failed dedupe batches. Verified with unit tests.
 - 2026-11-15: Completed Task 2 - Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics. Replaced browser native `prompt()` with dark-themed in-app input dialog via `askPrompt` in `modal_confirm.html`, surfaced granular per-action errors in toasts and dedupe execution console output. Verified with templates check and headless Chrome E2E smoke tests.
 - 2026-11-15: Completed Task 3 - Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions. Implemented composite row keys (`getDedupeExplorerRowKey`) preventing duplicate DOM key collision on Google Drive duplicates, added `DUPLICATE` badges, candidate staged status badges, and inline Keep/Rename/Delete/Preview actions for direct folder browsing resolution. Verified with templates check, headless Chrome E2E smoke tests, and LOC audit.
+- 2026-11-15: Completed Task 4 - Large File (>2MB) Preview & Download Support with Rclone RC-Serve / MaxSize. Forwarded explicit `maxSize` to `/operations/getfile` instead of Rclone's default 2MB limit, added `DownloadStream` supporting direct streaming via `--rc-serve` with fallback to `CatStream(maxSize)`, gracefully handled preview limit exceeded errors returning `Truncated: true` with direct download guidance, and added `--rc-serve` to systemd service unit. Verified with targeted client/service tests, full test suite pass, and LOC audit.
+
 
 
 
