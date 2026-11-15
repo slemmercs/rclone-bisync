@@ -4,9 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
@@ -221,3 +224,90 @@ func TestDedupeBatch_PathTraversal(t *testing.T) {
 		t.Errorf("expected 2 failures for path traversal, got: %d", resp.FailureCount)
 	}
 }
+
+func TestDedupeBatch_AuditAndLogging(t *testing.T) {
+	// Arrange
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "audit.db")
+	logPath := filepath.Join(tmpDir, "bisync.log")
+
+	db, err := audit.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open audit DB: %v", err)
+	}
+	defer db.Close()
+
+	logSink, err := logger.New(logPath, false)
+	if err != nil {
+		t.Fatalf("failed to init logger: %v", err)
+	}
+	defer logSink.Close()
+
+	auditSvc := NewAuditService(db, logSink)
+	cfg := &config.Config{LocalPath: tmpDir}
+	expSvc := NewExplorerService(cfg, nil, nil)
+	dedupeSvc := NewDedupeService(cfg, expSvc, auditSvc, nil)
+
+	file1 := filepath.Join(tmpDir, "keep_me.txt")
+	file2 := filepath.Join(tmpDir, "del_me.txt")
+	file3 := filepath.Join(tmpDir, "ren_me.txt")
+
+	_ = os.WriteFile(file1, []byte("data1"), 0600)
+	_ = os.WriteFile(file2, []byte("data2"), 0600)
+	_ = os.WriteFile(file3, []byte("data3"), 0600)
+
+	req := models.DedupeBatchApplyRequest{
+		Remote:    "local",
+		ProfileID: "prof_test",
+		Path:      "",
+		Actions: []models.DedupeStageAction{
+			{Path: "keep_me.txt", Action: "keep"},
+			{Path: "del_me.txt", Action: "delete"},
+			{Path: "ren_me.txt", Action: "rename", NewName: "ren_me_renamed.txt"},
+		},
+	}
+
+	// Act
+	resp, err := dedupeSvc.ExecuteDedupeBatch(context.Background(), req, tmpDir)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.SuccessCount != 3 {
+		t.Fatalf("expected 3 successes, got: %d", resp.SuccessCount)
+	}
+
+	// 1. Verify ActionDedupeBatchExecuted in audit ledger
+	records, total, err := auditSvc.Query(audit.Filter{Action: audit.ActionDedupeBatchExecuted})
+	if err != nil {
+		t.Fatalf("failed to query audit records: %v", err)
+	}
+	if total != 1 || len(records) != 1 {
+		t.Fatalf("expected 1 DEDUPE_BATCH_EXECUTED record, got %d", total)
+	}
+	if records[0].Action != audit.ActionDedupeBatchExecuted {
+		t.Errorf("expected action %s, got %s", audit.ActionDedupeBatchExecuted, records[0].Action)
+	}
+	if records[0].ProfileID != "prof_test" {
+		t.Errorf("expected profile prof_test, got %s", records[0].ProfileID)
+	}
+
+	// 2. Verify per-file deletion and rename logs in bisync.log
+	logData, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read bisync.log: %v", err)
+	}
+	logStr := string(logData)
+
+	if !strings.Contains(logStr, `"action":"Deleted"`) || !strings.Contains(logStr, `"object":"del_me.txt"`) {
+		t.Errorf("expected per-file deletion log entry in bisync.log, got:\n%s", logStr)
+	}
+	if !strings.Contains(logStr, `"action":"Renamed"`) || !strings.Contains(logStr, `"object":"ren_me_renamed.txt"`) {
+		t.Errorf("expected per-file rename log entry in bisync.log, got:\n%s", logStr)
+	}
+	if !strings.Contains(logStr, "DEDUPE_BATCH_APPLIED") {
+		t.Errorf("expected batch summary log entry in bisync.log, got:\n%s", logStr)
+	}
+}
+

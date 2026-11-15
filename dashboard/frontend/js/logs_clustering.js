@@ -47,7 +47,7 @@ function consolidateRunEntries(entries, profiles = []) {
         if (!item.sub_entries) continue;
 
         const subs = item.sub_entries;
-        const auditEntry = subs.find(e => e.type === "audit" || e.action === "SYNC_EXECUTED" || e.action === "DEDUPE_EXECUTED");
+        const auditEntry = subs.find(e => e.type === "audit" || e.action === "SYNC_EXECUTED" || e.action === "DEDUPE_EXECUTED" || e.action === "DEDUPE_BATCH_EXECUTED");
         const terminalEntry = subs.find(e => e.status || e.duration_sec != null);
         const errorEntry = subs.find(e => (e.level && e.level.trim().toUpperCase() === "ERROR") || e.status === "error" || e.error_type);
         const newest = subs[0];

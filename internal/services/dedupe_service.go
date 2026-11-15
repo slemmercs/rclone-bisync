@@ -48,6 +48,11 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 		return models.DedupeBatchApplyResponse{Status: "error", Error: "explorer service is unavailable"}, nil
 	}
 
+	profileID := req.ProfileID
+	if profileID == "" {
+		profileID = remoteClean
+	}
+
 	reqPath := strings.Trim(strings.TrimSpace(req.Path), "/")
 	for _, action := range req.Actions {
 		cleanPath := strings.Trim(strings.TrimSpace(action.Path), "/")
@@ -84,6 +89,20 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 				resp.Errors = append(resp.Errors, fmt.Sprintf("delete %s: %s", cleanPath, errMsg))
 			} else {
 				resp.SuccessCount++
+				if s.AuditService != nil && s.AuditService.Logger != nil {
+					_ = s.AuditService.Logger.RecordSyncRun(models.BisyncLogEntry{
+						Time:        time.Now().Format(time.RFC3339),
+						Level:       "notice",
+						Type:        "file",
+						Action:      "Deleted",
+						Object:      cleanPath,
+						Msg:         fmt.Sprintf("Dedupe delete: %s", cleanPath),
+						RunID:       runID,
+						Origin:      "dedupe_batch",
+						ProfileID:   profileID,
+						ProfileName: profileID,
+					})
+				}
 			}
 		case "rename":
 			newName := strings.TrimSpace(action.NewName)
@@ -122,16 +141,25 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 				resp.Errors = append(resp.Errors, fmt.Sprintf("rename %s -> %s: %s", cleanPath, newName, errMsg))
 			} else {
 				resp.SuccessCount++
+				if s.AuditService != nil && s.AuditService.Logger != nil {
+					_ = s.AuditService.Logger.RecordSyncRun(models.BisyncLogEntry{
+						Time:        time.Now().Format(time.RFC3339),
+						Level:       "notice",
+						Type:        "file",
+						Action:      "Renamed",
+						Object:      dstPath,
+						Msg:         fmt.Sprintf("Dedupe rename: %s -> %s", cleanPath, newName),
+						RunID:       runID,
+						Origin:      "dedupe_batch",
+						ProfileID:   profileID,
+						ProfileName: profileID,
+					})
+				}
 			}
 		default:
 			resp.FailureCount++
 			resp.Errors = append(resp.Errors, fmt.Sprintf("unknown action %q for %s", action.Action, cleanPath))
 		}
-	}
-
-	profileID := req.ProfileID
-	if profileID == "" {
-		profileID = remoteClean
 	}
 
 	if s.AuditService != nil {
@@ -157,7 +185,7 @@ func (s *DedupeService) ExecuteDedupeBatch(ctx context.Context, req models.Dedup
 			})
 		}
 		if resp.SuccessCount > 0 {
-			_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeExecuted, "system", map[string]any{
+			_, _ = s.AuditService.RecordEvent(profileID, audit.ActionDedupeBatchExecuted, "system", map[string]any{
 				"run_id":        runID,
 				"remote":        remoteClean,
 				"path":          req.Path,

@@ -477,7 +477,7 @@ func TestExplorerDownload_LargeFileMaxSize(t *testing.T) {
 	if name != "video.mp4" || size != 52428800 {
 		t.Errorf("expected name video.mp4, size 52428800; got name %s, size %d", name, size)
 	}
-	if capturedMaxSize != 52428800 {
-		t.Errorf("expected captured maxSize 52428800; got %v", capturedMaxSize)
+	if capturedMaxSize != float64(client.RcloneGetFileMaxBytes) {
+		t.Errorf("expected captured maxSize clamped to %d; got %v", client.RcloneGetFileMaxBytes, capturedMaxSize)
 	}
 }
