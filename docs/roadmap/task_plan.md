@@ -13,7 +13,7 @@ Fix live Google Drive deduplication failures: resolve the path-truncation batch 
   - **Scope**: `dashboard/frontend/partials/modals/modal_confirm.html`, `dashboard/frontend/js/app_state.js`, `dashboard/frontend/js/dedupe_batch.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [ ] Task 3: Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions (`dashboard/frontend/`)
+- [x] Task 3: Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions (`dashboard/frontend/`)
   - **Scope**: `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/js/dedupe_workspace.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
@@ -30,6 +30,8 @@ Fix live Google Drive deduplication failures: resolve the path-truncation batch 
 - 2026-11-15: Initialized plan for Google Drive dedupe fixes, in-app modals, and streaming resilience.
 - 2026-11-15: Completed Task 1 - Dedupe Batch Engine Path Concatenation, Resync Safety & Detailed Error Reporting. Resolved `req.Path` subdirectory path concatenation for batch actions, prevented erroneous `--resync` triggers when 0 actions succeed, populated concrete error details in `resp.Error`, and recorded audit logging for both successful and failed dedupe batches. Verified with unit tests.
 - 2026-11-15: Completed Task 2 - Frontend In-App Styled Prompt Modal & Detailed Batch Error Diagnostics. Replaced browser native `prompt()` with dark-themed in-app input dialog via `askPrompt` in `modal_confirm.html`, surfaced granular per-action errors in toasts and dedupe execution console output. Verified with templates check and headless Chrome E2E smoke tests.
+- 2026-11-15: Completed Task 3 - Dedupe Workspace Directory Explorer Resilience & Inline Candidate Actions. Implemented composite row keys (`getDedupeExplorerRowKey`) preventing duplicate DOM key collision on Google Drive duplicates, added `DUPLICATE` badges, candidate staged status badges, and inline Keep/Rename/Delete/Preview actions for direct folder browsing resolution. Verified with templates check, headless Chrome E2E smoke tests, and LOC audit.
+
 
 
 

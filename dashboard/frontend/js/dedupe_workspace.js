@@ -307,12 +307,155 @@ window.DedupeWorkspaceModule = {
             const newPath = current ? `${current}/${item.Name}` : item.Name;
             this.loadDedupeExplorer(newPath);
         } else {
-            const match = (this.dedupeModal.parsedOutput?.items || []).find(c => c.path === item.Path || c.name === item.Name);
+            const match = this.getCollisionForItem(item);
             if (match) {
                 this.dedupeModal.selectedCollision = match;
                 this.dedupeModal.activeTab = "candidates";
             }
         }
+    },
+
+    getDedupeExplorerRowKey(item, idx) {
+        if (!item) return `dedupe_exp_${idx}`;
+        const id = item.ID || item.Id || "";
+        const name = item.Name || item.Path || "";
+        const mtime = item.ModTime || item.Mtime || "";
+        const size = item.Size !== undefined ? item.Size : "";
+        return `dedupe_exp_${id}_${name}_${size}_${mtime}_${idx}`;
+    },
+
+    isDedupeExplorerItemDuplicate(item) {
+        if (!item || item.IsDir) return false;
+        const items = this.dedupeModal?.explorerItems || [];
+        let count = 0;
+        for (const it of items) {
+            if (!it.IsDir && it.Name === item.Name) {
+                count++;
+                if (count > 1) return true;
+            }
+        }
+        const collisions = this.dedupeModal?.parsedOutput?.items || [];
+        return collisions.some(c => c.name === item.Name || c.path === item.Path);
+    },
+
+    getCollisionForItem(item) {
+        if (!item || item.IsDir) return null;
+        const collisions = this.dedupeModal?.parsedOutput?.items || [];
+        return collisions.find(c => c.name === item.Name || c.path === item.Path) || null;
+    },
+
+    getCandidateForExplorerItem(item) {
+        const col = this.getCollisionForItem(item);
+        if (!col || !col.candidates || col.candidates.length === 0) return null;
+        const itemId = item.ID || item.Id || "";
+        if (itemId) {
+            const foundById = col.candidates.find(c => c.id && c.id === itemId);
+            if (foundById) return foundById;
+        }
+        if (item.Size !== undefined && item.ModTime) {
+            const foundByMeta = col.candidates.find(c => c.size === item.Size && c.modtime === item.ModTime);
+            if (foundByMeta) return foundByMeta;
+        }
+        return col.candidates[0] || null;
+    },
+
+    previewDedupeCandidate(collision, cand) {
+        if (!collision || !cand) return;
+        const remote = this.dedupeModal.remote;
+        let filePath = collision.path || collision.name || "";
+        const dir = this.dedupeModal.path || "";
+        if (dir && !filePath.startsWith(dir)) {
+            filePath = `${dir.replace(/\/+$/, '')}/${filePath.replace(/^\/+/, '')}`;
+        }
+        const profileId = this.activeProfile ? this.activeProfile.id : "";
+        const candName = collision.name || filePath.split("/").pop() || "file";
+
+        this.filePreviewModal = {
+            show: true,
+            loading: true,
+            error: null,
+            remote,
+            path: filePath,
+            name: candName,
+            preview: null
+        };
+
+        const query = new URLSearchParams({
+            remote,
+            path: filePath,
+            profile_id: profileId
+        });
+        if (cand.id) {
+            query.set("id", cand.id);
+        }
+
+        fetch(`/api/explorer/preview?${query.toString()}`)
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().catch(() => ({})).then(errData => {
+                        throw new Error(errData.error || `HTTP ${res.status}`);
+                    });
+                }
+                return res.json();
+            })
+            .then(data => {
+                this.filePreviewModal.preview = data;
+            })
+            .catch(err => {
+                this.filePreviewModal.error = err.message || "Failed to load preview";
+            })
+            .finally(() => {
+                this.filePreviewModal.loading = false;
+            });
+    },
+
+    previewDedupeExplorerItem(item) {
+        if (!item || item.IsDir) return;
+        const remote = this.dedupeModal.remote;
+        let filePath = item.Path || item.Name || "";
+        const dir = this.dedupeModal.explorerPath || this.dedupeModal.path || "";
+        if (dir && !filePath.startsWith(dir)) {
+            filePath = `${dir.replace(/\/+$/, '')}/${item.Name}`;
+        }
+        const profileId = this.activeProfile ? this.activeProfile.id : "";
+
+        this.filePreviewModal = {
+            show: true,
+            loading: true,
+            error: null,
+            remote,
+            path: filePath,
+            name: item.Name,
+            preview: null
+        };
+
+        const query = new URLSearchParams({
+            remote,
+            path: filePath,
+            profile_id: profileId
+        });
+        if (item.ID || item.Id) {
+            query.set("id", item.ID || item.Id);
+        }
+
+        fetch(`/api/explorer/preview?${query.toString()}`)
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().catch(() => ({})).then(errData => {
+                        throw new Error(errData.error || `HTTP ${res.status}`);
+                    });
+                }
+                return res.json();
+            })
+            .then(data => {
+                this.filePreviewModal.preview = data;
+            })
+            .catch(err => {
+                this.filePreviewModal.error = err.message || "Failed to load preview";
+            })
+            .finally(() => {
+                this.filePreviewModal.loading = false;
+            });
     },
 
     async runDedupe(isDryRun = false) {
