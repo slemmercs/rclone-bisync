@@ -13,7 +13,7 @@ Resolve Google Drive link/shortcut and trailing-space path navigation edge cases
   - **Scope**: `dashboard/frontend/js/dedupe_parser.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
-- [ ] Task 3: Deduplication Workspace Module Extraction (`dashboard/frontend/js/dedupe_workspace.js`, `remotes_modals.js`)
+- [x] Task 3: Deduplication Workspace Module Extraction (`dashboard/frontend/js/dedupe_workspace.js`, `remotes_modals.js`)
   - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/js/remotes_modals.js`, `dashboard/frontend/index.html`, `dashboard/frontend/app.js`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check.sh loc 400`
 
@@ -30,6 +30,7 @@ Resolve Google Drive link/shortcut and trailing-space path navigation edge cases
 - 2026-11-15: Initialized plan from approved `implementation_plan.md` on branch `fix/dedupe-workspace-redesign-and-link-edge-case`.
 - 2026-11-15: Completed Task 1 - Preserved folder segment trailing whitespace across `ExplorerService.BrowsePath` and dedupe handlers. Implemented transparent auto-resolution for 404 remote and local directories with trailing spaces or shortcut aliases. Added shortcut detection (`IsShortcut: true`) for composite Google Drive IDs and symlinks. Verified with unit tests (`TestExplorerService_BrowsePath`).
 - 2026-11-15: Completed Task 2 - Enhanced `parseDedupeOutput` in `dashboard/frontend/js/dedupe_parser.js` to extract candidate item paths, clean names, parent directories, and candidate detail records (`size`, `modtime`, `id`, `index`). Exported both for browser and CommonJS module environments. Verified via `./scripts/check.sh templates && ./scripts/check.sh loc 400` and `./...` tests.
+- 2026-11-15: Completed Task 3 - Extracted deduplication modal and execution logic from `dashboard/frontend/js/remotes_modals.js` (now 145 LOC) into dedicated `dashboard/frontend/js/dedupe_workspace.js` (287 LOC). Added collision selection, quick filtering, directory browsing, candidate switching, and summary stats. Registered in `dashboard/frontend/app.js` and `dashboard/frontend/index.html`. Verified via `./scripts/check.sh templates && ./scripts/check.sh loc 400` and `go test -count=1 ./tests/e2e`.
 
 
 
