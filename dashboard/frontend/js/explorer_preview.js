@@ -59,6 +59,7 @@ window.ExplorerPreviewModule = {
         this.filePreviewModal.show = false;
         this.filePreviewModal.preview = null;
         this.filePreviewModal.error = null;
+        this.filePreviewModal.closedAt = Date.now();
     },
 
     downloadFile(paneKey, item) {

@@ -1,7 +1,11 @@
 {{ define "modal_dedupe" }}
 <!-- Remote Hash Deduplication Workspace Modal -->
-<div x-show="dedupeModal.show" x-cloak @keydown.escape.window="if (!dedupeModal.executing && !filePreviewModal.show && !confirmModal.show) dedupeModal.show = false" x-transition.opacity.duration.200ms class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
-    <div @click.away="if (!dedupeModal.executing && !filePreviewModal.show && !confirmModal.show) dedupeModal.show = false" class="bg-slate-900 border border-slate-800 rounded-2xl max-w-7xl w-full shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+<div x-show="dedupeModal.show" x-cloak
+     @click.self="if (!dedupeModal.executing && !filePreviewModal.show && !confirmModal.show && Date.now() - (filePreviewModal.closedAt || 0) > 350 && Date.now() - (confirmModal.closedAt || 0) > 350) closeDedupeModal()"
+     @keydown.escape.window="if (dedupeModal.show && !dedupeModal.executing && !filePreviewModal.show && !confirmModal.show && Date.now() - (filePreviewModal.closedAt || 0) > 350 && Date.now() - (confirmModal.closedAt || 0) > 350) closeDedupeModal()"
+     x-transition.opacity.duration.200ms
+     class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+    <div @click.stop class="bg-slate-900 border border-slate-800 rounded-2xl max-w-7xl w-full shadow-2xl flex flex-col h-[90vh] overflow-hidden">
         <!-- Workspace Header -->
         <div class="px-5 py-3 border-b border-slate-800 flex justify-between items-center bg-slate-950/60 shrink-0">
             <div class="flex items-center gap-3 min-w-0">
@@ -23,7 +27,7 @@
                         <span class="px-2 py-1 rounded bg-rose-950/40 border border-rose-800/40 text-rose-300 font-mono text-[11px]" x-show="getConflictSummary().totalDeleted > 0" x-text="'Deleted: ' + (getConflictSummary().totalDeleted)"></span>
                     </div>
                 </template>
-                <button type="button" @click="if (!dedupeModal.executing) dedupeModal.show = false" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer" title="Close Workspace">
+                <button type="button" @click.stop="if (!dedupeModal.executing) closeDedupeModal()" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer" title="Close Workspace">
                     <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>

@@ -1,7 +1,11 @@
 {{ define "modal_file_preview" }}
 <!-- Safe File Preview Modal -->
-<div x-show="filePreviewModal.show" x-cloak @keydown.escape.window.stop="closePreviewModal()" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" x-transition.opacity.duration.200ms>
-    <div @click.away="closePreviewModal()" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative space-y-4 flex flex-col max-h-[90vh]">
+<div x-show="filePreviewModal.show" x-cloak
+     @click.self="closePreviewModal()"
+     @keydown.escape.window="if (filePreviewModal.show) { $event.stopImmediatePropagation(); closePreviewModal(); }"
+     class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+     x-transition.opacity.duration.200ms>
+    <div @click.stop class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl relative space-y-4 flex flex-col max-h-[90vh]">
         <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
             <div class="flex items-center gap-2.5 min-w-0 flex-1">
@@ -19,7 +23,7 @@
                     </div>
                 </div>
             </div>
-            <button @click="closePreviewModal()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors ml-2 shrink-0 cursor-pointer" title="Close Preview">
+            <button type="button" @click.stop="closePreviewModal()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors ml-2 shrink-0 cursor-pointer" title="Close Preview">
                 <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
         </div>
@@ -98,7 +102,7 @@
                     <svg class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                     <span>Download</span>
                 </button>
-                <button type="button" @click="closePreviewModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors cursor-pointer">
+                <button type="button" @click.stop="closePreviewModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors cursor-pointer">
                     Close
                 </button>
             </div>

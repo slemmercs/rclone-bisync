@@ -1703,6 +1703,13 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			const cacheCleared = app.dedupeModal?.parsedOutput === null;
 			app.closeDedupeModal();
 
+			// 9. Verify preview dismissal does not close dedupe workspace
+			app.openDedupeModal("drive", "test-folder");
+			app.filePreviewModal = { show: true, loading: false, remote: "drive", path: "test-folder/doc.pdf" };
+			app.closePreviewModal();
+			const dedupeRemainsOpenAfterPreview = Boolean(app.dedupeModal?.show === true);
+			app.closeDedupeModal();
+
 			return {
 				modalOpen,
 				remoteAssigned,
@@ -1728,37 +1735,39 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				breadcrumbsCount,
 				stagedCountBefore,
 				stagedCountAfter,
-				stagedCountCleared
+				stagedCountCleared,
+				dedupeRemainsOpenAfterPreview
 			};
 		})()`
 
 		type DedupeWorkspaceResult struct {
-			Error                   *string `json:"error"`
-			ModalOpen               bool    `json:"modalOpen"`
-			RemoteAssigned          bool    `json:"remoteAssigned"`
-			PathPreserved           bool    `json:"pathPreserved"`
-			InitialCollisionsCount  int     `json:"initialCollisionsCount"`
-			FilteredCollisionsCount int     `json:"filteredCollisionsCount"`
-			SelectedPath            string  `json:"selectedPath"`
-			CandidatesCount         int     `json:"candidatesCount"`
-			FirstCandId             string  `json:"firstCandId"`
-			IsTabCandidates         bool    `json:"isTabCandidates"`
-			IsTabLogs               bool    `json:"isTabLogs"`
-			IsTabExplorer           bool    `json:"isTabExplorer"`
-			CanNavParentBefore      bool    `json:"canNavParentBefore"`
-			ParentPath              string  `json:"parentPath"`
-			CanNavParentAtRoot      bool    `json:"canNavParentAtRoot"`
-			SummaryCollisions       int     `json:"summaryCollisions"`
-			SummaryCandidates       int     `json:"summaryCandidates"`
-			ModalClosed             bool    `json:"modalClosed"`
-			CachePreserved          bool    `json:"cachePreserved"`
-			CacheCleared            bool    `json:"cacheCleared"`
-			DivDetected             bool    `json:"divDetected"`
-			NoDivDetected           bool    `json:"noDivDetected"`
-			BreadcrumbsCount        int     `json:"breadcrumbsCount"`
-			StagedCountBefore       int     `json:"stagedCountBefore"`
-			StagedCountAfter        int     `json:"stagedCountAfter"`
-			StagedCountCleared      int     `json:"stagedCountCleared"`
+			Error                         *string `json:"error"`
+			ModalOpen                     bool    `json:"modalOpen"`
+			RemoteAssigned                bool    `json:"remoteAssigned"`
+			PathPreserved                 bool    `json:"pathPreserved"`
+			InitialCollisionsCount        int     `json:"initialCollisionsCount"`
+			FilteredCollisionsCount       int     `json:"filteredCollisionsCount"`
+			SelectedPath                  string  `json:"selectedPath"`
+			CandidatesCount               int     `json:"candidatesCount"`
+			FirstCandId                   string  `json:"firstCandId"`
+			IsTabCandidates               bool    `json:"isTabCandidates"`
+			IsTabLogs                     bool    `json:"isTabLogs"`
+			IsTabExplorer                 bool    `json:"isTabExplorer"`
+			CanNavParentBefore            bool    `json:"canNavParentBefore"`
+			ParentPath                    string  `json:"parentPath"`
+			CanNavParentAtRoot            bool    `json:"canNavParentAtRoot"`
+			SummaryCollisions             int     `json:"summaryCollisions"`
+			SummaryCandidates             int     `json:"summaryCandidates"`
+			ModalClosed                   bool    `json:"modalClosed"`
+			CachePreserved                bool    `json:"cachePreserved"`
+			CacheCleared                  bool    `json:"cacheCleared"`
+			DivDetected                   bool    `json:"divDetected"`
+			NoDivDetected                 bool    `json:"noDivDetected"`
+			BreadcrumbsCount              int     `json:"breadcrumbsCount"`
+			StagedCountBefore             int     `json:"stagedCountBefore"`
+			StagedCountAfter              int     `json:"stagedCountAfter"`
+			StagedCountCleared            int     `json:"stagedCountCleared"`
+			DedupeRemainsOpenAfterPreview bool    `json:"dedupeRemainsOpenAfterPreview"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[DedupeWorkspaceResult](script, chromedp.EvalAwaitPromise))
@@ -1806,6 +1815,9 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		if !res.CachePreserved || !res.CacheCleared {
 			t.Errorf("dedupe cache lifecycle mismatch: preserved=%v cleared=%v",
 				res.CachePreserved, res.CacheCleared)
+		}
+		if !res.DedupeRemainsOpenAfterPreview {
+			t.Errorf("expected dedupe modal to remain open after preview modal dismissal")
 		}
 	})
 

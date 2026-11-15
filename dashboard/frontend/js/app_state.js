@@ -125,6 +125,7 @@ window.AppStateModule = {
         this.confirmModal.inputValue = "";
         this.confirmModal.onConfirm = null;
         this.confirmModal.transfer = null;
+        this.confirmModal.closedAt = Date.now();
     },
 
     isEngineSyncing() {
