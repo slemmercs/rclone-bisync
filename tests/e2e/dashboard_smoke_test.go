@@ -1688,9 +1688,20 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			const summaryCollisions = summary.totalCollisions;
 			const summaryCandidates = summary.totalCandidates;
 
-			// 8. Close modal
+			// 8. Close modal and test cache persistence on reopen
 			app.closeDedupeModal();
 			const modalClosed = app.dedupeModal?.show === false;
+
+			// Re-open on the same target and confirm cached results are preserved
+			app.openDedupeModal("drive", "Projects/Archive 2026 ");
+			const cachePreserved = Boolean(app.dedupeModal?.parsedOutput?.items?.length === 2);
+
+			// Test clearing cache
+			if (typeof app.clearDedupeCacheAndReset === 'function') {
+				app.clearDedupeCacheAndReset();
+			}
+			const cacheCleared = app.dedupeModal?.parsedOutput === null;
+			app.closeDedupeModal();
 
 			return {
 				modalOpen,
@@ -1710,6 +1721,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				summaryCollisions,
 				summaryCandidates,
 				modalClosed,
+				cachePreserved,
+				cacheCleared,
 				divDetected,
 				noDivDetected,
 				breadcrumbsCount,
@@ -1738,6 +1751,8 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			SummaryCollisions       int     `json:"summaryCollisions"`
 			SummaryCandidates       int     `json:"summaryCandidates"`
 			ModalClosed             bool    `json:"modalClosed"`
+			CachePreserved          bool    `json:"cachePreserved"`
+			CacheCleared            bool    `json:"cacheCleared"`
 			DivDetected             bool    `json:"divDetected"`
 			NoDivDetected           bool    `json:"noDivDetected"`
 			BreadcrumbsCount        int     `json:"breadcrumbsCount"`
@@ -1787,6 +1802,10 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		}
 		if !res.ModalClosed {
 			t.Errorf("expected dedupe modal to close cleanly")
+		}
+		if !res.CachePreserved || !res.CacheCleared {
+			t.Errorf("dedupe cache lifecycle mismatch: preserved=%v cleared=%v",
+				res.CachePreserved, res.CacheCleared)
 		}
 	})
 

@@ -106,7 +106,12 @@
 
                 <!-- Summary Stats Widget -->
                 <div x-show="dedupeModal.parsedOutput" class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2 text-xs">
-                    <div class="font-semibold text-slate-200 text-[11px] uppercase tracking-wider">Collision Summary</div>
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold text-slate-200 text-[11px] uppercase tracking-wider">Collision Summary</div>
+                        <button type="button" @click="clearDedupeCacheAndReset()" class="text-[10px] text-slate-400 hover:text-amber-400 transition-colors cursor-pointer" title="Clear scan cache and reset">
+                            Clear Scan
+                        </button>
+                    </div>
                     <div class="grid grid-cols-3 gap-2 text-center">
                         <div class="p-1.5 bg-slate-950 rounded-lg border border-slate-800/60">
                             <div class="text-[10px] text-slate-400">Collisions</div>
@@ -299,102 +304,8 @@
                 </div>
 
                 <!-- Tab 2: Directory Explorer View -->
-                <div x-show="dedupeModal.activeTab === 'explorer'" class="flex-1 flex flex-col overflow-hidden">
-                    <div class="px-3 py-2 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between gap-2 text-xs shrink-0">
-                        <div class="flex items-center gap-1 font-mono text-slate-300 truncate min-w-0 flex-wrap">
-                            <span class="text-amber-400 font-bold shrink-0">Path:</span>
-                            <template x-for="(crumb, cIdx) in getDedupeBreadcrumbs()" :key="cIdx">
-                                <div class="flex items-center gap-1 shrink-0">
-                                    <button type="button" @click="loadDedupeExplorer(crumb.path)" class="hover:text-amber-300 hover:underline transition-colors cursor-pointer truncate max-w-[10rem]" :class="cIdx === (getDedupeBreadcrumbs().length - 1) ? 'text-amber-400 font-bold' : 'text-slate-400'" x-text="crumb.name"></button>
-                                    <span x-show="cIdx < (getDedupeBreadcrumbs().length - 1)" class="text-slate-600">/</span>
-                                </div>
-                            </template>
-                        </div>
-                        <div class="flex items-center gap-1 shrink-0">
-                            <button type="button" @click="navigateDedupeExplorerParent()" :disabled="cannotNavigateDedupeExplorerParent()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] disabled:opacity-40 cursor-pointer">
-                                ↑ Parent
-                            </button>
-                            <button type="button" @click="loadDedupeExplorer(dedupeModal.explorerPath)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] cursor-pointer">
-                                Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <div class="flex-1 overflow-y-auto p-2 space-y-1">
-                        <div x-show="dedupeModal.explorerLoading" class="text-center py-8 text-slate-500 text-xs">
-                            <svg class="w-5 h-5 animate-spin text-amber-400 mx-auto mb-1.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                            <span>Loading directory listing...</span>
-                        </div>
-                        <div x-show="dedupeModal.explorerError" class="p-6 text-center text-xs space-y-3">
-                            <div class="text-rose-400 font-mono" x-text="dedupeModal.explorerError"></div>
-                            <div class="flex items-center justify-center gap-2">
-                                <button type="button" @click="loadDedupeExplorer(dedupeModal.explorerPath)" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium cursor-pointer">
-                                    Retry
-                                </button>
-                                <button type="button" @click="navigateDedupeExplorerParent()" :disabled="cannotNavigateDedupeExplorerParent()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium disabled:opacity-40 cursor-pointer">
-                                    Go to Parent
-                                </button>
-                            </div>
-                        </div>
-                        <div x-show="!dedupeModal.explorerError && dedupeModal.explorerPath" @click="navigateDedupeExplorerParent()" class="px-2.5 py-1.5 rounded-lg border border-slate-800/60 bg-slate-900/30 hover:bg-slate-800/40 text-indigo-300 hover:text-indigo-200 text-xs flex items-center gap-2 cursor-pointer transition-colors">
-                            <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-                            <span class="font-medium">.. (Parent Directory)</span>
-                        </div>
-                        <template x-for="(item, idx) in dedupeModal.explorerItems" :key="getDedupeExplorerRowKey(item, idx)">
-                            <div @click="selectDedupeExplorerItem(item)" class="px-2.5 py-1.5 rounded-lg border text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors" :class="item.Name === dedupeModal.selectedCollision?.name ? 'bg-amber-500/10 border-amber-500/60 text-amber-200' : (isDedupeExplorerItemDuplicate(item) ? 'bg-slate-900/60 border-amber-500/30 text-slate-200' : 'bg-slate-900/40 border-slate-800/60 hover:bg-slate-800/50 text-slate-300')">
-                                <div class="flex items-center gap-2 min-w-0">
-                                    <svg x-show="item.IsDir" class="w-4 h-4 text-amber-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                                    <svg x-show="!item.IsDir" class="w-4 h-4 text-slate-400 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                    <span class="truncate font-mono" x-text="item.Name"></span>
-                                    <span x-show="isDedupeExplorerItemDuplicate(item)" class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono font-bold shrink-0">DUPLICATE</span>
-                                    <template x-if="getCollisionForItem(item) && getCandidateForExplorerItem(item) && getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item))">
-                                        <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold uppercase border"
-                                            :class="{
-                                                'bg-emerald-950/90 text-emerald-300 border-emerald-600/60': getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item)).action === 'keep',
-                                                'bg-rose-950/90 text-rose-300 border-rose-600/60': getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item)).action === 'delete',
-                                                'bg-amber-950/90 text-amber-300 border-amber-600/60': getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item)).action === 'rename'
-                                            }"
-                                            x-text="getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item)).action">
-                                        </span>
-                                    </template>
-                                </div>
-                                <div class="flex items-center gap-2 text-[11px] font-mono text-slate-400 shrink-0">
-                                    <span x-show="!item.IsDir" x-text="typeof formatBytes === 'function' ? formatBytes(item.Size) : item.Size + ' B'"></span>
-                                    <span x-show="item.ModTime" class="hidden sm:inline" x-text="typeof formatDate === 'function' ? formatDate(item.ModTime) : item.ModTime"></span>
-                                    <template x-if="!item.IsDir">
-                                        <div class="flex items-center gap-1 ml-1" @click.stop>
-                                            <template x-if="isItemPreviewable(item)">
-                                                <button type="button" @click="previewDedupeExplorerItem(item)" class="p-1 text-slate-400 hover:text-indigo-300 rounded hover:bg-slate-800 transition-colors cursor-pointer" title="Preview File">
-                                                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                                                </button>
-                                            </template>
-                                            <template x-if="getCollisionForItem(item) && getCandidateForExplorerItem(item) && !getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item))">
-                                                <div class="flex items-center gap-1">
-                                                    <button type="button" @click="stageKeepOnly(getCollisionForItem(item), getCandidateForExplorerItem(item))" class="px-1.5 py-0.5 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Keep this copy and stage delete on duplicates">
-                                                        Keep
-                                                    </button>
-                                                    <button type="button" @click="promptStageRename(getCollisionForItem(item), getCandidateForExplorerItem(item))" class="px-1.5 py-0.5 bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border border-amber-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Rename this copy">
-                                                        Rename
-                                                    </button>
-                                                    <button type="button" @click="stageCandidateAction(getCollisionForItem(item), getCandidateForExplorerItem(item), 'delete')" class="px-1.5 py-0.5 bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-700/50 rounded text-[10px] font-medium transition-colors cursor-pointer" title="Delete this copy">
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </template>
-                                            <template x-if="getCollisionForItem(item) && getCandidateForExplorerItem(item) && getStagedDedupeAction(getCollisionForItem(item), getCandidateForExplorerItem(item))">
-                                                <button type="button" @click="unstageCandidateAction(getCandidateKey(getCollisionForItem(item), getCandidateForExplorerItem(item)))" class="p-0.5 text-slate-400 hover:text-rose-300 cursor-pointer" title="Clear staged action">
-                                                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                                                </button>
-                                            </template>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-                        </template>
-                        <div x-show="!dedupeModal.explorerLoading && !dedupeModal.explorerError && (!dedupeModal.explorerItems || dedupeModal.explorerItems.length === 0)" class="text-center py-8 text-slate-500 text-xs">
-                            Empty directory.
-                        </div>
-                    </div>
-                </div>
+                {{template "modal_dedupe_explorer" .}}
+
 
                 <!-- Tab 3: Raw Output View -->
                 <div x-show="dedupeModal.activeTab === 'logs'" class="flex-1 p-3 overflow-y-auto font-mono text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed select-all bg-slate-950/60">
