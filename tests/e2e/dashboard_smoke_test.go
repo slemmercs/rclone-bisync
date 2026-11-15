@@ -1654,6 +1654,27 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			app.dedupeModal.explorerPath = "Projects/Archive";
 			const breadcrumbsCount = typeof app.getDedupeBreadcrumbs === 'function' ? app.getDedupeBreadcrumbs().length : 3;
 
+			// 5d. Test Staged Batch deduplication actions
+			let stagedCountBefore = 0;
+			let stagedCountAfter = 0;
+			let stagedCountCleared = 0;
+			if (typeof app.stageCandidateAction === 'function') {
+				const col = app.dedupeModal.selectedCollision;
+				const c1 = col?.candidates?.[0];
+				if (col && c1) {
+					app.stageCandidateAction(col, c1, 'delete');
+					stagedCountBefore = app.getStagedDedupeCount();
+					if (typeof app.stageKeepOnly === 'function') {
+						app.stageKeepOnly(col, c1);
+						stagedCountAfter = app.getStagedDedupeCount();
+					}
+					if (typeof app.clearStagedDedupeActions === 'function') {
+						app.clearStagedDedupeActions();
+						stagedCountCleared = app.getStagedDedupeCount();
+					}
+				}
+			}
+
 			// 6. Test directory explorer path navigation
 			app.dedupeModal.explorerPath = "Projects/Archive 2026 ";
 			const canNavParentBefore = !app.cannotNavigateDedupeExplorerParent();
@@ -1691,7 +1712,10 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 				modalClosed,
 				divDetected,
 				noDivDetected,
-				breadcrumbsCount
+				breadcrumbsCount,
+				stagedCountBefore,
+				stagedCountAfter,
+				stagedCountCleared
 			};
 		})()`
 
@@ -1717,6 +1741,9 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 			DivDetected             bool    `json:"divDetected"`
 			NoDivDetected           bool    `json:"noDivDetected"`
 			BreadcrumbsCount        int     `json:"breadcrumbsCount"`
+			StagedCountBefore       int     `json:"stagedCountBefore"`
+			StagedCountAfter        int     `json:"stagedCountAfter"`
+			StagedCountCleared      int     `json:"stagedCountCleared"`
 		}
 
 		res, err := chromedp.Run(ctx, chromedp.Evaluate[DedupeWorkspaceResult](script, chromedp.EvalAwaitPromise))
@@ -1745,6 +1772,10 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 		if !res.DivDetected || !res.NoDivDetected || res.BreadcrumbsCount < 2 {
 			t.Errorf("content divergence/breadcrumbs mismatch: div=%v noDiv=%v crumbs=%d",
 				res.DivDetected, res.NoDivDetected, res.BreadcrumbsCount)
+		}
+		if res.StagedCountBefore != 1 || res.StagedCountAfter != 2 || res.StagedCountCleared != 0 {
+			t.Errorf("staged dedupe actions mismatch: before=%d after=%d cleared=%d",
+				res.StagedCountBefore, res.StagedCountAfter, res.StagedCountCleared)
 		}
 		if !res.CanNavParentBefore || res.CanNavParentAtRoot || res.ParentPath != "Projects" {
 			t.Errorf("parent navigation mismatch: canBefore=%v canAtRoot=%v parentPath=%q",

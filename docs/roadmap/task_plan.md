@@ -21,7 +21,7 @@ Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer 
   - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/partials/modals/modal_dedupe.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
-- [ ] Task 5: Staged Batch Review UI & Post-Dedupe Resync Bridge (`dashboard/frontend/`)
+- [x] Task 5: Staged Batch Review UI & Post-Dedupe Resync Bridge (`dashboard/frontend/`)
   - **Scope**: `dashboard/frontend/js/dedupe_workspace.js`, `dashboard/frontend/partials/modals/modal_dedupe.html`, `dashboard/frontend/partials/modals/modal_preview.html`
   - **Verification**: `./scripts/check.sh templates && ./scripts/check-loc.sh 400`
 
@@ -38,6 +38,8 @@ Resolve Google Drive duplicate streaming collisions (HTTP 500), fix UI explorer 
 - 2026-11-15: Completed Task 3 - Frontend UID Disambiguation & Explorer Target Row Highlighting implemented. Added composite key generation (`getItemKey`, `getItemRowKey`), multi-selection disambiguation, `isDuplicateItem` detection and badges with click-to-resolve, context menu integration, and target row UID pulse highlighting (`this.explorer.highlightId`). Verified with template check, E2E headless chrome smoke test, and LOC inspection.
 
 - 2026-11-15: Completed Task 4 - Dedupe Directory Explorer Resilience & Content Divergence Detection implemented. Added `switchDedupeTab`, `hasContentDivergence`, `getDedupeBreadcrumbs`, parent directory row navigation, and error retry state handling. Verified with templates check, headless Chrome smoke tests, and LOC audit.
+- 2026-11-15: Completed Task 5 - Staged Batch Review UI & Post-Dedupe Resync Bridge implemented. Added `DedupeBatchModule` (`dashboard/frontend/js/dedupe_batch.js`), candidate card inline staging actions (Keep, Rename, Delete), Staged Actions Review Bar with resync queuing checkbox, and preview modal duplicate collision quick-link. Verified with templates check, headless Chrome smoke tests, and LOC audit.
+
 
 
 
