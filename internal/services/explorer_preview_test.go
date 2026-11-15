@@ -257,3 +257,101 @@ func TestIsBinaryData(t *testing.T) {
 		}
 	}
 }
+
+func TestExplorerPreview_DuplicateCollisionFallback(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/operations/stat":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"item": {
+					"Path": "folder/duplicate.txt",
+					"Name": "duplicate.txt",
+					"Size": 1024,
+					"MimeType": "text/plain",
+					"IsDir": false
+				}
+			}`))
+		case "/operations/getfile":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"failed to getfile: found more than one file with the same name","status":500}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	resp, err := svc.PreviewItem(context.Background(), "gdrive:", "folder/duplicate.txt")
+	if err != nil {
+		t.Fatalf("expected nil error for duplicate preview fallback, got %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected non-nil response")
+	}
+	if !resp.IsDuplicateCollision {
+		t.Errorf("expected IsDuplicateCollision to be true, got false")
+	}
+	if !strings.Contains(resp.Error, "Deduplication Workspace") {
+		t.Errorf("expected guidance in error, got: %q", resp.Error)
+	}
+}
+
+func TestExplorerPreview_StatDuplicateCollision(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"operations/stat failed: duplicate object found","status":500}`))
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	resp, err := svc.PreviewItem(context.Background(), "gdrive:", "duplicate.txt")
+	if err != nil {
+		t.Fatalf("expected nil error for duplicate preview stat fallback, got %v", err)
+	}
+	if resp == nil || !resp.IsDuplicateCollision {
+		t.Fatalf("expected IsDuplicateCollision response, got %+v", resp)
+	}
+}
+
+func TestExplorerDownload_DuplicateCollisionReturnsError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/operations/stat":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"item": {
+					"Path": "file.txt",
+					"Name": "file.txt",
+					"Size": 500,
+					"IsDir": false
+				}
+			}`))
+		case "/operations/getfile":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"duplicate object found in remote directory","status":500}`))
+		}
+	}))
+	defer ts.Close()
+
+	cl := client.NewRcloneClient(ts.URL, "", "")
+	svc := NewExplorerService(&config.Config{}, cl, nil)
+
+	stream, _, _, err := svc.DownloadStream(context.Background(), "gdrive:", "file.txt")
+	if stream != nil {
+		stream.Close()
+	}
+	if err == nil {
+		t.Fatal("expected error on duplicate download, got nil")
+	}
+	if !isDuplicateError(err) {
+		t.Errorf("expected duplicate error, got: %v", err)
+	}
+}
+

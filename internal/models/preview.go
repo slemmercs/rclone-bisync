@@ -11,6 +11,8 @@ type FilePreviewResponse struct {
 	IsPDF     bool   `json:"is_pdf,omitempty"`
 	Content   string `json:"content,omitempty"`  // UTF-8 decoded text content
 	DataURL   string `json:"data_url,omitempty"` // Base64 data URI (data:<mime>;base64,<encoded>) for image preview
-	Truncated bool   `json:"truncated"`
-	Error     string `json:"error,omitempty"`
+	Truncated            bool   `json:"truncated"`
+	Error                string `json:"error,omitempty"`
+	IsDuplicateCollision bool   `json:"is_duplicate_collision,omitempty"`
+	CollisionCount       int    `json:"collision_count,omitempty"`
 }

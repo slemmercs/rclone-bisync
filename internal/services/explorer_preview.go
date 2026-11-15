@@ -136,6 +136,15 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 
 	item, err := e.Client.StatItem(ctx, remote, cleanPath)
 	if err != nil {
+		if isDuplicateError(err) {
+			return &models.FilePreviewResponse{
+				Remote:               remote,
+				Path:                 cleanPath,
+				Name:                 filepath.Base(cleanPath),
+				IsDuplicateCollision: true,
+				Error:                "Multiple duplicate files exist with this name on remote storage. File preview is ambiguous until duplicates are resolved via the Deduplication Workspace.",
+			}, nil
+		}
 		return nil, fmt.Errorf("failed to stat remote item: %w", err)
 	}
 
@@ -180,6 +189,11 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 		}
 		imgData, err := e.Client.CatFile(ctx, remote, cleanPath, 0, MaxImagePreviewSize)
 		if err != nil {
+			if isDuplicateError(err) {
+				resp.IsDuplicateCollision = true
+				resp.Error = "Multiple duplicate files exist with this name on remote storage. Preview stream is ambiguous until duplicates are resolved via the Deduplication Workspace."
+				return resp, nil
+			}
 			return nil, fmt.Errorf("failed to read remote image: %w", err)
 		}
 		resp.DataURL = fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(imgData))
@@ -193,6 +207,11 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 
 	buf, err := e.Client.CatFile(ctx, remote, cleanPath, 0, readCount)
 	if err != nil {
+		if isDuplicateError(err) {
+			resp.IsDuplicateCollision = true
+			resp.Error = "Multiple duplicate files exist with this name on remote storage. Preview stream is ambiguous until duplicates are resolved via the Deduplication Workspace."
+			return resp, nil
+		}
 		return nil, fmt.Errorf("failed to read remote file: %w", err)
 	}
 
@@ -213,4 +232,16 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 	}
 
 	return resp, nil
+}
+
+
+// isDuplicateError detects whether an rclone or filesystem error indicates ambiguous duplicate identical filenames.
+func isDuplicateError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "found more than one file") ||
+		strings.Contains(msg, "duplicate object found") ||
+		strings.Contains(msg, "duplicate file")
 }

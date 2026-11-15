@@ -1,56 +1,71 @@
-# Implementation Plan: Deduplication Workspace Redesign & Link/Whitespace Edge-Case Resolution
+# Implementation Plan: Deduplication Edge-Cases, Smart Safety Recommendations & Staged Batch Review Engine
 
 ## Proposed Changes
 
-### High-Level Strategy & Architecture Impact
-1. **Google Drive Link & Trailing Whitespace Edge-Case Resolution**:
-   - In `internal/services/explorer_service.go`, replace aggressive `strings.TrimSpace(path)` trimming with slash-only trimming `strings.Trim(path, "/")` so that folders with legitimate trailing spaces (e.g. `"MOHU Szemétszállítás "`) are preserved accurately.
-   - Implement graceful 404 transparent auto-resolution in `BrowsePath`: when Rclone returns `directory not found` for a remote path, the backend automatically queries the parent directory, detects if a matching folder exists with trailing whitespace or as a Google Drive shortcut, resolves it, and returns its contents with the recovered path transparently.
-   - Tag items with `IsShortcut: true` when Rclone reports composite IDs (e.g. `<shortcut_id>\t<target_id>`) or mime type `application/vnd.google-apps.shortcut`.
+Deliver an enterprise-grade deduplication workflow that eliminates Google Drive duplicate stream collisions (HTTP 500), fixes UI directory explorer stalling and multi-select collisions, alerts users to data-loss content divergence on same-name duplicates, and introduces a transactional Staged Batch Review & Resync Bridge.
 
-2. **Deduplication Workspace 3-Section Redesign**:
-   - Redesign `modal_dedupe.html` from a cramped single-column dialog into an expansive, responsive 3-section workspace (`max-w-6xl` / `max-w-7xl`):
-     - **Section 1 (Left Rail, ~280px)**: Configuration & Scope (Target remote, folder selector with browser chips, match mode, resolution strategy, paired bidirectional dedupe toggle, execution triggers, and metrics summary).
-     - **Section 2 (Center Panel, ~360px)**: Collision Queue / Ledger (Search/filter bar, collision cards showing filename, path, copies, size, and `🔗 Shortcut` indicator; clicking an item selects it).
-     - **Section 3 (Right Panel, ~520px+)**: Inbuilt File Explorer & Duplicate Inspector (Mini-breadcrumbs, duplicate candidate comparison cards with `KEEP` vs `DELETE` recommendation badges, directory contents mini-explorer, preview/download actions, and in-situ 404 recovery fallback).
+### 1. Backend Duplicate Stream Interception & Safe Error Handling
+- In `internal/models/api_explorer.go`:
+  - Add `IsDuplicateCollision bool` and `CollisionCount int` to `FilePreviewResponse`.
+- In `internal/services/explorer_preview.go`:
+  - Catch `"found more than one file"` when calling `CatFile` on Google Drive.
+  - Return a valid `FilePreviewResponse` with `IsDuplicateCollision: true`, file metadata, and actionable guidance rather than propagating an unhandled error.
+- In `internal/services/explorer_download.go` & `internal/server/handlers_preview.go`:
+  - Catch `"found more than one file"` and return HTTP 409 Conflict with a structured error payload advising deduplication resolution instead of HTTP 500.
 
-3. **Frontend Modularization (<400 LOC Ceiling)**:
-   - Extract deduplication workspace logic from `dashboard/frontend/js/remotes_modals.js` into `dashboard/frontend/js/dedupe_workspace.js` (~220 LOC), keeping both modules well below the strict 400 LOC ceiling.
-   - Register `dedupe_workspace.js` in `dashboard/frontend/index.html` and `app.js`.
+### 2. Deduplication Batch Execution Engine & Endpoints
+- In `internal/models/api_dedupe.go`:
+  - Define `DedupeStageAction`, `DedupeBatchApplyRequest`, and `DedupeBatchApplyResponse`.
+- In `internal/services/dedupe_service.go`:
+  - Implement `ExecuteDedupeBatch(ctx, req, localBase)` to execute staged renames and deletions transactionally, with canary checks, jail bounds, and audit ledger tracking.
+  - If `TriggerResync` is requested, invoke profile resync safely.
+- In `internal/server/handlers_dedupe.go` and `routes.go`:
+  - Add `POST /api/remotes/dedupe/batch` handler with confirmation token safeguards.
 
-### Affected Components & Packages
+### 3. Frontend UID Disambiguation & Explorer Target Row Highlighting
+- In `dashboard/frontend/js/explorer.js`:
+  - In `fetchExplorerDirectory`, assign a unique `_uid` (`item.ID || (item.Path + '_' + item.Size + '_' + item.ModTime + '_' + index)`) to every item.
+  - Identify duplicate names within the same folder and mark `item.IsDuplicate = true`.
+  - Support `highlightedFile` with auto-scroll via `$nextTick`.
+- In `dashboard/frontend/js/explorer_compare.js`:
+  - Update `isItemSelected` and `toggleSelectItem` to track selection by `_uid` rather than path, preventing duplicate filename collision.
+- In `dashboard/frontend/partials/view_explorer.html`:
+  - Display `⚠️ Duplicate` badge for duplicate items.
+  - Add highlight animation for `highlightedFile`.
 
-- `internal/services/`:
-  - `explorer_service.go`: Preserve folder whitespace; add parent-lookup fallback for 404 directory errors; tag shortcut metadata.
-  - `explorer_service_test.go`: Add unit tests for whitespace preservation and shortcut detection.
-- `internal/models/`:
-  - `api_explorer.go`: Add `IsShortcut` boolean field to directory listing item models.
-- `dashboard/frontend/`:
-  - `partials/modals/modal_dedupe.html`: Complete 3-section responsive layout overhaul.
-  - `js/dedupe_workspace.js`: New modular deduplication workspace state and action handlers (master-detail selection, candidate comparison, inbuilt folder browsing).
-  - `js/remotes_modals.js`: Remove dedupe modal logic, delegating to `dedupe_workspace.js`.
-  - `js/dedupe_parser.js`: Parse duplicate timestamps, IDs, and hashes for side-by-side inspection.
-  - `index.html`: Register `dedupe_workspace.js`.
-  - `app.js`: Include `DedupeWorkspaceModule` in dashboard state composition.
-- `tests/e2e/`:
-  - `dashboard_smoke_test.go`: Add E2E tests for 3-section dedupe workspace navigation and inbuilt folder exploration.
+### 4. Dedupe Workspace Directory Explorer Resilience & Content Divergence Detection
+- In `dashboard/frontend/js/dedupe_workspace.js`:
+  - Implement `switchDedupeTab(tabName)` with automatic loading of directory contents.
+  - Add `hasContentDivergence(collision)` comparing candidate sizes and hashes.
+  - Fix `jumpToExplorerFile` to call `await this.fetchExplorerDirectory(paneKey, targetRemote, dirPath)` and set `highlightedFile`.
+  - Gracefully display explorer errors with retry and parent navigation buttons.
+- In `dashboard/frontend/partials/modals/modal_dedupe.html`:
+  - Render Content Divergence warning alert when sizes differ across duplicate candidates.
+  - Clarify Same-Folder Names vs Cross-Folder Hashes with explanatory tooltips.
 
-### Safety & Error Handling
+### 5. Staged Batch Review UI & Post-Dedupe Resync Bridge
+- In `dashboard/frontend/js/dedupe_workspace.js`:
+  - Implement staging queue methods: `stageCandidateAction`, `removeStagedAction`, `clearStagedActions`, `applyStagedBatch`.
+  - Connect "Compare Copies" to `ExplorerCompareModule.compareDirect(...)`.
+- In `dashboard/frontend/partials/modals/modal_dedupe.html`:
+  - Add inline "Stage Rename" and "Stage Delete" action controls to candidate cards.
+  - Add Staged Review Drawer showing pending operations, execution button, and post-batch resync button.
+- In `dashboard/frontend/partials/modals/modal_preview.html`:
+  - Render dedupe resolution quick-link when preview encounters duplicate collision.
 
-- **Non-Destructive Dry-Run Preservation**: "Preview (Dry Run)" remains the safe default (`--dedupe-mode list`), requiring explicit user confirmation before any file mutation.
-- **Path Confinement & Jail Bounds**: Inbuilt explorer within the dedupe modal strictly uses existing `/api/browse` endpoint with path traversal safeguards (`..` checks and root confinement).
-- **Graceful Error Recovery**: If an explorer path fails to load (e.g. broken shortcut or invalid link), Section 3 displays a recovery card with options to browse parent folder or retry without throwing raw JSON errors.
+### 6. Local Sandbox Fixtures & Verification
+- In `scripts/run-sandbox.sh`:
+  - Seed hash-duplicate and duplicate-named files in test folders for offline testing.
 
 ## Verification Plan
 
 - Unit tests:
-  - `go test -count=1 ./internal/services/... -run TestBrowsePath_WhitespacePreservation`
+  - `go test -count=1 ./internal/services/... -run "Test.*Preview|Test.*Dedupe"`
   - `go test -count=1 ./internal/server/...`
-- Full Quality Gate:
+- E2E and Quality gates:
   - `./scripts/check.sh templates`
-  - `./scripts/check.sh loc 400`
+  - `./scripts/check-loc.sh 400`
   - `./scripts/check.sh all`
-- End-to-End Headless Chrome Testing:
-  - Verify dedupe preview scan, collision selection, candidate comparison card rendering (`KEEP`/`DELETE`), and embedded directory browsing.
+
 
 
