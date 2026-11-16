@@ -4,10 +4,13 @@ import AppHeader from './components/AppHeader.vue'
 import ViewFleet from './views/ViewFleet.vue'
 import ViewExplorer from './views/ViewExplorer.vue'
 import ViewAudit from './views/ViewAudit.vue'
+import LogDock from './components/LogDock.vue'
+import ConflictReviewModal from './components/ConflictReviewModal.vue'
 import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
 
 const activeTab = ref<string>('fleet')
+const showReviewModal = ref<boolean>(false)
 const profilesStore = useProfilesStore()
 const telemetryStore = useTelemetryStore()
 
@@ -22,9 +25,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-carbon-950 text-carbon-50 flex flex-col font-sans selection:bg-electric-500/30 selection:text-electric-300">
+  <div class="min-h-screen bg-carbon-950 text-carbon-50 flex flex-col font-sans selection:bg-electric-500/30 selection:text-electric-300 pb-12">
     <!-- Main Sticky Cockpit Header -->
-    <AppHeader :activeTab="activeTab" @update:activeTab="(tab) => (activeTab = tab)" />
+    <AppHeader
+      :activeTab="activeTab"
+      @update:activeTab="(tab) => (activeTab = tab)"
+      @openReview="showReviewModal = true"
+    />
 
     <!-- View Workspace Container -->
     <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
@@ -34,7 +41,7 @@ onUnmounted(() => {
     </main>
 
     <!-- Cockpit Telemetry Footer -->
-    <footer class="bg-carbon-900 border-t border-carbon-700/80 px-6 py-2.5 text-xs text-carbon-400 flex flex-wrap items-center justify-between gap-4">
+    <footer class="bg-carbon-900 border-t border-carbon-700/80 px-6 py-2.5 text-xs text-carbon-400 flex flex-wrap items-center justify-between gap-4 mb-10">
       <div class="flex items-center gap-3">
         <span class="flex items-center gap-1.5 font-mono text-[11px]">
           <span class="w-2 h-2 rounded-full" :class="telemetryStore.isSyncing ? 'bg-electric-400 animate-ping' : 'bg-carbon-600'"></span>
@@ -51,6 +58,13 @@ onUnmounted(() => {
         <span>PrimeVue v4 + Tailwind</span>
       </div>
     </footer>
+
+    <!-- Pinned Streaming Log Dock -->
+    <LogDock />
+
+    <!-- Interactive Conflict Review Modal -->
+    <ConflictReviewModal v-model:visible="showReviewModal" />
   </div>
 </template>
+
 

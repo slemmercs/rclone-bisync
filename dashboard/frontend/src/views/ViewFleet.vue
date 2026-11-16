@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import FSMStateBadge from '../components/FSMStateBadge.vue'
+import TelemetryChart from '../components/TelemetryChart.vue'
 import { useProfilesStore } from '../stores/profiles'
 import { useFSMStore } from '../stores/fsm'
+import { useTelemetryStore } from '../stores/telemetry'
 import type { Profile } from '../types/models'
 import type { SyncFSMState } from '../types/fsm'
 
 const profilesStore = useProfilesStore()
 const fsmStore = useFSMStore()
+const telemetryStore = useTelemetryStore()
 
 const profiles = computed(() => profilesStore.profiles)
 
@@ -93,6 +96,26 @@ function formatDate(iso?: string) {
         </div>
       </div>
     </div>
+    <!-- Real-Time Telemetry & Throughput Card -->
+    <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <i class="pi pi-chart-line text-electric-400"></i>
+          <span class="text-xs font-bold text-carbon-50 uppercase tracking-wide">Live Performance Telemetry</span>
+          <span v-if="telemetryStore.isSyncing" class="text-[10px] font-mono px-2 py-0.5 rounded bg-electric-950 text-electric-300 border border-electric-600/50 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-electric-400 animate-ping"></span>
+            Sync Active
+          </span>
+        </div>
+        <div class="flex items-center gap-3 font-mono text-[11px] text-carbon-400">
+          <span>Speed: <strong class="text-electric-300">{{ telemetryStore.transferStats?.speed_str || '0 B/s' }}</strong></span>
+          <span>Latency: <strong class="text-purple-300">{{ telemetryStore.telemetry?.daemon_health?.response_time_ms ? telemetryStore.telemetry.daemon_health.response_time_ms.toFixed(1) + 'ms' : '0ms' }}</strong></span>
+          <span>Status: <strong class="text-carbon-200">{{ telemetryStore.daemonHealthy ? 'ONLINE' : 'STANDBY' }}</strong></span>
+        </div>
+      </div>
+      <TelemetryChart />
+    </div>
+
     <!-- Profile Fleet Header -->
     <div class="flex items-center justify-between">
       <div>
