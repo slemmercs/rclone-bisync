@@ -2,15 +2,19 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import ViewFleet from './views/ViewFleet.vue'
+import ViewTelemetry from './views/ViewTelemetry.vue'
+import ViewRemotes from './views/ViewRemotes.vue'
 import ViewExplorer from './views/ViewExplorer.vue'
 import ViewAudit from './views/ViewAudit.vue'
 import LogDock from './components/LogDock.vue'
 import ConflictReviewModal from './components/ConflictReviewModal.vue'
+import ProfileManagerModal from './components/ProfileManagerModal.vue'
 import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
 
 const activeTab = ref<string>('fleet')
 const showReviewModal = ref<boolean>(false)
+const showProfilesModal = ref<boolean>(false)
 const profilesStore = useProfilesStore()
 const telemetryStore = useTelemetryStore()
 
@@ -31,11 +35,14 @@ onUnmounted(() => {
       :activeTab="activeTab"
       @update:activeTab="(tab) => (activeTab = tab)"
       @openReview="showReviewModal = true"
+      @openProfiles="showProfilesModal = true"
     />
 
     <!-- View Workspace Container -->
     <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
       <ViewFleet v-if="activeTab === 'fleet'" />
+      <ViewTelemetry v-else-if="activeTab === 'telemetry'" />
+      <ViewRemotes v-else-if="activeTab === 'remotes'" />
       <ViewExplorer v-else-if="activeTab === 'explorer'" />
       <ViewAudit v-else-if="activeTab === 'audit'" />
     </main>
@@ -62,8 +69,9 @@ onUnmounted(() => {
     <!-- Pinned Streaming Log Dock -->
     <LogDock />
 
-    <!-- Interactive Conflict Review Modal -->
+    <!-- Interactive Modals -->
     <ConflictReviewModal v-model:visible="showReviewModal" />
+    <ProfileManagerModal v-model:visible="showProfilesModal" />
   </div>
 </template>
 

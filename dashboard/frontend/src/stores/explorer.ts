@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { api } from '../api/client'
 import type { BrowseItem, BrowseResponse } from '../types/models'
 
 export const useExplorerStore = defineStore('explorer', () => {
@@ -19,19 +20,11 @@ export const useExplorerStore = defineStore('explorer', () => {
     selectedItem.value = null
 
     try {
-      const res = await fetch('/api/browse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          remote,
-          path,
-          profile_id: profileId,
-        }),
+      const data = await api.post<BrowseResponse>('/api/browse', {
+        remote,
+        path,
+        profile_id: profileId,
       })
-      if (!res.ok) {
-        throw new Error(`Failed to browse path: HTTP ${res.status}`)
-      }
-      const data: BrowseResponse = await res.json()
       items.value = Array.isArray(data.items) ? (data.items as BrowseItem[]) : []
       hasCanary.value = !!data.has_canary
     } catch (e: any) {

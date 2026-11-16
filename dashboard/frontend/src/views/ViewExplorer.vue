@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { api } from '../api/client'
 import Splitter from 'primevue/splitter'
 import SplitterPanel from 'primevue/splitterpanel'
 import { useProfilesStore } from '../stores/profiles'
@@ -38,13 +39,7 @@ watch(
 
 async function fetchDirectory(remote: string, path: string) {
   const profileId = activeProfile.value?.id
-  const res = await fetch('/api/browse', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ remote, path, profile_id: profileId }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return await res.json()
+  return await api.post('/api/browse', { remote, path, profile_id: profileId })
 }
 
 async function refreshLocal() {

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { api } from '../api/client'
 import type { ReviewSession, ActionDecision } from '../types/models'
 import { useFSMStore } from './fsm'
 
@@ -14,12 +15,12 @@ export const useReviewStore = defineStore('review', () => {
   })
 
   const pendingDeletionsCount = computed<number>(() => {
-    if (!session.value) return 0
+    if (!session.value || !Array.isArray(session.value.deletions)) return 0
     return session.value.deletions.filter((d) => !d.resolved).length
   })
 
   const pendingConflictsCount = computed<number>(() => {
-    if (!session.value) return 0
+    if (!session.value || !Array.isArray(session.value.conflicts)) return 0
     return session.value.conflicts.filter((c) => !c.resolved).length
   })
 
@@ -32,53 +33,32 @@ export const useReviewStore = defineStore('review', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch('/api/review')
-      if (res.status === 404 || res.status === 204) {
-        session.value = null
-        return
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      session.value = data
-      if (data && data.status === 'REVIEWING') {
+      const data = await api.get<any>('/api/review/session')
+      if (data && data.active && data.session) {
+        session.value = data.session
         const fsmStore = useFSMStore()
         fsmStore.transitionState(fsmStore.activeProfileId, 'REVIEW_REQUIRED', 'active conflict review session detected')
+      } else {
+        session.value = null
       }
     } catch (e: any) {
       error.value = e.message || 'Error fetching review session'
+      session.value = null
     } finally {
       loading.value = false
     }
   }
 
-  async function stageDecision(type: 'deletion' | 'conflict', id: string, decision: ActionDecision) {
+  async function stageDecision(_type: 'deletion' | 'conflict', id: string, decision: ActionDecision) {
     if (!session.value) return
     try {
-      const res = await fetch('/api/review/stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: session.value.id,
-          candidate_type: type,
-          candidate_id: id,
-          decision,
-        }),
+      const res = await api.post<any>('/api/review/action', {
+        session_id: session.value.id,
+        candidate_id: id,
+        decision,
       })
-      if (!res.ok) throw new Error(`Failed to stage decision: HTTP ${res.status}`)
-
-      // Update local state optimistically
-      if (type === 'deletion') {
-        const item = session.value.deletions.find((d) => d.id === id)
-        if (item) {
-          item.decision = decision
-          item.resolved = true
-        }
-      } else {
-        const item = session.value.conflicts.find((c) => c.id === id)
-        if (item) {
-          item.decision = decision
-          item.resolved = true
-        }
+      if (res && res.session) {
+        session.value = res.session
       }
     } catch (e: any) {
       error.value = e.message
@@ -94,16 +74,11 @@ export const useReviewStore = defineStore('review', () => {
     fsmStore.transitionState(fsmStore.activeProfileId, 'RESOLVING', 'applying review resolutions')
 
     try {
-      const res = await fetch('/api/review/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: session.value.id,
-          confirmation_token: confirmationToken,
-        }),
+      const data = await api.post<any>('/api/review/execute', {
+        session_id: session.value.id,
+        confirmation_token: confirmationToken,
       })
-      const data = await res.json()
-      if (!res.ok) {
+      if (data.status === 'error') {
         fsmStore.transitionState(fsmStore.activeProfileId, 'ABORTED', data.error || 'resolution apply failed')
         throw new Error(data.error || 'Failed to apply review decisions')
       }
@@ -111,7 +86,7 @@ export const useReviewStore = defineStore('review', () => {
       session.value = null
       return data
     } catch (e: any) {
-      error.value = e.message
+      fsmStore.transitionState(fsmStore.activeProfileId, 'ABORTED', e.message)
       throw e
     } finally {
       applying.value = false

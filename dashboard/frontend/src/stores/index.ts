@@ -4,3 +4,5 @@ export * from './telemetry'
 export * from './logs'
 export * from './review'
 export * from './explorer'
+export * from './remotes'
+

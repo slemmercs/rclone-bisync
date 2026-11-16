@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { api } from '../api/client'
 import type { TelemetryPayload } from '../types/models'
 import { useFSMStore } from './fsm'
 
@@ -19,11 +20,7 @@ export const useTelemetryStore = defineStore('telemetry', () => {
 
   async function fetchTelemetry() {
     try {
-      const res = await fetch('/api/telemetry')
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`)
-      }
-      const data: TelemetryPayload = await res.json()
+      const data = await api.get<TelemetryPayload>('/api/telemetry?limit=20')
       telemetry.value = data
 
       // Sync with FSM store

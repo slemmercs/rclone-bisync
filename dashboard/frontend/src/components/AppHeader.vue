@@ -12,6 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:activeTab', tab: string): void
   (e: 'openReview'): void
+  (e: 'openProfiles'): void
 }>()
 
 const profilesStore = useProfilesStore()
@@ -19,8 +20,10 @@ const fsmStore = useFSMStore()
 const telemetryStore = useTelemetryStore()
 
 const tabs = [
-  { id: 'fleet', label: 'Fleet Overview', icon: 'pi pi-server' },
-  { id: 'explorer', label: 'Dual Explorer', icon: 'pi pi-folder' },
+  { id: 'fleet', label: 'Fleet', icon: 'pi pi-server' },
+  { id: 'telemetry', label: 'Engine & Telemetry', icon: 'pi pi-chart-line' },
+  { id: 'remotes', label: 'Storage Remotes', icon: 'pi pi-cloud' },
+  { id: 'explorer', label: 'File Explorer', icon: 'pi pi-folder' },
   { id: 'audit', label: 'Audit Trail', icon: 'pi pi-shield' },
 ]
 
@@ -101,6 +104,13 @@ async function handleRunSync() {
             {{ p.name }} ({{ p.remote }})
           </option>
         </select>
+        <button
+          @click="emit('openProfiles')"
+          class="text-carbon-400 hover:text-electric-blue text-xs p-1 ml-1 cursor-pointer transition-colors"
+          title="Open Sync Profiles Manager"
+        >
+          <i class="pi pi-cog text-xs"></i>
+        </button>
       </div>
 
       <!-- FSM State Badge -->

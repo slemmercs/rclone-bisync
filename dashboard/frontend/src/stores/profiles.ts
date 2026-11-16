@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { api } from '../api/client'
 import type { Profile } from '../types/models'
 import { useFSMStore } from './fsm'
 
@@ -23,11 +24,7 @@ export const useProfilesStore = defineStore('profiles', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch('/api/profiles')
-      if (!res.ok) {
-        throw new Error(`Failed to fetch profiles: HTTP ${res.status}`)
-      }
-      const data = await res.json()
+      const data = await api.get('/api/profiles')
       profiles.value = Array.isArray(data) ? data : data.profiles || []
       if (!selectedProfileId.value && profiles.value.length > 0) {
         selectedProfileId.value = profiles.value[0].id
@@ -53,28 +50,93 @@ export const useProfilesStore = defineStore('profiles', () => {
     fsmStore.transitionState(profileId, 'QUEUED', 'sync dispatch initiated')
 
     try {
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile_id: profileId,
-          force: !!opts.force,
-          dry_run: !!opts.dryRun,
-          resync: !!opts.resync,
-        }),
+      let action = 'start_sync'
+      if (opts.dryRun) action = 'dry_run'
+      else if (opts.resync) action = 'resync'
+      else if (opts.force) action = 'force_sync'
+
+      const data = await api.post('/api/action', {
+        action,
+        profile_id: profileId,
       })
-      const data = await res.json()
-      if (!res.ok) {
-        fsmStore.transitionState(profileId, 'ABORTED', data.error || 'sync failed', data.error_type)
-        throw new Error(data.error || 'Failed to trigger sync')
+
+      if (data.status === 'error') {
+        fsmStore.transitionState(profileId, 'ABORTED', data.msg || data.error || 'sync failed', data.error_type)
+        throw new Error(data.msg || data.error || 'Failed to trigger sync')
       }
-      if (data.status === 'RUNNING' || data.status === 'SUCCESS') {
-        fsmStore.transitionState(profileId, 'RUNNING', 'sync job running')
+
+      if (data.status === 'requires_resync') {
+        fsmStore.transitionState(profileId, 'ABORTED', data.msg || 'Initial sync requires resync confirmation')
+        return data
       }
+
+      fsmStore.transitionState(profileId, 'RUNNING', 'sync job running')
       return data
     } catch (e: any) {
       fsmStore.transitionState(profileId, 'ABORTED', e.message)
       throw e
+    }
+  }
+
+  async function createProfile(payload: Partial<Profile>) {
+    loading.value = true
+    try {
+      const created = await api.post<Profile>('/api/profiles', payload)
+      await fetchProfiles()
+      if (created?.id) selectProfile(created.id)
+      return created
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateProfile(id: string, payload: Partial<Profile>) {
+    loading.value = true
+    try {
+      const updated = await api.put<Profile>(`/api/profiles/${id}`, payload)
+      await fetchProfiles()
+      return updated
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteProfile(id: string) {
+    loading.value = true
+    try {
+      await api.delete(`/api/profiles/${id}`)
+      await fetchProfiles()
+      if (selectedProfileId.value === id) {
+        selectedProfileId.value = profiles.value[0]?.id || null
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function cloneProfile(id: string, targetId: string, name: string) {
+    loading.value = true
+    try {
+      const cloned = await api.post<Profile>(`/api/profiles/${id}/clone`, {
+        target_id: targetId,
+        name,
+      })
+      await fetchProfiles()
+      if (cloned?.id) selectProfile(cloned.id)
+      return cloned
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function rollbackProfile(id: string, version: number) {
+    loading.value = true
+    try {
+      const rolledBack = await api.post<Profile>(`/api/profiles/${id}/rollback`, { version })
+      await fetchProfiles()
+      return rolledBack
+    } finally {
+      loading.value = false
     }
   }
 
@@ -89,5 +151,10 @@ export const useProfilesStore = defineStore('profiles', () => {
     fetchProfiles,
     selectProfile,
     triggerSync,
+    createProfile,
+    updateProfile,
+    deleteProfile,
+    cloneProfile,
+    rollbackProfile,
   }
 })
