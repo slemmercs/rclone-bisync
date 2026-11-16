@@ -10,6 +10,10 @@ export default {
     extend: {
       colors: {
         carbon: {
+          canvas: '#090A0D',   // App Canvas (Main background)
+          surface: '#111318',  // Card / Panel (Cards, modals, sidebar)
+          elevated: '#191C24', // Elevated / Hover (Inputs, table row hover)
+          border: '#262A36',   // Hairline Border (Card & table dividers)
           950: '#090A0D', // App Canvas (Main background)
           900: '#111318', // Card / Panel (Cards, modals, sidebar)
           850: '#15181F',
@@ -24,6 +28,7 @@ export default {
           50: '#F8FAFC',  // Text Primary (Headers, file names, hashes)
         },
         electric: {
+          blue: '#0EA5E9',
           300: '#7DD3FC',
           400: '#38BDF8', // Primary Hover (Hover states, active links)
           500: '#0EA5E9', // Primary Accent (Active tab, CTAs, progress)

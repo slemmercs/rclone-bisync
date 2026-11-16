@@ -1,159 +1,327 @@
 <template>
   <div class="space-y-4">
     <!-- Header Toolbar -->
-    <div class="flex flex-wrap items-center justify-between gap-3 bg-carbon-surface p-4 rounded-2xl border border-carbon-border">
-      <div>
-        <h2 class="text-base font-semibold text-white tracking-tight flex items-center gap-2">
-          <span>Dual-Pane Storage Explorer</span>
-          <span v-if="activeProfile" class="text-xs font-mono px-2 py-0.5 rounded bg-carbon-elevated text-electric-blue border border-carbon-border">
-            {{ activeProfile.name }}
-          </span>
-        </h2>
-        <p class="text-xs text-slate-400">Direct side-by-side inspection, file previewing, and cross-backend comparison with path confinement.</p>
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-carbon-900 p-3.5 rounded-2xl border border-carbon-700 shadow-md">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-8 rounded-lg bg-carbon-800 border border-carbon-700 flex items-center justify-center text-electric-400">
+          <i class="pi pi-folder text-sm"></i>
+        </div>
+        <div>
+          <h2 class="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+            <span>Dual-Pane Directory Explorer</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-carbon-800 text-carbon-400 border border-carbon-700">
+              {{ isSwapped ? 'Remote ⇄ Local' : 'Local ⇄ Remote' }}
+            </span>
+          </h2>
+          <p class="text-[11px] text-carbon-400">Direct side-by-side inspection, multi-file checksum comparisons, and cross-backend operations.</p>
+        </div>
       </div>
 
-      <div class="flex items-center gap-2">
+      <!-- Global Explorer Action Buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Compare Selection Pill Button -->
+        <div v-if="explorerStore.compareSelection.length > 0" class="flex items-center gap-1.5 bg-carbon-950 p-1 rounded-xl border border-carbon-700">
+          <button
+            @click="openCompareModal"
+            class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+            :class="explorerStore.compareSelection.length >= 2
+              ? 'bg-indigo-600 hover:bg-indigo-500 text-white animate-pulse'
+              : 'bg-carbon-800 hover:bg-carbon-700 text-carbon-300'"
+            :title="explorerStore.compareSelection.length >= 2 ? 'Run cryptographic checksum comparison' : 'Select at least 2 files to compare'"
+          >
+            <i class="pi pi-sliders-v text-xs"></i>
+            <span>Compare ({{ explorerStore.compareSelection.length }})</span>
+          </button>
+          <button
+            @click="explorerStore.clearCompareSelection()"
+            class="px-2 py-1 bg-carbon-800 hover:bg-carbon-700 text-carbon-400 hover:text-white rounded-lg text-xs transition-colors cursor-pointer"
+            title="Clear compare selection"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Swap Panes Button -->
         <button
-          @click="openCompareSelected"
-          :disabled="!localSelected || !remoteSelected"
-          class="px-3 py-1.5 bg-carbon-elevated hover:bg-slate-800 text-electric-blue border border-carbon-border rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Compare selected local file against selected remote file"
+          @click="swapPanes"
+          class="px-3 py-1.5 bg-carbon-800 hover:bg-carbon-750 text-carbon-200 border border-carbon-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+          title="Swap Left and Right Panes"
         >
-          <i class="pi pi-sliders-v text-xs"></i>
-          <span>Compare Selected</span>
+          <i class="pi pi-arrows-h text-xs text-electric-400"></i>
+          <span>Swap Panes</span>
+        </button>
+
+        <!-- Refresh Explorer Button -->
+        <button
+          @click="refreshAll"
+          class="px-3 py-1.5 bg-carbon-800 hover:bg-carbon-750 text-carbon-200 border border-carbon-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+          title="Refresh both storage panes"
+        >
+          <i :class="(leftLoading || rightLoading) ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'" class="text-xs"></i>
+          <span>Refresh</span>
+        </button>
+
+        <!-- Toggle Log Dock Button -->
+        <button
+          @click="logsStore.toggleDock()"
+          class="px-3 py-1.5 bg-carbon-800 hover:bg-carbon-750 text-carbon-200 border border-carbon-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+          :class="logsStore.isDockOpen ? 'text-electric-400 border-electric-500' : ''"
+          title="Toggle Streaming Log Dock"
+        >
+          <i class="pi pi-terminal text-xs"></i>
+          <span>Log Dock</span>
         </button>
       </div>
     </div>
 
+    <!-- Hidden File Upload Inputs -->
+    <input type="file" ref="leftFileInput" class="hidden" @change="handleFileUpload('left', $event)" />
+    <input type="file" ref="rightFileInput" class="hidden" @change="handleFileUpload('right', $event)" />
+
     <!-- Dual Explorer Splitter -->
-    <div class="bg-carbon-surface border border-carbon-border rounded-2xl overflow-hidden shadow-sm min-h-[560px]">
-      <Splitter class="min-h-[560px] bg-carbon-surface text-slate-100 border-none">
-        <!-- Local Storage Panel -->
-        <SplitterPanel :size="50" :minSize="30" class="p-4 flex flex-col border-r border-carbon-border">
-          <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-carbon-border">
+    <div class="bg-carbon-900 border border-carbon-700 rounded-2xl overflow-hidden shadow-sm min-h-[580px]">
+      <Splitter class="min-h-[580px] bg-carbon-900 text-carbon-100 border-none">
+        <!-- Left Pane -->
+        <SplitterPanel :size="50" :minSize="30" class="p-4 flex flex-col border-r border-carbon-700">
+          <!-- Pane Header -->
+          <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-carbon-700">
             <div class="flex items-center gap-2">
-              <i class="pi pi-desktop text-slate-400"></i>
-              <span class="text-xs font-bold text-white uppercase tracking-wide">Local Storage</span>
+              <i :class="leftIsLocal ? 'pi pi-desktop text-indigo-400' : 'pi pi-cloud text-emerald-400'"></i>
+              <span class="text-xs font-bold text-white uppercase tracking-wide">
+                {{ leftIsLocal ? 'Local Storage' : leftRemote }}
+              </span>
+              <!-- Canary Guard Pill -->
               <span
                 class="text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"
-                :class="localCanary ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-carbon-elevated text-slate-500'"
+                :class="leftCanary ? 'bg-emerald-950 text-emerald-400 border border-emerald-700' : 'bg-amber-950 text-amber-400 border border-amber-700'"
+                :title="leftCanary ? 'Canary Active: RCLONE_TEST verified' : 'Canary Missing: Click Touch Canary to provision'"
               >
-                <i :class="localCanary ? 'pi pi-check' : 'pi pi-info-circle'" class="text-[9px]"></i>
-                {{ localCanary ? 'Canary OK' : 'No Canary' }}
+                <i :class="leftCanary ? 'pi pi-check' : 'pi pi-exclamation-triangle'" class="text-[9px]"></i>
+                {{ leftCanary ? 'Canary OK' : 'No Canary' }}
               </span>
+              <button
+                v-if="!leftCanary"
+                @click="touchCanary('left')"
+                class="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700 cursor-pointer"
+                title="Create RCLONE_TEST canary file"
+              >
+                Touch Canary
+              </button>
             </div>
+
+            <!-- Pane Action Icons -->
             <div class="flex items-center gap-1">
-              <button @click="openMkdir('local')" class="p-1.5 rounded-lg bg-carbon-elevated text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="New Folder">
+              <button
+                @click="triggerUploadPicker('left')"
+                :disabled="leftUploading"
+                class="p-1.5 rounded-lg bg-carbon-800 text-carbon-300 hover:text-white hover:bg-carbon-750 transition-colors cursor-pointer"
+                title="Upload file to this directory"
+              >
+                <i :class="leftUploading ? 'pi pi-spin pi-spinner' : 'pi pi-upload'" class="text-xs"></i>
+              </button>
+              <button
+                @click="openMkdir('left')"
+                class="p-1.5 rounded-lg bg-carbon-800 text-carbon-300 hover:text-white hover:bg-carbon-750 transition-colors cursor-pointer"
+                title="Create new folder"
+              >
                 <i class="pi pi-folder-plus text-xs"></i>
               </button>
-              <button @click="upLocal" class="p-1.5 rounded-lg bg-carbon-elevated text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Up Directory">
+              <button
+                @click="upDirectory('left')"
+                class="p-1.5 rounded-lg bg-carbon-800 text-carbon-300 hover:text-white hover:bg-carbon-750 transition-colors cursor-pointer"
+                title="Navigate up"
+              >
                 <i class="pi pi-arrow-up text-xs"></i>
               </button>
-              <button @click="refreshLocal" class="p-1.5 rounded-lg bg-carbon-elevated text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Refresh">
-                <i :class="localLoading ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'" class="text-xs"></i>
+              <button
+                @click="refreshPane('left')"
+                class="p-1.5 rounded-lg bg-carbon-800 text-carbon-300 hover:text-white hover:bg-carbon-750 transition-colors cursor-pointer"
+                title="Refresh directory"
+              >
+                <i :class="leftLoading ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'" class="text-xs"></i>
               </button>
             </div>
           </div>
 
-          <!-- Path Breadcrumb -->
-          <div class="mb-2 bg-carbon-canvas px-3 py-1.5 rounded-xl border border-carbon-border text-xs font-mono text-indigo-300 truncate">
-            {{ localPath || '/' }}
+          <!-- Path Breadcrumbs -->
+          <div class="mb-2 bg-carbon-950 px-3 py-1.5 rounded-xl border border-carbon-800 text-xs font-mono text-indigo-300 truncate flex items-center justify-between">
+            <span class="truncate">{{ getDisplayPath('left') }}</span>
+            <span class="text-[10px] text-carbon-500 shrink-0 font-sans ml-2">{{ leftItems.length }} item(s)</span>
           </div>
 
-          <!-- Local Items List -->
-          <div class="flex-1 overflow-y-auto max-h-[460px] divide-y divide-carbon-border/40 text-xs font-mono">
-            <div v-if="localLoading" class="py-12 text-center text-slate-400">
-              <i class="pi pi-spin pi-spinner text-xl text-electric-blue"></i>
+          <!-- Left Items List -->
+          <div class="flex-1 overflow-y-auto max-h-[460px] divide-y divide-carbon-800/40 text-xs font-mono">
+            <div v-if="leftLoading" class="py-16 text-center text-carbon-400">
+              <i class="pi pi-spin pi-spinner text-xl text-electric-400 mb-2"></i>
+              <div class="text-[11px]">Reading directory entries...</div>
             </div>
-            <div v-else-if="localItems.length === 0" class="py-12 text-center text-slate-500">
-              Directory is empty
+            <div v-else-if="leftItems.length === 0" class="py-16 text-center text-carbon-500">
+              Directory is empty.
             </div>
             <div
               v-else
-              v-for="item in localItems"
+              v-for="item in leftItems"
               :key="item.Name"
-              @click="handleItemClick('local', item)"
-              @contextmenu.prevent="handleContextMenu($event, 'local', item)"
+              @click="handleItemClick('left', item)"
+              @contextmenu.prevent="handleContextMenu($event, 'left', item)"
               class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors rounded-lg group"
-              :class="localSelected?.Name === item.Name ? 'bg-carbon-elevated text-electric-blue font-bold' : 'hover:bg-carbon-elevated/60 text-slate-200'"
+              :class="isRowSelected('left', item) ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200'"
             >
-              <div class="flex items-center gap-2 truncate">
+              <div class="flex items-center gap-2.5 truncate flex-1 min-w-0">
+                <!-- Checkbox for multi-file comparison -->
+                <input
+                  v-if="!item.IsDir && item.Name !== 'RCLONE_TEST'"
+                  type="checkbox"
+                  :checked="isItemInCompare('left', item)"
+                  @click.stop="toggleCompare('left', item)"
+                  class="rounded bg-carbon-900 border-carbon-700 text-electric-500 cursor-pointer shrink-0"
+                  title="Select for checksum comparison"
+                />
+                <span v-else class="w-3.5 shrink-0"></span>
+
                 <i
-                  class="text-xs"
-                  :class="item.IsDir ? 'pi pi-folder text-amber-400' : 'pi pi-file text-slate-400'"
+                  class="text-xs shrink-0"
+                  :class="item.IsDir ? 'pi pi-folder text-amber-400' : 'pi pi-file text-carbon-400'"
                 ></i>
                 <span class="truncate">{{ item.Name }}</span>
               </div>
-              <div class="flex items-center gap-2 text-[11px] text-slate-400 shrink-0">
+
+              <div class="flex items-center gap-2 text-[11px] text-carbon-400 shrink-0">
                 <span v-if="!item.IsDir">{{ formatBytes(item.Size) }}</span>
-                <span v-else class="text-slate-500">DIR</span>
+                <span v-else class="text-carbon-500 text-[10px]">DIR</span>
+
+                <!-- Quick Open on Remote Icon for Cloud Remotes -->
+                <button
+                  v-if="!leftIsLocal && !item.IsDir"
+                  @click.stop="openOnRemoteDirect(leftRemote, getRelativeItemPath('left', item))"
+                  class="opacity-0 group-hover:opacity-100 hover:text-electric-400 p-0.5 transition-opacity cursor-pointer"
+                  title="Open on remote in new tab"
+                >
+                  <i class="pi pi-external-link text-xs"></i>
+                </button>
               </div>
             </div>
           </div>
         </SplitterPanel>
 
-        <!-- Remote Cloud Storage Panel -->
+        <!-- Right Pane -->
         <SplitterPanel :size="50" :minSize="30" class="p-4 flex flex-col">
-          <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-carbon-border">
+          <!-- Pane Header -->
+          <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-carbon-700">
             <div class="flex items-center gap-2">
-              <i class="pi pi-cloud text-slate-400"></i>
-              <span class="text-xs font-bold text-white uppercase tracking-wide">Remote Cloud</span>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded uppercase font-semibold bg-carbon-elevated text-electric-blue border border-carbon-border">
-                {{ remoteName }}
+              <i :class="rightIsLocal ? 'pi pi-desktop text-indigo-400' : 'pi pi-cloud text-emerald-400'"></i>
+              <span class="text-xs font-bold text-white uppercase tracking-wide">
+                {{ rightIsLocal ? 'Local Storage' : rightRemote }}
               </span>
+              <!-- Canary Guard Pill -->
               <span
                 class="text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"
-                :class="remoteCanary ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-carbon-elevated text-slate-500'"
+                :class="rightCanary ? 'bg-emerald-950 text-emerald-400 border border-emerald-700' : 'bg-amber-950 text-amber-400 border border-amber-700'"
+                :title="rightCanary ? 'Canary Active: RCLONE_TEST verified' : 'Canary Missing: Click Touch Canary to provision'"
               >
-                <i :class="remoteCanary ? 'pi pi-check' : 'pi pi-info-circle'" class="text-[9px]"></i>
-                {{ remoteCanary ? 'Canary OK' : 'No Canary' }}
+                <i :class="rightCanary ? 'pi pi-check' : 'pi pi-exclamation-triangle'" class="text-[9px]"></i>
+                {{ rightCanary ? 'Canary OK' : 'No Canary' }}
               </span>
+              <button
+                v-if="!rightCanary"
+                @click="touchCanary('right')"
+                class="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700 cursor-pointer"
+                title="Create RCLONE_TEST canary file"
+              >
+                Touch Canary
+              </button>
             </div>
+
+            <!-- Pane Action Icons -->
             <div class="flex items-center gap-1">
-              <button @click="openMkdir(remoteName)" class="p-1.5 rounded-lg bg-carbon-elevated text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="New Folder">
+              <button
+                @click="triggerUploadPicker('right')"
+                :disabled="rightUploading"
+                class="p-1.5 rounded-lg bg-carbon-800 text-carbon-300 hover:text-white hover:bg-carbon-750 transition-colors cursor-pointer"
+                title="Upload file to this directory"
+              >
+                <i :class="rightUploading ? 'pi pi-spin pi-spinner' : 'pi pi-upload'" class="text-xs"></i>
+              </button>
+              <button
+                @click="openMkdir('right')"
+                class="p-1.5 rounded-lg bg-carbon-800 text-carbon-300 hover:text-white hover:bg-carbon-750 transition-colors cursor-pointer"
+                title="Create new folder"
+              >
                 <i class="pi pi-folder-plus text-xs"></i>
               </button>
-              <button @click="upRemote" class="p-1.5 rounded-lg bg-carbon-elevated text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Up Directory">
+              <button
+                @click="upDirectory('right')"
+                class="p-1.5 rounded-lg bg-carbon-800 text-carbon-300 hover:text-white hover:bg-carbon-750 transition-colors cursor-pointer"
+                title="Navigate up"
+              >
                 <i class="pi pi-arrow-up text-xs"></i>
               </button>
-              <button @click="refreshRemote" class="p-1.5 rounded-lg bg-carbon-elevated text-slate-300 hover:text-white hover:bg-slate-800 transition-colors" title="Refresh">
-                <i :class="remoteLoading ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'" class="text-xs"></i>
+              <button
+                @click="refreshPane('right')"
+                class="p-1.5 rounded-lg bg-carbon-800 text-carbon-300 hover:text-white hover:bg-carbon-750 transition-colors cursor-pointer"
+                title="Refresh directory"
+              >
+                <i :class="rightLoading ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'" class="text-xs"></i>
               </button>
             </div>
           </div>
 
-          <!-- Path Breadcrumb -->
-          <div class="mb-2 bg-carbon-canvas px-3 py-1.5 rounded-xl border border-carbon-border text-xs font-mono text-emerald-400 truncate">
-            {{ remoteName }}:{{ remotePath || '/' }}
+          <!-- Path Breadcrumbs -->
+          <div class="mb-2 bg-carbon-950 px-3 py-1.5 rounded-xl border border-carbon-800 text-xs font-mono text-emerald-400 truncate flex items-center justify-between">
+            <span class="truncate">{{ getDisplayPath('right') }}</span>
+            <span class="text-[10px] text-carbon-500 shrink-0 font-sans ml-2">{{ rightItems.length }} item(s)</span>
           </div>
 
-          <!-- Remote Items List -->
-          <div class="flex-1 overflow-y-auto max-h-[460px] divide-y divide-carbon-border/40 text-xs font-mono">
-            <div v-if="remoteLoading" class="py-12 text-center text-slate-400">
-              <i class="pi pi-spin pi-spinner text-xl text-electric-blue"></i>
+          <!-- Right Items List -->
+          <div class="flex-1 overflow-y-auto max-h-[460px] divide-y divide-carbon-800/40 text-xs font-mono">
+            <div v-if="rightLoading" class="py-16 text-center text-carbon-400">
+              <i class="pi pi-spin pi-spinner text-xl text-electric-400 mb-2"></i>
+              <div class="text-[11px]">Reading directory entries...</div>
             </div>
-            <div v-else-if="remoteItems.length === 0" class="py-12 text-center text-slate-500">
-              Directory is empty
+            <div v-else-if="rightItems.length === 0" class="py-16 text-center text-carbon-500">
+              Directory is empty.
             </div>
             <div
               v-else
-              v-for="item in remoteItems"
+              v-for="item in rightItems"
               :key="item.Name"
-              @click="handleItemClick(remoteName, item)"
-              @contextmenu.prevent="handleContextMenu($event, remoteName, item)"
+              @click="handleItemClick('right', item)"
+              @contextmenu.prevent="handleContextMenu($event, 'right', item)"
               class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors rounded-lg group"
-              :class="remoteSelected?.Name === item.Name ? 'bg-carbon-elevated text-electric-blue font-bold' : 'hover:bg-carbon-elevated/60 text-slate-200'"
+              :class="isRowSelected('right', item) ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200'"
             >
-              <div class="flex items-center gap-2 truncate">
+              <div class="flex items-center gap-2.5 truncate flex-1 min-w-0">
+                <!-- Checkbox for multi-file comparison -->
+                <input
+                  v-if="!item.IsDir && item.Name !== 'RCLONE_TEST'"
+                  type="checkbox"
+                  :checked="isItemInCompare('right', item)"
+                  @click.stop="toggleCompare('right', item)"
+                  class="rounded bg-carbon-900 border-carbon-700 text-electric-500 cursor-pointer shrink-0"
+                  title="Select for checksum comparison"
+                />
+                <span v-else class="w-3.5 shrink-0"></span>
+
                 <i
-                  class="text-xs"
-                  :class="item.IsDir ? 'pi pi-folder text-amber-400' : 'pi pi-file text-slate-400'"
+                  class="text-xs shrink-0"
+                  :class="item.IsDir ? 'pi pi-folder text-amber-400' : 'pi pi-file text-carbon-400'"
                 ></i>
                 <span class="truncate">{{ item.Name }}</span>
               </div>
-              <div class="flex items-center gap-2 text-[11px] text-slate-400 shrink-0">
+
+              <div class="flex items-center gap-2 text-[11px] text-carbon-400 shrink-0">
                 <span v-if="!item.IsDir">{{ formatBytes(item.Size) }}</span>
-                <span v-else class="text-slate-500">DIR</span>
+                <span v-else class="text-carbon-500 text-[10px]">DIR</span>
+
+                <!-- Quick Open on Remote Icon for Cloud Remotes -->
+                <button
+                  v-if="!rightIsLocal && !item.IsDir"
+                  @click.stop="openOnRemoteDirect(rightRemote, getRelativeItemPath('right', item))"
+                  class="opacity-0 group-hover:opacity-100 hover:text-electric-400 p-0.5 transition-opacity cursor-pointer"
+                  title="Open on remote in new tab"
+                >
+                  <i class="pi pi-external-link text-xs"></i>
+                </button>
               </div>
             </div>
           </div>
@@ -180,7 +348,7 @@
     <ModalExplorerMkdir
       v-model:visible="showMkdirModal"
       :remote="mkdirTargetRemote"
-      :currentPath="mkdirTargetRemote === 'local' ? localPath : remotePath"
+      :currentPath="mkdirTargetRemotePath"
       :loading="mkdirLoading"
       :error="mkdirError"
       @create="handleCreateDirectory"
@@ -223,6 +391,7 @@ import Splitter from 'primevue/splitter'
 import SplitterPanel from 'primevue/splitterpanel'
 import { useProfilesStore } from '../stores/profiles'
 import { useExplorerStore } from '../stores/explorer'
+import { useLogsStore } from '../stores/logs'
 import type { BrowseItem } from '../types/models'
 import type { FilePreviewResponse, FileCompareResponse } from '../types/explorer'
 import ModalFilePreview from '../components/ModalFilePreview.vue'
@@ -234,41 +403,60 @@ import ExplorerContextMenu from '../components/ExplorerContextMenu.vue'
 
 const profilesStore = useProfilesStore()
 const explorerStore = useExplorerStore()
+const logsStore = useLogsStore()
 
-const localPath = ref<string>('')
-const localItems = ref<BrowseItem[]>([])
-const localLoading = ref<boolean>(false)
-const localCanary = ref<boolean>(false)
-const localSelected = ref<BrowseItem | null>(null)
+// Pane Swap State
+const isSwapped = ref(false)
 
-const remoteName = ref<string>('local')
-const remotePath = ref<string>('')
-const remoteItems = ref<BrowseItem[]>([])
-const remoteLoading = ref<boolean>(false)
-const remoteCanary = ref<boolean>(false)
-const remoteSelected = ref<BrowseItem | null>(null)
+// Left Pane State (defaults to Local)
+const leftPath = ref('')
+const leftItems = ref<BrowseItem[]>([])
+const leftLoading = ref(false)
+const leftCanary = ref(false)
+const leftSelected = ref<BrowseItem | null>(null)
+const leftUploading = ref(false)
+const leftFileInput = ref<HTMLInputElement | null>(null)
+
+// Right Pane State (defaults to Remote)
+const rightRemoteName = ref('')
+const rightPath = ref('')
+const rightItems = ref<BrowseItem[]>([])
+const rightLoading = ref(false)
+const rightCanary = ref(false)
+const rightSelected = ref<BrowseItem | null>(null)
+const rightUploading = ref(false)
+const rightFileInput = ref<HTMLInputElement | null>(null)
 
 const activeProfile = computed(() => profilesStore.activeProfile)
 
-// Preview State
+const leftIsLocal = computed(() => !isSwapped.value)
+const rightIsLocal = computed(() => isSwapped.value)
+
+const leftRemote = computed(() => {
+  return isSwapped.value ? rightRemoteName.value : 'local'
+})
+
+const rightRemote = computed(() => {
+  return isSwapped.value ? 'local' : rightRemoteName.value
+})
+
+// Modal states
 const showPreviewModal = ref(false)
 const previewData = ref<FilePreviewResponse | null>(null)
 const previewLoading = ref(false)
 const previewError = ref<string | null>(null)
 
-// Compare State
 const showCompareModal = ref(false)
 const compareData = ref<FileCompareResponse | null>(null)
 const compareLoading = ref(false)
 const compareError = ref<string | null>(null)
 
-// Mkdir State
 const showMkdirModal = ref(false)
 const mkdirTargetRemote = ref('local')
+const mkdirTargetRemotePath = ref('')
 const mkdirLoading = ref(false)
 const mkdirError = ref<string | null>(null)
 
-// Move State
 const showMoveModal = ref(false)
 const moveTargetRemote = ref('local')
 const moveSrcPath = ref('')
@@ -276,7 +464,6 @@ const moveIsDir = ref(false)
 const moveLoading = ref(false)
 const moveError = ref<string | null>(null)
 
-// Confirm Delete State
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -293,96 +480,210 @@ const contextMenuY = ref(0)
 const contextMenuItem = ref<BrowseItem | null>(null)
 const contextMenuRemote = ref('local')
 
+// Watch active profile to load directories
 watch(
   () => activeProfile.value,
   (profile) => {
     if (profile) {
-      localPath.value = profile.local_path || ''
-      remoteName.value = profile.remote || 'local'
-      remotePath.value = profile.remote_path || ''
-      refreshLocal()
-      refreshRemote()
+      leftPath.value = ''
+      rightRemoteName.value = (profile.remote || 'local').replace(/:$/, '')
+      rightPath.value = (profile.remote_path || '').replace(/^\/+/, '')
+      refreshAll()
     }
   },
   { immediate: true }
 )
 
-async function refreshLocal() {
-  localLoading.value = true
-  localSelected.value = null
-  try {
-    await explorerStore.browse('local', localPath.value, activeProfile.value?.id)
-    localItems.value = explorerStore.items
-    localCanary.value = explorerStore.hasCanary
-  } catch (e) {
-    localItems.value = []
-  } finally {
-    localLoading.value = false
-  }
+function swapPanes() {
+  isSwapped.value = !isSwapped.value
+  const tempPath = leftPath.value
+  leftPath.value = rightPath.value
+  rightPath.value = tempPath
+
+  const tempItems = leftItems.value
+  leftItems.value = rightItems.value
+  rightItems.value = tempItems
+
+  const tempCanary = leftCanary.value
+  leftCanary.value = rightCanary.value
+  rightCanary.value = tempCanary
 }
 
-async function refreshRemote() {
-  remoteLoading.value = true
-  remoteSelected.value = null
-  try {
-    await explorerStore.browse(remoteName.value, remotePath.value, activeProfile.value?.id)
-    remoteItems.value = explorerStore.items
-    remoteCanary.value = explorerStore.hasCanary
-  } catch (e) {
-    remoteItems.value = []
-  } finally {
-    remoteLoading.value = false
-  }
-}
+async function refreshPane(pane: 'left' | 'right') {
+  const remote = pane === 'left' ? leftRemote.value : rightRemote.value
+  const path = pane === 'left' ? leftPath.value : rightPath.value
+  const isLocal = pane === 'left' ? leftIsLocal.value : rightIsLocal.value
 
-function handleItemClick(remote: string, item: BrowseItem) {
-  if (remote === 'local') {
-    if (item.IsDir) {
-      const next = localPath.value.replace(/\/+$/, '') + '/' + item.Name
-      localPath.value = next
-      refreshLocal()
+  if (pane === 'left') {
+    leftLoading.value = true
+    leftSelected.value = null
+  } else {
+    rightLoading.value = true
+    rightSelected.value = null
+  }
+
+  try {
+    await explorerStore.browse(remote, path, activeProfile.value?.id)
+    if (pane === 'left') {
+      leftItems.value = explorerStore.items
+      if (!path) {
+        leftCanary.value = explorerStore.hasCanary
+      }
     } else {
-      localSelected.value = item
-      triggerPreview('local', item)
+      rightItems.value = explorerStore.items
+      if (!path) {
+        rightCanary.value = explorerStore.hasCanary
+      }
+    }
+  } catch (e) {
+    if (pane === 'left') leftItems.value = []
+    else rightItems.value = []
+  } finally {
+    if (pane === 'left') leftLoading.value = false
+    else rightLoading.value = false
+  }
+}
+
+async function refreshAll() {
+  await Promise.all([refreshPane('left'), refreshPane('right')])
+}
+
+function getDisplayPath(pane: 'left' | 'right'): string {
+  const isLocal = pane === 'left' ? leftIsLocal.value : rightIsLocal.value
+  const relPath = pane === 'left' ? leftPath.value : rightPath.value
+  const remote = pane === 'left' ? leftRemote.value : rightRemote.value
+
+  if (isLocal) {
+    const root = activeProfile.value?.local_path || 'local'
+    return relPath ? `${root}/${relPath}` : root
+  }
+  return relPath ? `${remote}:${relPath}` : `${remote}:/`
+}
+
+function getRelativeItemPath(pane: 'left' | 'right', item: BrowseItem): string {
+  const currentPath = pane === 'left' ? leftPath.value : rightPath.value
+  return currentPath ? `${currentPath.replace(/\/+$/, '')}/${item.Name}` : item.Name
+}
+
+function isRowSelected(pane: 'left' | 'right', item: BrowseItem): boolean {
+  const selected = pane === 'left' ? leftSelected.value : rightSelected.value
+  return selected?.Name === item.Name
+}
+
+function isItemInCompare(pane: 'left' | 'right', item: BrowseItem): boolean {
+  const remote = pane === 'left' ? leftRemote.value : rightRemote.value
+  const path = getRelativeItemPath(pane, item)
+  return explorerStore.isItemInCompare(remote, path)
+}
+
+function toggleCompare(pane: 'left' | 'right', item: BrowseItem) {
+  const remote = pane === 'left' ? leftRemote.value : rightRemote.value
+  const path = getRelativeItemPath(pane, item)
+  explorerStore.toggleCompareItem({
+    remote,
+    path,
+    name: item.Name,
+    size: item.Size || 0,
+    pane,
+  })
+}
+
+function handleItemClick(pane: 'left' | 'right', item: BrowseItem) {
+  if (item.IsDir) {
+    if (pane === 'left') {
+      leftPath.value = getRelativeItemPath('left', item)
+      refreshPane('left')
+    } else {
+      rightPath.value = getRelativeItemPath('right', item)
+      refreshPane('right')
     }
   } else {
-    if (item.IsDir) {
-      const next = remotePath.value ? remotePath.value.replace(/\/+$/, '') + '/' + item.Name : item.Name
-      remotePath.value = next
-      refreshRemote()
+    if (pane === 'left') leftSelected.value = item
+    else rightSelected.value = item
+    triggerPreview(pane === 'left' ? leftRemote.value : rightRemote.value, getRelativeItemPath(pane, item), item.Name)
+  }
+}
+
+function upDirectory(pane: 'left' | 'right') {
+  const current = pane === 'left' ? leftPath.value : rightPath.value
+  const parts = current.replace(/\/+$/, '').split('/').filter(Boolean)
+  if (parts.length > 0) {
+    parts.pop()
+    const next = parts.join('/')
+    if (pane === 'left') {
+      leftPath.value = next
+      refreshPane('left')
     } else {
-      remoteSelected.value = item
-      triggerPreview(remote, item)
+      rightPath.value = next
+      refreshPane('right')
     }
   }
 }
 
-function handleContextMenu(e: MouseEvent, remote: string, item: BrowseItem) {
-  contextMenuX.value = e.clientX
-  contextMenuY.value = e.clientY
-  contextMenuItem.value = item
-  contextMenuRemote.value = remote
-  contextMenuVisible.value = true
-
-  if (remote === 'local') {
-    localSelected.value = item
-  } else {
-    remoteSelected.value = item
+async function touchCanary(pane: 'left' | 'right') {
+  const remote = pane === 'left' ? leftRemote.value : rightRemote.value
+  try {
+    await explorerStore.touchCanary(remote, '', activeProfile.value?.id)
+    if (pane === 'left') leftCanary.value = true
+    else rightCanary.value = true
+    refreshPane(pane)
+  } catch (e: any) {
+    alert(e.message || 'Failed to touch canary')
   }
 }
 
-async function triggerPreview(remote: string, item: BrowseItem) {
-  const fullPath = remote === 'local'
-    ? (localPath.value ? localPath.value.replace(/\/+$/, '') + '/' + item.Name : item.Name)
-    : (remotePath.value ? remotePath.value.replace(/\/+$/, '') + '/' + item.Name : item.Name)
+function triggerUploadPicker(pane: 'left' | 'right') {
+  if (pane === 'left' && leftFileInput.value) {
+    leftFileInput.value.click()
+  } else if (pane === 'right' && rightFileInput.value) {
+    rightFileInput.value.click()
+  }
+}
 
+async function handleFileUpload(pane: 'left' | 'right', e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  const remote = pane === 'left' ? leftRemote.value : rightRemote.value
+  const path = pane === 'left' ? leftPath.value : rightPath.value
+
+  if (pane === 'left') leftUploading.value = true
+  else rightUploading.value = true
+
+  try {
+    await explorerStore.uploadFile(file, remote, path, activeProfile.value?.id)
+    refreshPane(pane)
+  } catch (err: any) {
+    alert(err.message || 'File upload failed')
+  } finally {
+    if (pane === 'left') leftUploading.value = false
+    else rightUploading.value = false
+    target.value = ''
+  }
+}
+
+async function openOnRemoteDirect(remote: string, path: string) {
+  try {
+    const data = await explorerStore.getPublicLink(remote, path, activeProfile.value?.id)
+    if (data && data.supported && data.url) {
+      window.open(data.url, '_blank')
+    } else {
+      alert('Cloud web links are unsupported for this storage provider.')
+    }
+  } catch (err: any) {
+    alert(err.message || 'Failed to resolve cloud web link')
+  }
+}
+
+async function triggerPreview(remote: string, path: string, name: string) {
   previewLoading.value = true
   previewError.value = null
   previewData.value = null
   showPreviewModal.value = true
 
   try {
-    previewData.value = await explorerStore.previewFile(remote, fullPath, activeProfile.value?.id)
+    previewData.value = await explorerStore.previewFile(remote, path, activeProfile.value?.id)
   } catch (e: any) {
     previewError.value = e.message || 'Failed to load preview'
   } finally {
@@ -390,22 +691,22 @@ async function triggerPreview(remote: string, item: BrowseItem) {
   }
 }
 
-function openCompareSelected() {
-  if (!localSelected.value || !remoteSelected.value) return
-
-  const path1 = localPath.value ? localPath.value.replace(/\/+$/, '') + '/' + localSelected.value.Name : localSelected.value.Name
-  const path2 = remotePath.value ? remotePath.value.replace(/\/+$/, '') + '/' + remoteSelected.value.Name : remoteSelected.value.Name
+function openCompareModal() {
+  if (explorerStore.compareSelection.length < 2) return
 
   compareLoading.value = true
   compareError.value = null
   compareData.value = null
   showCompareModal.value = true
 
+  const items = explorerStore.compareSelection.map((i) => ({
+    remote: i.remote,
+    path: i.path,
+    profile_id: activeProfile.value?.id,
+  }))
+
   explorerStore
-    .compareFiles([
-      { remote: 'local', path: path1, profile_id: activeProfile.value?.id },
-      { remote: remoteName.value, path: path2, profile_id: activeProfile.value?.id },
-    ])
+    .compareFiles(items)
     .then((res) => {
       compareData.value = res
     })
@@ -417,26 +718,23 @@ function openCompareSelected() {
     })
 }
 
-function openMkdir(remote: string) {
-  mkdirTargetRemote.value = remote
+function openMkdir(pane: 'left' | 'right') {
+  mkdirTargetRemote.value = pane === 'left' ? leftRemote.value : rightRemote.value
+  mkdirTargetRemotePath.value = pane === 'left' ? leftPath.value : rightPath.value
   mkdirError.value = null
   showMkdirModal.value = true
 }
 
 async function handleCreateDirectory(dirName: string) {
-  const base = mkdirTargetRemote.value === 'local' ? localPath.value : remotePath.value
-  const fullPath = base ? base.replace(/\/+$/, '') + '/' + dirName : dirName
+  const base = mkdirTargetRemotePath.value
+  const fullPath = base ? `${base.replace(/\/+$/, '')}/${dirName}` : dirName
   mkdirLoading.value = true
   mkdirError.value = null
 
   try {
     await explorerStore.createDirectory(mkdirTargetRemote.value, fullPath, activeProfile.value?.id)
     showMkdirModal.value = false
-    if (mkdirTargetRemote.value === 'local') {
-      refreshLocal()
-    } else {
-      refreshRemote()
-    }
+    refreshAll()
   } catch (e: any) {
     mkdirError.value = e.message || 'Failed to create directory'
   } finally {
@@ -444,24 +742,30 @@ async function handleCreateDirectory(dirName: string) {
   }
 }
 
-function handleContextAction(act: 'preview' | 'compare' | 'download' | 'move' | 'copy_path' | 'delete') {
+function handleContextMenu(e: MouseEvent, pane: 'left' | 'right', item: BrowseItem) {
+  contextMenuX.value = e.clientX
+  contextMenuY.value = e.clientY
+  contextMenuItem.value = item
+  contextMenuRemote.value = pane === 'left' ? leftRemote.value : rightRemote.value
+  contextMenuVisible.value = true
+
+  if (pane === 'left') leftSelected.value = item
+  else rightSelected.value = item
+}
+
+function handleContextAction(act: 'preview' | 'compare' | 'download' | 'open_on_remote' | 'move' | 'copy_path' | 'delete') {
   if (!contextMenuItem.value) return
   const item = contextMenuItem.value
   const remote = contextMenuRemote.value
-  const base = remote === 'local' ? localPath.value : remotePath.value
-  const fullPath = base ? base.replace(/\/+$/, '') + '/' + item.Name : item.Name
+  const pane = remote === leftRemote.value ? 'left' : 'right'
+  const fullPath = getRelativeItemPath(pane, item)
 
   switch (act) {
     case 'preview':
-      triggerPreview(remote, item)
+      triggerPreview(remote, fullPath, item.Name)
       break
     case 'compare':
-      if (remote === 'local') {
-        localSelected.value = item
-      } else {
-        remoteSelected.value = item
-      }
-      openCompareSelected()
+      toggleCompare(pane, item)
       break
     case 'download': {
       const url = explorerStore.getDownloadUrl(remote, fullPath, activeProfile.value?.id)
@@ -473,6 +777,9 @@ function handleContextAction(act: 'preview' | 'compare' | 'download' | 'move' | 
       document.body.removeChild(a)
       break
     }
+    case 'open_on_remote':
+      openOnRemoteDirect(remote, fullPath)
+      break
     case 'move':
       moveTargetRemote.value = remote
       moveSrcPath.value = fullPath
@@ -508,11 +815,7 @@ async function handleExecuteMove(dstPath: string) {
       profile_id: activeProfile.value?.id,
     })
     showMoveModal.value = false
-    if (moveTargetRemote.value === 'local') {
-      refreshLocal()
-    } else {
-      refreshRemote()
-    }
+    refreshAll()
   } catch (e: any) {
     moveError.value = e.message || 'Move failed'
   } finally {
@@ -525,11 +828,7 @@ async function handleExecuteDelete() {
   try {
     await explorerStore.deleteItem(deleteRemote.value, deletePath.value, deleteIsDir.value, activeProfile.value?.id)
     showConfirmModal.value = false
-    if (deleteRemote.value === 'local') {
-      refreshLocal()
-    } else {
-      refreshRemote()
-    }
+    refreshAll()
   } catch (e: any) {
     alert(e.message || 'Deletion failed')
   } finally {
@@ -537,29 +836,8 @@ async function handleExecuteDelete() {
   }
 }
 
-function upLocal() {
-  const parts = localPath.value.replace(/\/+$/, '').split('/')
-  if (parts.length > 1) {
-    parts.pop()
-    localPath.value = parts.join('/') || '/'
-    refreshLocal()
-  }
-}
-
-function upRemote() {
-  const parts = remotePath.value.replace(/\/+$/, '').split('/')
-  if (parts.length > 1) {
-    parts.pop()
-    remotePath.value = parts.join('/')
-    refreshRemote()
-  } else {
-    remotePath.value = ''
-    refreshRemote()
-  }
-}
-
 function formatBytes(bytes?: number): string {
-  if (bytes === undefined || bytes === null || bytes === 0) return '0 B'
+  if (bytes === undefined || bytes === null || bytes <= 0) return '0 B'
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))

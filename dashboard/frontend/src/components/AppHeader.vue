@@ -4,6 +4,7 @@ import FSMStateBadge from './FSMStateBadge.vue'
 import { useProfilesStore } from '../stores/profiles'
 import { useFSMStore } from '../stores/fsm'
 import { useTelemetryStore } from '../stores/telemetry'
+import { useLogsStore } from '../stores/logs'
 
 const props = defineProps<{
   activeTab: string
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 const profilesStore = useProfilesStore()
 const fsmStore = useFSMStore()
 const telemetryStore = useTelemetryStore()
+const logsStore = useLogsStore()
 
 const tabs = [
   { id: 'fleet', label: 'Fleet', icon: 'pi pi-server' },
@@ -72,17 +74,15 @@ async function handleRunSync() {
     </div>
 
     <!-- Navigation Tabs -->
-    <nav class="flex items-center bg-carbon-950/70 p-1 rounded-lg border border-carbon-700/80">
+    <nav class="flex items-center gap-1 bg-carbon-950 p-1 rounded-lg border border-carbon-800">
       <button
         v-for="tab in tabs"
         :key="tab.id"
         @click="emit('update:activeTab', tab.id)"
-        class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-        :class="
-          props.activeTab === tab.id
-            ? 'bg-electric-500 text-white shadow-sm'
-            : 'text-carbon-400 hover:text-carbon-50 hover:bg-carbon-800/60'
-        "
+        class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer select-none"
+        :class="activeTab === tab.id
+          ? 'bg-carbon-800 text-electric-400 shadow-sm border border-carbon-700'
+          : 'text-carbon-400 hover:text-carbon-200 hover:bg-carbon-900'"
       >
         <i :class="tab.icon" class="text-xs"></i>
         <span>{{ tab.label }}</span>
@@ -116,6 +116,20 @@ async function handleRunSync() {
       <!-- FSM State Badge -->
       <FSMStateBadge :state="fsmStore.currentState" :reason="fsmStore.currentStatus.last_transition?.reason" />
 
+      <!-- Log Dock Toggle Button -->
+      <button
+        @click="logsStore.toggleDock()"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-mono transition-colors cursor-pointer"
+        :class="logsStore.isDockOpen ? 'bg-electric-950/80 border-electric-500 text-electric-300' : 'bg-carbon-850 hover:bg-carbon-800 border-carbon-700 text-carbon-300'"
+        title="Toggle Bisync Log Dock"
+      >
+        <i class="pi pi-terminal text-xs"></i>
+        <span>Logs</span>
+        <span class="px-1 py-0.2 rounded bg-carbon-900 border border-carbon-700 text-[10px] text-carbon-400">
+          {{ logsStore.logs.length }}
+        </span>
+      </button>
+
       <!-- Review Alert Trigger (if circuit breaker tripped) -->
       <button
         v-if="telemetryStore.hasReview || fsmStore.pendingReview"
@@ -130,15 +144,13 @@ async function handleRunSync() {
       <button
         @click="handleRunSync"
         :disabled="!fsmStore.canTrigger"
-        class="flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all shadow-sm"
-        :class="
-          fsmStore.canTrigger
-            ? 'bg-electric-500 hover:bg-electric-400 active:bg-electric-600 text-white shadow-[0_0_10px_rgba(14,165,233,0.3)] cursor-pointer'
-            : 'bg-carbon-800 text-carbon-500 border border-carbon-700 cursor-not-allowed'
-        "
+        class="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        :class="fsmStore.canTrigger
+          ? 'bg-electric-600 hover:bg-electric-500 text-white shadow-electric-900/30'
+          : 'bg-carbon-800 text-carbon-500 border border-carbon-700'"
       >
-        <i :class="fsmStore.isActive ? 'pi pi-spin pi-spinner' : 'pi pi-play'" class="text-xs"></i>
-        <span>{{ fsmStore.isActive ? 'Syncing...' : 'Sync Now' }}</span>
+        <i class="pi pi-play text-xs"></i>
+        <span>Sync Now</span>
       </button>
     </div>
   </header>

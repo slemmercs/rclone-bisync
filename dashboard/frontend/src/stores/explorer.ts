@@ -14,6 +14,15 @@ import type {
   DeleteResponse,
 } from '../types/explorer'
 
+export interface CompareSelectItem {
+  remote: string
+  path: string
+  name: string
+  size: number
+  modTime?: string
+  pane: 'left' | 'right'
+}
+
 export const useExplorerStore = defineStore('explorer', () => {
   const currentRemote = ref<string>('local')
   const currentPath = ref<string>('')
@@ -22,6 +31,9 @@ export const useExplorerStore = defineStore('explorer', () => {
   const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
   const selectedItem = ref<BrowseItem | null>(null)
+
+  // Multi-file selection for checksum comparison
+  const compareSelection = ref<CompareSelectItem[]>([])
 
   async function browse(remote: string, path: string = '', profileId?: string) {
     loading.value = true
@@ -37,7 +49,9 @@ export const useExplorerStore = defineStore('explorer', () => {
         profile_id: profileId,
       })
       items.value = Array.isArray(data.items) ? (data.items as BrowseItem[]) : []
-      hasCanary.value = !!data.has_canary
+      if (!path) {
+        hasCanary.value = !!data.has_canary
+      }
     } catch (e: any) {
       error.value = e.message || 'Error browsing filesystem'
       items.value = []
@@ -48,6 +62,23 @@ export const useExplorerStore = defineStore('explorer', () => {
 
   function selectItem(item: BrowseItem | null) {
     selectedItem.value = item
+  }
+
+  function isItemInCompare(remote: string, path: string): boolean {
+    return compareSelection.value.some((i) => i.remote === remote && i.path === path)
+  }
+
+  function toggleCompareItem(item: CompareSelectItem) {
+    const idx = compareSelection.value.findIndex((i) => i.remote === item.remote && i.path === item.path)
+    if (idx >= 0) {
+      compareSelection.value.splice(idx, 1)
+    } else {
+      compareSelection.value.push(item)
+    }
+  }
+
+  function clearCompareSelection() {
+    compareSelection.value = []
   }
 
   async function previewFile(remote: string, path: string, profileId?: string): Promise<FilePreviewResponse> {
@@ -79,6 +110,43 @@ export const useExplorerStore = defineStore('explorer', () => {
     return await api.post<DeleteResponse>('/api/browse/delete', req)
   }
 
+  async function uploadFile(file: File, remote: string, path: string, profileId?: string): Promise<any> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('remote', remote)
+    formData.append('path', path)
+    if (profileId) formData.append('profile_id', profileId)
+
+    const res = await fetch('/api/explorer/upload', {
+      method: 'POST',
+      headers: {
+        'X-Dashboard-Request': '1',
+      },
+      body: formData,
+    })
+    const data = await res.json()
+    if (!res.ok || data.status === 'error') {
+      throw new Error(data.error || 'Failed to upload file')
+    }
+    return data
+  }
+
+  async function getPublicLink(remote: string, path: string, profileId?: string): Promise<{ supported: boolean; url?: string; error?: string }> {
+    return await api.post('/api/operations/publiclink', {
+      remote,
+      path,
+      profile_id: profileId,
+    })
+  }
+
+  async function touchCanary(remote: string, path: string, profileId?: string): Promise<any> {
+    return await api.post('/api/browse/canary', {
+      remote,
+      path,
+      profile_id: profileId,
+    })
+  }
+
   function getDownloadUrl(remote: string, path: string, profileId?: string, inline = false): string {
     const params = new URLSearchParams({
       remote,
@@ -97,13 +165,20 @@ export const useExplorerStore = defineStore('explorer', () => {
     loading,
     error,
     selectedItem,
+    compareSelection,
     browse,
     selectItem,
+    isItemInCompare,
+    toggleCompareItem,
+    clearCompareSelection,
     previewFile,
     compareFiles,
     createDirectory,
     moveItem,
     deleteItem,
+    uploadFile,
+    getPublicLink,
+    touchCanary,
     getDownloadUrl,
   }
 })
