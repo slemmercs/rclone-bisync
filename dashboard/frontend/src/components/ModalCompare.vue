@@ -34,8 +34,13 @@
             {{ comparison.matches ? 'Cryptographic Content Match' : 'Content Discrepancy Detected' }}
           </span>
         </div>
-        <span class="px-2 py-0.5 rounded bg-carbon-elevated text-slate-300 border border-carbon-border text-[10px] uppercase font-bold">
-          Algorithm: {{ comparison.algorithm || 'SIZE' }}
+        <span
+          class="px-2 py-0.5 rounded text-[10px] uppercase font-bold border"
+          :class="comparison.algorithm === 'none'
+            ? 'bg-amber-950/80 text-amber-300 border-amber-700/60'
+            : 'bg-carbon-elevated text-electric-blue border-carbon-border'"
+        >
+          {{ comparison.algorithm === 'none' ? 'Fallback: Size Only (No Common Hash)' : `Algorithm: ${comparison.algorithm.toUpperCase()}` }}
         </span>
       </div>
 
@@ -56,6 +61,9 @@
             <div v-if="cluster[0]?.primary_hash" class="font-mono text-[11px] text-slate-400 truncate max-w-sm">
               <span class="text-electric-blue font-semibold">{{ comparison.algorithm.toUpperCase() }}:</span>
               <span class="text-slate-300 ml-1 select-all font-mono">{{ cluster[0].primary_hash }}</span>
+            </div>
+            <div v-else-if="comparison.algorithm === 'none'" class="font-mono text-[11px] text-slate-500">
+              <span>Size: {{ formatBytes(cluster[0]?.size) }}</span>
             </div>
           </div>
 

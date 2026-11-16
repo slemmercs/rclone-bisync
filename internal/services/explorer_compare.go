@@ -95,6 +95,13 @@ func (e *ExplorerService) statRemoteFile(ctx context.Context, remote, cleanPath 
 			}
 		}
 	}
+	if len(remoteHashes) == 0 && e.Client != nil {
+		for _, algo := range []string{"md5", "sha1", "sha256", "quickxorhash"} {
+			if h, err := e.Client.HashsumFile(ctx, remote, cleanPath, algo); err == nil && h != "" {
+				remoteHashes[algo] = h
+			}
+		}
+	}
 	return models.CompareItemResult{
 		Remote: remote, Path: cleanPath, Name: name, Size: size, ModTime: modTime, Hashes: remoteHashes,
 	}
