@@ -30,9 +30,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL('./cockpit.html', import.meta.url))
+      },
+      output: {
+        manualChunks: {
+          'vendor-vue': ['vue', 'pinia'],
+          'vendor-primevue': ['primevue'],
+          'vendor-chart': ['chart.js']
+        }
       }
     }
   },
