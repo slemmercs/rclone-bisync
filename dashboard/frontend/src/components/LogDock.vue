@@ -34,7 +34,19 @@
             {{ lvl }}
           </button>
         </div>
+
+        <!-- Daemon Stream Trigger -->
+        <button
+          v-if="logsStore.isDockOpen"
+          @click="logsStore.openDaemonModal(null)"
+          class="px-2 py-0.5 rounded bg-electric-500/10 hover:bg-electric-500/20 text-electric-400 border border-electric-500/20 text-[10px] transition-colors flex items-center gap-1 cursor-pointer"
+          title="Open Correlated Daemon Log Modal"
+        >
+          <i class="pi pi-external-link text-[9px]"></i>
+          <span>Daemon Stream</span>
+        </button>
       </div>
+
 
       <div class="flex items-center gap-2 text-carbon-400 text-[11px]">
         <!-- Auto-scroll Toggle -->
@@ -85,6 +97,15 @@
         class="flex items-start gap-2 hover:bg-carbon-900/60 px-1.5 py-0.5 rounded transition-colors"
       >
         <span class="text-carbon-500 text-[10px] select-none shrink-0">{{ idx + 1 }}</span>
+        <button
+          v-if="extractRunId(log)"
+          type="button"
+          @click.stop="logsStore.openDaemonModal({ run_id: extractRunId(log)! })"
+          class="text-[9px] px-1.5 py-0.2 rounded bg-carbon-800 hover:bg-indigo-950 text-electric-400 hover:text-white border border-carbon-700 hover:border-indigo-600 shrink-0 transition-colors cursor-pointer"
+          :title="'Open correlated daemon logs for run ' + extractRunId(log)"
+        >
+          run:{{ extractRunId(log) }}
+        </button>
         <span class="text-carbon-200 break-all select-text">{{ log }}</span>
       </div>
     </div>
@@ -98,6 +119,12 @@ import { useLogsStore } from '../stores/logs'
 const logsStore = useLogsStore()
 const autoScroll = ref<boolean>(true)
 const logContainerRef = ref<HTMLDivElement | null>(null)
+
+function extractRunId(log: string): string | null {
+  const m = log.match(/\b(?:run[:=]|run_id[:=]|job[:=])([a-zA-Z0-9_-]+)\b/i)
+  return m ? m[1] : null
+}
+
 
 onMounted(() => {
   logsStore.fetchLogs()

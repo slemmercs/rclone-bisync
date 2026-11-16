@@ -35,8 +35,14 @@
           <i v-else class="pi pi-bolt text-xs"></i>
           <span>Force Sync</span>
         </button>
+
+        <button @click="logsStore.openDaemonModal(null)" class="px-3 py-1.5 bg-carbon-elevated hover:bg-slate-700 text-slate-300 border border-carbon-border rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer" title="Inspect live correlated daemon logs">
+          <i class="pi pi-terminal text-xs"></i>
+          <span>Daemon Logs</span>
+        </button>
       </div>
     </div>
+
 
     <div v-if="actionNotice" class="p-3 bg-sky-950/40 border border-sky-500/30 rounded-xl text-xs text-sky-200 flex items-center justify-between">
       <div class="flex items-center gap-2"><i class="pi pi-info-circle text-sky-400"></i><span>{{ actionNotice }}</span></div>
@@ -59,6 +65,9 @@
         <span class="text-white font-semibold">{{ activeProfile?.schedule || 'manual' }} (Review: {{ activeProfile?.review_mode || 'deletions' }})</span>
       </div>
     </div>
+
+    <!-- Unified Run-Aggregated Timeline Ledger -->
+    <ViewTelemetryLedger />
   </div>
 </template>
 
@@ -67,11 +76,16 @@ import { ref, computed } from 'vue'
 import { useProfilesStore } from '../stores/profiles'
 import { useTelemetryStore } from '../stores/telemetry'
 import { useFSMStore } from '../stores/fsm'
+import { useLogsStore } from '../stores/logs'
 import TelemetryChart from '../components/TelemetryChart.vue'
+import ViewTelemetryLedger from './ViewTelemetryLedger.vue'
 
 const profilesStore = useProfilesStore()
 const telemetryStore = useTelemetryStore()
 const fsmStore = useFSMStore()
+const logsStore = useLogsStore()
+
+
 
 const activeProfile = computed(() => profilesStore.activeProfile)
 const isSyncing = computed(() => telemetryStore.isSyncing)

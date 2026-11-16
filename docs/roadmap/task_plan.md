@@ -78,11 +78,12 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - **Scope**: `src/types/explorer.ts`, `src/components/ModalFilePreview.vue`, `src/components/ModalCompare.vue`, `src/components/ModalExplorerMkdir.vue`, `src/components/ModalExplorerMove.vue`, `src/components/ModalConfirm.vue`, `src/components/ExplorerContextMenu.vue`, `src/views/ViewExplorer.vue`
   - **Verification**: `npm run type-check && npm run build`
 
-- [ ] Task 9: Unified Run-Aggregated Ledger & Correlated Daemon Logs
+- [x] Task 9: Unified Run-Aggregated Ledger & Correlated Daemon Logs
   - **Scope**: `src/views/ViewTelemetryLedger.vue`, `src/views/ViewTelemetry.vue`, `src/components/ModalDaemonLogs.vue`, `src/components/LogDock.vue`
   - **Verification**: `npm run type-check && npm run build`
 
 - [ ] Task 10: Remote Deduplication Workspace & Remote Creation Wizard
+
   - **Scope**: `src/types/dedupe.ts`, `src/stores/dedupe.ts`, `src/components/ModalDedupe.vue`, `src/components/ModalRemoteWizard.vue`, `src/views/ViewRemotes.vue`
   - **Verification**: `npm run type-check && npm run build`
 
@@ -100,4 +101,6 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
 
 - 2026-11-16: Completed Task 8 (Phase 1) - Dual Explorer File Operations, Previews & Context Menus. Implemented typed explorer contracts in src/types/explorer.ts, updated useExplorerStore with preview, compare, mkdir, move, delete, and download operations, implemented ModalFilePreview.vue (multi-format preview with text, markdown, image data URLs, PDF iframe, and binary warnings), ModalCompare.vue (cryptographic hash and equivalence clustering), ModalExplorerMkdir.vue (subfolder creation), ModalExplorerMove.vue (rename and move), ModalConfirm.vue (blast-shield confirmation), and ExplorerContextMenu.vue (right-click action menu). Built and verified production bundle with npm run type-check && npm run build.
 - 2026-11-16: Enhanced Task 8 Dual Explorer with multi-column sorting (Name, Type, Modified, Size with folders-first ordering and asc/desc toggles), inline quick-filtering per pane, short-formatted modification timestamps, local file MIME-type sniffing via `services.DetectMimeType`, and updated `formatBytes` to return `--` for non-sized Google Doc entries (`Size: -1`), resolving the 0 B discrepancy on Google Drive native spreadsheets. All tests and 7/7 quality checks passing.
+- 2026-11-16: Completed Task 9 - Unified Run-Aggregated Ledger & Correlated Daemon Logs. Implemented `ViewTelemetryLedger.vue` with run-level event consolidation, multi-category filter pills (`All`, `File Ops`, `Sync`, `Audit`), profile dropdown filtering, repetitive log folding, and pagination; implemented `ModalDaemonLogs.vue` with PrimeVue Dialog, correlation by `run_id`/`job_id`/timestamps, level filters with badge counters, live search, fold repeated toggle, and raw/JSON copy; enhanced `src/stores/logs.ts` with bisync and daemon log actions; ported message normalization and run clustering in `src/utils/logClustering.ts`; integrated `ModalDaemonLogs` globally in `App.vue` and `LogDock.vue` with interactive `run:` badges. Verified with `npm run type-check && npm run build` and `go test ./...`.
+
 

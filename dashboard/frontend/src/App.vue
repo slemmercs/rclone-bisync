@@ -9,6 +9,8 @@ import ViewAudit from './views/ViewAudit.vue'
 import LogDock from './components/LogDock.vue'
 import ConflictReviewModal from './components/ConflictReviewModal.vue'
 import ProfileManagerModal from './components/ProfileManagerModal.vue'
+import ModalDaemonLogs from './components/ModalDaemonLogs.vue'
+
 import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
 
@@ -72,7 +74,9 @@ onUnmounted(() => {
     <!-- Interactive Modals -->
     <ConflictReviewModal v-model:visible="showReviewModal" />
     <ProfileManagerModal v-model:visible="showProfilesModal" />
+    <ModalDaemonLogs />
   </div>
+
 </template>
 
 
