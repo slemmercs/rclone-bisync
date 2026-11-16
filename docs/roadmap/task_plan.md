@@ -17,7 +17,7 @@ Transform Bisync Hub into an autonomous, deterministic Storage Control Plane by 
   - **Scope**: `internal/engine/runner/runner.go`, `runner_failure_test.go`, `internal/services/sync_service.go`
   - **Verification**: `go test -v -race -count=1 ./internal/engine/runner/...`
 
-- [ ] Task 4: PrimeVue Theming, TypeScript Contracts & Pinia Stores (`dashboard/frontend/src/`)
+- [x] Task 4: PrimeVue Theming, TypeScript Contracts & Pinia Stores (`dashboard/frontend/src/`)
   - **Scope**: `src/theme/aura-preset.ts`, `src/types/fsm.ts`, `src/types/models.ts`, `src/stores/*.ts`
   - **Verification**: `npm run type-check`
 
@@ -39,6 +39,7 @@ Transform Bisync Hub into an autonomous, deterministic Storage Control Plane by 
 - 2026-11-16: Completed Task 1 - Backend FSM Core & Transition Matrix. Implemented thread-safe `SyncFSM` in `internal/engine/state_machine.go` with transition matrix validation (`CanTransition`), state change event listeners, and API DTO models in `internal/models/fsm.go`. Tested valid/invalid transitions and 50 concurrent reader/writer goroutines with race detector passing. Verified with `go test -v -race -count=1 ./internal/engine/...` and `./scripts/check.sh loc`.
 - 2026-11-16: Completed Task 2 - Toolchain Setup & Project Scaffold. Configured NVM + Node 22 LTS (v22.23.5) in user space, scaffolded Vite + Vue 3 + PrimeVue v4 + Tailwind CSS + TypeScript in `dashboard/frontend/`, configured auto-rename of `cockpit.html` to `dist/index.html` to preserve test stability for legacy server routes, whitelisted `dist/` in `.gitignore`, and built production bundle. Verified with `node -v && npm run build`.
 - 2026-11-16: Completed Task 3 - Runner FSM Integration & Data Plane Failure Contracts. Wired `SyncFSM` transitions into `SyncRunner` (`internal/engine/runner/runner.go` and `runner_handlers.go`), added `Reset()` to `SyncFSM`, and implemented failure contract test suite in `runner_failure_test.go` covering success paths, lock contention, rate limiting, canary trips, dispatch failures, conflict/deletion safety triggers (`REVIEW_REQUIRED`), and multi-run reset lifecycles. Verified with `go test -v -race -count=1 ./internal/engine/runner/...`.
+- 2026-11-16: Completed Task 4 - PrimeVue Theming, TypeScript Contracts & Pinia Stores. Implemented custom `CarbonPreset` based on "Agnoster Carbon & Electric Blue" color palette in `src/theme/aura-preset.ts` and `tailwind.config.js` (`#090A0D` app canvas, `#111318` cards, `#191C24` elevated, `#262A36` hairline border, `#0EA5E9` electric blue accent). Defined strong TypeScript contracts in `src/types/fsm.ts` and `src/types/models.ts` strictly mirroring Go models. Implemented typed Pinia stores for FSM, Profiles, Telemetry, Logs, Review, and Explorer. Verified with `npm run type-check` and `npm run build`.
 
 
 
