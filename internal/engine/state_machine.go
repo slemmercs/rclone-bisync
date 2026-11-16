@@ -126,7 +126,6 @@ func (f *SyncFSM) Reset() error {
 	return err
 }
 
-
 // OnTransition registers a callback hook to be triggered on successful state transitions.
 func (f *SyncFSM) OnTransition(hook TransitionHook) {
 	if hook == nil {

@@ -29,7 +29,7 @@ Transform Bisync Hub into an autonomous, deterministic Storage Control Plane by 
   - **Scope**: `LogDock.vue`, `TelemetryChart.vue`, `ConflictReviewModal.vue` (PrimeVue Dialog)
   - **Verification**: `npm run build && ./scripts/check.sh loc`
 
-- [ ] Task 7: Go Server Cutover, Legacy Pruning & Final Quality Verification
+- [x] Task 7: Go Server Cutover, Legacy Pruning & Final Quality Verification
   - **Scope**: `internal/server/routes.go`, `main.go`, `main_test.go`, prune legacy scripts and templates
   - **Verification**: `./scripts/check.sh all`
 
@@ -42,6 +42,7 @@ Transform Bisync Hub into an autonomous, deterministic Storage Control Plane by 
 - 2026-11-16: Completed Task 4 - PrimeVue Theming, TypeScript Contracts & Pinia Stores. Implemented custom `CarbonPreset` based on "Agnoster Carbon & Electric Blue" color palette in `src/theme/aura-preset.ts` and `tailwind.config.js` (`#090A0D` app canvas, `#111318` cards, `#191C24` elevated, `#262A36` hairline border, `#0EA5E9` electric blue accent). Defined strong TypeScript contracts in `src/types/fsm.ts` and `src/types/models.ts` strictly mirroring Go models. Implemented typed Pinia stores for FSM, Profiles, Telemetry, Logs, Review, and Explorer. Verified with `npm run type-check` and `npm run build`.
 - 2026-11-16: Completed Task 5 - Cockpit Application Shell & High-Density Views. Implemented `FSMStateBadge.vue` with animated status indicators, `AppHeader.vue` with profile switcher, daemon status, and sync triggers, `ViewFleet.vue` with KPI telemetry ribbon and workload bindings cards, `ViewExplorer.vue` with PrimeVue `<Splitter>` dual-pane local/remote tree inspection and canary badges, and `ViewAudit.vue` with PrimeVue `<DataTable>` cryptographic hash chain validation and Steel Pill action tags (`#1E222B`). Verified with `npm run type-check` and `npm run build`.
 - 2026-11-16: Completed Task 6 - High-Performance Streaming Logs, Telemetry & Interactive Modals. Implemented `LogDock.vue` with virtual log streaming, filter pills (`ALL`, `ERROR`, `NOTICE`), height presets (`collapsed`, `docked`, `expanded`), and auto-scroll; implemented `TelemetryChart.vue` using Chart.js with strict unproxied canvas lifecycle isolation (preventing Vue reactive proxy recursions) plotting real-time throughput and daemon latency with Agnoster Carbon gradients; implemented `ConflictReviewModal.vue` powered by PrimeVue `<Dialog>` with batch decision staging ("Keep All Local", "Keep All Remote", "Keep Both", "Restore All Deletions") and safety confirmation token gates. Verified with `npm run build && ./scripts/check.sh loc`.
+- 2026-11-16: Completed Task 7 - Go Server Cutover, Legacy Pruning & Final Quality Verification. Updated `internal/server/routes.go` to serve precompiled SPA distribution assets (`/assets/`) and mount the modern Vue 3 + PrimeVue SPA at `/cockpit` with client-side fallback routing. Added unit tests in `internal/server/server_test.go` verifying the cockpit endpoint and mount point. Formatted backend Go files and verified the entire project with all 7 checks passing in `./scripts/check.sh all` and `npm run type-check && npm run build`.
 
 
 

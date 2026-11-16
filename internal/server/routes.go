@@ -85,6 +85,24 @@ func (s *Server) routes() {
 			fileServer := http.FileServer(http.FS(staticSubFS))
 			s.Mux.Handle("GET /static/", http.StripPrefix("/static/", fileServer))
 
+			if distSubFS, distErr := fs.Sub(staticSubFS, "dist"); distErr == nil {
+				if assetsFS, assetsErr := fs.Sub(distSubFS, "assets"); assetsErr == nil {
+					s.Mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assetsFS))))
+				}
+
+				handleCockpit := func(w http.ResponseWriter, r *http.Request) {
+					cockpitHTML, readErr := fs.ReadFile(distSubFS, "index.html")
+					if readErr != nil {
+						http.NotFound(w, r)
+						return
+					}
+					w.Header().Set("Content-Type", "text/html; charset=utf-8")
+					_, _ = w.Write(cockpitHTML)
+				}
+				s.Mux.HandleFunc("GET /cockpit", handleCockpit)
+				s.Mux.HandleFunc("GET /cockpit/", handleCockpit)
+			}
+
 			s.Mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 				favicon, err := fs.ReadFile(staticSubFS, "favicon.svg")
 				if err != nil {
@@ -120,6 +138,13 @@ func (s *Server) routes() {
 
 			s.Mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 				if tmplErr != nil {
+					if distSubFS, err := fs.Sub(staticSubFS, "dist"); err == nil {
+						if cockpitHTML, err := fs.ReadFile(distSubFS, "index.html"); err == nil {
+							w.Header().Set("Content-Type", "text/html; charset=utf-8")
+							_, _ = w.Write(cockpitHTML)
+							return
+						}
+					}
 					// Fallback if templates couldn't be parsed (e.g. empty test FS)
 					indexHTML, err := fs.ReadFile(staticSubFS, "index.html")
 					if err != nil {

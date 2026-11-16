@@ -247,7 +247,6 @@ func TestSyncRunner_HandleSyncFailure_RateLimitAndCriticalNotification(t *testin
 	}
 }
 
-
 func TestSyncRunner_FSM_SuccessContract(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -529,4 +528,3 @@ func TestSyncRunner_FSM_MultiRunResetContract(t *testing.T) {
 		t.Fatalf("expected COMPLETED after run 2, got %s", r.FSM.Current())
 	}
 }
-

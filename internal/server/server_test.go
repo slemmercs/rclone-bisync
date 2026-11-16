@@ -1358,6 +1358,37 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 		t.Error("found unsupported Alpine x-for array destructuring syntax")
 	}
 }
+func TestServer_CockpitSPAHandler(t *testing.T) {
+	cfg := &config.Config{BaseDir: t.TempDir()}
+	syncSvc := services.NewSyncService(cfg, nil)
+
+	realFS := os.DirFS("../..")
+	srv := NewServer(cfg, syncSvc, realFS)
+
+	// 1. GET /cockpit serves index.html
+	req, _ := http.NewRequest("GET", "/cockpit", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /cockpit, got: %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Bisync Hub Cockpit") {
+		t.Fatalf("expected 'Bisync Hub Cockpit' in /cockpit body, got: %s", body)
+	}
+	if !strings.Contains(body, `<div id="app"></div>`) {
+		t.Fatalf("expected '<div id=\"app\"></div>' mount point in /cockpit body, got: %s", body)
+	}
+
+	// 2. GET /cockpit/ serves index.html
+	reqTrailing, _ := http.NewRequest("GET", "/cockpit/", nil)
+	recTrailing := httptest.NewRecorder()
+	srv.ServeHTTP(recTrailing, reqTrailing)
+	if recTrailing.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /cockpit/, got: %d", recTrailing.Code)
+	}
+}
 
 func TestFormatMajorMinor(t *testing.T) {
 	tests := []struct {
