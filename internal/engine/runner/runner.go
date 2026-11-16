@@ -16,6 +16,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/core/notifier"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
+	"github.com/slemmercs/rclone-bisync/internal/engine"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -33,6 +34,7 @@ type SyncRunner struct {
 	Notifier *notifier.Dispatcher
 	Logger   *logger.Logger
 	Audit    AuditRecorder
+	FSM      *engine.SyncFSM
 }
 
 // NewSyncRunner creates a configured SyncRunner instance.
@@ -68,6 +70,12 @@ func NewSyncRunner(cfg *config.Config) *SyncRunner {
 		}
 	}
 
+	profID := "default"
+	if cfg.ProfileID != "" {
+		profID = cfg.ProfileID
+	}
+	fsm := engine.NewSyncFSM(profID, engine.StateIdle)
+
 	return &SyncRunner{
 		Config:   cfg,
 		LockMgr:  lockMgr,
@@ -75,6 +83,7 @@ func NewSyncRunner(cfg *config.Config) *SyncRunner {
 		Notifier: dispatcher,
 		Logger:   runLogger,
 		Audit:    auditRec,
+		FSM:      fsm,
 	}
 }
 
@@ -111,15 +120,28 @@ func (r *SyncRunner) RunWithError(
 	startTime := time.Now()
 
 	// Acquire lock
-	profID := ""
+	profID := "default"
 	profName := ""
 	if r.Config != nil {
-		profID = r.Config.ProfileID
+		if r.Config.ProfileID != "" {
+			profID = r.Config.ProfileID
+		}
 		profName = r.Config.ProfileName
 	}
 
+	if r.FSM == nil {
+		r.FSM = engine.NewSyncFSM(profID, engine.StateIdle)
+	} else if r.FSM.Current() == engine.StateCompleted || r.FSM.Current() == engine.StateAborted {
+		_ = r.FSM.Reset()
+	}
+
+	_, _ = r.FSM.Transition(engine.StateQueued, runID, "sync dispatched", "")
+
 	locked, err := r.LockMgr.Acquire()
 	if err != nil || !locked {
+		if r.FSM != nil {
+			_, _ = r.FSM.Transition(engine.StateAborted, runID, "lock acquisition failed: another sync process is already running", "LOCK_CONTENTION")
+		}
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
@@ -145,6 +167,9 @@ func (r *SyncRunner) RunWithError(
 
 	// Rate limit backoff check
 	if !force && state.IsRateLimitActive(r.Config.RateLimitBackoffFile) {
+		if r.FSM != nil {
+			_, _ = r.FSM.Transition(engine.StateAborted, runID, "rate limit backoff is active", "RATE_LIMIT_BACKOFF")
+		}
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
@@ -198,6 +223,9 @@ func (r *SyncRunner) RunWithError(
 		dryRun,
 	)
 	if err != nil {
+		if r.FSM != nil {
+			_, _ = r.FSM.Transition(engine.StateAborted, runID, fmt.Sprintf("configuration/canary check failed: %v", err), "CANARY_GUARD")
+		}
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
@@ -227,6 +255,9 @@ func (r *SyncRunner) RunWithError(
 	if err != nil {
 		errStr := err.Error()
 		errType := classifier.ClassifyError(errStr)
+		if r.FSM != nil {
+			_, _ = r.FSM.Transition(engine.StateAborted, runID, fmt.Sprintf("sync dispatch failed [%s]: %s", errType, errStr), errType)
+		}
 		if r.Logger != nil {
 			_ = r.Logger.RecordSyncRun(models.BisyncLogEntry{
 				Time:        time.Now().Format(time.RFC3339),
@@ -250,6 +281,10 @@ func (r *SyncRunner) RunWithError(
 			_ = r.Notifier.SendDesktop(r.notificationTitle(fmt.Sprintf("Sync Dispatch Error - %s", errType)), errStr, "critical")
 		}
 		return false, fmt.Errorf("sync dispatch failed [%s]: %s", errType, errStr)
+	}
+
+	if r.FSM != nil {
+		_, _ = r.FSM.Transition(engine.StateRunning, runID, fmt.Sprintf("sync started (job ID %d)", jobID), "")
 	}
 
 	if r.Logger != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/core/classifier"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
+	"github.com/slemmercs/rclone-bisync/internal/engine"
 	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -163,6 +164,10 @@ func (r *SyncRunner) handleSyncSuccess(
 		_ = r.Notifier.SendDesktop(r.notificationTitle("Rclone Bisync Successful"), fmt.Sprintf("Synced %d files in %.1fs", monitorRes.FilesSynced, duration), "normal")
 	}
 
+	if r.FSM != nil {
+		_, _ = r.FSM.Transition(engine.StateCompleted, runID, fmt.Sprintf("%s succeeded in %.1fs", action, duration), "")
+	}
+
 	return true
 }
 
@@ -228,6 +233,9 @@ func (r *SyncRunner) handleSyncFailure(
 	}
 
 	if errType == "TOO_MANY_DELETES" || errType == "CONFLICT" {
+		if r.FSM != nil {
+			_, _ = r.FSM.Transition(engine.StateReviewRequired, runID, fmt.Sprintf("review required [%s]: %s", errType, monitorRes.ErrorMessage), errType)
+		}
 		var logLines []string
 		if r.Config.BaseDir != "" {
 			daemonLog := filepath.Join(r.Config.BaseDir, "rclone-daemon.log")
@@ -309,6 +317,10 @@ func (r *SyncRunner) handleSyncFailure(
 		notificationState.LastErrorType = errType
 		notificationState.LastErrorTimestamp = float64(time.Now().Unix())
 		_ = state.WriteNotificationState(r.Config.NotificationStateFile, notificationState)
+	}
+
+	if r.FSM != nil && r.FSM.Current() == engine.StateRunning {
+		_, _ = r.FSM.Transition(engine.StateAborted, runID, fmt.Sprintf("sync failed [%s]: %s", errType, monitorRes.ErrorMessage), errType)
 	}
 
 	return false

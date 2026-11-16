@@ -13,9 +13,9 @@ Transform Bisync Hub into an autonomous, deterministic Storage Control Plane by 
   - **Scope**: NVM, Node 22 LTS, `dashboard/frontend/package.json`, `tsconfig.json`, `vite.config.ts`, `tailwind.config.js`
   - **Verification**: `node -v && npm run build`
 
-- [ ] Task 3: Runner FSM Integration & Data Plane Failure Contracts (`internal/engine/runner/`, `internal/services/`)
-  - **Scope**: `internal/engine/runner/runner.go`, `runner_contract_test.go`, `internal/services/sync_service.go`
-  - **Verification**: `go test -v -race -count=1 ./internal/engine/runner/... -run "TestContract_"`
+- [x] Task 3: Runner FSM Integration & Data Plane Failure Contracts (`internal/engine/runner/`, `internal/services/`)
+  - **Scope**: `internal/engine/runner/runner.go`, `runner_failure_test.go`, `internal/services/sync_service.go`
+  - **Verification**: `go test -v -race -count=1 ./internal/engine/runner/...`
 
 - [ ] Task 4: PrimeVue Theming, TypeScript Contracts & Pinia Stores (`dashboard/frontend/src/`)
   - **Scope**: `src/theme/aura-preset.ts`, `src/types/fsm.ts`, `src/types/models.ts`, `src/stores/*.ts`
@@ -38,6 +38,7 @@ Transform Bisync Hub into an autonomous, deterministic Storage Control Plane by 
 - 2026-11-15: Initialized plan for Unified FSM Storage Control Plane & Vue 3 + PrimeVue Cockpit Modernization from implementation_plan.md.
 - 2026-11-16: Completed Task 1 - Backend FSM Core & Transition Matrix. Implemented thread-safe `SyncFSM` in `internal/engine/state_machine.go` with transition matrix validation (`CanTransition`), state change event listeners, and API DTO models in `internal/models/fsm.go`. Tested valid/invalid transitions and 50 concurrent reader/writer goroutines with race detector passing. Verified with `go test -v -race -count=1 ./internal/engine/...` and `./scripts/check.sh loc`.
 - 2026-11-16: Completed Task 2 - Toolchain Setup & Project Scaffold. Configured NVM + Node 22 LTS (v22.23.5) in user space, scaffolded Vite + Vue 3 + PrimeVue v4 + Tailwind CSS + TypeScript in `dashboard/frontend/`, configured auto-rename of `cockpit.html` to `dist/index.html` to preserve test stability for legacy server routes, whitelisted `dist/` in `.gitignore`, and built production bundle. Verified with `node -v && npm run build`.
+- 2026-11-16: Completed Task 3 - Runner FSM Integration & Data Plane Failure Contracts. Wired `SyncFSM` transitions into `SyncRunner` (`internal/engine/runner/runner.go` and `runner_handlers.go`), added `Reset()` to `SyncFSM`, and implemented failure contract test suite in `runner_failure_test.go` covering success paths, lock contention, rate limiting, canary trips, dispatch failures, conflict/deletion safety triggers (`REVIEW_REQUIRED`), and multi-run reset lifecycles. Verified with `go test -v -race -count=1 ./internal/engine/runner/...`.
 
 
 

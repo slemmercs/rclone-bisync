@@ -113,6 +113,20 @@ func (f *SyncFSM) CanTrigger() bool {
 	return f.current == StateIdle || f.current == StateCompleted || f.current == StateAborted
 }
 
+// Reset transitions the FSM back to StateIdle if it is in StateCompleted or StateAborted.
+func (f *SyncFSM) Reset() error {
+	f.mu.Lock()
+	cur := f.current
+	if cur == StateIdle {
+		f.mu.Unlock()
+		return nil
+	}
+	f.mu.Unlock()
+	_, err := f.Transition(StateIdle, "", "reset to idle", "")
+	return err
+}
+
+
 // OnTransition registers a callback hook to be triggered on successful state transitions.
 func (f *SyncFSM) OnTransition(hook TransitionHook) {
 	if hook == nil {

@@ -12,8 +12,10 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/core/lock"
 	"github.com/slemmercs/rclone-bisync/internal/core/logger"
 	"github.com/slemmercs/rclone-bisync/internal/core/state"
+	"github.com/slemmercs/rclone-bisync/internal/engine"
 	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
 )
@@ -244,3 +246,287 @@ func TestSyncRunner_HandleSyncFailure_RateLimitAndCriticalNotification(t *testin
 		t.Errorf("expected notify state file to be created")
 	}
 }
+
+
+func TestSyncRunner_FSM_SuccessContract(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sync/bisync":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobid": 501})
+		case "/job/status":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"finished": true,
+				"success":  true,
+				"output":   map[string]interface{}{"transfers": 3},
+			})
+		}
+	}))
+	defer srv.Close()
+
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		RCAPIURL:                 srv.URL,
+		LocalPath:                tmpDir,
+		RemotePath:               "remote:bucket",
+		LockFile:                 filepath.Join(tmpDir, "sync.lock"),
+		LogFile:                  filepath.Join(tmpDir, "sync.log"),
+		ProfileID:                "fsm-success-prof",
+		JobPollInitialSleepSec:   0.005,
+		JobPollMaxSleepSec:       0.01,
+		JobPollBackoffMultiplier: 1.0,
+		JobTimeoutSeconds:        5,
+	}
+
+	r := NewSyncRunner(cfg)
+	if r.FSM == nil || r.FSM.Current() != engine.StateIdle {
+		t.Fatalf("expected initial FSM state IDLE, got %v", r.FSM)
+	}
+
+	var transitions []engine.SyncFSMState
+	r.FSM.OnTransition(func(evt engine.StateChangeEvent) {
+		transitions = append(transitions, evt.To)
+	})
+
+	success, err := r.RunWithError(context.Background(), false, false, false, "test", "run-fsm-succ", true)
+	if !success || err != nil {
+		t.Fatalf("expected sync success, got err: %v", err)
+	}
+
+	if r.FSM.Current() != engine.StateCompleted {
+		t.Fatalf("expected final state COMPLETED, got %s", r.FSM.Current())
+	}
+
+	// Verify transition sequence: QUEUED -> RUNNING -> COMPLETED
+	expected := []engine.SyncFSMState{engine.StateQueued, engine.StateRunning, engine.StateCompleted}
+	if len(transitions) != len(expected) {
+		t.Fatalf("expected %d transitions, got %d (%v)", len(expected), len(transitions), transitions)
+	}
+	for i, exp := range expected {
+		if transitions[i] != exp {
+			t.Errorf("transition %d: expected %s, got %s", i, exp, transitions[i])
+		}
+	}
+}
+
+func TestSyncRunner_FSM_LockContentionContract(t *testing.T) {
+	tmpDir := t.TempDir()
+	lockPath := filepath.Join(tmpDir, "contention.lock")
+
+	lm := lock.NewLockManager(lockPath, 3600, false)
+	acquired, err := lm.Acquire()
+	if err != nil || !acquired {
+		t.Fatalf("failed to hold initial lock: %v", err)
+	}
+	defer lm.Release()
+
+	cfg := &config.Config{
+		LocalPath: tmpDir,
+		LockFile:  lockPath,
+		ProfileID: "lock-fail-prof",
+	}
+
+	r := NewSyncRunner(cfg)
+	success, err := r.RunWithError(context.Background(), false, false, false, "test", "run-fsm-lock", true)
+	if success || err == nil {
+		t.Fatal("expected run to fail due to lock contention")
+	}
+
+	if r.FSM.Current() != engine.StateAborted {
+		t.Fatalf("expected FSM state ABORTED, got %s", r.FSM.Current())
+	}
+	last := r.FSM.LastEvent()
+	if last.ErrorType != "LOCK_CONTENTION" {
+		t.Fatalf("expected error type LOCK_CONTENTION, got %s", last.ErrorType)
+	}
+}
+
+func TestSyncRunner_FSM_RateLimitBackoffContract(t *testing.T) {
+	tmpDir := t.TempDir()
+	rateFile := filepath.Join(tmpDir, "rate_limit.flag")
+	_ = os.WriteFile(rateFile, []byte(`{"active":true}`), 0644)
+
+	cfg := &config.Config{
+		LocalPath:            tmpDir,
+		LockFile:             filepath.Join(tmpDir, "test.lock"),
+		RateLimitBackoffFile: rateFile,
+		ProfileID:            "rate-limit-prof",
+	}
+
+	r := NewSyncRunner(cfg)
+	success, err := r.RunWithError(context.Background(), false, false, false, "test", "run-fsm-rate", true)
+	if success || err == nil {
+		t.Fatal("expected run to fail due to rate limit")
+	}
+
+	if r.FSM.Current() != engine.StateAborted {
+		t.Fatalf("expected FSM state ABORTED, got %s", r.FSM.Current())
+	}
+	last := r.FSM.LastEvent()
+	if last.ErrorType != "RATE_LIMIT_BACKOFF" {
+		t.Fatalf("expected error type RATE_LIMIT_BACKOFF, got %s", last.ErrorType)
+	}
+}
+
+func TestSyncRunner_FSM_DispatchFailureContract(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "connection refused by daemon", http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		RCAPIURL:   srv.URL,
+		LocalPath:  tmpDir,
+		RemotePath: "remote:bucket",
+		LockFile:   filepath.Join(tmpDir, "dispatch.lock"),
+		ProfileID:  "dispatch-fail-prof",
+	}
+
+	r := NewSyncRunner(cfg)
+	success, err := r.RunWithError(context.Background(), false, false, false, "test", "run-fsm-dispatch", true)
+	if success || err == nil {
+		t.Fatal("expected run to fail due to dispatch error")
+	}
+
+	if r.FSM.Current() != engine.StateAborted {
+		t.Fatalf("expected FSM state ABORTED, got %s", r.FSM.Current())
+	}
+}
+
+func TestSyncRunner_FSM_ConflictReviewRequiredContract(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sync/bisync":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobid": 601})
+		case "/job/status":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"finished": true,
+				"success":  false,
+				"error":    "Safety abort: too many deletes: 5 files to delete exceeds limit 0 (use --force or adjust max-delete)",
+			})
+		}
+	}))
+	defer srv.Close()
+
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		RCAPIURL:                 srv.URL,
+		LocalPath:                tmpDir,
+		RemotePath:               "remote:bucket",
+		LockFile:                 filepath.Join(tmpDir, "conflict.lock"),
+		LogFile:                  filepath.Join(tmpDir, "conflict.log"),
+		PendingDeletionsFile:     filepath.Join(tmpDir, "deletions.json"),
+		ActiveReviewFile:         filepath.Join(tmpDir, "review.json"),
+		ProfileID:                "fsm-conflict-prof",
+		JobPollInitialSleepSec:   0.005,
+		JobPollMaxSleepSec:       0.01,
+		JobPollBackoffMultiplier: 1.0,
+		JobTimeoutSeconds:        5,
+	}
+
+	r := NewSyncRunner(cfg)
+	success, err := r.RunWithError(context.Background(), false, false, false, "test", "run-fsm-conflict", true)
+	if success {
+		t.Fatal("expected sync to fail with review required")
+	}
+	if err == nil {
+		t.Fatal("expected error returned for review required")
+	}
+
+	if r.FSM.Current() != engine.StateReviewRequired {
+		t.Fatalf("expected FSM state REVIEW_REQUIRED, got %s", r.FSM.Current())
+	}
+	last := r.FSM.LastEvent()
+	if last.ErrorType != "TOO_MANY_DELETES" {
+		t.Fatalf("expected error type TOO_MANY_DELETES, got %s", last.ErrorType)
+	}
+}
+
+func TestSyncRunner_FSM_JobFatalAbortContract(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sync/bisync":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobid": 701})
+		case "/job/status":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"finished": true,
+				"success":  false,
+				"error":    "fatal: out of memory during file listing",
+			})
+		}
+	}))
+	defer srv.Close()
+
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		RCAPIURL:                 srv.URL,
+		LocalPath:                tmpDir,
+		RemotePath:               "remote:bucket",
+		LockFile:                 filepath.Join(tmpDir, "fatal.lock"),
+		ProfileID:                "fsm-fatal-prof",
+		JobPollInitialSleepSec:   0.005,
+		JobPollMaxSleepSec:       0.01,
+		JobPollBackoffMultiplier: 1.0,
+		JobTimeoutSeconds:        5,
+	}
+
+	r := NewSyncRunner(cfg)
+	success, err := r.RunWithError(context.Background(), false, false, false, "test", "run-fsm-fatal", true)
+	if success || err == nil {
+		t.Fatal("expected sync to fail with fatal error")
+	}
+
+	if r.FSM.Current() != engine.StateAborted {
+		t.Fatalf("expected FSM state ABORTED, got %s", r.FSM.Current())
+	}
+}
+
+func TestSyncRunner_FSM_MultiRunResetContract(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sync/bisync":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"jobid": 801})
+		case "/job/status":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"finished": true,
+				"success":  true,
+				"output":   map[string]interface{}{"transfers": 1},
+			})
+		}
+	}))
+	defer srv.Close()
+
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		RCAPIURL:                 srv.URL,
+		LocalPath:                tmpDir,
+		RemotePath:               "remote:bucket",
+		LockFile:                 filepath.Join(tmpDir, "multirun.lock"),
+		ProfileID:                "fsm-multirun-prof",
+		JobPollInitialSleepSec:   0.005,
+		JobPollMaxSleepSec:       0.01,
+		JobPollBackoffMultiplier: 1.0,
+		JobTimeoutSeconds:        5,
+	}
+
+	r := NewSyncRunner(cfg)
+
+	// Run 1
+	s1, err1 := r.RunWithError(context.Background(), false, false, false, "test", "run-1", true)
+	if !s1 || err1 != nil {
+		t.Fatalf("run 1 failed: %v", err1)
+	}
+	if r.FSM.Current() != engine.StateCompleted {
+		t.Fatalf("expected COMPLETED after run 1, got %s", r.FSM.Current())
+	}
+
+	// Run 2 immediately on the same runner instance
+	s2, err2 := r.RunWithError(context.Background(), false, false, false, "test", "run-2", true)
+	if !s2 || err2 != nil {
+		t.Fatalf("run 2 failed: %v", err2)
+	}
+	if r.FSM.Current() != engine.StateCompleted {
+		t.Fatalf("expected COMPLETED after run 2, got %s", r.FSM.Current())
+	}
+}
+
