@@ -55,12 +55,14 @@
 
     <!-- Binary File Warning -->
     <div v-else-if="preview?.is_binary" class="py-12 flex flex-col items-center justify-center text-center gap-3">
-      <div class="w-12 h-12 rounded-full bg-carbon-elevated border border-carbon-border flex items-center justify-center text-slate-400">
-        <i class="pi pi-file text-xl"></i>
+      <div class="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+        <i class="pi pi-ban text-xl"></i>
       </div>
       <div class="space-y-1">
-        <h4 class="text-sm font-semibold text-white">Binary File</h4>
-        <p class="text-xs text-slate-400 max-w-sm">Direct preview is not supported for binary streams. Download to inspect locally.</p>
+        <h4 class="text-sm font-semibold text-white">Preview Not Allowed</h4>
+        <p class="text-xs text-slate-400 max-w-sm">
+          {{ preview.error || 'Preview is not allowed for binary files. Please download the file to inspect its contents.' }}
+        </p>
       </div>
     </div>
 

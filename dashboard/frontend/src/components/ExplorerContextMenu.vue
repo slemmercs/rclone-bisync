@@ -16,7 +16,7 @@
     <!-- File Inspection & Operations -->
     <div class="py-1">
       <button
-        v-if="!item?.IsDir"
+        v-if="!item?.IsDir && isItemPreviewable(item)"
         @click="action('preview')"
         class="w-full text-left px-3 py-1.5 hover:bg-carbon-800 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
       >
@@ -87,6 +87,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
 import type { BrowseItem } from '../types/models'
+import { isItemPreviewable } from '../types/explorer'
 
 const props = defineProps<{
   visible: boolean

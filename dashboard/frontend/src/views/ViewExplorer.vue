@@ -143,10 +143,40 @@
             </div>
           </div>
 
-          <!-- Path Breadcrumbs -->
-          <div class="mb-2 bg-carbon-950 px-3 py-1.5 rounded-xl border border-carbon-800 text-xs font-mono text-indigo-300 truncate flex items-center justify-between">
-            <span class="truncate">{{ getDisplayPath('left') }}</span>
-            <span class="text-[10px] text-carbon-500 shrink-0 font-sans ml-2">{{ leftItems.length }} item(s)</span>
+          <!-- Left Breadcrumb Location Bar -->
+          <div class="mb-2 bg-carbon-950/80 px-3 py-1.5 rounded-xl border border-carbon-800 flex items-center justify-between gap-2 text-xs font-mono text-slate-300 min-w-0 shrink-0">
+            <div class="flex items-center gap-1 min-w-0 overflow-x-auto py-0.5 no-scrollbar flex-1" :title="getDisplayPath('left')">
+              <i class="pi pi-folder text-slate-500 text-xs shrink-0 mr-1"></i>
+              <template v-for="(crumb, idx) in getBreadcrumbs('left')" :key="crumb.path + crumb.name">
+                <div class="flex items-center shrink-0 min-w-0">
+                  <span v-if="idx > 0" class="text-carbon-600 px-1 select-none">/</span>
+                  <button
+                    type="button"
+                    @click="navigateToCrumb('left', crumb)"
+                    class="transition-colors truncate max-w-[140px] sm:max-w-[200px] cursor-pointer"
+                    :class="[
+                      idx === getBreadcrumbs('left').length - 1 ? 'text-electric-400 font-bold' : 'text-slate-400 hover:text-white hover:underline',
+                      crumb.isEllipsis ? 'text-slate-500 hover:text-slate-300 font-bold px-0.5' : '',
+                    ]"
+                    :title="crumb.title || crumb.name"
+                  >
+                    {{ crumb.name }}
+                  </button>
+                </div>
+              </template>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-[10px] text-carbon-500 font-sans">{{ leftItems.length }} item(s)</span>
+              <button
+                type="button"
+                @click="copyPanePath('left')"
+                class="p-1 hover:bg-carbon-800 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
+                :class="leftCopied ? 'text-emerald-400' : ''"
+                :title="leftCopied ? 'Copied!' : 'Copy Path'"
+              >
+                <i :class="leftCopied ? 'pi pi-check text-xs' : 'pi pi-copy text-xs'"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Left Items List -->
@@ -163,6 +193,7 @@
               v-for="item in leftItems"
               :key="item.Name"
               @click="handleItemClick('left', item)"
+              @dblclick="handleItemDblClick('left', item)"
               @contextmenu.prevent="handleContextMenu($event, 'left', item)"
               class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors rounded-lg group"
               :class="isRowSelected('left', item) ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200'"
@@ -183,7 +214,11 @@
                   class="text-xs shrink-0"
                   :class="item.IsDir ? 'pi pi-folder text-amber-400' : 'pi pi-file text-carbon-400'"
                 ></i>
-                <span class="truncate">{{ item.Name }}</span>
+                <span
+                  class="truncate"
+                  :class="isItemPreviewable(item) ? 'hover:text-electric-300 hover:underline' : ''"
+                  @click.stop="handleNameClick('left', item)"
+                >{{ item.Name }}</span>
               </div>
 
               <div class="flex items-center gap-2 text-[11px] text-carbon-400 shrink-0">
@@ -266,10 +301,40 @@
             </div>
           </div>
 
-          <!-- Path Breadcrumbs -->
-          <div class="mb-2 bg-carbon-950 px-3 py-1.5 rounded-xl border border-carbon-800 text-xs font-mono text-emerald-400 truncate flex items-center justify-between">
-            <span class="truncate">{{ getDisplayPath('right') }}</span>
-            <span class="text-[10px] text-carbon-500 shrink-0 font-sans ml-2">{{ rightItems.length }} item(s)</span>
+          <!-- Right Breadcrumb Location Bar -->
+          <div class="mb-2 bg-carbon-950/80 px-3 py-1.5 rounded-xl border border-carbon-800 flex items-center justify-between gap-2 text-xs font-mono text-slate-300 min-w-0 shrink-0">
+            <div class="flex items-center gap-1 min-w-0 overflow-x-auto py-0.5 no-scrollbar flex-1" :title="getDisplayPath('right')">
+              <i class="pi pi-folder text-slate-500 text-xs shrink-0 mr-1"></i>
+              <template v-for="(crumb, idx) in getBreadcrumbs('right')" :key="crumb.path + crumb.name">
+                <div class="flex items-center shrink-0 min-w-0">
+                  <span v-if="idx > 0" class="text-carbon-600 px-1 select-none">/</span>
+                  <button
+                    type="button"
+                    @click="navigateToCrumb('right', crumb)"
+                    class="transition-colors truncate max-w-[140px] sm:max-w-[200px] cursor-pointer"
+                    :class="[
+                      idx === getBreadcrumbs('right').length - 1 ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-white hover:underline',
+                      crumb.isEllipsis ? 'text-slate-500 hover:text-slate-300 font-bold px-0.5' : '',
+                    ]"
+                    :title="crumb.title || crumb.name"
+                  >
+                    {{ crumb.name }}
+                  </button>
+                </div>
+              </template>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-[10px] text-carbon-500 font-sans">{{ rightItems.length }} item(s)</span>
+              <button
+                type="button"
+                @click="copyPanePath('right')"
+                class="p-1 hover:bg-carbon-800 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
+                :class="rightCopied ? 'text-emerald-400' : ''"
+                :title="rightCopied ? 'Copied!' : 'Copy Path'"
+              >
+                <i :class="rightCopied ? 'pi pi-check text-xs' : 'pi pi-copy text-xs'"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Right Items List -->
@@ -286,6 +351,7 @@
               v-for="item in rightItems"
               :key="item.Name"
               @click="handleItemClick('right', item)"
+              @dblclick="handleItemDblClick('right', item)"
               @contextmenu.prevent="handleContextMenu($event, 'right', item)"
               class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors rounded-lg group"
               :class="isRowSelected('right', item) ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200'"
@@ -306,7 +372,11 @@
                   class="text-xs shrink-0"
                   :class="item.IsDir ? 'pi pi-folder text-amber-400' : 'pi pi-file text-carbon-400'"
                 ></i>
-                <span class="truncate">{{ item.Name }}</span>
+                <span
+                  class="truncate"
+                  :class="isItemPreviewable(item) ? 'hover:text-electric-300 hover:underline' : ''"
+                  @click.stop="handleNameClick('right', item)"
+                >{{ item.Name }}</span>
               </div>
 
               <div class="flex items-center gap-2 text-[11px] text-carbon-400 shrink-0">
@@ -393,7 +463,7 @@ import { useProfilesStore } from '../stores/profiles'
 import { useExplorerStore } from '../stores/explorer'
 import { useLogsStore } from '../stores/logs'
 import type { BrowseItem } from '../types/models'
-import type { FilePreviewResponse, FileCompareResponse } from '../types/explorer'
+import { isItemPreviewable, type FilePreviewResponse, type FileCompareResponse } from '../types/explorer'
 import ModalFilePreview from '../components/ModalFilePreview.vue'
 import ModalCompare from '../components/ModalCompare.vue'
 import ModalExplorerMkdir from '../components/ModalExplorerMkdir.vue'
@@ -560,6 +630,80 @@ function getDisplayPath(pane: 'left' | 'right'): string {
   return relPath ? `${remote}:${relPath}` : `${remote}:/`
 }
 
+interface BreadcrumbItem {
+  name: string
+  path: string
+  title?: string
+  isEllipsis?: boolean
+}
+
+function getBreadcrumbs(pane: 'left' | 'right'): BreadcrumbItem[] {
+  const remote = pane === 'left' ? leftRemote.value : rightRemote.value
+  const isLocal = pane === 'left' ? leftIsLocal.value : rightIsLocal.value
+  const currentPath = pane === 'left' ? leftPath.value : rightPath.value
+
+  const rootLabel = isLocal ? '~' : `${remote}:`
+  const allCrumbs: BreadcrumbItem[] = [{ name: rootLabel, path: '' }]
+  if (!currentPath) return allCrumbs
+
+  const parts = currentPath.split('/').filter(Boolean)
+  let cumulative = ''
+  for (const part of parts) {
+    cumulative = cumulative ? `${cumulative}/${part}` : part
+    allCrumbs.push({ name: part, path: cumulative })
+  }
+
+  if (allCrumbs.length <= 4) {
+    return allCrumbs
+  }
+
+  // Middle collapse deep paths: root / … / parent / current
+  const rootCrumb = allCrumbs[0]
+  const parentCrumb = allCrumbs[allCrumbs.length - 2]
+  const currentCrumb = allCrumbs[allCrumbs.length - 1]
+  const middleCrumbs = allCrumbs.slice(1, allCrumbs.length - 2)
+  const hiddenPath = middleCrumbs.map((c) => c.name).join('/')
+
+  const ellipsisCrumb: BreadcrumbItem = {
+    name: '…',
+    path: middleCrumbs[middleCrumbs.length - 1].path,
+    title: `Hidden folders: /${hiddenPath}`,
+    isEllipsis: true,
+  }
+
+  return [rootCrumb, ellipsisCrumb, parentCrumb, currentCrumb]
+}
+
+function navigateToCrumb(pane: 'left' | 'right', crumb: BreadcrumbItem) {
+  if (pane === 'left') {
+    leftPath.value = crumb.path
+    refreshPane('left')
+  } else {
+    rightPath.value = crumb.path
+    refreshPane('right')
+  }
+}
+
+const leftCopied = ref(false)
+const rightCopied = ref(false)
+
+function copyPanePath(pane: 'left' | 'right') {
+  const path = getDisplayPath(pane)
+  navigator.clipboard.writeText(path).then(() => {
+    if (pane === 'left') {
+      leftCopied.value = true
+      setTimeout(() => {
+        leftCopied.value = false
+      }, 1500)
+    } else {
+      rightCopied.value = true
+      setTimeout(() => {
+        rightCopied.value = false
+      }, 1500)
+    }
+  }).catch(() => {})
+}
+
 function getRelativeItemPath(pane: 'left' | 'right', item: BrowseItem): string {
   const currentPath = pane === 'left' ? leftPath.value : rightPath.value
   return currentPath ? `${currentPath.replace(/\/+$/, '')}/${item.Name}` : item.Name
@@ -600,6 +744,25 @@ function handleItemClick(pane: 'left' | 'right', item: BrowseItem) {
   } else {
     if (pane === 'left') leftSelected.value = item
     else rightSelected.value = item
+  }
+}
+
+function handleNameClick(pane: 'left' | 'right', item: BrowseItem) {
+  if (item.IsDir) {
+    handleItemClick(pane, item)
+    return
+  }
+  if (pane === 'left') leftSelected.value = item
+  else rightSelected.value = item
+  if (isItemPreviewable(item)) {
+    triggerPreview(pane === 'left' ? leftRemote.value : rightRemote.value, getRelativeItemPath(pane, item), item.Name)
+  }
+}
+
+function handleItemDblClick(pane: 'left' | 'right', item: BrowseItem) {
+  if (item.IsDir) {
+    handleItemClick(pane, item)
+  } else if (isItemPreviewable(item)) {
     triggerPreview(pane === 'left' ? leftRemote.value : rightRemote.value, getRelativeItemPath(pane, item), item.Name)
   }
 }
@@ -677,6 +840,9 @@ async function openOnRemoteDirect(remote: string, path: string) {
 }
 
 async function triggerPreview(remote: string, path: string, name: string) {
+  if (!isItemPreviewable({ Name: name, IsDir: false })) {
+    return
+  }
   previewLoading.value = true
   previewError.value = null
   previewData.value = null
@@ -762,7 +928,9 @@ function handleContextAction(act: 'preview' | 'compare' | 'download' | 'open_on_
 
   switch (act) {
     case 'preview':
-      triggerPreview(remote, fullPath, item.Name)
+      if (isItemPreviewable(item)) {
+        triggerPreview(remote, fullPath, item.Name)
+      }
       break
     case 'compare':
       toggleCompare(pane, item)

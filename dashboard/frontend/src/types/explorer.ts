@@ -93,3 +93,20 @@ export interface DeleteResponse {
   fs?: string
   error?: string
 }
+
+export const PREVIEWABLE_EXTENSIONS = new Set([
+  '.txt', '.md', '.markdown', '.log', '.conf', '.ini', '.env', '.csv',
+  '.json', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.js', '.ts',
+  '.go', '.sh', '.bash', '.py', '.rs', '.sql',
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.pdf',
+])
+
+export function isItemPreviewable(item: { Name?: string; IsDir?: boolean } | null | undefined): boolean {
+  if (!item || item.IsDir) return false
+  const name = (item.Name || '').toLowerCase()
+  const dotIndex = name.lastIndexOf('.')
+  if (dotIndex === -1) return false
+  const ext = name.slice(dotIndex)
+  return PREVIEWABLE_EXTENSIONS.has(ext)
+}
+
