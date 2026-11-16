@@ -145,9 +145,9 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 				itemRelPath = fmt.Sprintf("%s/%s", cleanPath, entry.Name())
 			}
 
-			mimeType := "application/octet-stream"
-			if isDir {
-				mimeType = "inode/directory"
+			mimeType := "inode/directory"
+			if !isDir {
+				mimeType = DetectMimeType(entry.Name(), nil)
 			}
 
 			isSymlink := (entry.Type() & os.ModeSymlink) != 0

@@ -179,4 +179,3 @@ func (c *RcloneClient) HashsumFile(ctx context.Context, remote, path, hashType s
 	}
 	return strings.ToLower(strings.TrimSpace(res.Hash)), nil
 }
-

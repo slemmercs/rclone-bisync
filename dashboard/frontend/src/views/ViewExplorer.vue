@@ -179,18 +179,78 @@
             </div>
           </div>
 
+          <!-- Left Column Sort & Filter Header -->
+          <div class="px-3 py-1.5 bg-carbon-950/90 border-b border-carbon-800 text-[10px] uppercase font-bold text-slate-500 flex items-center justify-between gap-2 select-none tracking-wider shrink-0 font-sans rounded-t-lg">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <div class="relative w-28 sm:w-36 shrink-0">
+                <input
+                  v-model="leftSearch"
+                  type="text"
+                  placeholder="Filter..."
+                  class="w-full bg-carbon-900 border border-carbon-800 rounded px-2 py-0.5 text-[10px] text-white placeholder-slate-500 focus:outline-none focus:border-electric-500 transition-colors font-sans normal-case"
+                />
+                <button
+                  v-if="leftSearch"
+                  @click="leftSearch = ''"
+                  class="absolute inset-y-0 right-0 pr-1.5 flex items-center text-slate-400 hover:text-white text-[10px] cursor-pointer"
+                >✕</button>
+              </div>
+              <span class="text-carbon-700">|</span>
+              <button
+                type="button"
+                @click="toggleSort('left', 'name')"
+                class="flex items-center gap-1 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Sort alphabetically by Name"
+              >
+                <span>Name</span>
+                <span v-if="leftSortBy === 'name'" class="text-electric-400">{{ leftSortAsc ? '▲' : '▼' }}</span>
+              </button>
+              <span class="text-carbon-700">|</span>
+              <button
+                type="button"
+                @click="toggleSort('left', 'type')"
+                class="flex items-center gap-1 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Sort by File Type"
+              >
+                <span>Type</span>
+                <span v-if="leftSortBy === 'type'" class="text-electric-400">{{ leftSortAsc ? '▲' : '▼' }}</span>
+              </button>
+            </div>
+            <div class="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                @click="toggleSort('left', 'mtime')"
+                class="w-24 text-left hidden sm:flex items-center gap-1 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Sort by Last Modified Date"
+              >
+                <span>Modified</span>
+                <span v-if="leftSortBy === 'mtime'" class="text-electric-400">{{ leftSortAsc ? '▲' : '▼' }}</span>
+              </button>
+              <button
+                type="button"
+                @click="toggleSort('left', 'size')"
+                class="w-16 text-right flex items-center justify-end gap-1 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Sort by File Size"
+              >
+                <span>Size</span>
+                <span v-if="leftSortBy === 'size'" class="text-electric-400">{{ leftSortAsc ? '▲' : '▼' }}</span>
+              </button>
+              <div class="w-4 shrink-0"></div>
+            </div>
+          </div>
+
           <!-- Left Items List -->
           <div class="flex-1 overflow-y-auto max-h-[460px] divide-y divide-carbon-800/40 text-xs font-mono">
             <div v-if="leftLoading" class="py-16 text-center text-carbon-400">
               <i class="pi pi-spin pi-spinner text-xl text-electric-400 mb-2"></i>
               <div class="text-[11px]">Reading directory entries...</div>
             </div>
-            <div v-else-if="leftItems.length === 0" class="py-16 text-center text-carbon-500">
-              Directory is empty.
+            <div v-else-if="getSortedItems('left').length === 0" class="py-16 text-center text-carbon-500">
+              {{ leftSearch ? 'No matching items found.' : 'Directory is empty.' }}
             </div>
             <div
               v-else
-              v-for="item in leftItems"
+              v-for="item in getSortedItems('left')"
               :key="item.Name"
               @click="handleItemClick('left', item)"
               @dblclick="handleItemDblClick('left', item)"
@@ -221,9 +281,12 @@
                 >{{ item.Name }}</span>
               </div>
 
-              <div class="flex items-center gap-2 text-[11px] text-carbon-400 shrink-0">
-                <span v-if="!item.IsDir">{{ formatBytes(item.Size) }}</span>
-                <span v-else class="text-carbon-500 text-[10px]">DIR</span>
+              <div class="flex items-center gap-2.5 text-[11px] text-carbon-400 shrink-0">
+                <span v-if="item.ModTime" class="hidden sm:inline text-carbon-500 font-sans text-[10px] w-24 truncate">
+                  {{ formatShortDate(item.ModTime) }}
+                </span>
+                <span v-if="!item.IsDir" class="w-16 text-right">{{ formatBytes(item.Size) }}</span>
+                <span v-else class="w-16 text-right text-carbon-500 text-[10px]">DIR</span>
 
                 <!-- Quick Open on Remote Icon for Cloud Remotes -->
                 <button
@@ -234,6 +297,7 @@
                 >
                   <i class="pi pi-external-link text-xs"></i>
                 </button>
+                <span v-else class="w-4 shrink-0"></span>
               </div>
             </div>
           </div>
@@ -337,18 +401,78 @@
             </div>
           </div>
 
+          <!-- Right Column Sort & Filter Header -->
+          <div class="px-3 py-1.5 bg-carbon-950/90 border-b border-carbon-800 text-[10px] uppercase font-bold text-slate-500 flex items-center justify-between gap-2 select-none tracking-wider shrink-0 font-sans rounded-t-lg">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <div class="relative w-28 sm:w-36 shrink-0">
+                <input
+                  v-model="rightSearch"
+                  type="text"
+                  placeholder="Filter..."
+                  class="w-full bg-carbon-900 border border-carbon-800 rounded px-2 py-0.5 text-[10px] text-white placeholder-slate-500 focus:outline-none focus:border-electric-500 transition-colors font-sans normal-case"
+                />
+                <button
+                  v-if="rightSearch"
+                  @click="rightSearch = ''"
+                  class="absolute inset-y-0 right-0 pr-1.5 flex items-center text-slate-400 hover:text-white text-[10px] cursor-pointer"
+                >✕</button>
+              </div>
+              <span class="text-carbon-700">|</span>
+              <button
+                type="button"
+                @click="toggleSort('right', 'name')"
+                class="flex items-center gap-1 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Sort alphabetically by Name"
+              >
+                <span>Name</span>
+                <span v-if="rightSortBy === 'name'" class="text-electric-400">{{ rightSortAsc ? '▲' : '▼' }}</span>
+              </button>
+              <span class="text-carbon-700">|</span>
+              <button
+                type="button"
+                @click="toggleSort('right', 'type')"
+                class="flex items-center gap-1 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Sort by File Type"
+              >
+                <span>Type</span>
+                <span v-if="rightSortBy === 'type'" class="text-electric-400">{{ rightSortAsc ? '▲' : '▼' }}</span>
+              </button>
+            </div>
+            <div class="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                @click="toggleSort('right', 'mtime')"
+                class="w-24 text-left hidden sm:flex items-center gap-1 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Sort by Last Modified Date"
+              >
+                <span>Modified</span>
+                <span v-if="rightSortBy === 'mtime'" class="text-electric-400">{{ rightSortAsc ? '▲' : '▼' }}</span>
+              </button>
+              <button
+                type="button"
+                @click="toggleSort('right', 'size')"
+                class="w-16 text-right flex items-center justify-end gap-1 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Sort by File Size"
+              >
+                <span>Size</span>
+                <span v-if="rightSortBy === 'size'" class="text-electric-400">{{ rightSortAsc ? '▲' : '▼' }}</span>
+              </button>
+              <div class="w-4 shrink-0"></div>
+            </div>
+          </div>
+
           <!-- Right Items List -->
           <div class="flex-1 overflow-y-auto max-h-[460px] divide-y divide-carbon-800/40 text-xs font-mono">
             <div v-if="rightLoading" class="py-16 text-center text-carbon-400">
               <i class="pi pi-spin pi-spinner text-xl text-electric-400 mb-2"></i>
               <div class="text-[11px]">Reading directory entries...</div>
             </div>
-            <div v-else-if="rightItems.length === 0" class="py-16 text-center text-carbon-500">
-              Directory is empty.
+            <div v-else-if="getSortedItems('right').length === 0" class="py-16 text-center text-carbon-500">
+              {{ rightSearch ? 'No matching items found.' : 'Directory is empty.' }}
             </div>
             <div
               v-else
-              v-for="item in rightItems"
+              v-for="item in getSortedItems('right')"
               :key="item.Name"
               @click="handleItemClick('right', item)"
               @dblclick="handleItemDblClick('right', item)"
@@ -379,9 +503,12 @@
                 >{{ item.Name }}</span>
               </div>
 
-              <div class="flex items-center gap-2 text-[11px] text-carbon-400 shrink-0">
-                <span v-if="!item.IsDir">{{ formatBytes(item.Size) }}</span>
-                <span v-else class="text-carbon-500 text-[10px]">DIR</span>
+              <div class="flex items-center gap-2.5 text-[11px] text-carbon-400 shrink-0">
+                <span v-if="item.ModTime" class="hidden sm:inline text-carbon-500 font-sans text-[10px] w-24 truncate">
+                  {{ formatShortDate(item.ModTime) }}
+                </span>
+                <span v-if="!item.IsDir" class="w-16 text-right">{{ formatBytes(item.Size) }}</span>
+                <span v-else class="w-16 text-right text-carbon-500 text-[10px]">DIR</span>
 
                 <!-- Quick Open on Remote Icon for Cloud Remotes -->
                 <button
@@ -392,6 +519,7 @@
                 >
                   <i class="pi pi-external-link text-xs"></i>
                 </button>
+                <span v-else class="w-4 shrink-0"></span>
               </div>
             </div>
           </div>
@@ -496,6 +624,86 @@ const rightCanary = ref(false)
 const rightSelected = ref<BrowseItem | null>(null)
 const rightUploading = ref(false)
 const rightFileInput = ref<HTMLInputElement | null>(null)
+
+type SortField = 'name' | 'type' | 'mtime' | 'size'
+
+const leftSortBy = ref<SortField>('name')
+const leftSortAsc = ref(true)
+const leftSearch = ref('')
+
+const rightSortBy = ref<SortField>('name')
+const rightSortAsc = ref(true)
+const rightSearch = ref('')
+
+function toggleSort(pane: 'left' | 'right', field: SortField) {
+  if (pane === 'left') {
+    if (leftSortBy.value === field) {
+      leftSortAsc.value = !leftSortAsc.value
+    } else {
+      leftSortBy.value = field
+      leftSortAsc.value = (field === 'name' || field === 'type')
+    }
+  } else {
+    if (rightSortBy.value === field) {
+      rightSortAsc.value = !rightSortAsc.value
+    } else {
+      rightSortBy.value = field
+      rightSortAsc.value = (field === 'name' || field === 'type')
+    }
+  }
+}
+
+function getSortedItems(pane: 'left' | 'right'): BrowseItem[] {
+  const items = pane === 'left' ? leftItems.value : rightItems.value
+  const query = (pane === 'left' ? leftSearch.value : rightSearch.value).toLowerCase().trim()
+  const sortBy = pane === 'left' ? leftSortBy.value : rightSortBy.value
+  const asc = pane === 'left' ? leftSortAsc.value : rightSortAsc.value
+
+  let filtered = items
+  if (query) {
+    filtered = filtered.filter(item => (item.Name || '').toLowerCase().includes(query))
+  }
+
+  return [...filtered].sort((a, b) => {
+    // Folders always sorted first
+    if (a.IsDir !== b.IsDir) {
+      return a.IsDir ? -1 : 1
+    }
+
+    let res = 0
+    if (sortBy === 'size') {
+      const sizeA = a.IsDir ? -1 : (a.Size ?? 0)
+      const sizeB = b.IsDir ? -1 : (b.Size ?? 0)
+      res = sizeA - sizeB
+    } else if (sortBy === 'mtime') {
+      const timeA = a.ModTime ? new Date(a.ModTime).getTime() : 0
+      const timeB = b.ModTime ? new Date(b.ModTime).getTime() : 0
+      res = timeA - timeB
+    } else if (sortBy === 'type') {
+      const extA = a.IsDir ? '' : (a.Name.split('.').pop() || '').toLowerCase()
+      const extB = b.IsDir ? '' : (b.Name.split('.').pop() || '').toLowerCase()
+      res = extA.localeCompare(extB)
+      if (res === 0) {
+        res = (a.Name || '').localeCompare(b.Name || '', undefined, { numeric: true, sensitivity: 'base' })
+      }
+    } else {
+      res = (a.Name || '').localeCompare(b.Name || '', undefined, { numeric: true, sensitivity: 'base' })
+    }
+
+    return asc ? res : -res
+  })
+}
+
+function formatShortDate(dateStr?: string): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
 
 const activeProfile = computed(() => profilesStore.activeProfile)
 
@@ -1005,7 +1213,8 @@ async function handleExecuteDelete() {
 }
 
 function formatBytes(bytes?: number): string {
-  if (bytes === undefined || bytes === null || bytes <= 0) return '0 B'
+  if (bytes === undefined || bytes === null || bytes < 0) return '--'
+  if (bytes === 0) return '0 B'
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
