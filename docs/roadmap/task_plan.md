@@ -1,36 +1,43 @@
-# Task Plan: Frontend Architecture & Governance Modernization
+# Task Plan: Unified FSM Storage Control Plane & Vue 3 + PrimeVue Cockpit Modernization
 
 ## Goal
-Modernize Bisync Hub's engineering governance and architectural rules by dropping three outdated dogmas (Zero Build Dogma, 400 LOC Frontend Ceiling, and Global Unbundled Scope) and replacing them with:
-1. Zero Runtime Dependencies & Single Binary Invariant (pre-compiled assets in `dist/` committed to Git; Go builds remain dependency-free).
-2. Go Package Guidelines (~400 LOC) + Frontend Cohesive Components.
-3. Component Scoping & Typed API Contracts.
+Transform Bisync Hub into an autonomous, deterministic Storage Control Plane by implementing a thread-safe Go Finite State Machine (`SyncFSM`) with data-plane failure contract tests, co-designed with a desktop-grade cockpit SPA (Vue 3, PrimeVue v4, Tailwind CSS, TypeScript).
 
 ## Tasks
 
-- [x] Task 1: Update `.clinerules` with Modernized Governance
-  - **Scope**: `.clinerules`
-  - **Verification**: `grep -E "Zero Runtime Dependencies|Cohesive Components|Component Encapsulation" .clinerules`
+- [x] Task 1: Backend FSM Core & Transition Matrix (`internal/engine/`)
+  - **Scope**: `internal/engine/state_machine.go`, `internal/engine/state_machine_test.go`, `internal/models/fsm.go`
+  - **Verification**: `go test -v -race -count=1 ./internal/engine/...`
 
-- [x] Task 2: Update Check Engine (`cmd/check/`) & Verify Check Scripts
-  - **Scope**: `cmd/check/checks.go`, `cmd/check/main_test.go`
-  - **Verification**: `go test -count=1 ./cmd/check/... && ./scripts/check.sh loc`
+- [ ] Task 2: Toolchain Setup & Project Scaffold (`~/.nvm`, `dashboard/frontend/`)
+  - **Scope**: NVM, Node 22 LTS, `dashboard/frontend/package.json`, `tsconfig.json`, `vite.config.ts`, `tailwind.config.js`
+  - **Verification**: `node -v && npm run build`
 
-- [x] Task 3: Update Architecture & Engineering Principles Documentation
-  - **Scope**: `docs/architecture/ARCHITECTURE_PRINCIPLES.md`, `docs/architecture/ENGINEERING_PRINCIPLES.md`
-  - **Verification**: `git diff docs/architecture/`
+- [ ] Task 3: Runner FSM Integration & Data Plane Failure Contracts (`internal/engine/runner/`, `internal/services/`)
+  - **Scope**: `internal/engine/runner/runner.go`, `runner_contract_test.go`, `internal/services/sync_service.go`
+  - **Verification**: `go test -v -race -count=1 ./internal/engine/runner/... -run "TestContract_"`
 
-- [x] Task 4: Author ADR-011 and Supersede ADR-010
-  - **Scope**: `docs/architecture/adr/ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md`, `docs/architecture/adr/ADR-011-Modern-Frontend-Component-Architecture-And-Precompiled-Single-Binary.md`, `docs/architecture/adr/README.md`, `docs/design/README.md`
+- [ ] Task 4: PrimeVue Theming, TypeScript Contracts & Pinia Stores (`dashboard/frontend/src/`)
+  - **Scope**: `src/theme/aura-preset.ts`, `src/types/fsm.ts`, `src/types/models.ts`, `src/stores/*.ts`
+  - **Verification**: `npm run type-check`
+
+- [ ] Task 5: Cockpit Application Shell & High-Density Views (`dashboard/frontend/src/views/`)
+  - **Scope**: `AppHeader.vue`, `FSMStateBadge.vue`, `ViewFleet.vue`, `ViewExplorer.vue` (Splitter), `ViewAudit.vue` (DataTable)
+  - **Verification**: `npm run build`
+
+- [ ] Task 6: High-Performance Streaming Logs, Telemetry & Interactive Modals
+  - **Scope**: `ViewLogs.vue` (VirtualScroller), `ViewTelemetry.vue`, `ModalReview.vue`, `ModalCreateRemote.vue` (Stepper)
+  - **Verification**: `npm run build && npm run type-check`
+
+- [ ] Task 7: Go Server Cutover, Legacy Pruning & Final Quality Verification
+  - **Scope**: `internal/server/routes.go`, `main.go`, `main_test.go`, prune legacy scripts and templates
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-15: Initialized plan for Frontend Architecture & Governance Modernization from implementation_plan.md.
-- 2026-11-15: Completed Task 1 - Update `.clinerules` with Modernized Governance. Added Scope Separation to Section 1.7 distinguishing Go service limits from frontend cohesive components, updated Section 2.1 with Zero Runtime Dependencies and single binary invariants, modernized Section 2.4 to mandate Component Encapsulation and typed contracts, and updated Review and Audit checklists. Verified with grep filter.
-- 2026-11-15: Completed Task 2 - Update Check Engine (`cmd/check/`) & Verify Check Scripts. Added `dist` to `skipDirs`, focused `checkLOC` exclusively on Go source files (excluding `_test.go`), expanded unit tests in `cmd/check/main_test.go` to test non-Go exclusion and `dist` directory skipping, and verified with `go test -count=1 ./cmd/check/...` and `./scripts/check.sh loc`.
-- 2026-11-15: Completed Task 3 - Update Architecture & Engineering Principles Documentation. Updated `ARCHITECTURE_PRINCIPLES.md` Core System Invariants (Zero Runtime Dependencies & Embedded Pre-Compiled Frontend) and `ENGINEERING_PRINCIPLES.md` (distinguishing Go service sub-400 LOC limits from frontend component cohesion, typed contract mirroring, and eliminating runtime compilers). Verified with `git diff docs/architecture/`.
-- 2026-11-15: Completed Task 4 - Author ADR-011 and Supersede ADR-010. Created `ADR-011: Modern Frontend Component Architecture & Pre-Compiled Single Binary Embeddings`, marked `ADR-010` as superseded, updated ADR registry and design index, and verified full 7-stage quality gate pass with `./scripts/check.sh all`.
+- 2026-11-15: Initialized plan for Unified FSM Storage Control Plane & Vue 3 + PrimeVue Cockpit Modernization from implementation_plan.md.
+- 2026-11-16: Completed Task 1 - Backend FSM Core & Transition Matrix. Implemented thread-safe `SyncFSM` in `internal/engine/state_machine.go` with transition matrix validation (`CanTransition`), state change event listeners, and API DTO models in `internal/models/fsm.go`. Tested valid/invalid transitions and 50 concurrent reader/writer goroutines with race detector passing. Verified with `go test -v -race -count=1 ./internal/engine/...` and `./scripts/check.sh loc`.
+
 
 
 
