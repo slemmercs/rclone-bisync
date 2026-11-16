@@ -64,3 +64,38 @@ Transform Bisync Hub into an autonomous, deterministic Storage Control Plane by 
 
 
 
+
+---
+
+# Task Plan: 100% Feature Parity Migration (Legacy Alpine.js to Vue 3 SPA Cockpit)
+
+## Goal
+Achieve 100% functional, operational, and visual feature parity with the legacy Alpine.js cockpit across all 5 primary feature areas: Dual Explorer file operations & previews, Unified Run-Aggregated Ledger & correlated daemon logs, remote deduplication workspaces, slide-over help manual & diagnostics, and system settings modals.
+
+## Tasks
+
+- [x] Task 8: Dual Explorer File Operations, Previews & Context Menus
+  - **Scope**: `src/types/explorer.ts`, `src/components/ModalFilePreview.vue`, `src/components/ModalCompare.vue`, `src/components/ModalExplorerMkdir.vue`, `src/components/ModalExplorerMove.vue`, `src/components/ModalConfirm.vue`, `src/components/ExplorerContextMenu.vue`, `src/views/ViewExplorer.vue`
+  - **Verification**: `npm run type-check && npm run build`
+
+- [ ] Task 9: Unified Run-Aggregated Ledger & Correlated Daemon Logs
+  - **Scope**: `src/views/ViewTelemetryLedger.vue`, `src/views/ViewTelemetry.vue`, `src/components/ModalDaemonLogs.vue`, `src/components/LogDock.vue`
+  - **Verification**: `npm run type-check && npm run build`
+
+- [ ] Task 10: Remote Deduplication Workspace & Remote Creation Wizard
+  - **Scope**: `src/types/dedupe.ts`, `src/stores/dedupe.ts`, `src/components/ModalDedupe.vue`, `src/components/ModalRemoteWizard.vue`, `src/views/ViewRemotes.vue`
+  - **Verification**: `npm run type-check && npm run build`
+
+- [ ] Task 11: Slide-Over Help & Diagnostics Drawer
+  - **Scope**: `src/data/help-policies.ts`, `src/data/help-flags.ts`, `src/components/HelpDrawer.vue`, `src/components/AppHeader.vue`, `src/App.vue`
+  - **Verification**: `npm run type-check && npm run build`
+
+- [ ] Task 12: System Health, Fleet Settings, and MCP Inspector Modals
+  - **Scope**: `src/components/ModalSystemHealth.vue`, `src/components/ModalGlobalSettings.vue`, `src/components/ModalMcp.vue`, `src/stores/settings.ts`, `src/components/AppHeader.vue`, `src/App.vue`
+  - **Verification**: `./scripts/check.sh all && npm run type-check && npm run build`
+
+## Status Updates
+
+- 2026-11-16: Initialized 100% Feature Parity Migration plan from approved implementation plan covering all 5 phases.
+
+- 2026-11-16: Completed Task 8 (Phase 1) - Dual Explorer File Operations, Previews & Context Menus. Implemented typed explorer contracts in src/types/explorer.ts, updated useExplorerStore with preview, compare, mkdir, move, delete, and download operations, implemented ModalFilePreview.vue (multi-format preview with text, markdown, image data URLs, PDF iframe, and binary warnings), ModalCompare.vue (cryptographic hash and equivalence clustering), ModalExplorerMkdir.vue (subfolder creation), ModalExplorerMove.vue (rename and move), ModalConfirm.vue (blast-shield confirmation), and ExplorerContextMenu.vue (right-click action menu). Built and verified production bundle with npm run type-check && npm run build.

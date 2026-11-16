@@ -2,6 +2,17 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '../api/client'
 import type { BrowseItem, BrowseResponse } from '../types/models'
+import type {
+  FilePreviewResponse,
+  CompareItemRequest,
+  FileCompareResponse,
+  MoveRequest,
+  MoveResponse,
+  MkdirRequest,
+  MkdirResponse,
+  DeleteRequest,
+  DeleteResponse,
+} from '../types/explorer'
 
 export const useExplorerStore = defineStore('explorer', () => {
   const currentRemote = ref<string>('local')
@@ -39,6 +50,45 @@ export const useExplorerStore = defineStore('explorer', () => {
     selectedItem.value = item
   }
 
+  async function previewFile(remote: string, path: string, profileId?: string): Promise<FilePreviewResponse> {
+    const params = new URLSearchParams({
+      remote,
+      path,
+      ...(profileId ? { profile_id: profileId } : {}),
+    })
+    return await api.get<FilePreviewResponse>(`/api/explorer/preview?${params.toString()}`)
+  }
+
+  async function compareFiles(compareItems: CompareItemRequest[]): Promise<FileCompareResponse> {
+    return await api.post<FileCompareResponse>('/api/browse/compare', {
+      items: compareItems,
+    })
+  }
+
+  async function createDirectory(remote: string, path: string, profileId?: string): Promise<MkdirResponse> {
+    const req: MkdirRequest = { remote, path, profile_id: profileId }
+    return await api.post<MkdirResponse>('/api/operations/mkdir', req)
+  }
+
+  async function moveItem(req: MoveRequest): Promise<MoveResponse> {
+    return await api.post<MoveResponse>('/api/operations/move', req)
+  }
+
+  async function deleteItem(remote: string, path: string, isDir: boolean, profileId?: string): Promise<DeleteResponse> {
+    const req: DeleteRequest = { remote, path, is_dir: isDir, profile_id: profileId }
+    return await api.post<DeleteResponse>('/api/browse/delete', req)
+  }
+
+  function getDownloadUrl(remote: string, path: string, profileId?: string, inline = false): string {
+    const params = new URLSearchParams({
+      remote,
+      path,
+      ...(profileId ? { profile_id: profileId } : {}),
+      ...(inline ? { inline: 'true' } : {}),
+    })
+    return `/api/explorer/download?${params.toString()}`
+  }
+
   return {
     currentRemote,
     currentPath,
@@ -49,5 +99,11 @@ export const useExplorerStore = defineStore('explorer', () => {
     selectedItem,
     browse,
     selectItem,
+    previewFile,
+    compareFiles,
+    createDirectory,
+    moveItem,
+    deleteItem,
+    getDownloadUrl,
   }
 })
