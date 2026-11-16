@@ -157,6 +157,32 @@ func TestExplorerService_BrowsePath(t *testing.T) {
 	if len(resRemote.Items) != 1 {
 		t.Fatalf("expected 1 remote item, got: %d", len(resRemote.Items))
 	}
+	// 6b. Remote browsing with SkipGdocs option
+	mockGdocsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"list":[
+			{"Path":"sheet.xlsx","Name":"sheet.xlsx","Size":-1,"MimeType":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","IsDir":false},
+			{"Path":"doc","Name":"doc","Size":0,"MimeType":"application/vnd.google-apps.document","IsDir":false},
+			{"Path":"file.xlsx","Name":"file.xlsx","Size":5200,"MimeType":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","IsDir":false}
+		]}`))
+	}))
+	defer mockGdocsSrv.Close()
+
+	rcGdocsClient := client.NewRcloneClient(mockGdocsSrv.URL, "user", "pass")
+	expGdocs := NewExplorerService(cfg, rcGdocsClient, nil)
+
+	resWithGdocs := expGdocs.BrowsePathWithOptions(context.Background(), "gdrive", "folder", BrowseOptions{SkipGdocs: false})
+	if len(resWithGdocs.Items) != 3 {
+		t.Fatalf("expected 3 items when SkipGdocs=false, got: %d", len(resWithGdocs.Items))
+	}
+
+	resSkippedGdocs := expGdocs.BrowsePathWithOptions(context.Background(), "gdrive", "folder", BrowseOptions{SkipGdocs: true})
+	if len(resSkippedGdocs.Items) != 1 {
+		t.Fatalf("expected 1 item when SkipGdocs=true, got: %d", len(resSkippedGdocs.Items))
+	}
+	if resSkippedGdocs.Items[0]["Name"] != "file.xlsx" {
+		t.Fatalf("expected 'file.xlsx', got: %v", resSkippedGdocs.Items[0]["Name"])
+	}
 
 	// 7. Local browsing with trailing whitespace preserved
 	whitespaceDir := filepath.Join(tmpDir, "MOHU Szemétszállítás ")
