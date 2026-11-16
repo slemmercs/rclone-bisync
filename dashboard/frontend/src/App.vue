@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import ViewFleet from './views/ViewFleet.vue'
 import ViewTelemetry from './views/ViewTelemetry.vue'
@@ -11,14 +11,20 @@ import ConflictReviewModal from './components/ConflictReviewModal.vue'
 import ProfileManagerModal from './components/ProfileManagerModal.vue'
 import ModalDaemonLogs from './components/ModalDaemonLogs.vue'
 
+import { useAppStore } from './stores/app'
 import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
 
-const activeTab = ref<string>('fleet')
+const appStore = useAppStore()
+const activeTab = computed({
+  get: () => appStore.activeTab,
+  set: (val: string) => appStore.switchTab(val)
+})
 const showReviewModal = ref<boolean>(false)
 const showProfilesModal = ref<boolean>(false)
 const profilesStore = useProfilesStore()
 const telemetryStore = useTelemetryStore()
+
 
 onMounted(async () => {
   await profilesStore.fetchProfiles()

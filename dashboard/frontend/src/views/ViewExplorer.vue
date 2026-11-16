@@ -256,7 +256,10 @@
               @dblclick="handleItemDblClick('left', item)"
               @contextmenu.prevent="handleContextMenu($event, 'left', item)"
               class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors rounded-lg group"
-              :class="isRowSelected('left', item) ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200'"
+              :class="[
+                isRowSelected('left', item) ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200',
+                explorerStore.highlightName === item.Name ? 'ring-2 ring-electric-400 bg-electric-950/50 text-electric-300 font-bold animate-pulse' : ''
+              ]"
             >
               <div class="flex items-center gap-2.5 truncate flex-1 min-w-0">
                 <!-- Checkbox for multi-file comparison -->
@@ -478,7 +481,10 @@
               @dblclick="handleItemDblClick('right', item)"
               @contextmenu.prevent="handleContextMenu($event, 'right', item)"
               class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors rounded-lg group"
-              :class="isRowSelected('right', item) ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200'"
+              :class="[
+                isRowSelected('right', item) ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200',
+                explorerStore.highlightName === item.Name ? 'ring-2 ring-electric-400 bg-electric-950/50 text-electric-300 font-bold animate-pulse' : ''
+              ]"
             >
               <div class="flex items-center gap-2.5 truncate flex-1 min-w-0">
                 <!-- Checkbox for multi-file comparison -->
@@ -1220,4 +1226,14 @@ function formatBytes(bytes?: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
 }
+watch(
+  () => explorerStore.targetJumpPath,
+  async (target) => {
+    if (!target) return
+    leftPath.value = target.dir
+    rightPath.value = target.dir
+    await Promise.allSettled([refreshPane('left'), refreshPane('right')])
+  }
+)
+
 </script>

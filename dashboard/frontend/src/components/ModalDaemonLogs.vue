@@ -147,12 +147,40 @@
 
       <template v-for="cluster in clusteredLogs" :key="cluster.id">
         <!-- Single entry -->
-        <div v-if="!cluster.isCluster" class="py-0.5 hover:bg-carbon-surface/60 rounded px-1 flex items-start gap-2 group transition-colors">
-          <span class="text-slate-600 text-[10px] shrink-0 tabular-nums select-none">{{ cluster.entry.time || '--:--:--' }}</span>
-          <span :class="cluster.entry.levelClass || 'text-slate-400'" class="shrink-0 text-[10px] uppercase font-bold select-none">
-            [{{ (cluster.entry.level || 'INFO').trim() }}]
-          </span>
-          <span class="text-slate-300 break-all leading-relaxed">{{ cluster.entry.msg }}</span>
+        <div v-if="!cluster.isCluster" class="py-1 border-b border-carbon-border/40 hover:bg-carbon-surface/60 rounded px-1 flex flex-col group transition-colors">
+          <div class="flex items-start gap-2 text-left">
+            <span class="text-slate-500 text-[10px] shrink-0 tabular-nums select-none">[{{ cluster.entry.time || '--:--:--' }}]</span>
+            <span :class="cluster.entry.levelClass || 'text-slate-400'" class="shrink-0 text-[10px] uppercase font-bold select-none w-14">
+              {{ (cluster.entry.level || 'INFO').trim() }}
+            </span>
+            <div class="text-slate-200 min-w-0 flex-1 break-words">
+              <span class="whitespace-pre-wrap leading-relaxed">{{ cluster.entry.msg }}</span>
+              <button
+                v-if="getEntryPath(cluster.entry)"
+                type="button"
+                @click.stop="handleJump(getEntryPath(cluster.entry))"
+                class="inline-flex items-center gap-1 text-electric-300 hover:text-white text-[10px] bg-electric-950/60 hover:bg-electric-900 px-1.5 py-0.5 rounded border border-electric-800/60 hover:border-electric-500 ml-1.5 font-sans cursor-pointer transition-colors"
+                :title="'Jump to file in Explorer: ' + getEntryPath(cluster.entry)"
+              >
+                <i class="pi pi-external-link text-[9px] text-electric-400"></i>
+                <span>→ {{ getEntryPath(cluster.entry) }}</span>
+              </button>
+              <span v-else-if="cluster.entry.object" class="text-electric-300/80 text-[10px] bg-electric-950/40 px-1.5 py-0.5 rounded border border-electric-900/40 ml-1.5 font-sans inline-block">
+                → {{ cluster.entry.object }}
+              </span>
+              <span v-if="cluster.entry.objectType" class="text-slate-400 text-[9px] bg-carbon-elevated px-1 py-0.2 rounded border border-carbon-border ml-1 font-mono inline-block">
+                {{ cluster.entry.objectType }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Structured Details Grid -->
+          <div v-if="cluster.entry.details && typeof cluster.entry.details === 'object'" class="mt-1.5 ml-16 p-2 rounded-lg bg-carbon-900/80 border border-carbon-border/70 grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px] font-mono">
+            <div v-for="[k, v] in Object.entries(cluster.entry.details)" :key="k" class="flex items-center justify-between px-2 py-0.5 rounded bg-carbon-950 border border-carbon-border/50">
+              <span class="text-carbon-400 truncate mr-2">{{ k }}:</span>
+              <span :class="typeof v === 'boolean' ? (v ? 'text-emerald-400 font-semibold' : 'text-slate-500') : 'text-amber-400 font-medium'">{{ String(v) }}</span>
+            </div>
+          </div>
         </div>
 
         <!-- Clustered / Folded entries -->
@@ -175,9 +203,29 @@
           </div>
 
           <div v-if="cluster.expanded" class="px-3 py-1.5 bg-carbon-canvas border-t border-carbon-border/40 space-y-1">
-            <div v-for="(sub, sIdx) in cluster.entries" :key="sIdx" class="py-0.5 flex items-start gap-2 text-[11px]">
-              <span class="text-slate-600 text-[10px] shrink-0 tabular-nums">{{ sub.time || '--:--:--' }}</span>
-              <span class="text-slate-400 break-all">{{ sub.msg }}</span>
+            <div v-for="(sub, sIdx) in cluster.entries" :key="sIdx" class="py-1 flex flex-col text-[11px] border-b border-carbon-border/20 last:border-b-0">
+              <div class="flex items-start gap-2">
+                <span class="text-slate-500 text-[10px] shrink-0 tabular-nums">[{{ sub.time || '--:--:--' }}]</span>
+                <div class="text-slate-300 min-w-0 flex-1 break-words">
+                  <span class="whitespace-pre-wrap">{{ sub.msg }}</span>
+                  <button
+                    v-if="getEntryPath(sub)"
+                    type="button"
+                    @click.stop="handleJump(getEntryPath(sub))"
+                    class="inline-flex items-center gap-1 text-electric-300 hover:text-white text-[10px] bg-electric-950/60 hover:bg-electric-900 px-1.5 py-0.5 rounded border border-electric-800/60 hover:border-electric-500 ml-1.5 font-sans cursor-pointer transition-colors"
+                    :title="'Jump to file in Explorer: ' + getEntryPath(sub)"
+                  >
+                    <i class="pi pi-external-link text-[9px] text-electric-400"></i>
+                    <span>→ {{ getEntryPath(sub) }}</span>
+                  </button>
+                </div>
+              </div>
+              <div v-if="sub.details && typeof sub.details === 'object'" class="mt-1 ml-16 p-2 rounded-lg bg-carbon-900/80 border border-carbon-border/70 grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px] font-mono">
+                <div v-for="[sk, sv] in Object.entries(sub.details)" :key="sk" class="flex items-center justify-between px-2 py-0.5 rounded bg-carbon-950 border border-carbon-border/50">
+                  <span class="text-carbon-400 truncate mr-2">{{ sk }}:</span>
+                  <span :class="typeof sv === 'boolean' ? (sv ? 'text-emerald-400 font-semibold' : 'text-slate-500') : 'text-amber-400 font-medium'">{{ String(sv) }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -191,11 +239,22 @@
 import { ref, computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useLogsStore } from '../stores/logs'
+import { useExplorerStore } from '../stores/explorer'
+import { useAppStore } from '../stores/app'
 import type { LogEntry, LogCluster } from '../types/logs'
-import { clusterLogEntries } from '../utils/logClustering'
-
+import { clusterLogEntries, getEntryPath } from '../utils/logClustering'
 
 const logsStore = useLogsStore()
+const explorerStore = useExplorerStore()
+const appStore = useAppStore()
+
+function handleJump(path: string | null) {
+  if (!path) return
+  logsStore.closeDaemonModal()
+  appStore.switchTab('explorer')
+  explorerStore.jumpToPath(path)
+}
+
 
 const levelFilter = ref<string>('all')
 const searchQuery = ref<string>('')

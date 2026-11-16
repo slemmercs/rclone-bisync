@@ -1,9 +1,72 @@
 import type { LogEntry, LogCluster } from '../types/logs'
 
+// Contextual path tokenizer extracting file mutation paths from log messages
 export function extractPathFromLogMsg(msg: string): string | null {
-  if (!msg) return null
-  const m = msg.match(/(?:path|file|item|object|dest|src)[:=]\s*["']?([^"',\s]+)["']?/i)
-  return m ? m[1] : null
+  if (!msg || typeof msg !== 'string') return null
+  let s = msg.trim()
+  if (!s) return null
+
+  // Fast-reject HTTP access, URLs, and safety abort summaries
+  if (/^(GET|HEAD|POST|PUT|DELETE)\s+\S+\s+→/i.test(s) || /https?:\/\//i.test(s) || /safety threshold|too many deletes/i.test(s)) {
+    return null
+  }
+
+  // Strip leading timestamp and log level prefix
+  s = s.replace(/^\d{4}[/-]\d{2}[/-]\d{2}[\sT]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\s*/, '')
+  s = s.replace(/^(?:INFO|NOTICE|ERROR|WARNING|WARN|DEBUG)\s*:\s*/i, '')
+
+  let found: string | null = null
+  const matchers = [
+    /Duplicate ignored:\s*(.+)/i,
+    /(?:-\s+)?(?:Path[12]\s+)?(?:File\s+was\s+)?Delet(?:ed|ing)(?:\s*-\s*|\s*:\s*)(.+)/i,
+    /Transferr(?:ing|ed)(?:\s+file)?:\s*(.+)/i,
+    /Conflict:\s*(.+?)\s+differs between/i,
+    /^([a-zA-Z0-9_.-]+(?:\{[^}]+\})?:[^\s:]+):\s*Conflict/i,
+    /Conflict(?:\s*:\s*|\s+identified\s*(?:for\s*)?)(.+)/i,
+    /Copied(?:\s*\([^)]+\))?(?:\s+to)?:\s*(.+)/i,
+    /Updated:\s*(.+)/i,
+    /(?:path|file|item|object|dest|src)[:=]\s*["']?([^"',\s]+)["']?/i,
+  ]
+
+  for (const re of matchers) {
+    const m = s.match(re)
+    if (m && m[1]) {
+      found = m[1].trim()
+      break
+    }
+  }
+
+  if (!found) return null
+
+  // Strip surrounding quotes
+  found = found.replace(/^["'`\s]+|["'`\s]+$/g, '')
+
+  // Strip remote target prefixes (e.g. 'Path1 "gdrive{tCwNP}:/docs/report.pdf"' or 'remote:path')
+  found = found.replace(/^(?:Path[12]\s*)?["']?[a-zA-Z0-9_.-]+(?:\{[^}]+\})?:[/\\]?/, '')
+  found = found.replace(/^["'`\s]+|["'`\s]+$/g, '')
+
+  // Normalize Windows backslashes and strip trailing punctuation/extra info
+  found = found.replace(/\\/g, '/')
+  found = found.replace(/[;,]$/, '').trim()
+  if (!found || found === '.' || found === '/' || found.startsWith('http:') || found.startsWith('https:')) return null
+
+  return found
+}
+
+// Canonical path resolver across explicit object, nested details, and parsed message
+export function getEntryPath(entry?: LogEntry | null): string | null {
+  if (!entry) return null
+  if (entry.object) return entry.object
+  const d = entry.details
+  if (d && typeof d === 'object') {
+    if (d.item_path) return d.item_path
+    if (d.path && d.filename) return `${d.path}/${d.filename}`.replace(/^\/+/, '')
+    if (d.path && typeof d.path === 'string') return d.path
+    if (d.object && typeof d.object === 'string') return d.object
+    if (d.file && typeof d.file === 'string') return d.file
+  }
+  if (entry.msg) return extractPathFromLogMsg(entry.msg)
+  return null
 }
 
 export function getOriginBadge(origin?: string | null): string {
@@ -15,6 +78,7 @@ export function getOriginBadge(origin?: string | null): string {
   if (o.includes('cli')) return 'CLI'
   return origin.toUpperCase()
 }
+
 
 export function parseJsonLogLine(rawLine: any): LogEntry | null {
   if (!rawLine) return null
@@ -404,4 +468,48 @@ export function clusterLogEntries(entries: LogEntry[], foldEnabled: boolean, exp
 
   return clusters
 }
+
+// Unwraps potential multi-line wrapper logs (e.g. from Rclone RC) and parses each line
+export function unwrapAndParseLogLines(rawLines: any[]): LogEntry[] {
+  if (!Array.isArray(rawLines)) return []
+  const results: LogEntry[] = []
+  for (const line of rawLines) {
+    if (!line) continue
+
+    let lineStr = ''
+    if (typeof line === 'string') {
+      lineStr = line
+    } else if (typeof line === 'object') {
+      lineStr = JSON.stringify(line)
+    }
+
+    if (lineStr.startsWith('{') && (lineStr.includes('"msg":"{\\"') || lineStr.includes('"msg":"{\'') || lineStr.includes('\\n{\\"'))) {
+      try {
+        const outer = typeof line === 'object' ? line : JSON.parse(lineStr)
+        if (outer && typeof outer.msg === 'string' && (outer.msg.includes('{"') || outer.msg.includes("{'"))) {
+          const sublines = outer.msg.split('\n')
+          let unwrappedAny = false
+          for (const sub of sublines) {
+            const subTrim = sub.trim()
+            if (subTrim.startsWith('{') && subTrim.endsWith('}')) {
+              const parsedSub = parseJsonLogLine(subTrim)
+              if (parsedSub) {
+                results.push(parsedSub)
+                unwrappedAny = true
+              }
+            }
+          }
+          if (unwrappedAny) continue
+        }
+      } catch {
+        // Fall through to regular line parsing
+      }
+    }
+
+    const parsed = parseJsonLogLine(line)
+    if (parsed) results.push(parsed)
+  }
+  return results
+}
+
 

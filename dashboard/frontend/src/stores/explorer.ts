@@ -35,6 +35,27 @@ export const useExplorerStore = defineStore('explorer', () => {
   // Multi-file selection for checksum comparison
   const compareSelection = ref<CompareSelectItem[]>([])
 
+  // Jump to path in Dual Explorer
+  const highlightName = ref<string | null>(null)
+  const targetJumpPath = ref<{ dir: string; filename: string; timestamp: number } | null>(null)
+
+  function jumpToPath(targetPath: string) {
+    if (!targetPath) return
+    const clean = targetPath.trim().replace(/^["'`\s]+|["'`\s]+$/g, '').replace(/\\/g, '/').replace(/^\/+/, '')
+    if (!clean) return
+    const lastSlash = clean.lastIndexOf('/')
+    const dir = lastSlash >= 0 ? clean.substring(0, lastSlash) : ''
+    const filename = lastSlash >= 0 ? clean.substring(lastSlash + 1) : clean
+    highlightName.value = filename
+    targetJumpPath.value = { dir, filename, timestamp: Date.now() }
+    setTimeout(() => {
+      if (highlightName.value === filename) {
+        highlightName.value = null
+      }
+    }, 6000)
+  }
+
+
   async function browse(remote: string, path: string = '', profileId?: string) {
     loading.value = true
     error.value = null
@@ -180,5 +201,9 @@ export const useExplorerStore = defineStore('explorer', () => {
     getPublicLink,
     touchCanary,
     getDownloadUrl,
+    highlightName,
+    targetJumpPath,
+    jumpToPath,
   }
-})
+}
+)

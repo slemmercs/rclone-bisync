@@ -3,14 +3,16 @@ import { ref, computed } from 'vue'
 import { api } from '../api/client'
 import type { AuditLogRecord, PaginatedLogsResponse } from '../types/models'
 import type { LogEntry, LogCluster } from '../types/logs'
-import { parseJsonLogLine, consolidateRunEntries, clusterLogEntries } from '../utils/logClustering'
+import { parseJsonLogLine, consolidateRunEntries, clusterLogEntries, unwrapAndParseLogLines } from '../utils/logClustering'
 
 
 export type DockHeightPreset = 'collapsed' | 'docked' | 'expanded'
 
 export const useLogsStore = defineStore('logs', () => {
   const logs = ref<string[]>([])
+  const dockEntries = ref<LogEntry[]>([])
   const auditLogs = ref<AuditLogRecord[]>([])
+
   const filterLevel = ref<string>('ALL')
   const searchQuery = ref<string>('')
   const loading = ref<boolean>(false)
@@ -76,6 +78,7 @@ export const useLogsStore = defineStore('logs', () => {
 
       const data = await api.get<any>(`/api/logs/bisync?${params.toString()}`)
       const rawLogs = Array.isArray(data) ? data : data.logs || []
+      dockEntries.value = unwrapAndParseLogLines(rawLogs)
       logs.value = rawLogs.map((item: any) => {
         if (typeof item === 'string') return item
         if (typeof item === 'object') {
@@ -120,8 +123,8 @@ export const useLogsStore = defineStore('logs', () => {
 
       const data = await api.get<PaginatedLogsResponse>(`/api/logs/bisync?${params.toString()}`)
       const rawList = Array.isArray(data) ? data : (data.logs || [])
-      const parsed = rawList.map(parseJsonLogLine).filter((l: LogEntry | null): l is LogEntry => l !== null)
-
+      const reversed = rawList.slice().reverse()
+      const parsed = unwrapAndParseLogLines(reversed)
 
       // Consolidate runs
       const consolidated = consolidateRunEntries(parsed, profilesList)
@@ -175,8 +178,7 @@ export const useLogsStore = defineStore('logs', () => {
       }
       const data = await api.get<any>(`/api/logs/daemon?${params.toString()}`)
       const raw = Array.isArray(data) ? data : (data.logs || [])
-      daemonLogs.value = raw.map(parseJsonLogLine).filter((l: LogEntry | null): l is LogEntry => l !== null)
-
+      daemonLogs.value = unwrapAndParseLogLines(raw)
     } catch (e: any) {
       daemonError.value = e.message || 'Failed to fetch daemon logs'
     } finally {
@@ -208,6 +210,7 @@ export const useLogsStore = defineStore('logs', () => {
 
   return {
     logs,
+    dockEntries,
     auditLogs,
     filterLevel,
     searchQuery,

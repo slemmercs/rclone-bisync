@@ -182,6 +182,18 @@
                 {{ cluster.entry.action }}
               </span>
 
+              <!-- Path Chip if detected -->
+              <button
+                v-if="getEntryPath(cluster.entry)"
+                type="button"
+                @click.stop="handleJump(getEntryPath(cluster.entry))"
+                class="inline-flex items-center gap-1 text-electric-300 hover:text-white text-[10px] bg-electric-950/60 hover:bg-electric-900 px-1.5 py-0.5 rounded border border-electric-800/60 hover:border-electric-500 font-sans cursor-pointer transition-colors shrink-0 max-w-[14rem]"
+                :title="'Jump to file in Explorer: ' + getEntryPath(cluster.entry)"
+              >
+                <i class="pi pi-external-link text-[9px] text-electric-400"></i>
+                <span class="truncate">{{ getEntryPath(cluster.entry) }}</span>
+              </button>
+
               <!-- Message Text -->
               <span class="text-slate-300 truncate" :title="cluster.entry.msg">
                 {{ cluster.entry.msg }}
@@ -216,6 +228,16 @@
               <span :class="sub.levelClass || 'text-slate-500'" class="text-[9px] uppercase shrink-0">
                 [{{ (sub.level || 'INFO').trim() }}]
               </span>
+              <button
+                v-if="getEntryPath(sub)"
+                type="button"
+                @click.stop="handleJump(getEntryPath(sub))"
+                class="inline-flex items-center gap-1 text-electric-300 hover:text-white text-[10px] bg-electric-950/60 hover:bg-electric-900 px-1.5 py-0.5 rounded border border-electric-800/60 hover:border-electric-500 font-sans cursor-pointer transition-colors shrink-0 max-w-[12rem]"
+                :title="'Jump to file in Explorer: ' + getEntryPath(sub)"
+              >
+                <i class="pi pi-external-link text-[9px] text-electric-400"></i>
+                <span class="truncate">{{ getEntryPath(sub) }}</span>
+              </button>
               <span class="text-slate-300 truncate flex-1">{{ sub.msg }}</span>
             </div>
           </div>
@@ -254,9 +276,21 @@
 import { onMounted } from 'vue'
 import { useLogsStore } from '../stores/logs'
 import { useProfilesStore } from '../stores/profiles'
+import { useExplorerStore } from '../stores/explorer'
+import { useAppStore } from '../stores/app'
+import { getEntryPath } from '../utils/logClustering'
 
 const logsStore = useLogsStore()
 const profilesStore = useProfilesStore()
+const explorerStore = useExplorerStore()
+const appStore = useAppStore()
+
+function handleJump(path: string | null) {
+  if (!path) return
+  appStore.switchTab('explorer')
+  explorerStore.jumpToPath(path)
+}
+
 
 function getAuditActionBadgeClass(action?: string) {
   if (!action) return 'bg-slate-800 text-slate-300 border-slate-700'
