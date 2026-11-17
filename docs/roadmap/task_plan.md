@@ -82,8 +82,7 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - **Scope**: `src/views/ViewTelemetryLedger.vue`, `src/views/ViewTelemetry.vue`, `src/components/ModalDaemonLogs.vue`, `src/components/LogDock.vue`
   - **Verification**: `npm run type-check && npm run build`
 
-- [ ] Task 10: Remote Deduplication Workspace & Remote Creation Wizard
-
+- [x] Task 10: Remote Deduplication Workspace & Remote Creation Wizard
   - **Scope**: `src/types/dedupe.ts`, `src/stores/dedupe.ts`, `src/components/ModalDedupe.vue`, `src/components/ModalRemoteWizard.vue`, `src/views/ViewRemotes.vue`
   - **Verification**: `npm run type-check && npm run build`
 
@@ -110,5 +109,7 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - Upgraded `LogDock.vue` from raw string dumping to a structured table layout with timestamp, level badge, action badge, profile badge, interactive file path chips, keyboard navigation (`N` / `P` step), pagination, auto-scroll, and category filter pills (`All`, `File Ops`, `Sync`, `Audit`).
   - Resolved duplicate run entries in the Unified Ledger by reversing the backend chronological tail order on fetch and consolidating `sync` execution progress, audit events, and terminal completion records into unified cards with expandable file drawers.
   - All 7/7 check.sh quality gates passed and frontend built successfully.
+
+- 2026-11-16: Completed Task 10 - Remote Deduplication Workspace & Remote Creation Wizard. Implemented typed deduplication and remote wizard contracts in `src/types/dedupe.ts`, created `useDedupeStore` in `src/stores/dedupe.ts` with output parsing and staged batch decisions, created `src/utils/dedupeParser.ts` for structured CLI collision extraction, implemented `ModalDedupe.vue` featuring a 3-section workspace with dedupe strategy selection (`list`, `oldest`, `newest`, `rename`, `largest`, `smallest`), `--by-hash` toggle, paired pass options, collision candidates list, inline keep/delete staging, raw CLI logs tab, staged actions drawer with resync toggle, and daemon log links (`run:dedupe-...`). Implemented `ModalRemoteWizard.vue` with 3-step guided flow (provider selection with categories & search, remote configuration & profile bridging, deployment review). Enhanced `ViewRemotes.vue` with "Add Remote" wizard launcher, per-card "Deduplicate" launcher, category filtering (`All`, `Cloud Drive`, `Object Storage`, `Protocols`), search, and delete safeguards. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `./scripts/check.sh all` (all 7 quality gates passed).
 
 

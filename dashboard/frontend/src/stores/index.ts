@@ -6,5 +6,7 @@ export * from './review'
 export * from './explorer'
 export * from './remotes'
 export * from './app'
+export * from './dedupe'
+
 
 
