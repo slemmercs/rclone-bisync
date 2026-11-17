@@ -106,3 +106,52 @@ Upgrade developer experience, installer flexibility, and test sandboxing across 
 - `./scripts/check.sh all`
 - `go test -v -run TestCockpitSPASmoke ./tests/e2e/...`
 
+
+---
+
+# Implementation Plan: Dynamic Engine Flag Optimization, Fair Scheduling Queue & Global Settings Flag Builder
+
+## Proposed Changes
+
+Rclone RC treats `--tpslimit`, `--tpslimit-burst`, and `--checkers` as process-global main options within `fs.Config.Main` rather than per-job parameters. To enable per-profile custom rate and checker tuning without corrupting shared token buckets, implement Compatibility Clustering (homogeneous grouping) with a unified FIFO fair execution queue and dynamic `/options/set` engine switching. Simultaneously, provide visual flag management in Global Fleet Settings.
+
+### 1. Phase 1: Global Fleet Settings Flags Builder
+- **Model & Configuration**: Add `CustomFlags string` to `GlobalDefaults` (`internal/models/api.go`, `internal/config/config.go`) so baseline CLI flags can be stored and retrieved via `/api/config`.
+- **UI Integration (`ModalGlobalSettings.vue`)**: Embed `FlagsBuilder.vue` directly within `ModalGlobalSettings.vue` under a dedicated "Fleet Flags & Concurrency" tab, allowing visual configuration of baseline `--tpslimit`, `--checkers`, `--transfers`, `--buffer-size`, etc.
+- **Process-Global Callout**: Clearly annotate process-global options in `FlagsBuilder.vue` with an informative badge and tooltip.
+
+### 2. Phase 2: Rclone RC Dynamic Options Client
+- **Rclone Client Methods**: Add `GetMainOptions(ctx)` (`POST /options/get`) and `SetMainOptions(ctx, opts)` (`POST /options/set`) in `internal/core/client/client.go`.
+- **Mocking Support**: Extend mock RC server in tests to handle `/options/get` and `/options/set`.
+
+### 3. Phase 3: Engine Signatures & Compatibility Clustering
+- **Engine Signature Formulation**: Parse process-global flags (`--tpslimit`, `--tpslimit-burst`, `--checkers`) from profile custom flags + fleet defaults. Compute an `EngineSignature` (e.g. `SIG_DEFAULT`, `SIG_TPS4_CHK3`).
+- **Compatibility Rule**: Any profiles sharing an identical `EngineSignature` are 100% compatible and execute concurrently in parallel up to the worker concurrency limit.
+
+### 4. Phase 4: Unified FIFO Fair Queue & Engine Switcher
+- **Unified Fair Queue**: Replace isolated per-worker triggers with a centralized FIFO run queue tracking `profile_id`, `opts`, `signature`, `enqueued_at`, and `priority`.
+- **Opportunistic Compatibility Batching**: While the engine is active under `Signature A`, compatible jobs in the queue are dispatched immediately in parallel.
+- **Starvation-Free Aging SLA**: When a queued job with a differing signature waits longer than `MaxQueueWait` (e.g. 60s), the dispatcher halts new admissions for the active signature, drains running jobs to zero, applies `POST /options/set` to switch to the waiting signature, and executes the waiting profile.
+- **Baseline Restore**: When all custom-flag runs complete or the scheduler shuts down, restore the baseline engine options.
+
+### Affected Components & Packages
+- `internal/models/api.go`, `internal/config/config.go`, `internal/config/dto.go`: GlobalDefaults custom flags schema.
+- `internal/core/client/client.go`: `GetMainOptions`, `SetMainOptions`.
+- `internal/profiles/scheduler.go`, `internal/profiles/model.go`: Engine signature parser, fair queue, dispatcher loop.
+- `dashboard/frontend/src/components/ModalGlobalSettings.vue`: Embed `FlagsBuilder.vue` and add "Fleet Flags" tab.
+- `dashboard/frontend/src/data/flags-catalog.ts`, `dashboard/frontend/src/components/FlagsBuilder.vue`: Process-global badges.
+
+### Safety & Error Handling
+- Safe fallback: If `/options/set` returns an error, the scheduler logs a warning and falls back to running with current engine settings without crashing.
+- Lock isolation: Process switches are protected by an advisory execution mutex.
+- Non-blocking: Timers and UI sync triggers never block the HTTP request handlers.
+
+## Verification Plan
+- Unit tests:
+  - `TestClient_GetSetMainOptions`: verifies RC API payload formatting.
+  - `TestEngineSignature_Parsing`: verifies signature equivalence clustering.
+  - `TestScheduler_FairQueueAndClustering`: verifies FIFO order, parallel execution of identical signatures, and sequential draining for divergent signatures.
+- Frontend compilation: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+- Quality gates: `./scripts/check.sh all`.
+- Headless Chrome E2E test verifying Global Settings flags builder interaction.
+

@@ -131,7 +131,30 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - **Verification**: `./scripts/check.sh all`
 
 
+- [x] Task 22: Global Fleet Settings Flags Builder (`internal/models/api.go`, `internal/config/`, `dashboard/frontend/src/components/ModalGlobalSettings.vue`, `FlagsBuilder.vue`)
+  - **Scope**: `internal/models/api.go`, `internal/config/config.go`, `internal/config/dto.go`, `dashboard/frontend/src/components/ModalGlobalSettings.vue`, `FlagsBuilder.vue`, `src/data/flags-catalog.ts`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && go test -count=1 ./internal/server/...`
+
+- [ ] Task 23: Rclone RC Dynamic Options Client (`internal/core/client/client.go`, `client_test.go`)
+  - **Scope**: `internal/core/client/client.go`, `internal/core/client/client_test.go`
+  - **Verification**: `go test -count=1 -race ./internal/core/client/...`
+
+- [ ] Task 24: Engine Signature Formulation & Compatibility Clustering (`internal/profiles/engine_signature.go`, `engine_signature_test.go`)
+  - **Scope**: `internal/profiles/engine_signature.go`, `internal/profiles/engine_signature_test.go`
+  - **Verification**: `go test -count=1 -race ./internal/profiles/...`
+
+- [ ] Task 25: Unified FIFO Fair Queue & Dynamic Engine Switcher (`internal/profiles/scheduler.go`, `scheduler_test.go`)
+  - **Scope**: `internal/profiles/scheduler.go`, `internal/profiles/scheduler_test.go`, `internal/profiles/service.go`
+  - **Verification**: `go test -count=1 -race ./internal/profiles/...`
+
+- [ ] Task 26: Full Integration & Pre-Commit Verification
+  - **Scope**: Entire repository
+  - **Verification**: `./scripts/check.sh all && go test -v -count=1 -tags=e2e ./tests/e2e -run TestCockpitSPA`
+
+
 ## Status Updates
+
+- 2026-11-17: Completed Task 22 - Global Fleet Settings Flags Builder. Added `CustomFlags` to `GlobalDefaults` Go model and frontend TypeScript definitions; marked process-global options (`--tpslimit`, `--tpslimit-burst`, `--checkers`) with `isProcessGlobal: true` and rendered distinct amber `[Global]` tags in `FlagsBuilder.vue`; embedded `FlagsBuilder` into `ModalGlobalSettings.vue` under a dedicated "Fleet Flags" tab for visual parameter tuning; updated server handler tests in `handlers_config_test.go` and verified with `npm run type-check`, `npm run build`, and `go test ./internal/server/...`.
 
 - 2026-11-16: Initialized 100% Feature Parity Migration plan from approved implementation plan covering all 5 phases.
 

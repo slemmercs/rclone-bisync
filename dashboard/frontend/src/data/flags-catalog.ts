@@ -7,6 +7,7 @@ export interface FlagCatalogItem {
   label: string
   desc: string
   isBool: boolean
+  isProcessGlobal?: boolean
   placeholder?: string
   backends: string[]
 }
@@ -20,11 +21,11 @@ export const RCLONE_FLAGS_CATALOG: FlagCatalogItem[] = [
   { flag: '--size-only', label: '--size-only', desc: 'Skip based on size only (not modtime or checksum)', isBool: true, backends: ['all'] },
   { flag: '--resilient', label: '--resilient', desc: 'Allow bisync to continue on non-fatal errors', isBool: true, backends: ['all'] },
   { flag: '--recover', label: '--recover', desc: 'Automatically recover from state inconsistencies', isBool: true, backends: ['all'] },
-  { flag: '--checkers', label: '--checkers', desc: 'Number of checkers to run in parallel', isBool: false, placeholder: '8', backends: ['all'] },
+  { flag: '--checkers', label: '--checkers', desc: 'Number of checkers to run in parallel (Process-Global in Rclone RC)', isBool: false, isProcessGlobal: true, placeholder: '8', backends: ['all'] },
   { flag: '--transfers', label: '--transfers', desc: 'Number of file transfers to run in parallel', isBool: false, placeholder: '4', backends: ['all'] },
   { flag: '--bwlimit', label: '--bwlimit', desc: 'Bandwidth limit (e.g. 10M, 500k, 10M:off)', isBool: false, placeholder: '10M', backends: ['all'] },
-  { flag: '--tpslimit', label: '--tpslimit', desc: 'Limit HTTP transactions per second', isBool: false, placeholder: '10', backends: ['all'] },
-  { flag: '--tpslimit-burst', label: '--tpslimit-burst', desc: 'Max HTTP transactions burst', isBool: false, placeholder: '20', backends: ['all'] },
+  { flag: '--tpslimit', label: '--tpslimit', desc: 'Limit HTTP transactions per second (Process-Global in Rclone RC)', isBool: false, isProcessGlobal: true, placeholder: '10', backends: ['all'] },
+  { flag: '--tpslimit-burst', label: '--tpslimit-burst', desc: 'Max HTTP transactions burst (Process-Global in Rclone RC)', isBool: false, isProcessGlobal: true, placeholder: '20', backends: ['all'] },
   { flag: '--buffer-size', label: '--buffer-size', desc: 'In-memory buffer size per transfer (e.g. 16M, 64M)', isBool: false, placeholder: '16M', backends: ['all'] },
   { flag: '--retries', label: '--retries', desc: 'Number of retries on network failure', isBool: false, placeholder: '3', backends: ['all'] },
   { flag: '--retries-sleep', label: '--retries-sleep', desc: 'Sleep interval between retries', isBool: false, placeholder: '500ms', backends: ['all'] },

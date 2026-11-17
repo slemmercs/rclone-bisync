@@ -333,6 +333,7 @@ export interface GlobalDefaults {
   remove_empty_dirs: boolean
   create_empty_dirs: boolean
   lock_explorer_remote: boolean
+  custom_flags?: string
 }
 
 export interface ConfigDaemonSettings {

@@ -62,6 +62,11 @@ function serializeRows(): string {
 
 function sync() { emit('update:modelValue', serializeRows()) }
 
+function isProcessGlobal(flagName: string): boolean {
+  const item = RCLONE_FLAGS_CATALOG.find((c) => c.flag === flagName)
+  return !!item?.isProcessGlobal
+}
+
 function addRow() {
   const target = availableCatalog.value[0]?.flag || '--track-renames'
   const cat = RCLONE_FLAGS_CATALOG.find((c) => c.flag === target)
@@ -113,11 +118,14 @@ watch(() => props.modelValue, (newVal) => {
     </div>
     <div v-else class="space-y-2">
       <div v-for="(row, idx) in rows" :key="row.id" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 bg-carbon-bg border border-carbon-border rounded-lg">
-        <div class="sm:w-1/3 min-w-[130px]">
+        <div class="sm:w-1/3 min-w-[130px] flex items-center gap-1.5">
           <select :value="row.isCustom ? 'custom' : row.flag" @change="onFlagSelect(idx, ($event.target as HTMLSelectElement).value)" class="w-full bg-carbon-surface border border-carbon-border rounded-md px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue">
             <option v-for="c in availableCatalog" :key="c.flag" :value="c.flag">{{ c.label }}</option>
             <option value="custom">Custom flag (--...)</option>
           </select>
+          <span v-if="isProcessGlobal(row.flag)" class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono shrink-0 hidden sm:inline" title="Process-global in Rclone RC. Dynamically applied and queued cleanly.">
+            Global
+          </span>
         </div>
         <div v-if="row.isCustom" class="sm:w-1/4">
           <input v-model="row.flag" @input="sync()" type="text" placeholder="--custom-flag" class="w-full bg-carbon-surface border border-carbon-border rounded-md px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue" />

@@ -99,6 +99,7 @@ type GlobalDefaults struct {
 	RemoveEmptyDirs    bool   `json:"remove_empty_dirs"`
 	CreateEmptyDirs    bool   `json:"create_empty_dirs"`
 	LockExplorerRemote bool   `json:"lock_explorer_remote"`
+	CustomFlags        string `json:"custom_flags,omitempty"`
 }
 
 // ConfigDaemonSettings represents daemon scheduling, timeout, and backoff settings.

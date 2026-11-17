@@ -60,6 +60,7 @@ func TestConfigEndpoints_GetAndUpdate(t *testing.T) {
 			CanaryValidation: false,
 			ConflictResolve:  "larger",
 			CompareMode:      "checksum",
+			CustomFlags:      "--tpslimit 10 --checkers 8",
 		},
 		Daemon: &ConfigDaemonSettings{
 			JobTimeoutSeconds: 3600,
@@ -83,7 +84,7 @@ func TestConfigEndpoints_GetAndUpdate(t *testing.T) {
 	if err := json.NewDecoder(recPut.Body).Decode(&putResp); err != nil {
 		t.Fatalf("failed to decode put response: %v", err)
 	}
-	if putResp.GlobalDefaults.MaxDelete != 25 || putResp.GlobalDefaults.ConflictResolve != "larger" {
+	if putResp.GlobalDefaults.MaxDelete != 25 || putResp.GlobalDefaults.ConflictResolve != "larger" || putResp.GlobalDefaults.CustomFlags != "--tpslimit 10 --checkers 8" {
 		t.Fatalf("expected updated global defaults, got %+v", putResp.GlobalDefaults)
 	}
 	if putResp.Daemon.JobTimeoutSeconds != 3600 {

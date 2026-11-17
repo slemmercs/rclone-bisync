@@ -129,6 +129,16 @@
       </div>
     </div>
 
+    <!-- TAB 2: FLEET FLAGS & CONCURRENCY -->
+    <div v-else-if="activeTab === 'flags'" class="space-y-4">
+      <div class="text-[11px] text-slate-400">
+        Baseline Rclone CLI parameters applied fleet-wide across all synchronization profiles.
+        Process-global options (<span class="text-amber-300 font-mono">--tpslimit</span>, <span class="text-amber-300 font-mono">--checkers</span>) define the daemon's baseline; profiles with custom overrides queue safely and dynamically switch rates.
+      </div>
+
+      <FlagsBuilder v-model="formDefaults.custom_flags" remoteType="all" />
+    </div>
+
     <!-- TAB 2: ENGINE & POLLING -->
     <div v-else-if="activeTab === 'engine'" class="space-y-4">
       <div class="text-[11px] text-slate-400">Core daemon timeout and execution scheduler parameters.</div>
@@ -304,9 +314,10 @@
 import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useSettingsStore } from '../stores/settings'
+import FlagsBuilder from './FlagsBuilder.vue'
 
 const settingsStore = useSettingsStore()
-const activeTab = ref<'defaults' | 'engine' | 'notifications' | 'encryption'>('defaults')
+const activeTab = ref<'defaults' | 'flags' | 'engine' | 'notifications' | 'encryption'>('defaults')
 const saveError = ref<string | null>(null)
 
 const formDefaults = ref({ ...settingsStore.globalDefaults })
@@ -322,13 +333,14 @@ const encError = ref<string | null>(null)
 watch(() => settingsStore.globalDefaults, val => { formDefaults.value = { ...val } }, { deep: true })
 watch(() => settingsStore.daemonSettings, val => { formDaemon.value = { ...val } }, { deep: true })
 watch(() => settingsStore.notificationSettings, val => { formNotifications.value = { ...val } }, { deep: true })
-watch(() => settingsStore.globalSettingsTab, tab => { activeTab.value = tab })
+watch(() => settingsStore.globalSettingsTab, tab => { activeTab.value = tab as any })
 
-const tabs: Array<{ id: 'defaults' | 'engine' | 'notifications' | 'encryption'; label: string; icon: string }> = [
-  { id: 'defaults', label: 'Operational Defaults', icon: 'pi pi-sliders-h' },
+const tabs: Array<{ id: 'defaults' | 'flags' | 'engine' | 'notifications' | 'encryption'; label: string; icon: string }> = [
+  { id: 'defaults', label: 'Defaults', icon: 'pi pi-sliders-h' },
+  { id: 'flags', label: 'Fleet Flags', icon: 'pi pi-server' },
   { id: 'engine', label: 'Engine & Polling', icon: 'pi pi-clock' },
   { id: 'notifications', label: 'Alert Webhooks', icon: 'pi pi-bell' },
-  { id: 'encryption', label: 'Config Encryption', icon: 'pi pi-lock' },
+  { id: 'encryption', label: 'Encryption', icon: 'pi pi-lock' },
 ]
 
 async function handleSave() {
