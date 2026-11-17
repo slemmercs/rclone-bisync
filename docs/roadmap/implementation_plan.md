@@ -1,93 +1,64 @@
-# Implementation Plan: 100% Feature Parity Migration (Legacy Alpine.js to Vue 3 SPA Cockpit)
+# Implementation Plan: 100% Legacy Feature Parity Remediation (Alpine.js to Vue 3 Cockpit)
 
-## Overview
+## Proposed Changes
 
-Achieve 100% functional, operational, and visual feature parity with the legacy Alpine.js cockpit by implementing all missing components, modals, tools, and telemetry views in the Vue 3 + PrimeVue v4 + Tailwind CSS single-page application while preserving the self-contained zero-runtime single-binary invariant.
+Achieve complete visual and functional parity between the legacy Alpine.js cockpit templates/scripts and the modern Vue 3 + PrimeVue SPA. Based on an exhaustive side-by-side gap analysis of all 38 legacy partials/scripts against the Vue 3 source tree, the following critical capability domains require full-fidelity remediation:
 
-The previous dashboard consisted of an unbundled Alpine.js + Go template architecture containing rich operational capabilities across multiple domains: interactive file manipulation and previewing in the Dual Explorer, hash-based deduplication workspaces on cloud remotes, multi-stream correlated daemon diagnostics, a run-aggregated timeline ledger with repetitive notice folding, an in-app slide-over reference manual with live self-diagnostics, and dedicated modals for system health, global fleet settings, and MCP inspection.
+### 1. Phase A: Profile Lifecycle, Dynamic Provider Options & History
+- **Provider Options Engine**: Implement Tier 1 schema (`src/data/provider-options-schema.ts`) for Google Drive (`--drive-skip-shortcuts`, `--drive-use-trash`, `--drive-shared-with-me`, `--drive-skip-gdocs`, `--drive-acknowledge-abuse`, `--drive-export-formats`, `--drive-import-formats`), OneDrive (`--onedrive-no-versions`, `--onedrive-delta`, `--onedrive-chunk-size`), S3 (`--s3-storage-class`, `--s3-chunk-size`), B2 (`--b2-hard-delete`), and Dropbox (`--dropbox-batch-mode`).
+- **Guided Flags Builder**: Implement `FlagsBuilder.vue` with flag catalog dropdown, boolean pills, text arguments, custom flag row adding/removal, and prohibited flags validation.
+- **Synthesized Real-Time CLI Preview**: Live synthesized CLI string (`rclone bisync ...`) reflecting active configuration, flags, and provider options.
+- **Profile Version History & Rollback**: History tab querying `GET /api/profiles/{id}/history`, displaying version snapshots, timestamps, diffs, and one-click rollback (`POST /api/profiles/{id}/rollback`).
+- **Profile Cloning**: Clone workflow with unique ID generation and name copy (`POST /api/profiles/{id}/clone`).
+- **Profile Deletion Blast Shield**: Safe confirmation modal (`ModalProfileDelete.vue` calling `DELETE /api/profiles/{id}`).
 
-This plan methodically ports every legacy capability into modular, cohesive Vue 3 Single-File Components (SFCs), Pinia stores, and typed TypeScript contracts matching the existing Go REST endpoints in `internal/server/routes.go`.
+### 2. Phase B: Remote Authentication, OAuth Lifecycle & Quotas
+- **Remote Reconnect & OAuth Flow**: Modal (`ModalRemoteReconnect.vue`) handling desktop/browser OAuth redirect, status spinner, auth URL copy, and cancellation (`/api/remotes/auth/oauth-stop`).
+- **OAuth Migration Wizard**: Guided modal (`ModalOAuthMigration.vue`) for personal Google Drive & OneDrive Client ID/Secret configuration (`POST /api/remotes/{name}/oauth-credentials`).
+- **Auth Audit Log**: Modal (`ModalAuthAudit.vue` querying `/api/remotes/auth/audit`) showing authentication events, credential updates, status badges, and error details.
+- **Remote Validation Probing**: Interactive validation calling `POST /api/remotes/{name}/validate` with inline spinners and `Connected ✓` indicators.
+- **App Credentials Tagging**: Badges for "Personal App" vs "Shared App ID" with migration alert banners.
 
----
+### 3. Phase C: Cryptographic Audit Ledger & Compliance Cockpit
+- **Cryptographic Continuity Header**: Header in `ViewAudit.vue` querying `GET /api/audit/verify` (emerald/rose shield, SHA-256 chained block count, HEAD hash snippet with copy action, verify chain trigger).
+- **Ledger Reset**: Action calling `POST /api/audit/reset` with automated backup archive notice and confirmation dialog.
+- **Action & Actor Filters**: Discrete dropdown filters for Action category (`SYNC_EXECUTED`, `DEDUPE_EXECUTED`, `CONFLICT_RESOLVED`, `DELETION_ACCEPTED`, `ROLLBACK_EXECUTED`, `WORKSPACE_ITEM_MOVED`, etc.) and Actor (`SYSTEM`, `USER`, `ADMIN`).
+- **Forensic Block Inspection Drawer**: Modal/drawer (`ModalAuditDetail.vue`) on row click displaying previous hash, current hash, seq_id, actor, and formatted JSON payload.
 
-## Types
+### 4. Phase D: Dual Explorer Upload Dock & Transfer Queue
+- **Upload Dock Modal**: Modal (`ModalUploadDock.vue` polling `GET /api/explorer/dock`).
+- **Transfer Status**: Queued, uploading, completed, and failed status indicators with file sizes and destinations.
+- **Sync Coordination**: "Sync in Progress (Deferred)" non-blocking lock notice and "Clear Completed" trigger (`DELETE /api/explorer/dock`).
+- **Explorer Toolbar Integration**: Upload dock launcher button in `ViewExplorer.vue`.
 
-### 1. File Operations & Preview Contracts (`src/types/explorer.ts`)
-- `FilePreviewResponse`: name, path, remote, size, mime_type, mod_time, content, data_url, is_binary, is_pdf, truncated, hash, error.
-- `CompareRequest`: remote1, path1, remote2, path2, profile_id.
-- `CompareClusterItem`: remote, name, path, size, primary_hash, mod_time, error.
-- `CompareResponse`: algorithm, matches, clusters, error.
-- `MoveItemRequest`: src_remote, src_path, dst_remote, dst_path, is_dir, profile_id.
-- `MkdirRequest`: remote, path, profile_id.
-- `DeleteItemRequest`: remote, path, is_dir, profile_id, confirmation_token.
+### Affected Components & Packages
 
-### 2. Deduplication Workspace Contracts (`src/types/dedupe.ts`)
-- `DedupeMode`: interactive, oldest, newest, rename, largest, smallest, list.
-- `DedupeCollisionCandidate`: id, path, name, size, hash, mod_time, remote.
-- `DedupeGroup`: hash, size, count, items.
-- `DedupeRunRequest`: remote, path, mode, by_hash, dedupe_both, profile_id, confirmation_token.
-- `DedupeRunResponse`: status, total_collisions, groups, confirmation_token, deleted_count, log_lines, error.
+- `dashboard/frontend/src/data/`: `provider-options-schema.ts`, `flags-catalog.ts`
+- `dashboard/frontend/src/types/`: `models.ts`, `explorer.ts`, `settings.ts`
+- `dashboard/frontend/src/stores/`: `profiles.ts`, `remotes.ts`, `logs.ts`, `explorer.ts`
+- `dashboard/frontend/src/components/`:
+  - `ProfileManagerModal.vue`, `FlagsBuilder.vue`, `ModalProfileDelete.vue`
+  - `ModalRemoteReconnect.vue`, `ModalOAuthMigration.vue`, `ModalAuthAudit.vue`
+  - `ModalUploadDock.vue`, `ModalAuditDetail.vue`
+- `dashboard/frontend/src/views/`: `ViewRemotes.vue`, `ViewAudit.vue`, `ViewExplorer.vue`, `ViewTelemetryLedger.vue`
 
-### 3. Run-Aggregated Ledger & Correlated Logs (`src/types/logs.ts`)
-- `RunAggregatedSession`: run_id, profile_id, profile_name, status, start_time, duration_sec, files_transferred, audit_status, entries.
-- `LogCluster`: id, isCluster, count, entry, expanded, clusterEntries.
-- `DaemonLogFilter`: level, run_id, job_id, search, limit.
+### Technical Strategy & Data Flow
 
-### 4. Help, Safety Policies & Diagnostics (`src/types/help.ts`)
-- `SafetyPolicy`: id, title, tag, contexts, description, action.
-- `CliFlagDoc`: flag, name, category, backends, contexts, description, caveat, example, docUrl.
-- `SelfDiagnosticResult`: status, timestamp, checks.
+- Schema-driven provider options dynamically adapt based on remote provider backend.
+- Flag builder serializes cleanly to and from POSIX-style CLI parameter strings.
+- Audit ledger continuity is verified against backend SHA-256 chain verification endpoints.
+- Upload dock tracks transfer queue non-blockingly during active sync runs.
 
-### 5. Fleet Settings & MCP Contracts (`src/types/settings.ts`)
-- `GlobalFleetSettings`: max_delete_percent, default_schedule, concurrency, bandwidth_limit, enable_canary, polling_interval_ms, notification_webhook.
-- `McpStatusResponse`: transport, pid, endpoint, read_only, tool_count, tools.
+### Safety & Error Handling
 
----
+- Strict confirmation modals for destructive operations (profile deletion, ledger reset, remote deletion).
+- Secret redaction for credentials and sensitive tokens.
+- Canary file safeguards preserved across all workflows.
 
-## Files
+## Verification Plan
 
-### New Files to Create
-- `src/types/explorer.ts`, `src/types/dedupe.ts`, `src/types/help.ts`, `src/types/settings.ts`
-- `src/components/ModalFilePreview.vue`
-- `src/components/ModalCompare.vue`
-- `src/components/ModalExplorerMkdir.vue`
-- `src/components/ModalExplorerMove.vue`
-- `src/components/ModalConfirm.vue`
-- `src/components/ExplorerContextMenu.vue`
-- `src/views/ViewTelemetryLedger.vue`
-- `src/components/ModalDaemonLogs.vue`
-- `src/components/ModalDedupe.vue`
-- `src/components/ModalRemoteWizard.vue`
-- `src/components/HelpDrawer.vue`
-- `src/components/ModalSystemHealth.vue`
-- `src/components/ModalGlobalSettings.vue`
-- `src/components/ModalMcp.vue`
-- `src/data/help-policies.ts`
-- `src/data/help-flags.ts`
-- `src/stores/dedupe.ts`
-- `src/stores/settings.ts`
+- `cd dashboard/frontend && npm run type-check && npm run build`
+- `go test -v -count=1 ./internal/server/...`
+- `./scripts/check.sh all`
+- `go test -v -run TestCockpitSPASmoke ./tests/e2e/...`
 
-### Files to Modify
-- `src/views/ViewExplorer.vue`
-- `src/views/ViewTelemetry.vue`
-- `src/views/ViewRemotes.vue`
-- `src/components/LogDock.vue`
-- `src/components/AppHeader.vue`
-- `src/App.vue`
-- `src/stores/explorer.ts`
-
----
-
-## Testing
-- Automated Typecheck & Build: `cd dashboard/frontend && npm run type-check && npm run build`
-- LOC guidelines: `./scripts/check.sh loc`
-- Full test suite: `./scripts/check.sh all`
-
----
-
-## Implementation Order
-- Phase 1: Dual Explorer File Operations, Previews & Context Menus
-- Phase 2: Unified Run-Aggregated Ledger & Correlated Daemon Logs
-- Phase 3: Remote Deduplication Workspace & Remote Creation Wizard
-- Phase 4: Slide-over Help & Diagnostics Drawer
-- Phase 5: System Health, Fleet Settings, and MCP Inspector Modals

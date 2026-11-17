@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRemotesStore } from '../stores/remotes'
 import { useDedupeStore } from '../stores/dedupe'
 import ModalDedupe from '../components/ModalDedupe.vue'
-import ModalRemoteWizard from '../components/ModalRemoteWizard.vue'
 
 const remotesStore = useRemotesStore()
 const dedupeStore = useDedupeStore()
@@ -224,8 +223,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Deduplication & Remote Wizard Modals -->
+    <!-- Deduplication Modals -->
     <ModalDedupe />
-    <ModalRemoteWizard />
   </div>
 </template>

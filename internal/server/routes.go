@@ -88,6 +88,7 @@ func (s *Server) routes() {
 			if distSubFS, distErr := fs.Sub(staticSubFS, "dist"); distErr == nil {
 				if assetsFS, assetsErr := fs.Sub(distSubFS, "assets"); assetsErr == nil {
 					s.Mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assetsFS))))
+					s.Mux.Handle("GET /cockpit/assets/", http.StripPrefix("/cockpit/assets/", http.FileServer(http.FS(assetsFS))))
 				}
 
 				handleCockpit := func(w http.ResponseWriter, r *http.Request) {

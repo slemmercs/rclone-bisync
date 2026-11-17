@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '../api/client'
-import type { Profile } from '../types/models'
+import type { Profile, ProfileVersion } from '../types/models'
 import { useFSMStore } from './fsm'
 
 export const useProfilesStore = defineStore('profiles', () => {
   const profiles = ref<Profile[]>([])
+  const history = ref<ProfileVersion[]>([])
   const selectedProfileId = ref<string | null>(null)
   const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
@@ -117,8 +118,8 @@ export const useProfilesStore = defineStore('profiles', () => {
   async function cloneProfile(id: string, targetId: string, name: string) {
     loading.value = true
     try {
-      const cloned = await api.post<Profile>(`/api/profiles/${id}/clone`, {
-        target_id: targetId,
+      const cloned = await api.post<Profile>(`/api/profiles/${encodeURIComponent(id)}/clone`, {
+        id: targetId,
         name,
       })
       await fetchProfiles()
@@ -132,7 +133,9 @@ export const useProfilesStore = defineStore('profiles', () => {
   async function rollbackProfile(id: string, version: number) {
     loading.value = true
     try {
-      const rolledBack = await api.post<Profile>(`/api/profiles/${id}/rollback`, { version })
+      const rolledBack = await api.post<Profile>(`/api/profiles/${encodeURIComponent(id)}/rollback`, {
+        target_version: version,
+      })
       await fetchProfiles()
       return rolledBack
     } finally {
@@ -140,8 +143,20 @@ export const useProfilesStore = defineStore('profiles', () => {
     }
   }
 
+  async function fetchProfileHistory(id: string): Promise<ProfileVersion[]> {
+    loading.value = true
+    try {
+      const data = await api.get<{ status: string; history: ProfileVersion[] }>(`/api/profiles/${encodeURIComponent(id)}/history`)
+      history.value = data.history || []
+      return history.value
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     profiles,
+    history,
     selectedProfileId,
     loading,
     error,
@@ -156,5 +171,6 @@ export const useProfilesStore = defineStore('profiles', () => {
     deleteProfile,
     cloneProfile,
     rollbackProfile,
+    fetchProfileHistory,
   }
 })

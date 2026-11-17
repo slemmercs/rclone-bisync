@@ -34,6 +34,15 @@ export interface Profile {
   }
 }
 
+export interface ProfileVersion {
+  version: number
+  profile_id: string
+  action?: string
+  timestamp: string
+  reason: string
+  snapshot: Profile
+}
+
 export interface RemotesResponse {
   remotes: Array<Record<string, any>>
   count: number

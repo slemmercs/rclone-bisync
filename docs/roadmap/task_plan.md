@@ -94,6 +94,26 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - **Scope**: `src/components/ModalSystemHealth.vue`, `src/components/ModalGlobalSettings.vue`, `src/components/ModalMcp.vue`, `src/stores/settings.ts`, `src/components/AppHeader.vue`, `src/App.vue`
   - **Verification**: `./scripts/check.sh all && npm run type-check && npm run build`
 
+- [x] Task 13: Profile Lifecycle, Dynamic Provider Options & History (Phase A)
+  - **Scope**: `src/data/provider-options-schema.ts`, `src/data/flags-catalog.ts`, `src/components/FlagsBuilder.vue`, `src/components/ModalProfileDelete.vue`, `src/components/ProfileManagerModal.vue`, `src/stores/profiles.ts`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && go test -v -count=1 ./internal/server/...`
+
+- [ ] Task 14: Remote Authentication, OAuth Lifecycle & Quotas (Phase B)
+  - **Scope**: `src/components/ModalRemoteReconnect.vue`, `src/components/ModalOAuthMigration.vue`, `src/components/ModalAuthAudit.vue`, `src/views/ViewRemotes.vue`, `src/stores/remotes.ts`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && go test -v -count=1 ./internal/server/...`
+
+- [ ] Task 15: Cryptographic Audit Ledger & Compliance Cockpit (Phase C)
+  - **Scope**: `src/views/ViewAudit.vue`, `src/components/ModalAuditDetail.vue`, `src/stores/logs.ts`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && go test -v -count=1 ./internal/server/...`
+
+- [ ] Task 16: Dual Explorer Upload Dock & Transfer Queue (Phase D)
+  - **Scope**: `src/components/ModalUploadDock.vue`, `src/views/ViewExplorer.vue`, `src/stores/explorer.ts`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && go test -v -count=1 ./internal/server/...`
+
+- [ ] Task 17: Full Verification & E2E Validation (Phase E)
+  - **Scope**: `tests/e2e/cockpit_spa_smoke_test.go`, `./scripts/check.sh all`
+  - **Verification**: `./scripts/check.sh all && go test -v -run TestCockpitSPASmoke ./tests/e2e/...`
+
 ## Status Updates
 
 - 2026-11-16: Initialized 100% Feature Parity Migration plan from approved implementation plan covering all 5 phases.
@@ -114,6 +134,8 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
 
 - 2026-11-16: Completed Task 11 - Slide-Over Help & Diagnostics Drawer. Implemented typed reference catalogs `src/data/help-policies.ts` (safety policies, operational runbooks) and `src/data/help-flags.ts` (curated CLI flags with descriptions, caveats, examples, and doc links). Added diagnostic contracts to `src/types/models.ts` and created `useHelpStore` in `src/stores/help.ts` supporting context-aware scoping, live self-diagnostic polling (`/api/diagnostics`), and tab navigation. Created `src/components/HelpDrawer.vue` powered by PrimeVue `Drawer` featuring 4 tabs: Diagnostics (system health summary, pass/warning/fail checks, uptime/system info), Safety Policies (canary, POSIX locks, mandatory subdirs, circuit breakers, jails, risk scores), Flag Catalog (CLI flags with copy buttons and docs links), and Runbooks (step-by-step troubleshooting guides with remediation commands). Connected drawer trigger button in `AppHeader.vue` and mounted drawer in `App.vue`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `./scripts/check.sh all` (all 7 quality gates passed).
 - 2026-11-16: Completed Task 12 - System Health, Fleet Settings, and MCP Inspector Modals. Implemented `useSettingsStore` in `src/stores/settings.ts` managing `/api/config`, `/api/config/encryption`, and `/api/mcp/status`. Implemented `ModalGlobalSettings.vue` with 4 operational tabs (Defaults, Engine & Polling, Alert Webhooks, and Config Encryption with passphrase management). Implemented `ModalSystemHealth.vue` featuring daemon state, engine latency, correlated daemon logs quick-launcher, MCP status, and remote connectivity probe. Implemented `ModalMcp.vue` featuring server status, ready-to-copy client configuration snippet, and full categorized catalog of all 24 MCP tools (10 read-only inspection tools, 14 guarded mutation tools with confirmation ticket badges). Integrated interactive launchers in `src/components/AppHeader.vue` (daemon health status button, MCP status pill, Settings cog button) and mounted all modals in `src/App.vue`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `./scripts/check.sh all` (all 7 quality gates passed).
+
+- 2026-11-17: Completed Task 13 (Phase A) - Profile Lifecycle, Dynamic Provider Options & History. Added Tier 1 provider options schema (`src/data/provider-options-schema.ts`) for Google Drive, OneDrive, S3, B2, Dropbox; added flags catalog (`src/data/flags-catalog.ts`) and safety validation against prohibited engine flags (`validateCustomFlagsString`); implemented `FlagsBuilder.vue` component with flag selection pills and reactive CLI parameter builder; implemented `ModalProfileDelete.vue` with confirmation safeguards; enhanced `src/stores/profiles.ts` with `fetchProfileHistory`, `cloneProfile`, and `rollbackProfile`; enhanced `ProfileManagerModal.vue` with version history rollback tab, clone dialog, dynamic provider options, guided flags builder, and real-time synthesized CLI preview (`rclone bisync ...`). Fixed headless Chrome SPA smoke test (`tests/e2e/cockpit_spa_smoke_test.go`). Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && go test -v -count=1 ./internal/server/...` and `go test -v -run "TestCockpitSPA_HeadlessChromeSmoke" ./tests/e2e/...`.
 
 
 

@@ -14,14 +14,15 @@ import HelpDrawer from './components/HelpDrawer.vue'
 import ModalSystemHealth from './components/ModalSystemHealth.vue'
 import ModalGlobalSettings from './components/ModalGlobalSettings.vue'
 import ModalMcp from './components/ModalMcp.vue'
-
-
+import ModalRemoteWizard from './components/ModalRemoteWizard.vue'
 
 import { useAppStore } from './stores/app'
 import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
+import { useDedupeStore } from './stores/dedupe'
 
 const appStore = useAppStore()
+const dedupeStore = useDedupeStore()
 const activeTab = computed({
   get: () => appStore.activeTab,
   set: (val: string) => appStore.switchTab(val)
@@ -85,12 +86,16 @@ onUnmounted(() => {
 
     <!-- Interactive Modals -->
     <ConflictReviewModal v-model:visible="showReviewModal" />
-    <ProfileManagerModal v-model:visible="showProfilesModal" />
+    <ProfileManagerModal
+      v-model:visible="showProfilesModal"
+      @open-remote-wizard="showProfilesModal = false; dedupeStore.openWizard()"
+    />
     <ModalDaemonLogs />
     <HelpDrawer />
     <ModalSystemHealth />
     <ModalGlobalSettings />
     <ModalMcp />
+    <ModalRemoteWizard />
 
 
   </div>
