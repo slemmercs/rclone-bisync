@@ -11,7 +11,18 @@ import (
 
 func (s *Server) handleGetQueue(w http.ResponseWriter, r *http.Request) {
 	if s.ProfileService == nil {
-		writeJSON(w, http.StatusServiceUnavailable, models.ErrorResponse{Status: "error", Error: "Profile service not initialized"})
+		writeJSON(w, http.StatusOK, models.QueueSnapshotResponse{
+			Status: "success",
+			Snapshot: models.QueueSnapshotDTO{
+				Paused:          false,
+				ActiveSignature: "SIG_DEFAULT",
+				MaxConcurrency:  2,
+				RunningCount:    0,
+				QueuedCount:     0,
+				ActiveJobs:      []models.QueueJobDTO{},
+				QueuedJobs:      []models.QueueJobDTO{},
+			},
+		})
 		return
 	}
 

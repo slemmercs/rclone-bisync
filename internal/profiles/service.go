@@ -243,7 +243,6 @@ func (s *Service) IsProfileSyncing(id string) bool {
 	return s.scheduler.IsProfileRunning(id)
 }
 
-
 // GetQueueSnapshot returns the current state of the execution queue and running cohorts.
 func (s *Service) GetQueueSnapshot() QueueSnapshotDTO {
 	if s == nil || s.scheduler == nil {

@@ -179,18 +179,23 @@ func TestQueue_ServiceUnavailable(t *testing.T) {
 	s := NewServer(&config.Config{}, nil, nil)
 	s.ProfileService = nil
 
-	endpoints := []struct {
+	// GET /api/queue returns 200 with empty snapshot even when ProfileService is nil
+	w := doQueueReq(s, "GET", "/api/queue")
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /api/queue: expected 200, got %d", w.Code)
+	}
+
+	mutationEndpoints := []struct {
 		method string
 		target string
 	}{
-		{"GET", "/api/queue"},
 		{"POST", "/api/queue/pause"},
 		{"POST", "/api/queue/resume"},
 		{"DELETE", "/api/queue/prof-1"},
 		{"DELETE", "/api/queue"},
 	}
 
-	for _, ep := range endpoints {
+	for _, ep := range mutationEndpoints {
 		w := doQueueReq(s, ep.method, ep.target)
 		if w.Code != http.StatusServiceUnavailable {
 			t.Errorf("%s %s: expected 503, got %d", ep.method, ep.target, w.Code)

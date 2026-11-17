@@ -296,6 +296,34 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 		})()`))
 		time.Sleep(150 * time.Millisecond)
 	})
+	// 9. Queue Manager Modal Interaction
+	t.Run("QueueManagerModalInteraction", func(t *testing.T) {
+		clickQueueScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const qBtn = btns.find(b => b.textContent.includes('Queue'));
+			if (qBtn) { qBtn.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickQueueScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Queue Manager modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		hasHeader, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			return document.body.textContent.includes('Sync Queue & Concurrency Dispatcher');
+		})()`))
+		if err != nil || !hasHeader {
+			t.Fatalf("expected Queue Manager modal header in DOM, err: %v", err)
+		}
+
+		// Close modal by pressing Escape
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			return true;
+		})()`))
+		time.Sleep(150 * time.Millisecond)
+	})
 
 	// 9. Final Console Error Audit
 	t.Run("ConsoleErrorAudit", func(t *testing.T) {
