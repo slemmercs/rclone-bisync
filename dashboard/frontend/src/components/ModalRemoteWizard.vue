@@ -108,7 +108,7 @@
               <span class="font-bold text-sm text-white group-hover:text-electric-300 transition-colors">{{ p.name }}</span>
               <div class="flex items-center gap-1">
                 <span v-if="p.category === 'popular'" class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-electric-blue/10 text-electric-blue border border-electric-blue/20">Popular</span>
-                <span v-if="p.oauth_supported" class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">OAuth</span>
+                <span v-if="isOAuthProvider(p)" class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">OAuth</span>
               </div>
             </div>
             <p class="text-xs text-slate-400 line-clamp-2">{{ p.description || p.name }}</p>
@@ -143,6 +143,169 @@
             class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-electric-blue"
           />
         </div>
+        <!-- Authentication Configuration Section (OAuth Providers) -->
+        <div v-if="isOAuthProvider(selectedProvider)" class="p-3.5 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="text-slate-200 font-semibold text-xs flex items-center gap-1.5">
+              <i class="pi pi-shield text-emerald-400 text-xs"></i>
+              <span>Authentication Mode</span>
+            </label>
+            <!-- Mode Segmented Selector -->
+            <div class="inline-flex rounded-lg bg-carbon-canvas p-1 border border-carbon-border text-[11px]">
+              <button
+                type="button"
+                @click="authMode = 'browser'"
+                :class="authMode === 'browser' ? 'bg-electric-blue text-black font-bold shadow' : 'text-slate-400 hover:text-white'"
+                class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
+                title="Automatic browser sign-in"
+              >
+                <i class="pi pi-globe text-[11px]" :class="authMode === 'browser' ? 'text-black' : 'text-emerald-400'"></i>
+                <span>Browser OAuth</span>
+              </button>
+              <button
+                type="button"
+                @click="authMode = 'custom'"
+                :class="authMode === 'custom' ? 'bg-electric-blue text-black font-bold shadow' : 'text-slate-400 hover:text-white'"
+                class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
+                title="Custom Client ID and Secret"
+              >
+                <i class="pi pi-key text-[11px]" :class="authMode === 'custom' ? 'text-black' : 'text-amber-400'"></i>
+                <span>Custom Credentials</span>
+              </button>
+              <button
+                type="button"
+                @click="authMode = 'token'"
+                :class="authMode === 'token' ? 'bg-electric-blue text-black font-bold shadow' : 'text-slate-400 hover:text-white'"
+                class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
+                title="Manual token JSON for headless machines"
+              >
+                <i class="pi pi-file text-[11px]" :class="authMode === 'token' ? 'text-black' : 'text-purple-400'"></i>
+                <span>Direct Token</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mode 1: Interactive Browser OAuth -->
+          <div v-if="authMode === 'browser'" class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-2.5">
+            <i class="pi pi-check-circle text-emerald-400 text-base shrink-0 mt-0.5"></i>
+            <div class="space-y-1">
+              <span class="font-bold block text-white">Interactive Browser Authorization</span>
+              <p class="text-[11px] text-emerald-300/90 leading-relaxed font-sans">
+                Upon deployment, Bisync Hub will coordinate with Rclone's local web server to launch a browser authorization window to sign into your {{ selectedProvider?.name }} account.
+              </p>
+            </div>
+          </div>
+
+          <!-- Mode 2: Custom Client Credentials -->
+          <div v-else-if="authMode === 'custom'" class="space-y-3 pt-1">
+            <p class="text-[11px] text-slate-400 font-sans leading-relaxed">
+              Recommended for Google Drive &amp; OneDrive to use your own cloud project credentials and avoid shared rate limits.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-300 mb-1 text-[11px]">OAuth Client ID</label>
+                <input
+                  type="text"
+                  v-model="customClientId"
+                  placeholder="e.g. 123456789.apps.googleusercontent.com"
+                  class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue"
+                />
+              </div>
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-slate-300 text-[11px]">OAuth Client Secret</label>
+                  <button
+                    type="button"
+                    @click="showSecret = !showSecret"
+                    class="text-[10px] text-electric-blue hover:text-sky-300 cursor-pointer font-sans"
+                  >
+                    {{ showSecret ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
+                <input
+                  :type="showSecret ? 'text' : 'password'"
+                  v-model="customClientSecret"
+                  placeholder="e.g. GOCSPX-..."
+                  class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Mode 3: Direct Token (Headless) -->
+          <div v-else-if="authMode === 'token'" class="space-y-2 pt-1">
+            <p class="text-[11px] text-slate-400 font-sans leading-relaxed">
+              Paste an existing authorization token JSON payload generated via <code class="text-electric-blue">rclone authorize "{{ selectedProvider?.name }}"</code> (ideal for headless servers).
+            </p>
+            <textarea
+              v-model="manualToken"
+              rows="3"
+              placeholder='{"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}'
+              class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 text-xs font-mono focus:outline-none focus:border-electric-blue resize-none"
+            ></textarea>
+          </div>
+        </div>
+        <!-- Non-OAuth Provider Credentials (S3, B2, SFTP, WebDAV, Generic) -->
+        <div v-else class="p-3.5 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
+          <label class="text-slate-200 font-semibold text-xs flex items-center gap-1.5">
+            <i class="pi pi-key text-amber-400 text-xs"></i>
+            <span>Provider Credentials</span>
+          </label>
+
+          <!-- S3 -->
+          <div v-if="selectedProvider?.name === 's3'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-300 mb-1 text-[11px]">Access Key ID</label>
+              <input type="text" v-model="providerParams.access_key_id" placeholder="AKIA..." class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+            <div>
+              <label class="block text-slate-300 mb-1 text-[11px]">Secret Access Key</label>
+              <input :type="showSecret ? 'text' : 'password'" v-model="providerParams.secret_access_key" placeholder="Secret Key" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+            <div>
+              <label class="block text-slate-300 mb-1 text-[11px]">Region</label>
+              <input type="text" v-model="providerParams.region" placeholder="us-east-1" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+            <div>
+              <label class="block text-slate-300 mb-1 text-[11px]">Endpoint (MinIO / Ceph)</label>
+              <input type="text" v-model="providerParams.endpoint" placeholder="https://s3.example.com" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+          </div>
+
+          <!-- B2 -->
+          <div v-else-if="selectedProvider?.name === 'b2'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-300 mb-1 text-[11px]">Account ID / Key ID</label>
+              <input type="text" v-model="providerParams.account" placeholder="Account ID" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+            <div>
+              <label class="block text-slate-300 mb-1 text-[11px]">Application Key</label>
+              <input :type="showSecret ? 'text' : 'password'" v-model="providerParams.key" placeholder="App Key" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+          </div>
+
+          <!-- SFTP / WebDAV / Generic -->
+          <div v-else-if="selectedProvider?.name === 'sftp' || selectedProvider?.name === 'webdav'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-slate-300 mb-1 text-[11px]">{{ selectedProvider?.name === 'webdav' ? 'URL' : 'Host' }}</label>
+              <input type="text" v-model="providerParams[selectedProvider?.name === 'webdav' ? 'url' : 'host']" :placeholder="selectedProvider?.name === 'webdav' ? 'https://webdav.example.com' : 'sftp.example.com'" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+            <div>
+              <label class="block text-slate-300 mb-1 text-[11px]">User</label>
+              <input type="text" v-model="providerParams.user" placeholder="username" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+            <div>
+              <label class="block text-slate-300 mb-1 text-[11px]">Password</label>
+              <input :type="showSecret ? 'text' : 'password'" v-model="providerParams.pass" placeholder="Password" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+            </div>
+          </div>
+
+          <div v-else class="text-[11px] text-slate-400 font-sans">
+            Direct deployment will establish baseline provider configuration or prompt for authentication tokens.
+          </div>
+        </div>
+
+
 
         <!-- Sync Profile Bridge Toggle -->
         <div class="p-3 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
@@ -200,6 +363,19 @@
         <div class="grid grid-cols-2 gap-2 text-slate-300">
           <div><span class="text-slate-500">Remote Name:</span> {{ remoteName }}</div>
           <div><span class="text-slate-500">Provider:</span> {{ selectedProvider?.name }}</div>
+          <div>
+            <span class="text-slate-500">Authentication:</span>
+            <span :class="isOAuthProvider(selectedProvider) ? 'text-emerald-400 font-semibold' : 'text-slate-300'">
+              {{
+                isOAuthProvider(selectedProvider)
+                  ? (authMode === 'custom' ? 'Custom OAuth Credentials' : (authMode === 'token' ? 'Direct OAuth Token' : 'Browser OAuth (Interactive)'))
+                  : 'Standard / Direct'
+              }}
+            </span>
+          </div>
+          <div v-if="isOAuthProvider(selectedProvider) && authMode === 'custom' && customClientId">
+            <span class="text-slate-500">Client ID:</span> {{ customClientId.slice(0, 16) }}...
+          </div>
           <div><span class="text-slate-500">Linked Profile:</span> {{ createProfile ? 'Enabled' : 'Disabled' }}</div>
           <div v-if="createProfile"><span class="text-slate-500">Local Path:</span> {{ localPath || '--' }}</div>
           <div v-if="createProfile"><span class="text-slate-500">Schedule:</span> {{ schedule }}</div>
@@ -265,12 +441,27 @@ const selectedProvider = ref<ProviderCatalogItem | null>(null)
 
 const remoteName = ref<string>('')
 const parameters = ref<Record<string, any>>({})
+const authMode = ref<'browser' | 'custom' | 'token'>('browser')
+const customClientId = ref<string>('')
+const customClientSecret = ref<string>('')
+const manualToken = ref<string>('')
+const showSecret = ref<boolean>(false)
+const providerParams = ref<Record<string, string>>({})
 const createProfile = ref<boolean>(true)
 const localPath = ref<string>('')
 const remoteSubpath = ref<string>('')
 const schedule = ref<string>('manual')
 const errorMsg = ref<string | null>(null)
 const submitting = ref<boolean>(false)
+
+function isOAuthProvider(p: ProviderCatalogItem | null): boolean {
+  if (!p) return false
+  if (p.supports_oauth || (p as any).oauth_supported) return true
+  const oauthTypes = ['drive', 'onedrive', 'dropbox', 'box', 'pcloud', 'hubic', 'yandex', 'mailru', 'google photos', 'zoho']
+  const name = (p.name || '').toLowerCase()
+  const prefix = (p.prefix || '').toLowerCase()
+  return oauthTypes.includes(name) || oauthTypes.includes(prefix)
+}
 
 const canProceedToStep3 = computed(() => !!selectedProvider.value && !!remoteName.value.trim())
 
@@ -294,6 +485,12 @@ function selectProvider(p: ProviderCatalogItem) {
   if (!remoteName.value) {
     remoteName.value = `${p.name}_remote`
   }
+  authMode.value = 'browser'
+  customClientId.value = ''
+  customClientSecret.value = ''
+  manualToken.value = ''
+  showSecret.value = false
+  providerParams.value = {}
   step.value = 2
 }
 
@@ -302,13 +499,29 @@ async function handleDeploy() {
   submitting.value = true
   errorMsg.value = null
 
+  const cleanName = remoteName.value.trim()
+  const params: Record<string, any> = { ...parameters.value }
+
+  if (isOAuthProvider(selectedProvider.value)) {
+    if (authMode.value === 'custom') {
+      if (customClientId.value.trim()) params.client_id = customClientId.value.trim()
+      if (customClientSecret.value.trim()) params.client_secret = customClientSecret.value.trim()
+    } else if (authMode.value === 'token') {
+      if (manualToken.value.trim()) params.token = manualToken.value.trim()
+    }
+  } else {
+    Object.entries(providerParams.value).forEach(([k, v]) => {
+      if (v !== undefined && v !== '') params[k] = v
+    })
+  }
+
   const payload: CreateRemotePayload = {
-    name: remoteName.value.trim(),
+    name: cleanName,
     type: selectedProvider.value.name,
-    parameters: parameters.value,
+    parameters: params,
     create_profile: createProfile.value,
     local_path: localPath.value.trim() || undefined,
-    profile_name: `${remoteName.value.trim()}_sync`,
+    profile_name: `${cleanName}_sync`,
     schedule: schedule.value,
     remote_subpath: remoteSubpath.value.trim() || undefined,
   }
@@ -320,6 +533,11 @@ async function handleDeploy() {
       await profilesStore.fetchProfiles()
     }
     dedupeStore.closeWizard()
+
+    // If OAuth browser authentication was requested or required, launch interactive OAuth reconnect modal
+    if (isOAuthProvider(selectedProvider.value) && authMode.value !== 'token') {
+      await remotesStore.reconnectRemote(cleanName)
+    }
   } catch (e: any) {
     errorMsg.value = e.message || 'Remote deployment failed'
   } finally {

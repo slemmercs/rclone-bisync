@@ -73,6 +73,7 @@ export interface ProviderCatalogItem {
   category: 'popular' | 'cloud' | 'object' | 'protocol' | 'virtual' | 'other'
   options?: ProviderOption[]
   oauth_supported?: boolean
+  supports_oauth?: boolean
 }
 
 export interface ProviderCatalogResponse {
