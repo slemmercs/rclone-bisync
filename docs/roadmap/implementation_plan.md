@@ -58,6 +58,50 @@ Achieve complete visual and functional parity between the legacy Alpine.js cockp
 ## Verification Plan
 
 - `cd dashboard/frontend && npm run type-check && npm run build`
+
+---
+
+# Implementation Plan: Development Tooling, Rich Sandbox & Installer Build Modes
+
+## Proposed Changes
+
+Upgrade developer experience, installer flexibility, and test sandboxing across the repository:
+
+### 1. Enterprise Installer (`deploy/install.sh`)
+- Support flag-based frontend compilation (`--build-frontend` vs `--use-prebuilt`).
+- `--build-frontend`: Verify Node.js/npm runtime, install dependencies (`npm ci` / `npm install`), execute `npm run build` as target user, and embed freshly compiled assets in Go binary.
+- `--use-prebuilt` (default): Verify committed `dashboard/frontend/dist/index.html` and compile Go binary with zero external Node.js/npm dependencies.
+- Clear error handling, validation, and usage help output.
+
+### 2. Comprehensive Ephemeral Sandbox (`scripts/run-sandbox.sh`)
+- Provide multi-remote configuration (`testremote`, `backup_remote`, `archive_remote`).
+- Populate rich mock files across multiple formats (markdown, CSV, JSON, SVG diagrams, nested subfolders).
+- Seed hash-identical duplicate files to test Deduplication by hash.
+- Populate multi-profile state in `profiles.json` and historical version snapshots in `profiles_history.json`.
+- Populate cryptographic SQLite `audit.db` with valid Goose migrations and verified SHA-256 hash chains (Genesis to HEAD) so Audit view is immediately green and interactive.
+- Support `--build-frontend` and `--dev` flags.
+
+### 3. All-in-One Development Toolchain (`scripts/update-tools.sh`)
+- Broaden scope from Go-only tools to full project stack:
+  - Go compiler (target: 1.26.11) and linters (`govulncheck`, `staticcheck`, `gosec`, `betterleaks`, `esbuild`).
+  - Node.js and npm verification.
+  - Frontend npm packages (`npm --prefix dashboard/frontend install`).
+  - Shell script linter (`shellcheck`).
+  - HTML linter (`tidy`).
+  - Rclone binary (`curl https://rclone.org/install.sh | sudo bash`).
+- Comprehensive `--status` diagnostic view and `--all` update mode.
+
+### 4. Live Frontend Development Server (Vite HMR)
+- Configure Vite dev server (`dashboard/frontend/vite.config.ts`) to serve `cockpit.html` on root `/` and route requests dynamically to configurable backend port (`BACKEND_PORT` / `VITE_BACKEND_PORT`).
+- Provide seamless live dev script (`scripts/dev.sh` and `run-sandbox.sh --dev`) running backend + Vite HMR.
+
+## Verification Plan
+- `sudo bash deploy/install.sh --dry-run --use-prebuilt`
+- `sudo bash deploy/install.sh --dry-run --build-frontend`
+- `./scripts/run-sandbox.sh --dry-run`
+- `./scripts/update-tools.sh --status`
+- `./scripts/check.sh all`
+
 - `go test -v -count=1 ./internal/server/...`
 - `./scripts/check.sh all`
 - `go test -v -run TestCockpitSPASmoke ./tests/e2e/...`
