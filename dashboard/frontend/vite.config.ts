@@ -18,10 +18,27 @@ function renameCockpitToDistIndex(): Plugin {
   }
 }
 
+function rewriteRootToCockpit(): Plugin {
+  return {
+    name: 'rewrite-root-to-cockpit',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url === '/' || req.url === '/index.html') {
+          req.url = '/cockpit.html'
+        }
+        next()
+      })
+    }
+  }
+}
+
+const backendUrl = process.env.VITE_BACKEND_URL || 'http://localhost:8080'
+const devPort = Number(process.env.VITE_PORT) || 5173
+
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
-  plugins: [vue(), renameCockpitToDistIndex()],
+  plugins: [vue(), renameCockpitToDistIndex(), rewriteRootToCockpit()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -45,11 +62,13 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
+    port: devPort,
+    host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true
+        target: backendUrl,
+        changeOrigin: true,
+        ws: true
       }
     }
   }

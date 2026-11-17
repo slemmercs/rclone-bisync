@@ -11,10 +11,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DASHBOARD_PORT="${DASHBOARD_PORT:-8085}"
 MCP_PORT="${MCP_PORT:-8086}"
 RC_PORT="${RC_PORT:-5575}"
+VITE_PORT="${VITE_PORT:-5173}"
 RC_USER="sandbox"
 RC_PASS="SandboxPass99!"
 DRY_RUN=false
 BUILD_FRONTEND=false
+DEV_MODE=false
 
 print_usage() {
     cat <<EOF
@@ -26,9 +28,11 @@ Options:
   -h, --help            Show this help documentation and exit
   -n, --dry-run         Seed and verify all mock data and configs, then exit without starting daemons
   -b, --build-frontend  Rebuild Vue 3 SPA distribution before compiling Go binary
+  -d, --dev             Launch Vite live frontend dev server (HMR on port 5173) proxying sandbox APIs
       --port <port>     Dashboard web service port (default: 8085)
       --mcp-port <port> Embedded MCP server port (default: 8086)
       --rc-port <port>  Rclone RC daemon port (default: 5575)
+      --vite-port <port> Vite frontend dev server port (default: 5173)
 EOF
 }
 
@@ -46,6 +50,10 @@ while [[ $# -gt 0 ]]; do
             BUILD_FRONTEND=true
             shift
             ;;
+        -d|--dev)
+            DEV_MODE=true
+            shift
+            ;;
         --port)
             DASHBOARD_PORT="$2"
             shift 2
@@ -56,6 +64,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --rc-port)
             RC_PORT="$2"
+            shift 2
+            ;;
+        --vite-port)
+            VITE_PORT="$2"
             shift 2
             ;;
         *)
@@ -71,6 +83,9 @@ SANDBOX_DIR="$(mktemp -d /tmp/rclone-bisync-sandbox-XXXXXX)"
 cleanup() {
     echo ""
     echo "🧹 Shutting down sandbox processes and cleaning up temporary files..."
+    if [[ -n "${VITE_PID:-}" ]] && kill -0 "$VITE_PID" 2>/dev/null; then
+        kill "$VITE_PID" 2>/dev/null || true
+    fi
     if [[ -n "${DASH_PID:-}" ]] && kill -0 "$DASH_PID" 2>/dev/null; then
         kill "$DASH_PID" 2>/dev/null || true
     fi
@@ -369,10 +384,33 @@ echo "🌐 Starting Bisync Hub dashboard on port $DASHBOARD_PORT (MCP on $MCP_PO
     --env-file "$SANDBOX_DIR/bisync.env" &
 DASH_PID=$!
 
+# 14. If DEV_MODE requested, start Vite live frontend dev server with HMR
+if [[ "$DEV_MODE" == "true" ]]; then
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "❌ Node.js and npm are required for --dev mode."
+        exit 1
+    fi
+    if [[ ! -d "$REPO_ROOT/dashboard/frontend/node_modules" ]]; then
+        echo "📦 Installing frontend dependencies for live dev..."
+        (cd "$REPO_ROOT/dashboard/frontend" && npm install)
+    fi
+    echo "⚡ Starting Vite frontend dev server with HMR on port $VITE_PORT..."
+    (
+        cd "$REPO_ROOT/dashboard/frontend"
+        export VITE_PORT="$VITE_PORT"
+        export VITE_BACKEND_URL="http://127.0.0.1:$DASHBOARD_PORT"
+        npm run dev
+    ) &
+    VITE_PID=$!
+fi
+
 echo ""
 echo "=================================================================="
 echo "🎉 Sandbox Running in Isolation!"
 echo "   Dashboard:     http://127.0.0.1:$DASHBOARD_PORT"
+if [[ "$DEV_MODE" == "true" ]]; then
+echo "   Vite Dev HMR:  http://127.0.0.1:$VITE_PORT"
+fi
 echo "   MCP Server:    http://127.0.0.1:$MCP_PORT"
 echo "   RC Daemon:     http://127.0.0.1:$RC_PORT"
 echo "   Storage Root:  $SANDBOX_DIR"
