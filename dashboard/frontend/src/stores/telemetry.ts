@@ -17,6 +17,10 @@ export const useTelemetryStore = defineStore('telemetry', () => {
   const transferStats = computed(() => telemetry.value?.transfer_stats || null)
   const metrics = computed(() => telemetry.value?.metrics || [])
   const hasReview = computed<boolean>(() => !!telemetry.value?.has_review || !!telemetry.value?.review_pending)
+  const latencyMs = computed<number | null>(() => {
+    return telemetry.value?.daemon_health?.response_time_ms ?? null
+  })
+
 
   async function fetchTelemetry() {
     try {
@@ -56,6 +60,8 @@ export const useTelemetryStore = defineStore('telemetry', () => {
     loading,
     error,
     isSyncing,
+    latencyMs,
+
     daemonHealthy,
     transferStats,
     metrics,

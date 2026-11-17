@@ -8,6 +8,8 @@ export * from './remotes'
 export * from './app'
 export * from './dedupe'
 export * from './help'
+export * from './settings'
+
 
 
 

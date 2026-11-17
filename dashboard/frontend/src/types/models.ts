@@ -79,11 +79,7 @@ export interface TelemetryPayload {
   transfer_stats: TransferStats | null
   has_review: boolean
   review_pending: boolean
-  mcp_status?: {
-    running: boolean
-    tools_count?: number
-    clients_count?: number
-  }
+  mcp_status?: MCPStatus
 }
 
 export interface BrowseItem {
@@ -223,4 +219,59 @@ export interface DiagnosticsResponse {
   system_info: DiagnosticSystemInfo
   timestamp: string
 }
+
+export interface GlobalDefaults {
+  max_delete: number
+  canary_validation: boolean
+  conflict_resolve: string
+  compare_mode: string
+  remove_empty_dirs: boolean
+  create_empty_dirs: boolean
+  lock_explorer_remote: boolean
+}
+
+export interface ConfigDaemonSettings {
+  job_poll_initial_sleep_sec: number
+  job_poll_max_sleep_sec: number
+  job_timeout_seconds: number
+  lock_stale_timeout_seconds: number
+  rate_limit_backoff_hours: number
+}
+
+export interface ConfigNotificationSettings {
+  webhook_url: string
+  watchdog_ping_url: string
+}
+
+export interface GlobalConfigResponse {
+  status: string
+  global_defaults: GlobalDefaults
+  daemon: ConfigDaemonSettings
+  notifications: ConfigNotificationSettings
+}
+
+export interface UpdateConfigRequest {
+  global_defaults?: Partial<GlobalDefaults>
+  daemon?: Partial<ConfigDaemonSettings>
+  notifications?: Partial<ConfigNotificationSettings>
+}
+
+export interface ConfigEncryptionResponse {
+  is_encrypted: boolean
+  has_daemon_passphrase: boolean
+  warning?: string
+  config_file?: string
+  error?: string
+}
+
+export interface MCPStatus {
+  status: 'active' | 'offline'
+  transport?: 'stdio' | 'sse'
+  read_only: boolean
+  host?: string
+  port?: number
+  pid?: number
+  started_at?: string
+}
+
 

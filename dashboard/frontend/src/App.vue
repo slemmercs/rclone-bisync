@@ -11,6 +11,10 @@ import ConflictReviewModal from './components/ConflictReviewModal.vue'
 import ProfileManagerModal from './components/ProfileManagerModal.vue'
 import ModalDaemonLogs from './components/ModalDaemonLogs.vue'
 import HelpDrawer from './components/HelpDrawer.vue'
+import ModalSystemHealth from './components/ModalSystemHealth.vue'
+import ModalGlobalSettings from './components/ModalGlobalSettings.vue'
+import ModalMcp from './components/ModalMcp.vue'
+
 
 
 import { useAppStore } from './stores/app'
@@ -84,6 +88,10 @@ onUnmounted(() => {
     <ProfileManagerModal v-model:visible="showProfilesModal" />
     <ModalDaemonLogs />
     <HelpDrawer />
+    <ModalSystemHealth />
+    <ModalGlobalSettings />
+    <ModalMcp />
+
 
   </div>
 

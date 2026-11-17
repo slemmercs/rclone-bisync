@@ -6,6 +6,8 @@ import { useFSMStore } from '../stores/fsm'
 import { useTelemetryStore } from '../stores/telemetry'
 import { useLogsStore } from '../stores/logs'
 import { useHelpStore } from '../stores/help'
+import { useSettingsStore } from '../stores/settings'
+
 
 
 const props = defineProps<{
@@ -23,6 +25,16 @@ const fsmStore = useFSMStore()
 const telemetryStore = useTelemetryStore()
 const logsStore = useLogsStore()
 const helpStore = useHelpStore()
+const settingsStore = useSettingsStore()
+
+const isMcpActive = computed(() => {
+  return settingsStore.mcpStatus?.status === 'active' || telemetryStore.telemetry?.mcp_status?.status === 'active'
+})
+
+const mcpStatusText = computed(() => {
+  return isMcpActive.value ? 'MCP Online' : 'MCP Standby'
+})
+
 
 const activeContext = computed(() => {
   switch (props.activeTab) {
@@ -85,10 +97,27 @@ async function handleRunSync() {
         <div class="flex items-center gap-2 text-xs text-carbon-400">
           <span>Storage Control Plane</span>
           <span class="inline-block w-1 h-1 rounded-full bg-carbon-600"></span>
-          <span class="flex items-center gap-1 font-mono text-[11px]" :class="daemonStatus === 'healthy' ? 'text-emerald-400' : 'text-amber-400'">
+          <button
+            type="button"
+            @click="settingsStore.openSystemHealthModal()"
+            class="flex items-center gap-1 font-mono text-[11px] cursor-pointer hover:underline"
+            :class="daemonStatus === 'healthy' ? 'text-emerald-400' : 'text-amber-400'"
+            title="Open System Health & Engine Center"
+          >
             <span class="w-1.5 h-1.5 rounded-full" :class="daemonStatus === 'healthy' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'"></span>
             {{ daemonStatus === 'healthy' ? 'RC Daemon Online' : 'Daemon Standby' }}
-          </span>
+          </button>
+          <span class="inline-block w-1 h-1 rounded-full bg-carbon-600"></span>
+          <button
+            type="button"
+            @click="settingsStore.openMcpModal()"
+            class="flex items-center gap-1 font-mono text-[11px] cursor-pointer hover:underline"
+            :class="isMcpActive ? 'text-violet-400' : 'text-slate-500'"
+            title="Open MCP Inspector"
+          >
+            <span class="w-1.5 h-1.5 rounded-full" :class="isMcpActive ? 'bg-violet-400' : 'bg-slate-600'"></span>
+            <span>{{ mcpStatusText }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -158,6 +187,16 @@ async function handleRunSync() {
         <i class="pi pi-question-circle text-xs text-electric-blue"></i>
         <span>Help</span>
       </button>
+      <!-- Global Fleet Settings Button -->
+      <button
+        @click="settingsStore.openGlobalSettingsModal()"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-300 hover:text-white text-xs font-mono transition-colors cursor-pointer"
+        title="Open Global Fleet Settings"
+      >
+        <i class="pi pi-cog text-xs"></i>
+        <span>Settings</span>
+      </button>
+
 
 
       <!-- Review Alert Trigger (if circuit breaker tripped) -->
