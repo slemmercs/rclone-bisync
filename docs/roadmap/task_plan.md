@@ -234,3 +234,34 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
 
 
 
+---
+
+# Task Plan: Bidirectional Sync between bisync.env and UI Global Settings
+
+## Goal
+Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Global Fleet Settings modal, audit and document all engine configuration options, clearly designate fallback bootstrap paths, and persist settings changes atomically to disk.
+
+## Tasks
+
+- [x] Task 28: Configuration Persistence Engine & Audit Documentation
+  - **Scope**: `internal/config/config.go`, `internal/config/env_writer.go`, `internal/config/env_writer_test.go`, `bisync.env`, `config/bisync.env.example`
+  - **Verification**: `go test -v -count=1 -race ./internal/config/...`
+
+- [ ] Task 29: Server API Contract & Config Handlers Persistence
+  - **Scope**: `internal/models/api.go`, `internal/server/handlers_config.go`, `internal/server/handlers_config_test.go`
+  - **Verification**: `go test -v -count=1 -race ./internal/server/... -run TestConfig`
+
+- [ ] Task 30: Frontend Models, Pinia Store & Global Settings UI Modal
+  - **Scope**: `dashboard/frontend/src/types/models.ts`, `dashboard/frontend/src/stores/settings.ts`, `dashboard/frontend/src/components/ModalGlobalSettings.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+
+- [ ] Task 31: Full Pre-Flight Verification & E2E Validation
+  - **Scope**: Full repository quality checks and E2E validation
+  - **Verification**: `./scripts/check.sh all`
+
+## Status Updates
+
+- 2026-11-17: Initialized task plan for bisync.env bidirectional synchronization and configuration audit from implementation_plan.md.
+- 2026-11-17: Completed Task 28 - Configuration Persistence Engine & Audit Documentation. Added `EnvFilePath` to `config.Config` and populated the loaded path during `config.LoadConfig`; implemented atomic multi-key environment file updater `UpdateEnvKeys` and `FormatEnvValue` in `internal/config/env_writer.go` with full comment/ordering preservation; added unit test suite in `internal/config/env_writer_test.go`; audited, annotated, and synchronized `bisync.env` and `config/bisync.env.example` documenting fallback bootstrap paths (`LOCAL_PATH`, `REMOTE_PATH`) vs independent sync profiles, and adding documentation for all engine options (`GLOBAL_MAX_DELETE`, `GLOBAL_CANARY_VALIDATION`, `GLOBAL_CONFLICT_RESOLVE`, `GLOBAL_COMPARE_MODE`, `GLOBAL_REMOVE_EMPTY_DIRS`, `GLOBAL_CREATE_EMPTY_DIRS`, `GLOBAL_LOCK_EXPLORER_REMOTE`, `WEBHOOK_URL`, `WATCHDOG_PING_URL`, `REVIEW_BACKUP_TTL_HOURS`, `MCP_ENABLED`, `MCP_READ_ONLY`, `MCP_PORT`). Verified with `go test -v -count=1 -race ./internal/config/...`.
+
+

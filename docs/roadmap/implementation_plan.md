@@ -1,6 +1,111 @@
+# Implementation Plan: Bidirectional Sync between bisync.env and UI Global Settings & Configuration Audit
+
+## Proposed Changes
+
+Deliver complete bidirectional synchronization between `bisync.env` and the Cockpit UI Global Fleet Settings modal, audit all operational configuration options against the Go codebase, clearly delineate fallback defaults from profile-specific options, and ensure modifications via the UI are persisted atomically to `bisync.env`.
+
+---
+
+### 1. Configuration Audit: `bisync.env` vs Go Codebase
+
+#### A. Paths & Remote Mapping (Default / Fallback vs Profile-Specific)
+- **`LOCAL_PATH` & `REMOTE_PATH`**:
+  - In `bisync.env`: `LOCAL_PATH=~/gdrive`, `REMOTE_PATH=gdrive:`
+  - In code (`internal/config/config.go:145, 181`): Loaded into `cfg.LocalPath` and `cfg.RemotePath`.
+  - **Audit Finding**: In multi-profile Bisync Hub, sync jobs run against dedicated profiles defined in `profiles.json`, each with its own `LocalPath` and `Remote` / `RemotePath`.
+  - **Role of `LOCAL_PATH` and `REMOTE_PATH`**: They serve as **Default Bootstrap and CLI Fallback Paths**:
+    1. Bootstrapping the initial profile (`default` / `prof_sandbox`) on fresh installation if `profiles.json` does not exist.
+    2. Fallback parameters for ad-hoc CLI commands executed without a profile flag (e.g. `rclone-bisync sync`).
+  - **Remediation**: Document this clearly in `bisync.env` comments and in the UI under Global Settings with an informational badge: *"Default Bootstrap / CLI Fallback Paths: Used only for initial profile creation and non-profile CLI operations. Configured profiles maintain their own independent paths."*
+
+#### B. Options Supported in Code but Missing from `bisync.env`
+The audit revealed several production engine options parsed by `internal/config/config.go` that are undocumented or missing in `bisync.env`:
+1. `GLOBAL_MAX_DELETE`: Baseline maximum deletion safety percentage (default: `50`).
+2. `GLOBAL_CANARY_VALIDATION`: Baseline canary (`RCLONE_TEST`) token validation toggle (default: `true`).
+3. `GLOBAL_CONFLICT_RESOLVE`: Baseline conflict resolution strategy (default: `"newer"`).
+4. `GLOBAL_COMPARE_MODE`: Baseline comparison mode (default: `"size,modtime"`).
+5. `GLOBAL_REMOVE_EMPTY_DIRS`: Baseline empty directory pruning toggle (default: `true`).
+6. `GLOBAL_CREATE_EMPTY_DIRS`: Baseline empty directory creation toggle (default: `true`).
+7. `GLOBAL_LOCK_EXPLORER_REMOTE`: Baseline directory explorer remote lock toggle (default: `false`).
+8. `WEBHOOK_URL`: External telemetry alert webhook endpoint.
+9. `WATCHDOG_PING_URL`: Heartbeat/watchdog ping endpoint.
+10. `REVIEW_BACKUP_TTL_HOURS`: Retention hours for conflict review backup snapshots (default: `48.0`).
+11. `MCP_READ_ONLY`: Model Context Protocol tool mutation lock (default: `false`).
+12. `MCP_PORT`: MCP server listen port (default: `8081`).
+
+#### C. Options Documented in `bisync.env` but Previously Missing from UI Settings
+1. `FILES_TO_CLEANUP`: Post-sync cleanup globs (e.g. `*.tmp, *.conflict, *.~lock*`).
+2. `MAX_LOG_SIZE_MB` & `LOG_BACKUP_COUNT`: Log rotation threshold and retention.
+3. `ENABLE_METRICS` & `METRICS_MAX_ENTRIES`: Telemetry recording toggles.
+4. `NOTIFICATION_APP_NAME`, `SUCCESS_NOTIFICATION_INTERVAL_MIN`, `ERROR_NOTIFICATION_REPEAT_HOURS`: Desktop notification throttling.
+5. Subsystem Feature Flags: `FEATURE_STALE_LOCK_DETECTION`, `FEATURE_RATE_LIMIT_BACKOFF`, `FEATURE_DAEMON_HEALTH_CHECK`, `FEATURE_METRICS_COLLECTION`, `FEATURE_SMART_NOTIFICATIONS`, `FEATURE_WEBHOOK_ALERTS`.
+6. `DEBUG_MODE`: Verbose daemon logging toggle.
+
+---
+
 # Implementation Plan: 100% Legacy Feature Parity Remediation (Alpine.js to Vue 3 Cockpit)
 
 ## Proposed Changes
+### 2. Bidirectional Synchronization Architecture
+
+#### A. Data Flow: Disk -> Server -> UI
+1. `config.LoadConfig` records the resolved absolute path to `bisync.env` in `cfg.EnvFilePath`.
+2. When the user opens the Global Settings modal or the SPA boots, `GET /api/config` queries `s.handleGetConfig`.
+3. The server constructs the response containing:
+   - `global_defaults`: Max delete, canary validation, conflict resolve, compare mode, empty dir toggles, lock explorer remote, custom flags (`RCLONE_COMMON_ARGS`), and default bootstrap paths (`local_path`, `remote_path`).
+   - `daemon`: Job timeouts, stale lock timeout, rate limit backoff hours, poll sleep intervals.
+   - `logging`: Max log size (MB), log backup count.
+   - `cleanup`: Files to cleanup (`FILES_TO_CLEANUP`).
+   - `telemetry`: Enable metrics, metrics max entries.
+   - `notifications`: App name, intervals, webhook URL, watchdog URL.
+   - `features`: Feature flag map, debug mode, MCP read-only.
+4. Pinia store `useSettingsStore` holds these reactive objects and populates `ModalGlobalSettings.vue`.
+
+#### B. Data Flow: UI -> Server -> Disk (`bisync.env`)
+1. User modifies settings across the organized modal tabs and clicks "Save Fleet Settings".
+2. Frontend sends `PUT /api/config` with the updated JSON payload.
+3. Server handler `handleUpdateConfig`:
+   - Validates input values (bounds, valid enum options).
+   - Updates `s.Config` in memory.
+   - Reads `cfg.EnvFilePath` (or default `bisync.env`), updates every changed key atomically via an env update engine that preserves all comments, headers, and section structure.
+   - Writes the updated content using atomic pattern (`.tmp.<pid>` + `os.Rename`).
+4. Server returns the refreshed configuration to the client; the UI updates immediately.
+5. If the daemon or service is restarted, it boots with the exact values saved to `bisync.env`.
+
+---
+
+### Affected Components & Packages
+
+- `internal/config/config.go`: Add `EnvFilePath string` to `Config`, record loaded file path in `LoadConfig`.
+- `internal/config/env_writer.go`: Add `UpdateEnvKeys(filePath string, updates map[string]string) error` with atomic file swapping.
+- `internal/models/api.go`: Expand `GlobalConfigResponse` and `UpdateConfigRequest` to include `Logging`, `Cleanup`, `Telemetry`, `Features`, and `DefaultPaths`.
+- `internal/server/handlers_config.go`: Update `handleGetConfig` and `handleUpdateConfig` with persistence to `cfg.EnvFilePath`.
+- `internal/server/handlers_config_test.go`: Add round-trip persistence tests.
+- `bisync.env` & `config/bisync.env.example`: Update comments and document all supported engine options.
+- `dashboard/frontend/src/types/models.ts`: Update TypeScript models for settings.
+- `dashboard/frontend/src/stores/settings.ts`: Expand reactive store state and API calls.
+- `dashboard/frontend/src/components/ModalGlobalSettings.vue`: Add UI tabs and controls for all settings.
+
+---
+
+### Safety & Error Handling
+
+- **Atomic Writes**: `UpdateEnvKeys` writes to `.bisync.env.tmp.<pid>` before renaming.
+- **Sensitive Credential Separation**: Secret tokens and passwords (`RC_PASS`, OAuth credentials) continue to reside in `rc-secrets.env` or encrypted store; `bisync.env` remains safe for git tracking.
+- **Validation**: Numerical bounds (max delete 1-100%, timeouts > 0) and comparison/conflict resolution modes are strictly validated before modifying memory or disk.
+
+## Verification Plan
+
+1. Unit tests:
+   - `go test -count=1 -race ./internal/config/...`
+   - `go test -count=1 -race ./internal/server/... -run TestConfig`
+2. Frontend compilation & types:
+   - `cd dashboard/frontend && npm run type-check && npm run build`
+3. Pre-flight verification:
+   - `./scripts/check.sh all`
+
+---
+
 
 Achieve complete visual and functional parity between the legacy Alpine.js cockpit templates/scripts and the modern Vue 3 + PrimeVue SPA. Based on an exhaustive side-by-side gap analysis of all 38 legacy partials/scripts against the Vue 3 source tree, the following critical capability domains require full-fidelity remediation:
 

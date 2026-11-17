@@ -9,6 +9,7 @@ import (
 
 // Config represents runtime settings for rclone-bisync.
 type Config struct {
+	EnvFilePath string
 	BaseDir     string
 	LocalPath   string
 	RemotePath  string
@@ -108,10 +109,14 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	}
 
 	var secretsFile string
+	var envFilePath string
 	for _, d := range dirs {
 		fi, err := os.Stat(d)
 		if err == nil && !fi.IsDir() {
 			_ = LoadEnvFile(d)
+			if envFilePath == "" {
+				envFilePath = d
+			}
 			secCandidate := filepath.Join(filepath.Dir(d), "rc-secrets.env")
 			if _, serr := os.Stat(secCandidate); serr == nil && secretsFile == "" {
 				secretsFile = secCandidate
@@ -125,13 +130,20 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 			secretsFile = secCandidate
 		}
 		_ = LoadEnvFile(secCandidate)
-		_ = LoadEnvFile(filepath.Join(d, "bisync.env"))
+		bisyncCandidate := filepath.Join(d, "bisync.env")
+		if _, berr := os.Stat(bisyncCandidate); berr == nil && envFilePath == "" {
+			envFilePath = bisyncCandidate
+		}
+		_ = LoadEnvFile(bisyncCandidate)
 		if err == nil && fi.IsDir() && d != "." {
 			baseDir = d
 		}
 	}
 
 	baseDir = getEnv("BASE_DIR", baseDir)
+	if envFilePath == "" {
+		envFilePath = filepath.Join(baseDir, "bisync.env")
+	}
 	if secretsFile == "" {
 		secretsFile = filepath.Join(baseDir, "rc-secrets.env")
 	}
@@ -176,7 +188,8 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		BaseDir:    baseDir,
+		EnvFilePath: envFilePath,
+		BaseDir:     baseDir,
 		LocalPath:  localPathRaw,
 		RemotePath: getEnv("REMOTE_PATH", "gdrive:"),
 
