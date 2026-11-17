@@ -139,7 +139,7 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - **Scope**: `internal/core/client/client.go`, `internal/core/client/client_test.go`
   - **Verification**: `go test -count=1 -race ./internal/core/client/...`
 
-- [ ] Task 24: Engine Signature Formulation & Compatibility Clustering (`internal/profiles/engine_signature.go`, `engine_signature_test.go`)
+- [x] Task 24: Engine Signature Formulation & Compatibility Clustering (`internal/profiles/engine_signature.go`, `engine_signature_test.go`)
   - **Scope**: `internal/profiles/engine_signature.go`, `internal/profiles/engine_signature_test.go`
   - **Verification**: `go test -count=1 -race ./internal/profiles/...`
 
@@ -156,6 +156,8 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
 
 - 2026-11-17: Completed Task 22 - Global Fleet Settings Flags Builder. Added `CustomFlags` to `GlobalDefaults` Go model and frontend TypeScript definitions; marked process-global options (`--tpslimit`, `--tpslimit-burst`, `--checkers`) with `isProcessGlobal: true` and rendered distinct amber `[Global]` tags in `FlagsBuilder.vue`; embedded `FlagsBuilder` into `ModalGlobalSettings.vue` under a dedicated "Fleet Flags" tab for visual parameter tuning; updated server handler tests in `handlers_config_test.go` and verified with `npm run type-check`, `npm run build`, and `go test ./internal/server/...`.
 - 2026-11-17: Completed Task 23 - Rclone RC Dynamic Options Client. Added `MainOptions` struct with pointer fields for zero-preserving serialization, pointer helper functions (`IntPtr`, `Float64Ptr`), and safe fallback getters; implemented `GetMainOptions` (`POST /options/get`), `SetMainOptions` (`POST /options/set`), and arbitrary `SetOptions` on `RcloneClient` in `internal/core/client/client.go`; added comprehensive test coverage in `internal/core/client/client_test.go` covering successful gets/sets, explicit zero preservation for unlimited TPS, empty payload fallbacks, malformed JSON, and server error handling. Verified with `go test -count=1 -race ./internal/core/client/...`.
+- 2026-11-17: Completed Task 24 - Engine Signature Formulation & Compatibility Clustering. Implemented `ProcessGlobalFlags` (`--checkers`, `--tpslimit`, `--tpslimit-burst`), deterministic `EngineSignature` generation (`SIG_DEFAULT`, `SIG_CHK=8_TPS=4`, etc.), `IsCompatible` equivalence rules, flag inheritance/merging (`Merge`), round-trip conversions to/from `client.MainOptions`, `StripProcessGlobalFlags`, `FilterProcessGlobalTokens`, `ResolveEngineSignature`, and profile grouping via `ClusterProfiles` in `internal/profiles/engine_signature.go`. Added comprehensive test coverage in `internal/profiles/engine_signature_test.go` verifying flag parsing, space/equals formatting, explicit zero TPS handling, signature equivalence across flag permutations, token filtering, inheritance from fleet defaults, and clustering. Verified with `go test -count=1 -race ./internal/profiles/...`.
+
 
 
 - 2026-11-16: Initialized 100% Feature Parity Migration plan from approved implementation plan covering all 5 phases.
