@@ -74,6 +74,38 @@ export const helpPolicies: HelpPolicy[] = [
     description: 'Evaluates conflict candidates across 4 parallel dimensions: size divergence (30%), deletion volume (30%), modification volatility (20%), and path depth (20%) to produce safety risk scores.',
     action: 'Review candidates in the Sync Review modal. Safe candidates can be auto-staged using Auto-Apply Recommendations. High-risk items require manual decision.',
   },
+  {
+    id: 'explorer_remote_scoping',
+    title: 'Explorer Remote Scoping & Isolation',
+    tag: 'Explorer Guard',
+    contexts: ['modal_global_settings', 'view_explorer'],
+    description: 'Controls whether the Dual-Pane Directory Explorer is locked strictly to the active profile\'s configured cloud remote or unlocked to allow freely switching and browsing across any configured storage remote.',
+    action: 'Toggle Explorer Remote Scoping in Global Fleet Settings (Defaults tab) to switch between locked isolation and open multi-remote exploration.',
+  },
+  {
+    id: 'empty_directory_cleanup',
+    title: 'Empty Directory Cleanup & Creation',
+    tag: 'Directory Hierarchy',
+    contexts: ['modal_global_settings', 'modal_profiles'],
+    description: 'Ensures symmetrical directory trees. --remove-empty-dirs removes orphaned empty folders after deletions, while --create-empty-src-dirs replicates new empty source folders to destinations.',
+    action: 'Configure global baseline defaults in Global Fleet Settings, or customize per profile in the Profile Manager.',
+  },
+  {
+    id: 'fair_queue_scheduling',
+    title: 'Fair Queue Scheduling & Cohort Batching',
+    tag: 'Queue SLA',
+    contexts: ['view_fleet', 'modal_queue_manager', 'modal_global_settings'],
+    description: 'Manages concurrent multi-profile sync executions with opportunistic engine cohort batching. Profiles with compatible engine signatures run concurrently up to max limits, while an aging SLA guarantees older queued runs never starve.',
+    action: 'Click the Queue badge in the header or footer to open the Queue Manager to pause/resume dispatching or cancel queued items.',
+  },
+  {
+    id: 'process_global_flags',
+    title: 'Process-Global Engine Options vs Job Flags',
+    tag: 'Engine Tuning',
+    contexts: ['modal_global_settings', 'modal_profiles', 'view_telemetry'],
+    description: 'Process-global options (--checkers, --tpslimit, --tpslimit-burst) configure the shared Rclone engine daemon dynamically via POST /options/set. Per-job flags (--resync, --remove-empty-dirs, --track-renames) apply to isolated bisync operations.',
+    action: 'Set daemon-wide engine limits in Global Fleet Settings (Fleet Flags tab) to protect against provider rate limits.',
+  },
 ]
 
 export const helpRunbooks: HelpRunbook[] = [
@@ -146,6 +178,20 @@ export const helpRunbooks: HelpRunbook[] = [
       'Confirm and execute. Bisync will rebuild both path listings and establish a clean sync baseline.',
     ],
     command: 'rclone bisync local: remote: --resync --verbose',
+  },
+  {
+    id: 'queue_starvation_remediation',
+    title: 'Managing Queue Execution & Cohort Scheduling',
+    category: 'Scheduler',
+    contexts: ['view_fleet', 'modal_queue_manager'],
+    summary: 'When multiple profiles trigger simultaneously, the FIFO scheduler batches compatible engine signatures into concurrent cohorts while enforcing an aging SLA.',
+    steps: [
+      'Click the Queue pill in the header to launch the Queue Manager.',
+      'Inspect running cohorts, execution signatures, and pending queued profiles.',
+      'Click Pause Dispatcher if you need to drain active executions before running maintenance.',
+      'Cancel individual pending profiles or click Clear Pending Queue if a schedule backlog occurs.',
+    ],
+    command: 'rclone-bisync queue',
   },
 ]
 

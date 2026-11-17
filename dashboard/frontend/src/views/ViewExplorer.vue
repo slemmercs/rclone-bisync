@@ -90,22 +90,67 @@
       </div>
     </div>
 
-    <!-- Hidden File Upload Inputs -->
-    <input type="file" ref="leftFileInput" class="hidden" @change="handleFileUpload('left', $event)" />
-    <input type="file" ref="rightFileInput" class="hidden" @change="handleFileUpload('right', $event)" />
+    <!-- Hidden File Upload Inputs (Multiple File Support) -->
+    <input type="file" id="explorer-upload-left" ref="leftFileInput" class="hidden" multiple @change="handleFileUpload('left', $event)" />
+    <input type="file" id="explorer-upload-right" ref="rightFileInput" class="hidden" multiple @change="handleFileUpload('right', $event)" />
 
     <!-- Dual Explorer Splitter -->
     <div class="bg-carbon-900 border border-carbon-700 rounded-2xl overflow-hidden shadow-sm min-h-[580px]">
       <Splitter class="min-h-[580px] bg-carbon-900 text-carbon-100 border-none">
         <!-- Left Pane -->
-        <SplitterPanel :size="50" :minSize="30" class="p-4 flex flex-col border-r border-carbon-700">
+        <SplitterPanel
+          :size="50"
+          :minSize="30"
+          class="p-4 flex flex-col border-r border-carbon-700 relative"
+          @dragover="onDragOver('left', $event)"
+          @dragleave="onDragLeave('left', $event)"
+          @drop="onDrop('left', $event)"
+        >
+          <!-- Drag Over Active Overlay -->
+          <div
+            v-if="isDragOverLeft"
+            class="absolute inset-0 bg-indigo-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-indigo-400 rounded-2xl"
+          >
+            <i class="pi pi-upload text-3xl text-indigo-400 animate-bounce mb-2"></i>
+            <span class="text-sm font-bold text-white uppercase tracking-wider">
+              Drop to upload to {{ leftIsLocal ? 'Local Storage' : leftRemote }}
+            </span>
+          </div>
+
           <!-- Pane Header -->
           <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-carbon-700">
             <div class="flex items-center gap-2">
               <i :class="leftIsLocal ? 'pi pi-desktop text-indigo-400' : 'pi pi-cloud text-emerald-400'"></i>
-              <span class="text-xs font-bold text-white uppercase tracking-wide">
-                {{ leftIsLocal ? 'Local Storage' : leftRemote }}
-              </span>
+              <template v-if="leftIsLocal">
+                <span class="text-xs font-bold text-white uppercase tracking-wide">Local Storage</span>
+              </template>
+              <template v-else>
+                <!-- Scoping: Locked to profile -->
+                <div
+                  v-if="isRemoteLocked && activeProfile?.remote"
+                  class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-carbon-800 border border-carbon-700 text-xs font-bold text-white uppercase"
+                  :title="'Locked to active profile: ' + activeProfile.name"
+                >
+                  <i class="pi pi-lock text-[10px] text-amber-400"></i>
+                  <span>{{ leftRemote }}</span>
+                </div>
+                <!-- Scoping: Unlocked dropdown -->
+                <select
+                  v-else
+                  v-model="rightRemoteName"
+                  @change="handleRemoteSelectionChange()"
+                  class="bg-carbon-950 border border-carbon-700 rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:border-electric-blue font-bold uppercase cursor-pointer"
+                  title="Explorer Remote Scoping Unlocked - Switch to any configured remote"
+                >
+                  <option
+                    v-for="r in remotesStore.remotes"
+                    :key="r.name"
+                    :value="r.name.replace(/:$/, '')"
+                  >
+                    {{ r.name.replace(/:$/, '') }}{{ activeProfile?.remote && r.name.replace(/:$/, '') === activeProfile.remote.replace(/:$/, '') ? ' (Active)' : '' }}
+                  </option>
+                </select>
+              </template>
               <!-- Canary Guard Pill -->
               <span
                 class="text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"
@@ -323,14 +368,59 @@
         </SplitterPanel>
 
         <!-- Right Pane -->
-        <SplitterPanel :size="50" :minSize="30" class="p-4 flex flex-col">
+        <SplitterPanel
+          :size="50"
+          :minSize="30"
+          class="p-4 flex flex-col relative"
+          @dragover="onDragOver('right', $event)"
+          @dragleave="onDragLeave('right', $event)"
+          @drop="onDrop('right', $event)"
+        >
+          <!-- Drag Over Active Overlay -->
+          <div
+            v-if="isDragOverRight"
+            class="absolute inset-0 bg-emerald-950/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed border-emerald-400 rounded-2xl"
+          >
+            <i class="pi pi-upload text-3xl text-emerald-400 animate-bounce mb-2"></i>
+            <span class="text-sm font-bold text-white uppercase tracking-wider">
+              Drop to upload to {{ rightIsLocal ? 'Local Storage' : rightRemote }}
+            </span>
+          </div>
+
           <!-- Pane Header -->
           <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-carbon-700">
             <div class="flex items-center gap-2">
               <i :class="rightIsLocal ? 'pi pi-desktop text-indigo-400' : 'pi pi-cloud text-emerald-400'"></i>
-              <span class="text-xs font-bold text-white uppercase tracking-wide">
-                {{ rightIsLocal ? 'Local Storage' : rightRemote }}
-              </span>
+              <template v-if="rightIsLocal">
+                <span class="text-xs font-bold text-white uppercase tracking-wide">Local Storage</span>
+              </template>
+              <template v-else>
+                <!-- Scoping: Locked to profile -->
+                <div
+                  v-if="isRemoteLocked && activeProfile?.remote"
+                  class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-carbon-800 border border-carbon-700 text-xs font-bold text-white uppercase"
+                  :title="'Locked to active profile: ' + activeProfile.name"
+                >
+                  <i class="pi pi-lock text-[10px] text-amber-400"></i>
+                  <span>{{ rightRemote }}</span>
+                </div>
+                <!-- Scoping: Unlocked dropdown -->
+                <select
+                  v-else
+                  v-model="rightRemoteName"
+                  @change="handleRemoteSelectionChange()"
+                  class="bg-carbon-950 border border-carbon-700 rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:border-electric-blue font-bold uppercase cursor-pointer"
+                  title="Explorer Remote Scoping Unlocked - Switch to any configured remote"
+                >
+                  <option
+                    v-for="r in remotesStore.remotes"
+                    :key="r.name"
+                    :value="r.name.replace(/:$/, '')"
+                  >
+                    {{ r.name.replace(/:$/, '') }}{{ activeProfile?.remote && r.name.replace(/:$/, '') === activeProfile.remote.replace(/:$/, '') ? ' (Active)' : '' }}
+                  </option>
+                </select>
+              </template>
               <!-- Canary Guard Pill -->
               <span
                 class="text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-1"
@@ -608,12 +698,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import Splitter from 'primevue/splitter'
 import SplitterPanel from 'primevue/splitterpanel'
 import { useProfilesStore } from '../stores/profiles'
 import { useExplorerStore } from '../stores/explorer'
 import { useLogsStore } from '../stores/logs'
+import { useSettingsStore } from '../stores/settings'
+import { useRemotesStore } from '../stores/remotes'
 import type { BrowseItem } from '../types/models'
 import { isItemPreviewable, type FilePreviewResponse, type FileCompareResponse } from '../types/explorer'
 import ModalFilePreview from '../components/ModalFilePreview.vue'
@@ -627,6 +719,20 @@ import ModalUploadDock from '../components/ModalUploadDock.vue'
 const profilesStore = useProfilesStore()
 const explorerStore = useExplorerStore()
 const logsStore = useLogsStore()
+const settingsStore = useSettingsStore()
+const remotesStore = useRemotesStore()
+
+const isRemoteLocked = computed(() => {
+  return settingsStore.globalDefaults.lock_explorer_remote
+})
+
+const isDragOverLeft = ref(false)
+const isDragOverRight = ref(false)
+
+onMounted(() => {
+  remotesStore.fetchRemotes()
+  settingsStore.fetchConfig()
+})
 
 // Pane Swap State
 const isSwapped = ref(false)
@@ -1037,10 +1143,33 @@ function triggerUploadPicker(pane: 'left' | 'right') {
   }
 }
 
-async function handleFileUpload(pane: 'left' | 'right', e: Event) {
-  const target = e.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
+function handleRemoteSelectionChange() {
+  rightPath.value = ''
+  const remotePane = isSwapped.value ? 'left' : 'right'
+  refreshPane(remotePane)
+}
+
+function onDragOver(pane: 'left' | 'right', e: DragEvent) {
+  if (e.dataTransfer?.types?.includes('Files')) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    if (pane === 'left') isDragOverLeft.value = true
+    else isDragOverRight.value = true
+  }
+}
+
+function onDragLeave(pane: 'left' | 'right', e: DragEvent) {
+  if (pane === 'left') isDragOverLeft.value = false
+  else isDragOverRight.value = false
+}
+
+async function onDrop(pane: 'left' | 'right', e: DragEvent) {
+  if (pane === 'left') isDragOverLeft.value = false
+  else isDragOverRight.value = false
+
+  const files = Array.from(e.dataTransfer?.files || [])
+  if (files.length === 0) return
+  e.preventDefault()
 
   const remote = pane === 'left' ? leftRemote.value : rightRemote.value
   const path = pane === 'left' ? leftPath.value : rightPath.value
@@ -1049,7 +1178,34 @@ async function handleFileUpload(pane: 'left' | 'right', e: Event) {
   else rightUploading.value = true
 
   try {
-    await explorerStore.uploadFile(file, remote, path, activeProfile.value?.id)
+    for (const file of files) {
+      await explorerStore.uploadFile(file, remote, path, activeProfile.value?.id)
+    }
+    refreshPane(pane)
+    explorerStore.fetchUploadDockStatus(activeProfile.value?.id)
+  } catch (err: any) {
+    alert(err.message || 'File upload failed')
+  } finally {
+    if (pane === 'left') leftUploading.value = false
+    else rightUploading.value = false
+  }
+}
+
+async function handleFileUpload(pane: 'left' | 'right', e: Event) {
+  const target = e.target as HTMLInputElement
+  const files = Array.from(target.files || [])
+  if (files.length === 0) return
+
+  const remote = pane === 'left' ? leftRemote.value : rightRemote.value
+  const path = pane === 'left' ? leftPath.value : rightPath.value
+
+  if (pane === 'left') leftUploading.value = true
+  else rightUploading.value = true
+
+  try {
+    for (const file of files) {
+      await explorerStore.uploadFile(file, remote, path, activeProfile.value?.id)
+    }
     refreshPane(pane)
     explorerStore.fetchUploadDockStatus(activeProfile.value?.id)
   } catch (err: any) {
