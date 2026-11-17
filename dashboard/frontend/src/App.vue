@@ -15,6 +15,8 @@ import ModalSystemHealth from './components/ModalSystemHealth.vue'
 import ModalGlobalSettings from './components/ModalGlobalSettings.vue'
 import ModalMcp from './components/ModalMcp.vue'
 import ModalRemoteWizard from './components/ModalRemoteWizard.vue'
+import ModalQueueManager from './components/ModalQueueManager.vue'
+
 
 import { useAppStore } from './stores/app'
 import { useProfilesStore } from './stores/profiles'
@@ -111,6 +113,8 @@ onUnmounted(() => {
     <ModalGlobalSettings />
     <ModalMcp />
     <ModalRemoteWizard />
+    <ModalQueueManager />
+
 
 
   </div>
