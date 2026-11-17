@@ -2,7 +2,18 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { RCLONE_FLAGS_CATALOG, validateCustomFlagsString, type FlagCatalogItem } from '../data/flags-catalog'
 
-const props = defineProps<{ modelValue?: string; remoteType?: string }>()
+const props = withDefaults(
+  defineProps<{
+    modelValue?: string
+    remoteType?: string
+    scopeFilter?: 'all' | 'engine' | 'profile'
+  }>(),
+  {
+    modelValue: '',
+    remoteType: 'all',
+    scopeFilter: 'all',
+  }
+)
 const emit = defineEmits<{ (e: 'update:modelValue', val: string): void }>()
 
 interface FlagRow {
@@ -18,9 +29,16 @@ const rows = ref<FlagRow[]>([])
 const validationError = computed(() => validateCustomFlagsString(props.modelValue || ''))
 
 const availableCatalog = computed<FlagCatalogItem[]>(() => {
-  const t = props.remoteType?.toLowerCase() || 'generic'
-  return RCLONE_FLAGS_CATALOG.filter((c) => !c.backends || c.backends.includes('all') || c.backends.includes(t))
+  const t = props.remoteType?.toLowerCase() || 'all'
+  return RCLONE_FLAGS_CATALOG.filter((c) => {
+    const backendMatch = !c.backends || c.backends.includes('all') || c.backends.includes(t)
+    const scopeMatch = props.scopeFilter === 'all' || c.scope === props.scopeFilter
+    return backendMatch && scopeMatch
+  })
 })
+
+const engineCatalog = computed(() => availableCatalog.value.filter((c) => c.scope === 'engine'))
+const profileCatalog = computed(() => availableCatalog.value.filter((c) => c.scope === 'profile'))
 
 function parseFlags(raw?: string): FlagRow[] {
   if (!raw?.trim()) return []
@@ -68,7 +86,7 @@ function isProcessGlobal(flagName: string): boolean {
 }
 
 function addRow() {
-  const target = availableCatalog.value[0]?.flag || '--track-renames'
+  const target = availableCatalog.value[0]?.flag || (props.scopeFilter === 'engine' ? '--checkers' : '--track-renames')
   const cat = RCLONE_FLAGS_CATALOG.find((c) => c.flag === target)
   rows.value.push({
     id: 'f_' + Math.random().toString(36).slice(2, 8),
@@ -104,7 +122,9 @@ watch(() => props.modelValue, (newVal) => {
   <div class="space-y-3 p-3 bg-carbon-surface/80 border border-carbon-border rounded-xl">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <label class="text-xs font-semibold text-slate-200">Guided Bisync Flags Builder</label>
+        <label class="text-xs font-semibold text-slate-200">
+          {{ scopeFilter === 'engine' ? 'Daemon Engine & Concurrency Defaults' : 'Guided Bisync Flags Builder' }}
+        </label>
         <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-carbon-elevated text-slate-400 border border-carbon-border">
           {{ rows.length }} active
         </span>
@@ -114,13 +134,23 @@ watch(() => props.modelValue, (newVal) => {
       </button>
     </div>
     <div v-if="rows.length === 0" class="p-3 text-center rounded-lg border border-dashed border-carbon-border text-slate-500 text-xs">
-      No custom flags configured. Default bisync flags will be used.
+      {{ scopeFilter === 'engine' ? 'No custom engine defaults configured. Rclone defaults will be used.' : 'No custom flags configured. Default bisync flags will be used.' }}
     </div>
     <div v-else class="space-y-2">
       <div v-for="(row, idx) in rows" :key="row.id" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 bg-carbon-bg border border-carbon-border rounded-lg">
         <div class="sm:w-1/3 min-w-[130px] flex items-center gap-1.5">
           <select :value="row.isCustom ? 'custom' : row.flag" @change="onFlagSelect(idx, ($event.target as HTMLSelectElement).value)" class="w-full bg-carbon-surface border border-carbon-border rounded-md px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue">
-            <option v-for="c in availableCatalog" :key="c.flag" :value="c.flag">{{ c.label }}</option>
+            <template v-if="scopeFilter === 'all'">
+              <optgroup v-if="profileCatalog.length" label="Bisync Profile Behaviors">
+                <option v-for="c in profileCatalog" :key="c.flag" :value="c.flag">{{ c.label }}</option>
+              </optgroup>
+              <optgroup v-if="engineCatalog.length" label="Engine & Concurrency">
+                <option v-for="c in engineCatalog" :key="c.flag" :value="c.flag">{{ c.label }}</option>
+              </optgroup>
+            </template>
+            <template v-else>
+              <option v-for="c in availableCatalog" :key="c.flag" :value="c.flag">{{ c.label }}</option>
+            </template>
             <option value="custom">Custom flag (--...)</option>
           </select>
           <span v-if="isProcessGlobal(row.flag)" class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono shrink-0 hidden sm:inline" title="Process-global in Rclone RC. Dynamically applied and queued cleanly.">

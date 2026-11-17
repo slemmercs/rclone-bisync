@@ -132,11 +132,12 @@
     <!-- TAB 2: FLEET FLAGS & CONCURRENCY -->
     <div v-else-if="activeTab === 'flags'" class="space-y-4">
       <div class="text-[11px] text-slate-400">
-        Baseline Rclone CLI parameters applied fleet-wide across all synchronization profiles.
-        Process-global options (<span class="text-amber-300 font-mono">--tpslimit</span>, <span class="text-amber-300 font-mono">--checkers</span>) define the daemon's baseline; profiles with custom overrides queue safely and dynamically switch rates.
+        Baseline Rclone engine concurrency, rate limits, and network parameters applied to the background daemon.
+        Process-global options (<span class="text-amber-300 font-mono">--tpslimit</span>, <span class="text-amber-300 font-mono">--checkers</span>) define the daemon baseline; profiles with custom overrides queue safely and dynamically switch rates.
+        <div class="mt-1 text-slate-500 italic">Note: Profile-specific operational flags (e.g. rename tracking, checksums) and cloud provider options are configured within individual sync profiles.</div>
       </div>
 
-      <FlagsBuilder v-model="formDefaults.custom_flags" remoteType="all" />
+      <FlagsBuilder v-model="formDefaults.custom_flags" scopeFilter="engine" remoteType="all" />
     </div>
 
     <!-- TAB 2: ENGINE & POLLING -->
