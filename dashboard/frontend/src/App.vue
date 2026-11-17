@@ -20,6 +20,8 @@ import { useAppStore } from './stores/app'
 import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
 import { useDedupeStore } from './stores/dedupe'
+import { useQueueStore } from './stores/queue'
+
 
 const appStore = useAppStore()
 const dedupeStore = useDedupeStore()
@@ -31,15 +33,17 @@ const showReviewModal = ref<boolean>(false)
 const showProfilesModal = ref<boolean>(false)
 const profilesStore = useProfilesStore()
 const telemetryStore = useTelemetryStore()
-
+const queueStore = useQueueStore()
 
 onMounted(async () => {
   await profilesStore.fetchProfiles()
   telemetryStore.startPolling(3000)
+  queueStore.startPolling(3000)
 })
 
 onUnmounted(() => {
   telemetryStore.stopPolling()
+  queueStore.stopPolling()
 })
 </script>
 
@@ -72,6 +76,17 @@ onUnmounted(() => {
         <span v-if="telemetryStore.transferStats" class="font-mono text-carbon-300 text-[11px]">
           Speed: {{ telemetryStore.transferStats.speed_str || '0 B/s' }} | {{ telemetryStore.transferStats.percentage.toFixed(1) }}%
         </span>
+        <span class="text-carbon-600 select-none">•</span>
+        <button
+          type="button"
+          @click="queueStore.openModal()"
+          class="flex items-center gap-1.5 font-mono text-[11px] text-carbon-400 hover:text-carbon-200 cursor-pointer transition-colors"
+          title="Open Execution Queue Manager"
+        >
+          <span class="w-1.5 h-1.5 rounded-full" :class="queueStore.isPaused ? 'bg-amber-400' : (queueStore.runningCount > 0 ? 'bg-electric-400 animate-pulse' : 'bg-carbon-600')"></span>
+          <span>Queue: {{ queueStore.runningCount }} active, {{ queueStore.queuedCount }} queued{{ queueStore.isPaused ? ' (paused)' : '' }}</span>
+        </button>
+
       </div>
 
       <div class="flex items-center gap-4 text-[11px] font-mono text-carbon-500">

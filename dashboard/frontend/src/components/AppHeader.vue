@@ -7,6 +7,8 @@ import { useTelemetryStore } from '../stores/telemetry'
 import { useLogsStore } from '../stores/logs'
 import { useHelpStore } from '../stores/help'
 import { useSettingsStore } from '../stores/settings'
+import { useQueueStore } from '../stores/queue'
+
 
 
 
@@ -26,6 +28,8 @@ const telemetryStore = useTelemetryStore()
 const logsStore = useLogsStore()
 const helpStore = useHelpStore()
 const settingsStore = useSettingsStore()
+const queueStore = useQueueStore()
+
 
 const isMcpActive = computed(() => {
   return settingsStore.mcpStatus?.status === 'active' || telemetryStore.telemetry?.mcp_status?.status === 'active'
@@ -179,6 +183,33 @@ async function handleRunSync() {
         </span>
       </button>
       <!-- Help & Diagnostics Drawer Button -->
+      <!-- Execution Queue Manager Pill -->
+      <button
+        @click="queueStore.openModal()"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-mono transition-colors cursor-pointer"
+        :class="queueStore.isPaused
+          ? 'bg-amber-950/80 border-amber-600 text-amber-300'
+          : (queueStore.queuedCount > 0 || queueStore.runningCount > 0)
+            ? 'bg-electric-950/80 border-electric-500 text-electric-300'
+            : 'bg-carbon-850 hover:bg-carbon-800 border-carbon-700 text-carbon-300'"
+        title="Open Execution Queue Manager"
+      >
+        <i class="pi pi-list text-xs" :class="queueStore.runningCount > 0 ? 'animate-spin' : ''"></i>
+        <span>Queue</span>
+        <span
+          v-if="queueStore.isPaused"
+          class="px-1 py-0.2 rounded bg-amber-900/60 border border-amber-700/80 text-[10px] text-amber-300"
+        >
+          PAUSED
+        </span>
+        <span
+          v-else-if="queueStore.runningCount > 0 || queueStore.queuedCount > 0"
+          class="px-1 py-0.2 rounded bg-carbon-900 border border-carbon-700 text-[10px] text-electric-300"
+        >
+          {{ queueStore.runningCount }}/{{ queueStore.queuedCount }}
+        </span>
+      </button>
+
       <button
         @click="helpStore.openDrawer(undefined, '', activeContext)"
         class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-300 hover:text-white text-xs font-mono transition-colors cursor-pointer"

@@ -11,6 +11,8 @@ export * from './help'
 export * from './settings'
 export * from './audit'
 
+export * from './queue'
+
 
 
 
