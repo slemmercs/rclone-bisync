@@ -172,16 +172,6 @@
                 <i class="pi pi-key text-[11px]" :class="authMode === 'custom' ? 'text-black' : 'text-amber-400'"></i>
                 <span>Custom Credentials</span>
               </button>
-              <button
-                type="button"
-                @click="authMode = 'token'"
-                :class="authMode === 'token' ? 'bg-electric-blue text-black font-bold shadow' : 'text-slate-400 hover:text-white'"
-                class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
-                title="Manual token JSON for headless machines"
-              >
-                <i class="pi pi-file text-[11px]" :class="authMode === 'token' ? 'text-black' : 'text-purple-400'"></i>
-                <span>Direct Token</span>
-              </button>
             </div>
           </div>
 
@@ -230,19 +220,6 @@
                 />
               </div>
             </div>
-          </div>
-
-          <!-- Mode 3: Direct Token (Headless) -->
-          <div v-else-if="authMode === 'token'" class="space-y-2 pt-1">
-            <p class="text-[11px] text-slate-400 font-sans leading-relaxed">
-              Paste an existing authorization token JSON payload generated via <code class="text-electric-blue">rclone authorize "{{ selectedProvider?.name }}"</code> (ideal for headless servers).
-            </p>
-            <textarea
-              v-model="manualToken"
-              rows="3"
-              placeholder='{"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}'
-              class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 text-xs font-mono focus:outline-none focus:border-electric-blue resize-none"
-            ></textarea>
           </div>
         </div>
         <!-- Non-OAuth Provider Credentials (S3, B2, SFTP, WebDAV, Generic) -->
@@ -368,7 +345,7 @@
             <span :class="isOAuthProvider(selectedProvider) ? 'text-emerald-400 font-semibold' : 'text-slate-300'">
               {{
                 isOAuthProvider(selectedProvider)
-                  ? (authMode === 'custom' ? 'Custom OAuth Credentials' : (authMode === 'token' ? 'Direct OAuth Token' : 'Browser OAuth (Interactive)'))
+                  ? (authMode === 'custom' ? 'Custom OAuth Credentials' : 'Browser OAuth (Interactive)')
                   : 'Standard / Direct'
               }}
             </span>
@@ -441,10 +418,9 @@ const selectedProvider = ref<ProviderCatalogItem | null>(null)
 
 const remoteName = ref<string>('')
 const parameters = ref<Record<string, any>>({})
-const authMode = ref<'browser' | 'custom' | 'token'>('browser')
+const authMode = ref<'browser' | 'custom'>('browser')
 const customClientId = ref<string>('')
 const customClientSecret = ref<string>('')
-const manualToken = ref<string>('')
 const showSecret = ref<boolean>(false)
 const providerParams = ref<Record<string, string>>({})
 const createProfile = ref<boolean>(true)
@@ -488,7 +464,6 @@ function selectProvider(p: ProviderCatalogItem) {
   authMode.value = 'browser'
   customClientId.value = ''
   customClientSecret.value = ''
-  manualToken.value = ''
   showSecret.value = false
   providerParams.value = {}
   step.value = 2
@@ -506,8 +481,6 @@ async function handleDeploy() {
     if (authMode.value === 'custom') {
       if (customClientId.value.trim()) params.client_id = customClientId.value.trim()
       if (customClientSecret.value.trim()) params.client_secret = customClientSecret.value.trim()
-    } else if (authMode.value === 'token') {
-      if (manualToken.value.trim()) params.token = manualToken.value.trim()
     }
   } else {
     Object.entries(providerParams.value).forEach(([k, v]) => {
@@ -535,7 +508,7 @@ async function handleDeploy() {
     dedupeStore.closeWizard()
 
     // If OAuth browser authentication was requested or required, launch interactive OAuth reconnect modal
-    if (isOAuthProvider(selectedProvider.value) && authMode.value !== 'token') {
+    if (isOAuthProvider(selectedProvider.value)) {
       await remotesStore.reconnectRemote(cleanName)
     }
   } catch (e: any) {
