@@ -152,11 +152,34 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - **Verification**: `./scripts/check.sh all && go test -v -count=1 -tags=e2e ./tests/e2e -run TestCockpitSPA`
 
 
+- [x] Task 27: Scheduler Queue Management Engine (`internal/profiles/scheduler.go`, `dispatcher.go`, `scheduler_test.go`)
+  - **Scope**: `internal/profiles/scheduler.go`, `internal/profiles/dispatcher.go`, `internal/profiles/scheduler_test.go`
+  - **Verification**: `go test -count=1 -race ./internal/profiles/...`
+
+- [ ] Task 28: REST API Endpoints & Server Integration (`/api/queue`)
+  - **Scope**: `internal/models/api.go`, `internal/server/handlers_queue.go`, `internal/server/handlers_queue_test.go`, `internal/server/routes.go`
+  - **Verification**: `go test -count=1 -race ./internal/server/...`
+
+- [ ] Task 29: Frontend Queue Store & Header Badge
+  - **Scope**: `dashboard/frontend/src/types/queue.ts`, `dashboard/frontend/src/stores/queue.ts`, `dashboard/frontend/src/App.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+
+- [ ] Task 30: Interactive Queue Manager Modal Component (`ModalQueueManager.vue`)
+  - **Scope**: `dashboard/frontend/src/components/ModalQueueManager.vue`, `dashboard/frontend/src/App.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+
+- [ ] Task 31: Full Integration & Pre-Commit Verification
+  - **Scope**: Entire repository
+  - **Verification**: `./scripts/check.sh all && go test -v -count=1 -tags=e2e ./tests/e2e -run TestCockpitSPA`
+
+
 ## Status Updates
 
 - 2026-11-17: Completed Task 22 - Global Fleet Settings Flags Builder. Added `CustomFlags` to `GlobalDefaults` Go model and frontend TypeScript definitions; marked process-global options (`--tpslimit`, `--tpslimit-burst`, `--checkers`) with `isProcessGlobal: true` and rendered distinct amber `[Global]` tags in `FlagsBuilder.vue`; embedded `FlagsBuilder` into `ModalGlobalSettings.vue` under a dedicated "Fleet Flags" tab for visual parameter tuning; updated server handler tests in `handlers_config_test.go` and verified with `npm run type-check`, `npm run build`, and `go test ./internal/server/...`.
 - 2026-11-17: Completed Task 23 - Rclone RC Dynamic Options Client. Added `MainOptions` struct with pointer fields for zero-preserving serialization, pointer helper functions (`IntPtr`, `Float64Ptr`), and safe fallback getters; implemented `GetMainOptions` (`POST /options/get`), `SetMainOptions` (`POST /options/set`), and arbitrary `SetOptions` on `RcloneClient` in `internal/core/client/client.go`; added comprehensive test coverage in `internal/core/client/client_test.go` covering successful gets/sets, explicit zero preservation for unlimited TPS, empty payload fallbacks, malformed JSON, and server error handling. Verified with `go test -count=1 -race ./internal/core/client/...`.
 - 2026-11-17: Completed Task 24 - Engine Signature Formulation & Compatibility Clustering. Implemented `ProcessGlobalFlags` (`--checkers`, `--tpslimit`, `--tpslimit-burst`), deterministic `EngineSignature` generation (`SIG_DEFAULT`, `SIG_CHK=8_TPS=4`, etc.), `IsCompatible` equivalence rules, flag inheritance/merging (`Merge`), round-trip conversions to/from `client.MainOptions`, `StripProcessGlobalFlags`, `FilterProcessGlobalTokens`, `ResolveEngineSignature`, and profile grouping via `ClusterProfiles` in `internal/profiles/engine_signature.go`. Added comprehensive test coverage in `internal/profiles/engine_signature_test.go` verifying flag parsing, space/equals formatting, explicit zero TPS handling, signature equivalence across flag permutations, token filtering, inheritance from fleet defaults, and clustering. Verified with `go test -count=1 -race ./internal/profiles/...`.
+- 2026-11-17: Completed Task 27 - Scheduler Queue Management Engine. Added dispatcher pause/resume control (`PauseDispatcher()`, `ResumeDispatcher()`, `IsDispatcherPaused()`), individual job cancellation (`CancelQueued(profileID)`), bulk queue purging (`ClearQueue()`), and point-in-time state inspection (`GetQueueSnapshot()`, returning `QueueSnapshotDTO` and `QueueJobDTO`) in `internal/profiles/scheduler.go` and `internal/profiles/dispatcher.go`. Enforced that paused state halts new admissions while letting active cohorts drain; individual and bulk cancellations send `ErrSyncCancelled` to waiting callers without blocking or leaking goroutines; bulk clear restores baseline engine options if idle; and all backend profile files strictly maintain <400 LOC. Added comprehensive unit tests in `internal/profiles/scheduler_test.go` covering pause/resume admission blocking, individual queued cancellation with running/missing guards, bulk queue clearing, and snapshot metadata accuracy. Verified with `go test -count=1 -race ./internal/profiles/...`.
+
 
 - 2026-11-17: Completed Task 26 - Full Integration & Pre-Commit Verification. Refactored `scheduler.go` and `worker.go` to enforce the <400 LOC ceiling across all profiles files; added defensive nil pointer guards to `GetMainOptions`, `SetMainOptions`, and `SetOptions` in `internal/core/client/client.go`; added `// #nosec G118` annotation for scheduler dispatcher context lifecycle; verified production frontend bundle builds with `npm run type-check && npm run build`; ran full 7/7 stage pre-commit test suite via `./scripts/check.sh all`; executed headless Chrome SPA smoke tests (`TestCockpitSPA_HeadlessChromeSmoke`) and full sandbox user journey tests (`TestDashboard_SandboxUIJourney`) in `tests/e2e`. All tests passing with 100% green.
 

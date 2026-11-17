@@ -21,7 +21,33 @@ type QueueItem struct {
 	Signature   EngineSignature
 	TargetFlags ProcessGlobalFlags
 	EnqueuedAt  time.Time
+	StartedAt   *time.Time
 	ErrCh       chan error
+}
+
+// QueueJobDTO provides safe serialized inspection of an active or pending queue job.
+type QueueJobDTO struct {
+	ProfileID   string          `json:"profile_id"`
+	ProfileName string          `json:"profile_name"`
+	Origin      string          `json:"origin"`
+	DryRun      bool            `json:"dry_run"`
+	Resync      bool            `json:"resync"`
+	Force       bool            `json:"force"`
+	Signature   EngineSignature `json:"signature"`
+	EnqueuedAt  time.Time       `json:"enqueued_at"`
+	StartedAt   *time.Time      `json:"started_at,omitempty"`
+	WaitSeconds float64         `json:"wait_seconds"`
+}
+
+// QueueSnapshotDTO provides a point-in-time snapshot of scheduler queue state.
+type QueueSnapshotDTO struct {
+	Paused          bool            `json:"paused"`
+	ActiveSignature EngineSignature `json:"active_signature"`
+	MaxConcurrency  int             `json:"max_concurrency"`
+	RunningCount    int             `json:"running_count"`
+	QueuedCount     int             `json:"queued_count"`
+	ActiveJobs      []QueueJobDTO   `json:"active_jobs"`
+	QueuedJobs      []QueueJobDTO   `json:"queued_jobs"`
 }
 
 // SchedulerOption configures the Scheduler.
@@ -146,7 +172,7 @@ func (s *Scheduler) processDispatch(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.stopped {
+	if s.stopped || s.paused {
 		return
 	}
 
@@ -203,12 +229,60 @@ func (s *Scheduler) processDispatch(ctx context.Context) {
 	s.queue = remaining
 
 	// Launch dispatched jobs in isolated goroutines
+	now := time.Now().UTC()
 	for _, item := range toDispatch {
+		item.StartedAt = &now
 		s.activeJobs[item.ProfileID] = item
 		if w, ok := s.workers[item.ProfileID]; ok {
 			w.isSyncing.Store(true)
 		}
 		s.wg.Add(1)
 		go s.runJob(ctx, item)
+	}
+}
+
+// GetQueueSnapshot generates a point-in-time snapshot of the dispatcher and execution queue.
+func (s *Scheduler) GetQueueSnapshot() QueueSnapshotDTO {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	snap := QueueSnapshotDTO{
+		Paused:          s.paused,
+		ActiveSignature: s.activeSignature,
+		MaxConcurrency:  s.maxConcurrency,
+		RunningCount:    len(s.activeJobs),
+		QueuedCount:     len(s.queue),
+		ActiveJobs:      make([]QueueJobDTO, 0, len(s.activeJobs)),
+		QueuedJobs:      make([]QueueJobDTO, 0, len(s.queue)),
+	}
+
+	for _, item := range s.activeJobs {
+		snap.ActiveJobs = append(snap.ActiveJobs, s.toJobDTO(item))
+	}
+	for _, item := range s.queue {
+		snap.QueuedJobs = append(snap.QueuedJobs, s.toJobDTO(item))
+	}
+
+	return snap
+}
+
+func (s *Scheduler) toJobDTO(item *QueueItem) QueueJobDTO {
+	name := item.ProfileID
+	if s.store != nil {
+		if prof, err := s.store.Get(item.ProfileID); err == nil && prof.Name != "" {
+			name = prof.Name
+		}
+	}
+	return QueueJobDTO{
+		ProfileID:   item.ProfileID,
+		ProfileName: name,
+		Origin:      item.Opts.Origin,
+		DryRun:      item.Opts.DryRun,
+		Resync:      item.Opts.Resync,
+		Force:       item.Opts.Force,
+		Signature:   item.Signature,
+		EnqueuedAt:  item.EnqueuedAt,
+		StartedAt:   item.StartedAt,
+		WaitSeconds: time.Since(item.EnqueuedAt).Seconds(),
 	}
 }

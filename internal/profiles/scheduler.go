@@ -11,9 +11,12 @@ import (
 )
 
 var (
-	ErrSchedulerStopped = errors.New("scheduler is stopped")
-	ErrProfileNotActive = errors.New("profile is not active or enabled")
-	ErrSyncInProgress   = errors.New("synchronization is already in progress for this profile")
+	ErrSchedulerStopped  = errors.New("scheduler is stopped")
+	ErrProfileNotActive  = errors.New("profile is not active or enabled")
+	ErrSyncInProgress    = errors.New("synchronization is already in progress for this profile")
+	ErrSyncCancelled     = errors.New("sync cancelled by operator")
+	ErrJobAlreadyRunning = errors.New("job is already running; cannot cancel queued entry")
+	ErrJobNotQueued      = errors.New("job is not in queue")
 )
 
 // SyncOptions specifies parameters for a synchronization run.
@@ -38,6 +41,7 @@ type Scheduler struct {
 	cancel          context.CancelFunc
 	wg              sync.WaitGroup
 	stopped         bool
+	paused          bool
 	engineClient    EngineOptionsClient
 	fleetFlagsFn    func() string
 	maxConcurrency  int
@@ -260,6 +264,74 @@ func (s *Scheduler) GetQueuedProfileIDs() []string {
 		ids[i] = item.ProfileID
 	}
 	return ids
+}
+
+// PauseDispatcher halts admission of new queued jobs while allowing active jobs to finish.
+func (s *Scheduler) PauseDispatcher() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.paused = true
+}
+
+// ResumeDispatcher enables admission of queued jobs and triggers immediate dispatch.
+func (s *Scheduler) ResumeDispatcher() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.paused = false
+	s.signalDispatcherLocked()
+}
+
+// IsDispatcherPaused reports whether the dispatcher has halted admissions.
+func (s *Scheduler) IsDispatcherPaused() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.paused
+}
+
+// CancelQueued removes a waiting job from the queue and cancels its execution.
+func (s *Scheduler) CancelQueued(profileID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, running := s.activeJobs[profileID]; running {
+		return ErrJobAlreadyRunning
+	}
+
+	for i, item := range s.queue {
+		if item.ProfileID == profileID {
+			s.queue = append(s.queue[:i], s.queue[i+1:]...)
+			if item.ErrCh != nil {
+				item.ErrCh <- ErrSyncCancelled
+			}
+			return nil
+		}
+	}
+
+	return ErrJobNotQueued
+}
+
+// ClearQueue drains and cancels all pending queued jobs, restoring baseline engine options if idle.
+func (s *Scheduler) ClearQueue() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	count := len(s.queue)
+	if count == 0 {
+		return 0
+	}
+
+	for _, item := range s.queue {
+		if item.ErrCh != nil {
+			item.ErrCh <- ErrSyncCancelled
+		}
+	}
+	s.queue = nil
+
+	if len(s.activeJobs) == 0 && s.activeSignature != DefaultEngineSignature {
+		s.restoreBaselineLocked(context.Background())
+	}
+
+	return count
 }
 
 func (s *Scheduler) runJob(ctx context.Context, item *QueueItem) {

@@ -155,3 +155,52 @@ Rclone RC treats `--tpslimit`, `--tpslimit-burst`, and `--checkers` as process-g
 - Quality gates: `./scripts/check.sh all`.
 - Headless Chrome E2E test verifying Global Settings flags builder interaction.
 
+
+---
+
+# Implementation Plan: Interactive Sync Queue Manager (Option A)
+
+## Proposed Changes
+
+Provide real-time visualization and administrative governance over the centralized FIFO sync execution queue and compatibility clustering dispatcher. Enable operators to view running cohorts and pending jobs, pause/resume dispatcher admissions, cancel individual queued syncs before execution, and purge backlogged queues in bulk.
+
+### 1. Phase 1: Scheduler Queue Governance Engine (`internal/profiles/`)
+- **Pause / Resume Dispatcher**: Add `isPaused atomic.Bool` to `Scheduler`. When paused, active jobs finish normally, but `popAdmissibleLocked` will not admit new items. Resuming notifies `queueCh` to immediately process eligible jobs.
+- **Cancel Queued Job**: `CancelQueued(profileID string) error` searches `s.queue`, removes the matching entry, and sends `ErrSyncCancelled = errors.New("sync cancelled by operator")` to its `ErrCh`.
+- **Clear Queue**: `ClearQueue() int` drains all pending items from `s.queue`, sends `ErrSyncCancelled` to all callers, and if no active jobs remain, restores the baseline engine options via `POST /options/set`.
+- **Queue Snapshot**: `GetQueueSnapshot() QueueSnapshotDTO` returns dispatcher status (`IsPaused`, `ActiveSignature`, `MaxConcurrency`, `RunningCount`, `QueuedCount`), active executions (`[]QueueJobDTO`), and pending queued executions in FIFO order (`[]QueueJobDTO`).
+
+### 2. Phase 2: REST API Endpoints (`internal/server/`)
+- Define DTOs in `internal/models/api.go`: `QueueSnapshotResponse`, `QueueJobDTO`, `QueueActionResponse`.
+- Add REST handlers in `internal/server/handlers_queue.go`:
+  - `GET /api/queue`: Returns full snapshot of dispatcher state, running jobs, and queued jobs.
+  - `POST /api/queue/pause`: Halts admission of queued jobs.
+  - `POST /api/queue/resume`: Resumes admission of queued jobs.
+  - `DELETE /api/queue/{id}`: Cancels and dequeues a specific pending profile.
+  - `DELETE /api/queue`: Drains and cancels all pending jobs in bulk.
+- Register routes in `internal/server/routes.go`.
+
+### 3. Phase 3: Frontend Queue Store & Header Indicator (`dashboard/frontend/`)
+- Define types in `dashboard/frontend/src/types/queue.ts`.
+- Implement `useQueueStore` in `dashboard/frontend/src/stores/queue.ts` with actions: `fetchSnapshot()`, `pauseDispatcher()`, `resumeDispatcher()`, `cancelJob(id)`, `clearAll()`.
+- Add reactive status pill in the top navigation header (`App.vue`):
+  - Shows `Queue: N (M running)` or `Queue: Paused` with amber indicator.
+  - Clicking opens `ModalQueueManager.vue`.
+
+### 4. Phase 4: Queue Manager Modal (`ModalQueueManager.vue`)
+- Component in `dashboard/frontend/src/components/ModalQueueManager.vue` using PrimeVue Dialog.
+- **Dispatcher Toolbar**: Status chip (`Active: SIG_DEFAULT`, `Paused`), `Pause Queue` / `Resume Queue` toggle, `Clear All Pending` button with confirmation.
+- **Active Cohort Panel**: Live card/table of running profiles with profile name, started time, elapsed timer, dry-run badge, and engine flags.
+- **Queued Profiles Table**: Ordered list (#1, #2, ...) with profile name, origin (`manual`, `schedule`, `mcp`), queue wait timer, engine compatibility tag (`Compatible` vs `Requires Option Switch`), and single-click Cancel button.
+- **Empty State**: Friendly visual when no jobs are active or waiting.
+
+## Verification Plan
+- Backend unit tests:
+  - `TestScheduler_PauseResumeAdmissions`: Verifies no jobs admitted while paused, and immediate admission on resume.
+  - `TestScheduler_CancelQueuedJob`: Verifies item removed, `ErrSyncCancelled` received on `ErrCh`.
+  - `TestScheduler_ClearQueueAndRestoreBaseline`: Verifies all items drained, baseline options restored.
+  - `TestHandlers_QueueAPI`: Verifies `GET /api/queue`, pause, resume, delete single, and delete all.
+- Frontend build: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+- Quality gates: `./scripts/check.sh all`.
+- E2E smoke tests: Headless Chrome SPA navigation and modal verification.
+

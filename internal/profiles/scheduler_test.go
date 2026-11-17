@@ -734,3 +734,210 @@ func TestScheduler_StopDrainsPendingQueue(t *testing.T) {
 		t.Fatalf("timeout waiting for queued job error")
 	}
 }
+
+func TestScheduler_PauseResumeAdmissions(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, _ := NewStore(filepath.Join(tmpDir, "p.json"), filepath.Join(tmpDir, "h.json"))
+
+	p1 := &Profile{
+		ID:        "prof-pause-1",
+		Name:      "Pause 1",
+		Remote:    "r1",
+		LocalPath: "/tmp",
+		Enabled:   true,
+		Schedule:  "manual",
+	}
+	_ = store.Save(p1, "Init")
+
+	executed := make(chan string, 1)
+	executor := func(ctx context.Context, p *Profile, opts SyncOptions) error {
+		executed <- p.ID
+		return nil
+	}
+
+	sched := NewScheduler(store, executor, WithMaxConcurrency(2))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = sched.Start(ctx)
+	defer sched.Stop()
+
+	// 1. Pause dispatcher
+	sched.PauseDispatcher()
+	if !sched.IsDispatcherPaused() {
+		t.Fatalf("expected dispatcher to report paused")
+	}
+
+	// 2. Enqueue job
+	doneCh := make(chan error, 1)
+	go func() {
+		doneCh <- sched.TriggerSync(context.Background(), "prof-pause-1", false)
+	}()
+
+	time.Sleep(60 * time.Millisecond)
+
+	// Verify job is waiting in queue and not running
+	if sched.GetQueueLength() != 1 {
+		t.Fatalf("expected 1 queued job, got %d", sched.GetQueueLength())
+	}
+	if sched.IsProfileRunning("prof-pause-1") {
+		t.Fatalf("expected profile not to be running while paused")
+	}
+
+	// Verify snapshot reflects paused state
+	snap := sched.GetQueueSnapshot()
+	if !snap.Paused {
+		t.Fatalf("expected snapshot Paused to be true")
+	}
+	if snap.QueuedCount != 1 || len(snap.QueuedJobs) != 1 {
+		t.Fatalf("expected snapshot to show 1 queued job, got: %+v", snap)
+	}
+	if snap.QueuedJobs[0].ProfileName != "Pause 1" {
+		t.Fatalf("expected queued job profile name 'Pause 1', got '%s'", snap.QueuedJobs[0].ProfileName)
+	}
+
+	// 3. Resume dispatcher
+	sched.ResumeDispatcher()
+	if sched.IsDispatcherPaused() {
+		t.Fatalf("expected dispatcher to report not paused after resume")
+	}
+
+	select {
+	case id := <-executed:
+		if id != "prof-pause-1" {
+			t.Fatalf("expected executed profile to be prof-pause-1, got %s", id)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for resumed job execution")
+	}
+
+	select {
+	case err := <-doneCh:
+		if err != nil {
+			t.Fatalf("unexpected sync error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for TriggerSync completion")
+	}
+}
+
+func TestScheduler_CancelQueuedJob(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, _ := NewStore(filepath.Join(tmpDir, "p.json"), filepath.Join(tmpDir, "h.json"))
+
+	p1 := &Profile{ID: "prof-cq-1", Name: "CQ1", Remote: "r1", LocalPath: "/tmp", Enabled: true, Schedule: "manual"}
+	p2 := &Profile{ID: "prof-cq-2", Name: "CQ2", Remote: "r2", LocalPath: "/tmp", Enabled: true, Schedule: "manual"}
+	_ = store.Save(p1, "Init 1")
+	_ = store.Save(p2, "Init 2")
+
+	barrier := make(chan struct{})
+	executor := func(ctx context.Context, p *Profile, opts SyncOptions) error {
+		if p.ID == "prof-cq-1" {
+			<-barrier
+		}
+		return nil
+	}
+
+	sched := NewScheduler(store, executor, WithMaxConcurrency(1))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = sched.Start(ctx)
+	defer sched.Stop()
+
+	// Run p1 to take the only concurrency slot
+	go func() {
+		_ = sched.TriggerSync(context.Background(), "prof-cq-1", false)
+	}()
+	time.Sleep(40 * time.Millisecond)
+
+	// Queue p2 behind p1
+	p2ErrCh := make(chan error, 1)
+	go func() {
+		p2ErrCh <- sched.TriggerSync(context.Background(), "prof-cq-2", false)
+	}()
+	time.Sleep(40 * time.Millisecond)
+
+	if sched.GetQueueLength() != 1 {
+		t.Fatalf("expected 1 job in queue, got %d", sched.GetQueueLength())
+	}
+
+	// Cannot cancel already running job
+	if err := sched.CancelQueued("prof-cq-1"); err != ErrJobAlreadyRunning {
+		t.Fatalf("expected ErrJobAlreadyRunning for prof-cq-1, got: %v", err)
+	}
+
+	// Cannot cancel non-existent job
+	if err := sched.CancelQueued("prof-cq-unknown"); err != ErrJobNotQueued {
+		t.Fatalf("expected ErrJobNotQueued, got: %v", err)
+	}
+
+	// Cancel queued job p2
+	if err := sched.CancelQueued("prof-cq-2"); err != nil {
+		t.Fatalf("unexpected error cancelling queued job: %v", err)
+	}
+
+	select {
+	case err := <-p2ErrCh:
+		if err != ErrSyncCancelled {
+			t.Fatalf("expected ErrSyncCancelled, got: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for cancelled p2 error")
+	}
+
+	if sched.GetQueueLength() != 0 {
+		t.Fatalf("expected queue length 0 after cancellation, got %d", sched.GetQueueLength())
+	}
+
+	close(barrier)
+}
+
+func TestScheduler_ClearQueue(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, _ := NewStore(filepath.Join(tmpDir, "p.json"), filepath.Join(tmpDir, "h.json"))
+
+	p1 := &Profile{ID: "prof-clr-1", Name: "CLR1", Remote: "r1", LocalPath: "/tmp", Enabled: true, Schedule: "manual"}
+	p2 := &Profile{ID: "prof-clr-2", Name: "CLR2", Remote: "r2", LocalPath: "/tmp", Enabled: true, Schedule: "manual"}
+	_ = store.Save(p1, "Init 1")
+	_ = store.Save(p2, "Init 2")
+
+	sched := NewScheduler(store, nil, WithMaxConcurrency(2))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = sched.Start(ctx)
+	defer sched.Stop()
+
+	// Pause to hold jobs in queue
+	sched.PauseDispatcher()
+
+	errCh1 := make(chan error, 1)
+	errCh2 := make(chan error, 1)
+	go func() { errCh1 <- sched.TriggerSync(context.Background(), "prof-clr-1", false) }()
+	go func() { errCh2 <- sched.TriggerSync(context.Background(), "prof-clr-2", false) }()
+	time.Sleep(50 * time.Millisecond)
+
+	if sched.GetQueueLength() != 2 {
+		t.Fatalf("expected 2 jobs queued, got %d", sched.GetQueueLength())
+	}
+
+	// Clear queue
+	cleared := sched.ClearQueue()
+	if cleared != 2 {
+		t.Fatalf("expected 2 cleared jobs, got %d", cleared)
+	}
+
+	for _, ch := range []chan error{errCh1, errCh2} {
+		select {
+		case err := <-ch:
+			if err != ErrSyncCancelled {
+				t.Fatalf("expected ErrSyncCancelled, got: %v", err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timeout waiting for cleared job error")
+		}
+	}
+
+	// Clearing an empty queue returns 0
+	if sched.ClearQueue() != 0 {
+		t.Fatalf("expected 0 on second clear")
+	}
+}
