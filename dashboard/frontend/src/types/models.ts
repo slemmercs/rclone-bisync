@@ -51,6 +51,65 @@ export interface RemotesResponse {
   error?: string
 }
 
+export interface RemoteAuthInfo {
+  name: string
+  type: string
+  type_label: string
+  is_oauth: boolean
+  status: 'connected' | 'migration_required' | 'authorization_required' | 'configuration_required' | 'error' | string
+  status_message: string
+  client_id?: string
+  has_client_secret: boolean
+  has_token: boolean
+  token_expiry?: string
+  is_active_target: boolean
+  last_checked: string
+}
+
+export interface AuthHealthSummary {
+  total_remotes: number
+  oauth_remotes: number
+  connected: number
+  migration_required: number
+  authorization_required: number
+  configuration_required: number
+  errors: number
+}
+
+export interface AuthStatusResponse {
+  summary: AuthHealthSummary
+  remotes: RemoteAuthInfo[]
+}
+
+export interface OAuthAuditEvent {
+  event: string
+  remote: string
+  status: string
+  details?: string
+  timestamp: string
+}
+
+export interface AuditEventsResponse {
+  events: OAuthAuditEvent[]
+  count: number
+}
+
+export interface ReconnectResponse {
+  status: string
+  remote: string
+  auth_url?: string
+  msg?: string
+  error?: string
+}
+
+export interface ValidateResponse {
+  status: string
+  remote: string
+  valid: boolean
+  msg?: string
+  error?: string
+}
+
 export interface TransferStats {
   bytes: number
   total_bytes: number
@@ -164,6 +223,43 @@ export interface ReviewSession {
   conflicts: ConflictCandidate[]
   created_at: string
   updated_at: string
+}
+
+export interface AuditRecord {
+  seq_id: number
+  timestamp: string
+  profile_id: string
+  profile_name?: string
+  action: string
+  actor: string
+  details?: Record<string, any>
+  prev_hash: string
+  hash: string
+}
+
+export interface AuditVerification {
+  valid: boolean
+  total_records: number
+  checked_at: string | null
+  head_hash: string
+  error?: string | null
+  checking?: boolean
+}
+
+export interface AuditRecordsResponse {
+  status: string
+  records: AuditRecord[]
+  total: number
+  page: number
+  limit: number
+  error?: string
+}
+
+export interface AuditResetResponse {
+  status: string
+  message: string
+  backup?: string
+  error?: string
 }
 
 export interface AuditLogRecord {

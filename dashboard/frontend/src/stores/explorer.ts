@@ -12,6 +12,8 @@ import type {
   MkdirResponse,
   DeleteRequest,
   DeleteResponse,
+  UploadDockStatus,
+  UploadQueueItem,
 } from '../types/explorer'
 
 export interface CompareSelectItem {
@@ -34,6 +36,11 @@ export const useExplorerStore = defineStore('explorer', () => {
 
   // Multi-file selection for checksum comparison
   const compareSelection = ref<CompareSelectItem[]>([])
+
+  // Upload Dock state
+  const uploadDock = ref<UploadDockStatus>({ pending_count: 0, is_sync_active: false, items: [] })
+  const uploadDockModalOpen = ref<boolean>(false)
+  const uploadDockLoading = ref<boolean>(false)
 
   // Jump to path in Dual Explorer
   const highlightName = ref<string | null>(null)
@@ -178,6 +185,48 @@ export const useExplorerStore = defineStore('explorer', () => {
     return `/api/explorer/download?${params.toString()}`
   }
 
+  async function fetchUploadDockStatus(profileId?: string): Promise<UploadDockStatus> {
+    uploadDockLoading.value = true
+    try {
+      const params = new URLSearchParams()
+      if (profileId) params.set('profile_id', profileId)
+      const data = await api.get<UploadDockStatus>(`/api/explorer/dock?${params.toString()}`)
+      if (data && typeof data.pending_count === 'number') {
+        uploadDock.value = data
+      }
+      return uploadDock.value
+    } catch (_) {
+      return uploadDock.value
+    } finally {
+      uploadDockLoading.value = false
+    }
+  }
+
+  async function clearCompletedUploads(profileId?: string): Promise<void> {
+    try {
+      const params = new URLSearchParams()
+      if (profileId) params.set('profile_id', profileId)
+      await api.delete(`/api/explorer/dock?${params.toString()}`)
+      await fetchUploadDockStatus(profileId)
+    } catch (_) {}
+  }
+
+  async function removeDockItem(id: string, profileId?: string): Promise<void> {
+    try {
+      await api.delete(`/api/explorer/dock?id=${encodeURIComponent(id)}`)
+      await fetchUploadDockStatus(profileId)
+    } catch (_) {}
+  }
+
+  function openUploadDockModal(profileId?: string) {
+    uploadDockModalOpen.value = true
+    fetchUploadDockStatus(profileId)
+  }
+
+  function closeUploadDockModal() {
+    uploadDockModalOpen.value = false
+  }
+
   return {
     currentRemote,
     currentPath,
@@ -187,6 +236,14 @@ export const useExplorerStore = defineStore('explorer', () => {
     error,
     selectedItem,
     compareSelection,
+    uploadDock,
+    uploadDockModalOpen,
+    uploadDockLoading,
+    fetchUploadDockStatus,
+    clearCompletedUploads,
+    removeDockItem,
+    openUploadDockModal,
+    closeUploadDockModal,
     browse,
     selectItem,
     isItemInCompare,

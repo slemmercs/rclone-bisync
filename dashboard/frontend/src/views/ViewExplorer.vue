@@ -41,6 +41,22 @@
           </button>
         </div>
 
+        <!-- Upload Dock Launcher Button -->
+        <button
+          @click="explorerStore.openUploadDockModal(activeProfile?.id)"
+          class="px-3 py-1.5 bg-carbon-800 hover:bg-carbon-750 text-carbon-200 border border-carbon-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+          :title="'Upload Dock: ' + (explorerStore.uploadDock.pending_count || 0) + ' pending'"
+        >
+          <i class="pi pi-upload text-xs text-electric-400"></i>
+          <span>Uploads ({{ explorerStore.uploadDock.pending_count || 0 }})</span>
+          <span
+            v-if="explorerStore.uploadDock.is_sync_active"
+            class="text-[9px] px-1 py-0.2 rounded bg-amber-950 text-amber-400 border border-amber-700 font-mono uppercase"
+          >
+            Deferred
+          </span>
+        </button>
+
         <!-- Swap Panes Button -->
         <button
           @click="swapPanes"
@@ -586,6 +602,8 @@
       @close="contextMenuVisible = false"
       @action="handleContextAction"
     />
+
+    <ModalUploadDock />
   </div>
 </template>
 
@@ -604,6 +622,7 @@ import ModalExplorerMkdir from '../components/ModalExplorerMkdir.vue'
 import ModalExplorerMove from '../components/ModalExplorerMove.vue'
 import ModalConfirm from '../components/ModalConfirm.vue'
 import ExplorerContextMenu from '../components/ExplorerContextMenu.vue'
+import ModalUploadDock from '../components/ModalUploadDock.vue'
 
 const profilesStore = useProfilesStore()
 const explorerStore = useExplorerStore()
@@ -773,6 +792,7 @@ watch(
       rightRemoteName.value = (profile.remote || 'local').replace(/:$/, '')
       rightPath.value = (profile.remote_path || '').replace(/^\/+/, '')
       refreshAll()
+      explorerStore.fetchUploadDockStatus(profile.id)
     }
   },
   { immediate: true }
@@ -1031,6 +1051,7 @@ async function handleFileUpload(pane: 'left' | 'right', e: Event) {
   try {
     await explorerStore.uploadFile(file, remote, path, activeProfile.value?.id)
     refreshPane(pane)
+    explorerStore.fetchUploadDockStatus(activeProfile.value?.id)
   } catch (err: any) {
     alert(err.message || 'File upload failed')
   } finally {

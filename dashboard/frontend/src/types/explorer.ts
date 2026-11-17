@@ -94,6 +94,24 @@ export interface DeleteResponse {
   error?: string
 }
 
+export interface UploadQueueItem {
+  id: string
+  profile_id: string
+  remote: string
+  path: string
+  file_name: string
+  size: number
+  status: 'queued' | 'waiting_for_sync' | 'uploading' | 'completed' | 'failed' | string
+  error?: string
+  created_at?: string
+}
+
+export interface UploadDockStatus {
+  pending_count: number
+  is_sync_active: boolean
+  items: UploadQueueItem[]
+}
+
 export const PREVIEWABLE_EXTENSIONS = new Set([
   '.txt', '.md', '.markdown', '.log', '.conf', '.ini', '.env', '.csv',
   '.json', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.js', '.ts',

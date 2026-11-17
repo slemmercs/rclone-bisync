@@ -257,7 +257,47 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 		time.Sleep(150 * time.Millisecond)
 	})
 
-	// 8. Final Console Error Audit
+	// 8. Upload Dock Modal
+	t.Run("UploadDockModalInteraction", func(t *testing.T) {
+		// Switch to File Explorer tab
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const buttons = Array.from(document.querySelectorAll('header nav button'));
+			const btn = buttons.find(b => b.textContent.includes('File Explorer'));
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`))
+		time.Sleep(200 * time.Millisecond)
+
+		// Click Uploads button in Explorer toolbar
+		clickUploadsScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const uBtn = btns.find(b => b.textContent.includes('Uploads'));
+			if (uBtn) { uBtn.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickUploadsScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Upload Dock modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		// Verify modal content
+		hasHeader, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			return document.body.textContent.includes('Upload Dock & Transfer Queue');
+		})()`))
+		if err != nil || !hasHeader {
+			t.Fatalf("expected Upload Dock modal header in DOM, err: %v", err)
+		}
+
+		// Close modal by pressing Escape
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			return true;
+		})()`))
+		time.Sleep(150 * time.Millisecond)
+	})
+
+	// 9. Final Console Error Audit
 	t.Run("ConsoleErrorAudit", func(t *testing.T) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -277,4 +317,3 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 		}
 	})
 }
-

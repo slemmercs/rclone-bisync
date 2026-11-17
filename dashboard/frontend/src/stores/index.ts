@@ -9,6 +9,7 @@ export * from './app'
 export * from './dedupe'
 export * from './help'
 export * from './settings'
+export * from './audit'
 
 
 
