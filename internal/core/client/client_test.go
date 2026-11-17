@@ -933,3 +933,227 @@ func TestQuit(t *testing.T) {
 		t.Fatal("expected server to receive /core/quit")
 	}
 }
+func TestGetMainOptions(t *testing.T) {
+	// Arrange
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/options/get" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"main": {
+					"Checkers": 16,
+					"Transfers": 8,
+					"TPSLimit": 12.5,
+					"TPSLimitBurst": 25
+				}
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+
+	// Act
+	opts, err := c.GetMainOptions(context.Background())
+
+	// Assert
+	if err != nil {
+		t.Fatalf("unexpected error from GetMainOptions: %v", err)
+	}
+	if opts.GetCheckers(0) != 16 {
+		t.Errorf("expected Checkers 16, got %d", opts.GetCheckers(0))
+	}
+	if opts.GetTransfers(0) != 8 {
+		t.Errorf("expected Transfers 8, got %d", opts.GetTransfers(0))
+	}
+	if opts.GetTPSLimit(0) != 12.5 {
+		t.Errorf("expected TPSLimit 12.5, got %f", opts.GetTPSLimit(0))
+	}
+	if opts.GetTPSLimitBurst(0) != 25 {
+		t.Errorf("expected TPSLimitBurst 25, got %d", opts.GetTPSLimitBurst(0))
+	}
+}
+
+func TestGetMainOptions_EmptyAndErrors(t *testing.T) {
+	// 1. Empty main section
+	serverEmpty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"main": {}}`))
+	}))
+	defer serverEmpty.Close()
+
+	cEmpty := NewRcloneClient(serverEmpty.URL, "user", "pass")
+	opts, err := cEmpty.GetMainOptions(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error for empty main: %v", err)
+	}
+	if opts.GetCheckers(4) != 4 {
+		t.Errorf("expected default Checkers fallback 4, got %d", opts.GetCheckers(4))
+	}
+
+	// 2. Malformed JSON
+	serverBadJSON := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{invalid-json`))
+	}))
+	defer serverBadJSON.Close()
+
+	cBadJSON := NewRcloneClient(serverBadJSON.URL, "user", "pass")
+	if _, err := cBadJSON.GetMainOptions(context.Background()); err == nil {
+		t.Fatal("expected error for malformed json")
+	}
+
+	// 3. Server HTTP 500 error
+	serverError := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`internal server error`))
+	}))
+	defer serverError.Close()
+
+	cError := NewRcloneClient(serverError.URL, "user", "pass")
+	if _, err := cError.GetMainOptions(context.Background()); err == nil {
+		t.Fatal("expected error on HTTP 500")
+	}
+}
+
+func TestSetMainOptions(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/options/set" {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+
+	// Act with zero TPSLimit (unlimited) and custom Checkers
+	opts := &MainOptions{
+		Checkers: IntPtr(8),
+		TPSLimit: Float64Ptr(0.0), // Explicit zero must not be omitted!
+	}
+	err := c.SetMainOptions(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("unexpected SetMainOptions error: %v", err)
+	}
+
+	mainMap, ok := receivedBody["main"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected 'main' section in payload, got %v", receivedBody)
+	}
+	if checkers, ok := mainMap["Checkers"].(float64); !ok || int(checkers) != 8 {
+		t.Errorf("expected Checkers: 8, got %v", mainMap["Checkers"])
+	}
+	if tpsLimit, ok := mainMap["TPSLimit"].(float64); !ok || tpsLimit != 0 {
+		t.Errorf("expected TPSLimit: 0, got %v", mainMap["TPSLimit"])
+	}
+	// Transfers was nil and should be omitted
+	if _, exists := mainMap["Transfers"]; exists {
+		t.Errorf("expected Transfers to be omitted when nil, got %v", mainMap["Transfers"])
+	}
+
+	// Nil opts error
+	if err := c.SetMainOptions(context.Background(), nil); err == nil {
+		t.Fatal("expected error when opts is nil")
+	}
+
+	// Server error
+	serverError := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`failed to update options`))
+	}))
+	defer serverError.Close()
+
+	cErr := NewRcloneClient(serverError.URL, "user", "pass")
+	if err := cErr.SetMainOptions(context.Background(), opts); err == nil {
+		t.Fatal("expected error on HTTP 500 from SetMainOptions")
+	}
+}
+
+func TestSetOptions(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/options/set" {
+			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+
+	// Empty map should be a no-op
+	if err := c.SetOptions(context.Background(), nil); err != nil {
+		t.Fatalf("expected nil options to be no-op: %v", err)
+	}
+	if err := c.SetOptions(context.Background(), map[string]interface{}{}); err != nil {
+		t.Fatalf("expected empty options to be no-op: %v", err)
+	}
+
+	// Arbitrary options
+	err := c.SetOptions(context.Background(), map[string]interface{}{
+		"main": map[string]interface{}{"Checkers": 4},
+	})
+	if err != nil {
+		t.Fatalf("unexpected SetOptions error: %v", err)
+	}
+	if receivedBody["main"] == nil {
+		t.Fatal("expected main section in received body")
+	}
+
+	// Server error
+	serverError := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`failed`))
+	}))
+	defer serverError.Close()
+
+	cErr := NewRcloneClient(serverError.URL, "user", "pass")
+	if err := cErr.SetOptions(context.Background(), map[string]interface{}{"main": 1}); err == nil {
+		t.Fatal("expected error on HTTP 500 from SetOptions")
+	}
+}
+
+func TestMainOptions_GettersAndPointers(t *testing.T) {
+	var nilOpts *MainOptions
+	if nilOpts.GetCheckers(10) != 10 {
+		t.Errorf("expected default 10 for nilOpts")
+	}
+	if nilOpts.GetTransfers(4) != 4 {
+		t.Errorf("expected default 4 for nilOpts")
+	}
+	if nilOpts.GetTPSLimit(5.0) != 5.0 {
+		t.Errorf("expected default 5.0 for nilOpts")
+	}
+	if nilOpts.GetTPSLimitBurst(1) != 1 {
+		t.Errorf("expected default 1 for nilOpts")
+	}
+
+	populated := &MainOptions{
+		Checkers:      IntPtr(12),
+		Transfers:     IntPtr(6),
+		TPSLimit:      Float64Ptr(8.5),
+		TPSLimitBurst: IntPtr(15),
+	}
+	if populated.GetCheckers(1) != 12 {
+		t.Errorf("expected 12, got %d", populated.GetCheckers(1))
+	}
+	if populated.GetTransfers(1) != 6 {
+		t.Errorf("expected 6, got %d", populated.GetTransfers(1))
+	}
+	if populated.GetTPSLimit(1) != 8.5 {
+		t.Errorf("expected 8.5, got %f", populated.GetTPSLimit(1))
+	}
+	if populated.GetTPSLimitBurst(1) != 15 {
+		t.Errorf("expected 15, got %d", populated.GetTPSLimitBurst(1))
+	}
+}
+
