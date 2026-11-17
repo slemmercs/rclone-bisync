@@ -65,6 +65,13 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("POST /api/profiles/{id}/rollback", s.handleRollbackProfile)
 	s.Mux.HandleFunc("POST /api/profiles/{id}/sync", s.handleProfileSync)
 	s.Mux.HandleFunc("GET /api/profiles/{id}/history", s.handleProfileHistory)
+	// Sync Queue Manager Endpoints
+	s.Mux.HandleFunc("GET /api/queue", s.handleGetQueue)
+	s.Mux.HandleFunc("POST /api/queue/pause", s.handlePauseQueue)
+	s.Mux.HandleFunc("POST /api/queue/resume", s.handleResumeQueue)
+	s.Mux.HandleFunc("DELETE /api/queue/{id}", s.handleCancelQueuedJob)
+	s.Mux.HandleFunc("DELETE /api/queue", s.handleClearQueue)
+
 	// Global Fleet Settings Endpoints
 	s.Mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	s.Mux.HandleFunc("PUT /api/config", s.handleUpdateConfig)
