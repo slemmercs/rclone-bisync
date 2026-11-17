@@ -192,3 +192,35 @@ export interface PaginatedLogsResponse {
   total_pages: number
   logs: string[]
 }
+
+export interface DiagnosticCheck {
+  id: string
+  category: string
+  name: string
+  status: 'pass' | 'warning' | 'fail'
+  message: string
+  detail?: string
+  action_title?: string
+  action_url?: string
+}
+
+export interface DiagnosticSystemInfo {
+  version: string
+  go_version: string
+  os: string
+  arch: string
+  pid: number
+  uptime_sec: number
+  base_dir: string
+  log_file_path: string
+  is_systemd: boolean
+}
+
+export interface DiagnosticsResponse {
+  status: 'ok' | 'warning' | 'error'
+  summary: Record<string, number>
+  checks: DiagnosticCheck[]
+  system_info: DiagnosticSystemInfo
+  timestamp: string
+}
+

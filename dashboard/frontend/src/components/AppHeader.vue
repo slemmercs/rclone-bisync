@@ -5,6 +5,8 @@ import { useProfilesStore } from '../stores/profiles'
 import { useFSMStore } from '../stores/fsm'
 import { useTelemetryStore } from '../stores/telemetry'
 import { useLogsStore } from '../stores/logs'
+import { useHelpStore } from '../stores/help'
+
 
 const props = defineProps<{
   activeTab: string
@@ -20,6 +22,24 @@ const profilesStore = useProfilesStore()
 const fsmStore = useFSMStore()
 const telemetryStore = useTelemetryStore()
 const logsStore = useLogsStore()
+const helpStore = useHelpStore()
+
+const activeContext = computed(() => {
+  switch (props.activeTab) {
+    case 'telemetry':
+      return { id: 'view_telemetry', title: 'Engine & Telemetry' }
+    case 'remotes':
+      return { id: 'view_remotes', title: 'Storage Remotes' }
+    case 'explorer':
+      return { id: 'view_explorer', title: 'File Explorer' }
+    case 'audit':
+      return { id: 'view_audit', title: 'Audit Trail' }
+    case 'fleet':
+    default:
+      return { id: 'global', title: 'Fleet Overview' }
+  }
+})
+
 
 const tabs = [
   { id: 'fleet', label: 'Fleet', icon: 'pi pi-server' },
@@ -129,6 +149,16 @@ async function handleRunSync() {
           {{ logsStore.logs.length }}
         </span>
       </button>
+      <!-- Help & Diagnostics Drawer Button -->
+      <button
+        @click="helpStore.openDrawer(undefined, '', activeContext)"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-300 hover:text-white text-xs font-mono transition-colors cursor-pointer"
+        title="Open Reference Manual & Diagnostics Drawer"
+      >
+        <i class="pi pi-question-circle text-xs text-electric-blue"></i>
+        <span>Help</span>
+      </button>
+
 
       <!-- Review Alert Trigger (if circuit breaker tripped) -->
       <button

@@ -7,6 +7,8 @@ export * from './explorer'
 export * from './remotes'
 export * from './app'
 export * from './dedupe'
+export * from './help'
+
 
 
 

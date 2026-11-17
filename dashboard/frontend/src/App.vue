@@ -10,6 +10,8 @@ import LogDock from './components/LogDock.vue'
 import ConflictReviewModal from './components/ConflictReviewModal.vue'
 import ProfileManagerModal from './components/ProfileManagerModal.vue'
 import ModalDaemonLogs from './components/ModalDaemonLogs.vue'
+import HelpDrawer from './components/HelpDrawer.vue'
+
 
 import { useAppStore } from './stores/app'
 import { useProfilesStore } from './stores/profiles'
@@ -81,6 +83,8 @@ onUnmounted(() => {
     <ConflictReviewModal v-model:visible="showReviewModal" />
     <ProfileManagerModal v-model:visible="showProfilesModal" />
     <ModalDaemonLogs />
+    <HelpDrawer />
+
   </div>
 
 </template>

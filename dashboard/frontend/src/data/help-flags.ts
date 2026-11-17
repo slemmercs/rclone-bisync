@@ -1,0 +1,137 @@
+export interface HelpFlag {
+  flag: string
+  name: string
+  category: string
+  backends: string[]
+  contexts: string[]
+  description: string
+  caveat?: string
+  example: string
+  docUrl?: string
+}
+
+export const helpFlags: HelpFlag[] = [
+  {
+    flag: '--track-renames',
+    name: 'Rename & Move Detection',
+    category: 'Detection',
+    backends: ['all'],
+    contexts: ['modal_profiles', 'view_explorer'],
+    description: 'Detects file moves and renames using hashes and modtimes, avoiding destructive delete-and-reupload cycles.',
+    example: 'rclone bisync local: remote: --track-renames',
+    docUrl: 'https://rclone.org/bisync/#track-renames',
+  },
+  {
+    flag: '--track-renames-strategy',
+    name: 'Rename Matching Strategy',
+    category: 'Detection',
+    backends: ['all'],
+    contexts: ['modal_profiles'],
+    description: "Priority order for matching renamed files: 'modtime', 'leaf', or 'hash' (default: modtime,leaf).",
+    example: 'rclone bisync local: remote: --track-renames --track-renames-strategy modtime,leaf',
+    docUrl: 'https://rclone.org/bisync/#track-renames-strategy',
+  },
+  {
+    flag: '--fast-list',
+    name: 'Recursive Directory Listing',
+    category: 'Performance',
+    backends: ['all'],
+    contexts: ['modal_profiles', 'view_remotes'],
+    description: 'Uses recursive listing calls to reduce cloud API transactions on providers supporting it (e.g., GDrive, S3, OneDrive).',
+    caveat: 'On OneDrive, --fast-list requires recursive listing and errors if shortcuts or Personal Vault are in the sync path.',
+    example: 'rclone bisync local: remote: --fast-list',
+    docUrl: 'https://rclone.org/flags/#fast-list',
+  },
+  {
+    flag: '--drive-shared-with-me',
+    name: 'Google Drive Shared Access',
+    category: 'Provider',
+    backends: ['drive'],
+    contexts: ['modal_profiles', 'view_remotes'],
+    description: "Instructs Google Drive backend to list and sync files shared with the user rather than root 'My Drive'.",
+    example: 'rclone bisync local: gdrive: --drive-shared-with-me',
+    docUrl: 'https://rclone.org/drive/#drive-shared-with-me',
+  },
+  {
+    flag: '--checksum',
+    name: 'Checksum Hash Verification',
+    category: 'Verification',
+    backends: ['all'],
+    contexts: ['modal_profiles', 'modal_review'],
+    description: 'Checks hashes and sizes instead of modification times during synchronization diffing.',
+    example: 'rclone bisync local: remote: --checksum',
+    docUrl: 'https://rclone.org/flags/#c-checksum',
+  },
+  {
+    flag: '--resync',
+    name: 'Cache Baseline Rebuild',
+    category: 'Recovery',
+    backends: ['all'],
+    contexts: ['modal_profiles', 'modal_dedupe', 'view_telemetry'],
+    description: 'Re-initializes the bisync cache by building fresh file listings from both endpoints without propagating deletions.',
+    example: 'rclone bisync local: remote: --resync --verbose',
+    docUrl: 'https://rclone.org/bisync/#resync',
+  },
+  {
+    flag: '--filters-file',
+    name: 'Include / Exclude Rule File',
+    category: 'Filtering',
+    backends: ['all'],
+    contexts: ['modal_profiles', 'view_explorer'],
+    description: 'Loads file filtering rules (+ include, - exclude) from a specified text file for ignoring artifacts and OS files.',
+    example: 'rclone bisync local: remote: --filters-file /path/to/filters.txt',
+    docUrl: 'https://rclone.org/filtering/#filter-from-filter-file',
+  },
+  {
+    flag: '--slow-hash',
+    name: 'Slow Hash Provider Handling',
+    category: 'Performance',
+    backends: ['all'],
+    contexts: ['modal_profiles', 'view_remotes'],
+    description: 'Allows checksum comparisons on cloud providers that compute hashes slowly or on-demand without timing out.',
+    example: 'rclone bisync local: remote: --compare checksum --slow-hash',
+    docUrl: 'https://rclone.org/bisync/#slow-hash',
+  },
+  {
+    flag: '--onedrive-no-versions',
+    name: 'OneDrive Prevent Version Duplication',
+    category: 'Provider',
+    backends: ['onedrive'],
+    contexts: ['modal_profiles', 'view_remotes'],
+    description: 'Prevents OneDrive from creating unnecessary historical file versions on upload, saving cloud storage quota and preventing version buildup.',
+    caveat: 'Essential for OneDrive sync pairs that update frequently to prevent quota exhaustion.',
+    example: 'rclone bisync local: onedrive: --onedrive-no-versions',
+    docUrl: 'https://rclone.org/onedrive/#onedrive-no-versions',
+  },
+  {
+    flag: '--onedrive-chunk-size',
+    name: 'OneDrive Upload Chunk Size',
+    category: 'Performance',
+    backends: ['onedrive'],
+    contexts: ['modal_profiles', 'view_remotes'],
+    description: 'Upload chunk size for large files (must be multiple of 320k, e.g. 10M, 50M, 100M).',
+    caveat: 'Must be an exact multiple of 320k.',
+    example: 'rclone bisync local: onedrive: --onedrive-chunk-size 10M',
+    docUrl: 'https://rclone.org/onedrive/#onedrive-chunk-size',
+  },
+  {
+    flag: '--onedrive-delta',
+    name: 'OneDrive Delta Enumeration',
+    category: 'Performance',
+    backends: ['onedrive'],
+    contexts: ['modal_profiles', 'view_remotes'],
+    description: 'Enables delta change enumeration on OneDrive via Microsoft Graph API for rapid incremental change detection.',
+    caveat: 'Incompatible with Personal Vault and cannot traverse shortcut links.',
+    example: 'rclone bisync local: onedrive: --onedrive-delta',
+    docUrl: 'https://rclone.org/onedrive/#onedrive-delta',
+  },
+  {
+    flag: '--check-access',
+    name: 'Canary File Verification',
+    category: 'Safety',
+    backends: ['all'],
+    contexts: ['modal_profiles', 'modal_global_settings', 'view_remotes'],
+    description: 'Verifies the presence of the canary file (default RCLONE_TEST) on both Path1 and Path2 before executing sync.',
+    example: 'rclone bisync local: remote: --check-access',
+  },
+]

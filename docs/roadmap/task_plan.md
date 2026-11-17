@@ -86,7 +86,7 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - **Scope**: `src/types/dedupe.ts`, `src/stores/dedupe.ts`, `src/components/ModalDedupe.vue`, `src/components/ModalRemoteWizard.vue`, `src/views/ViewRemotes.vue`
   - **Verification**: `npm run type-check && npm run build`
 
-- [ ] Task 11: Slide-Over Help & Diagnostics Drawer
+- [x] Task 11: Slide-Over Help & Diagnostics Drawer
   - **Scope**: `src/data/help-policies.ts`, `src/data/help-flags.ts`, `src/components/HelpDrawer.vue`, `src/components/AppHeader.vue`, `src/App.vue`
   - **Verification**: `npm run type-check && npm run build`
 
@@ -111,5 +111,7 @@ Achieve 100% functional, operational, and visual feature parity with the legacy 
   - All 7/7 check.sh quality gates passed and frontend built successfully.
 
 - 2026-11-16: Completed Task 10 - Remote Deduplication Workspace & Remote Creation Wizard. Implemented typed deduplication and remote wizard contracts in `src/types/dedupe.ts`, created `useDedupeStore` in `src/stores/dedupe.ts` with output parsing and staged batch decisions, created `src/utils/dedupeParser.ts` for structured CLI collision extraction, implemented `ModalDedupe.vue` featuring a 3-section workspace with dedupe strategy selection (`list`, `oldest`, `newest`, `rename`, `largest`, `smallest`), `--by-hash` toggle, paired pass options, collision candidates list, inline keep/delete staging, raw CLI logs tab, staged actions drawer with resync toggle, and daemon log links (`run:dedupe-...`). Implemented `ModalRemoteWizard.vue` with 3-step guided flow (provider selection with categories & search, remote configuration & profile bridging, deployment review). Enhanced `ViewRemotes.vue` with "Add Remote" wizard launcher, per-card "Deduplicate" launcher, category filtering (`All`, `Cloud Drive`, `Object Storage`, `Protocols`), search, and delete safeguards. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `./scripts/check.sh all` (all 7 quality gates passed).
+
+- 2026-11-16: Completed Task 11 - Slide-Over Help & Diagnostics Drawer. Implemented typed reference catalogs `src/data/help-policies.ts` (safety policies, operational runbooks) and `src/data/help-flags.ts` (curated CLI flags with descriptions, caveats, examples, and doc links). Added diagnostic contracts to `src/types/models.ts` and created `useHelpStore` in `src/stores/help.ts` supporting context-aware scoping, live self-diagnostic polling (`/api/diagnostics`), and tab navigation. Created `src/components/HelpDrawer.vue` powered by PrimeVue `Drawer` featuring 4 tabs: Diagnostics (system health summary, pass/warning/fail checks, uptime/system info), Safety Policies (canary, POSIX locks, mandatory subdirs, circuit breakers, jails, risk scores), Flag Catalog (CLI flags with copy buttons and docs links), and Runbooks (step-by-step troubleshooting guides with remediation commands). Connected drawer trigger button in `AppHeader.vue` and mounted drawer in `App.vue`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `./scripts/check.sh all` (all 7 quality gates passed).
 
 
