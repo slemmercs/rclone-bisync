@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/app"
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/engine/runner"
 	"github.com/slemmercs/rclone-bisync/internal/mcp"
@@ -96,6 +98,30 @@ func main() {
 			_ = mcpCmd.Parse(os.Args[2:])
 
 			runMCP(*transport, *host, *port, *readOnly, *requireConfirmation, *mcpEnv, *debug)
+			return
+
+		case "audit":
+			auditCmd := flag.NewFlagSet("audit", flag.ExitOnError)
+			auditEnv := auditCmd.String("env-file", "", "Path to custom bisync.env")
+			var flagArgs []string
+			var subArgs []string
+			for i := 2; i < len(os.Args); i++ {
+				arg := os.Args[i]
+				if arg == "--env-file" && i+1 < len(os.Args) {
+					flagArgs = append(flagArgs, arg, os.Args[i+1])
+					i++
+				} else if strings.HasPrefix(arg, "--env-file=") {
+					flagArgs = append(flagArgs, arg)
+				} else {
+					subArgs = append(subArgs, arg)
+				}
+			}
+			_ = auditCmd.Parse(flagArgs)
+			action := "verify"
+			if len(subArgs) > 0 {
+				action = subArgs[0]
+			}
+			runAudit(action, *auditEnv)
 			return
 		}
 	}
@@ -289,3 +315,108 @@ func runMCP(transport, host string, port int, readOnly, requireConfirmation bool
 		}
 	}
 }
+
+func runAudit(action string, envFile string) {
+	cfg, err := config.LoadConfig(envFile)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	db, err := audit.OpenDB(cfg.AuditDBPath)
+	if err != nil {
+		log.Fatalf("Failed to open audit ledger (%s): %v", cfg.AuditDBPath, err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	switch action {
+	case "seed":
+		seedEntries := []struct {
+			profileID string
+			action    audit.Action
+			actor     string
+			details   map[string]any
+		}{
+			{
+				profileID: "prof_sandbox",
+				action:    audit.ActionProfileCreated,
+				actor:     "admin",
+				details: map[string]any{
+					"name":        "Sandbox Test Remote",
+					"remote":      "testremote:",
+					"local_path":  cfg.LocalPath,
+					"compare":     "size,modtime",
+					"review_mode": "all",
+				},
+			},
+			{
+				profileID: "prof_sandbox",
+				action:    audit.ActionSyncExecuted,
+				actor:     "timer",
+				details: map[string]any{
+					"dry_run":           true,
+					"origin":            "scheduler",
+					"status":            "completed",
+					"transferred_files": 2,
+				},
+			},
+			{
+				profileID: "prof_backup",
+				action:    audit.ActionConfigUpdated,
+				actor:     "admin",
+				details: map[string]any{
+					"remote": "backup_remote",
+					"type":   "alias",
+				},
+			},
+			{
+				profileID: "prof_sandbox",
+				action:    audit.ActionProfileUpdated,
+				actor:     "admin",
+				details: map[string]any{
+					"version_before": 1,
+					"version_after":  2,
+					"max_delete":     15,
+				},
+			},
+			{
+				profileID: "prof_sandbox",
+				action:    audit.ActionDedupeExecuted,
+				actor:     "mcp_agent",
+				details: map[string]any{
+					"mode":          "oldest",
+					"by_hash":       true,
+					"removed_count": 1,
+				},
+			},
+		}
+
+		for _, e := range seedEntries {
+			rec, err := audit.Append(db, e.profileID, e.action, e.actor, e.details)
+			if err != nil {
+				log.Fatalf("Failed to seed audit entry: %v", err)
+			}
+			fmt.Printf("Seeded audit block #%d [%s] %s (%s...)\n", rec.SeqID, rec.Action, rec.Actor, rec.Hash[:10])
+		}
+
+		valid, count, err := audit.VerifyLedger(db)
+		if err != nil || !valid {
+			log.Fatalf("Cryptographic verification failed after seeding: %v", err)
+		}
+		fmt.Printf("✔ Successfully seeded and verified %d audit ledger blocks in %s\n", count, cfg.AuditDBPath)
+
+	case "verify":
+		valid, count, err := audit.VerifyLedger(db)
+		if err != nil {
+			log.Fatalf("Audit ledger verification error: %v", err)
+		}
+		if !valid {
+			log.Fatalf("✖ Audit ledger verification FAILED! Integrity compromised at block %d", count)
+		}
+		fmt.Printf("✔ Audit ledger integrity verified: %d records intact.\n", count)
+
+	default:
+		log.Fatalf("Unknown audit action '%s'. Valid actions: 'verify', 'seed'", action)
+	}
+}
+
