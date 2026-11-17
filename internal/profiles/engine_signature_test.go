@@ -308,4 +308,3 @@ func TestClusterProfiles(t *testing.T) {
 		t.Fatal("expected error for malformed custom flag in ClusterProfiles")
 	}
 }
-

@@ -1156,4 +1156,3 @@ func TestMainOptions_GettersAndPointers(t *testing.T) {
 		t.Errorf("expected 15, got %d", populated.GetTPSLimitBurst(1))
 	}
 }
-

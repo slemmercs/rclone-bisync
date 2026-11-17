@@ -262,6 +262,7 @@ func TestScheduler_RunningStateQueries(t *testing.T) {
 		t.Errorf("expected IsProfileRunning = false when stopped")
 	}
 }
+
 type mockEngineClient struct {
 	mu           sync.Mutex
 	mainOptions  *client.MainOptions
@@ -733,4 +734,3 @@ func TestScheduler_StopDrainsPendingQueue(t *testing.T) {
 		t.Fatalf("timeout waiting for queued job error")
 	}
 }
-

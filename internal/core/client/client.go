@@ -319,6 +319,9 @@ func (m *MainOptions) GetTPSLimitBurst(defaultVal int) int {
 
 // GetMainOptions retrieves the process-global "main" engine options from Rclone RC (POST /options/get).
 func (c *RcloneClient) GetMainOptions(ctx context.Context) (*MainOptions, error) {
+	if c == nil {
+		return nil, fmt.Errorf("rclone client is nil")
+	}
 	resp, body, err := c.post(ctx, "/options/get", nil, 5*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call options/get: %w", err)
@@ -348,6 +351,9 @@ func (c *RcloneClient) GetMainOptions(ctx context.Context) (*MainOptions, error)
 
 // SetMainOptions updates process-global "main" engine options in Rclone RC (POST /options/set).
 func (c *RcloneClient) SetMainOptions(ctx context.Context, opts *MainOptions) error {
+	if c == nil {
+		return fmt.Errorf("rclone client is nil")
+	}
 	if opts == nil {
 		return fmt.Errorf("opts cannot be nil")
 	}
@@ -369,6 +375,9 @@ func (c *RcloneClient) SetMainOptions(ctx context.Context, opts *MainOptions) er
 
 // SetOptions updates arbitrary configuration sections via POST /options/set.
 func (c *RcloneClient) SetOptions(ctx context.Context, options map[string]interface{}) error {
+	if c == nil {
+		return fmt.Errorf("rclone client is nil")
+	}
 	if len(options) == 0 {
 		return nil
 	}

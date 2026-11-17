@@ -89,6 +89,7 @@ func FromMainOptions(opts *client.MainOptions) ProcessGlobalFlags {
 		TPSLimitBurst: opts.TPSLimitBurst,
 	}
 }
+
 // ParseProcessGlobalFlags parses a CLI flags string and extracts known process-global flags.
 func ParseProcessGlobalFlags(rawFlags string) (ProcessGlobalFlags, error) {
 	var res ProcessGlobalFlags
@@ -267,4 +268,3 @@ func ClusterProfiles(profiles []*Profile, fleetCustomFlags string) (Compatibilit
 	}
 	return cluster, nil
 }
-
