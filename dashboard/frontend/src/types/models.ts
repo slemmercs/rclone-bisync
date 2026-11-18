@@ -234,6 +234,8 @@ export interface BrowseItem {
   MimeType?: string
   IsDir: boolean
   IsShortcut?: boolean
+  ID?: string
+  Id?: string
 }
 
 export interface BrowseResponse {

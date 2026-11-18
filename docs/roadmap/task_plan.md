@@ -17,7 +17,7 @@ Achieve 100% functional, operational, and visual parity between legacy Alpine.js
   - **Scope**: `dashboard/frontend/src/types/models.ts`, `dashboard/frontend/src/components/ModalPendingDeletions.vue`, `dashboard/frontend/src/stores/telemetry.ts`, `dashboard/frontend/src/components/AppHeader.vue`, `dashboard/frontend/src/App.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
-- [ ] Task 4: Dedupe Batch Staged Actions Drawer & Directory Explorer
+- [x] Task 4: Dedupe Batch Staged Actions Drawer & Directory Explorer
   - **Scope**: `dashboard/frontend/src/types/dedupe.ts`, `dashboard/frontend/src/stores/dedupe.ts`, `dashboard/frontend/src/components/dedupe/DedupeStagedDrawer.vue`, `dashboard/frontend/src/components/dedupe/DedupeExplorerTab.vue`, `dashboard/frontend/src/components/ModalDedupe.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
@@ -43,3 +43,4 @@ Achieve 100% functional, operational, and visual parity between legacy Alpine.js
 - 2026-11-18: Completed Task 1 - Registered PrimeVue ToastService in main.ts, mounted Toast in App.vue, created useFormatters, useClipboard, useToastNotification composables, and integrated into ViewFleet, ViewTelemetryLedger, ModalDedupe, and LogDock.
 - 2026-11-18: Completed Task 2 - Implemented Bandwidth models & Pinia store, BandwidthPopover header trigger with presets and live stats, SettingsBandwidthTab in ModalGlobalSettings, and full test/LOC verification.
 - 2026-11-18: Completed Task 3 - Implemented ModalPendingDeletions, pending deletions polling in useTelemetryStore, wired header & telemetry launch buttons, aligned TypeScript schema with Go backend, and resolved missing X-Dashboard-Request CSRF header on bandwidth mutations.
+- 2026-11-18: Completed Task 4 - Implemented Dedupe staged actions and batch execution types/store methods, created DedupeStagedDrawer.vue and DedupeExplorerTab.vue, integrated Directory Explorer navigation & file previews in ModalDedupe.vue, verified with type-check, build, and LOC gate.

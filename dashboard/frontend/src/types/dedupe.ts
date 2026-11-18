@@ -19,6 +19,48 @@ export interface DuplicateGroup {
   resolved?: boolean
 }
 
+export interface DedupeStageAction {
+  id?: string
+  path: string
+  action: 'delete' | 'rename' | 'keep'
+  new_name?: string
+  size?: number
+  mod_time?: string
+  candidate?: number
+}
+
+export interface StagedActionEntry extends DedupeStageAction {
+  key: string
+}
+
+export interface DedupeBatchApplyRequest {
+  remote: string
+  path: string
+  profile_id?: string
+  actions: DedupeStageAction[]
+  trigger_resync?: boolean
+  confirmation_token?: string
+}
+
+export interface DedupeBatchApplyResponse {
+  status: string
+  run_id?: string
+  success_count: number
+  failure_count: number
+  errors?: string[]
+  resync_queued?: boolean
+  resync_message?: string
+  error?: string
+}
+
+export interface DedupeBatchProgress {
+  total: number
+  completed: number
+  percent: number
+  currentAction: string
+  status: 'idle' | 'running' | 'complete' | 'error'
+}
+
 export interface DedupeBatchAction {
   action: 'delete' | 'rename' | 'keep'
   path: string

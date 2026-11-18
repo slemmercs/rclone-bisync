@@ -156,11 +156,20 @@
             </button>
             <button
               type="button"
+              @click="switchTab('explorer')"
+              :class="activeTab === 'explorer' ? 'bg-amber-500 text-black font-bold' : 'text-slate-400 hover:text-white'"
+              class="px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <i class="pi pi-folder text-xs"></i>
+              <span>Explorer</span>
+            </button>
+            <button
+              type="button"
               @click="activeTab = 'raw'"
               :class="activeTab === 'raw' ? 'bg-amber-500 text-black font-bold' : 'text-slate-400 hover:text-white'"
               class="px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer"
             >
-              Raw CLI Output
+              Raw Output
             </button>
           </div>
 
@@ -223,43 +232,91 @@
               >
                 <div class="truncate min-w-0">
                   <span class="text-slate-400 mr-1.5">#{{ cand.index || cIdx + 1 }}</span>
-                  <span v-if="cand.size" class="text-slate-200 mr-2">{{ formatBytes(cand.size) }}</span>
+                  <span v-if="cand.size !== null" class="text-slate-200 mr-2">{{ formatBytes(cand.size) }}</span>
                   <span v-if="cand.modtime" class="text-slate-400">{{ cand.modtime }}</span>
                   <div v-if="cand.id" class="text-[9px] text-slate-500 font-mono truncate">ID: {{ cand.id }}</div>
+                  <div v-if="getStagedCand(item, cand)?.new_name" class="text-[9px] text-amber-300 font-mono truncate">
+                    ➔ {{ getStagedCand(item, cand)?.new_name }}
+                  </div>
                 </div>
 
                 <div class="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    @click="dedupeStore.stageAction(item.path, 'keep')"
-                    class="px-1.5 py-0.5 rounded bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/60 text-[9px] cursor-pointer"
-                  >Keep</button>
-                  <button
-                    type="button"
-                    @click="dedupeStore.stageAction(item.path, 'delete')"
-                    class="px-1.5 py-0.5 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-[9px] cursor-pointer"
-                  >Delete</button>
+                  <template v-if="!getStagedCand(item, cand)">
+                    <button
+                      type="button"
+                      @click="dedupeStore.stageKeepOnly(item, cand)"
+                      class="px-1.5 py-0.5 rounded bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/60 text-[9px] cursor-pointer"
+                      title="Keep this copy and stage delete on duplicates"
+                    >Keep</button>
+                    <button
+                      type="button"
+                      @click="promptRename(item, cand)"
+                      class="px-1.5 py-0.5 rounded bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-800/60 text-[9px] cursor-pointer"
+                      title="Rename this copy"
+                    >Rename</button>
+                    <button
+                      type="button"
+                      @click="dedupeStore.stageCandidateAction(item.path, cand, 'delete')"
+                      class="px-1.5 py-0.5 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-[9px] cursor-pointer"
+                      title="Delete this copy"
+                    >Delete</button>
+                  </template>
+                  <template v-else>
+                    <span
+                      class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase border"
+                      :class="{
+                        'bg-emerald-950/90 text-emerald-300 border-emerald-600/60': getStagedCand(item, cand)?.action === 'keep',
+                        'bg-rose-950/90 text-rose-300 border-rose-600/60': getStagedCand(item, cand)?.action === 'delete',
+                        'bg-amber-950/90 text-amber-300 border-amber-600/60': getStagedCand(item, cand)?.action === 'rename',
+                      }"
+                    >
+                      {{ getStagedCand(item, cand)?.action }}
+                    </span>
+                    <button
+                      type="button"
+                      @click="unstageCand(item, cand)"
+                      class="p-0.5 text-slate-400 hover:text-rose-300 cursor-pointer"
+                      title="Clear staged action"
+                    >
+                      <i class="pi pi-times text-[10px]"></i>
+                    </button>
+                  </template>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
+        <!-- Directory Explorer Tab -->
+        <DedupeExplorerTab
+          v-else-if="activeTab === 'explorer'"
+          @preview="handlePreview"
+        />
+
         <!-- Raw CLI Output Tab -->
         <div v-else-if="activeTab === 'raw'" class="flex-1 overflow-y-auto p-4 bg-carbon-canvas font-mono text-xs text-slate-300 select-text whitespace-pre-wrap leading-relaxed">
           {{ dedupeStore.rawOutput || 'No output recorded yet. Run a scan to see raw rclone CLI logs.' }}
         </div>
 
-        <!-- Staged Batch Decisions Drawer / Bottom Bar -->
+        <!-- Staged Actions Review Slide-Up Drawer -->
+        <DedupeStagedDrawer />
+
+        <!-- Staged Batch Decisions Bottom Bar -->
         <div
           v-if="dedupeStore.stagedCount > 0"
           class="p-3 bg-carbon-surface border-t border-carbon-border flex flex-wrap items-center justify-between gap-3 shrink-0"
         >
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-bold text-white font-mono">
-              {{ dedupeStore.stagedCount }} Staged Decisions
-            </span>
-            <label class="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 cursor-pointer select-none ml-2">
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              @click="dedupeStore.toggleStagedDrawer()"
+              class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Toggle Staged Actions Drawer"
+            >
+              <span>{{ dedupeStore.stagedCount }} staged</span>
+              <i :class="dedupeStore.drawerOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-up'" class="text-[10px]"></i>
+            </button>
+            <label class="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 cursor-pointer select-none">
               <input
                 type="checkbox"
                 v-model="dedupeStore.triggerResync"
@@ -279,7 +336,7 @@
             </button>
             <button
               type="button"
-              @click="dedupeStore.applyBatch()"
+              @click="handleApplyBatch()"
               :disabled="dedupeStore.loading"
               class="px-3.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs font-mono shadow transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
@@ -290,22 +347,51 @@
         </div>
       </div>
     </div>
+
+    <!-- File Preview Modal -->
+    <ModalFilePreview
+      v-model:visible="showPreviewModal"
+      :preview="previewData"
+      :loading="previewLoading"
+      :error="previewError"
+    />
   </Dialog>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import Dialog from 'primevue/dialog'
+import { api } from '../api/client'
 import { useDedupeStore } from '../stores/dedupe'
 import { useLogsStore } from '../stores/logs'
 import { formatBytes } from '../composables/useFormatters'
 import { useToastNotification } from '../composables/useToastNotification'
+import DedupeStagedDrawer from './dedupe/DedupeStagedDrawer.vue'
+import DedupeExplorerTab from './dedupe/DedupeExplorerTab.vue'
+import ModalFilePreview from './ModalFilePreview.vue'
 import type { LogEntry } from '../types/logs'
+import type { BrowseItem } from '../types/models'
+import type { FilePreviewResponse } from '../types/explorer'
+import type { ParsedDedupeItem, ParsedCandidate } from '../utils/dedupeParser'
+import type { DedupeStageAction } from '../types/dedupe'
 
 const dedupeStore = useDedupeStore()
 const logsStore = useLogsStore()
 const toast = useToastNotification()
-const activeTab = ref<'items' | 'raw'>('items')
+const activeTab = ref<'items' | 'explorer' | 'raw'>('items')
+
+// File Preview state
+const showPreviewModal = ref(false)
+const previewData = ref<FilePreviewResponse | null>(null)
+const previewLoading = ref(false)
+const previewError = ref<string | null>(null)
+
+function switchTab(tab: 'items' | 'explorer' | 'raw') {
+  activeTab.value = tab
+  if (tab === 'explorer' && (!dedupeStore.explorerItems || dedupeStore.explorerItems.length === 0)) {
+    dedupeStore.loadExplorer()
+  }
+}
 
 function handleRun(dryRun: boolean) {
   dedupeStore.runDedupe(dryRun)
@@ -314,7 +400,11 @@ function handleRun(dryRun: boolean) {
 }
 
 function confirmExecute() {
-  if (confirm(`Execute ${dedupeStore.mode.toUpperCase()} deduplication on ${dedupeStore.remote}:${dedupeStore.path || '/'}? This may permanently remove redundant duplicate files.`)) {
+  if (
+    confirm(
+      `Execute ${dedupeStore.mode.toUpperCase()} deduplication on ${dedupeStore.remote}:${dedupeStore.path || '/'}? This may permanently remove redundant duplicate files.`
+    )
+  ) {
     dedupeStore.runDedupe(false)
     toast.warn(`Executing ${dedupeStore.mode.toUpperCase()} deduplication resolution`, 'Dedupe Execution')
   }
@@ -331,5 +421,61 @@ function openDaemonLogs() {
     type: 'dedupe',
   }
   logsStore.openDaemonModal(mockEntry)
+}
+
+function getStagedCand(collision: ParsedDedupeItem, cand: ParsedCandidate): DedupeStageAction | null {
+  return dedupeStore.getStagedCandidateAction(collision.path, cand)
+}
+
+function unstageCand(collision: ParsedDedupeItem, cand: ParsedCandidate) {
+  const key = dedupeStore.getCandidateKey(collision.path, cand.id, cand.index)
+  dedupeStore.unstageCandidateAction(key)
+}
+
+function promptRename(collision: ParsedDedupeItem, cand: ParsedCandidate) {
+  const orig = collision.name || 'file'
+  const lastDot = orig.lastIndexOf('.')
+  const ext = lastDot !== -1 ? orig.substring(lastDot) : ''
+  const base = lastDot !== -1 ? orig.substring(0, lastDot) : orig
+  const defaultNew = `${base}_dedup_${cand.index || 1}${ext}`
+  const newName = window.prompt(`Enter new unique name for duplicate copy #${cand.index || 1}:`, defaultNew)
+  if (newName && newName.trim() && newName.trim() !== orig) {
+    dedupeStore.stageCandidateAction(collision.path, cand, 'rename', newName.trim())
+    toast.info(`Staged rename to ${newName.trim()}`, 'Dedupe Rename')
+  }
+}
+
+async function handleApplyBatch() {
+  const res = await dedupeStore.applyBatch()
+  if (res && res.status !== 'error') {
+    toast.success(`Batch deduplication executed successfully (${res.success_count} actions applied).`, 'Dedupe Batch')
+  } else if (dedupeStore.error) {
+    toast.error(dedupeStore.error, 'Dedupe Batch Failed')
+  }
+}
+
+async function handlePreview(item: BrowseItem) {
+  showPreviewModal.value = true
+  previewLoading.value = true
+  previewError.value = null
+  previewData.value = null
+
+  try {
+    const filePath = item.Path || item.Name || ''
+    const params = new URLSearchParams({
+      remote: dedupeStore.remote,
+      path: filePath,
+    })
+    const itemId = item.ID || item.Id
+    if (itemId) {
+      params.set('id', itemId)
+    }
+    const res = await api.get<FilePreviewResponse>(`/api/explorer/preview?${params.toString()}`)
+    previewData.value = res
+  } catch (err: any) {
+    previewError.value = err.message || 'Failed to load file preview'
+  } finally {
+    previewLoading.value = false
+  }
 }
 </script>
