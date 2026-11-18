@@ -601,7 +601,7 @@ async function saveProfile() {
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex items-center justify-end gap-2 pt-2 border-t border-carbon-border">
+      <div class="sticky bottom-0 -mx-1 px-3 py-2.5 bg-carbon-surface/95 backdrop-blur-md border-t border-carbon-border flex items-center justify-end gap-2 z-10 shadow-lg">
         <button type="button" @click="activeTab = 'list'" class="px-3 py-1.5 bg-carbon-elevated text-slate-300 rounded-lg text-xs cursor-pointer hover:bg-carbon-border transition">Cancel</button>
         <button type="button" @click="saveProfile()" class="px-4 py-1.5 bg-electric-blue hover:bg-electric-blue/90 text-white rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm">
           Save Configuration

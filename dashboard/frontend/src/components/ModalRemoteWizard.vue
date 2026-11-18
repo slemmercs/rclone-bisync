@@ -365,7 +365,7 @@
     </div>
 
     <!-- Footer Controls -->
-    <div class="flex items-center justify-between pt-3 border-t border-carbon-border shrink-0">
+    <div class="flex items-center justify-between pt-3 pb-3 px-5 border-t border-carbon-border shrink-0 sticky -bottom-5 -mx-5 -mb-5 bg-carbon-surface/95 backdrop-blur-md z-10 shadow-lg">
       <button
         type="button"
         @click="step > 1 ? step-- : dedupeStore.closeWizard()"
