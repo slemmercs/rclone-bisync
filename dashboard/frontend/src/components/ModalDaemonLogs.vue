@@ -99,6 +99,14 @@
           <span class="text-[9px] px-1 py-0.2 rounded bg-black/40 tabular-nums">{{ counts.warnings }}</span>
         </button>
         <button
+          @click="levelFilter = 'notice'"
+          :class="levelFilter === 'notice' ? 'bg-sky-600 text-white font-semibold' : 'bg-carbon-elevated text-slate-400 hover:text-sky-400'"
+          class="px-2.5 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer"
+        >
+          <span>Notices</span>
+          <span class="text-[9px] px-1 py-0.2 rounded bg-black/40 tabular-nums">{{ counts.notices }}</span>
+        </button>
+        <button
           @click="levelFilter = 'info'"
           :class="levelFilter === 'info' ? 'bg-emerald-600 text-white font-semibold' : 'bg-carbon-elevated text-slate-400 hover:text-emerald-400'"
           class="px-2.5 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer"
@@ -141,8 +149,16 @@
         <span>{{ logsStore.daemonError }}</span>
       </div>
 
-      <div v-if="!logsStore.daemonLoading && clusteredLogs.length === 0" class="text-slate-500 text-center py-12">
-        No correlated daemon log entries recorded for this execution window.
+      <div v-if="!logsStore.daemonLoading && clusteredLogs.length === 0" class="text-slate-500 text-center py-12 space-y-2">
+        <div>No correlated daemon log entries recorded for this execution window.</div>
+        <button
+          v-if="levelFilter !== 'all' || searchQuery"
+          type="button"
+          @click="levelFilter = 'all'; searchQuery = ''"
+          class="text-xs text-electric-blue hover:underline cursor-pointer font-mono"
+        >
+          Reset filter and search
+        </button>
       </div>
 
       <template v-for="cluster in clusteredLogs" :key="cluster.id">
@@ -316,14 +332,16 @@ const counts = computed(() => {
   const logs = logsStore.daemonLogs || []
   let errors = 0
   let warnings = 0
+  let notices = 0
   let info = 0
   for (const l of logs) {
     const lvl = (l.level || '').toLowerCase().trim()
     if (lvl === 'error') errors++
     else if (lvl === 'warning' || lvl === 'warn') warnings++
-    else if (lvl === 'info' || lvl === 'notice') info++
+    else if (lvl === 'notice') notices++
+    else if (lvl === 'info') info++
   }
-  return { total: logs.length, errors, warnings, info }
+  return { total: logs.length, errors, warnings, notices, info }
 })
 
 const filteredLogs = computed<LogEntry[]>(() => {
@@ -334,7 +352,8 @@ const filteredLogs = computed<LogEntry[]>(() => {
       const lvl = (l.level || '').toLowerCase().trim()
       if (filter === 'error') return lvl === 'error'
       if (filter === 'warning') return lvl === 'warning' || lvl === 'warn'
-      if (filter === 'info') return lvl === 'info' || lvl === 'notice'
+      if (filter === 'notice') return lvl === 'notice'
+      if (filter === 'info') return lvl === 'info'
       return true
     })
   }
