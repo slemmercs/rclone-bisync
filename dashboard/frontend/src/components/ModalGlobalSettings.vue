@@ -162,9 +162,7 @@
       <div class="text-[11px] text-slate-400">
         Baseline Rclone engine concurrency, rate limits, and network parameters applied to the background daemon.
         Process-global options (<span class="text-amber-300 font-mono">--tpslimit</span>, <span class="text-amber-300 font-mono">--checkers</span>) define the daemon baseline; profiles with custom overrides queue safely and dynamically switch rates.
-        <div class="mt-1 text-slate-400">
-          Flags are distinctly categorized into <span class="text-sky-300 font-medium">Bisync Hub</span> (synchronization behavior & safety), <span class="text-violet-300 font-medium">Rclone Core</span> (engine concurrency & networking), and <span class="text-amber-300 font-medium">Custom</span> (user-defined options).
-        </div>
+        <div class="mt-1 text-slate-500 italic">Note: Profile-specific operational flags (e.g. rename tracking, checksums) and cloud provider options are configured within individual sync profiles.</div>
       </div>
 
       <FlagsBuilder v-model="formDefaults.custom_flags" scopeFilter="all" remoteType="all" />
