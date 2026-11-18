@@ -283,6 +283,35 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
   - **Scope**: Full repository quality gates and E2E validation
   - **Verification**: `./scripts/check.sh all`
 
+
+- [ ] Task 38: Core Composables Layer (useFormatters, useClipboard) & Helpers Refactor
+  - **Scope**: `dashboard/frontend/src/composables/useFormatters.ts`, `dashboard/frontend/src/composables/useClipboard.ts`, and component consumers
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
+
+- [ ] Task 39: Bandwidth Throttling & Live Core Stats Parity
+  - **Scope**: `dashboard/frontend/src/stores/bandwidth.ts`, `dashboard/frontend/src/components/BandwidthPopover.vue`, `dashboard/frontend/src/components/settings/SettingsBandwidthTab.vue`, `dashboard/frontend/src/components/AppHeader.vue`, `dashboard/frontend/src/components/ModalGlobalSettings.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
+
+- [ ] Task 40: Pending Deletions Safety Review Modal Parity
+  - **Scope**: `dashboard/frontend/src/components/ModalPendingDeletions.vue`, `dashboard/frontend/src/stores/telemetry.ts`, `dashboard/frontend/src/components/AppHeader.vue`, `dashboard/frontend/src/App.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
+
+- [ ] Task 41: Dedupe Batch Staged Drawer & Directory Explorer Parity
+  - **Scope**: `dashboard/frontend/src/components/dedupe/DedupeStagedDrawer.vue`, `dashboard/frontend/src/components/dedupe/DedupeExplorerTab.vue`, `dashboard/frontend/src/components/ModalDedupe.vue`, `dashboard/frontend/src/stores/dedupe.ts`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
+
+- [ ] Task 42: Decompose Monolithic ViewExplorer into Cohesive Components
+  - **Scope**: `dashboard/frontend/src/components/explorer/ExplorerBreadcrumbs.vue`, `dashboard/frontend/src/components/explorer/ExplorerToolbar.vue`, `dashboard/frontend/src/components/explorer/ExplorerTable.vue`, `dashboard/frontend/src/components/explorer/ExplorerPane.vue`, `dashboard/frontend/src/views/ViewExplorer.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
+
+- [ ] Task 43: E2E Headless Chrome Test Suite & Integration Parity
+  - **Scope**: `tests/e2e/cockpit_spa_smoke_test.go`, `tests/e2e/dashboard_smoke_test.go`
+  - **Verification**: `go test -v -count=1 ./tests/e2e/...`
+
+- [ ] Task 44: Pre-Flight Verification & All Quality Gates
+  - **Scope**: Full repository quality gates
+  - **Verification**: `./scripts/check.sh all`
+
 ## Status Updates
 
 - 2026-11-17: Initialized task plan for bisync.env bidirectional synchronization and configuration audit from implementation_plan.md.
@@ -308,4 +337,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
 
 
 - 2026-11-18: Completed Task 37 - Full Pre-Flight Verification & E2E Validation. Executed `./scripts/check.sh all` across all 7 verification stages (formatting & shell check, static analysis & security linting, template integrity check, architecture LOC audit, race-detector unit test execution, statement coverage enforcement, and self-contained binary compilation); executed full E2E headless Chrome test suites (`TestCockpitSPA_HeadlessChromeSmoke`, `TestDashboard_HeadlessChromeSmoke`, `TestDashboard_HelpDrawerAndGuidance`, and `TestDashboard_SandboxUIJourney`). All 4 suites and 42 test journeys passed with zero regressions.
+
+
+- 2026-11-18: Initialized Vue 3 Cockpit Full Feature Parity & Architecture Optimization task plan (Tasks 38-44) from approved implementation_plan.md based on expert architectural, developer, and UI/UX panel review.
 
