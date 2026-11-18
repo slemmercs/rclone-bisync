@@ -275,7 +275,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
   - **Scope**: `dashboard/frontend/src/stores/telemetry.ts`, `dashboard/frontend/src/components/ModalSystemHealth.vue`, `scripts/run-sandbox.sh`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
-- [ ] Task 36: Unified Ledger Slog Noise Suppression & JSON Filter Fix
+- [x] Task 36: Unified Ledger Slog Noise Suppression & JSON Filter Fix
   - **Scope**: `internal/services/filetail.go`, `internal/services/filetail_test.go`, `dashboard/frontend/src/views/ViewTelemetryLedger.vue`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestTailJSONLogPaginatedFiltered`
 
@@ -302,4 +302,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
 
 
 - 2026-11-18: Completed Task 35 - System Health Diagnostics & Status Evaluation Fix. Resolved telemetry health discrepancy in `dashboard/frontend/src/stores/telemetry.ts` where `daemonHealthy` expected `'ok'` while the Go watchdog reports `'healthy'`. Added diagnostic advisory banner with probe retry in `dashboard/frontend/src/components/ModalSystemHealth.vue` when degraded; provisioned missing canary files (`$SANDBOX_DIR/local/projects/RCLONE_TEST` and `$SANDBOX_DIR/archive_storage/RCLONE_TEST`) in `scripts/run-sandbox.sh` to prevent false-positive safety trips on `prof_backup` and `prof_archive`; extracted `SettingsEncryptionTab.vue` to isolate immediate encryption actions and password state while eliminating dirty-form state leaks on reopen in `ModalGlobalSettings.vue`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`.
+
+
+- 2026-11-18: Completed Task 36 - Unified Ledger Slog Noise Suppression & JSON Filter Fix. Confirmed backend log filter in `internal/services/filetail.go` accurately maps slog JSON lines with `msg == "http_access"` or HTTP request method attributes to `entryType = "http_access"`. Added unit tests in `internal/services/filetail_test.go` verifying suppression of slog JSON lines (lacking a `"type"` attribute) and legacy plaintext access traces when `exclude_types=http_access` is specified. Updated `dashboard/frontend/src/stores/logs.ts` to include `http_access` in default exclusions for both bisync timeline queries and log dock tailing, eliminating HTTP telemetry polling noise from user ledger views. Verified with `go test -v -count=1 ./internal/services/... -run TestTailJSONLogPaginatedFiltered` and `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 

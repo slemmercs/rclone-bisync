@@ -74,6 +74,7 @@ export const useLogsStore = defineStore('logs', () => {
       const params = new URLSearchParams()
       if (profileId) params.set('profile_id', profileId)
       if (level && level !== 'ALL') params.set('level', level)
+      params.set('exclude_types', 'http_access')
       params.set('limit', '200')
 
       const data = await api.get<any>(`/api/logs/bisync?${params.toString()}`)
@@ -105,9 +106,11 @@ export const useLogsStore = defineStore('logs', () => {
       params.set('page', String(page))
       params.set('limit', String(ledgerLimit.value))
 
+      const excluded: string[] = ['http_access']
       if (!includeFileTransfers.value && ledgerCategoryFilter.value !== 'file_ops') {
-        params.set('exclude_types', 'sync_file,sync_overflow')
+        excluded.push('sync_file', 'sync_overflow')
       }
+      params.set('exclude_types', excluded.join(','))
 
       if (ledgerCategoryFilter.value === 'file_ops') {
         params.set('type', 'sync_file,sync_overflow,audit')
