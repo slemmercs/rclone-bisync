@@ -321,15 +321,23 @@
                 </div>
               </div>
 
-              <div class="flex items-center gap-2 shrink-0">
+              <div class="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   @click="inspectInExplorer(item)"
                   class="px-2 py-0.5 rounded bg-carbon-elevated hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono border border-carbon-border flex items-center gap-1 cursor-pointer transition-colors"
-                  title="Inspect file path in Dual-Pane File Explorer"
+                  title="Inspect directory in in-modal Dedupe Explorer"
                 >
                   <i class="pi pi-folder-open text-[10px] text-amber-400"></i>
                   <span class="hidden sm:inline">Explorer</span>
+                </button>
+                <button
+                  type="button"
+                  @click="jumpToMainExplorer(item)"
+                  class="p-1 rounded bg-carbon-elevated hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] font-mono border border-carbon-border flex items-center cursor-pointer transition-colors"
+                  title="Open in Dual-Pane File Explorer (closes dedupe modal)"
+                >
+                  <i class="pi pi-external-link text-[10px]"></i>
                 </button>
 
                 <!-- Staged Decision Badge -->
@@ -533,6 +541,17 @@ function resetCollisionFilters() {
 }
 
 function inspectInExplorer(item: ParsedDedupeItem) {
+  const dirPath = item.isDir
+    ? item.path
+    : item.path.includes('/')
+      ? item.path.substring(0, item.path.lastIndexOf('/'))
+      : ''
+  dedupeStore.loadExplorer(dirPath)
+  activeTab.value = 'explorer'
+  dedupeStore.activeTab = 'explorer'
+}
+
+function jumpToMainExplorer(item: ParsedDedupeItem) {
   explorerStore.jumpToPath(item.path)
   appStore.switchTab('explorer')
   dedupeStore.closeModal()
