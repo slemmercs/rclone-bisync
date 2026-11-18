@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '../api/client'
-import type { ReviewSession, ActionDecision } from '../types/models'
+import type { ReviewSession, ActionDecision, BatchReviewActionResponse } from '../types/models'
 import { useFSMStore } from './fsm'
 
 export const useReviewStore = defineStore('review', () => {
@@ -93,6 +93,53 @@ export const useReviewStore = defineStore('review', () => {
     }
   }
 
+
+  async function applyBatchRecommendations(
+    minConfidence: number = 0.7,
+    maxRisk: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM'
+  ): Promise<number> {
+    if (!session.value) return 0
+    loading.value = true
+    error.value = null
+    try {
+      const res = await api.post<BatchReviewActionResponse>('/api/review/action-batch', {
+        session_id: session.value.id,
+        min_confidence: minConfidence,
+        max_allowed_risk: maxRisk,
+      })
+      if (res && res.status === 'error') {
+        error.value = res.error || 'Batch recommendation failed'
+        throw new Error(res.error || 'Batch recommendation failed')
+      }
+      if (res && res.session) {
+        session.value = res.session
+      }
+      return res?.staged_count || 0
+    } catch (e: any) {
+      error.value = e.message
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function rollbackSession(): Promise<void> {
+    if (!session.value) return
+    loading.value = true
+    error.value = null
+    try {
+      await api.post('/api/review/rollback', {
+        session_id: session.value.id,
+      })
+      session.value = null
+    } catch (e: any) {
+      error.value = e.message
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     session,
     loading,
@@ -105,5 +152,7 @@ export const useReviewStore = defineStore('review', () => {
     fetchActiveReview,
     stageDecision,
     applyDecisions,
+    applyBatchRecommendations,
+    rollbackSession,
   }
 })

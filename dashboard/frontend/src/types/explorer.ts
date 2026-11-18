@@ -1,3 +1,5 @@
+import type { BrowseItem } from './models'
+
 /**
  * Types mirroring Go backend models in internal/models/preview.go,
  * internal/models/api_explorer.go, and internal/models/operations.go.
@@ -137,3 +139,10 @@ export function isItemPreviewable(item: { Name?: string; IsDir?: boolean } | nul
   return PREVIEWABLE_EXTENSIONS.has(ext)
 }
 
+
+export interface ExplorerDragPayload {
+  item: BrowseItem
+  sourcePane: 'left' | 'right'
+  sourceRemote: string
+  sourcePath: string
+}

@@ -265,6 +265,22 @@ export type ActionDecision =
   | 'restore-item'
   | 'skip'
 
+export interface RuleResult {
+  rule_id: string
+  confidence: number
+  risk_tier: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  suggested_action: ActionDecision
+  reason: string
+}
+
+export interface ConflictRecommendation {
+  suggested_action: ActionDecision
+  confidence: number
+  risk_tier: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  primary_reason: string
+  rule_evaluations?: RuleResult[]
+}
+
 export interface DeletionCandidate {
   id: string
   path: string
@@ -277,6 +293,7 @@ export interface DeletionCandidate {
   condition: string
   decision?: ActionDecision
   resolved: boolean
+  recommendation?: ConflictRecommendation
 }
 
 export interface ConflictCandidate {
@@ -287,8 +304,23 @@ export interface ConflictCandidate {
   local_mod_time: string
   remote_size: number
   remote_mod_time: string
+  condition?: string
   decision?: ActionDecision
   resolved: boolean
+  recommendation?: ConflictRecommendation
+}
+
+export interface BatchReviewActionRequest {
+  session_id?: string
+  min_confidence: number
+  max_allowed_risk: 'LOW' | 'MEDIUM' | 'HIGH'
+}
+
+export interface BatchReviewActionResponse {
+  status: string
+  session?: ReviewSession
+  staged_count: number
+  error?: string
 }
 
 export interface ReviewSession {
