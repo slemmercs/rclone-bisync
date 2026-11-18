@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useProfilesStore } from '../stores/profiles'
 import { useRemotesStore } from '../stores/remotes'
@@ -31,10 +31,18 @@ const cloneError = ref<string | null>(null)
 const showDeleteModal = ref(false)
 const profileToDelete = ref<Profile | null>(null)
 
+const normalizedRemotes = computed(() => {
+  return remotesStore.remotes.map((r) => ({
+    name: (r.name || '').replace(/:+$/, '').trim(),
+    type: r.type || 'remote',
+    rawName: r.name,
+  }))
+})
+
 const activeRemoteType = computed(() => {
-  const r = (editingProfile.value.remote || '').replace(/:$/, '').trim().toLowerCase()
+  const r = (editingProfile.value.remote || '').replace(/:+$/, '').trim().toLowerCase()
   if (!r || r === 'local') return 'local'
-  const f = remotesStore.remotes.find((x) => (x.name || '').replace(/:$/, '').toLowerCase() === r)
+  const f = normalizedRemotes.value.find((x) => x.name.toLowerCase() === r)
   return f?.type?.toLowerCase() || 'generic'
 })
 
@@ -42,10 +50,42 @@ const activeProviderOptions = computed<ProviderOptionSchema[]>(() => {
   return PROVIDER_OPTIONS_SCHEMA.filter((o) => o.provider === activeRemoteType.value)
 })
 
+function ensureProviderOptionsDefaults() {
+  if (!editingProfile.value.flags) editingProfile.value.flags = {}
+  if (!editingProfile.value.flags.provider_options) editingProfile.value.flags.provider_options = {}
+
+  for (const opt of activeProviderOptions.value) {
+    if (editingProfile.value.flags.provider_options[opt.key] === undefined) {
+      if (opt.type === 'bool') {
+        editingProfile.value.flags.provider_options[opt.key] = opt.default === 'true'
+      } else if (opt.default) {
+        editingProfile.value.flags.provider_options[opt.key] = opt.default
+      }
+    }
+  }
+}
+
+watch(
+  () => props.visible,
+  (val) => {
+    if (val && remotesStore.remotes.length === 0) {
+      remotesStore.fetchRemotes()
+    }
+  },
+  { immediate: true }
+)
+
+watch(activeRemoteType, () => {
+  if (activeTab.value === 'create' || activeTab.value === 'edit') {
+    ensureProviderOptionsDefaults()
+  }
+})
+
 const synthesizedCliPreview = computed(() => {
   const p = editingProfile.value
   const local = p.local_path || '~/Sync'
-  const remote = p.remote ? `${p.remote}:${p.remote_path || ''}` : 'remote:'
+  const cleanRem = (p.remote || '').replace(/:+$/, '').trim()
+  const remote = cleanRem ? `${cleanRem}:${p.remote_path || ''}` : 'remote:'
   const flags = ['rclone', 'bisync', local, remote]
   if (p.flags?.compare_mode) flags.push(`--compare ${p.flags.compare_mode}`)
   if (p.flags?.conflict_resolve) flags.push(`--conflict-resolve ${p.flags.conflict_resolve}`)
@@ -53,7 +93,7 @@ const synthesizedCliPreview = computed(() => {
   const provOpts = p.flags?.provider_options || {}
   for (const opt of activeProviderOptions.value) {
     const val = provOpts[opt.key]
-    if (opt.type === 'bool' && val) flags.push(opt.flag)
+    if (opt.type === 'bool' && (val === true || val === 'true')) flags.push(opt.flag)
     else if (opt.type !== 'bool' && val) flags.push(`${opt.flag}=${val}`)
   }
   if (p.flags?.custom_flags) flags.push(p.flags.custom_flags)
@@ -68,15 +108,21 @@ function copyCli() {
 
 function openCreate() {
   const rnd = Math.random().toString(36).substring(2, 8)
-  const defRem = remotesStore.remotes[0]?.name || 'local'
+  const defRem = normalizedRemotes.value[0]?.name || 'local'
   editingProfile.value = {
-    id: `prof_${rnd}`, name: '',
+    id: `prof_${rnd}`,
+    name: '',
     local_path: defRem !== 'local' ? `~/Sync/${defRem}` : '~/Sync',
-    remote: defRem, remote_path: '', schedule: 'manual', review_mode: 'deletions', enabled: true,
+    remote: defRem,
+    remote_path: '',
+    schedule: 'manual',
+    review_mode: 'deletions',
+    enabled: true,
     flags: { compare_mode: 'size,modtime', conflict_resolve: 'newer', custom_flags: '', provider_options: {} },
     safety: { max_delete_percent: 10, canary_protection: true },
     exclude_patterns: ['.git/**', '*.tmp', '.DS_Store'],
   }
+  ensureProviderOptionsDefaults()
   excludeInput.value = '.git/**, *.tmp, .DS_Store'
   formError.value = null
   activeTab.value = 'create'
@@ -84,9 +130,27 @@ function openCreate() {
 
 function openEdit(p: Profile) {
   editingProfile.value = JSON.parse(JSON.stringify(p))
+  editingProfile.value.remote = (editingProfile.value.remote || '').replace(/:+$/, '').trim()
   if (!editingProfile.value.flags) editingProfile.value.flags = {}
   if (!editingProfile.value.flags.provider_options) editingProfile.value.flags.provider_options = {}
-  if (!editingProfile.value.safety) editingProfile.value.safety = { max_delete_percent: 10, canary_protection: true }
+
+  // Ensure booleans in provider_options are actual booleans for checkbox binding
+  const provOpts = editingProfile.value.flags.provider_options
+  for (const opt of activeProviderOptions.value) {
+    if (opt.type === 'bool') {
+      const val = provOpts[opt.key]
+      if (val !== undefined && val !== null) {
+        provOpts[opt.key] = val === true || val === 'true' || val === '1'
+      }
+    }
+  }
+
+  if (!editingProfile.value.safety) {
+    editingProfile.value.safety = { max_delete_percent: 10, canary_protection: true }
+  } else if (editingProfile.value.safety.max_delete_percent === undefined && (editingProfile.value.safety as any).delete_threshold_pct !== undefined) {
+    editingProfile.value.safety.max_delete_percent = (editingProfile.value.safety as any).delete_threshold_pct
+  }
+
   excludeInput.value = (p.exclude_patterns || []).join(', ')
   formError.value = null
   activeTab.value = 'edit'
@@ -143,10 +207,34 @@ async function saveProfile() {
   const p = editingProfile.value
   if (!p.name?.trim()) { formError.value = 'Profile name required'; return }
   if (!p.local_path?.trim()) { formError.value = 'Local path required'; return }
+  if (!p.remote?.trim()) { formError.value = 'Storage remote required'; return }
+
+  p.name = p.name.trim()
+  p.remote = (p.remote || '').replace(/:+$/, '').trim()
+  if (p.remote_path) {
+    p.remote_path = p.remote_path.replace(/^:+/, '').trim()
+  }
   p.exclude_patterns = excludeInput.value.split(',').map((s) => s.trim()).filter(Boolean)
+
+  if (p.safety) {
+    const pct = Number(p.safety.max_delete_percent ?? 10)
+    p.safety.max_delete_percent = pct
+    ;(p.safety as any).delete_threshold_pct = pct
+  }
+
+  if (p.flags?.provider_options) {
+    const cleanedOpts: Record<string, string> = {}
+    for (const [k, v] of Object.entries(p.flags.provider_options)) {
+      if (v !== undefined && v !== null && v !== '') {
+        cleanedOpts[k] = String(v)
+      }
+    }
+    p.flags.provider_options = cleanedOpts
+  }
+
   try {
-    if (activeTab.value === 'create') await profilesStore.createProfile(p)
-    else if (p.id) await profilesStore.updateProfile(p.id, p)
+    if (activeTab.value === 'create') await profilesStore.createProfile(p as Profile)
+    else if (p.id) await profilesStore.updateProfile(p.id, p as Profile)
     activeTab.value = 'list'
   } catch (e: any) {
     formError.value = e.message || 'Failed to save'
@@ -349,10 +437,22 @@ async function saveProfile() {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-slate-300 font-semibold mb-1">Storage Remote <span class="text-rose-400">*</span></label>
-          <select v-if="remotesStore.remotes.length > 0" v-model="editingProfile.remote" class="w-full bg-carbon-bg border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue">
-            <option v-for="r in remotesStore.remotes" :key="r.name" :value="r.name">{{ r.name }} ({{ r.type || 'remote' }})</option>
+          <select
+            v-if="normalizedRemotes.length > 0"
+            v-model="editingProfile.remote"
+            @change="editingProfile.remote = ($event.target as HTMLSelectElement).value.replace(/:+$/, '').trim()"
+            class="w-full bg-carbon-bg border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          >
+            <option v-for="r in normalizedRemotes" :key="r.name" :value="r.name">{{ r.name }} ({{ r.type }})</option>
           </select>
-          <input v-else v-model="editingProfile.remote" type="text" placeholder="e.g. gdrive" class="w-full bg-carbon-bg border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue" />
+          <input
+            v-else
+            v-model="editingProfile.remote"
+            @blur="editingProfile.remote = (editingProfile.remote || '').replace(/:+$/, '').trim()"
+            type="text"
+            placeholder="e.g. gdrive"
+            class="w-full bg-carbon-bg border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
           <div class="mt-1 flex items-center justify-between text-[11px]">
             <span class="text-slate-500">Need a new target?</span>
             <button type="button" @click="emit('open-remote-wizard')" class="text-electric-blue hover:underline cursor-pointer">+ Provision Remote</button>
