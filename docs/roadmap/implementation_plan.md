@@ -1,38 +1,37 @@
-# Implementation Plan: Profile Manager, Dedupe Workspace, Audit Ledger Invariant, and Daemon Log Clustering
+# Implementation Plan: UI Ergonomics, God Component Decomposition & Merge Documentation
 
 ## Proposed Changes
 
-Address 5 operational and architectural requirements:
-1. **Audit Ledger Mutation Invariant & Action Filter Cleanup**: Enforce that the cryptographically verified audit ledger records `SYNC_EXECUTED` only when actual file operations/mutations occur (`FilesSynced > 0 && !dryRun`), removing empty 0-transfer records caused by dashboard/cli origin overrides. Remove non-file actions (`SECRET_ROTATED`, `CONFIG_MUTATED`) from the frontend audit filter dropdowns.
-2. **Go Backend Type Resilience**: Allow `ProfileFlags.ProviderOptions` to unmarshal flexibly from arbitrary JSON types (strings, booleans, numbers) into `map[string]string` representation so frontend boolean toggles do not cause 400 Bad Request deserialization failures. Accept `delete_threshold_pct` and `max_delete_percent` interchangeably.
-3. **Profile Manager Remote Selection & Option Importing**: Automatically strip trailing colons on remote names, preselect configured remotes, import tier-1 options schemas when selecting providers, and cleanly coerce form values on save.
-4. **Dedupe Workspace Dual Match Modes & In-Built Explorer Navigation**: Restore separate match strategies: safe same-folder duplicate detection (default for Google Drive) vs. cross-folder cryptographic hash detection (`--by-hash`). Retain scan output and collision candidate lists in memory and `sessionStorage`. Fix "Inspect in Explorer" to navigate within the modal without dismissing it.
-5. **Daemon Logs "Notices" Tab**: Add a dedicated "Notices" filter pill and counter in `ModalDaemonLogs.vue` so Rclone duplicate object notices, file transfers, and deletions stand out distinctly.
+Address 4 architectural, ergonomic, and documentation requirements to prepare `feat/fsm-control-plane-and-vue-cockpit` for merging into `main`:
+1. **Fleet Telemetry Chart Collapse Toggle**: Add a chevron collapse toggle to the Live Performance Telemetry card in `ViewFleet.vue` to allow users to hide/expand the canvas, preserving vertical space on compact displays while persisting preference in `localStorage`.
+2. **Sticky Action Footers in Setup Modals**: Ensure `ProfileManagerModal.vue` and `ModalRemoteWizard.vue` pin their primary action buttons (`Save Configuration`, `Deploy Remote`, `Next Step`, `Back`, `Cancel`) to the bottom via sticky backdrop positioning so buttons never scroll off screen.
+3. **Decompose Frontend "God Components"**:
+   - Decompose `ModalDedupe.vue` (716 LOC) by extracting `DedupeGroupCluster.vue` and `DedupeActionBar.vue`.
+   - Decompose `ModalGlobalSettings.vue` (686 LOC) by extracting `SettingsDefaultsTab.vue`, `SettingsEngineTab.vue`, `SettingsAlertsTab.vue`, and `SettingsAuditTab.vue`.
+4. **Comprehensive Documentation & README Rewrite for Vue Cockpit Merge**: Overhaul `README.md`, `site/index.md`, and `site/architecture.md` to document the FSM Control Plane, Vue 3 + PrimeVue v4 Cockpit SPA, Dedupe Workspace dual match modes, and Audit Ledger cryptographic mutation invariants.
 
 ### Affected Components & Packages
 
-- `internal/engine/runner/runner_handlers.go`: Guard `recordAuditExecuted` to require `monitorRes.FilesSynced > 0 && !dryRun`.
-- `internal/engine/runner/runner_test.go`: Verify 0-transfer syncs and dry-runs do not emit `SYNC_EXECUTED` to audit ledger.
-- `dashboard/frontend/src/views/ViewAudit.vue`, `dashboard/frontend/partials/view_audit.html`: Remove `SECRET_ROTATED` and `CONFIG_MUTATED` from the action `<select>` dropdown.
-- `internal/profiles/model.go`, `internal/profiles/model_test.go`: Flexible unmarshaling for `ProviderOptionsMap`.
-- `dashboard/frontend/src/components/ProfileManagerModal.vue`: Trailing colon normalization, schema import, boolean-to-string coercion.
-- `dashboard/frontend/src/components/ModalDedupe.vue`, `dashboard/frontend/src/stores/dedupe.ts`: Match mode dropdown, scan result retention, internal explorer tab navigation.
-- `dashboard/frontend/src/components/ModalDaemonLogs.vue`: Dedicated "Notices" log filter tab.
+- `dashboard/frontend/src/views/ViewFleet.vue`: Telemetry collapse toggle and state persistence.
+- `dashboard/frontend/src/components/ProfileManagerModal.vue`: Sticky action footer.
+- `dashboard/frontend/src/components/ModalRemoteWizard.vue`: Sticky navigation footer.
+- `dashboard/frontend/src/components/ModalDedupe.vue`, `dashboard/frontend/src/components/dedupe/*`: Dedupe component decomposition.
+- `dashboard/frontend/src/components/ModalGlobalSettings.vue`, `dashboard/frontend/src/components/settings/*`: Settings component decomposition.
+- `README.md`, `site/index.md`, `site/architecture.md`: Full documentation overhaul for merge.
 
 ### Technical Strategy & Data Flow
 
-- **Audit Ledger**: ADR-004 dictates that the audit trail is an append-only ledger of verified disk mutations. Runs resulting in 0 file changes, dry-runs, and configuration actions that do not alter target filesystems must not emit `SYNC_EXECUTED`.
-- **Flexible Deserialization**: A custom `UnmarshalJSON` method on `ProviderOptionsMap` converts booleans (`true` -> `"true"`, `false` -> `"false"`) and numbers (`123` -> `"123"`) into strings, providing frictionless interoperability between Vue forms and Go backend flags compiler.
+- **Ergonomics**: Sticky positioning inside modal viewports uses `sticky bottom-0 bg-carbon-surface/95 backdrop-blur-sm z-10` with proper padding and borders to guarantee actionable controls remain accessible on all screen heights.
+- **Component Decomposition**: Sub-components communicate via typed props and emitted events or direct Pinia store actions, ensuring single responsibility and component LOC <= 350.
+- **Zero-Runtime Single Binary**: Pre-built Vue assets in `dist/` remain committed, and all Go tests continue to run without live external network dependencies.
 
 ### Safety & Error Handling
 
-- Concurrency and lock isolation strictly preserved.
-- No live RC API calls during unit testing.
-- Canary files (`RCLONE_TEST`) remain untouched.
+- All concurrency, canary protection (`RCLONE_TEST`), and jail confinement invariants remain unaffected.
+- Headless Chrome E2E tests verify zero console errors and full SPA functionality across all tabs and modals.
 
 ## Verification Plan
 
-- `go test -v -count=1 ./internal/engine/runner -run "TestSyncRunner_RunSuccessWithAuditAndLogs"`
-- `go test -v -count=1 ./internal/profiles -run "TestProfileFlags_ProviderOptionsFlexibleUnmarshal"`
 - `npm --prefix dashboard/frontend run build`
+- `go test -count=1 -v ./tests/e2e -run TestCockpitSPA_HeadlessChromeSmoke`
 - `./scripts/check.sh all`

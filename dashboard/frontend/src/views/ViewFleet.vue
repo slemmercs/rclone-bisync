@@ -19,6 +19,17 @@ const reviewStore = useReviewStore()
 const appStore = useAppStore()
 const toast = useToastNotification()
 
+const isTelemetryCollapsed = ref<boolean>(localStorage.getItem('fleet_telemetry_collapsed') === 'true')
+
+function toggleTelemetryCollapse() {
+  isTelemetryCollapsed.value = !isTelemetryCollapsed.value
+  try {
+    localStorage.setItem('fleet_telemetry_collapsed', String(isTelemetryCollapsed.value))
+  } catch {
+    // Ignore storage quota or access errors
+  }
+}
+
 const profiles = computed(() => profilesStore.profiles)
 
 type StatusFilterType = 'ALL' | 'ACTIVE' | 'IDLE' | 'FAILED' | 'REVIEW_REQUIRED'
@@ -186,8 +197,8 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
       </div>
     </div>
     <!-- Real-Time Telemetry & Throughput Card -->
-    <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-3.5 shadow-sm">
-      <div class="flex items-center justify-between mb-2">
+    <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-3.5 shadow-sm transition-all">
+      <div class="flex items-center justify-between" :class="{ 'mb-2': !isTelemetryCollapsed }">
         <div class="flex items-center gap-2">
           <i class="pi pi-chart-line text-electric-400"></i>
           <span class="text-xs font-bold text-carbon-50 uppercase tracking-wide">Live Performance Telemetry</span>
@@ -200,9 +211,18 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
           <span>Speed: <strong class="text-electric-300">{{ telemetryStore.transferStats?.speed_str || '0 B/s' }}</strong></span>
           <span>Latency: <strong class="text-purple-300">{{ telemetryStore.telemetry?.daemon_health?.response_time_ms ? telemetryStore.telemetry.daemon_health.response_time_ms.toFixed(1) + 'ms' : '0ms' }}</strong></span>
           <span>Status: <strong class="text-carbon-200">{{ telemetryStore.daemonHealthy ? 'ONLINE' : 'STANDBY' }}</strong></span>
+          <button
+            type="button"
+            @click="toggleTelemetryCollapse"
+            class="text-carbon-400 hover:text-carbon-100 p-1 rounded hover:bg-carbon-800 transition-colors cursor-pointer ml-1 flex items-center justify-center"
+            :title="isTelemetryCollapsed ? 'Expand Telemetry Chart' : 'Collapse Telemetry Chart'"
+            :aria-label="isTelemetryCollapsed ? 'Expand Telemetry Chart' : 'Collapse Telemetry Chart'"
+          >
+            <i :class="isTelemetryCollapsed ? 'pi pi-chevron-down' : 'pi pi-chevron-up'" class="text-xs"></i>
+          </button>
         </div>
       </div>
-      <TelemetryChart />
+      <TelemetryChart v-if="!isTelemetryCollapsed" />
     </div>
 
     <!-- Profile Fleet Header & Controls -->
