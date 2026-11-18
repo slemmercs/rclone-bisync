@@ -206,6 +206,16 @@
 
           <!-- Message Text -->
           <span class="text-slate-300 break-words min-w-0 flex-1 select-text">{{ log.msg }}</span>
+
+          <!-- Quick Copy Action Button -->
+          <button
+            type="button"
+            @click.stop="handleCopyLog(log)"
+            class="opacity-0 group-hover:opacity-100 p-1 hover:bg-carbon-800 text-slate-400 hover:text-white rounded text-[10px] transition-all cursor-pointer shrink-0"
+            title="Copy log entry to clipboard"
+          >
+            <i class="pi pi-copy"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -217,12 +227,24 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useLogsStore } from '../stores/logs'
 import { useExplorerStore } from '../stores/explorer'
 import { useAppStore } from '../stores/app'
+import { useClipboard } from '../composables/useClipboard'
+import { useToastNotification } from '../composables/useToastNotification'
 import type { LogEntry } from '../types/logs'
 import { getEntryPath } from '../utils/logClustering'
 
 const logsStore = useLogsStore()
 const explorerStore = useExplorerStore()
 const appStore = useAppStore()
+const { copyToClipboard } = useClipboard()
+const toast = useToastNotification()
+
+async function handleCopyLog(log: LogEntry) {
+  const text = log.raw || `[${log.time || '--:--:--'}] ${log.level || 'INFO'} ${log.msg}`
+  const ok = await copyToClipboard(text)
+  if (ok) {
+    toast.info('Copied log entry to clipboard', 'Copied', 2000)
+  }
+}
 
 const autoScroll = ref<boolean>(true)
 const logContainerRef = ref<HTMLDivElement | null>(null)

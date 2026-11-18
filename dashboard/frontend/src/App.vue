@@ -16,6 +16,7 @@ import ModalGlobalSettings from './components/ModalGlobalSettings.vue'
 import ModalMcp from './components/ModalMcp.vue'
 import ModalRemoteWizard from './components/ModalRemoteWizard.vue'
 import ModalQueueManager from './components/ModalQueueManager.vue'
+import Toast from 'primevue/toast'
 
 
 import { useAppStore } from './stores/app'
@@ -114,6 +115,7 @@ onUnmounted(() => {
     <ModalMcp />
     <ModalRemoteWizard />
     <ModalQueueManager />
+    <Toast position="bottom-right" />
 
 
 

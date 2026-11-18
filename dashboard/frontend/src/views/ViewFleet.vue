@@ -5,12 +5,15 @@ import TelemetryChart from '../components/TelemetryChart.vue'
 import { useProfilesStore } from '../stores/profiles'
 import { useFSMStore } from '../stores/fsm'
 import { useTelemetryStore } from '../stores/telemetry'
+import { formatDate } from '../composables/useFormatters'
+import { useToastNotification } from '../composables/useToastNotification'
 import type { Profile } from '../types/models'
 import type { SyncFSMState } from '../types/fsm'
 
 const profilesStore = useProfilesStore()
 const fsmStore = useFSMStore()
 const telemetryStore = useTelemetryStore()
+const toast = useToastNotification()
 
 const profiles = computed(() => profilesStore.profiles)
 
@@ -31,18 +34,13 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
   profilesStore.selectProfile(profile.id)
   try {
     await profilesStore.triggerSync({ dryRun })
-  } catch (err) {
+    toast.success(
+      `${dryRun ? 'Dry-run' : 'Sync'} dispatched for "${profile.name || profile.id}"`,
+      'Sync Triggered'
+    )
+  } catch (err: any) {
     console.error('Trigger sync error:', err)
-  }
-}
-
-function formatDate(iso?: string) {
-  if (!iso) return 'Never'
-  try {
-    const d = new Date(iso)
-    return d.toLocaleString()
-  } catch {
-    return iso
+    toast.error(err?.message || 'Failed to trigger synchronization', 'Sync Error')
   }
 }
 </script>

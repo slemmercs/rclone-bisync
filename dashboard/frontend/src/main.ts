@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import PrimeVue from 'primevue/config'
+import ToastService from 'primevue/toastservice'
 import { CarbonPreset } from './theme/aura-preset'
 import App from './App.vue'
 import './style.css'
@@ -16,6 +17,8 @@ app.use(PrimeVue, {
     }
   }
 })
+app.use(ToastService)
 
 app.mount('#app')
+
 

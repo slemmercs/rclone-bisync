@@ -127,7 +127,7 @@
       </div>
 
       <template v-else v-for="cluster in logsStore.clusteredLedgerLogs" :key="cluster.id">
-        <div class="hover:bg-carbon-surface/60 transition-colors">
+        <div class="hover:bg-carbon-surface/60 transition-colors group">
           <!-- Main Row -->
           <div
             @click="cluster.isCluster || cluster.isConsolidatedRun ? logsStore.toggleCluster(cluster.id) : null"
@@ -200,8 +200,16 @@
               </span>
             </div>
 
-            <!-- Cluster / Consolidated Run Counts -->
+            <!-- Cluster / Consolidated Run Counts & Copy Action -->
             <div class="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                @click.stop="handleCopyEntry(cluster.entry)"
+                class="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-700/60 text-slate-400 hover:text-white rounded text-[10px] transition-all cursor-pointer"
+                title="Copy log entry to clipboard"
+              >
+                <i class="pi pi-copy"></i>
+              </button>
               <span
                 v-if="cluster.isConsolidatedRun"
                 class="text-[9px] px-2 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/40"
@@ -222,7 +230,7 @@
             <div
               v-for="(sub, sIdx) in cluster.entries"
               :key="sIdx"
-              class="flex items-center gap-2 text-[11px] font-mono text-slate-400 py-0.5"
+              class="flex items-center gap-2 text-[11px] font-mono text-slate-400 py-0.5 group/sub"
             >
               <span class="text-slate-600 text-[10px] tabular-nums shrink-0">{{ sub.time || '--:--:--' }}</span>
               <span :class="sub.levelClass || 'text-slate-500'" class="text-[9px] uppercase shrink-0">
@@ -239,6 +247,14 @@
                 <span class="truncate">{{ getEntryPath(sub) }}</span>
               </button>
               <span class="text-slate-300 truncate flex-1">{{ sub.msg }}</span>
+              <button
+                type="button"
+                @click.stop="handleCopyEntry(sub)"
+                class="opacity-0 group-hover/sub:opacity-100 p-0.5 hover:bg-slate-700/60 text-slate-400 hover:text-white rounded text-[10px] transition-all cursor-pointer shrink-0"
+                title="Copy sub-entry"
+              >
+                <i class="pi pi-copy text-[10px]"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -278,12 +294,25 @@ import { useLogsStore } from '../stores/logs'
 import { useProfilesStore } from '../stores/profiles'
 import { useExplorerStore } from '../stores/explorer'
 import { useAppStore } from '../stores/app'
+import { useClipboard } from '../composables/useClipboard'
+import { useToastNotification } from '../composables/useToastNotification'
+import type { LogEntry } from '../types/logs'
 import { getEntryPath } from '../utils/logClustering'
 
 const logsStore = useLogsStore()
 const profilesStore = useProfilesStore()
 const explorerStore = useExplorerStore()
 const appStore = useAppStore()
+const { copyToClipboard } = useClipboard()
+const toast = useToastNotification()
+
+async function handleCopyEntry(entry: LogEntry) {
+  const text = entry.raw || `[${entry.time || '--:--:--'}] ${entry.level || 'INFO'} ${entry.msg}`
+  const ok = await copyToClipboard(text)
+  if (ok) {
+    toast.info('Copied log entry to clipboard', 'Copied', 2000)
+  }
+}
 
 function handleJump(path: string | null) {
   if (!path) return

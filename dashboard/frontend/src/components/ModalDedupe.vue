@@ -298,27 +298,25 @@ import { ref } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useDedupeStore } from '../stores/dedupe'
 import { useLogsStore } from '../stores/logs'
+import { formatBytes } from '../composables/useFormatters'
+import { useToastNotification } from '../composables/useToastNotification'
 import type { LogEntry } from '../types/logs'
 
 const dedupeStore = useDedupeStore()
 const logsStore = useLogsStore()
+const toast = useToastNotification()
 const activeTab = ref<'items' | 'raw'>('items')
-
-function formatBytes(bytes?: number): string {
-  if (!bytes || bytes <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
-}
 
 function handleRun(dryRun: boolean) {
   dedupeStore.runDedupe(dryRun)
   activeTab.value = 'items'
+  toast.info(`Scanning duplicates (${dryRun ? 'Dry Run' : 'Live'})...`, 'Dedupe Scan')
 }
 
 function confirmExecute() {
   if (confirm(`Execute ${dedupeStore.mode.toUpperCase()} deduplication on ${dedupeStore.remote}:${dedupeStore.path || '/'}? This may permanently remove redundant duplicate files.`)) {
     dedupeStore.runDedupe(false)
+    toast.warn(`Executing ${dedupeStore.mode.toUpperCase()} deduplication resolution`, 'Dedupe Execution')
   }
 }
 
