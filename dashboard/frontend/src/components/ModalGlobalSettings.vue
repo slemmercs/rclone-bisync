@@ -577,6 +577,9 @@
 
         <!-- TAB 7: ENCRYPTION -->
         <SettingsEncryptionTab v-else-if="activeTab === 'encryption'" />
+
+        <!-- TAB 8: BANDWIDTH & LIMITS -->
+        <SettingsBandwidthTab v-else-if="activeTab === 'bandwidth'" />
       </main>
     </div>
 
@@ -608,9 +611,10 @@ import Dialog from 'primevue/dialog'
 import { useSettingsStore } from '../stores/settings'
 import FlagsBuilder from './FlagsBuilder.vue'
 import SettingsEncryptionTab from './settings/SettingsEncryptionTab.vue'
+import SettingsBandwidthTab from './settings/SettingsBandwidthTab.vue'
 
 const settingsStore = useSettingsStore()
-const activeTab = ref<'defaults' | 'flags' | 'engine' | 'logging' | 'telemetry' | 'notifications' | 'encryption'>('defaults')
+const activeTab = ref<'defaults' | 'flags' | 'engine' | 'bandwidth' | 'logging' | 'telemetry' | 'notifications' | 'encryption'>('defaults')
 const saveError = ref<string | null>(null)
 
 const formDefaults = ref({ ...settingsStore.globalDefaults })
@@ -651,10 +655,11 @@ watch(() => settingsStore.featureSettings, val => { formFeatures.value = { ...va
 watch(() => settingsStore.notificationSettings, val => { formNotifications.value = { ...val } }, { deep: true })
 watch(() => settingsStore.globalSettingsTab, tab => { activeTab.value = tab as any })
 
-const tabs: Array<{ id: 'defaults' | 'flags' | 'engine' | 'logging' | 'telemetry' | 'notifications' | 'encryption'; label: string; icon: string }> = [
+const tabs: Array<{ id: 'defaults' | 'flags' | 'engine' | 'bandwidth' | 'logging' | 'telemetry' | 'notifications' | 'encryption'; label: string; icon: string }> = [
   { id: 'defaults', label: 'Defaults', icon: 'pi pi-sliders-h' },
   { id: 'flags', label: 'Fleet Flags', icon: 'pi pi-server' },
   { id: 'engine', label: 'Engine & Polling', icon: 'pi pi-clock' },
+  { id: 'bandwidth', label: 'Bandwidth & Limits', icon: 'pi pi-gauge' },
   { id: 'logging', label: 'Logging & Cleanup', icon: 'pi pi-file' },
   { id: 'telemetry', label: 'Telemetry & Features', icon: 'pi pi-chart-bar' },
   { id: 'notifications', label: 'Alert Webhooks', icon: 'pi pi-bell' },

@@ -424,4 +424,35 @@ export interface MCPStatus {
   started_at?: string
 }
 
+export interface ActiveTransfer {
+  name: string
+  size: number
+  bytes: number
+  percentage: number
+  speed: number
+  speed_avg?: number
+  eta?: number
+}
+
+export interface CoreStatsResponse {
+  bytes: number
+  speed: number
+  transfers: number
+  checks: number
+  errors: number
+  fatal_errors: boolean
+  transferring?: ActiveTransfer[]
+}
+
+export interface BandwidthLimitResponse {
+  bytes_per_second: number
+  rate_formatted: string
+  status?: string
+}
+
+export interface BandwidthLimitRequest {
+  rate: string
+}
+
+
 

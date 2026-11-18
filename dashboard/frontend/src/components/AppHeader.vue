@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import FSMStateBadge from './FSMStateBadge.vue'
+import BandwidthPopover from './BandwidthPopover.vue'
 import { useProfilesStore } from '../stores/profiles'
 import { useFSMStore } from '../stores/fsm'
 import { useTelemetryStore } from '../stores/telemetry'
@@ -8,9 +9,8 @@ import { useLogsStore } from '../stores/logs'
 import { useHelpStore } from '../stores/help'
 import { useSettingsStore } from '../stores/settings'
 import { useQueueStore } from '../stores/queue'
-
-
-
+import { useBandwidthStore } from '../stores/bandwidth'
+import { formatSpeed } from '../composables/useFormatters'
 
 const props = defineProps<{
   activeTab: string
@@ -29,6 +29,20 @@ const logsStore = useLogsStore()
 const helpStore = useHelpStore()
 const settingsStore = useSettingsStore()
 const queueStore = useQueueStore()
+const bandwidthStore = useBandwidthStore()
+const bandwidthPopoverRef = ref<InstanceType<typeof BandwidthPopover> | null>(null)
+
+onMounted(() => {
+  bandwidthStore.startPolling(5000)
+})
+
+onUnmounted(() => {
+  bandwidthStore.stopPolling()
+})
+
+function handleToggleBandwidth(event: Event) {
+  bandwidthPopoverRef.value?.toggle(event)
+}
 
 
 const isMcpActive = computed(() => {
@@ -210,6 +224,26 @@ async function handleRunSync() {
         </span>
       </button>
 
+      <!-- Bandwidth Throttling & Live Transfer Button -->
+      <button
+        @click="handleToggleBandwidth"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-mono transition-colors cursor-pointer"
+        :class="bandwidthStore.currentLimit !== 'off' && bandwidthStore.currentLimit !== ''
+          ? 'bg-amber-950/80 border-amber-600 text-amber-300'
+          : 'bg-carbon-850 hover:bg-carbon-800 border-carbon-700 text-carbon-300'"
+        title="Toggle Bandwidth Throttling & Live Transfer Rates"
+      >
+        <i class="pi pi-gauge text-xs"></i>
+        <span>BW:</span>
+        <span class="text-white font-bold">{{ bandwidthStore.rateFormatted }}</span>
+        <span
+          v-if="bandwidthStore.speed > 0"
+          class="px-1 py-0.2 rounded bg-electric-950/80 border border-electric-700/80 text-[10px] text-electric-300 font-sans"
+        >
+          {{ formatSpeed(bandwidthStore.speed) }}
+        </span>
+      </button>
+
       <button
         @click="helpStore.openDrawer(undefined, '', activeContext)"
         class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-300 hover:text-white text-xs font-mono transition-colors cursor-pointer"
@@ -253,5 +287,8 @@ async function handleRunSync() {
         <span>Sync Now</span>
       </button>
     </div>
+
+    <!-- Bandwidth Throttling Popover -->
+    <BandwidthPopover ref="bandwidthPopoverRef" />
   </header>
 </template>
