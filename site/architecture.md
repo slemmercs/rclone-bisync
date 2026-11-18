@@ -60,3 +60,35 @@ To safely allow autonomous AI agents (Claude, Cursor, Cline) to interact with sy
 - **Parameter Fingerprinting**: Every issued ticket binds to the exact parameter hash (`SHA256(canonical(params))`). Re-submitting a ticket with altered flags (e.g. escalating from dry-run to force resync) immediately rejects execution.
 - **5-Minute Non-Renewable TTL**: Confirmation tickets expire automatically after 300 seconds.
 - **Read-Only Process Isolation**: When started with `--read-only`, mutating tools are strictly disabled at the registration level.
+
+---
+
+## Control Plane & Modern Cockpit Architecture
+
+### 7. Finite State Machine (FSM) Control Plane & Queue Orchestrator
+Bisync Hub replaces ad-hoc shell execution with an event-driven Finite State Machine governing sync workload lifecycles:
+- **Deterministic State Graph**: Workloads transition through strictly validated states: `idle` → `validating` → `running` → `review_required` / `completed` / `failed` / `aborted`. Invalid transitions are rejected at the engine level.
+- **Queue Engine & Profile Isolation**: Synchronization jobs are dispatched through a prioritized concurrency manager ensuring no two jobs for the same profile execute simultaneously or compete for advisory file locks.
+- **Cooperative Subprocess Cancellation**: Sync runs respect context cancellation tokens. When aborted by an operator or circuit breaker, process trees are cleanly terminated and canary files are safely restored.
+
+### 8. Vue 3 + PrimeVue v4 Modern Cockpit SPA
+The operator cockpit is built as a reactive Single Page Application (SPA) embedded directly into the Go executable:
+- **Zero-Runtime Single Binary**: Built with Vue 3.4 SFCs and PrimeVue v4, compiled into static bundles (`dashboard/frontend/dist/`) via Vite, and compiled into the Go binary with native `//go:embed`. Zero Node.js or npm runtime required on target machines.
+- **Decoupled Pinia State Management**: Cross-cutting domain concerns live in dedicated, strongly-typed stores (`profiles`, `remotes`, `explorer`, `audit`, `dedupe`, `telemetry`, `settings`), eliminating global `window.*` mutations.
+- **Operational Ergonomics**:
+  - Live Performance Telemetry with persistent collapse states via `localStorage`.
+  - Sticky backdrop-blurred modal action footers ensuring save, next, and deploy buttons stay anchored across long scrolling views.
+  - Dual-pane local/remote filesystem explorer with drag-and-drop transfers and instant preview drawers.
+
+### 9. Interactive Deduplication Workspace
+Bisync Hub provides a visual deduplication engine supporting both local and remote storage targets:
+- **Dual Matching Strategies**: Deduplication can match duplicates by cryptographic hash (`SHA-256`/`MD5`) or by filename and file size for backends that lack native hash support.
+- **Cluster Hierarchy**: Duplicate groups are organized into collapsible clusters showing size distributions, modified timestamps, and replica paths.
+- **Staged Review Drawer**: Decisions (`keep-local`, `keep-remote`, `keep-both`, `newest`, `oldest`) are staged in memory before execution, guarded by confirmation tokens to avoid accidental bulk loss.
+
+### 10. Tamper-Evident Cryptographic Audit Ledger
+To guarantee non-repudiation and regulatory compliance for storage modifications:
+- **Trigger-Enforced Immutability**: The SQLite ledger employs database triggers (`BEFORE UPDATE` and `BEFORE DELETE`) raising SQL abort exceptions on any modification attempt.
+- **Block Chaining**: Every record computes an SHA-256 block hash incorporating the previous entry's hash:
+  `hash = SHA256(prev_hash || timestamp || action || profile_id || status || details)`
+- **In-Browser Chain Verification**: The Cockpit SPA executes cryptographic hash chain audits directly in WebAssembly/Web Crypto, immediately flagging any ledger divergence or missing block.

@@ -21,7 +21,7 @@ Implement telemetry collapse toggle, sticky modal action footers, decompose fron
   - **Scope**: `dashboard/frontend/src/components/ModalGlobalSettings.vue`, `dashboard/frontend/src/components/settings/`
   - **Verification**: `npm --prefix dashboard/frontend run build && go test -count=1 ./tests/e2e -run TestCockpitSPA_HeadlessChromeSmoke/GlobalSettingsModalInteraction`
 
-- [ ] Task 5: Documentation & README Rewrite for Vue Cockpit Merge
+- [x] Task 5: Documentation & README Rewrite for Vue Cockpit Merge
   - **Scope**: `README.md`, `site/index.md`, `site/architecture.md`
   - **Verification**: `./scripts/check.sh all`
 
@@ -32,3 +32,4 @@ Implement telemetry collapse toggle, sticky modal action footers, decompose fron
 - 2026-11-18: Completed Task 2 - Implemented sticky bottom action footers in `ProfileManagerModal.vue` and `ModalRemoteWizard.vue` with backdrop blur, borders, and elevated z-index so submit, deploy, and navigation buttons remain anchored and visible across scrolling form contents. Verified via frontend build and headless Chrome E2E smoke suite.
 - 2026-11-18: Completed Task 3 - Decomposed oversized `ModalDedupe.vue` (716 LOC -> 343 LOC) by extracting `DedupeGroupCluster.vue` (335 LOC) for collision search/filters, collapse controls, duplicate groups, and candidate actions, and `DedupeActionBar.vue` (62 LOC) for staged batch decisions and execution. Verified via frontend build and headless Chrome E2E suite (`DedupeModalInteraction` + all 22 tests passing).
 - 2026-11-18: Completed Task 4 - Decomposed oversized `ModalGlobalSettings.vue` (686 LOC -> 209 LOC) by extracting dedicated tab subcomponents into `src/components/settings/`: `SettingsDefaultsTab.vue` (137 LOC), `SettingsEngineTab.vue` (130 LOC), `SettingsAuditTab.vue` (61 LOC), `SettingsTelemetryTab.vue` (127 LOC), and `SettingsAlertsTab.vue` (88 LOC). Verified via frontend build and headless Chrome E2E suite (`GlobalSettingsModalInteraction` + all 22 tests passing).
+- 2026-11-18: Completed Task 5 - Overhauled `README.md`, `site/index.md`, and `site/architecture.md` to document the FSM Control Plane, modern Vue 3 + PrimeVue v4 Cockpit SPA, deduplication workspace with dual matching strategies, and cryptographic audit ledger invariants. Verified via `./scripts/check.sh all`.

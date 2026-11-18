@@ -41,6 +41,9 @@ Most tools help execute a synchronization.
 | Scheduled Synchronization | ✅ | ✅ | ⚠️ | ✅ |
 | Real-Time Engine Telemetry | ⚠️ | ⚠️ | ❌ | ✅ |
 | Fleet Health Overview | ❌ | ⚠️ | ❌ | ✅ |
+| FSM Control Plane & Queue Orchestrator | ❌ | ❌ | ❌ | ✅ |
+| Reactive Cockpit SPA (Single Binary) | ❌ | ⚠️ | ⚠️ | ✅ |
+| Remote & Local Dedupe Workspace | ❌ | ⚠️ | ❌ | ✅ |
 | Conflict Analysis & Heuristics | ❌ | ❌ | ⚠️ | ✅ |
 | Interactive Deletion Review | ❌ | ❌ | ❌ | ✅ |
 | Per-File Resolution Decisions | ❌ | ❌ | ❌ | ✅ |
@@ -67,6 +70,26 @@ Understand proposed changes before they touch your files:
 - Interactive Write-Ahead Log (WAL) review engine ([ADR-008](docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md)).
 - Multi-analyzer heuristic conflict scoring (timestamps, size, content hash).
 - Pre-mutation backup staging (`.review_backups/`) and atomic commit/rollback.
+
+## 🧭 Finite State Machine (FSM) Control Plane & Concurrency Queue
+Execute workloads deterministically without race conditions:
+- Event-driven FSM transitions (`idle` → `validating` → `running` → `review_required` / `completed` / `failed` / `aborted`).
+- Prioritized concurrency manager isolating concurrent sync executions and avoiding POSIX lock thrashing.
+- Cooperative subprocess cancellation terminating sync worker trees and restoring canaries gracefully on abort.
+
+## ⚡ Modern Reactive Cockpit SPA (Single Binary)
+Operate your cloud workloads through an intuitive, production-grade interface:
+- Modern Vue 3.4 & PrimeVue v4 architecture compiled and embedded via `//go:embed` with zero external runtime requirements.
+- Typed Pinia domain stores eliminating global window state mutation.
+- Dual-pane file explorer with drag-and-drop transfers and instant preview drawer.
+- Ergonomic live performance telemetry with collapsible charts and `localStorage` state persistence.
+- Sticky backdrop-blurred modal action footers ensuring commit and deploy controls remain visible on any display size.
+
+## 🧹 Interactive Deduplication Workspace
+Identify and eliminate duplicate files across local paths and remote cloud targets:
+- Dual match modes: Cryptographic hash (`SHA-256`/`MD5`) and size/name heuristics.
+- Clustered visual grouping displaying file sizes, replica paths, and modification dates.
+- Staged review drawer allowing operators to inspect, select, and batch-apply (`keep-local`, `keep-remote`, `keep-both`, `newest`, `oldest`) with token confirmation.
 
 ## ⚡ Operational Visibility & Fleet Management
 Monitor synchronization activity and workload health in real time:
