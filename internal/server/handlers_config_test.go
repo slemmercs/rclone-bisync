@@ -272,4 +272,3 @@ DEBUG_MODE=false
 		t.Errorf("expected MCP_READ_ONLY=true, got %q", parsed["MCP_READ_ONLY"])
 	}
 }
-

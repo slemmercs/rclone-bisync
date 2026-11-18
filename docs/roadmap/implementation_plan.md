@@ -325,3 +325,39 @@ Provide real-time visualization and administrative governance over the centraliz
 - Quality gates: `./scripts/check.sh all`.
 - E2E smoke tests: Headless Chrome SPA navigation and modal verification.
 
+
+---
+
+# Implementation Plan: Distinct Separation of Bisync Hub Flags vs Rclone Core Engine Flags (Task 31)
+
+## Proposed Changes
+
+Eliminate user confusion regarding flag types by creating an unambiguous structural, taxonomic, and visual distinction between **Bisync Hub Flags**, **Rclone Core Engine Flags**, and **Custom User Flags**.
+
+### Affected Components & Packages
+
+- `dashboard/frontend/src/data/flags-catalog.ts`: Add `FlagDomain = 'bisync' | 'rclone' | 'custom'`, attach `domain` to `FlagCatalogItem`, classify all standard flags, and export `getFlagDomain` and `getFlagDetails`.
+- `dashboard/frontend/src/components/FlagsBuilder.vue`:
+  - Visual category badges per row: Blue (`Bisync Hub`), Violet (`Rclone Core`), Amber (`Custom`), and Gold (`Global`).
+  - Segmented domain filter buttons (All, Bisync Hub, Rclone Core, Custom) with active counts.
+  - Standardized `<optgroup>` groupings in flag dropdowns: `<optgroup label="Bisync Hub Flags">`, `<optgroup label="Rclone Core Engine Flags">`, and `<optgroup label="Custom Flag">`.
+  - Smart "Add Flag" actions allowing adding Bisync, Rclone, or Custom flags directly.
+  - Clear descriptive labels and empty states distinguishing standard bisync synchronization options from core rclone performance flags.
+- `dashboard/frontend/src/components/ModalGlobalSettings.vue`: Clarify Fleet Flags tab descriptions and badge guidance.
+
+### Technical Strategy & Data Flow
+
+- Explicit Taxonomy:
+  - `bisync`: `--track-renames`, `--track-renames-strategy`, `--check-access`, `--check-first`, `--remove-empty-dirs`, `--resilient`, `--recover`, `--conflict-resolve`, `--conflict-loser`, `--checksum`, `--ignore-checksum`, `--size-only`.
+  - `rclone`: `--checkers`, `--transfers`, `--bwlimit`, `--tpslimit`, `--tpslimit-burst`, `--buffer-size`, `--retries`, `--retries-sleep`, `--low-level-retries`, `--use-json-log`, `--color`, `--fast-list`.
+- Compatibility & Resilience:
+  - Any unrecognized flag token defaults to `custom` domain.
+  - Full backward compatibility with existing profile/fleet `custom_flags` strings (space/equals serialization unchanged).
+  - Select `<option value="...">` contract preserved for all existing CLI tokens and e2e smoke tests.
+
+## Verification Plan
+
+- Frontend type checks & build: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+- Go unit test regression checks: `go test -v -count=1 ./internal/server/...`.
+- Codebase quality gates: `./scripts/check.sh frontend`.
+

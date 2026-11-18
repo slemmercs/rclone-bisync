@@ -217,12 +217,12 @@ func (s *Server) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) applyGlobalDefaultsUpdates(gd *models.GlobalDefaults, envUpdates map[string]string) error {
 	if gd.MaxDelete <= 0 || gd.MaxDelete > 100 {
-		return fmt.Errorf("Invalid max_delete percentage: must be between 1 and 100")
+		return fmt.Errorf("invalid max_delete percentage: must be between 1 and 100")
 	}
 	if gd.ConflictResolve != "" {
 		validStrategies := map[string]bool{"newer": true, "older": true, "larger": true, "smaller": true, "path1": true, "path2": true, "none": true}
 		if !validStrategies[strings.ToLower(gd.ConflictResolve)] {
-			return fmt.Errorf("Invalid conflict_resolve strategy: %s", gd.ConflictResolve)
+			return fmt.Errorf("invalid conflict_resolve strategy: %s", gd.ConflictResolve)
 		}
 		envUpdates["GLOBAL_CONFLICT_RESOLVE"] = gd.ConflictResolve
 	}
@@ -234,7 +234,7 @@ func (s *Server) applyGlobalDefaultsUpdates(gd *models.GlobalDefaults, envUpdate
 			"size,modtime,checksum": true,
 		}
 		if !validModes[strings.ToLower(gd.CompareMode)] {
-			return fmt.Errorf("Invalid compare_mode: %s", gd.CompareMode)
+			return fmt.Errorf("invalid compare_mode: %s", gd.CompareMode)
 		}
 		envUpdates["GLOBAL_COMPARE_MODE"] = gd.CompareMode
 	}

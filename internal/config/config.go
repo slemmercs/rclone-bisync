@@ -190,8 +190,8 @@ func LoadConfig(searchDirs ...string) (*Config, error) {
 	cfg := &Config{
 		EnvFilePath: envFilePath,
 		BaseDir:     baseDir,
-		LocalPath:  localPathRaw,
-		RemotePath: getEnv("REMOTE_PATH", "gdrive:"),
+		LocalPath:   localPathRaw,
+		RemotePath:  getEnv("REMOTE_PATH", "gdrive:"),
 
 		LogFile:               getEnv("LOG_FILE", filepath.Join(baseDir, "bisync.log")),
 		LockFile:              filepath.Join(baseDir, "bisync_gdrive.lock"),
