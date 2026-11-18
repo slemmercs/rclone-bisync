@@ -119,6 +119,15 @@ export const PREVIEWABLE_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.pdf',
 ])
 
+export interface BreadcrumbItem {
+  name: string
+  path: string
+  title?: string
+  isEllipsis?: boolean
+}
+
+export type ExplorerSortField = 'name' | 'type' | 'mtime' | 'size'
+
 export function isItemPreviewable(item: { Name?: string; IsDir?: boolean } | null | undefined): boolean {
   if (!item || item.IsDir) return false
   const name = (item.Name || '').toLowerCase()
