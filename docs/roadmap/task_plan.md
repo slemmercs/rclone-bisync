@@ -255,11 +255,15 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
   - **Scope**: `dashboard/frontend/src/types/models.ts`, `dashboard/frontend/src/stores/settings.ts`, `dashboard/frontend/src/components/ModalGlobalSettings.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 31: Deployed `bisync.env` Migration Utility & Script
+- [ ] Task 31: Distinct Separation of Bisync Hub Flags vs Rclone Core Engine Flags
+  - **Scope**: `dashboard/frontend/src/components/FlagsBuilder.vue`, `dashboard/frontend/src/data/flags-catalog.ts`, `dashboard/frontend/src/components/ModalGlobalSettings.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+
+- [ ] Task 32: Deployed `bisync.env` Migration Utility & Script
   - **Scope**: `internal/config/env_migrator.go`, `internal/config/env_migrator_test.go`, `scripts/migrate-env.sh`
   - **Verification**: `go test -v -count=1 -race ./internal/config/... -run TestMigrateEnv`
 
-- [ ] Task 32: Full Pre-Flight Verification & E2E Validation
+- [ ] Task 33: Full Pre-Flight Verification & E2E Validation
   - **Scope**: Full repository quality checks and E2E validation
   - **Verification**: `./scripts/check.sh all`
 
