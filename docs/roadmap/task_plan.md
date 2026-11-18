@@ -267,6 +267,22 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
   - **Scope**: Full repository quality checks and E2E validation
   - **Verification**: `./scripts/check.sh all`
 
+- [x] Task 34: Global Fleet Settings UI/UX Redesign (Sidebar Navigation & Card/Row Canvas)
+  - **Scope**: `dashboard/frontend/src/components/ModalGlobalSettings.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+
+- [ ] Task 35: System Health Diagnostics & Status Evaluation Fix
+  - **Scope**: `dashboard/frontend/src/stores/telemetry.ts`, `dashboard/frontend/src/components/ModalSystemHealth.vue`, `scripts/run-sandbox.sh`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
+
+- [ ] Task 36: Unified Ledger Slog Noise Suppression & JSON Filter Fix
+  - **Scope**: `internal/services/filetail.go`, `internal/services/filetail_test.go`, `dashboard/frontend/src/views/ViewTelemetryLedger.vue`
+  - **Verification**: `go test -v -count=1 ./internal/services/... -run TestTailJSONLogPaginatedFiltered`
+
+- [ ] Task 37: Full Pre-Flight Verification & E2E Validation
+  - **Scope**: Full repository quality gates and E2E validation
+  - **Verification**: `./scripts/check.sh all`
+
 ## Status Updates
 
 - 2026-11-17: Initialized task plan for bisync.env bidirectional synchronization and configuration audit from implementation_plan.md.
@@ -280,4 +296,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
 - 2026-11-18: Completed Task 32 - Deployed `bisync.env` Migration Utility & Script. Implemented non-destructive upgrade engine in `internal/config/env_migrator.go` and comprehensive unit test suite in `internal/config/env_migrator_test.go`; added `migrate-env` CLI command to `main.go` and operator shell script `scripts/migrate-env.sh`; cleaned duplicate keys from `config/bisync.env.example`. Tested dry-run detection, timestamped backups (`.bak.<timestamp>`), comment block preservation, and fresh file initialization. Verified with `go test -v -count=1 -race ./internal/config/... -run TestMigrateEnv` and all quality gates (`fmt`, `lint`, `templates`, `loc`, `test`, `build`).
 
 - 2026-11-18: Completed Task 33 - Full Pre-Flight Verification & E2E Validation. Executed `./scripts/check.sh all` across all 7 verification stages (Go formatting & shell check, static analysis & gosec security audit, template scanning, architecture LOC inspection, race detector unit tests, statement coverage targets, and self-contained static binary compilation); executed full E2E headless Chrome smoke test suite (`TestCockpitSPA_HeadlessChromeSmoke`, `TestDashboard_HeadlessChromeSmoke`, `TestDashboard_HelpDrawerAndGuidance`, and `TestDashboard_SandboxUIJourney`). All 4 suites and 42 subtests passed with zero errors or regressions.
+
+
+- 2026-11-18: Completed Task 34 - Global Fleet Settings UI/UX Redesign. Refactored `ModalGlobalSettings.vue` into a modern split-pane architecture (`max-w-[980px]`) featuring a 220px left vertical navigation rail and an airy card-row settings canvas. Grouped settings logically into semantic cards with full-width rows, informative subtitles, and explicit parameter hints. Renamed tab nomenclature to "Telemetry & Features", aligned toggle switches, and preserved the clean Fleet Flags `FlagsBuilder` integration. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `go test -v -count=1 ./internal/server/... -run TestConfig`.
 
