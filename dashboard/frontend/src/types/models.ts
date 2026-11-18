@@ -8,7 +8,6 @@ export type RemoteAuthStatus =
   | 'authorization_required'
   | 'configuration_required'
   | 'error'
-  | (string & {})
 
 export type ConflictResolutionMode =
   | 'newer'
@@ -17,28 +16,24 @@ export type ConflictResolutionMode =
   | 'smaller'
   | 'path1'
   | 'path2'
-  | (string & {})
 
 export type CompareMode =
   | 'size,modtime'
   | 'size,modtime,checksum'
   | 'checksum'
   | 'modtime'
-  | (string & {})
 
 export type NotificationPreference =
   | 'all'
   | 'failures-only'
   | 'review-required'
   | 'disabled'
-  | (string & {})
 
 export type AuditActor =
   | 'USER'
   | 'DAEMON'
   | 'MCP'
   | 'SYSTEM'
-  | (string & {})
 
 export interface ProfileSafety {
   delete_threshold_pct?: number
@@ -53,7 +48,6 @@ export interface ActionResponse {
   msg?: string
   error?: string
   error_type?: string
-  [key: string]: any
 }
 
 export interface ProfileFlags {
@@ -65,8 +59,7 @@ export interface ProfileFlags {
   create_empty_dirs?: boolean
   filters_file_path?: string
   custom_flags?: string
-  provider_options?: Record<string, any>
-  [key: string]: any
+  provider_options?: Record<string, string | boolean | number>
 }
 
 export interface Profile {
@@ -80,7 +73,7 @@ export interface Profile {
   local_path: string
   schedule: string
   review_mode: string
-  notification_pref?: NotificationPreference | Record<string, any>
+  notification_pref?: NotificationPreference
   safety?: ProfileSafety
   flags?: ProfileFlags
   exclude_patterns?: string[]
@@ -344,12 +337,19 @@ export interface AuditResetResponse {
   error?: string
 }
 
-export interface AuditLogRecord extends AuditRecord {
+export interface AuditLogRecord {
   time: string
   level: string
   type: string
   msg: string
   object?: string
+  seq_id: number
+  profile_id: string
+  action: string
+  actor: AuditActor | string
+  hash: string
+  prev_hash: string
+  details?: Record<string, any>
 }
 
 export interface DaemonLogsResponse {
