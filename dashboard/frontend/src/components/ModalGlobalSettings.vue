@@ -165,7 +165,7 @@
         <div class="mt-1 text-slate-500 italic">Note: Profile-specific operational flags (e.g. rename tracking, checksums) and cloud provider options are configured within individual sync profiles.</div>
       </div>
 
-      <FlagsBuilder v-model="formDefaults.custom_flags" scopeFilter="engine" remoteType="all" />
+      <FlagsBuilder v-model="formDefaults.custom_flags" scopeFilter="all" remoteType="all" />
     </div>
 
     <!-- TAB 3: ENGINE & POLLING -->

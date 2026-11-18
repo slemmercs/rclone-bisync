@@ -25,8 +25,15 @@ export const RCLONE_FLAGS_CATALOG: FlagCatalogItem[] = [
   { flag: '--size-only', label: '--size-only', desc: 'Skip based on size only (not modtime or checksum)', isBool: true, scope: 'profile', backends: ['all'] },
   { flag: '--resilient', label: '--resilient', desc: 'Allow bisync to continue on non-fatal errors', isBool: true, scope: 'profile', backends: ['all'] },
   { flag: '--recover', label: '--recover', desc: 'Automatically recover from state inconsistencies', isBool: true, scope: 'profile', backends: ['all'] },
+  { flag: '--remove-empty-dirs', label: '--remove-empty-dirs', desc: 'Purge empty directories on path1 and path2 after sync', isBool: true, scope: 'profile', backends: ['all'] },
+  { flag: '--conflict-resolve', label: '--conflict-resolve', desc: 'Conflict resolution strategy (newer, older, larger, smaller, path1, path2)', isBool: false, scope: 'profile', placeholder: 'newer', backends: ['all'] },
+  { flag: '--conflict-loser', label: '--conflict-loser', desc: 'Action for conflicting file on the losing side (num, pathname, delete)', isBool: false, scope: 'profile', placeholder: 'num', backends: ['all'] },
 
-  // Daemon/Engine-scoped concurrency and rate limits
+  // Daemon/Engine-scoped concurrency, output and network tuning
+  { flag: '--use-json-log', label: '--use-json-log', desc: 'Output logs in structured JSON format', isBool: true, scope: 'engine', backends: ['all'] },
+  { flag: '--color', label: '--color', desc: 'Terminal color output control (NEVER, ALWAYS, AUTO)', isBool: false, scope: 'engine', placeholder: 'NEVER', backends: ['all'] },
+  { flag: '--check-access', label: '--check-access', desc: 'Verify root directory accessibility before syncing', isBool: true, scope: 'engine', backends: ['all'] },
+  { flag: '--check-first', label: '--check-first', desc: 'Run all checks before starting transfers', isBool: true, scope: 'engine', backends: ['all'] },
   { flag: '--checkers', label: '--checkers', desc: 'Number of checkers to run in parallel (Process-Global in Rclone RC)', isBool: false, scope: 'engine', isProcessGlobal: true, placeholder: '8', backends: ['all'] },
   { flag: '--transfers', label: '--transfers', desc: 'Number of file transfers to run in parallel', isBool: false, scope: 'engine', placeholder: '4', backends: ['all'] },
   { flag: '--bwlimit', label: '--bwlimit', desc: 'Bandwidth limit (e.g. 10M, 500k, 10M:off)', isBool: false, scope: 'engine', placeholder: '10M', backends: ['all'] },

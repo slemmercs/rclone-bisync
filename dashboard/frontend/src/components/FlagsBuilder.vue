@@ -85,6 +85,11 @@ function isProcessGlobal(flagName: string): boolean {
   return !!item?.isProcessGlobal
 }
 
+function getFlagLabel(flagName: string): string {
+  const item = RCLONE_FLAGS_CATALOG.find((c) => c.flag === flagName)
+  return item?.label || flagName
+}
+
 function addRow() {
   const target = availableCatalog.value[0]?.flag || (props.scopeFilter === 'engine' ? '--checkers' : '--track-renames')
   const cat = RCLONE_FLAGS_CATALOG.find((c) => c.flag === target)
@@ -123,7 +128,7 @@ watch(() => props.modelValue, (newVal) => {
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
         <label class="text-xs font-semibold text-slate-200">
-          {{ scopeFilter === 'engine' ? 'Daemon Engine & Concurrency Defaults' : 'Guided Bisync Flags Builder' }}
+          {{ scopeFilter === 'engine' ? 'Daemon Engine & Concurrency Defaults' : (scopeFilter === 'all' ? 'Global Fleet Flags & Concurrency' : 'Guided Bisync Flags Builder') }}
         </label>
         <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-carbon-elevated text-slate-400 border border-carbon-border">
           {{ rows.length }} active
@@ -151,6 +156,7 @@ watch(() => props.modelValue, (newVal) => {
             <template v-else>
               <option v-for="c in availableCatalog" :key="c.flag" :value="c.flag">{{ c.label }}</option>
             </template>
+            <option v-if="!row.isCustom && !availableCatalog.some(c => c.flag === row.flag)" :value="row.flag">{{ getFlagLabel(row.flag) }}</option>
             <option value="custom">Custom flag (--...)</option>
           </select>
           <span v-if="isProcessGlobal(row.flag)" class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono shrink-0 hidden sm:inline" title="Process-global in Rclone RC. Dynamically applied and queued cleanly.">
