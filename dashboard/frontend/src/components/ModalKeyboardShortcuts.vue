@@ -20,6 +20,7 @@ const groups: ShortcutGroup[] = [
     name: 'Operator & Polling Controls',
     shortcuts: [
       { key: 'Alt + P', label: 'Toggle Polling', description: 'Pause or resume background telemetry and scheduled checks' },
+      { key: 'Alt + R', label: 'Conflict Review', description: 'Open the sync conflict and circuit breaker review modal' },
       { key: 'C or Ctrl+K', label: 'Create Menu', description: 'Open the quick action create menu dropdown' },
       { key: 'Esc', label: 'Dismiss Overlays', description: 'Close any active modal dialog, drawer, or quick menu' },
     ],

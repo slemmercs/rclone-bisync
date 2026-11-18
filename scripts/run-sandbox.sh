@@ -116,8 +116,12 @@ mkdir -p "$REPO_ROOT/bin"
 mkdir -p "$SANDBOX_DIR/local/subfolder"
 mkdir -p "$SANDBOX_DIR/local/projects/deep/level"
 mkdir -p "$SANDBOX_DIR/local/documents"
+mkdir -p "$SANDBOX_DIR/local/archive"
 mkdir -p "$SANDBOX_DIR/remote_storage/backup_docs"
 mkdir -p "$SANDBOX_DIR/remote_storage/duplicates"
+mkdir -p "$SANDBOX_DIR/remote_storage/subfolder"
+mkdir -p "$SANDBOX_DIR/remote_storage/projects/deep/level"
+mkdir -p "$SANDBOX_DIR/remote_storage/archive"
 mkdir -p "$SANDBOX_DIR/backup_storage/archive"
 mkdir -p "$SANDBOX_DIR/archive_storage/year2025"
 mkdir -p "$SANDBOX_DIR/review_sessions"
@@ -151,6 +155,21 @@ printf "DEDUPLICATION_CRYPTOGRAPHIC_HASH_EXACT_MATCH_2026\n" > "$SANDBOX_DIR/rem
 printf "Remote version of conflict file with differing size.\nModified remotely at %s\nAdditional remote metadata line.\n" "$(date -u)" > "$SANDBOX_DIR/remote_storage/conflict_candidate.txt"
 touch "$SANDBOX_DIR/remote_storage/RCLONE_TEST"
 
+# Duplicate files for dedupe testing (cross-folder hash collisions)
+printf "Quarterly Report duplicate test data\n" > "$SANDBOX_DIR/remote_storage/duplicates/report_copy.txt"
+printf "Quarterly Report duplicate test data\n" > "$SANDBOX_DIR/remote_storage/backup_docs/report_archive.txt"
+printf "DEDUPLICATION_CRYPTOGRAPHIC_HASH_EXACT_MATCH_2026\n" > "$SANDBOX_DIR/remote_storage/backup_docs/hash_match_copy.bin"
+printf "DEDUPLICATION_CRYPTOGRAPHIC_HASH_EXACT_MATCH_2026\n" > "$SANDBOX_DIR/remote_storage/hash_match_root.bin"
+printf "DEDUPLICATION_CRYPTOGRAPHIC_HASH_EXACT_MATCH_2026\n" > "$SANDBOX_DIR/local/documents/hash_match_doc.bin"
+echo "Local notes for testing parallel instance" > "$SANDBOX_DIR/local/subfolder/sample_notes_copy.txt"
+
+# Conflict & deletion physical test fixtures
+printf "# Remote Engineering Specifications\n\n- Dual Explorer V2 with Heuristics\n- Chained Cryptographic Ledger\n- Realtime FSM Engine\n- Conflict Resolution Workflow\n" > "$SANDBOX_DIR/remote_storage/projects/deep/level/specs.md"
+printf "lock_pid_9821\n" > "$SANDBOX_DIR/local/subfolder/.document.lock"
+printf "lock_pid_9821\n" > "$SANDBOX_DIR/remote_storage/subfolder/.document.lock"
+printf "PDF_BINARY_LEGACY_SPECIFICATIONS_2024\n" > "$SANDBOX_DIR/local/documents/legacy_specs_2024.pdf"
+printf "OBSOLETE_METRICS_DATA_CSV_HEADER,VAL\n" > "$SANDBOX_DIR/remote_storage/archive/obsolete_metrics.csv"
+
 # Backup storage seed
 printf '{"snapshot_id": "snap-9921", "policy": "daily-archive", "total_bytes": 1048576}\n' > "$SANDBOX_DIR/backup_storage/manifest.json"
 printf "MOCK_TAR_GZ_BINARY_PAYLOAD_ARCHIVE\n" > "$SANDBOX_DIR/backup_storage/archive/snapshot_2026.tar.gz"
@@ -160,7 +179,80 @@ touch "$SANDBOX_DIR/backup_storage/RCLONE_TEST"
 printf "tx_id,amount,currency,status\nTX101,450.00,USD,cleared\nTX102,1250.50,EUR,cleared\n" > "$SANDBOX_DIR/archive_storage/year2025/q4_ledger.csv"
 printf '{"fiscal_year": 2025, "audited": true}\n' > "$SANDBOX_DIR/archive_storage/year2025/tax_summary.json"
 touch "$SANDBOX_DIR/archive_storage/RCLONE_TEST"
-touch "$SANDBOX_DIR/archive_storage/RCLONE_TEST"
+
+# 4b. Seed interactive conflict review session
+cat <<EOF > "$SANDBOX_DIR/active_review_session.json"
+{
+  "id": "rev-sandbox-2026",
+  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "updated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "status": "REVIEWING",
+  "origin_error": "Path1 and Path2 have divergent modifications and excessive deletions",
+  "message": "Interactive sync review required: 3 conflict candidates and 2 deletion candidates detected",
+  "deletions": [
+    {
+      "id": "del-cand-1",
+      "path": "documents/legacy_specs_2024.pdf",
+      "name": "legacy_specs_2024.pdf",
+      "is_dir": false,
+      "source": "remote",
+      "target_action": "delete-local",
+      "size": 158290,
+      "mod_time": "2026-10-12T14:30:00Z",
+      "condition": "TOO_MANY_DELETES",
+      "resolved": false
+    },
+    {
+      "id": "del-cand-2",
+      "path": "archive/obsolete_metrics.csv",
+      "name": "obsolete_metrics.csv",
+      "is_dir": false,
+      "source": "local",
+      "target_action": "delete-remote",
+      "size": 42100,
+      "mod_time": "2026-09-01T08:15:00Z",
+      "condition": "TOO_MANY_DELETES",
+      "resolved": false
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "conf-cand-1",
+      "path": "conflict_candidate.txt",
+      "name": "conflict_candidate.txt",
+      "local_size": 75,
+      "local_mod_time": "2026-11-18T17:55:00Z",
+      "remote_size": 115,
+      "remote_mod_time": "2026-11-18T17:40:00Z",
+      "condition": "CONFLICT",
+      "resolved": false
+    },
+    {
+      "id": "conf-cand-2",
+      "path": "projects/deep/level/specs.md",
+      "name": "specs.md",
+      "local_size": 89,
+      "local_mod_time": "2026-11-18T17:00:00Z",
+      "remote_size": 142,
+      "remote_mod_time": "2026-11-18T17:50:00Z",
+      "condition": "CONFLICT",
+      "resolved": false
+    },
+    {
+      "id": "conf-cand-3",
+      "path": "subfolder/.document.lock",
+      "name": ".document.lock",
+      "local_size": 14,
+      "local_mod_time": "2026-11-18T18:00:00Z",
+      "remote_size": 14,
+      "remote_mod_time": "2026-11-18T17:59:00Z",
+      "condition": "CONFLICT",
+      "resolved": false
+    }
+  ],
+  "actions": []
+}
+EOF
 
 # 5. Generate isolated rclone config with 3 alias remotes
 cat <<EOF > "$SANDBOX_DIR/rclone.conf"
@@ -336,6 +428,8 @@ if [[ "$DRY_RUN" == "true" ]]; then
     echo "  - Remotes seeded in rclone.conf: testremote, backup_remote, archive_remote"
     echo "  - Profiles seeded in profiles.json: prof_sandbox, prof_backup, prof_archive"
     echo "  - Rollback snapshots seeded in profiles_history.json: prof_sandbox (v1)"
+    echo "  - Review session seeded: rev-sandbox-2026 (3 conflicts, 2 deletions)"
+    echo "  - Dedupe duplicates seeded: report.txt, hash_match_file.bin"
     echo "  - Cryptographic audit chain: 5 blocks verified in audit.db"
     echo "=================================================================="
     exit 0
@@ -409,6 +503,7 @@ fi
 echo ""
 echo "=================================================================="
 echo "🎉 Sandbox Running in Isolation!"
+echo "   Cockpit SPA:   http://127.0.0.1:$DASHBOARD_PORT/cockpit"
 echo "   Dashboard:     http://127.0.0.1:$DASHBOARD_PORT"
 if [[ "$DEV_MODE" == "true" ]]; then
 echo "   Vite Dev HMR:  http://127.0.0.1:$VITE_PORT"
@@ -418,6 +513,14 @@ echo "   RC Daemon:     http://127.0.0.1:$RC_PORT"
 echo "   Storage Root:  $SANDBOX_DIR"
 echo "   Remotes:       testremote:, backup_remote:, archive_remote:"
 echo "   Profiles:      prof_sandbox, prof_backup, prof_archive"
+echo ""
+echo "🎯 Interactive Testing:"
+echo "   1. Sync Review Modal:"
+echo "      - Click 'Review Required' in the top header or press [Alt+R]"
+echo "      - Inspect conflict & deletion candidates, evaluate heuristic recommendations"
+echo "   2. Dedupe Workspace Modal:"
+echo "      - Navigate to Remotes tab, click 'Dedupe' on 'testremote:'"
+echo "      - Select 'Match by Hash' and click 'Scan for Duplicates (Dry Run)'"
 echo ""
 echo "Press [Ctrl+C] to stop and completely destroy the sandbox."
 echo "=================================================================="

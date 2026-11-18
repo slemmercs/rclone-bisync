@@ -8,6 +8,7 @@ import { useToastNotification } from './useToastNotification'
 export interface KeyboardShortcutHandlers {
   onOpenProfiles?: () => void
   onOpenRemoteWizard?: () => void
+  onOpenReview?: () => void
 }
 
 export function useKeyboardShortcuts(handlers?: KeyboardShortcutHandlers) {
@@ -31,6 +32,13 @@ export function useKeyboardShortcuts(handlers?: KeyboardShortcutHandlers) {
       } else {
         toast.success('Telemetry Polling Resumed', 'Live telemetry and scheduler active.')
       }
+      return
+    }
+
+    // Alt + R: Open Conflict Review
+    if (e.altKey && (e.key === 'r' || e.key === 'R')) {
+      e.preventDefault()
+      handlers?.onOpenReview?.()
       return
     }
 

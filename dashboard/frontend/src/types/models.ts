@@ -276,7 +276,8 @@ export interface RuleResult {
 export interface ConflictRecommendation {
   suggested_action: ActionDecision
   confidence: number
-  risk_tier: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  risk_tier?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
   primary_reason: string
   rule_evaluations?: RuleResult[]
 }

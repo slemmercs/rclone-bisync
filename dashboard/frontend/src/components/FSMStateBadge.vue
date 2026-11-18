@@ -13,6 +13,10 @@ const props = withDefaults(
   }
 )
 
+const emit = defineEmits<{
+  (e: 'click'): void
+}>()
+
 const badgeConfig = computed(() => {
   switch (props.state) {
     case 'RUNNING':
@@ -71,9 +75,13 @@ const badgeConfig = computed(() => {
 
 <template>
   <div
-    class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-mono font-medium tracking-wide transition-all"
-    :class="badgeConfig.classes"
-    :title="reason ? `${badgeConfig.label}: ${reason}` : badgeConfig.label"
+    class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-mono font-medium tracking-wide transition-all select-none"
+    :class="[
+      badgeConfig.classes,
+      props.state === 'REVIEW_REQUIRED' ? 'cursor-pointer hover:brightness-125 active:scale-95' : ''
+    ]"
+    :title="reason ? `${badgeConfig.label}: ${reason}` : (props.state === 'REVIEW_REQUIRED' ? 'Click to open Conflict Review' : badgeConfig.label)"
+    @click="emit('click')"
   >
     <span class="relative flex h-2 w-2">
       <span v-if="props.state === 'RUNNING' || props.state === 'QUEUED'" class="absolute inline-flex h-full w-full rounded-full opacity-75" :class="badgeConfig.dot"></span>

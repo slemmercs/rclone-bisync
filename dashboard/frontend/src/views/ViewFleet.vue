@@ -5,6 +5,7 @@ import TelemetryChart from '../components/TelemetryChart.vue'
 import { useProfilesStore } from '../stores/profiles'
 import { useFSMStore } from '../stores/fsm'
 import { useTelemetryStore } from '../stores/telemetry'
+import { useReviewStore } from '../stores/review'
 import { formatDate } from '../composables/useFormatters'
 import { useToastNotification } from '../composables/useToastNotification'
 import type { Profile } from '../types/models'
@@ -13,6 +14,7 @@ import type { SyncFSMState } from '../types/fsm'
 const profilesStore = useProfilesStore()
 const fsmStore = useFSMStore()
 const telemetryStore = useTelemetryStore()
+const reviewStore = useReviewStore()
 const toast = useToastNotification()
 
 const profiles = computed(() => profilesStore.profiles)
@@ -146,7 +148,10 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
               </div>
               <span class="text-[11px] font-mono text-carbon-500">{{ profile.id }}</span>
             </div>
-            <FSMStateBadge :state="getProfileState(profile)" />
+            <FSMStateBadge
+              :state="getProfileState(profile)"
+              @click="getProfileState(profile) === 'REVIEW_REQUIRED' && reviewStore.openModal()"
+            />
           </div>
 
           <div class="bg-carbon-950/70 rounded-md p-2.5 border border-carbon-800 space-y-1.5 text-xs">

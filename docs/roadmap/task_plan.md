@@ -13,7 +13,7 @@ Complete the 4 UX and functional parity gaps between the legacy Alpine templates
   - **Scope**: `dashboard/frontend/src/views/ViewFleet.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 3: Conflict Review Modal Heuristic Recommendation Badges & Auto-Apply
+- [x] Task 3: Conflict Review Modal Heuristic Recommendation Badges & Auto-Apply
   - **Scope**: `dashboard/frontend/src/components/ConflictReviewModal.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
@@ -33,3 +33,4 @@ Complete the 4 UX and functional parity gaps between the legacy Alpine templates
 
 - 2026-11-18: Initialized plan from implementation_plan.md.
 - 2026-11-18: Completed Task 1 - Extended models.ts with ConflictRecommendation, RuleResult, BatchReviewActionRequest/Response, extended DeletionCandidate and ConflictCandidate, added ExplorerDragPayload to explorer.ts, and added applyBatchRecommendations & rollbackSession to stores/review.ts. Verified via vue-tsc type-check and vite build.
+- 2026-11-18: Completed Task 3 - Enhanced ConflictReviewModal.vue with heuristic recommendation badges (confidence score, suggested action chip, risk tier), primary reason explanation, and Auto-Apply Recommendations button. Removed confirmation token requirement and added clear two-step confirmation for execution. Made REVIEW REQUIRED badge clickable in AppHeader, FSMStateBadge, and ViewFleet. Added Alt+R keyboard shortcut.

@@ -26,11 +26,13 @@ import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
 import { useDedupeStore } from './stores/dedupe'
 import { useQueueStore } from './stores/queue'
+import { useReviewStore } from './stores/review'
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 
 
 const appStore = useAppStore()
 const dedupeStore = useDedupeStore()
+const reviewStore = useReviewStore()
 const activeTab = computed({
   get: () => appStore.activeTab,
   set: (val: string) => appStore.switchTab(val)
@@ -47,6 +49,9 @@ useKeyboardShortcuts({
   },
   onOpenRemoteWizard: () => {
     dedupeStore.openWizard()
+  },
+  onOpenReview: () => {
+    reviewStore.openModal()
   },
 })
 
@@ -119,7 +124,10 @@ onUnmounted(() => {
     <LogDock />
 
     <!-- Interactive Modals -->
-    <ConflictReviewModal v-model:visible="showReviewModal" />
+    <ConflictReviewModal
+      :visible="showReviewModal || reviewStore.modalOpen"
+      @update:visible="(val) => { showReviewModal = val; reviewStore.modalOpen = val }"
+    />
     <ProfileManagerModal
       v-model:visible="showProfilesModal"
       @open-remote-wizard="showProfilesModal = false; dedupeStore.openWizard()"

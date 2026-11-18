@@ -221,7 +221,11 @@ async function handleRunSync() {
       </div>
 
       <!-- FSM State Badge -->
-      <FSMStateBadge :state="fsmStore.currentState" :reason="fsmStore.currentStatus.last_transition?.reason" />
+      <FSMStateBadge
+        :state="fsmStore.currentState"
+        :reason="fsmStore.currentStatus.last_transition?.reason"
+        @click="fsmStore.currentState === 'REVIEW_REQUIRED' && emit('openReview')"
+      />
 
       <!-- Log Dock Toggle Button -->
       <button
@@ -376,10 +380,11 @@ async function handleRunSync() {
       <button
         v-if="telemetryStore.hasReview || fsmStore.pendingReview"
         @click="emit('openReview')"
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-950 border border-amber-600 text-amber-300 text-xs font-semibold hover:bg-amber-900 transition-colors animate-pulse"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-950 border border-amber-600 text-amber-300 text-xs font-semibold hover:bg-amber-900 transition-colors animate-pulse cursor-pointer"
+        title="Open Conflict & Circuit Breaker Review Modal"
       >
         <i class="pi pi-exclamation-triangle"></i>
-        <span>Resolve Conflicts</span>
+        <span>Review Required</span>
       </button>
 
       <!-- Pending Deletions Safety Trigger -->

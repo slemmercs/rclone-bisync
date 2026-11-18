@@ -5,6 +5,7 @@ import type { ReviewSession, ActionDecision, BatchReviewActionResponse } from '.
 import { useFSMStore } from './fsm'
 
 export const useReviewStore = defineStore('review', () => {
+  const modalOpen = ref<boolean>(false)
   const session = ref<ReviewSession | null>(null)
   const loading = ref<boolean>(false)
   const applying = ref<boolean>(false)
@@ -140,7 +141,16 @@ export const useReviewStore = defineStore('review', () => {
     }
   }
 
+  function openModal() {
+    modalOpen.value = true
+  }
+
+  function closeModal() {
+    modalOpen.value = false
+  }
+
   return {
+    modalOpen,
     session,
     loading,
     applying,
@@ -149,6 +159,8 @@ export const useReviewStore = defineStore('review', () => {
     pendingDeletionsCount,
     pendingConflictsCount,
     allResolved,
+    openModal,
+    closeModal,
     fetchActiveReview,
     stageDecision,
     applyDecisions,
