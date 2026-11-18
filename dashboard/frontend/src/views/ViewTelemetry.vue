@@ -40,6 +40,16 @@
           <i class="pi pi-terminal text-xs"></i>
           <span>Daemon Logs</span>
         </button>
+
+        <button
+          v-if="telemetryStore.hasPendingDeletions"
+          @click="telemetryStore.openDeletionsModal()"
+          class="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-xl hover:bg-rose-500/30 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer animate-pulse"
+          title="Inspect and authorize pending mass deletions"
+        >
+          <i class="pi pi-shield text-xs"></i>
+          <span>Pending Deletions ({{ telemetryStore.pendingDeletions?.total_count || 0 }})</span>
+        </button>
       </div>
     </div>
 

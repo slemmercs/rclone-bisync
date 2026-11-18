@@ -274,6 +274,17 @@ async function handleRunSync() {
         <span>Resolve Conflicts</span>
       </button>
 
+      <!-- Pending Deletions Safety Trigger -->
+      <button
+        v-if="telemetryStore.hasPendingDeletions"
+        @click="telemetryStore.openDeletionsModal()"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-950 border border-rose-600 text-rose-300 text-xs font-semibold hover:bg-rose-900 transition-colors animate-pulse"
+        title="Inspect and authorize pending mass deletions"
+      >
+        <i class="pi pi-shield"></i>
+        <span>Review Deletions ({{ telemetryStore.pendingDeletions?.total_count || 0 }})</span>
+      </button>
+
       <!-- Sync Action Button -->
       <button
         @click="handleRunSync"

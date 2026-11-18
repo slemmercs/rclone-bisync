@@ -13,7 +13,7 @@ Achieve 100% functional, operational, and visual parity between legacy Alpine.js
   - **Scope**: `dashboard/frontend/src/types/models.ts`, `dashboard/frontend/src/stores/bandwidth.ts`, `dashboard/frontend/src/components/BandwidthPopover.vue`, `dashboard/frontend/src/components/settings/SettingsBandwidthTab.vue`, `dashboard/frontend/src/components/AppHeader.vue`, `dashboard/frontend/src/components/ModalGlobalSettings.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
-- [ ] Task 3: Pending Deletions Safety Review Modal
+- [x] Task 3: Pending Deletions Safety Review Modal
   - **Scope**: `dashboard/frontend/src/types/models.ts`, `dashboard/frontend/src/components/ModalPendingDeletions.vue`, `dashboard/frontend/src/stores/telemetry.ts`, `dashboard/frontend/src/components/AppHeader.vue`, `dashboard/frontend/src/App.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
@@ -42,3 +42,4 @@ Achieve 100% functional, operational, and visual parity between legacy Alpine.js
 - 2026-11-18: Initialized plan from implementation_plan.md.
 - 2026-11-18: Completed Task 1 - Registered PrimeVue ToastService in main.ts, mounted Toast in App.vue, created useFormatters, useClipboard, useToastNotification composables, and integrated into ViewFleet, ViewTelemetryLedger, ModalDedupe, and LogDock.
 - 2026-11-18: Completed Task 2 - Implemented Bandwidth models & Pinia store, BandwidthPopover header trigger with presets and live stats, SettingsBandwidthTab in ModalGlobalSettings, and full test/LOC verification.
+- 2026-11-18: Completed Task 3 - Implemented ModalPendingDeletions, pending deletions polling in useTelemetryStore, wired header & telemetry launch buttons, aligned TypeScript schema with Go backend, and resolved missing X-Dashboard-Request CSRF header on bandwidth mutations.

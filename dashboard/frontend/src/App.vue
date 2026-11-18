@@ -16,6 +16,7 @@ import ModalGlobalSettings from './components/ModalGlobalSettings.vue'
 import ModalMcp from './components/ModalMcp.vue'
 import ModalRemoteWizard from './components/ModalRemoteWizard.vue'
 import ModalQueueManager from './components/ModalQueueManager.vue'
+import ModalPendingDeletions from './components/ModalPendingDeletions.vue'
 import Toast from 'primevue/toast'
 
 
@@ -115,6 +116,7 @@ onUnmounted(() => {
     <ModalMcp />
     <ModalRemoteWizard />
     <ModalQueueManager />
+    <ModalPendingDeletions />
     <Toast position="bottom-right" />
 
 

@@ -2,6 +2,73 @@
  * API Contract Models mirroring internal/models/ and internal/profiles/.
  */
 
+export type RemoteAuthStatus =
+  | 'connected'
+  | 'migration_required'
+  | 'authorization_required'
+  | 'configuration_required'
+  | 'error'
+  | (string & {})
+
+export type ConflictResolutionMode =
+  | 'newer'
+  | 'older'
+  | 'larger'
+  | 'smaller'
+  | 'path1'
+  | 'path2'
+  | (string & {})
+
+export type CompareMode =
+  | 'size,modtime'
+  | 'size,modtime,checksum'
+  | 'checksum'
+  | 'modtime'
+  | (string & {})
+
+export type NotificationPreference =
+  | 'all'
+  | 'failures-only'
+  | 'review-required'
+  | 'disabled'
+  | (string & {})
+
+export type AuditActor =
+  | 'USER'
+  | 'DAEMON'
+  | 'MCP'
+  | 'SYSTEM'
+  | (string & {})
+
+export interface ProfileSafety {
+  delete_threshold_pct?: number
+  failure_threshold?: number
+  canary_validation?: boolean
+  max_delete_percent?: number
+  canary_protection?: boolean
+}
+
+export interface ActionResponse {
+  status: string
+  msg?: string
+  error?: string
+  error_type?: string
+  [key: string]: any
+}
+
+export interface ProfileFlags {
+  conflict_resolve?: ConflictResolutionMode
+  max_delete?: string | number
+  canary_validation?: boolean
+  compare_mode?: CompareMode
+  remove_empty_dirs?: boolean
+  create_empty_dirs?: boolean
+  filters_file_path?: string
+  custom_flags?: string
+  provider_options?: Record<string, any>
+  [key: string]: any
+}
+
 export interface Profile {
   id: string
   name: string
@@ -13,12 +80,9 @@ export interface Profile {
   local_path: string
   schedule: string
   review_mode: string
-  notification_pref?: Record<string, any>
-  safety?: {
-    max_delete_percent?: number
-    canary_protection?: boolean
-  }
-  flags?: Record<string, any>
+  notification_pref?: NotificationPreference | Record<string, any>
+  safety?: ProfileSafety
+  flags?: ProfileFlags
   exclude_patterns?: string[]
   tags?: string[]
   version: number
@@ -43,10 +107,28 @@ export interface ProfileVersion {
   snapshot: Profile
 }
 
+export interface RemoteEntry {
+  name: string
+  fs: string
+  type: string
+  type_label?: string
+  is_active_target?: boolean
+  about?: {
+    total?: number
+    used?: number
+    free?: number
+    trashed?: number
+    other?: number
+    [key: string]: any
+  }
+  can_public_link?: boolean
+  [key: string]: any
+}
+
 export interface RemotesResponse {
-  remotes: Array<Record<string, any>>
+  remotes: RemoteEntry[]
   count: number
-  active_remote?: any
+  active_remote?: string | RemoteEntry | null
   summary: Record<string, any>
   error?: string
 }
@@ -56,7 +138,7 @@ export interface RemoteAuthInfo {
   type: string
   type_label: string
   is_oauth: boolean
-  status: 'connected' | 'migration_required' | 'authorization_required' | 'configuration_required' | 'error' | string
+  status: RemoteAuthStatus
   status_message: string
   client_id?: string
   has_client_secret: boolean
@@ -117,7 +199,7 @@ export interface TransferStats {
   speed_str: string
   eta?: number
   percentage: number
-  transferring: Array<Record<string, any>>
+  transferring: ActiveTransfer[]
 }
 
 export interface TelemetryPayload {
@@ -141,7 +223,7 @@ export interface TelemetryPayload {
   }>
   bisync_logs: string[]
   daemon_logs: string[]
-  config: Record<string, any>
+  config: Partial<GlobalConfigResponse> | Record<string, any>
   is_syncing: boolean
   execution_status: string
   transfer_stats: TransferStats | null
@@ -231,7 +313,7 @@ export interface AuditRecord {
   profile_id: string
   profile_name?: string
   action: string
-  actor: string
+  actor: AuditActor
   details?: Record<string, any>
   prev_hash: string
   hash: string
@@ -262,19 +344,12 @@ export interface AuditResetResponse {
   error?: string
 }
 
-export interface AuditLogRecord {
+export interface AuditLogRecord extends AuditRecord {
   time: string
   level: string
   type: string
   msg: string
   object?: string
-  seq_id: number
-  profile_id: string
-  action: string
-  actor: string
-  hash: string
-  prev_hash: string
-  details?: Record<string, any>
 }
 
 export interface DaemonLogsResponse {
@@ -328,8 +403,8 @@ export interface DiagnosticsResponse {
 export interface GlobalDefaults {
   max_delete: number
   canary_validation: boolean
-  conflict_resolve: string
-  compare_mode: string
+  conflict_resolve: ConflictResolutionMode
+  compare_mode: CompareMode
   remove_empty_dirs: boolean
   create_empty_dirs: boolean
   lock_explorer_remote: boolean
@@ -453,6 +528,22 @@ export interface BandwidthLimitResponse {
 export interface BandwidthLimitRequest {
   rate: string
 }
+
+export interface PendingDeletionsData {
+  has_deletions: boolean
+  total_count: number
+  source: string
+  target_action: string
+  message?: string
+  files: string[]
+  timestamp?: number
+}
+
+export interface PendingDeletionCandidate {
+  path: string
+  selected?: boolean
+}
+
 
 
 

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { ActiveTransfer, BandwidthLimitResponse, CoreStatsResponse } from '../types/models'
 import { formatBytes, formatSpeed } from '../composables/useFormatters'
+import { api } from '../api/client'
 
 export const useBandwidthStore = defineStore('bandwidth', () => {
   const bytesPerSecond = ref<number>(0)
@@ -27,9 +28,7 @@ export const useBandwidthStore = defineStore('bandwidth', () => {
 
   async function fetchBandwidthLimit(): Promise<BandwidthLimitResponse | null> {
     try {
-      const res = await fetch('/api/core/bwlimit')
-      if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-      const data: BandwidthLimitResponse = await res.json()
+      const data = await api.get<BandwidthLimitResponse>('/api/core/bwlimit')
       bytesPerSecond.value = data.bytes_per_second || 0
       rateFormatted.value = data.rate_formatted || (data.bytes_per_second > 0 ? formatSpeed(data.bytes_per_second) : 'off')
       currentLimit.value = rateFormatted.value
@@ -43,9 +42,7 @@ export const useBandwidthStore = defineStore('bandwidth', () => {
 
   async function fetchCoreStats(): Promise<CoreStatsResponse | null> {
     try {
-      const res = await fetch('/api/core/stats')
-      if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-      const data: CoreStatsResponse = await res.json()
+      const data = await api.get<CoreStatsResponse>('/api/core/stats')
       speed.value = data.speed || 0
       bytes.value = data.bytes || 0
       transfers.value = data.transfers || 0
@@ -64,16 +61,7 @@ export const useBandwidthStore = defineStore('bandwidth', () => {
     updating.value = true
     lastError.value = null
     try {
-      const res = await fetch('/api/core/bwlimit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rate }),
-      })
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.error || `HTTP error ${res.status}`)
-      }
-      const data: BandwidthLimitResponse = await res.json()
+      const data = await api.post<BandwidthLimitResponse>('/api/core/bwlimit', { rate })
       rateFormatted.value = data.rate_formatted || rate
       currentLimit.value = data.rate_formatted || rate
       bytesPerSecond.value = data.bytes_per_second || 0

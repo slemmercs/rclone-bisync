@@ -449,7 +449,7 @@ async function saveProfile() {
           >
             <input
               type="checkbox"
-              v-model="editingProfile.flags!.provider_options[opt.key]"
+              v-model="editingProfile.flags!.provider_options![opt.key]"
               class="rounded bg-carbon-surface border-carbon-border text-electric-blue"
             />
             <span class="text-[11px] text-slate-300 font-medium">{{ opt.label }}</span>
@@ -464,14 +464,14 @@ async function saveProfile() {
             <label class="block text-[10px] font-semibold text-slate-400 mb-1">{{ opt.label }}</label>
             <select
               v-if="opt.type === 'select'"
-              v-model="editingProfile.flags!.provider_options[opt.key]"
+              v-model="editingProfile.flags!.provider_options![opt.key]"
               class="w-full bg-carbon-bg border border-carbon-border rounded-md px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
             >
               <option v-for="c in opt.options" :key="c" :value="c">{{ c }}</option>
             </select>
             <input
               v-else
-              v-model="editingProfile.flags!.provider_options[opt.key]"
+              v-model="editingProfile.flags!.provider_options![opt.key]"
               type="text"
               :placeholder="opt.placeholder || ''"
               class="w-full bg-carbon-bg border border-carbon-border rounded-md px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
