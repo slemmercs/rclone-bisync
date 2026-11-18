@@ -44,10 +44,12 @@ func (r *SyncRunner) handleSyncSuccess(
 		actor = "USER"
 	}
 
-	// Emit SYNC_EXECUTED when actual file transfers occurred (FilesSynced > 0),
-	// or when resync was performed, or for explicit user-initiated sync runs (dashboard/cli).
-	// Routine 0-transfer daemon/background runs remain purely in bisync.log telemetry.
-	if monitorRes.FilesSynced > 0 || resync || origin == "dashboard" || origin == "cli" {
+	// Emit SYNC_EXECUTED only when actual file operations occurred:
+	// FilesSynced > 0 (or successful non-dry-run resync operations that alter trees).
+	// Dry-run executions and 0-transfer runs (regardless of dashboard or cli origin)
+	// do NOT perform file operations on disk and must not pollute the immutable audit ledger.
+	// Routine 0-transfer runs remain purely in bisync.log telemetry.
+	if !dryRun && (monitorRes.FilesSynced > 0 || resync) {
 		if rec := r.recordAuditExecuted(runID, jobID, origin, duration, monitorRes.FilesSynced, resync, force, dryRun); rec != nil {
 			seqID = rec.SeqID
 			if rec.Actor != "" {

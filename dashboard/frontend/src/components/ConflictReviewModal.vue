@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useReviewStore } from '../stores/review'
 import { useToastNotification } from '../composables/useToastNotification'
@@ -16,6 +16,15 @@ const emit = defineEmits<{
 const reviewStore = useReviewStore()
 const toast = useToastNotification()
 const confirmingExecution = ref<boolean>(false)
+
+watch(
+  () => props.visible,
+  (val) => {
+    if (val) {
+      reviewStore.fetchActiveReview()
+    }
+  }
+)
 
 onMounted(async () => {
   await reviewStore.fetchActiveReview()

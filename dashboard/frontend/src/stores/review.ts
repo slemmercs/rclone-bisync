@@ -143,10 +143,16 @@ export const useReviewStore = defineStore('review', () => {
 
   function openModal() {
     modalOpen.value = true
+    fetchActiveReview()
   }
 
   function closeModal() {
     modalOpen.value = false
+  }
+
+  if (typeof window !== 'undefined') {
+    const win = window as any
+    win.openReviewModal = openModal
   }
 
   return {

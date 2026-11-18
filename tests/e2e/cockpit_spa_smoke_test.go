@@ -13,6 +13,7 @@ import (
 
 	"github.com/chromedp/chromedp"
 	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/profiles"
 	"github.com/slemmercs/rclone-bisync/internal/server"
 	"github.com/slemmercs/rclone-bisync/internal/services"
 )
@@ -40,6 +41,8 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 			_, _ = w.Write([]byte(`{"rate":"off","bytesPerSecond":0}`))
 		case "/operations/about":
 			_, _ = w.Write([]byte(`{"total":1000000,"used":500000,"free":500000}`))
+		case "/operations/list":
+			_, _ = w.Write([]byte(`{"list":[{"Path":"notes.txt","Name":"notes.txt","Size":12,"MimeType":"text/plain","ModTime":"2026-11-18T12:00:00Z","IsDir":false},{"Path":"RCLONE_TEST","Name":"RCLONE_TEST","Size":14,"MimeType":"text/plain","ModTime":"2026-11-18T12:00:00Z","IsDir":false}]}`))
 		default:
 			_, _ = w.Write([]byte(`{}`))
 		}
@@ -47,17 +50,90 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 	defer mockRCServer.Close()
 
 	cfg := &config.Config{
-		LocalPath:   filepath.Join(tempDir, "local"),
-		RemotePath:  "testremote:",
-		BaseDir:     tempDir,
-		MetricsFile: filepath.Join(tempDir, "metrics.json"),
-		RCAPIURL:    mockRCServer.URL,
+		LocalPath:           filepath.Join(tempDir, "local"),
+		RemotePath:          "testremote:",
+		BaseDir:             tempDir,
+		ProfilesFile:        filepath.Join(tempDir, "profiles.json"),
+		ProfilesHistoryFile: filepath.Join(tempDir, "profiles_history.json"),
+		ActiveReviewFile:    filepath.Join(tempDir, "active_review_session.json"),
+		MetricsFile:         filepath.Join(tempDir, "metrics.json"),
+		RCAPIURL:            mockRCServer.URL,
 	}
 	_ = os.MkdirAll(cfg.LocalPath, 0755)
+
+	// Seed local files for Explorer tests
+	_ = os.WriteFile(filepath.Join(cfg.LocalPath, "notes.txt"), []byte("sample notes content"), 0644)
+	_ = os.WriteFile(filepath.Join(cfg.LocalPath, "RCLONE_TEST"), []byte("canary test token"), 0644)
+
+	// Seed active conflict review session with candidate
+	reviewJSON := `{
+		"id": "rev-test-e2e",
+		"created_at": "2026-11-18T18:00:00Z",
+		"updated_at": "2026-11-18T18:00:00Z",
+		"status": "REVIEWING",
+		"conflicts": [
+			{
+				"id": "conf-e2e-1",
+				"path": "test_conflict.txt",
+				"name": "test_conflict.txt",
+				"local_size": 100,
+				"local_mod_time": "2026-11-18T18:00:00Z",
+				"remote_size": 200,
+				"remote_mod_time": "2026-11-18T17:00:00Z",
+				"condition": "CONFLICT",
+				"resolved": false
+			}
+		],
+		"deletions": [],
+		"actions": []
+	}`
+	_ = os.WriteFile(filepath.Join(tempDir, "active_review_session.json"), []byte(reviewJSON), 0644)
 
 	syncSvc := services.NewSyncService(cfg, nil)
 	srv := server.NewServer(cfg, syncSvc, os.DirFS(repoRoot))
 	srv.Version = "v2.0.0-vue3-e2e"
+
+	// Seed sync profiles
+	if srv.ProfileService != nil {
+		p1, err1 := srv.ProfileService.Create(context.Background(), &profiles.Profile{
+			ID:         "prof-docs",
+			Name:       "Documents Sync",
+			Remote:     "testremote",
+			RemotePath: "docs",
+			LocalPath:  cfg.LocalPath,
+			Schedule:   "15m",
+			Enabled:    true,
+			State: profiles.OperationalState{
+				Status: profiles.ProfileStatus("review_required"),
+			},
+		})
+		if err1 != nil {
+			t.Logf("Profile 1 creation failed: %v", err1)
+		} else {
+			t.Logf("Profile 1 created: %+v", p1)
+		}
+		p2, err2 := srv.ProfileService.Create(context.Background(), &profiles.Profile{
+			ID:         "prof-media",
+			Name:       "Media Photos",
+			Remote:     "testremote",
+			RemotePath: "photos",
+			LocalPath:  cfg.LocalPath,
+			Schedule:   "daily",
+			Enabled:    true,
+			State: profiles.OperationalState{
+				Status: profiles.StatusHealthy,
+			},
+		})
+		if err2 != nil {
+			t.Logf("Profile 2 creation failed: %v", err2)
+		} else {
+			t.Logf("Profile 2 created: %+v", p2)
+		}
+	}
+	if srv.ReviewService != nil {
+		sess, errS := srv.ReviewService.GetActiveSession(context.Background())
+		t.Logf("Review session on srv: sess=%+v err=%v", sess, errS)
+	}
 
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
@@ -495,6 +571,17 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 			t.Fatalf("expected Dedupe modal in DOM, err: %v", err)
 		}
 
+		// Verify collision search input and status filter pills
+		hasDedupeControls, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const input = document.querySelector('input[placeholder*="filename"]');
+			const text = document.body.textContent;
+			const hasPills = text.includes('Unresolved') && text.includes('Staged') && text.includes('Multi-Copy');
+			return !!input && hasPills;
+		})()`))
+		if err != nil || !hasDedupeControls {
+			t.Fatalf("expected Dedupe collision search input and filter pills in DOM, err: %v", err)
+		}
+
 		// Close modal with Escape
 		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
@@ -503,7 +590,210 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 		time.Sleep(150 * time.Millisecond)
 	})
 
-	// 16. Final Console Error Audit
+	// 16. Fleet View Search, Filter, and Navigation Jumps
+	t.Run("FleetFilterAndNavigation", func(t *testing.T) {
+		// Switch to Fleet tab
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const buttons = Array.from(document.querySelectorAll('header nav button'));
+			const btn = buttons.find(b => b.textContent.includes('Fleet'));
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`))
+		time.Sleep(300 * time.Millisecond)
+
+		// Verify profile cards render
+		hasFleetCards, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const text = document.body.textContent;
+			return text.includes('Documents Sync') && text.includes('Media Photos');
+		})()`))
+		if err != nil || !hasFleetCards {
+			t.Fatalf("expected initial fleet profiles in DOM, err: %v", err)
+		}
+
+		// 1. Search input filters down to "Documents"
+		searchDocScript := `(() => {
+			const input = document.querySelector('input[placeholder*="Filter by profile name"]');
+			if (!input) return false;
+			input.value = 'Documents';
+			input.dispatchEvent(new Event('input', { bubbles: true }));
+			return true;
+		})()`
+		ok, err := chromedp.Run(ctx, chromedp.Evaluate[bool](searchDocScript))
+		if err != nil || !ok {
+			t.Fatalf("failed to enter Fleet search query: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		// Verify filtered card visibility
+		filtered, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const cardTitles = Array.from(document.querySelectorAll('.grid span.font-bold.text-sm')).map(el => el.textContent.trim());
+			return cardTitles.includes('Documents Sync') && !cardTitles.includes('Media Photos');
+		})()`))
+		if err != nil || !filtered {
+			t.Fatalf("expected filtered fleet view showing only Documents Sync, err: %v", err)
+		}
+
+		// 2. Clear search input
+		clearSearchScript := `(() => {
+			const input = document.querySelector('input[placeholder*="Filter by profile name"]');
+			if (!input) return false;
+			input.value = '';
+			input.dispatchEvent(new Event('input', { bubbles: true }));
+			return true;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](clearSearchScript))
+		time.Sleep(200 * time.Millisecond)
+
+		// 3. Status filter pill click ("Review Required")
+		clickReviewPillScript := `(() => {
+			const pills = Array.from(document.querySelectorAll('button'));
+			const p = pills.find(el => el.textContent.includes('Review Required'));
+			if (p) { p.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickReviewPillScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to click Review Required filter pill: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		// 4. Click All pill to reset
+		clickAllPillScript := `(() => {
+			const pills = Array.from(document.querySelectorAll('button'));
+			const p = pills.find(el => el.textContent.includes('All'));
+			if (p) { p.click(); return true; }
+			return false;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](clickAllPillScript))
+		time.Sleep(200 * time.Millisecond)
+
+		// 5. Click Explorer jump button on Documents Sync card
+		clickExplorerJumpScript := `(() => {
+			const cards = Array.from(document.querySelectorAll('div.bg-carbon-900'));
+			const docCard = cards.find(c => c.textContent.includes('Documents Sync'));
+			if (!docCard) return false;
+			const expBtn = Array.from(docCard.querySelectorAll('button')).find(b => b.title && b.title.includes('Dual Explorer'));
+			if (expBtn) { expBtn.click(); return true; }
+			return false;
+		})()`
+		jumped, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickExplorerJumpScript))
+		if err != nil || !jumped {
+			t.Fatalf("failed to click Explorer jump button on profile card: %v", err)
+		}
+		time.Sleep(300 * time.Millisecond)
+
+		// Verify active view switched to File Explorer
+		isExplorerActive, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const navBtns = Array.from(document.querySelectorAll('header nav button'));
+			const expBtn = navBtns.find(b => b.textContent.includes('File Explorer'));
+			return expBtn ? expBtn.classList.contains('text-white') || expBtn.classList.contains('bg-carbon-800') : false;
+		})()`))
+		if err != nil || !isExplorerActive {
+			t.Fatalf("expected File Explorer tab to be active after jump, err: %v", err)
+		}
+	})
+
+	// 17. Conflict Review Heuristics & Auto-Apply Subtest
+	t.Run("ConflictReviewHeuristicsAndAutoApply", func(t *testing.T) {
+		// Open Conflict Review via Alt+R shortcut or window.openReviewModal
+		openReviewScript := `(() => {
+			if (typeof window.openReviewModal === 'function') {
+				window.openReviewModal();
+				return true;
+			}
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', altKey: true, bubbles: true }));
+			return true;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](openReviewScript))
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify Conflict Review modal is open
+		hasReviewModal, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const text = document.body.textContent;
+			return (text.includes('Sync Conflict Review') || text.includes('Conflict Resolution')) &&
+				text.includes('test_conflict.txt');
+		})()`))
+		if err != nil || !hasReviewModal {
+			t.Fatalf("expected Conflict Review modal in DOM, err: %v", err)
+		}
+
+		// Verify heuristic recommendation badge (Auto-Recommendation, confidence %, action chip)
+		hasRecommendation, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const text = document.body.textContent;
+			return text.includes('Auto-Recommendation') || text.includes('Confidence') || text.includes('Keep Local') || text.includes('Keep Remote') || text.includes('Auto-Apply');
+		})()`))
+		if err != nil || !hasRecommendation {
+			t.Fatalf("expected heuristic recommendation badges in Conflict Review modal, err: %v", err)
+		}
+
+		// Click "Auto-Apply" button
+		clickAutoApplyScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const autoBtn = btns.find(b => b.textContent.includes('Auto-Apply') || b.textContent.includes('Auto-Resolve'));
+			if (autoBtn) { autoBtn.click(); return true; }
+			return false;
+		})()`
+		applied, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickAutoApplyScript))
+		if err != nil || !applied {
+			t.Fatalf("failed to click Auto-Apply button: %v", err)
+		}
+		time.Sleep(300 * time.Millisecond)
+
+		// Close modal by pressing Escape
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			return true;
+		})()`))
+		time.Sleep(200 * time.Millisecond)
+	})
+
+	// 18. Explorer Drag-and-Drop Integrity Subtest
+	t.Run("ExplorerDragAndDropIntegrity", func(t *testing.T) {
+		// Ensure in File Explorer tab
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const buttons = Array.from(document.querySelectorAll('header nav button'));
+			const btn = buttons.find(b => b.textContent.includes('File Explorer'));
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`))
+		time.Sleep(300 * time.Millisecond)
+
+		// Verify table rows have draggable="true" for normal files, draggable="false" on canary and child buttons
+		integrityCheckScript := `(() => {
+			const rows = Array.from(document.querySelectorAll('.divide-y > div'));
+			if (rows.length === 0) return { ok: false, reason: 'no rows found in explorer table' };
+
+			const canaryRow = rows.find(r => r.textContent.includes('RCLONE_TEST'));
+			if (canaryRow && canaryRow.getAttribute('draggable') === 'true') {
+				return { ok: false, reason: 'canary row must not have draggable=true' };
+			}
+
+			const fileRow = rows.find(r => r.textContent.includes('notes.txt'));
+			if (fileRow && fileRow.getAttribute('draggable') !== 'true') {
+				return { ok: false, reason: 'notes.txt file row must have draggable=true' };
+			}
+
+			if (fileRow) {
+				const interactive = Array.from(fileRow.querySelectorAll('input, button'));
+				for (const el of interactive) {
+					if (el.getAttribute('draggable') !== 'false') {
+						return { ok: false, reason: 'child interactive element must have draggable=false' };
+					}
+				}
+			}
+
+			return { ok: true };
+		})()`
+		res, err := chromedp.Run(ctx, chromedp.Evaluate[map[string]any](integrityCheckScript))
+		if err != nil {
+			t.Fatalf("failed to evaluate drag-and-drop integrity: %v", err)
+		}
+		if ok, _ := res["ok"].(bool); !ok {
+			t.Fatalf("drag-and-drop integrity failed: %v", res["reason"])
+		}
+	})
+
+	// 19. Final Console Error Audit
 	t.Run("ConsoleErrorAudit", func(t *testing.T) {
 		mu.Lock()
 		defer mu.Unlock()

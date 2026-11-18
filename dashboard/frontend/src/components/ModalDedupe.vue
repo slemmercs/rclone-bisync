@@ -192,7 +192,7 @@
         <!-- Candidates List Tab -->
         <div v-if="activeTab === 'items'" class="flex-1 flex flex-col min-h-0 overflow-hidden">
           <!-- Collision Search & Filter Controls Toolbar -->
-          <div v-if="dedupeStore.parsed.items.length > 0" class="p-3 bg-carbon-surface/80 border-b border-carbon-border flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+          <div class="p-3 bg-carbon-surface/80 border-b border-carbon-border flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
             <!-- Search Input -->
             <div class="relative flex-1 max-w-sm">
               <i class="pi pi-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>

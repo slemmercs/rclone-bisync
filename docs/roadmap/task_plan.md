@@ -1,39 +1,43 @@
-# Task Plan: 100% Feature Parity Bridge (Alpine.js to Vue 3 Cockpit)
+# Task Plan: Profile Manager, Dedupe Workspace, Audit Ledger Invariant, and Daemon Log Clustering
 
 ## Goal
-Complete the 4 UX and functional parity gaps between the legacy Alpine templates and the modern Vue 3 Cockpit SPA (Fleet search/jump, Heuristic conflict recommendations auto-apply, Dedupe search filter, and Explorer HTML5 drag-and-drop), and establish full feature parity across the platform.
+Resolve Profile Manager save failures and option importing, restore Dedupe modal dual match modes and in-built explorer navigation, fix queue 404s from stale daemon processes, add daemon log Notices filtering, and enforce that the audit ledger records executions only when actual file operations occur.
 
 ## Tasks
 
-- [x] Task 1: TypeScript Models & Pinia Review Store Extension
-  - **Scope**: `dashboard/frontend/src/types/models.ts`, `dashboard/frontend/src/types/explorer.ts`, `dashboard/frontend/src/stores/review.ts`
-  - **Verification**: `npm --prefix dashboard/frontend run type-check`
+- [x] Task 1: Audit Ledger Mutation Invariant & Clean Action Filter Dropdown
+  - **Scope**: `internal/engine/runner/runner_handlers.go`, `internal/engine/runner/runner_test.go`, `dashboard/frontend/src/views/ViewAudit.vue`, `dashboard/frontend/partials/view_audit.html`
+  - **Verification**: `go test -v -count=1 ./internal/engine/runner -run "TestSyncRunner_AuditExecuted_And_Aborted"`
 
-- [x] Task 2: Fleet View Search, Status Filters & Workspace Navigation Jump
-  - **Scope**: `dashboard/frontend/src/views/ViewFleet.vue`
-  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+- [ ] Task 2: Go Backend Flexible Unmarshaling (`ProviderOptionsMap` & `SafetySettings`)
+  - **Scope**: `internal/profiles/model.go`, `internal/profiles/model_test.go`
+  - **Verification**: `go test -v -count=1 ./internal/profiles -run "TestProfileFlags_ProviderOptionsFlexibleUnmarshal"`
 
-- [x] Task 3: Conflict Review Modal Heuristic Recommendation Badges & Auto-Apply
-  - **Scope**: `dashboard/frontend/src/components/ConflictReviewModal.vue`
-  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+- [ ] Task 3: Profile Manager Form Binding, Remote Preselection & Option Importing
+  - **Scope**: `dashboard/frontend/src/components/ProfileManagerModal.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run build && go test -v -count=1 ./internal/server -run "TestProfiles_CRUD_Endpoints"`
 
-- [x] Task 4: Dedupe Workspace Collision Search & Candidate Filter
+- [ ] Task 4: Dedupe Modal Dual Match Modes & Backend-Aware Strategy Differentiation
+  - **Scope**: `dashboard/frontend/src/components/ModalDedupe.vue`, `dashboard/frontend/src/stores/dedupe.ts`
+  - **Verification**: `npm --prefix dashboard/frontend run build`
+
+- [ ] Task 5: Dedupe Scan Result Caching (`sessionStorage` & In-Memory Retention)
+  - **Scope**: `dashboard/frontend/src/stores/dedupe.ts`, `dashboard/frontend/src/components/ModalDedupe.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run build`
+
+- [ ] Task 6: In-Built Dedupe Explorer Navigation
   - **Scope**: `dashboard/frontend/src/components/ModalDedupe.vue`
-  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+  - **Verification**: `npm --prefix dashboard/frontend run build`
 
-- [x] Task 5: Explorer Dual-Pane HTML5 Drag-and-Drop File Transfers
-  - **Scope**: `dashboard/frontend/src/components/explorer/ExplorerTable.vue`, `dashboard/frontend/src/components/explorer/ExplorerPane.vue`, `dashboard/frontend/src/views/ViewExplorer.vue`
-  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+- [ ] Task 7: Dedicated "Notices" Tab in Daemon Logs
+  - **Scope**: `dashboard/frontend/src/components/ModalDaemonLogs.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run build`
 
-- [ ] Task 6: Headless Chrome E2E Suite Expansion & Pre-Flight Quality Gates
-  - **Scope**: `tests/e2e/cockpit_spa_smoke_test.go`, full test suite
-  - **Verification**: `go test -v -count=1 ./tests/e2e -run "TestCockpitSPA_HeadlessChromeSmoke" && ./scripts/check.sh all`
+- [ ] Task 8: End-to-End Suite Verification, Single Binary Build & Service Restart
+  - **Scope**: `tests/e2e/cockpit_spa_smoke_test.go`, `/home/csaba/rclone-bisync/bin/rclone-bisync`
+  - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
 - 2026-11-18: Initialized plan from implementation_plan.md.
-- 2026-11-18: Completed Task 1 - Extended models.ts with ConflictRecommendation, RuleResult, BatchReviewActionRequest/Response, extended DeletionCandidate and ConflictCandidate, added ExplorerDragPayload to explorer.ts, and added applyBatchRecommendations & rollbackSession to stores/review.ts. Verified via vue-tsc type-check and vite build.
-- 2026-11-18: Completed Task 3 - Enhanced ConflictReviewModal.vue with heuristic recommendation badges (confidence score, suggested action chip, risk tier), primary reason explanation, and Auto-Apply Recommendations button. Removed confirmation token requirement and added clear two-step confirmation for execution. Made REVIEW REQUIRED badge clickable in AppHeader, FSMStateBadge, and ViewFleet. Added Alt+R keyboard shortcut.
-- 2026-11-18: Completed Task 2 - Implemented real-time Fleet search filtering (matching name, id, local_path, remote, remote_path), segmented status filter pills (All, Active, Idle, Failed, Review Required with live counts), empty search results recovery, and direct workspace navigation jump buttons (Explorer, Telemetry) on each sync profile card in ViewFleet.vue. Verified via vue-tsc, vite build, and Go backend suite.
-- 2026-11-18: Completed Task 4 - Implemented Deduplication workspace collision search input (filtering by filename, directory path, or ID), collision segmented status filter pills (All, Unresolved, Staged, Multi-Copy with live counts), group collapse/expand toggles with Collapse All / Expand All actions, and direct 'Inspect in Explorer' workspace jump button on each collision item in ModalDedupe.vue. Verified via vue-tsc, vite build, and Go backend suite.
-- 2026-11-18: Completed Task 5 - Implemented native HTML5 drag-and-drop file/directory transfers between dual Explorer panes. Added row dragging with canary protection (:draggable="item.Name !== 'RCLONE_TEST'"), draggable="false" and @mousedown.stop on child buttons/checkboxes, visual drag drop-target cues with source/dest annotations in ExplorerPane.vue, and cross-target transfer confirmation dialog (ModalExplorerTransfer.vue) supporting Copy and Move operations. Verified via vue-tsc, vite build, and Go backend suite.
+- 2026-11-18: Completed Task 1 - Enforced audit ledger invariant in `runner_handlers.go` requiring `!dryRun && (FilesSynced > 0 || resync)` before appending `SYNC_EXECUTED` records. Suppressed 0-transfer dashboard/CLI runs and dry-runs from writing empty blocks to `audit.db`. Removed non-file actions `SECRET_ROTATED` and `CONFIG_MUTATED` from `ViewAudit.vue` and `view_audit.html` action filter dropdowns. Verified via `TestSyncRunner_AuditExecuted_And_Aborted`.
