@@ -9,6 +9,10 @@ import type {
   GlobalDefaults,
   ConfigDaemonSettings,
   ConfigNotificationSettings,
+  ConfigLoggingSettings,
+  ConfigCleanupSettings,
+  ConfigTelemetrySettings,
+  ConfigFeatureSettings,
 } from '../types/models'
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -18,7 +22,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const showMcpModal = ref<boolean>(false)
 
   // Tab selections
-  const globalSettingsTab = ref<'defaults' | 'engine' | 'notifications' | 'encryption'>('defaults')
+  const globalSettingsTab = ref<'defaults' | 'flags' | 'engine' | 'logging' | 'telemetry' | 'notifications' | 'encryption'>('defaults')
   const systemHealthTab = ref<'daemon' | 'mcp' | 'connectivity'>('daemon')
   const mcpTab = ref<'overview' | 'config' | 'tools'>('overview')
 
@@ -36,14 +40,48 @@ export const useSettingsStore = defineStore('settings', () => {
   const daemonSettings = ref<ConfigDaemonSettings>({
     job_poll_initial_sleep_sec: 2,
     job_poll_max_sleep_sec: 10,
+    job_poll_backoff_multiplier: 1.5,
     job_timeout_seconds: 1800,
     lock_stale_timeout_seconds: 3600,
     rate_limit_backoff_hours: 1,
+    rate_limit_retry_after_backoff: true,
+    check_stale_locks: true,
+  })
+
+  const loggingSettings = ref<ConfigLoggingSettings>({
+    max_log_size_mb: 5,
+    log_backup_count: 5,
+  })
+
+  const cleanupSettings = ref<ConfigCleanupSettings>({
+    files_to_cleanup: '',
+  })
+
+  const telemetrySettings = ref<ConfigTelemetrySettings>({
+    enable_metrics: true,
+    metrics_max_entries: 1000,
+    metrics_max_backups: 5,
+  })
+
+  const featureSettings = ref<ConfigFeatureSettings>({
+    debug_mode: false,
+    mcp_read_only: false,
+    stale_lock_detection: true,
+    rate_limit_backoff: true,
+    daemon_health_check: true,
+    metrics_collection: true,
+    smart_notifications: true,
+    webhook_alerts: false,
   })
 
   const notificationSettings = ref<ConfigNotificationSettings>({
+    app_name: 'Rclone Bisync',
+    success_interval_min: 30,
+    error_repeat_hours: 6,
     webhook_url: '',
+    webhook_timeout_sec: 5,
     watchdog_ping_url: '',
+    watchdog_timeout_sec: 5,
   })
 
   const loadingConfig = ref<boolean>(false)
@@ -111,8 +149,20 @@ export const useSettingsStore = defineStore('settings', () => {
         if (data.daemon) {
           daemonSettings.value = { ...data.daemon }
         }
+        if (data.logging) {
+          loggingSettings.value = { ...data.logging }
+        }
+        if (data.cleanup) {
+          cleanupSettings.value = { ...data.cleanup }
+        }
+        if (data.telemetry) {
+          telemetrySettings.value = { ...data.telemetry }
+        }
         if (data.notifications) {
           notificationSettings.value = { ...data.notifications }
+        }
+        if (data.features) {
+          featureSettings.value = { ...data.features }
         }
       }
     } catch (e: any) {
@@ -134,8 +184,20 @@ export const useSettingsStore = defineStore('settings', () => {
         if (res.daemon) {
           daemonSettings.value = { ...res.daemon }
         }
+        if (res.logging) {
+          loggingSettings.value = { ...res.logging }
+        }
+        if (res.cleanup) {
+          cleanupSettings.value = { ...res.cleanup }
+        }
+        if (res.telemetry) {
+          telemetrySettings.value = { ...res.telemetry }
+        }
         if (res.notifications) {
           notificationSettings.value = { ...res.notifications }
+        }
+        if (res.features) {
+          featureSettings.value = { ...res.features }
         }
         return true
       }
@@ -228,6 +290,10 @@ export const useSettingsStore = defineStore('settings', () => {
     mcpTab,
     globalDefaults,
     daemonSettings,
+    loggingSettings,
+    cleanupSettings,
+    telemetrySettings,
+    featureSettings,
     notificationSettings,
     loadingConfig,
     savingConfig,

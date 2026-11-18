@@ -46,6 +46,34 @@
 
     <!-- TAB 1: OPERATIONAL DEFAULTS -->
     <div v-if="activeTab === 'defaults'" class="space-y-4">
+      <div class="p-3 bg-carbon-surface border border-carbon-border rounded-xl">
+        <div class="text-xs font-semibold text-white mb-1">Bootstrap Target Fallbacks</div>
+        <div class="text-[11px] text-slate-400">
+          Default paths configured in <span class="text-electric-blue font-mono">bisync.env</span> (LOCAL_PATH & REMOTE_PATH). Used as bootstrap defaults for manual CLI bisync runs.
+          <span class="text-amber-300">Active sync profiles manage their own isolated path mappings in Profiles.</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Fallback Local Bootstrap Path</label>
+            <input
+              type="text"
+              v-model="formDefaults.default_local_path"
+              placeholder="~/sync_folder"
+              class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Fallback Remote Bootstrap Target</label>
+            <input
+              type="text"
+              v-model="formDefaults.default_remote_path"
+              placeholder="drive:backup"
+              class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+            />
+          </div>
+        </div>
+      </div>
+
       <div class="text-[11px] text-slate-400">Baseline configuration applied when creating new sync profiles.</div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -140,9 +168,9 @@
       <FlagsBuilder v-model="formDefaults.custom_flags" scopeFilter="engine" remoteType="all" />
     </div>
 
-    <!-- TAB 2: ENGINE & POLLING -->
+    <!-- TAB 3: ENGINE & POLLING -->
     <div v-else-if="activeTab === 'engine'" class="space-y-4">
-      <div class="text-[11px] text-slate-400">Core daemon timeout and execution scheduler parameters.</div>
+      <div class="text-[11px] text-slate-400">Core daemon timeout, scheduling intervals, and lock recovery parameters.</div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -179,13 +207,14 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Job Poll Sleep (Initial / Max s)</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Poll Sleep (Initial / Max s)</label>
           <div class="flex items-center gap-2">
             <input
               type="number"
               v-model.number="formDaemon.job_poll_initial_sleep_sec"
               min="0.5"
               step="0.5"
+              placeholder="Initial"
               class="w-1/2 bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
             />
             <input
@@ -193,20 +222,201 @@
               v-model.number="formDaemon.job_poll_max_sleep_sec"
               min="1"
               step="1"
+              placeholder="Max"
               class="w-1/2 bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
             />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Poll Backoff Multiplier</label>
+          <input
+            type="number"
+            v-model.number="formDaemon.job_poll_backoff_multiplier"
+            min="1.0"
+            max="5.0"
+            step="0.1"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Daemon Safeguards</label>
+          <div class="space-y-2 pt-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="formDaemon.check_stale_locks" class="rounded bg-carbon-surface border-carbon-border text-electric-blue" />
+              <span class="text-xs text-slate-300">Check & Clear Stale Locks</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="formDaemon.rate_limit_retry_after_backoff" class="rounded bg-carbon-surface border-carbon-border text-electric-blue" />
+              <span class="text-xs text-slate-300">Auto-Retry Jobs Post-Backoff</span>
+            </label>
           </div>
         </div>
       </div>
     </div>
 
     <!-- TAB 3: ALERT WEBHOOKS -->
-    <div v-else-if="activeTab === 'notifications'" class="space-y-4">
-      <div class="text-[11px] text-slate-400">External telemetry alert endpoints and heartbeat watchdogs.</div>
+    <!-- TAB 4: LOGGING & CLEANUP -->
+    <div v-else-if="activeTab === 'logging'" class="space-y-4">
+      <div class="text-[11px] text-slate-400">Log rotation size limits and post-sync ephemeral file cleanup patterns.</div>
 
-      <div class="space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Alert Webhook URL</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Max Log Size (MB)</label>
+          <input
+            type="number"
+            v-model.number="formLogging.max_log_size_mb"
+            min="1"
+            max="500"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
+          <span class="text-[10px] text-slate-500 mt-1 block">Rotates log file when this size threshold is reached.</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Log Backup Retention Count</label>
+          <input
+            type="number"
+            v-model.number="formLogging.log_backup_count"
+            min="1"
+            max="50"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
+          <span class="text-[10px] text-slate-500 mt-1 block">Number of archived log backups to retain on disk.</span>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Post-Sync Ephemeral Files to Cleanup</label>
+        <input
+          type="text"
+          v-model="formCleanup.files_to_cleanup"
+          placeholder="*.tmp, *.temp, *.conflict, *.~lock.*"
+          class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+        />
+        <span class="text-[10px] text-slate-500 mt-1 block">Comma-separated filename patterns automatically cleaned up after successful synchronization.</span>
+      </div>
+    </div>
+
+    <!-- TAB 5: TELEMETRY & FEATURES -->
+    <div v-else-if="activeTab === 'telemetry'" class="space-y-4">
+      <div class="text-[11px] text-slate-400">Telemetry metrics retention, verbosity modes, and core feature toggles.</div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Execution Metrics</label>
+          <select
+            :value="formTelemetry.enable_metrics ? 'true' : 'false'"
+            @change="formTelemetry.enable_metrics = ($event.target as HTMLSelectElement).value === 'true'"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          >
+            <option value="true">Enabled (Track durations, throughput & counts)</option>
+            <option value="false">Disabled</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Metrics Max In-Memory Records</label>
+          <input
+            type="number"
+            v-model.number="formTelemetry.metrics_max_entries"
+            min="100"
+            max="20000"
+            step="100"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Debug Output Verbosity</label>
+          <select
+            :value="formFeatures.debug_mode ? 'true' : 'false'"
+            @change="formFeatures.debug_mode = ($event.target as HTMLSelectElement).value === 'true'"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          >
+            <option value="false">Standard (Notice, Info, Warnings)</option>
+            <option value="true">Verbose Debug Logging (DEBUG_MODE=true)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">MCP Agent Authority</label>
+          <select
+            :value="formFeatures.mcp_read_only ? 'true' : 'false'"
+            @change="formFeatures.mcp_read_only = ($event.target as HTMLSelectElement).value === 'true'"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          >
+            <option value="false">Read & Write (Full Agent Execution)</option>
+            <option value="true">Read Only (Inspection & Safe Dry-Runs Only)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="border-t border-carbon-border pt-3">
+        <label class="block text-xs font-semibold text-slate-300 mb-2">Subsystem Feature Toggles</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-carbon-surface border border-carbon-border">
+            <input type="checkbox" v-model="formFeatures.stale_lock_detection" class="rounded bg-carbon-canvas border-carbon-border text-electric-blue" />
+            <span class="text-xs text-slate-300">Stale Lock Detection</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-carbon-surface border border-carbon-border">
+            <input type="checkbox" v-model="formFeatures.rate_limit_backoff" class="rounded bg-carbon-canvas border-carbon-border text-electric-blue" />
+            <span class="text-xs text-slate-300">Rate Limit Backoff</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-carbon-surface border border-carbon-border">
+            <input type="checkbox" v-model="formFeatures.daemon_health_check" class="rounded bg-carbon-canvas border-carbon-border text-electric-blue" />
+            <span class="text-xs text-slate-300">Daemon Health Checks</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-carbon-surface border border-carbon-border">
+            <input type="checkbox" v-model="formFeatures.smart_notifications" class="rounded bg-carbon-canvas border-carbon-border text-electric-blue" />
+            <span class="text-xs text-slate-300">Smart Alert Throttling</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: NOTIFICATIONS & WEBHOOKS -->
+    <div v-else-if="activeTab === 'notifications'" class="space-y-4">
+      <div class="text-[11px] text-slate-400">External telemetry alert endpoints, dispatch intervals, and heartbeat watchdogs.</div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">App Display Name</label>
+          <input
+            type="text"
+            v-model="formNotifications.app_name"
+            placeholder="Rclone Bisync"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Success Alert (min)</label>
+          <input
+            type="number"
+            v-model.number="formNotifications.success_interval_min"
+            min="1"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Error Repeat (hrs)</label>
+          <input
+            type="number"
+            v-model.number="formNotifications.error_repeat_hours"
+            min="0.5"
+            step="0.5"
+            class="w-full bg-carbon-surface border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
+        </div>
+      </div>
+
+      <div class="space-y-3 pt-2">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-slate-300">Alert Webhook URL</label>
+            <span class="text-[10px] text-slate-500 font-mono">Timeout: {{ formNotifications.webhook_timeout_sec || 5 }}s</span>
+          </div>
           <input
             type="url"
             v-model="formNotifications.webhook_url"
@@ -216,7 +426,10 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Watchdog Heartbeat URL</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-slate-300">Watchdog Heartbeat URL</label>
+            <span class="text-[10px] text-slate-500 font-mono">Timeout: {{ formNotifications.watchdog_timeout_sec || 5 }}s</span>
+          </div>
           <input
             type="url"
             v-model="formNotifications.watchdog_ping_url"
@@ -318,11 +531,15 @@ import { useSettingsStore } from '../stores/settings'
 import FlagsBuilder from './FlagsBuilder.vue'
 
 const settingsStore = useSettingsStore()
-const activeTab = ref<'defaults' | 'flags' | 'engine' | 'notifications' | 'encryption'>('defaults')
+const activeTab = ref<'defaults' | 'flags' | 'engine' | 'logging' | 'telemetry' | 'notifications' | 'encryption'>('defaults')
 const saveError = ref<string | null>(null)
 
 const formDefaults = ref({ ...settingsStore.globalDefaults })
 const formDaemon = ref({ ...settingsStore.daemonSettings })
+const formLogging = ref({ ...settingsStore.loggingSettings })
+const formCleanup = ref({ ...settingsStore.cleanupSettings })
+const formTelemetry = ref({ ...settingsStore.telemetrySettings })
+const formFeatures = ref({ ...settingsStore.featureSettings })
 const formNotifications = ref({ ...settingsStore.notificationSettings })
 
 const newPassword = ref('')
@@ -333,13 +550,19 @@ const encError = ref<string | null>(null)
 
 watch(() => settingsStore.globalDefaults, val => { formDefaults.value = { ...val } }, { deep: true })
 watch(() => settingsStore.daemonSettings, val => { formDaemon.value = { ...val } }, { deep: true })
+watch(() => settingsStore.loggingSettings, val => { formLogging.value = { ...val } }, { deep: true })
+watch(() => settingsStore.cleanupSettings, val => { formCleanup.value = { ...val } }, { deep: true })
+watch(() => settingsStore.telemetrySettings, val => { formTelemetry.value = { ...val } }, { deep: true })
+watch(() => settingsStore.featureSettings, val => { formFeatures.value = { ...val } }, { deep: true })
 watch(() => settingsStore.notificationSettings, val => { formNotifications.value = { ...val } }, { deep: true })
 watch(() => settingsStore.globalSettingsTab, tab => { activeTab.value = tab as any })
 
-const tabs: Array<{ id: 'defaults' | 'flags' | 'engine' | 'notifications' | 'encryption'; label: string; icon: string }> = [
+const tabs: Array<{ id: 'defaults' | 'flags' | 'engine' | 'logging' | 'telemetry' | 'notifications' | 'encryption'; label: string; icon: string }> = [
   { id: 'defaults', label: 'Defaults', icon: 'pi pi-sliders-h' },
   { id: 'flags', label: 'Fleet Flags', icon: 'pi pi-server' },
   { id: 'engine', label: 'Engine & Polling', icon: 'pi pi-clock' },
+  { id: 'logging', label: 'Logging & Cleanup', icon: 'pi pi-file' },
+  { id: 'telemetry', label: 'Telemetry & Flags', icon: 'pi pi-chart-bar' },
   { id: 'notifications', label: 'Alert Webhooks', icon: 'pi pi-bell' },
   { id: 'encryption', label: 'Encryption', icon: 'pi pi-lock' },
 ]
@@ -350,6 +573,10 @@ async function handleSave() {
     await settingsStore.saveConfig({
       global_defaults: formDefaults.value,
       daemon: formDaemon.value,
+      logging: formLogging.value,
+      cleanup: formCleanup.value,
+      telemetry: formTelemetry.value,
+      features: formFeatures.value,
       notifications: formNotifications.value,
     })
     settingsStore.closeGlobalSettingsModal()

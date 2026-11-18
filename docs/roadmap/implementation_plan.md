@@ -94,6 +94,22 @@ The audit revealed several production engine options parsed by `internal/config/
 - **Sensitive Credential Separation**: Secret tokens and passwords (`RC_PASS`, OAuth credentials) continue to reside in `rc-secrets.env` or encrypted store; `bisync.env` remains safe for git tracking.
 - **Validation**: Numerical bounds (max delete 1-100%, timeouts > 0) and comparison/conflict resolution modes are strictly validated before modifying memory or disk.
 
+
+### Migration Plan for Currently Deployed `bisync.env` Files
+
+To ensure seamless, non-breaking upgrades across existing installations (systemd services, Docker containers, bare-metal deployments):
+
+1. **In-Memory Graceful Fallback**:
+   - `config.LoadConfig` continues to populate safe default values for any missing keys, ensuring zero crashes or behavior breakage on startup when running against legacy `bisync.env` files.
+
+2. **Non-Destructive In-Place Upgrade Engine (`MigrateEnvFile`)**:
+   - Detect existing deployed `bisync.env` format and identify missing keys defined in `config/bisync.env.example`.
+   - Provide an automated migration function in Go (`config.MigrateEnvFile(deployedPath, examplePath string) error`) that creates a backup snapshot (`.bak.<timestamp>`) and appends missing canonical keys with their explanatory comment blocks, leaving existing user settings intact.
+
+3. **CLI & Operational Migration Tooling**:
+   - Provide `./scripts/migrate-env.sh` (and `rclone-bisync --migrate-env` flag) enabling sysadmins to run a dry-run or in-place upgrade check during deployment pipeline runs.
+   - When the user clicks "Save Fleet Settings" in the Cockpit UI, `UpdateEnvKeys` seamlessly writes any missing keys into `bisync.env` without needing manual file editing.
+
 ## Verification Plan
 
 1. Unit tests:

@@ -334,32 +334,76 @@ export interface GlobalDefaults {
   create_empty_dirs: boolean
   lock_explorer_remote: boolean
   custom_flags?: string
+  default_local_path?: string
+  default_remote_path?: string
 }
 
 export interface ConfigDaemonSettings {
   job_poll_initial_sleep_sec: number
   job_poll_max_sleep_sec: number
+  job_poll_backoff_multiplier?: number
   job_timeout_seconds: number
   lock_stale_timeout_seconds: number
   rate_limit_backoff_hours: number
+  rate_limit_retry_after_backoff?: boolean
+  check_stale_locks?: boolean
+}
+
+export interface ConfigLoggingSettings {
+  max_log_size_mb: number
+  log_backup_count: number
+}
+
+export interface ConfigCleanupSettings {
+  files_to_cleanup: string
+}
+
+export interface ConfigTelemetrySettings {
+  enable_metrics: boolean
+  metrics_max_entries: number
+  metrics_max_backups: number
+}
+
+export interface ConfigFeatureSettings {
+  debug_mode: boolean
+  mcp_read_only: boolean
+  stale_lock_detection: boolean
+  rate_limit_backoff: boolean
+  daemon_health_check: boolean
+  metrics_collection: boolean
+  smart_notifications: boolean
+  webhook_alerts: boolean
 }
 
 export interface ConfigNotificationSettings {
+  app_name?: string
+  success_interval_min?: number
+  error_repeat_hours?: number
   webhook_url: string
+  webhook_timeout_sec?: number
   watchdog_ping_url: string
+  watchdog_timeout_sec?: number
 }
 
 export interface GlobalConfigResponse {
   status: string
   global_defaults: GlobalDefaults
   daemon: ConfigDaemonSettings
+  logging: ConfigLoggingSettings
+  cleanup: ConfigCleanupSettings
+  telemetry: ConfigTelemetrySettings
   notifications: ConfigNotificationSettings
+  features: ConfigFeatureSettings
 }
 
 export interface UpdateConfigRequest {
   global_defaults?: Partial<GlobalDefaults>
   daemon?: Partial<ConfigDaemonSettings>
+  logging?: Partial<ConfigLoggingSettings>
+  cleanup?: Partial<ConfigCleanupSettings>
+  telemetry?: Partial<ConfigTelemetrySettings>
   notifications?: Partial<ConfigNotificationSettings>
+  features?: Partial<ConfigFeatureSettings>
 }
 
 export interface ConfigEncryptionResponse {
