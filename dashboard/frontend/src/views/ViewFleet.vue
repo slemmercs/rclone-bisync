@@ -137,10 +137,10 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4">
     <!-- Top KPI Metrics Ribbon -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-4 flex items-center justify-between shadow-sm">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3.5">
+      <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-3.5 flex items-center justify-between shadow-sm">
         <div>
           <span class="text-xs uppercase tracking-wider text-carbon-400 font-mono">Total Profiles</span>
           <p class="text-2xl font-bold text-carbon-50 mt-1">{{ profiles.length }}</p>
@@ -150,7 +150,7 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
         </div>
       </div>
 
-      <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-4 flex items-center justify-between shadow-sm">
+      <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-3.5 flex items-center justify-between shadow-sm">
         <div>
           <span class="text-xs uppercase tracking-wider text-carbon-400 font-mono">Active Workloads</span>
           <p class="text-2xl font-bold text-emerald-400 mt-1">{{ profilesStore.enabledProfiles.length }}</p>
@@ -160,7 +160,7 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
         </div>
       </div>
 
-      <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-4 flex items-center justify-between shadow-sm">
+      <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-3.5 flex items-center justify-between shadow-sm">
         <div>
           <span class="text-xs uppercase tracking-wider text-carbon-400 font-mono">Engine State</span>
           <p class="text-xl font-bold text-electric-400 mt-1">{{ fsmStore.currentState }}</p>
@@ -170,7 +170,7 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
         </div>
       </div>
 
-      <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-4 flex items-center justify-between shadow-sm">
+      <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-3.5 flex items-center justify-between shadow-sm">
         <div>
           <span class="text-xs uppercase tracking-wider text-carbon-400 font-mono">Safety Circuit</span>
           <p class="text-xl font-bold mt-1" :class="fsmStore.pendingReview ? 'text-amber-400' : 'text-carbon-300'">
@@ -186,7 +186,7 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
       </div>
     </div>
     <!-- Real-Time Telemetry & Throughput Card -->
-    <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-4 shadow-sm">
+    <div class="bg-carbon-900 border border-carbon-700 rounded-lg p-3.5 shadow-sm">
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
           <i class="pi pi-chart-line text-electric-400"></i>
@@ -286,15 +286,15 @@ async function handleSync(profile: Profile, dryRun: boolean = false) {
       </button>
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
         v-for="profile in filteredProfiles"
         :key="profile.id"
-        class="bg-carbon-900 border rounded-lg p-5 flex flex-col justify-between transition-all duration-150 hover:border-carbon-600 shadow-sm"
+        class="bg-carbon-900 border rounded-lg p-4 sm:p-5 flex flex-col justify-between transition-all duration-150 hover:border-carbon-600 shadow-sm"
         :class="profilesStore.selectedProfileId === profile.id ? 'border-electric-500 ring-1 ring-electric-500/30' : 'border-carbon-700'"
       >
         <!-- Card Body -->
-        <div class="space-y-3">
+        <div class="space-y-2.5">
           <div class="flex items-start justify-between gap-2">
             <div>
               <div class="flex items-center gap-2">

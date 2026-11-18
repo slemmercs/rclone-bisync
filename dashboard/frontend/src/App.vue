@@ -27,12 +27,14 @@ import { useTelemetryStore } from './stores/telemetry'
 import { useDedupeStore } from './stores/dedupe'
 import { useQueueStore } from './stores/queue'
 import { useReviewStore } from './stores/review'
+import { useLogsStore } from './stores/logs'
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 
 
 const appStore = useAppStore()
 const dedupeStore = useDedupeStore()
 const reviewStore = useReviewStore()
+const logsStore = useLogsStore()
 const activeTab = computed({
   get: () => appStore.activeTab,
   set: (val: string) => appStore.switchTab(val)
@@ -42,6 +44,18 @@ const showProfilesModal = ref<boolean>(false)
 const profilesStore = useProfilesStore()
 const telemetryStore = useTelemetryStore()
 const queueStore = useQueueStore()
+
+const dockOffsetClass = computed(() => {
+  switch (logsStore.dockHeightPreset) {
+    case 'docked':
+      return 'mb-64'
+    case 'expanded':
+      return 'mb-[26rem]'
+    case 'collapsed':
+    default:
+      return 'mb-12'
+  }
+})
 
 useKeyboardShortcuts({
   onOpenProfiles: () => {
@@ -71,7 +85,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-carbon-950 text-carbon-50 flex flex-col font-sans selection:bg-electric-500/30 selection:text-electric-300 pb-12">
+  <div class="min-h-screen bg-carbon-950 text-carbon-50 flex flex-col font-sans selection:bg-electric-500/30 selection:text-electric-300">
     <!-- Main Sticky Cockpit Header -->
     <AppHeader
       :activeTab="activeTab"
@@ -90,8 +104,11 @@ onUnmounted(() => {
       <ViewAudit v-else-if="activeTab === 'audit'" />
     </main>
 
-    <!-- Cockpit Telemetry Footer -->
-    <footer class="bg-carbon-900 border-t border-carbon-700/80 px-6 py-2.5 text-xs text-carbon-400 flex flex-wrap items-center justify-between gap-4 mb-10">
+    <!-- Cockpit Telemetry Footer with Dynamic Log Dock Clearance -->
+    <footer
+      class="bg-carbon-900 border-t border-carbon-700/80 px-6 py-2.5 text-xs text-carbon-400 flex flex-wrap items-center justify-between gap-4 transition-all duration-200"
+      :class="dockOffsetClass"
+    >
       <div class="flex items-center gap-3">
         <span class="flex items-center gap-1.5 font-mono text-[11px]">
           <span class="w-2 h-2 rounded-full" :class="telemetryStore.isSyncing ? 'bg-electric-400 animate-ping' : 'bg-carbon-600'"></span>

@@ -145,7 +145,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-44 w-full">
+  <div class="h-36 sm:h-40 w-full">
     <canvas ref="canvasRef"></canvas>
   </div>
 </template>
