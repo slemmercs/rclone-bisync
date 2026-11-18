@@ -248,7 +248,7 @@ async function handleRunSync() {
             : 'bg-carbon-850 hover:bg-carbon-800 border-carbon-700 text-carbon-300'"
         title="Open Execution Queue Manager"
       >
-        <i class="pi pi-list text-xs" :class="queueStore.runningCount > 0 ? 'animate-spin' : ''"></i>
+        <i class="pi pi-list text-xs"></i>
         <span>Queue</span>
         <span
           v-if="queueStore.isPaused"
