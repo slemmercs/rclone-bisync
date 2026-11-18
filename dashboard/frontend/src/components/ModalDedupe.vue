@@ -190,41 +190,134 @@
         </div>
 
         <!-- Candidates List Tab -->
-        <div v-if="activeTab === 'items'" class="flex-1 overflow-y-auto p-4 space-y-3 font-mono">
-          <div v-if="dedupeStore.parsed.items.length === 0" class="py-20 text-center text-slate-500 text-xs">
-            <i class="pi pi-check-circle text-3xl text-emerald-500/50 mb-2 block"></i>
-            <p>{{ dedupeStore.loading ? 'Scanning remote storage for duplicates...' : 'No duplicate files detected. All files are unique.' }}</p>
+        <div v-if="activeTab === 'items'" class="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <!-- Collision Search & Filter Controls Toolbar -->
+          <div v-if="dedupeStore.parsed.items.length > 0" class="p-3 bg-carbon-surface/80 border-b border-carbon-border flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+            <!-- Search Input -->
+            <div class="relative flex-1 max-w-sm">
+              <i class="pi pi-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+              <input
+                v-model="collisionSearch"
+                type="text"
+                placeholder="Filter by filename, directory, or ID..."
+                class="w-full pl-7 pr-7 py-1 bg-carbon-canvas border border-carbon-border rounded-lg text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+              />
+              <button
+                v-if="collisionSearch"
+                @click="collisionSearch = ''"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                title="Clear search"
+              >
+                <i class="pi pi-times text-[10px]"></i>
+              </button>
+            </div>
+
+            <!-- Segment Filters & Actions -->
+            <div class="flex items-center gap-1.5 flex-wrap font-mono text-xs">
+              <button
+                v-for="pill in collisionFilterOptions"
+                :key="pill.value"
+                @click="collisionFilter = pill.value"
+                class="px-2 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer flex items-center gap-1 select-none"
+                :class="collisionFilter === pill.value
+                  ? 'bg-amber-950 text-amber-300 border-amber-600/80 shadow-sm'
+                  : 'bg-carbon-canvas text-slate-400 border-carbon-border hover:bg-carbon-elevated hover:text-slate-200'"
+              >
+                <span>{{ pill.label }}</span>
+                <span class="text-[9px] opacity-80 font-mono">({{ pill.count }})</span>
+              </button>
+
+              <div class="h-4 w-px bg-carbon-border mx-1 hidden sm:block"></div>
+
+              <button
+                type="button"
+                @click="collapseAll"
+                class="px-2 py-0.5 rounded bg-carbon-canvas border border-carbon-border text-slate-400 hover:text-white text-[10px] cursor-pointer"
+                title="Collapse all collision items"
+              >
+                Collapse All
+              </button>
+              <button
+                type="button"
+                @click="expandAll"
+                class="px-2 py-0.5 rounded bg-carbon-canvas border border-carbon-border text-slate-400 hover:text-white text-[10px] cursor-pointer"
+                title="Expand all collision items"
+              >
+                Expand All
+              </button>
+            </div>
           </div>
 
+          <!-- Items Scroll Area -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-3 font-mono">
+            <div v-if="dedupeStore.parsed.items.length === 0" class="py-20 text-center text-slate-500 text-xs">
+              <i class="pi pi-check-circle text-3xl text-emerald-500/50 mb-2 block"></i>
+              <p>{{ dedupeStore.loading ? 'Scanning remote storage for duplicates...' : 'No duplicate files detected. All files are unique.' }}</p>
+            </div>
+
+            <!-- Empty Search Results -->
+            <div v-else-if="filteredItems.length === 0" class="py-16 text-center text-slate-400 text-xs space-y-2">
+              <i class="pi pi-filter-slash text-2xl text-slate-500 block"></i>
+              <p>No duplicate collisions match the filter criteria.</p>
+              <button
+                @click="resetCollisionFilters"
+                class="px-3 py-1 rounded bg-carbon-elevated border border-carbon-border text-amber-300 text-xs font-mono hover:bg-carbon-surface cursor-pointer"
+              >
+                Reset Filters
+              </button>
+            </div>
+
           <div
-            v-for="item in dedupeStore.parsed.items"
+            v-for="item in filteredItems"
             :key="item.path"
             class="p-3.5 bg-carbon-surface border border-carbon-border rounded-xl space-y-2"
           >
             <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="text-white font-bold text-xs truncate">{{ item.name }}</span>
-                  <span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800/60 uppercase font-bold">
-                    {{ item.found }} Copies
-                  </span>
-                  <span v-if="item.isDir" class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">DIR</span>
+              <div class="min-w-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  @click="toggleCollapse(item.path)"
+                  class="p-1 rounded text-slate-400 hover:text-white hover:bg-carbon-elevated transition-colors cursor-pointer shrink-0"
+                  :title="collapsedItems[item.path] ? 'Expand duplicate copies' : 'Collapse duplicate copies'"
+                >
+                  <i :class="collapsedItems[item.path] ? 'pi pi-chevron-right' : 'pi pi-chevron-down'" class="text-xs"></i>
+                </button>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-white font-bold text-xs truncate">{{ item.name }}</span>
+                    <span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800/60 uppercase font-bold">
+                      {{ item.found }} Copies
+                    </span>
+                    <span v-if="item.isDir" class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">DIR</span>
+                  </div>
+                  <div class="text-[10px] text-slate-400 truncate mt-0.5">{{ item.path }}</div>
                 </div>
-                <div class="text-[10px] text-slate-400 truncate mt-0.5">{{ item.path }}</div>
               </div>
 
-              <!-- Staged Decision Badge -->
-              <span
-                v-if="dedupeStore.stagedActions[item.path]"
-                class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0"
-                :class="dedupeStore.stagedActions[item.path].action === 'delete' ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'"
-              >
-                {{ dedupeStore.stagedActions[item.path].action }}
-              </span>
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  @click="inspectInExplorer(item)"
+                  class="px-2 py-0.5 rounded bg-carbon-elevated hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-mono border border-carbon-border flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Inspect file path in Dual-Pane File Explorer"
+                >
+                  <i class="pi pi-folder-open text-[10px] text-amber-400"></i>
+                  <span class="hidden sm:inline">Explorer</span>
+                </button>
+
+                <!-- Staged Decision Badge -->
+                <span
+                  v-if="dedupeStore.stagedActions[item.path]"
+                  class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0"
+                  :class="dedupeStore.stagedActions[item.path].action === 'delete' ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'"
+                >
+                  {{ dedupeStore.stagedActions[item.path].action }}
+                </span>
+              </div>
             </div>
 
             <!-- Candidates Details -->
-            <div v-if="item.candidates.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-carbon-border/40 text-[10px]">
+            <div v-if="!collapsedItems[item.path] && item.candidates.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-carbon-border/40 text-[10px]">
               <div
                 v-for="(cand, cIdx) in item.candidates"
                 :key="cIdx"
@@ -285,6 +378,7 @@
               </div>
             </div>
           </div>
+        </div>
         </div>
 
         <!-- Directory Explorer Tab -->
@@ -359,11 +453,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import { api } from '../api/client'
 import { useDedupeStore } from '../stores/dedupe'
 import { useLogsStore } from '../stores/logs'
+import { useExplorerStore } from '../stores/explorer'
+import { useAppStore } from '../stores/app'
 import { formatBytes } from '../composables/useFormatters'
 import { useToastNotification } from '../composables/useToastNotification'
 import DedupeStagedDrawer from './dedupe/DedupeStagedDrawer.vue'
@@ -377,8 +473,101 @@ import type { DedupeStageAction } from '../types/dedupe'
 
 const dedupeStore = useDedupeStore()
 const logsStore = useLogsStore()
+const explorerStore = useExplorerStore()
+const appStore = useAppStore()
 const toast = useToastNotification()
 const activeTab = ref<'items' | 'explorer' | 'raw'>('items')
+
+// Candidate search, filter, and collapse state
+const collisionSearch = ref<string>('')
+type CollisionFilterType = 'all' | 'staged' | 'unresolved' | 'multi'
+const collisionFilter = ref<CollisionFilterType>('all')
+const collapsedItems = ref<Record<string, boolean>>({})
+
+function toggleCollapse(path: string) {
+  collapsedItems.value[path] = !collapsedItems.value[path]
+}
+
+function expandAll() {
+  collapsedItems.value = {}
+}
+
+function collapseAll() {
+  const map: Record<string, boolean> = {}
+  for (const item of dedupeStore.parsed.items) {
+    map[item.path] = true
+  }
+  collapsedItems.value = map
+}
+
+function resetCollisionFilters() {
+  collisionSearch.value = ''
+  collisionFilter.value = 'all'
+}
+
+function inspectInExplorer(item: ParsedDedupeItem) {
+  explorerStore.jumpToPath(item.path)
+  appStore.switchTab('explorer')
+  dedupeStore.closeModal()
+}
+
+const collisionFilterOptions = computed(() => {
+  const items = dedupeStore.parsed.items || []
+  const all = items.length
+  let staged = 0
+  let unresolved = 0
+  let multi = 0
+
+  for (const item of items) {
+    const hasStaged = dedupeStore.stagedActions[item.path] || item.candidates.some(cand => !!getStagedCand(item, cand))
+    if (hasStaged) {
+      staged++
+    } else {
+      unresolved++
+    }
+    if ((item.found || item.candidates.length) > 2) {
+      multi++
+    }
+  }
+
+  return [
+    { label: 'All', value: 'all' as CollisionFilterType, count: all },
+    { label: 'Unresolved', value: 'unresolved' as CollisionFilterType, count: unresolved },
+    { label: 'Staged', value: 'staged' as CollisionFilterType, count: staged },
+    { label: 'Multi-Copy (>2)', value: 'multi' as CollisionFilterType, count: multi },
+  ]
+})
+
+const filteredItems = computed(() => {
+  let list = dedupeStore.parsed.items || []
+
+  if (collisionFilter.value === 'staged') {
+    list = list.filter(item => {
+      if (dedupeStore.stagedActions[item.path]) return true
+      return item.candidates.some(cand => !!getStagedCand(item, cand))
+    })
+  } else if (collisionFilter.value === 'unresolved') {
+    list = list.filter(item => {
+      if (dedupeStore.stagedActions[item.path]) return false
+      return !item.candidates.some(cand => !!getStagedCand(item, cand))
+    })
+  } else if (collisionFilter.value === 'multi') {
+    list = list.filter(item => (item.found || item.candidates.length) > 2)
+  }
+
+  const q = collisionSearch.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(item => {
+      if (item.name.toLowerCase().includes(q) || item.path.toLowerCase().includes(q)) return true
+      return item.candidates.some(cand => 
+        (cand.id && cand.id.toLowerCase().includes(q)) ||
+        (cand.raw && cand.raw.toLowerCase().includes(q))
+      )
+    })
+  }
+
+  return list
+})
 
 // File Preview state
 const showPreviewModal = ref(false)
