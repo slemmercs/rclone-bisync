@@ -29,7 +29,7 @@ Achieve 100% functional, operational, and visual parity between legacy Alpine.js
   - **Scope**: `dashboard/frontend/src/composables/useKeyboardShortcuts.ts`, `dashboard/frontend/src/stores/app.ts`, `dashboard/frontend/src/App.vue`, `dashboard/frontend/src/components/AppHeader.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
-- [ ] Task 7: Headless Chrome E2E Suite Expansion
+- [x] Task 7: Headless Chrome E2E Suite Expansion
   - **Scope**: `tests/e2e/cockpit_spa_smoke_test.go`
   - **Verification**: `go test -v -count=1 ./tests/e2e/...`
 
@@ -46,3 +46,4 @@ Achieve 100% functional, operational, and visual parity between legacy Alpine.js
 - 2026-11-18: Completed Task 4 - Implemented Dedupe staged actions and batch execution types/store methods, created DedupeStagedDrawer.vue and DedupeExplorerTab.vue, integrated Directory Explorer navigation & file previews in ModalDedupe.vue, verified with type-check, build, and LOC gate.
 - 2026-11-18: Completed Task 5 - Decomposed monolithic ViewExplorer.vue into cohesive single-responsibility components (ExplorerBreadcrumbs.vue, ExplorerToolbar.vue, ExplorerTable.vue, ExplorerPane.vue, and ViewExplorer.vue orchestrator), verified via type-check, production build, and LOC check.
 - 2026-11-18: Completed Task 6 - Implemented useKeyboardShortcuts composable with full hotkey coverage (Alt+P, Ctrl+K, C, N, R, L, ?, Esc, 1-5), operator live/paused polling controls in useAppStore and AppHeader, ModalKeyboardShortcuts reference dialog, visibilitychange battery saver coordination, and poller tab in ModalSystemHealth. Verified via type-check, build, headless smoke tests, and check.sh.
+- 2026-11-18: Completed Task 7 - Expanded Headless Chrome E2E suite in tests/e2e/cockpit_spa_smoke_test.go covering Bandwidth popover presets, Keyboard Shortcuts cheatsheet dialog, Quick Create dropdown menu, Pending Deletions modal, Alt+P live/paused operator polling toggles, and Dedupe Workspace modal. All 16 SPA journeys verified with zero console errors.

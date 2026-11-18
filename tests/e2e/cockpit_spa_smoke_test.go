@@ -36,6 +36,8 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 			_, _ = w.Write([]byte(`{"remotes":["testremote"]}`))
 		case "/core/stats":
 			_, _ = w.Write([]byte(`{"bytes":0,"checks":0,"deletes":0,"transfers":0}`))
+		case "/core/bwlimit":
+			_, _ = w.Write([]byte(`{"rate":"off","bytesPerSecond":0}`))
 		case "/operations/about":
 			_, _ = w.Write([]byte(`{"total":1000000,"used":500000,"free":500000}`))
 		default:
@@ -325,7 +327,183 @@ func TestCockpitSPA_HeadlessChromeSmoke(t *testing.T) {
 		time.Sleep(150 * time.Millisecond)
 	})
 
-	// 9. Final Console Error Audit
+	// 10. Bandwidth Throttling Popover Interaction
+	t.Run("BandwidthPopoverInteraction", func(t *testing.T) {
+		clickBwScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('header button'));
+			const bwBtn = btns.find(b => b.textContent.includes('BW:'));
+			if (bwBtn) { bwBtn.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickBwScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Bandwidth popover: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		hasPopover, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			return document.body.textContent.includes('Bandwidth Throttling') && document.body.textContent.includes('Presets');
+		})()`))
+		if err != nil || !hasPopover {
+			t.Fatalf("expected Bandwidth Throttling popover in DOM, err: %v", err)
+		}
+
+		// Close popover
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](clickBwScript))
+		time.Sleep(150 * time.Millisecond)
+	})
+
+	// 11. Keyboard Shortcuts Modal Interaction
+	t.Run("KeyboardShortcutsModalInteraction", func(t *testing.T) {
+		clickShortcutsScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('header button'));
+			const sBtn = btns.find(b => (b.title && b.title.includes('Keyboard Shortcuts')));
+			if (sBtn) { sBtn.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickShortcutsScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Keyboard Shortcuts modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		hasShortcuts, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			return document.body.textContent.includes('Cockpit Keyboard Shortcuts') && document.body.textContent.includes('Operator & Polling Controls');
+		})()`))
+		if err != nil || !hasShortcuts {
+			t.Fatalf("expected Keyboard Shortcuts modal in DOM, err: %v", err)
+		}
+
+		// Close modal by pressing Escape
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			return true;
+		})()`))
+		time.Sleep(150 * time.Millisecond)
+	})
+
+	// 12. Quick Create Menu Interaction
+	t.Run("QuickCreateMenuInteraction", func(t *testing.T) {
+		clickCreateScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('header button'));
+			const cBtn = btns.find(b => b.textContent.includes('Create'));
+			if (cBtn) { cBtn.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickCreateScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Quick Create menu: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		hasMenu, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			return document.body.textContent.includes('New Sync Profile') && document.body.textContent.includes('Connect Remote');
+		})()`))
+		if err != nil || !hasMenu {
+			t.Fatalf("expected Quick Create menu items in DOM, err: %v", err)
+		}
+
+		// Close menu
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			return true;
+		})()`))
+		time.Sleep(150 * time.Millisecond)
+	})
+
+	// 13. Pending Deletions Modal Interaction
+	t.Run("PendingDeletionsModalInteraction", func(t *testing.T) {
+		openDeletionsScript := `(() => {
+			if (typeof window.openDeletionsModal === 'function') {
+				window.openDeletionsModal();
+				return true;
+			}
+			return false;
+		})()`
+		opened, err := chromedp.Run(ctx, chromedp.Evaluate[bool](openDeletionsScript))
+		if err != nil || !opened {
+			t.Fatalf("failed to open Pending Deletions modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		hasDeletionsModal, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			return document.body.textContent.includes('Pending Deletions Review');
+		})()`))
+		if err != nil || !hasDeletionsModal {
+			t.Fatalf("expected Pending Deletions modal in DOM, err: %v", err)
+		}
+
+		// Close modal
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			return true;
+		})()`))
+		time.Sleep(150 * time.Millisecond)
+	})
+
+	// 14. Operator Polling Hotkey Toggle
+	t.Run("OperatorPollingToggle", func(t *testing.T) {
+		toggleScript := `(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', altKey: true }));
+			return window.isPollingPaused === true;
+		})()`
+		paused, err := chromedp.Run(ctx, chromedp.Evaluate[bool](toggleScript))
+		if err != nil || !paused {
+			t.Fatalf("expected isPollingPaused=true after Alt+P, err: %v", err)
+		}
+		time.Sleep(150 * time.Millisecond)
+
+		resumeScript := `(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', altKey: true }));
+			return window.isPollingPaused === false;
+		})()`
+		resumed, err := chromedp.Run(ctx, chromedp.Evaluate[bool](resumeScript))
+		if err != nil || !resumed {
+			t.Fatalf("expected isPollingPaused=false after second Alt+P, err: %v", err)
+		}
+		time.Sleep(150 * time.Millisecond)
+	})
+
+	// 15. Dedupe Workspace Modal Interaction
+	t.Run("DedupeModalInteraction", func(t *testing.T) {
+		// Switch to Storage Remotes tab
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			const buttons = Array.from(document.querySelectorAll('header nav button'));
+			const btn = buttons.find(b => b.textContent.includes('Storage Remotes'));
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`))
+		time.Sleep(200 * time.Millisecond)
+
+		clickDedupeScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const dBtn = btns.find(b => b.textContent.includes('Dedupe'));
+			if (dBtn) { dBtn.click(); return true; }
+			return false;
+		})()`
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickDedupeScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Dedupe modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		hasDedupeModal, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			return document.body.textContent.includes('Deduplication Workspace') &&
+				document.body.textContent.includes('Deduplication Strategy');
+		})()`))
+		if err != nil || !hasDedupeModal {
+			t.Fatalf("expected Dedupe modal in DOM, err: %v", err)
+		}
+
+		// Close modal with Escape
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+			return true;
+		})()`))
+		time.Sleep(150 * time.Millisecond)
+	})
+
+	// 16. Final Console Error Audit
 	t.Run("ConsoleErrorAudit", func(t *testing.T) {
 		mu.Lock()
 		defer mu.Unlock()
