@@ -247,7 +247,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
   - **Scope**: `internal/config/config.go`, `internal/config/env_writer.go`, `internal/config/env_writer_test.go`, `bisync.env`, `config/bisync.env.example`
   - **Verification**: `go test -v -count=1 -race ./internal/config/...`
 
-- [ ] Task 29: Server API Contract & Config Handlers Persistence
+- [x] Task 29: Server API Contract & Config Handlers Persistence
   - **Scope**: `internal/models/api.go`, `internal/server/handlers_config.go`, `internal/server/handlers_config_test.go`
   - **Verification**: `go test -v -count=1 -race ./internal/server/... -run TestConfig`
 
@@ -263,5 +263,6 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
 
 - 2026-11-17: Initialized task plan for bisync.env bidirectional synchronization and configuration audit from implementation_plan.md.
 - 2026-11-17: Completed Task 28 - Configuration Persistence Engine & Audit Documentation. Added `EnvFilePath` to `config.Config` and populated the loaded path during `config.LoadConfig`; implemented atomic multi-key environment file updater `UpdateEnvKeys` and `FormatEnvValue` in `internal/config/env_writer.go` with full comment/ordering preservation; added unit test suite in `internal/config/env_writer_test.go`; audited, annotated, and synchronized `bisync.env` and `config/bisync.env.example` documenting fallback bootstrap paths (`LOCAL_PATH`, `REMOTE_PATH`) vs independent sync profiles, and adding documentation for all engine options (`GLOBAL_MAX_DELETE`, `GLOBAL_CANARY_VALIDATION`, `GLOBAL_CONFLICT_RESOLVE`, `GLOBAL_COMPARE_MODE`, `GLOBAL_REMOVE_EMPTY_DIRS`, `GLOBAL_CREATE_EMPTY_DIRS`, `GLOBAL_LOCK_EXPLORER_REMOTE`, `WEBHOOK_URL`, `WATCHDOG_PING_URL`, `REVIEW_BACKUP_TTL_HOURS`, `MCP_ENABLED`, `MCP_READ_ONLY`, `MCP_PORT`). Verified with `go test -v -count=1 -race ./internal/config/...`.
+- 2026-11-17: Completed Task 29 - Server API Contract & Config Handlers Persistence. Expanded `GlobalDefaults` with `DefaultLocalPath` and `DefaultRemotePath`, added concrete Go structs for `ConfigLoggingSettings`, `ConfigCleanupSettings`, `ConfigTelemetrySettings`, and `ConfigFeatureSettings` in `internal/models/api.go`; updated `handleGetConfig` in `internal/server/handlers_config.go` to return full configuration across all subsystems; updated `handleUpdateConfig` to validate inputs, mutate in-memory server config, and atomically persist updated key-value pairs to `bisync.env` via `config.UpdateEnvKeys`; added unit tests in `internal/server/handlers_config_test.go` verifying complete round-trip disk persistence. Verified with `go test -v -count=1 -race ./internal/server/... -run TestConfig`.
 
 

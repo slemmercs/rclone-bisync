@@ -100,21 +100,61 @@ type GlobalDefaults struct {
 	CreateEmptyDirs    bool   `json:"create_empty_dirs"`
 	LockExplorerRemote bool   `json:"lock_explorer_remote"`
 	CustomFlags        string `json:"custom_flags,omitempty"`
+	DefaultLocalPath   string `json:"default_local_path,omitempty"`
+	DefaultRemotePath  string `json:"default_remote_path,omitempty"`
 }
 
 // ConfigDaemonSettings represents daemon scheduling, timeout, and backoff settings.
 type ConfigDaemonSettings struct {
-	JobPollInitialSleepSec  float64 `json:"job_poll_initial_sleep_sec"`
-	JobPollMaxSleepSec      float64 `json:"job_poll_max_sleep_sec"`
-	JobTimeoutSeconds       int     `json:"job_timeout_seconds"`
-	LockStaleTimeoutSeconds int     `json:"lock_stale_timeout_seconds"`
-	RateLimitBackoffHours   float64 `json:"rate_limit_backoff_hours"`
+	JobPollInitialSleepSec     float64 `json:"job_poll_initial_sleep_sec"`
+	JobPollMaxSleepSec         float64 `json:"job_poll_max_sleep_sec"`
+	JobPollBackoffMultiplier   float64 `json:"job_poll_backoff_multiplier,omitempty"`
+	JobTimeoutSeconds          int     `json:"job_timeout_seconds"`
+	LockStaleTimeoutSeconds    int     `json:"lock_stale_timeout_seconds"`
+	RateLimitBackoffHours      float64 `json:"rate_limit_backoff_hours"`
+	RateLimitRetryAfterBackoff bool    `json:"rate_limit_retry_after_backoff,omitempty"`
+	CheckStaleLocks            bool    `json:"check_stale_locks,omitempty"`
 }
 
-// ConfigNotificationSettings represents external alerting webhook endpoints.
+// ConfigLoggingSettings represents log file size and backup retention.
+type ConfigLoggingSettings struct {
+	MaxLogSizeMB   int `json:"max_log_size_mb"`
+	LogBackupCount int `json:"log_backup_count"`
+}
+
+// ConfigCleanupSettings represents post-sync file cleanup globs.
+type ConfigCleanupSettings struct {
+	FilesToCleanup string `json:"files_to_cleanup"`
+}
+
+// ConfigTelemetrySettings represents telemetry and metrics collection settings.
+type ConfigTelemetrySettings struct {
+	EnableMetrics     bool `json:"enable_metrics"`
+	MetricsMaxEntries int  `json:"metrics_max_entries"`
+	MetricsMaxBackups int  `json:"metrics_max_backups"`
+}
+
+// ConfigFeatureSettings represents subsystem feature flags and debug toggles.
+type ConfigFeatureSettings struct {
+	DebugMode          bool `json:"debug_mode"`
+	MCPReadOnly        bool `json:"mcp_read_only"`
+	StaleLockDetection bool `json:"stale_lock_detection"`
+	RateLimitBackoff   bool `json:"rate_limit_backoff"`
+	DaemonHealthCheck  bool `json:"daemon_health_check"`
+	MetricsCollection  bool `json:"metrics_collection"`
+	SmartNotifications bool `json:"smart_notifications"`
+	WebhookAlerts      bool `json:"webhook_alerts"`
+}
+
+// ConfigNotificationSettings represents external alerting webhook endpoints and throttling.
 type ConfigNotificationSettings struct {
-	WebhookURL      string `json:"webhook_url"`
-	WatchdogPingURL string `json:"watchdog_ping_url"`
+	AppName            string  `json:"app_name,omitempty"`
+	SuccessIntervalMin float64 `json:"success_interval_min,omitempty"`
+	ErrorRepeatHours   float64 `json:"error_repeat_hours,omitempty"`
+	WebhookURL         string  `json:"webhook_url"`
+	WebhookTimeoutSec  int     `json:"webhook_timeout_sec,omitempty"`
+	WatchdogPingURL    string  `json:"watchdog_ping_url"`
+	WatchdogTimeoutSec int     `json:"watchdog_timeout_sec,omitempty"`
 }
 
 // GlobalConfigResponse is the canonical response for GET/PUT /api/config.
@@ -122,14 +162,22 @@ type GlobalConfigResponse struct {
 	Status         string                     `json:"status"`
 	GlobalDefaults GlobalDefaults             `json:"global_defaults"`
 	Daemon         ConfigDaemonSettings       `json:"daemon"`
+	Logging        ConfigLoggingSettings      `json:"logging"`
+	Cleanup        ConfigCleanupSettings      `json:"cleanup"`
+	Telemetry      ConfigTelemetrySettings    `json:"telemetry"`
 	Notifications  ConfigNotificationSettings `json:"notifications"`
+	Features       ConfigFeatureSettings      `json:"features"`
 }
 
 // UpdateConfigRequest represents the payload for PUT /api/config.
 type UpdateConfigRequest struct {
 	GlobalDefaults *GlobalDefaults             `json:"global_defaults,omitempty"`
 	Daemon         *ConfigDaemonSettings       `json:"daemon,omitempty"`
+	Logging        *ConfigLoggingSettings      `json:"logging,omitempty"`
+	Cleanup        *ConfigCleanupSettings      `json:"cleanup,omitempty"`
+	Telemetry      *ConfigTelemetrySettings    `json:"telemetry,omitempty"`
 	Notifications  *ConfigNotificationSettings `json:"notifications,omitempty"`
+	Features       *ConfigFeatureSettings      `json:"features,omitempty"`
 }
 
 // MCPStatus represents the operational status of the Model Context Protocol server.
