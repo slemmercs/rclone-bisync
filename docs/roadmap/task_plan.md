@@ -279,7 +279,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
   - **Scope**: `internal/services/filetail.go`, `internal/services/filetail_test.go`, `dashboard/frontend/src/views/ViewTelemetryLedger.vue`
   - **Verification**: `go test -v -count=1 ./internal/services/... -run TestTailJSONLogPaginatedFiltered`
 
-- [ ] Task 37: Full Pre-Flight Verification & E2E Validation
+- [x] Task 37: Full Pre-Flight Verification & E2E Validation
   - **Scope**: Full repository quality gates and E2E validation
   - **Verification**: `./scripts/check.sh all`
 
@@ -305,4 +305,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
 
 
 - 2026-11-18: Completed Task 36 - Unified Ledger Slog Noise Suppression & JSON Filter Fix. Confirmed backend log filter in `internal/services/filetail.go` accurately maps slog JSON lines with `msg == "http_access"` or HTTP request method attributes to `entryType = "http_access"`. Added unit tests in `internal/services/filetail_test.go` verifying suppression of slog JSON lines (lacking a `"type"` attribute) and legacy plaintext access traces when `exclude_types=http_access` is specified. Updated `dashboard/frontend/src/stores/logs.ts` to include `http_access` in default exclusions for both bisync timeline queries and log dock tailing, eliminating HTTP telemetry polling noise from user ledger views. Verified with `go test -v -count=1 ./internal/services/... -run TestTailJSONLogPaginatedFiltered` and `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+
+
+- 2026-11-18: Completed Task 37 - Full Pre-Flight Verification & E2E Validation. Executed `./scripts/check.sh all` across all 7 verification stages (formatting & shell check, static analysis & security linting, template integrity check, architecture LOC audit, race-detector unit test execution, statement coverage enforcement, and self-contained binary compilation); executed full E2E headless Chrome test suites (`TestCockpitSPA_HeadlessChromeSmoke`, `TestDashboard_HeadlessChromeSmoke`, `TestDashboard_HelpDrawerAndGuidance`, and `TestDashboard_SandboxUIJourney`). All 4 suites and 42 test journeys passed with zero regressions.
 
