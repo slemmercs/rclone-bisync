@@ -21,7 +21,7 @@ Resolve Profile Manager save failures and option importing, restore Dedupe modal
   - **Scope**: `dashboard/frontend/src/components/ModalDedupe.vue`, `dashboard/frontend/src/stores/dedupe.ts`
   - **Verification**: `npm --prefix dashboard/frontend run build`
 
-- [ ] Task 5: Dedupe Scan Result Caching (`sessionStorage` & In-Memory Retention)
+- [x] Task 5: Dedupe Scan Result Caching (`sessionStorage` & In-Memory Retention)
   - **Scope**: `dashboard/frontend/src/stores/dedupe.ts`, `dashboard/frontend/src/components/ModalDedupe.vue`
   - **Verification**: `npm --prefix dashboard/frontend run build`
 
@@ -44,3 +44,4 @@ Resolve Profile Manager save failures and option importing, restore Dedupe modal
 - 2026-11-18: Completed Task 2 - Implemented `ProviderOptionsMap` custom unmarshaler in `internal/profiles/model.go` to coerce booleans, numbers, and strings into strings. Implemented flexible `SafetySettings.UnmarshalJSON` accepting both `delete_threshold_pct` and `max_delete_percent` (as float, int, or percentage string) and string/bool safety thresholds. Verified via `TestProfileFlags_ProviderOptionsFlexibleUnmarshal` and `TestSafetySettings_FlexibleUnmarshal`.
 - 2026-11-18: Completed Task 3 - Updated `ProfileManagerModal.vue` with `normalizedRemotes` (stripping trailing colons), auto-fetching remotes upon modal open, auto-populating provider options schema defaults on remote selection, normalizing `delete_threshold_pct` / `max_delete_percent`, and coercing provider options to strings on profile save. Verified via `npm --prefix dashboard/frontend run build` and `TestProfiles_CRUD_Endpoints`.
 - 2026-11-18: Completed Task 4 - Implemented dual match modes in `ModalDedupe.vue` ("Same-Folder Duplicate Names (Safe Default)" vs "Cross-Folder Hash (--by-hash)") with dynamic badge indicator. Implemented provider-aware strategy differentiation in `stores/dedupe.ts` defaulting to `--by-hash` for single-filename backends (OneDrive, S3, B2, local, Swift, AzureBlob, SFTP, FTP) and same-folder matching for Google Drive. Verified via `npm --prefix dashboard/frontend run build` and `internal/server` tests.
+- 2026-11-18: Completed Task 5 - Implemented dedupe scan result caching in `stores/dedupe.ts` using `sessionStorage` and reactive memory state with cache key scoping (`remote` + `path`). Scans are restored upon opening the modal, an informative cached badge with relative time and clear button is shown in `ModalDedupe.vue`, and cache is invalidated upon successful batch execution or explicit cache clear. Verified via `npm --prefix dashboard/frontend run build` and `TestRemoteDedupe`.

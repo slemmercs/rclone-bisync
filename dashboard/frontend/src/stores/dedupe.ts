@@ -14,6 +14,7 @@ import type {
   ProviderCatalogItem,
   ProviderCatalogResponse,
   CreateRemotePayload,
+  DedupeScanCache,
 } from '../types/dedupe'
 import type { BrowseItem, BrowseResponse } from '../types/models'
 import { parseDedupeOutput, type ParsedDedupeOutput, type ParsedCandidate, type ParsedDedupeItem } from '../utils/dedupeParser'
@@ -31,6 +32,7 @@ export const useDedupeStore = defineStore('dedupe', () => {
   const rawOutput = ref<string>('')
   const parsed = ref<ParsedDedupeOutput>(parseDedupeOutput(''))
   const runId = ref<string | null>(null)
+  const cachedTimestamp = ref<number | null>(null)
   const error = ref<string | null>(null)
   const activeTab = ref<'items' | 'explorer' | 'raw'>('items')
 
@@ -99,6 +101,38 @@ export const useDedupeStore = defineStore('dedupe', () => {
     return `${filePath}::${cId}::${idx}`
   }
 
+  function getDedupeCacheKey(rem: string, p: string): string {
+    const cleanRemote = (rem || '').replace(/:+$/, '').trim()
+    const cleanPath = (p || '').replace(/^\/+|\/+$/g, '')
+    return `rclone_dedupe_cache_${cleanRemote}_${cleanPath}`
+  }
+
+  function getDedupeCache(rem: string, p: string): DedupeScanCache | null {
+    if (typeof window === 'undefined' || !window.sessionStorage) return null
+    const key = getDedupeCacheKey(rem, p)
+    try {
+      const raw = window.sessionStorage.getItem(key)
+      if (raw) return JSON.parse(raw) as DedupeScanCache
+    } catch (_) {}
+    return null
+  }
+
+  function setDedupeCache(rem: string, p: string, data: DedupeScanCache) {
+    if (typeof window === 'undefined' || !window.sessionStorage) return
+    const key = getDedupeCacheKey(rem, p)
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(data))
+    } catch (_) {}
+  }
+
+  function removeDedupeCache(rem: string, p: string) {
+    if (typeof window === 'undefined' || !window.sessionStorage) return
+    const key = getDedupeCacheKey(rem, p)
+    try {
+      window.sessionStorage.removeItem(key)
+    } catch (_) {}
+  }
+
   function openModal(remoteName: string, subpath: string = '', initialMode: DedupeMode = 'list', providerType?: string) {
     const cleanRemote = remoteName.replace(/:+$/, '').trim()
     remote.value = cleanRemote
@@ -129,9 +163,23 @@ export const useDedupeStore = defineStore('dedupe', () => {
       byHash.value = false
     }
 
-    rawOutput.value = ''
-    parsed.value = parseDedupeOutput('')
-    runId.value = null
+    // Check session cache for previous scan results
+    const cached = getDedupeCache(cleanRemote, subpath)
+    if (cached) {
+      mode.value = cached.mode || initialMode
+      byHash.value = cached.byHash !== undefined ? cached.byHash : byHash.value
+      dedupeBoth.value = Boolean(cached.dedupeBoth)
+      rawOutput.value = cached.rawOutput || ''
+      parsed.value = cached.parsed || parseDedupeOutput(cached.rawOutput || '')
+      runId.value = cached.runId || null
+      cachedTimestamp.value = cached.timestamp || null
+    } else {
+      rawOutput.value = ''
+      parsed.value = parseDedupeOutput('')
+      runId.value = null
+      cachedTimestamp.value = null
+    }
+
     error.value = null
     stagedActions.value = {}
     drawerOpen.value = false
@@ -180,6 +228,21 @@ export const useDedupeStore = defineStore('dedupe', () => {
         }
       }
       parsed.value = parseDedupeOutput(rawOutput.value)
+      if (!error.value && rawOutput.value) {
+        const cacheEntry: DedupeScanCache = {
+          remote: remote.value,
+          path: path.value || '',
+          mode: mode.value,
+          byHash: byHash.value,
+          dedupeBoth: dedupeBoth.value,
+          rawOutput: rawOutput.value,
+          parsed: parsed.value,
+          runId: runId.value,
+          timestamp: Date.now(),
+        }
+        setDedupeCache(remote.value, path.value || '', cacheEntry)
+        cachedTimestamp.value = cacheEntry.timestamp
+      }
     } catch (e: any) {
       error.value = e.message || 'Deduplication request failed'
       rawOutput.value = (rawOutput.value ? rawOutput.value + '\n' : '') + `Request error: ${error.value}`
@@ -295,6 +358,10 @@ export const useDedupeStore = defineStore('dedupe', () => {
       }
 
       clearStagedActions()
+      if (succ > 0) {
+        removeDedupeCache(remote.value, path.value || '')
+        cachedTimestamp.value = null
+      }
       if (explorerItems.value.length > 0) {
         await loadExplorer(explorerPath.value)
       }
@@ -396,6 +463,14 @@ export const useDedupeStore = defineStore('dedupe', () => {
     }
   }
 
+  function clearCache() {
+    removeDedupeCache(remote.value, path.value || '')
+    rawOutput.value = ''
+    parsed.value = parseDedupeOutput('')
+    runId.value = null
+    cachedTimestamp.value = null
+  }
+
   return {
     modalOpen,
     remote,
@@ -408,6 +483,7 @@ export const useDedupeStore = defineStore('dedupe', () => {
     rawOutput,
     parsed,
     runId,
+    cachedTimestamp,
     error,
     activeTab,
     stagedActions,
@@ -445,5 +521,6 @@ export const useDedupeStore = defineStore('dedupe', () => {
     openWizard,
     closeWizard,
     createRemote,
+    clearCache,
   }
 })

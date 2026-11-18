@@ -53,6 +53,18 @@ export interface DedupeBatchApplyResponse {
   error?: string
 }
 
+export interface DedupeScanCache {
+  remote: string
+  path: string
+  mode: DedupeMode
+  byHash: boolean
+  dedupeBoth: boolean
+  rawOutput: string
+  parsed: any
+  runId: string | null
+  timestamp: number
+}
+
 export interface DedupeBatchProgress {
   total: number
   completed: number

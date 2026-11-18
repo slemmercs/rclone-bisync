@@ -30,6 +30,22 @@
       </div>
 
       <div class="flex items-center gap-2 mr-2">
+        <span
+          v-if="dedupeStore.cachedTimestamp"
+          class="px-2 py-0.5 rounded bg-indigo-950/40 border border-indigo-700/50 text-indigo-300 font-mono text-[11px] flex items-center gap-1.5"
+          title="Scan results restored from session cache"
+        >
+          <i class="pi pi-database text-[10px]"></i>
+          <span>Cached ({{ formatRelativeTime(dedupeStore.cachedTimestamp) }})</span>
+          <button
+            type="button"
+            @click="dedupeStore.clearCache()"
+            class="text-slate-400 hover:text-rose-400 ml-0.5 cursor-pointer"
+            title="Clear cached scan results"
+          >
+            <i class="pi pi-times text-[10px]"></i>
+          </button>
+        </span>
         <span class="px-2 py-0.5 rounded bg-carbon-elevated text-slate-300 font-mono text-[11px] border border-carbon-border">
           Collisions: {{ dedupeStore.parsed.totalCollisions }}
         </span>
@@ -471,7 +487,7 @@ import { useDedupeStore } from '../stores/dedupe'
 import { useLogsStore } from '../stores/logs'
 import { useExplorerStore } from '../stores/explorer'
 import { useAppStore } from '../stores/app'
-import { formatBytes } from '../composables/useFormatters'
+import { formatBytes, formatRelativeTime } from '../composables/useFormatters'
 import { useToastNotification } from '../composables/useToastNotification'
 import DedupeStagedDrawer from './dedupe/DedupeStagedDrawer.vue'
 import DedupeExplorerTab from './dedupe/DedupeExplorerTab.vue'
