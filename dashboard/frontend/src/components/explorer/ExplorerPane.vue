@@ -8,16 +8,29 @@
     <!-- Drag Over Active Overlay -->
     <div
       v-if="isDragOver"
-      class="absolute inset-0 z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed rounded-2xl backdrop-blur-sm"
-      :class="isLocal ? 'bg-indigo-950/85 border-indigo-400' : 'bg-emerald-950/85 border-emerald-400'"
+      class="absolute inset-0 z-30 flex flex-col items-center justify-center pointer-events-none border-2 border-dashed rounded-2xl backdrop-blur-sm p-4 text-center select-none"
+      :class="isLocal ? 'bg-indigo-950/90 border-indigo-400' : 'bg-emerald-950/90 border-emerald-400'"
     >
-      <i
-        class="pi pi-upload text-3xl animate-bounce mb-2"
-        :class="isLocal ? 'text-indigo-400' : 'text-emerald-400'"
-      ></i>
-      <span class="text-sm font-bold text-white uppercase tracking-wider">
-        Drop to upload to {{ isLocal ? 'Local Storage' : remote }}
-      </span>
+      <template v-if="explorerStore.draggedPayload && explorerStore.draggedPayload.sourcePane !== pane">
+        <i
+          class="pi pi-arrows-alt text-3xl animate-bounce mb-2 text-amber-400"
+        ></i>
+        <span class="text-sm font-bold text-white uppercase tracking-wider">
+          Drop to transfer "{{ explorerStore.draggedPayload.item.Name }}" to {{ isLocal ? 'Local Storage' : remote }}
+        </span>
+        <span class="text-xs text-amber-300 font-mono mt-1">
+          from {{ explorerStore.draggedPayload.sourcePane === 'left' ? 'Left Pane' : 'Right Pane' }} ({{ explorerStore.draggedPayload.sourceRemote }})
+        </span>
+      </template>
+      <template v-else>
+        <i
+          class="pi pi-upload text-3xl animate-bounce mb-2"
+          :class="isLocal ? 'text-indigo-400' : 'text-emerald-400'"
+        ></i>
+        <span class="text-sm font-bold text-white uppercase tracking-wider">
+          Drop to upload to {{ isLocal ? 'Local Storage' : remote }}
+        </span>
+      </template>
     </div>
 
     <!-- Hidden File Upload Input -->
@@ -150,8 +163,9 @@
 import { ref, computed } from 'vue'
 import ExplorerBreadcrumbs from './ExplorerBreadcrumbs.vue'
 import ExplorerTable from './ExplorerTable.vue'
+import { useExplorerStore } from '../../stores/explorer'
 import type { BrowseItem, RemoteEntry, Profile } from '../../types/models'
-import type { BreadcrumbItem } from '../../types/explorer'
+import type { BreadcrumbItem, ExplorerDragPayload } from '../../types/explorer'
 
 const props = defineProps<{
   pane: 'left' | 'right'
@@ -182,8 +196,10 @@ const emit = defineEmits<{
   (e: 'toggleCompare', item: BrowseItem): void
   (e: 'nameClick', item: BrowseItem): void
   (e: 'openOnRemote', item: BrowseItem): void
+  (e: 'crossPaneDrop', payload: ExplorerDragPayload): void
 }>()
 
+const explorerStore = useExplorerStore()
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isDragOver = ref(false)
 const copied = ref(false)
@@ -245,23 +261,45 @@ function handleFileInputChange(e: Event) {
 }
 
 function onDragOver(e: DragEvent) {
-  if (e.dataTransfer?.types?.includes('Files')) {
+  const isFiles = e.dataTransfer?.types?.includes('Files')
+  const isCrossPane = !!explorerStore.draggedPayload && explorerStore.draggedPayload.sourcePane !== props.pane
+  if (isFiles || isCrossPane) {
     e.preventDefault()
-    e.dataTransfer.dropEffect = 'copy'
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy'
+    }
     isDragOver.value = true
   }
 }
 
-function onDragLeave(e: DragEvent) {
+function onDragLeave() {
   isDragOver.value = false
 }
 
 function onDrop(e: DragEvent) {
   isDragOver.value = false
-  const files = Array.from(e.dataTransfer?.files || [])
-  if (files.length === 0) return
   e.preventDefault()
-  emit('uploadFiles', files)
+
+  // 1. External files upload drop
+  const files = Array.from(e.dataTransfer?.files || [])
+  if (files.length > 0) {
+    emit('uploadFiles', files)
+    return
+  }
+
+  // 2. Cross-pane internal drag-and-drop
+  let payload = explorerStore.draggedPayload
+  if (!payload && e.dataTransfer) {
+    try {
+      const raw = e.dataTransfer.getData('application/json')
+      if (raw) payload = JSON.parse(raw)
+    } catch (_) {}
+  }
+
+  if (payload && payload.sourcePane !== props.pane) {
+    emit('crossPaneDrop', payload)
+    explorerStore.setDraggedPayload(null)
+  }
 }
 
 function onRemoteSelectChange(e: Event) {

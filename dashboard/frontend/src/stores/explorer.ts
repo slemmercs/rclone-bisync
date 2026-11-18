@@ -6,6 +6,8 @@ import type {
   FilePreviewResponse,
   CompareItemRequest,
   FileCompareResponse,
+  CopyRequest,
+  CopyResponse,
   MoveRequest,
   MoveResponse,
   MkdirRequest,
@@ -14,6 +16,7 @@ import type {
   DeleteResponse,
   UploadDockStatus,
   UploadQueueItem,
+  ExplorerDragPayload,
 } from '../types/explorer'
 
 export interface CompareSelectItem {
@@ -36,6 +39,13 @@ export const useExplorerStore = defineStore('explorer', () => {
 
   // Multi-file selection for checksum comparison
   const compareSelection = ref<CompareSelectItem[]>([])
+
+  // Cross-pane HTML5 drag-and-drop state
+  const draggedPayload = ref<ExplorerDragPayload | null>(null)
+
+  function setDraggedPayload(payload: ExplorerDragPayload | null) {
+    draggedPayload.value = payload
+  }
 
   // Upload Dock state
   const uploadDock = ref<UploadDockStatus>({ pending_count: 0, is_sync_active: false, items: [] })
@@ -127,6 +137,10 @@ export const useExplorerStore = defineStore('explorer', () => {
   async function createDirectory(remote: string, path: string, profileId?: string): Promise<MkdirResponse> {
     const req: MkdirRequest = { remote, path, profile_id: profileId }
     return await api.post<MkdirResponse>('/api/operations/mkdir', req)
+  }
+
+  async function copyItem(req: CopyRequest): Promise<CopyResponse> {
+    return await api.post<CopyResponse>('/api/browse/copy', req)
   }
 
   async function moveItem(req: MoveRequest): Promise<MoveResponse> {
@@ -252,8 +266,11 @@ export const useExplorerStore = defineStore('explorer', () => {
     previewFile,
     compareFiles,
     createDirectory,
+    copyItem,
     moveItem,
     deleteItem,
+    draggedPayload,
+    setDraggedPayload,
     uploadFile,
     getPublicLink,
     touchCanary,

@@ -47,6 +47,23 @@ export interface FileCompareResponse {
   error?: string
 }
 
+export interface CopyRequest {
+  src_remote: string
+  src_path: string
+  dst_remote: string
+  dst_path: string
+  is_dir: boolean
+  profile_id?: string
+}
+
+export interface CopyResponse {
+  status: string
+  msg?: string
+  src?: string
+  dst?: string
+  error?: string
+}
+
 export interface MoveRequest {
   profile_id?: string
   src_profile_id?: string

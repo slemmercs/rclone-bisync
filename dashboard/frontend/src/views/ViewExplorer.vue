@@ -41,6 +41,7 @@
             @toggleCompare="item => toggleCompare('left', item)"
             @nameClick="item => handleNameClick('left', item)"
             @openOnRemote="item => openOnRemoteDirect(leftRemote, getRelativeItemPath('left', item))"
+            @crossPaneDrop="payload => handleCrossPaneDrop(payload, 'left')"
           />
         </SplitterPanel>
 
@@ -72,6 +73,7 @@
             @toggleCompare="item => toggleCompare('right', item)"
             @nameClick="item => handleNameClick('right', item)"
             @openOnRemote="item => openOnRemoteDirect(rightRemote, getRelativeItemPath('right', item))"
+            @crossPaneDrop="payload => handleCrossPaneDrop(payload, 'right')"
           />
         </SplitterPanel>
       </Splitter>
@@ -110,6 +112,19 @@
       :loading="moveLoading"
       :error="moveError"
       @move="handleExecuteMove"
+    />
+
+    <ModalExplorerTransfer
+      v-model:visible="showTransferModal"
+      :sourceRemote="transferSourceRemote"
+      :sourcePath="transferSourcePath"
+      :destRemote="transferDestRemote"
+      :destPath="transferDestPath"
+      :itemName="transferItemName"
+      :isDir="transferIsDir"
+      :loading="transferLoading"
+      :error="transferError"
+      @confirm="handleExecuteTransfer"
     />
 
     <ModalConfirm
@@ -151,14 +166,18 @@ import ModalFilePreview from '../components/ModalFilePreview.vue'
 import ModalCompare from '../components/ModalCompare.vue'
 import ModalExplorerMkdir from '../components/ModalExplorerMkdir.vue'
 import ModalExplorerMove from '../components/ModalExplorerMove.vue'
+import ModalExplorerTransfer from '../components/explorer/ModalExplorerTransfer.vue'
 import ModalConfirm from '../components/ModalConfirm.vue'
 import ExplorerContextMenu from '../components/ExplorerContextMenu.vue'
 import ModalUploadDock from '../components/ModalUploadDock.vue'
+import { useToastNotification } from '../composables/useToastNotification'
+import type { ExplorerDragPayload } from '../types/explorer'
 
 const profilesStore = useProfilesStore()
 const explorerStore = useExplorerStore()
 const settingsStore = useSettingsStore()
 const remotesStore = useRemotesStore()
+const toast = useToastNotification()
 
 const activeProfile = computed(() => profilesStore.activeProfile)
 const isRemoteLocked = computed(() => !!settingsStore.globalDefaults.lock_explorer_remote)
@@ -208,6 +227,17 @@ const moveSrcPath = ref('')
 const moveIsDir = ref(false)
 const moveLoading = ref(false)
 const moveError = ref<string | null>(null)
+
+// Cross-Target Transfer Modal State
+const showTransferModal = ref(false)
+const transferSourceRemote = ref('local')
+const transferSourcePath = ref('')
+const transferDestRemote = ref('local')
+const transferDestPath = ref('')
+const transferItemName = ref('')
+const transferIsDir = ref(false)
+const transferLoading = ref(false)
+const transferError = ref<string | null>(null)
 
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
@@ -576,6 +606,61 @@ async function handleExecuteDelete() {
     alert(e.message || 'Deletion failed')
   } finally {
     confirmLoading.value = false
+  }
+}
+
+function handleCrossPaneDrop(payload: ExplorerDragPayload, targetPaneKey: 'left' | 'right') {
+  const dstRemote = targetPaneKey === 'left' ? leftRemote.value : rightRemote.value
+  const dstPath = targetPaneKey === 'left' ? leftPath.value : rightPath.value
+
+  transferSourceRemote.value = payload.sourceRemote
+  transferSourcePath.value = payload.sourcePath
+  transferDestRemote.value = dstRemote
+  transferDestPath.value = dstPath
+  transferItemName.value = payload.item.Name
+  transferIsDir.value = payload.item.IsDir
+  transferError.value = null
+  showTransferModal.value = true
+}
+
+async function handleExecuteTransfer(action: 'copy' | 'move', dstPath: string) {
+  transferLoading.value = true
+  transferError.value = null
+
+  try {
+    if (action === 'copy') {
+      const res = await explorerStore.copyItem({
+        src_remote: transferSourceRemote.value,
+        src_path: transferSourcePath.value,
+        dst_remote: transferDestRemote.value,
+        dst_path: dstPath,
+        is_dir: transferIsDir.value,
+        profile_id: activeProfile.value?.id,
+      })
+      if (res && res.status === 'error') {
+        throw new Error(res.error || 'Copy failed')
+      }
+      toast.success(`Copied "${transferItemName.value}" successfully to ${transferDestRemote.value}:${dstPath}`, 'File Transfer')
+    } else {
+      const res = await explorerStore.moveItem({
+        src_remote: transferSourceRemote.value,
+        src_path: transferSourcePath.value,
+        dst_remote: transferDestRemote.value,
+        dst_path: dstPath,
+        is_dir: transferIsDir.value,
+        profile_id: activeProfile.value?.id,
+      })
+      if (res && res.status === 'error') {
+        throw new Error(res.error || 'Move failed')
+      }
+      toast.success(`Moved "${transferItemName.value}" successfully to ${transferDestRemote.value}:${dstPath}`, 'File Transfer')
+    }
+    showTransferModal.value = false
+    refreshAll()
+  } catch (err: any) {
+    transferError.value = err.message || 'Transfer failed'
+  } finally {
+    transferLoading.value = false
   }
 }
 </script>

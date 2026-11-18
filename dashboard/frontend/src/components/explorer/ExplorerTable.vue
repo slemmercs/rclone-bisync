@@ -73,20 +73,27 @@
         v-else
         v-for="item in sortedItems"
         :key="item.Name"
+        :draggable="item.Name !== 'RCLONE_TEST'"
+        @dragstart="handleDragStart(item, $event)"
+        @dragend="handleDragEnd"
         @click="$emit('itemClick', item)"
         @dblclick="$emit('itemDblClick', item)"
         @contextmenu.prevent="$emit('contextmenu', $event, item)"
         class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors rounded-lg group"
         :class="[
           selectedItem?.Name === item.Name ? 'bg-carbon-800 text-electric-400 font-semibold' : 'hover:bg-carbon-800/60 text-carbon-200',
-          explorerStore.highlightName === item.Name ? 'ring-2 ring-electric-400 bg-electric-950/50 text-electric-300 font-bold animate-pulse' : ''
+          explorerStore.highlightName === item.Name ? 'ring-2 ring-electric-400 bg-electric-950/50 text-electric-300 font-bold animate-pulse' : '',
+          item.Name !== 'RCLONE_TEST' ? 'cursor-grab active:cursor-grabbing' : '',
+          draggingItemName === item.Name ? 'opacity-40 border border-dashed border-electric-400' : ''
         ]"
       >
         <div class="flex items-center gap-2.5 truncate flex-1 min-w-0">
           <input
             v-if="!item.IsDir && item.Name !== 'RCLONE_TEST'"
             type="checkbox"
+            draggable="false"
             :checked="isItemInCompare(item)"
+            @mousedown.stop
             @click.stop="$emit('toggleCompare', item)"
             class="rounded bg-carbon-900 border-carbon-700 text-electric-500 cursor-pointer shrink-0"
             title="Select for checksum comparison"
@@ -113,6 +120,8 @@
 
           <button
             v-if="!isLocal && !item.IsDir"
+            draggable="false"
+            @mousedown.stop
             @click.stop="$emit('openOnRemote', item)"
             class="opacity-0 group-hover:opacity-100 hover:text-electric-400 p-0.5 transition-opacity cursor-pointer"
             title="Open on remote in new tab"
@@ -130,7 +139,7 @@
 import { ref, computed } from 'vue'
 import { useExplorerStore } from '../../stores/explorer'
 import { formatBytes } from '../../composables/useFormatters'
-import { isItemPreviewable, type ExplorerSortField } from '../../types/explorer'
+import { isItemPreviewable, type ExplorerSortField, type ExplorerDragPayload } from '../../types/explorer'
 import type { BrowseItem } from '../../types/models'
 
 const props = defineProps<{
@@ -157,6 +166,36 @@ const explorerStore = useExplorerStore()
 const searchQuery = ref('')
 const sortBy = ref<ExplorerSortField>('name')
 const sortAsc = ref(true)
+const draggingItemName = ref<string | null>(null)
+
+function handleDragStart(item: BrowseItem, event: DragEvent) {
+  if (item.Name === 'RCLONE_TEST') {
+    event.preventDefault()
+    return
+  }
+  draggingItemName.value = item.Name
+  const relativePath = getItemRelativePath(item)
+  const payload: ExplorerDragPayload = {
+    item,
+    sourcePane: props.pane,
+    sourceRemote: props.remote,
+    sourcePath: relativePath,
+  }
+  explorerStore.setDraggedPayload(payload)
+
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'copyMove'
+    try {
+      event.dataTransfer.setData('application/json', JSON.stringify(payload))
+      event.dataTransfer.setData('text/plain', relativePath)
+    } catch (_) {}
+  }
+}
+
+function handleDragEnd() {
+  draggingItemName.value = null
+  explorerStore.setDraggedPayload(null)
+}
 
 function toggleSort(field: ExplorerSortField) {
   if (sortBy.value === field) {
