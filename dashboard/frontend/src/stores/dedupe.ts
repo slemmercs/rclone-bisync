@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '../api/client'
+import { useRemotesStore } from './remotes'
 import type {
   DedupeMode,
   DedupeStageAction,
@@ -98,10 +99,36 @@ export const useDedupeStore = defineStore('dedupe', () => {
     return `${filePath}::${cId}::${idx}`
   }
 
-  function openModal(remoteName: string, subpath: string = '', initialMode: DedupeMode = 'list') {
-    remote.value = remoteName.replace(/:+$/, '')
+  function openModal(remoteName: string, subpath: string = '', initialMode: DedupeMode = 'list', providerType?: string) {
+    const cleanRemote = remoteName.replace(/:+$/, '').trim()
+    remote.value = cleanRemote
     path.value = subpath
     mode.value = initialMode
+
+    // Provider-aware strategy differentiation
+    const remotesStore = useRemotesStore()
+    let pType = (providerType || '').toLowerCase()
+    if (!pType && remotesStore.remotes.length > 0) {
+      const match = remotesStore.remotes.find(
+        (r) => (r.name || '').replace(/:+$/, '').trim().toLowerCase() === cleanRemote.toLowerCase()
+      )
+      if (match) {
+        pType = (match.type || '').toLowerCase()
+      }
+    }
+    if (!pType && cleanRemote === 'local') {
+      pType = 'local'
+    }
+
+    const singleFilenameProviders = ['onedrive', 's3', 'b2', 'swift', 'azureblob', 'local', 'sftp', 'ftp']
+    if (pType && singleFilenameProviders.includes(pType)) {
+      byHash.value = true
+    } else if (pType === 'drive') {
+      byHash.value = false
+    } else {
+      byHash.value = false
+    }
+
     rawOutput.value = ''
     parsed.value = parseDedupeOutput('')
     runId.value = null

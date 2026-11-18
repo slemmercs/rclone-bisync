@@ -63,18 +63,29 @@
             </select>
           </div>
 
-          <!-- Hash Matching Toggle -->
-          <div class="p-2.5 rounded-xl bg-carbon-canvas border border-carbon-border space-y-1">
-            <label class="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                v-model="dedupeStore.byHash"
-                class="rounded bg-carbon-elevated border-carbon-border text-amber-500 focus:ring-0 w-3.5 h-3.5"
-              />
-              <span class="text-xs text-slate-200 font-semibold">Match by Hash</span>
-            </label>
-            <p class="text-[10px] text-slate-400 ml-5.5">
-              Find duplicates by cryptographic checksum across directories.
+          <!-- Match Strategy Dropdown -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-semibold text-slate-300">Match Strategy</label>
+              <span
+                class="text-[10px] font-mono px-1.5 py-0.2 rounded"
+                :class="dedupeStore.byHash ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-700/60' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60'"
+              >
+                {{ dedupeStore.byHash ? '--by-hash' : 'same-folder' }}
+              </span>
+            </div>
+            <select
+              :value="dedupeStore.byHash ? 'hash' : 'name'"
+              @change="dedupeStore.byHash = (($event.target as HTMLSelectElement).value === 'hash')"
+              class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:border-amber-500 cursor-pointer"
+            >
+              <option value="name">Same-Folder Duplicate Names (Safe Default)</option>
+              <option value="hash">Cross-Folder Hash (--by-hash)</option>
+            </select>
+            <p class="text-[10px] text-slate-400 mt-1">
+              {{ dedupeStore.byHash
+                  ? 'Finds identical duplicates across all folders by cryptographic checksum.'
+                  : 'Resolves duplicate filenames within identical directories (Drive / multi-upload).' }}
             </p>
           </div>
 

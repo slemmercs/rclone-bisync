@@ -355,7 +355,7 @@ onMounted(() => {
           <div class="flex items-center gap-2">
             <button
               type="button"
-              @click="dedupeStore.openModal(remote.name)"
+              @click="dedupeStore.openModal(remote.name, '', 'list', remote.type)"
               class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors flex items-center gap-1.5 cursor-pointer"
               title="Launch Deduplication Workspace"
             >

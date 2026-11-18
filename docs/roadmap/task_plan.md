@@ -17,7 +17,7 @@ Resolve Profile Manager save failures and option importing, restore Dedupe modal
   - **Scope**: `dashboard/frontend/src/components/ProfileManagerModal.vue`
   - **Verification**: `npm --prefix dashboard/frontend run build && go test -v -count=1 ./internal/server -run "TestProfiles_CRUD_Endpoints"`
 
-- [ ] Task 4: Dedupe Modal Dual Match Modes & Backend-Aware Strategy Differentiation
+- [x] Task 4: Dedupe Modal Dual Match Modes & Backend-Aware Strategy Differentiation
   - **Scope**: `dashboard/frontend/src/components/ModalDedupe.vue`, `dashboard/frontend/src/stores/dedupe.ts`
   - **Verification**: `npm --prefix dashboard/frontend run build`
 
@@ -43,3 +43,4 @@ Resolve Profile Manager save failures and option importing, restore Dedupe modal
 - 2026-11-18: Completed Task 1 - Enforced audit ledger invariant in `runner_handlers.go` requiring `!dryRun && (FilesSynced > 0 || resync)` before appending `SYNC_EXECUTED` records. Suppressed 0-transfer dashboard/CLI runs and dry-runs from writing empty blocks to `audit.db`. Removed non-file actions `SECRET_ROTATED` and `CONFIG_MUTATED` from `ViewAudit.vue` and `view_audit.html` action filter dropdowns. Verified via `TestSyncRunner_AuditExecuted_And_Aborted`.
 - 2026-11-18: Completed Task 2 - Implemented `ProviderOptionsMap` custom unmarshaler in `internal/profiles/model.go` to coerce booleans, numbers, and strings into strings. Implemented flexible `SafetySettings.UnmarshalJSON` accepting both `delete_threshold_pct` and `max_delete_percent` (as float, int, or percentage string) and string/bool safety thresholds. Verified via `TestProfileFlags_ProviderOptionsFlexibleUnmarshal` and `TestSafetySettings_FlexibleUnmarshal`.
 - 2026-11-18: Completed Task 3 - Updated `ProfileManagerModal.vue` with `normalizedRemotes` (stripping trailing colons), auto-fetching remotes upon modal open, auto-populating provider options schema defaults on remote selection, normalizing `delete_threshold_pct` / `max_delete_percent`, and coercing provider options to strings on profile save. Verified via `npm --prefix dashboard/frontend run build` and `TestProfiles_CRUD_Endpoints`.
+- 2026-11-18: Completed Task 4 - Implemented dual match modes in `ModalDedupe.vue` ("Same-Folder Duplicate Names (Safe Default)" vs "Cross-Folder Hash (--by-hash)") with dynamic badge indicator. Implemented provider-aware strategy differentiation in `stores/dedupe.ts` defaulting to `--by-hash` for single-filename backends (OneDrive, S3, B2, local, Swift, AzureBlob, SFTP, FTP) and same-folder matching for Google Drive. Verified via `npm --prefix dashboard/frontend run build` and `internal/server` tests.
