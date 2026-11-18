@@ -23,7 +23,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // Tab selections
   const globalSettingsTab = ref<'defaults' | 'flags' | 'engine' | 'logging' | 'telemetry' | 'notifications' | 'encryption'>('defaults')
-  const systemHealthTab = ref<'daemon' | 'mcp' | 'connectivity'>('daemon')
+  const systemHealthTab = ref<'daemon' | 'mcp' | 'connectivity' | 'poller'>('daemon')
   const mcpTab = ref<'overview' | 'config' | 'tools'>('overview')
 
   // Config data
@@ -116,7 +116,7 @@ export const useSettingsStore = defineStore('settings', () => {
     showGlobalSettingsModal.value = false
   }
 
-  function openSystemHealthModal(tab: 'daemon' | 'mcp' | 'connectivity' = 'daemon') {
+  function openSystemHealthModal(tab: 'daemon' | 'mcp' | 'connectivity' | 'poller' = 'daemon') {
     systemHealthTab.value = tab
     showSystemHealthModal.value = true
     fetchMcpStatus()
@@ -278,6 +278,19 @@ export const useSettingsStore = defineStore('settings', () => {
       console.warn('Failed to fetch MCP status:', e)
     } finally {
       loadingMcp.value = false
+    }
+  }
+
+  // Backwards compatibility bridge for e2e tests
+  if (typeof window !== 'undefined') {
+    const win = window as any
+    win.openSystemHealthModal = openSystemHealthModal
+    win.closeSystemHealthModal = closeSystemHealthModal
+    win.systemHealthModal = {
+      get show() { return showSystemHealthModal.value },
+      set show(val: boolean) { showSystemHealthModal.value = val },
+      get tab() { return systemHealthTab.value },
+      set tab(val: 'daemon' | 'mcp' | 'connectivity' | 'poller') { systemHealthTab.value = val },
     }
   }
 

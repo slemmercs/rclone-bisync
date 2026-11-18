@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import FSMStateBadge from './FSMStateBadge.vue'
 import BandwidthPopover from './BandwidthPopover.vue'
+import { useAppStore } from '../stores/app'
 import { useProfilesStore } from '../stores/profiles'
 import { useFSMStore } from '../stores/fsm'
 import { useTelemetryStore } from '../stores/telemetry'
@@ -11,6 +12,7 @@ import { useSettingsStore } from '../stores/settings'
 import { useQueueStore } from '../stores/queue'
 import { useBandwidthStore } from '../stores/bandwidth'
 import { formatSpeed } from '../composables/useFormatters'
+import { useToastNotification } from '../composables/useToastNotification'
 
 const props = defineProps<{
   activeTab: string
@@ -20,8 +22,10 @@ const emit = defineEmits<{
   (e: 'update:activeTab', tab: string): void
   (e: 'openReview'): void
   (e: 'openProfiles'): void
+  (e: 'openRemoteWizard'): void
 }>()
 
+const appStore = useAppStore()
 const profilesStore = useProfilesStore()
 const fsmStore = useFSMStore()
 const telemetryStore = useTelemetryStore()
@@ -30,6 +34,7 @@ const helpStore = useHelpStore()
 const settingsStore = useSettingsStore()
 const queueStore = useQueueStore()
 const bandwidthStore = useBandwidthStore()
+const toast = useToastNotification()
 const bandwidthPopoverRef = ref<InstanceType<typeof BandwidthPopover> | null>(null)
 
 onMounted(() => {
@@ -42,6 +47,30 @@ onUnmounted(() => {
 
 function handleToggleBandwidth(event: Event) {
   bandwidthPopoverRef.value?.toggle(event)
+}
+
+function handleTogglePolling() {
+  const paused = appStore.togglePolling()
+  if (paused) {
+    toast.info('Telemetry Polling Paused', 'Press Alt+P or click indicator to resume live polling.')
+  } else {
+    toast.success('Telemetry Polling Resumed', 'Live telemetry and scheduler active.')
+  }
+}
+
+function handleQuickNewProfile() {
+  appStore.setQuickCreate(false)
+  emit('openProfiles')
+}
+
+function handleQuickNewRemote() {
+  appStore.setQuickCreate(false)
+  emit('openRemoteWizard')
+}
+
+function handleOpenShortcuts() {
+  appStore.setQuickCreate(false)
+  appStore.openShortcutsModal()
 }
 
 
@@ -135,6 +164,17 @@ async function handleRunSync() {
           >
             <span class="w-1.5 h-1.5 rounded-full" :class="isMcpActive ? 'bg-violet-400' : 'bg-slate-600'"></span>
             <span>{{ mcpStatusText }}</span>
+          </button>
+          <span class="inline-block w-1 h-1 rounded-full bg-carbon-600"></span>
+          <button
+            type="button"
+            @click="handleTogglePolling"
+            class="flex items-center gap-1 font-mono text-[11px] cursor-pointer hover:underline"
+            :class="appStore.isPollingPaused ? 'text-amber-400' : 'text-emerald-400'"
+            title="Toggle Live Telemetry Poller (Alt+P)"
+          >
+            <span class="w-1.5 h-1.5 rounded-full" :class="appStore.isPollingPaused ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'"></span>
+            <span>{{ appStore.isPollingPaused ? 'Polling Paused' : 'Live' }}</span>
           </button>
         </div>
       </div>
@@ -261,6 +301,74 @@ async function handleRunSync() {
         <i class="pi pi-cog text-xs"></i>
         <span>Settings</span>
       </button>
+
+      <!-- Keyboard Shortcuts Dialog Trigger -->
+      <button
+        type="button"
+        @click="appStore.openShortcutsModal()"
+        class="flex items-center gap-1 px-2 py-1 rounded-md bg-carbon-850 hover:bg-carbon-800 border border-carbon-700 text-carbon-400 hover:text-white text-xs font-mono transition-colors cursor-pointer"
+        title="Open Keyboard Shortcuts Reference (?)"
+      >
+        <i class="pi pi-compass text-xs"></i>
+      </button>
+
+      <!-- Global Quick-Create Menu -->
+      <div class="relative">
+        <button
+          type="button"
+          @click="appStore.toggleQuickCreate()"
+          class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-electric-600 hover:bg-electric-500 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+          title="Global Quick Action (C / Ctrl+K)"
+        >
+          <i class="pi pi-plus text-xs"></i>
+          <span>Create</span>
+          <i class="pi pi-chevron-down text-[10px] transition-transform duration-200" :class="appStore.quickCreateOpen ? 'rotate-180' : ''"></i>
+        </button>
+
+        <!-- Quick Create Dropdown Menu -->
+        <div
+          v-if="appStore.quickCreateOpen"
+          class="absolute right-0 mt-2 w-56 bg-carbon-900 border border-carbon-700 rounded-xl shadow-2xl z-50 overflow-hidden text-xs py-1"
+        >
+          <div class="px-3 py-1.5 text-[10px] uppercase font-bold text-carbon-400 border-b border-carbon-800 tracking-wider">
+            Quick Actions
+          </div>
+          <button
+            type="button"
+            @click="handleQuickNewProfile"
+            class="w-full px-3 py-2 text-left hover:bg-carbon-800 text-carbon-100 flex items-center justify-between cursor-pointer transition-colors"
+          >
+            <div class="flex items-center gap-2">
+              <i class="pi pi-folder-plus text-electric-400"></i>
+              <span class="font-medium">New Sync Profile</span>
+            </div>
+            <kbd class="px-1.5 py-0.5 rounded bg-carbon-850 text-carbon-400 border border-carbon-700 text-[10px] font-mono">N</kbd>
+          </button>
+          <button
+            type="button"
+            @click="handleQuickNewRemote"
+            class="w-full px-3 py-2 text-left hover:bg-carbon-800 text-carbon-100 flex items-center justify-between cursor-pointer transition-colors"
+          >
+            <div class="flex items-center gap-2">
+              <i class="pi pi-cloud-upload text-emerald-400"></i>
+              <span class="font-medium">Connect Remote</span>
+            </div>
+            <kbd class="px-1.5 py-0.5 rounded bg-carbon-850 text-carbon-400 border border-carbon-700 text-[10px] font-mono">R</kbd>
+          </button>
+          <div class="border-t border-carbon-800 my-1"></div>
+          <button
+            type="button"
+            @click="handleOpenShortcuts"
+            class="w-full px-3 py-1.5 text-left hover:bg-carbon-800 text-carbon-400 hover:text-carbon-200 flex items-center justify-between cursor-pointer transition-colors"
+          >
+            <div class="flex items-center gap-2">
+              <i class="pi pi-compass text-carbon-400"></i>
+              <span>Keyboard Shortcuts</span>
+            </div>
+            <kbd class="px-1.5 py-0.5 rounded bg-carbon-850 text-carbon-400 border border-carbon-700 text-[10px] font-mono">?</kbd>
+          </button>
+        </div>
+      </div>
 
 
 

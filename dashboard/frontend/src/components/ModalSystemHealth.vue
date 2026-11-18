@@ -199,6 +199,60 @@
       </div>
     </div>
 
+    <!-- TAB 4: SCHEDULER & POLLER -->
+    <div v-else-if="activeTab === 'poller'" class="space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="p-4 bg-carbon-surface border border-carbon-border rounded-xl space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white">Live Telemetry Poller</span>
+            <span
+              class="text-[10px] font-mono px-2 py-0.5 rounded border"
+              :class="appStore.isPollingPaused ? 'bg-amber-950/80 border-amber-600 text-amber-300' : 'bg-emerald-950/80 border-emerald-600 text-emerald-300'"
+            >
+              {{ appStore.isPollingPaused ? 'PAUSED' : 'ACTIVE' }}
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Governs real-time status fetching across Profiles, FSM State, Transfers, and Queue.
+          </p>
+          <div class="pt-1">
+            <button
+              type="button"
+              @click="appStore.togglePolling()"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors flex items-center gap-2"
+              :class="appStore.isPollingPaused ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white'"
+            >
+              <i :class="appStore.isPollingPaused ? 'pi pi-play' : 'pi pi-pause'"></i>
+              <span>{{ appStore.isPollingPaused ? 'Resume Poller (Alt+P)' : 'Pause Poller (Alt+P)' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="p-4 bg-carbon-surface border border-carbon-border rounded-xl space-y-2">
+          <div class="text-xs font-bold text-white">Power & Resource Management</div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Polling automatically suspends when the cockpit browser tab is hidden to conserve system battery and network bandwidth.
+          </p>
+          <div class="text-[11px] font-mono text-slate-400 pt-1">
+            Standard Interval: <span class="text-white font-bold">3,000 ms</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Keyboard Shortcuts Reference Box -->
+      <div class="p-3.5 bg-carbon-canvas border border-carbon-border rounded-xl space-y-2">
+        <div class="text-xs font-bold text-slate-300">Global Cockpit Shortcuts</div>
+        <div class="text-xs text-slate-400 font-mono grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <div><span class="text-indigo-400 font-bold">Alt + P</span> : Toggle Telemetry Polling</div>
+          <div><span class="text-indigo-400 font-bold">C / Ctrl+K</span> : Global Create Menu</div>
+          <div><span class="text-indigo-400 font-bold">N</span> : New Sync Profile</div>
+          <div><span class="text-indigo-400 font-bold">R</span> : Connect Storage Remote</div>
+          <div><span class="text-indigo-400 font-bold">L</span> : Toggle Log Dock</div>
+          <div><span class="text-indigo-400 font-bold">? / F1</span> : Help & Diagnostics</div>
+        </div>
+      </div>
+    </div>
+
     <template #footer>
       <button
         type="button"
@@ -221,26 +275,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useSettingsStore } from '../stores/settings'
 import { useTelemetryStore } from '../stores/telemetry'
 import { useRemotesStore } from '../stores/remotes'
 import { useLogsStore } from '../stores/logs'
 import { useHelpStore } from '../stores/help'
+import { useAppStore } from '../stores/app'
 
 const settingsStore = useSettingsStore()
 const telemetryStore = useTelemetryStore()
 const remotesStore = useRemotesStore()
 const logsStore = useLogsStore()
 const helpStore = useHelpStore()
+const appStore = useAppStore()
 
-const activeTab = ref<'daemon' | 'mcp' | 'connectivity'>('daemon')
+const activeTab = computed<'daemon' | 'mcp' | 'connectivity' | 'poller'>({
+  get: () => settingsStore.systemHealthTab,
+  set: (val) => { settingsStore.systemHealthTab = val },
+})
 
 const tabs = [
   { id: 'daemon' as const, label: 'Daemon & Diagnostics', icon: 'pi pi-server' },
   { id: 'mcp' as const, label: 'MCP Agent Server', icon: 'pi pi-bolt' },
   { id: 'connectivity' as const, label: 'Remote Connectivity', icon: 'pi pi-cloud' },
+  { id: 'poller' as const, label: 'Scheduler & Poller', icon: 'pi pi-clock' },
 ]
 
 const isHealthy = computed(() => telemetryStore.daemonHealthy)

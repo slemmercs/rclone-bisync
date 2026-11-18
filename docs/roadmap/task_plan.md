@@ -25,7 +25,7 @@ Achieve 100% functional, operational, and visual parity between legacy Alpine.js
   - **Scope**: `dashboard/frontend/src/components/explorer/ExplorerBreadcrumbs.vue`, `dashboard/frontend/src/components/explorer/ExplorerToolbar.vue`, `dashboard/frontend/src/components/explorer/ExplorerTable.vue`, `dashboard/frontend/src/components/explorer/ExplorerPane.vue`, `dashboard/frontend/src/views/ViewExplorer.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
-- [ ] Task 6: Global Keyboard Shortcuts Subsystem & Operator Polling Controls
+- [x] Task 6: Global Keyboard Shortcuts Subsystem & Operator Polling Controls
   - **Scope**: `dashboard/frontend/src/composables/useKeyboardShortcuts.ts`, `dashboard/frontend/src/stores/app.ts`, `dashboard/frontend/src/App.vue`, `dashboard/frontend/src/components/AppHeader.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
@@ -45,3 +45,4 @@ Achieve 100% functional, operational, and visual parity between legacy Alpine.js
 - 2026-11-18: Completed Task 3 - Implemented ModalPendingDeletions, pending deletions polling in useTelemetryStore, wired header & telemetry launch buttons, aligned TypeScript schema with Go backend, and resolved missing X-Dashboard-Request CSRF header on bandwidth mutations.
 - 2026-11-18: Completed Task 4 - Implemented Dedupe staged actions and batch execution types/store methods, created DedupeStagedDrawer.vue and DedupeExplorerTab.vue, integrated Directory Explorer navigation & file previews in ModalDedupe.vue, verified with type-check, build, and LOC gate.
 - 2026-11-18: Completed Task 5 - Decomposed monolithic ViewExplorer.vue into cohesive single-responsibility components (ExplorerBreadcrumbs.vue, ExplorerToolbar.vue, ExplorerTable.vue, ExplorerPane.vue, and ViewExplorer.vue orchestrator), verified via type-check, production build, and LOC check.
+- 2026-11-18: Completed Task 6 - Implemented useKeyboardShortcuts composable with full hotkey coverage (Alt+P, Ctrl+K, C, N, R, L, ?, Esc, 1-5), operator live/paused polling controls in useAppStore and AppHeader, ModalKeyboardShortcuts reference dialog, visibilitychange battery saver coordination, and poller tab in ModalSystemHealth. Verified via type-check, build, headless smoke tests, and check.sh.

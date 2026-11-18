@@ -17,6 +17,7 @@ import ModalMcp from './components/ModalMcp.vue'
 import ModalRemoteWizard from './components/ModalRemoteWizard.vue'
 import ModalQueueManager from './components/ModalQueueManager.vue'
 import ModalPendingDeletions from './components/ModalPendingDeletions.vue'
+import ModalKeyboardShortcuts from './components/ModalKeyboardShortcuts.vue'
 import Toast from 'primevue/toast'
 
 
@@ -25,6 +26,7 @@ import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
 import { useDedupeStore } from './stores/dedupe'
 import { useQueueStore } from './stores/queue'
+import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 
 
 const appStore = useAppStore()
@@ -39,10 +41,22 @@ const profilesStore = useProfilesStore()
 const telemetryStore = useTelemetryStore()
 const queueStore = useQueueStore()
 
+useKeyboardShortcuts({
+  onOpenProfiles: () => {
+    showProfilesModal.value = true
+  },
+  onOpenRemoteWizard: () => {
+    dedupeStore.openWizard()
+  },
+})
+
 onMounted(async () => {
+  appStore.initPolling()
   await profilesStore.fetchProfiles()
-  telemetryStore.startPolling(3000)
-  queueStore.startPolling(3000)
+  if (!appStore.isPollingPaused) {
+    telemetryStore.startPolling(3000)
+    queueStore.startPolling(3000)
+  }
 })
 
 onUnmounted(() => {
@@ -59,6 +73,7 @@ onUnmounted(() => {
       @update:activeTab="(tab) => (activeTab = tab)"
       @openReview="showReviewModal = true"
       @openProfiles="showProfilesModal = true"
+      @openRemoteWizard="dedupeStore.openWizard()"
     />
 
     <!-- View Workspace Container -->
@@ -117,6 +132,7 @@ onUnmounted(() => {
     <ModalRemoteWizard />
     <ModalQueueManager />
     <ModalPendingDeletions />
+    <ModalKeyboardShortcuts />
     <Toast position="bottom-right" />
 
 
