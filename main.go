@@ -123,6 +123,16 @@ func main() {
 			}
 			runAudit(action, *auditEnv)
 			return
+		case "migrate-env", "--migrate-env":
+			migCmd := flag.NewFlagSet("migrate-env", flag.ExitOnError)
+			dryRun := migCmd.Bool("dry-run", false, "Report missing keys without modifying disk")
+			envPath := migCmd.String("env-file", "bisync.env", "Path to deployed bisync.env")
+			templatePath := migCmd.String("template", "config/bisync.env.example", "Path to canonical template file")
+			_ = migCmd.Parse(os.Args[2:])
+
+			runMigrateEnv(*envPath, *templatePath, *dryRun)
+			return
+
 		}
 	}
 
@@ -323,5 +333,36 @@ func runAudit(action string, envFile string) {
 	}
 	if err := audit.RunCLI(action, cfg.AuditDBPath, cfg.LocalPath); err != nil {
 		log.Fatalf("Audit command failed: %v", err)
+	}
+}
+
+func runMigrateEnv(deployedPath, templatePath string, dryRun bool) {
+	fmt.Printf("🔍 Scanning %s against template %s (dry-run: %t)...\n", deployedPath, templatePath, dryRun)
+	res, err := config.MigrateEnvFile(deployedPath, templatePath, dryRun)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Migration failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	if res.AlreadyUpToDate {
+		fmt.Println("✅ Environment file is already up to date with all canonical keys.")
+		return
+	}
+
+	if res.DryRun {
+		fmt.Printf("⚠️ Found %d missing canonical key(s):\n", res.AddedCount)
+		for _, k := range res.MissingKeys {
+			fmt.Printf("  + %s\n", k)
+		}
+		fmt.Println("💡 Run without --dry-run to apply updates non-destructively.")
+		return
+	}
+
+	fmt.Printf("✅ Successfully migrated %s! Added %d missing key(s).\n", res.DeployedPath, res.AddedCount)
+	if res.BackupPath != "" {
+		fmt.Printf("📦 Timestamped backup saved: %s\n", res.BackupPath)
+	}
+	for _, k := range res.MissingKeys {
+		fmt.Printf("  + %s\n", k)
 	}
 }

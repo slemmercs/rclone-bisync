@@ -259,8 +259,8 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
   - **Scope**: `dashboard/frontend/src/components/FlagsBuilder.vue`, `dashboard/frontend/src/data/flags-catalog.ts`, `dashboard/frontend/src/components/ModalGlobalSettings.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 32: Deployed `bisync.env` Migration Utility & Script
-  - **Scope**: `internal/config/env_migrator.go`, `internal/config/env_migrator_test.go`, `scripts/migrate-env.sh`
+- [x] Task 32: Deployed `bisync.env` Migration Utility & Script
+  - **Scope**: `internal/config/env_migrator.go`, `internal/config/env_migrator_test.go`, `scripts/migrate-env.sh`, `main.go`, `config/bisync.env.example`
   - **Verification**: `go test -v -count=1 -race ./internal/config/... -run TestMigrateEnv`
 
 - [ ] Task 33: Full Pre-Flight Verification & E2E Validation
@@ -276,4 +276,6 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
 
 - 2026-11-18: Completed Task 31 - Scope-Based Flag Taxonomy & Guided Flags Builder. Aligned flag classification according to standard Rclone scopes (`scope: 'profile'` for Profile Behaviors and `scope: 'engine'` for Daemon & Engine Concurrency) in `flags-catalog.ts`; updated `FlagsBuilder.vue` with organized `<optgroup>` groupings (`Profile Behaviors`, `Daemon & Engine Concurrency`, `Custom flag (--...)`), fallback non-blank options, and process-global (`Global`) and user-defined (`Custom`) indicators; restored natural single "Add Flag" interaction and clean fleet flags guidance in `ModalGlobalSettings.vue`. Verified with `npm run type-check && npm run build`, `go test ./internal/server/...`, and headless Chrome E2E smoke tests.
 
+
+- 2026-11-18: Completed Task 32 - Deployed `bisync.env` Migration Utility & Script. Implemented non-destructive upgrade engine in `internal/config/env_migrator.go` and comprehensive unit test suite in `internal/config/env_migrator_test.go`; added `migrate-env` CLI command to `main.go` and operator shell script `scripts/migrate-env.sh`; cleaned duplicate keys from `config/bisync.env.example`. Tested dry-run detection, timestamped backups (`.bak.<timestamp>`), comment block preservation, and fresh file initialization. Verified with `go test -v -count=1 -race ./internal/config/... -run TestMigrateEnv` and all quality gates (`fmt`, `lint`, `templates`, `loc`, `test`, `build`).
 
