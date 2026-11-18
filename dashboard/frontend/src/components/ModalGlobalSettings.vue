@@ -576,90 +576,7 @@
         </div>
 
         <!-- TAB 7: ENCRYPTION -->
-        <div v-else-if="activeTab === 'encryption'" class="space-y-5">
-          <div class="p-4 bg-carbon-surface border border-carbon-border rounded-xl space-y-2">
-            <h4 class="text-xs font-bold text-white">Configuration Encryption at Rest</h4>
-            <p class="text-[11px] text-slate-400">
-              Protect sensitive tokens, passwords, and custom paths in <code class="text-slate-300">bisync.env</code> using AES-256-GCM encryption with Argon2id key derivation.
-            </p>
-          </div>
-
-          <!-- Encryption Status Banner -->
-          <div class="p-4 bg-carbon-surface border border-carbon-border rounded-xl flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <div
-                class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                :class="settingsStore.encryption.is_encrypted ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'"
-              >
-                <i :class="settingsStore.encryption.is_encrypted ? 'pi pi-lock' : 'pi pi-lock-open'" class="text-sm"></i>
-              </div>
-              <div>
-                <span class="text-xs font-bold text-white block">
-                  {{ settingsStore.encryption.is_encrypted ? 'Configuration Encrypted' : 'Configuration Stored in Plaintext' }}
-                </span>
-                <span class="text-[10px] text-slate-500">
-                  {{ settingsStore.encryption.is_encrypted ? 'Sensitive keys protected via local passphrase.' : 'Tokens and secrets are stored in plaintext on disk.' }}
-                </span>
-              </div>
-            </div>
-            <span
-              class="text-[10px] uppercase font-mono px-2 py-0.5 rounded border"
-              :class="settingsStore.encryption.is_encrypted ? 'bg-emerald-950 text-emerald-300 border-emerald-800/60' : 'bg-slate-800 text-slate-400 border-slate-700'"
-            >
-              {{ settingsStore.encryption.is_encrypted ? 'SECURE' : 'PLAINTEXT' }}
-            </span>
-          </div>
-
-          <div v-if="encError" class="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs">
-            {{ encError }}
-          </div>
-
-          <!-- Set / Update Passphrase -->
-          <div class="p-4 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
-            <h4 class="text-xs font-bold text-white">
-              {{ settingsStore.encryption.is_encrypted ? 'Change Master Passphrase' : 'Set Master Passphrase' }}
-            </h4>
-            <div v-if="settingsStore.encryption.is_encrypted">
-              <label class="block text-xs text-slate-400 mb-1">Current Passphrase</label>
-              <input type="password" v-model="oldPassword" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue" />
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs text-slate-400 mb-1">New Passphrase</label>
-                <input type="password" v-model="newPassword" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue" />
-              </div>
-              <div>
-                <label class="block text-xs text-slate-400 mb-1">Confirm New Passphrase</label>
-                <input type="password" v-model="confirmPassword" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue" />
-              </div>
-            </div>
-            <button
-              type="button"
-              @click="handleSetPassword"
-              :disabled="!newPassword || settingsStore.loadingEncryption"
-              class="px-3.5 py-1.5 rounded-lg bg-electric-blue hover:bg-sky-400 text-black font-bold text-xs cursor-pointer disabled:opacity-50 transition-colors"
-            >
-              {{ settingsStore.loadingEncryption ? 'Applying...' : (settingsStore.encryption.is_encrypted ? 'Update Passphrase' : 'Save Passphrase') }}
-            </button>
-          </div>
-
-          <!-- Remove Passphrase (if encrypted) -->
-          <div v-if="settingsStore.encryption.is_encrypted" class="p-4 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
-            <h4 class="text-xs font-bold text-rose-300">Remove Encryption</h4>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Current Passphrase</label>
-              <input type="password" v-model="oldPassword" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue" />
-            </div>
-            <button
-              type="button"
-              @click="handleRemovePassword"
-              :disabled="!oldPassword || settingsStore.loadingEncryption"
-              class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs cursor-pointer disabled:opacity-50 transition-colors"
-            >
-              Remove Passphrase
-            </button>
-          </div>
-        </div>
+        <SettingsEncryptionTab v-else-if="activeTab === 'encryption'" />
       </main>
     </div>
 
@@ -690,6 +607,7 @@ import { ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import { useSettingsStore } from '../stores/settings'
 import FlagsBuilder from './FlagsBuilder.vue'
+import SettingsEncryptionTab from './settings/SettingsEncryptionTab.vue'
 
 const settingsStore = useSettingsStore()
 const activeTab = ref<'defaults' | 'flags' | 'engine' | 'logging' | 'telemetry' | 'notifications' | 'encryption'>('defaults')
@@ -703,11 +621,26 @@ const formTelemetry = ref({ ...settingsStore.telemetrySettings })
 const formFeatures = ref({ ...settingsStore.featureSettings })
 const formNotifications = ref({ ...settingsStore.notificationSettings })
 
-const newPassword = ref('')
-const confirmPassword = ref('')
-const oldPassword = ref('')
-const daemonPassword = ref('')
-const encError = ref<string | null>(null)
+function resetForm() {
+  formDefaults.value = { ...settingsStore.globalDefaults }
+  formDaemon.value = { ...settingsStore.daemonSettings }
+  formLogging.value = { ...settingsStore.loggingSettings }
+  formCleanup.value = { ...settingsStore.cleanupSettings }
+  formTelemetry.value = { ...settingsStore.telemetrySettings }
+  formFeatures.value = { ...settingsStore.featureSettings }
+  formNotifications.value = { ...settingsStore.notificationSettings }
+  saveError.value = null
+}
+
+// Reset form data and discard dirty edits whenever the modal opens
+watch(
+  () => settingsStore.showGlobalSettingsModal,
+  isOpen => {
+    if (isOpen) {
+      resetForm()
+    }
+  }
+)
 
 watch(() => settingsStore.globalDefaults, val => { formDefaults.value = { ...val } }, { deep: true })
 watch(() => settingsStore.daemonSettings, val => { formDaemon.value = { ...val } }, { deep: true })
@@ -743,42 +676,6 @@ async function handleSave() {
     settingsStore.closeGlobalSettingsModal()
   } catch (err: any) {
     saveError.value = err.message || 'Failed to save configuration'
-  }
-}
-
-async function handleSetPassword() {
-  encError.value = null
-  if (newPassword.value !== confirmPassword.value) {
-    encError.value = 'Passwords do not match'
-    return
-  }
-  try {
-    await settingsStore.setPassword(newPassword.value, oldPassword.value)
-    newPassword.value = ''
-    confirmPassword.value = ''
-    oldPassword.value = ''
-  } catch (e: any) {
-    encError.value = e.message || 'Failed to set encryption password'
-  }
-}
-
-async function handleRemovePassword() {
-  encError.value = null
-  try {
-    await settingsStore.removePassword(oldPassword.value)
-    oldPassword.value = ''
-  } catch (e: any) {
-    encError.value = e.message || 'Failed to remove password'
-  }
-}
-
-async function handleSaveDaemonPassphrase() {
-  encError.value = null
-  try {
-    await settingsStore.saveDaemonPassphrase(daemonPassword.value)
-    daemonPassword.value = ''
-  } catch (e: any) {
-    encError.value = e.message || 'Failed to save daemon passphrase'
   }
 }
 </script>

@@ -141,6 +141,7 @@ printf "Local version of conflict file.\nModified locally at %s\n" "$(date -u)" 
 printf "DEDUPLICATION_CRYPTOGRAPHIC_HASH_EXACT_MATCH_2026\n" > "$SANDBOX_DIR/local/hash_match_file.bin"
 printf "Quarterly executive summary notes\n" > "$SANDBOX_DIR/local/documents/quarterly_summary.txt"
 touch "$SANDBOX_DIR/local/RCLONE_TEST"
+touch "$SANDBOX_DIR/local/projects/RCLONE_TEST"
 
 # Remote storage seed
 printf "# Remote markdown file\nStored on sandbox remote storage.\n" > "$SANDBOX_DIR/remote_storage/remote_file.md"
@@ -158,6 +159,7 @@ touch "$SANDBOX_DIR/backup_storage/RCLONE_TEST"
 # Archive storage seed
 printf "tx_id,amount,currency,status\nTX101,450.00,USD,cleared\nTX102,1250.50,EUR,cleared\n" > "$SANDBOX_DIR/archive_storage/year2025/q4_ledger.csv"
 printf '{"fiscal_year": 2025, "audited": true}\n' > "$SANDBOX_DIR/archive_storage/year2025/tax_summary.json"
+touch "$SANDBOX_DIR/archive_storage/RCLONE_TEST"
 touch "$SANDBOX_DIR/archive_storage/RCLONE_TEST"
 
 # 5. Generate isolated rclone config with 3 alias remotes

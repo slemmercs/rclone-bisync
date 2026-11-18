@@ -271,7 +271,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
   - **Scope**: `dashboard/frontend/src/components/ModalGlobalSettings.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 35: System Health Diagnostics & Status Evaluation Fix
+- [x] Task 35: System Health Diagnostics & Status Evaluation Fix
   - **Scope**: `dashboard/frontend/src/stores/telemetry.ts`, `dashboard/frontend/src/components/ModalSystemHealth.vue`, `scripts/run-sandbox.sh`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`
 
@@ -299,4 +299,7 @@ Achieve 100% two-way synchronization between `bisync.env` and the Cockpit UI Glo
 
 
 - 2026-11-18: Completed Task 34 - Global Fleet Settings UI/UX Redesign. Refactored `ModalGlobalSettings.vue` into a modern split-pane architecture (`max-w-[980px]`) featuring a 220px left vertical navigation rail and an airy card-row settings canvas. Grouped settings logically into semantic cards with full-width rows, informative subtitles, and explicit parameter hints. Renamed tab nomenclature to "Telemetry & Features", aligned toggle switches, and preserved the clean Fleet Flags `FlagsBuilder` integration. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `go test -v -count=1 ./internal/server/... -run TestConfig`.
+
+
+- 2026-11-18: Completed Task 35 - System Health Diagnostics & Status Evaluation Fix. Resolved telemetry health discrepancy in `dashboard/frontend/src/stores/telemetry.ts` where `daemonHealthy` expected `'ok'` while the Go watchdog reports `'healthy'`. Added diagnostic advisory banner with probe retry in `dashboard/frontend/src/components/ModalSystemHealth.vue` when degraded; provisioned missing canary files (`$SANDBOX_DIR/local/projects/RCLONE_TEST` and `$SANDBOX_DIR/archive_storage/RCLONE_TEST`) in `scripts/run-sandbox.sh` to prevent false-positive safety trips on `prof_backup` and `prof_archive`; extracted `SettingsEncryptionTab.vue` to isolate immediate encryption actions and password state while eliminating dirty-form state leaks on reopen in `ModalGlobalSettings.vue`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build && ./scripts/check.sh loc`.
 

@@ -80,6 +80,28 @@
         </div>
       </div>
 
+      <!-- Health Degraded Diagnostic Card -->
+      <div v-if="!isHealthy" class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-2">
+        <div class="flex items-center gap-2 text-rose-300 font-bold text-xs">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>Daemon Subsystem Degraded or Unreachable</span>
+        </div>
+        <p class="text-[11px] text-slate-300">
+          The background daemon status is reported as <code class="text-rose-300 font-mono">{{ telemetryStore.telemetry?.daemon_health?.status || 'offline' }}</code>.
+          Background polling and automatic scheduled syncs may be paused until Rclone RC connectivity is restored.
+        </p>
+        <div class="pt-1 flex items-center gap-2">
+          <button
+            type="button"
+            @click="telemetryStore.fetchTelemetry"
+            class="px-2.5 py-1 rounded bg-carbon-surface hover:bg-carbon-elevated border border-carbon-border text-[11px] text-white flex items-center gap-1.5 cursor-pointer"
+          >
+            <i class="pi pi-refresh text-xs"></i>
+            <span>Retry Connection Probe</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Quick Operations Card -->
       <div class="p-4 bg-carbon-surface border border-carbon-border rounded-xl flex items-center justify-between gap-3 flex-wrap">
         <div>

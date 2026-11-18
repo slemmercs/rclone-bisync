@@ -12,7 +12,8 @@ export const useTelemetryStore = defineStore('telemetry', () => {
 
   const isSyncing = computed<boolean>(() => !!telemetry.value?.is_syncing)
   const daemonHealthy = computed<boolean>(() => {
-    return telemetry.value?.daemon_health?.status === 'ok'
+    const status = telemetry.value?.daemon_health?.status
+    return status === 'healthy' || status === 'ok'
   })
   const transferStats = computed(() => telemetry.value?.transfer_stats || null)
   const metrics = computed(() => telemetry.value?.metrics || [])
