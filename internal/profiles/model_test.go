@@ -366,4 +366,3 @@ func TestSafetySettings_FlexibleUnmarshal(t *testing.T) {
 		}
 	})
 }
-

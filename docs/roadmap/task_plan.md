@@ -33,7 +33,7 @@ Resolve Profile Manager save failures and option importing, restore Dedupe modal
   - **Scope**: `dashboard/frontend/src/components/ModalDaemonLogs.vue`
   - **Verification**: `npm --prefix dashboard/frontend run build`
 
-- [ ] Task 8: End-to-End Suite Verification, Single Binary Build & Service Restart
+- [x] Task 8: End-to-End Suite Verification, Single Binary Build & Service Restart
   - **Scope**: `tests/e2e/cockpit_spa_smoke_test.go`, `/home/csaba/rclone-bisync/bin/rclone-bisync`
   - **Verification**: `./scripts/check.sh all`
 
@@ -47,3 +47,4 @@ Resolve Profile Manager save failures and option importing, restore Dedupe modal
 - 2026-11-18: Completed Task 5 - Implemented dedupe scan result caching in `stores/dedupe.ts` using `sessionStorage` and reactive memory state with cache key scoping (`remote` + `path`). Scans are restored upon opening the modal, an informative cached badge with relative time and clear button is shown in `ModalDedupe.vue`, and cache is invalidated upon successful batch execution or explicit cache clear. Verified via `npm --prefix dashboard/frontend run build` and `TestRemoteDedupe`.
 - 2026-11-18: Completed Task 6 - Fixed "Inspect in Explorer" in `ModalDedupe.vue` to compute the target parent folder and invoke `dedupeStore.loadExplorer(dirPath)` directly into the in-modal `DedupeExplorerTab.vue` without dismissing the dedupe modal or discarding candidate decisions. Retained an explicit external-link button (`jumpToMainExplorer`) for users wanting to transition out into the root Dual-Pane File Explorer. Verified via `npm --prefix dashboard/frontend run build` and `internal/server` tests.
 - 2026-11-18: Completed Task 7 - Added dedicated "Notices" log filter tab and counter pill in `ModalDaemonLogs.vue` (and aligned `modal_daemon.html` / `logs_daemon.js`) to isolate Rclone duplicate object notices, file transfers, and deletions from standard Info logs. Added filter reset helper in empty state. Verified via `npm --prefix dashboard/frontend run build` and server unit tests.
+- 2026-11-18: Completed Task 8 - Extracted `SafetySettings` and `ProviderOptionsMap` unmarshaling to `internal/profiles/model_options.go` ensuring all Go files conform to LOC <= 400. Ran full `./scripts/check.sh all` (all 7 quality gates passed), verified Chrome headless E2E cockpit smoke suite (`TestCockpitSPA_HeadlessChromeSmoke`), compiled the static binary to `/home/csaba/rclone-bisync/bin/rclone-bisync`, and restarted `rclone-dashboard.service` with healthy status. All tasks in roadmap completed.
