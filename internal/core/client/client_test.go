@@ -933,6 +933,49 @@ func TestQuit(t *testing.T) {
 		t.Fatal("expected server to receive /core/quit")
 	}
 }
+
+func TestUnlockConfig(t *testing.T) {
+	unlocked := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/config/unlock" {
+			unlocked = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	if err := c.UnlockConfig(context.Background(), "pass123"); err != nil {
+		t.Fatalf("expected UnlockConfig to succeed: %v", err)
+	}
+	if !unlocked {
+		t.Fatal("expected server to receive /config/unlock")
+	}
+}
+
+func TestGetPID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/core/pid" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"pid": 12345}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	pid, err := c.GetPID(context.Background())
+	if err != nil {
+		t.Fatalf("expected GetPID to succeed: %v", err)
+	}
+	if pid != 12345 {
+		t.Fatalf("expected PID 12345, got %d", pid)
+	}
+}
 func TestGetMainOptions(t *testing.T) {
 	// Arrange
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

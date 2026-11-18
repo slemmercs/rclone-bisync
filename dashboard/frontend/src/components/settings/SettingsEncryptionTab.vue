@@ -14,7 +14,7 @@
         </button>
       </div>
       <p class="text-[11px] text-slate-400">
-        Protect sensitive tokens, passwords, and custom paths in <code class="text-slate-300">bisync.env</code> using AES-256-GCM encryption with Argon2id key derivation.
+        Protect sensitive cloud provider tokens and credentials in <code class="text-slate-300 font-mono">rclone.conf</code> with standard Rclone configuration encryption at rest.
       </p>
     </div>
 
@@ -70,7 +70,10 @@
         </span>
       </div>
 
-      <div class="pt-2 border-t border-carbon-border space-y-2">
+      <div v-if="!settingsStore.encryption.has_daemon_passphrase" class="pt-2 border-t border-carbon-border space-y-2">
+        <p class="text-[11px] text-amber-300">
+          Your <code class="font-mono">rclone.conf</code> is encrypted, but <code class="font-mono">rc-secrets.env</code> is missing the passphrase. Enter it below to allow the background daemon to run:
+        </p>
         <div class="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
           <input
             type="password"
@@ -89,13 +92,50 @@
           </button>
         </div>
       </div>
+
+      <div v-else class="pt-2 border-t border-carbon-border space-y-2">
+        <div class="flex items-center justify-between text-[11px] text-slate-400">
+          <span>Active passphrase is saved in <code class="text-slate-300 font-mono">rc-secrets.env</code>. The daemon is ready for background syncs.</span>
+          <button
+            type="button"
+            @click="showManualOverride = !showManualOverride"
+            class="text-[10px] text-electric-400 hover:text-sky-300 ml-2 whitespace-nowrap cursor-pointer underline font-mono"
+          >
+            {{ showManualOverride ? 'Hide manual re-sync' : 'Re-verify / Override' }}
+          </button>
+        </div>
+        <div v-if="showManualOverride" class="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center pt-2">
+          <input
+            type="password"
+            v-model="daemonPassword"
+            placeholder="Enter new rclone.conf passphrase to update in rc-secrets.env"
+            class="flex-1 bg-carbon-canvas border border-carbon-border rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-electric-blue"
+          />
+          <button
+            type="button"
+            @click="handleSaveDaemonPassphrase"
+            :disabled="!daemonPassword.trim() || settingsStore.loadingEncryption"
+            class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs transition-colors cursor-pointer shrink-0 shadow-sm flex items-center justify-center gap-1.5"
+          >
+            <i v-if="settingsStore.loadingEncryption" class="pi pi-spin pi-spinner text-xs"></i>
+            <span>{{ settingsStore.loadingEncryption ? 'Persisting...' : 'Verify & Persist' }}</span>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- Set / Update Master Passphrase -->
+    <!-- Set / Update Configuration Passphrase -->
     <div class="p-4 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
-      <h4 class="text-xs font-bold text-white">
-        {{ settingsStore.encryption.is_encrypted ? 'Change Master Passphrase' : 'Set Master Passphrase' }}
-      </h4>
+      <div>
+        <h4 class="text-xs font-bold text-white">
+          {{ settingsStore.encryption.is_encrypted ? 'Change Configuration Passphrase' : 'Set Configuration Passphrase' }}
+        </h4>
+        <p class="text-[11px] text-slate-400 mt-0.5">
+          {{ settingsStore.encryption.is_encrypted
+            ? 'Updates the encryption passphrase on rclone.conf and automatically synchronizes the new passphrase to rc-secrets.env.'
+            : 'Encrypts rclone.conf and automatically persists RCLONE_CONFIG_PASS in rc-secrets.env for the background daemon.' }}
+        </p>
+      </div>
       <div v-if="settingsStore.encryption.is_encrypted">
         <label class="block text-xs text-slate-400 mb-1">Current Passphrase</label>
         <input
@@ -170,6 +210,7 @@ const newPassword = ref('')
 const confirmPassword = ref('')
 const removeOldPassword = ref('')
 const daemonPassword = ref('')
+const showManualOverride = ref(false)
 const encError = ref<string | null>(null)
 
 async function handleSetPassword() {

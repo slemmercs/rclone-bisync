@@ -367,4 +367,65 @@ func TestConfigEncryptionService_RestartDaemon(t *testing.T) {
 	if err := nilClientSvc.RestartDaemon(context.Background()); err != nil {
 		t.Fatalf("unexpected error when client is nil: %v", err)
 	}
+
+	// 4. Client PID matches systemd MainPID -> calls systemctl restart
+	systemctlRestartCalled := false
+	systemdMatchedRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
+		if name == "systemctl" && len(args) >= 3 && args[1] == "show" {
+			return "MainPID=9999\n", nil
+		}
+		if name == "systemctl" && len(args) >= 3 && args[1] == "restart" {
+			systemctlRestartCalled = true
+			return "", nil
+		}
+		return "", fmt.Errorf("unexpected")
+	}
+
+	pidServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/core/pid" {
+			_, _ = w.Write([]byte(`{"pid": 9999}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer pidServer.Close()
+
+	matchedSvc := NewConfigEncryptionService(&config.Config{}, client.NewRcloneClient(pidServer.URL, "", ""), systemdMatchedRunner)
+	if err := matchedSvc.RestartDaemon(context.Background()); err != nil {
+		t.Fatalf("unexpected error during matched systemd restart: %v", err)
+	}
+	if !systemctlRestartCalled {
+		t.Errorf("expected systemctl restart to be invoked when PIDs match")
+	}
+
+	// 5. Client PID does NOT match systemd MainPID (e.g. sandbox daemon) -> calls Client.Quit
+	clientQuitCalled := false
+	mismatchRunner := func(ctx context.Context, name string, env []string, args ...string) (string, error) {
+		if name == "systemctl" && len(args) >= 3 && args[1] == "show" {
+			return "MainPID=1111\n", nil // systemd PID differs from daemon's 2222
+		}
+		return "", fmt.Errorf("should not call systemctl restart on mismatch")
+	}
+
+	mismatchServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/core/pid" {
+			_, _ = w.Write([]byte(`{"pid": 2222}`))
+			return
+		}
+		if r.URL.Path == "/core/quit" {
+			clientQuitCalled = true
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mismatchServer.Close()
+
+	mismatchSvc := NewConfigEncryptionService(&config.Config{}, client.NewRcloneClient(mismatchServer.URL, "", ""), mismatchRunner)
+	if err := mismatchSvc.RestartDaemon(context.Background()); err != nil {
+		t.Fatalf("unexpected error during mismatch restart: %v", err)
+	}
+	if !clientQuitCalled {
+		t.Errorf("expected client.Quit to be invoked when PIDs mismatch (sandbox/container scenario)")
+	}
 }

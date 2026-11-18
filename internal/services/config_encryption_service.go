@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -226,6 +227,9 @@ func (s *ConfigEncryptionService) SetPassword(ctx context.Context, req models.Se
 	secFile := s.ResolveSecretsFile()
 	_ = config.UpdateSecret(secFile, "RCLONE_CONFIG_PASS", newPass)
 	_ = os.Setenv("RCLONE_CONFIG_PASS", newPass)
+	if s.Client != nil {
+		_ = s.Client.UnlockConfig(ctx, newPass)
+	}
 	_ = s.RestartDaemon(ctx)
 
 	return &models.EncryptionActionResponse{
@@ -286,17 +290,38 @@ func (s *ConfigEncryptionService) RemovePassword(ctx context.Context, req models
 // RestartDaemon attempts to restart the rclone background daemon so that
 // updated credentials or encryption passphrases take effect immediately.
 func (s *ConfigEncryptionService) RestartDaemon(ctx context.Context) error {
-	// 1. If running under systemd, restart rclone-daemon.service
+	// If Client is configured, check whether it is managed by systemd or a supervisor loop/process
+	if s.Client != nil {
+		daemonPID, pidErr := s.Client.GetPID(ctx)
+		if pidErr == nil && daemonPID > 0 && s.Runner != nil {
+			// Query systemd for the MainPID of rclone-daemon.service
+			out, err := s.Runner(ctx, "systemctl", os.Environ(), "--user", "show", "rclone-daemon.service", "--property=MainPID")
+			if err == nil {
+				parts := strings.Split(strings.TrimSpace(out), "=")
+				if len(parts) == 2 {
+					if sysPID, parseErr := strconv.Atoi(parts[1]); parseErr == nil && sysPID == daemonPID {
+						// Active daemon matches the systemd unit PID; restart via systemctl
+						_, _ = s.Runner(ctx, "systemctl", os.Environ(), "--user", "restart", "rclone-daemon.service")
+						return nil
+					}
+				}
+			}
+		}
+
+		// Not managed by systemd or PIDs do not match (e.g. sandbox, docker, custom process):
+		// Send core/quit to terminate the connected daemon so its supervisor restarts it
+		if err := s.Client.Quit(ctx); err == nil {
+			return nil
+		}
+	}
+
+	// Fallback when Client is nil or Quit failed: attempt systemctl restart
 	if s.Runner != nil {
 		if _, err := s.Runner(ctx, "systemctl", os.Environ(), "--user", "restart", "rclone-daemon.service"); err == nil {
 			return nil
 		}
 	}
 
-	// 2. Fallback: if Client is configured, send core/quit so supervisor or process loop restarts it
-	if s.Client != nil {
-		_ = s.Client.Quit(ctx)
-	}
 	return nil
 }
 
@@ -339,6 +364,10 @@ func (s *ConfigEncryptionService) SaveDaemonPassphrase(ctx context.Context, req 
 		return nil, fmt.Errorf("failed to save passphrase to %s: %w", secFile, err)
 	}
 	_ = os.Setenv("RCLONE_CONFIG_PASS", pass)
+	if s.Client != nil {
+		_ = s.Client.UnlockConfig(ctx, pass)
+	}
+	_ = s.RestartDaemon(ctx)
 
 	return &models.EncryptionActionResponse{
 		Status:  "success",
