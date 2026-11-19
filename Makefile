@@ -1,4 +1,4 @@
-.PHONY: all build test check clean docs-generate docs-screenshots docs-serve
+.PHONY: all build test check clean generate-ts docs-generate docs-screenshots docs-serve
 
 all: build
 
@@ -11,7 +11,10 @@ test:
 check:
 	./scripts/check.sh all
 
-docs-generate:
+generate-ts:
+	go run ./cmd/gendocs --ts-out dashboard/frontend/src/types/models.gen.ts
+
+docs-generate: generate-ts
 	go run ./cmd/gendocs --out site/technical-reference.md
 
 docs-screenshots:

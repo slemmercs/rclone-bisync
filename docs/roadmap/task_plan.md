@@ -1,26 +1,30 @@
-# Task Plan: Automated Code Documentation Generator & Sandbox Screenshot Capture
+# Task Plan: TypeScript Contract Generator, Documentation Showcase Redesign & Generator Modularization
 
 ## Goal
-Implement a native Go AST documentation generator (`cmd/gendocs`) producing search-indexed GitHub Pages documentation, and build an automated headless Chrome sandbox screenshot capture suite for the Vue Cockpit SPA.
+Implement native Go AST $\rightarrow$ TypeScript interface generator (`--ts-out`) as Priority 1, modularize `cmd/gendocs/` (< 200 LOC per file), gate `TestCaptureSandboxScreenshots` behind `CAPTURE_SCREENSHOTS=1`, add retina + zero-animation rendering, and overhaul GitHub Pages showcase (`site/`) to match Agnoster Carbon & Electric Blue theme.
 
 ## Tasks
 
-- [x] Task 1: Native Go Documentation Generator (`cmd/gendocs`)
-  - **Scope**: `cmd/gendocs/main.go`, `cmd/gendocs/parser.go`
-  - **Verification**: `go run ./cmd/gendocs --out site/technical-reference.md && head -n 30 site/technical-reference.md`
+- [x] Task 1: Native Go AST $\rightarrow$ TypeScript Contract Generator & `cmd/gendocs` Modularization
+  - **Scope**: `cmd/gendocs/main.go`, `cmd/gendocs/ast_parser.go`, `cmd/gendocs/ts_generator.go`, `cmd/gendocs/mcp_docs.go`, `cmd/gendocs/render.go`, `cmd/gendocs/gendocs_test.go`, `dashboard/frontend/src/types/models.gen.ts`, `Makefile`
+  - **Verification**: `make generate-ts && npm --prefix dashboard/frontend run type-check && make docs-generate`
 
-- [x] Task 2: Automated Sandbox Screenshot Suite for Vue Cockpit
-  - **Scope**: `tests/e2e/screenshots_test.go`
-  - **Verification**: `go test -count=1 -v ./tests/e2e -run TestCaptureSandboxScreenshots`
+- [ ] Task 2: Gate E2E Screenshots & High-DPI Polish
+  - **Scope**: `tests/e2e/screenshots_test.go`, `Makefile`
+  - **Verification**: `go test -count=1 ./tests/e2e -run TestCaptureSandboxScreenshots` (skips cleanly) and `CAPTURE_SCREENSHOTS=1 make docs-screenshots`
 
-- [x] Task 3: CI Workflow & Build Integration
-  - **Scope**: `.github/workflows/pages.yml`, `Makefile`, `site/gallery.md`, `site/_config.yml`
+- [ ] Task 3: Agnoster Carbon & Electric Blue Theme Redesign
+  - **Scope**: `site/_sass/custom/setup.scss`, `site/_sass/custom/custom.scss`, `site/assets/images/logo.svg`, `site/assets/images/favicon.svg`
+  - **Verification**: Inspect generated styles, verify SCSS syntax validity, and ensure Electric Blue brand assets compile
+
+- [ ] Task 4: Content Overhaul for Vue 3 Architecture & Production Milestones
+  - **Scope**: `site/usps/05-single-binary.md`, `site/usps/index.md`, `site/roadmap.md`, `.clinerules`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-19: Initialized plan for native Go AST documentation generator and sandbox screenshot capture.
-- 2026-11-19: Completed Task 1 - Implemented native Go AST documentation generator in `cmd/gendocs/` (`main.go` and `parser.go`) to automatically extract global settings, profile policies, and MCP tool definitions into `site/technical-reference.md`. Verified via `./scripts/check.sh all` and live generation.
-- 2026-11-19: Completed Task 2 - Implemented automated sandbox screenshot capture suite in `tests/e2e/screenshots_test.go` utilizing headless Chrome (`chromedp`) against an ephemeral sandbox backend with zero live touch. Captured all 7 updated 1440x900 screenshots for the Vue Cockpit SPA. Verified via `go test -count=1 -v ./tests/e2e -run TestCaptureSandboxScreenshots` and `./scripts/check.sh all`.
-- 2026-11-19: Completed Task 3 - Configured CI GitHub Pages workflow (`.github/workflows/pages.yml`) with Go AST documentation step, created root `Makefile` with `docs-generate` and `docs-screenshots` targets, and updated `site/gallery.md` documentation to reflect the Vue 3 + PrimeVue SPA. Verified via `./scripts/check.sh all`.
+- 2026-11-19: Completed Task 1 (Native Go AST -> TypeScript Contract Generator & cmd/gendocs Modularization). All 5 cmd/gendocs modules are <200 LOC, generate-ts target added to Makefile, and models.gen.ts verified with vue-tsc.
+- 2026-11-19: Added Priority 1 Go AST -> TypeScript contract generator (`--ts-out`) to implementation plan and task plan.
+
+
 
