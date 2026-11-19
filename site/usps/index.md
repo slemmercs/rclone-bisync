@@ -38,7 +38,7 @@ Bisync Hub was engineered from first principles to turn unpredictable bidirectio
 4. **[Cryptographic Immutable Audit Ledger]({% link usps/04-audit-ledger.md %})** <span class="badge-online">Available</span>
    Maintain verifiable SQLite-backed records of every sync action, decision, and error.
 5. **[Zero-Dependency Single Binary Distribution]({% link usps/05-single-binary.md %})** <span class="badge-online">Available</span>
-   Deploy anywhere with a single Go binary and an embedded Alpine.js/Tailwind web dashboard.
+   Deploy anywhere with a single Go binary and an embedded Vue 3 / Tailwind web dashboard.
 6. **[Native Model Context Protocol (MCP) Server]({% link usps/06-mcp-agent-server.md %})** <span class="badge-online">Available</span>
    Integrate AI agents (Claude, Cursor, Cline) via pure-Go stdio/SSE tools with parameter-fingerprinted confirmation tickets.
 

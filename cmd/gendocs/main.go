@@ -133,4 +133,3 @@ func generateTypeScriptContracts(repoRoot, tsOutPath string) error {
 	fmt.Printf("✓ Successfully generated TypeScript contracts %s (%d bytes)\n", tsOutPath, len(tsContent))
 	return nil
 }
-

@@ -18,7 +18,7 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • Go CLI Quality Engine (cmd/check) & License Guard         │
   │  • Decoupled Service Architecture (Strictly <400 LOC)        │
   │  • Zero-Dependency Single Go Binary Distribution             │
-  │  • Embedded Alpine.js / Tailwind CSS Management Cockpit      │
+  │  • Embedded Vue 3 / PrimeVue / Tailwind Management Cockpit   │
   │  • POSIX Advisory Locking & Local Path Confinement Jails     │
   │  • Hybrid Fleet Overview & Multi-Profile Workspace (`beta.10`)│
   │  • Remote MD5 Hash Deduplication (`beta.12`)                 │

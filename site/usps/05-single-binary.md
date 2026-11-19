@@ -24,13 +24,13 @@ Many modern orchestrators require Node.js runtimes, Python virtual environments,
 │  ├── Multi-Analyzer Heuristic Engine                         │
 │  ├── SQLite Engine & POSIX Flock Locks                       │
 │  └── Embedded Web Assets (go:embed)                          │
-│      ├── Tailwind CSS & Alpine.js Dashboard                  │
+│      ├── Tailwind CSS & Vue 3 SPA Cockpit                    │
 │      └── Static HTML & WebSocket Handlers                    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 ### 1. `go:embed` Frontend Architecture
-The complete interactive management dashboard—including Alpine.js components, Tailwind CSS styling, Chart.js telemetry graphs, and WebSocket listeners—is embedded directly into the binary at compile time.
+The complete interactive management dashboard—including Vue 3 Single-File Components, TypeScript contracts, PrimeVue UI primitives, Tailwind CSS styling, Chart.js telemetry graphs, and WebSocket listeners—is embedded directly into the binary at compile time.
 - No `node_modules` directory in production.
 - No external npm CDN requests; runs 100% offline in air-gapped data centers.
 - Instant startup (< 15ms) with sub-30MB memory footprint.

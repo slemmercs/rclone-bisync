@@ -50,7 +50,7 @@ Bisync Hub's GitHub Actions pipelines are deployed 100% on cloud-hosted ephemera
 
 ### 5. High-Performance Go Quality Gate (`cmd/check`)
 To catch regressions early during local development, Bisync Hub includes a dedicated native Go audit engine (`cmd/check`) executing check stages in parallel:
-- **True HTML Tokenization**: Multi-line attribute tokenization preventing Alpine.js boolean attribute coercion bugs (`:disabled`, `:readonly`).
+- **True HTML Tokenization**: Multi-line attribute tokenization preventing template boolean attribute coercion bugs (`:disabled`, `:readonly`).
 - **Architectural LOC Budgets**: Single-pass line-count enforcement ensuring services remain modular and stay under ~400 LOC.
 - **Copyleft License Auditing**: Native dependency license validator (`cmd/check/licenses.go`) enforcing permissive-only licensing (MIT, Apache-2.0, BSD) across all Go modules.
 - **Coverage Assurance**: Pre-commit validation enforcing >80% statement coverage across all packages (currently at 88.3%).
