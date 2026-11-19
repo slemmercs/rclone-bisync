@@ -28,15 +28,16 @@ Bisync Hub is developed using disciplined, test-driven micro-iterations with str
   │  • RC Argument Compilation & Rename Tracking (`beta.22`)     │
   │  • Security Hardening & MCP Inspector Cockpit (`beta.23`)    │
   │  • Sandbox Integration Suite & POSIX Journal Locks (`beta.27`)│
+  │  • In-App User Guidance & Diagnostic Manual                  │
+  │  • Configuration Snapshots & Profile Rollback API            │
+  │  • FSM Control Plane & Concurrency Queue Orchestrator        │
   └──────────────────────────────┬───────────────────────────────┘
                                  │
                                  ▼
   ┌──────────────────────────────────────────────────────────────┐
   │             NEAR-TERM STRATEGIC PRIORITIES                   │
-  │  1. In-App User Guidance & Interactive Diagnostic Manual     │
-  │  2. In-Dashboard Configuration Snapshot & Rollback API       │
-  │  3. Homelab Reverse Proxy Hardening & OpenTelemetry (OTel)   │
-  │  4. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
+  │  1. Homelab Reverse Proxy Hardening & OpenTelemetry (OTel)   │
+  │  2. Remote Mount Lifecycle Manager & Pooled Storage Engine   │
   └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -127,35 +128,39 @@ The following core modules are implemented, tested, and included in current bina
 - **Daemon Health Watchdog**: Resilient background watchdog with exponential backoff surviving transient background RC daemon restarts.
 - **Embedded MCP SSE Server**: Unified single-process architecture embedding the MCP server on `:8081` inside `rclone-dashboard.service`.
 
+### 14. In-App User Guidance & Interactive Diagnostic Manual
+- **Context-Aware Help Drawer**: Slide-over drawer accessible via header button, `?` / `F1` keyboard shortcut, or contextual links on warnings and errors.
+- **4 Dedicated Workspaces**:
+  - `Diagnostics`: One-click real-time self-diagnostic audit (`/api/diagnostics`) probing daemon health, system information (memory allocation, goroutines, Go runtime), canary validity, and path confinement with actionable status banners.
+  - `Safety Policies`: Plain-language policy explanations for `TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, and heuristic risk scoring thresholds.
+  - `Reference Manual`: Searchable catalog of CLI commands, Rclone flags, and environment variables.
+  - `Runbooks`: Step-by-step recovery playbooks for OAuth renewal, lock clearing, and conflict resolution.
+
+### 15. In-Dashboard Configuration Snapshot & Rollback Engine
+- **Profile Version History & Snapshots**: Automated server-side snapshot creation (`ProfileVersion`) capturing complete profile configuration upon creation or update.
+- **1-Click Rollback API**: `/api/profiles/{id}/rollback` and MCP `bisync_rollback_profile` tool restoring profiles to any historical version with atomic version incrementing.
+- **Interactive Version Timeline**: Visual version snapshot browser in the Profile Settings modal showing timestamps, modification reasons, and 1-click restore buttons.
+- **WAL Review Rollback**: Transactional saga rollback runner (`/api/review/rollback`) restoring staged backups from `.review_backups/` if an interactive review session is aborted.
+
+### 16. Finite State Machine (FSM) Control Plane & Queue Orchestrator
+- **Deterministic Workload Lifecycle**: Workloads transition through strictly validated states: `idle` → `validating` → `running` → `review_required` / `completed` / `failed` / `aborted`. Invalid transitions are rejected at the engine level.
+- **Concurrency Limiting & Concurrency Queue**: Bounded concurrency limiter preventing resource exhaustion during parallel sync execution, with an in-cockpit Queue Manager for pausing, resuming, and reordering jobs.
+- **Event-Driven SSE & WebSocket Bus**: Real-time broadcast of state transitions, active progress percentages, and review barriers directly to connected web cockpits and AI agent clients.
+
 ---
 
 ## 🟡 Near-Term Strategic Priorities (In Development)
 
 The following capabilities represent our immediate development milestones:
 
-### Priority 1: In-App User Guidance & Diagnostic Manual
-- **Objective**: Enhance operational clarity and assisted recovery directly within the UI.
-- **Architecture**:
-  - **Contextual Tooltips & Policy Explanations**: Inline tooltips and modal banners explaining safety triggers (`TOO_MANY_DELETES`, `MANDATORY_SUBDIR`, heuristic risk scores) in plain language.
-  - **In-Dashboard Reference Manual**: A dedicated slide-over panel summarizing CLI commands, Rclone flags, and step-by-step conflict recovery workflows.
-  - **Interactive Diagnostics**: Integrated troubleshooting guides for resolving OAuth token drops, path permissions issues, and systemd service status.
-
-### Priority 2: In-Dashboard Configuration Snapshot & Rollback Engine
-- **Objective**: Provide server-side configuration safety and instant rollback for global and profile settings.
-- **Architecture**:
-  - **Visual Flag Editor**: Adjust `--buffer-size`, `--tpslimit`, conflict strategies, and webhook endpoints safely from the UI.
-  - **3-Layer Safety Pipeline**: Automated backup snapshots, SHA-256 integrity match, and JSON/env schema validation before applying changes.
-  - **Atomic Configuration Snapshots**: Snapshot profile state before applying structural edits or sync actions, archived in `config_snapshots/` with timestamped revisions.
-  - **One-Click Rollback API**: Visual comparison of active configuration against historical snapshots with one-click restoration to instantly revert breaking changes.
-
-### Priority 3: Homelab Reverse Proxy Security Hardening & OpenTelemetry (OTel)
+### Priority 1: Homelab Reverse Proxy Security Hardening & OpenTelemetry (OTel)
 - **Objective**: Harden production homelab exposure behind reverse proxies with standards-based telemetry and trace support.
 - **Architecture**:
   - **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
   - **Authentication Integration**: Optional HTTP basic authentication or forward-auth middleware support for secure exposure behind reverse proxies (Traefik, Caddy, Nginx).
   - **OpenTelemetry Observability (OTel/OTLP)**: Native OpenTelemetry metrics and traces instrumentation exposing sync execution durations, cumulative transferred bytes, lock contention wait times, error counters, and daemon health via standard OTLP exporters.
 
-### Priority 4: Remote Mount Lifecycle Manager & Storage Pooling (`internal/mount`)
+### Priority 2: Remote Mount Lifecycle Manager & Storage Pooling (`internal/mount`)
 - **Objective**: Turn fragile OS FUSE mounts into resilient, self-healing virtual storage endpoints.
 - **Architecture**:
   - **Stage A (Remote Mount Manager)**: Pure-Go daemon managing `rclone mount` subprocess lifecycles on Linux (FUSE) and Windows (WinFsp) with keepalive probes and clean unmount handlers (`fusermount -u`).
