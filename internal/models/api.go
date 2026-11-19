@@ -92,16 +92,16 @@ type TelemetryResponse = TelemetryPayload
 
 // GlobalDefaults represents baseline operational settings applied across all profiles.
 type GlobalDefaults struct {
-	MaxDelete          int    `json:"max_delete"`
-	CanaryValidation   bool   `json:"canary_validation"`
-	ConflictResolve    string `json:"conflict_resolve"`
-	CompareMode        string `json:"compare_mode"`
-	RemoveEmptyDirs    bool   `json:"remove_empty_dirs"`
-	CreateEmptyDirs    bool   `json:"create_empty_dirs"`
-	LockExplorerRemote bool   `json:"lock_explorer_remote"`
-	CustomFlags        string `json:"custom_flags,omitempty"`
-	DefaultLocalPath   string `json:"default_local_path,omitempty"`
-	DefaultRemotePath  string `json:"default_remote_path,omitempty"`
+	MaxDelete          int    `json:"max_delete"`                    // Safety deletion threshold percentage (0–100%). Aborts sync if pending deletions exceed this ratio.
+	CanaryValidation   bool   `json:"canary_validation"`             // Verifies presence of RCLONE_TEST canary token files before proceeding.
+	ConflictResolve    string `json:"conflict_resolve"`              // Heuristic resolution mode: path1, path2, newer, older, larger, smaller.
+	CompareMode        string `json:"compare_mode"`                  // Divergence detection: size,modtime, size,modtime,checksum, checksum, modtime.
+	RemoveEmptyDirs    bool   `json:"remove_empty_dirs"`             // Cleans empty directories on target after file deletions.
+	CreateEmptyDirs    bool   `json:"create_empty_dirs"`             // Replicates empty directory trees between replicas.
+	LockExplorerRemote bool   `json:"lock_explorer_remote"`          // Restricts browser file explorer to profile root directory paths.
+	CustomFlags        string `json:"custom_flags,omitempty"`        // Raw CLI flags appended to Rclone bisync subprocess executions.
+	DefaultLocalPath   string `json:"default_local_path,omitempty"`  // Suggested default base directory when creating local replica endpoints.
+	DefaultRemotePath  string `json:"default_remote_path,omitempty"` // Suggested default remote bucket or folder for new profiles.
 }
 
 // ConfigDaemonSettings represents daemon scheduling, timeout, and backoff settings.
