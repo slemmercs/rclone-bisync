@@ -20,6 +20,10 @@ import (
 // TestCaptureSandboxScreenshots launches headless Chrome against an ephemeral sandbox
 // backend to generate clean, high-resolution screenshots of the Vue Cockpit SPA for documentation.
 func TestCaptureSandboxScreenshots(t *testing.T) {
+	if os.Getenv("CAPTURE_SCREENSHOTS") != "1" {
+		t.Skip("skipping sandbox screenshot capture: set CAPTURE_SCREENSHOTS=1 to run")
+	}
+
 	chromePath := findChromeBinary()
 	if chromePath == "" {
 		t.Skip("skipping sandbox screenshot capture: Chrome/Chromium binary not found in PATH")
@@ -206,6 +210,8 @@ func TestCaptureSandboxScreenshots(t *testing.T) {
 		chromedp.NoSandbox,
 		chromedp.Headless,
 		chromedp.WindowSize(1440, 900),
+		chromedp.Flag("force-device-scale-factor", "2"),
+		chromedp.Flag("high-dpi-support", "1"),
 		chromedp.Flag("disable-dev-shm-usage", true),
 		chromedp.Flag("disable-software-rasterizer", true),
 		chromedp.Flag("proxy-server", "direct://"),
@@ -227,6 +233,15 @@ func TestCaptureSandboxScreenshots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to load Cockpit SPA: %v", err)
 	}
+
+	// Disable animations/transitions to prevent mid-transition visual artifacts
+	disableAnimScript := `(() => {
+		const style = document.createElement('style');
+		style.textContent = '*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; transition-delay: 0s !important; }';
+		document.head.appendChild(style);
+		return true;
+	})()`
+	_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](disableAnimScript))
 
 	saveShot := func(filename string) {
 		t.Helper()

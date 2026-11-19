@@ -9,7 +9,7 @@ Implement native Go AST $\rightarrow$ TypeScript interface generator (`--ts-out`
   - **Scope**: `cmd/gendocs/main.go`, `cmd/gendocs/ast_parser.go`, `cmd/gendocs/ts_generator.go`, `cmd/gendocs/mcp_docs.go`, `cmd/gendocs/render.go`, `cmd/gendocs/gendocs_test.go`, `dashboard/frontend/src/types/models.gen.ts`, `Makefile`
   - **Verification**: `make generate-ts && npm --prefix dashboard/frontend run type-check && make docs-generate`
 
-- [ ] Task 2: Gate E2E Screenshots & High-DPI Polish
+- [x] Task 2: Gate E2E Screenshots & High-DPI Polish
   - **Scope**: `tests/e2e/screenshots_test.go`, `Makefile`
   - **Verification**: `go test -count=1 ./tests/e2e -run TestCaptureSandboxScreenshots` (skips cleanly) and `CAPTURE_SCREENSHOTS=1 make docs-screenshots`
 
@@ -23,6 +23,7 @@ Implement native Go AST $\rightarrow$ TypeScript interface generator (`--ts-out`
 
 ## Status Updates
 
+- 2026-11-19: Completed Task 2 (Gate E2E Screenshots & High-DPI Polish). Gated screenshot capture behind CAPTURE_SCREENSHOTS=1, added 2x Retina scale factor, zero-animation style injection, and frontend-build dependency in Makefile.
 - 2026-11-19: Completed Task 1 (Native Go AST -> TypeScript Contract Generator & cmd/gendocs Modularization). All 5 cmd/gendocs modules are <200 LOC, generate-ts target added to Makefile, and models.gen.ts verified with vue-tsc.
 - 2026-11-19: Added Priority 1 Go AST -> TypeScript contract generator (`--ts-out`) to implementation plan and task plan.
 
