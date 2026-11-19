@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Quickstart Guide
-nav_order: 6
+nav_order: 2
 description: "Install, configure, and automate Bisync Hub on Linux and macOS in under 5 minutes."
 ---
 
@@ -9,52 +9,59 @@ description: "Install, configure, and automate Bisync Hub on Linux and macOS in 
 
 Get up and running with Bisync Hub in less than 5 minutes.
 
+> **Prerequisites:** Rclone (`v1.65+`) configured with at least one remote (`rclone config`), or pass `--install-rclone` to the automated installer below.
+
 ---
 
-## 1. Quick Installation
+## 1. Installation
 
-Execute the automated installer to download the latest signed binary and setup basic system integration:
+### Option A: Automated Installer (Linux)
+Downloads the latest signed binary, verifies checksums, and configures systemd integration:
 
 ```bash
-# Standard installation (uses existing Rclone installation on system PATH)
+# Standard installation (uses existing Rclone on PATH)
 curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | sudo bash
 
-# Or opt-in to automatic Rclone binary installation if not present
+# Or install Rclone automatically if not present
 curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | sudo bash -s -- --install-rclone
 ```
 
-### Installer CLI Flags
+<details>
+<summary><strong>View Installer CLI Options</strong></summary>
 
 | Option | Description | Default |
 | :--- | :--- | :--- |
-| `-i, --install-rclone` | Install official Rclone binary if not found in PATH | `false` |
+| `-i, --install-rclone` | Install official Rclone binary if not found in `PATH` | `false` |
 | `-n, --dry-run` | Simulate installation without modifying system | `false` |
-| `-d, --target-dir <path>` | Installation target directory | `$HOME/rclone-bisync` |
+| `-d, --target-dir <path>` | Installation target directory | `$HOME/bisync-hub` |
 | `--port <port>` | Dashboard HTTP service port | `8080` |
-| `--skip-services` | Stage files and compile without starting systemd units | `false` |
+| `--skip-services` | Stage binary and config without enabling systemd units | `false` |
 | `--min-rclone-version <v>` | Minimum required Rclone semver | |
 | `--max-rclone-version <v>` | Maximum compatible Rclone semver | |
-| `-y, --non-interactive` | Run non-interactively | `false` |
+| `-y, --non-interactive` | Run unattended with defaults | `false` |
 
+</details>
 
-### Manual Binary Download
-Alternatively, download the target binary directly from GitHub Releases:
+### Option B: Manual Binary Download (Linux & macOS)
+
+Download the standalone binary directly from GitHub Releases:
 
 ```bash
-# Example for Linux x86_64
+# Linux (x86_64) — use 'darwin-arm64' or 'darwin-amd64' for macOS
 curl -LO https://github.com/slemmercs/rclone-bisync/releases/latest/download/bisync-hub-linux-amd64
 chmod +x bisync-hub-linux-amd64
 sudo mv bisync-hub-linux-amd64 /usr/local/bin/bisync-hub
-
-# Optional: create legacy symlink
-sudo ln -sf /usr/local/bin/bisync-hub /usr/local/bin/rclone-bisync
 ```
 
 ---
 
 ## 2. Configuration (`bisync.env`)
 
-Generate a starting configuration or customize `bisync.env` in your working directory:
+Create a working directory and generate your `bisync.env` configuration file:
+
+```bash
+mkdir -p ~/bisync && cd ~/bisync
+```
 
 ```env
 # ------------------------------------------------------------------------------
@@ -63,7 +70,7 @@ Generate a starting configuration or customize `bisync.env` in your working dire
 PORT=8080
 BIND_ADDR=127.0.0.1
 
-# Sync Paths
+# Default Sync Paths (Additional profiles can be added in the Web UI)
 PATH1=/home/operator/data
 PATH2=onedrive:data_backup
 
@@ -77,6 +84,9 @@ CANARY_FILENAME=RCLONE_TEST
 CONFLICT_AUTO_RESOLVE_MIN_CONFIDENCE=0.85
 CONFLICT_BACKUP_LOSERS=true
 
+# Embedded MCP Server
+MCP_READ_ONLY=false
+
 # Notification Webhooks
 # WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
@@ -85,17 +95,19 @@ CONFLICT_BACKUP_LOSERS=true
 
 ## 3. Starting the Server
 
-Run the orchestrator interactively:
+Launch the management cockpit interactively or run a one-off dry-run simulation:
 
 ```bash
-# Launch the real-time operational dashboard
-rclone-bisync dashboard --env-file bisync.env
+# Start the operational dashboard & scheduler
+bisync-hub dashboard --env-file bisync.env
 
-# Or test synchronization in dry-run simulation mode
-rclone-bisync sync --dry-run --env-file bisync.env
+# Or test synchronization safely in dry-run mode
+bisync-hub sync --dry-run --env-file bisync.env
 ```
 
-Open your browser to `http://localhost:8080` to access the real-time operational dashboard, inspect remote mounts, check canary health, and review pending sync events.
+Open `http://localhost:8080` in your browser to access the dashboard, verify remote OAuth status, and trigger your initial baseline sync.
+
+> **First-Time Sync Note:** If syncing two non-empty directories for the first time, trigger an initial **Resync** from the profile card in the dashboard (or pass `--resync` on the CLI) to establish the baseline state cache.
 
 <div class="screenshot-grid">
   <div class="screenshot-frame">
@@ -116,9 +128,9 @@ Open your browser to `http://localhost:8080` to access the real-time operational
 
 ---
 
-## 4. Running as a Systemd Service
+## 4. Running as a Background Service (Systemd)
 
-For continuous 24/7 background operation on Linux:
+If you used manual binary installation on Linux, create a systemd unit for 24/7 background operation (replace `operator` with your Linux username):
 
 ```ini
 # /etc/systemd/system/bisync-hub.service
@@ -129,9 +141,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=csaba
-WorkingDirectory=/home/csaba/sync
-ExecStart=/usr/local/bin/rclone-bisync dashboard --env-file /home/csaba/sync/bisync.env
+User=operator
+WorkingDirectory=/home/operator/bisync
+ExecStart=/usr/local/bin/bisync-hub dashboard --env-file /home/operator/bisync/bisync.env
 Restart=always
 RestartSec=10
 
@@ -148,31 +160,27 @@ sudo systemctl enable --now bisync-hub
 
 ---
 
-## 5. Integrating with AI Agents (MCP)
+## 5. Connecting AI Agents (MCP)
 
-Connect Claude Desktop, Cursor, or Cline directly to Bisync Hub via Model Context Protocol:
+Bisync Hub includes a native **Model Context Protocol (MCP)** server supporting both local `stdio` and embedded HTTP `SSE` transports.
 
-```bash
-# Verify the MCP server works locally
-bisync-hub mcp --debug
-```
+### Local Agents (`stdio` — Cline, Claude Desktop, Cursor)
 
-Add Bisync Hub to your Cline settings (`~/.cline/data/settings/cline_mcp_settings.json`):
+Add Bisync Hub to your MCP client configuration (e.g., `~/.cline/data/settings/cline_mcp_settings.json`):
 
 ```json
 {
   "mcpServers": {
-    "rclone-bisync": {
+    "bisync-hub": {
       "command": "/usr/local/bin/bisync-hub",
-      "args": ["mcp"],
+      "args": ["mcp", "--env-file", "/home/operator/bisync/bisync.env"],
       "disabled": false
     }
   }
 }
 ```
 
-Or run over streaming HTTP for distributed setups:
+### Network / Remote Agents (Embedded `SSE`)
 
-```bash
-bisync-hub mcp --transport sse --port 8081
-```
+When `bisync-hub dashboard` is running, the embedded MCP SSE endpoint is automatically served on port `8081` alongside the daemon—no separate background process required. Open the **MCP Inspector** pill in the dashboard header for one-click client snippets and live tool inspection.
+

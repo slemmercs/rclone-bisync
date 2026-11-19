@@ -1,7 +1,7 @@
 ---
 layout: default
 title: UI Gallery
-nav_order: 4
+nav_order: 5
 description: "Visual tour of the Bisync Hub embedded web cockpit, sync review workflow, immutable audit ledger, and storage remotes."
 ---
 
