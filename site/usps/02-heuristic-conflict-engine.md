@@ -34,14 +34,14 @@ When both Path1 and Path2 report modifications to the same file path, the engine
 The engine aggregates individual analyzer scores into a unified **Confidence Index (0% - 100%)**:
 
 ```text
-Score >= 85%  ──► [ HIGH CONFIDENCE ]  ──► Auto-resolve in favor of dominant replica
-60% - 84%    ──► [ MEDIUM CONFIDENCE ]──► Backup losing candidate to .conflict-bak, then sync
-Score < 60%   ──► [ LOW CONFIDENCE ]   ──► QUARANTINE: Halt file mutation & prompt Operator
+Score >= 85%  ──► [ HIGH CONFIDENCE ]   ──► Auto-resolve in favor of dominant replica
+60% - 84%     ──► [ MEDIUM CONFIDENCE ] ──► Auto-resolve; backup displaced candidate to .bisync_backup/
+Score < 60%   ──► [ LOW CONFIDENCE ]    ──► QUARANTINE: Preserve in .bisync_quarantine/ & prompt Operator
 ```
 
 ### Safety Features
-- **Deterministic Quarantine**: Unresolvable collisions are safely preserved in a `.bisync_quarantine/` isolation jail.
-- **Conflict Backup Preserves**: Even on high-confidence resolutions, the displaced version is moved to the backup store before overwriting.
+- **Deterministic Quarantine**: Unresolvable collisions (Score < 60%) are safely moved into a `.bisync_quarantine/` isolation jail for operator review.
+- **Conflict Backup Preserves**: For medium-confidence resolutions (60%–84%), the displaced version is backed up to `.bisync_backup/` before overwriting.
 - **Clock Skew Tolerance**: Built-in compensation algorithms for cloud timestamp drift and DST shifts.
 
 {: .note }

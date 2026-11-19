@@ -40,10 +40,10 @@ Every scheduled or manual sync cycle executes in `--dry-run` inspection mode fir
 
 ### 2. High-Severity Quota Halts
 If proposed deletions exceed either:
-- The absolute file limit (e.g. `MAX_DELETE_COUNT=50`), or
-- The directory percentage ratio (e.g. `MAX_DELETE_PERCENT=10%`),
+- The absolute file limit (e.g. `SAFETY_MAX_DELETE_COUNT=25`), or
+- The directory percentage ratio (e.g. `SAFETY_MAX_DELETE_RATIO=0.10`),
 
-the sync engine immediately trips the circuit breaker, writes an atomic `.review_pending` state, and emits real-time WebSocket notifications to the management dashboard.
+the sync engine immediately trips the circuit breaker, writes an atomic `.review_pending` state, and emits real-time WebSocket notifications to the management dashboard. See [Customizable Safety Policies]({% link usps/03-safety-policies.md %}) for policy details.
 
 ### 3. Granular Operator Triage
 Operators can open the Web Dashboard review modal to:
