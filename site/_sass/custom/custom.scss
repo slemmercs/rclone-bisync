@@ -1,39 +1,40 @@
 // ==============================================================================
 // Bisync Hub - Custom Component Styling
-// Rounded panels, monospace badges, glowing borders & review mockups
+// Agnoster Carbon panels, monospace badges, glowing borders & review mockups
 // ==============================================================================
 
 /* Panel & Card styling for callouts and content boxes */
 .callout, .code-example, blockquote {
-  background-color: #13192b !important;
-  border: 1px solid #1e293b !important;
+  background-color: #161922 !important;
+  border: 1px solid #262936 !important;
   border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* Technical uppercase section labels */
 .site-header, .nav-list-link, h2, h3 {
   letter-spacing: 0.03em;
 }
+
 h1 {
   color: #ffffff !important;
   font-weight: 800;
 }
 
 h2 {
-  color: #818cf8 !important;
-  border-bottom: 1px solid #1e293b;
+  color: #38bdf8 !important;
+  border-bottom: 1px solid #262936;
   padding-bottom: 0.35rem;
   margin-top: 2rem;
 }
 
 h3 {
-  color: #a5b4fc !important;
+  color: #7dd3fc !important;
   margin-top: 1.5rem;
 }
 
 h4 {
-  color: #38bdf8 !important;
+  color: #bae6fd !important;
 }
 
 .hero-logo {
@@ -41,9 +42,8 @@ h4 {
   height: 88px;
   margin-bottom: 1.25rem;
   display: inline-block;
-  filter: drop-shadow(0 6px 20px rgba(99, 102, 241, 0.45));
+  filter: drop-shadow(0 6px 20px rgba(14, 165, 233, 0.45));
 }
-
 
 /* Site Title and Logo in Header */
 .site-title {
@@ -76,13 +76,13 @@ h4 {
 
 /* Hero Container */
 .hero-box {
-  background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, rgba(19, 25, 43, 0.9) 70%);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.18) 0%, rgba(17, 19, 24, 0.95) 70%);
+  border: 1px solid rgba(14, 165, 233, 0.35);
   border-radius: 12px;
   padding: 2.5rem 2rem;
   margin-bottom: 2.5rem;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .hero-box h1 {
@@ -108,16 +108,16 @@ h4 {
 
 .hero-install {
   display: inline-block;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: rgba(17, 19, 24, 0.9);
+  border: 1px solid rgba(14, 165, 233, 0.35);
   border-radius: 8px;
   padding: 0.75rem 1.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.875rem;
-  color: #a5b4fc;
+  color: #7dd3fc;
   max-width: 100%;
   overflow-x: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   margin-top: 0.5rem;
 }
 
@@ -170,12 +170,19 @@ h4 {
   border-radius: 9999px;
 }
 
-.badge-indigo {
+.badge-electric, .badge-indigo {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
   font-size: 0.75rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  border-radius: 9999px;
+}
+
 .badge-planned {
   display: inline-flex;
   align-items: center;
@@ -190,13 +197,6 @@ h4 {
   border-radius: 9999px;
 }
 
-  font-weight: 600;
-  color: #818cf8;
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  border-radius: 9999px;
-}
-
 /* Feature Grid Cards */
 .feature-grid {
   display: grid;
@@ -206,8 +206,8 @@ h4 {
 }
 
 .feature-card {
-  background: #13192b;
-  border: 1px solid #1e293b;
+  background: #161922;
+  border: 1px solid #262936;
   border-radius: 8px;
   padding: 1.5rem;
   transition: transform 0.2s ease, border-color 0.2s ease;
@@ -215,8 +215,8 @@ h4 {
 
 .feature-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  border-color: rgba(14, 165, 233, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .feature-card h3 {
@@ -234,43 +234,38 @@ h4 {
 
 /* Sidebar navigation active state */
 .nav-list-item.active > .nav-list-link {
-  color: #818cf8 !important;
-  background-color: rgba(99, 102, 241, 0.1) !important;
-  border-left: 3px solid #6366f1;
+  color: #38bdf8 !important;
+  background-color: rgba(14, 165, 233, 0.1) !important;
+  border-left: 3px solid #0ea5e9;
 }
 
-/* Table Enhancements */
-table {
-  border-collapse: separate;
-  border-spacing: 0;
-  width: 100%;
 /* Screenshot Showcase Frames */
 .screenshot-frame {
   margin: 1.75rem 0;
-  border: 1px solid #1e293b;
+  border: 1px solid #262936;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  background: #0e1322;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  background: #111318;
   transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
 .screenshot-frame:hover {
-  border-color: rgba(99, 102, 241, 0.45);
+  border-color: rgba(14, 165, 233, 0.45);
 }
 
 .screenshot-frame img {
   display: block;
   width: 100%;
   height: auto;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid #262936;
 }
 
 .screenshot-frame .caption {
   padding: 0.65rem 1rem;
   font-size: 0.8rem;
   color: #94a3b8;
-  background: #13192b;
+  background: #161922;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -278,7 +273,7 @@ table {
 }
 
 .screenshot-frame .caption span.title {
-  color: #c7d2fe;
+  color: #bae6fd;
   font-weight: 600;
 }
 
@@ -293,24 +288,29 @@ table {
   margin: 0;
 }
 
+/* Table Enhancements */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
   margin: 1.5rem 0;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #1e293b;
+  border: 1px solid #262936;
 }
 
 table th {
-  background: #0e1322 !important;
+  background: #111318 !important;
   color: #f8fafc !important;
   font-weight: 700;
   padding: 0.75rem 1rem;
-  border-bottom: 2px solid #1e293b;
+  border-bottom: 2px solid #262936;
 }
 
 table td {
-  background: #13192b !important;
+  background: #161922 !important;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid #262936;
   color: #94a3b8;
 }
 
