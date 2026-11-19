@@ -398,6 +398,40 @@ body.lightbox-open {
   margin: 0;
 }
 
+/* Collapsible Details / Accordions */
+details {
+  background: #111318;
+  border: 1px solid #262936;
+  border-radius: 8px;
+  padding: 0.75rem 1.15rem;
+  margin: 1.25rem 0;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+details[open] {
+  background: #141720;
+  border-color: rgba(14, 165, 233, 0.45);
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #38bdf8;
+  outline: none;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+details summary:hover {
+  color: #7dd3fc;
+}
+
+details[open] summary {
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid #262936;
+  padding-bottom: 0.5rem;
+}
+
 /* Table Enhancements */
 table {
   border-collapse: separate;

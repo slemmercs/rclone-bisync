@@ -26,18 +26,18 @@ curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/
 curl -sSL https://raw.githubusercontent.com/slemmercs/rclone-bisync/main/deploy/install.sh | sudo bash -s -- --install-rclone
 ```
 
-<details>
+<details markdown="1">
 <summary><strong>View Installer CLI Options</strong></summary>
 
 | Option | Description | Default |
 | :--- | :--- | :--- |
 | `-i, --install-rclone` | Install official Rclone binary if not found in `PATH` | `false` |
 | `-n, --dry-run` | Simulate installation without modifying system | `false` |
-| `-d, --target-dir <path>` | Installation target directory | `$HOME/bisync-hub` |
-| `--port <port>` | Dashboard HTTP service port | `8080` |
+| `-d, --target-dir [path]` | Installation target directory | `$HOME/bisync-hub` |
+| `--port [port]` | Dashboard HTTP service port | `8080` |
 | `--skip-services` | Stage binary and config without enabling systemd units | `false` |
-| `--min-rclone-version <v>` | Minimum required Rclone semver | |
-| `--max-rclone-version <v>` | Maximum compatible Rclone semver | |
+| `--min-rclone-version [ver]` | Minimum required Rclone semver | |
+| `--max-rclone-version [ver]` | Maximum compatible Rclone semver | |
 | `-y, --non-interactive` | Run unattended with defaults | `false` |
 
 </details>
