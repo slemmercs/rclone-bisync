@@ -7,7 +7,7 @@ description: "Visual tour of the Bisync Hub embedded web cockpit, sync review wo
 
 # Dashboard & UI Gallery
 
-Bisync Hub features a zero-dependency, compiled-in Web Cockpit built with Alpine.js and Tailwind CSS. The interface operates completely self-contained from the single Go binary with zero external npm or Node.js runtime requirements.
+Bisync Hub features a zero-dependency, compiled-in Web Cockpit built with Vue 3, PrimeVue, and Tailwind CSS. The interface operates completely self-contained from the single Go binary with embedded static assets (`//go:embed dashboard/frontend/dist/*`) with zero external npm or Node.js runtime requirements.
 
 ---
 
@@ -23,20 +23,11 @@ The Fleet Overview provides real-time workload orchestration across multiple syn
   </div>
 </div>
 
-<div class="screenshot-grid">
-  <div class="screenshot-frame">
-    <img src="{{ '/assets/images/screenshots/bisync-hub_profile-manager.png' | relative_url }}" alt="Bisync Hub Profile Manager" />
-    <div class="caption">
-      <span class="title">Profile Manager</span>
-      <span>Add, edit, archive, and configure independent sync workloads</span>
-    </div>
-  </div>
-  <div class="screenshot-frame">
-    <img src="{{ '/assets/images/screenshots/bisync-hub_profile-settings.png' | relative_url }}" alt="Bisync Hub Profile Settings & Flags" />
-    <div class="caption">
-      <span class="title">Operational Flags</span>
-      <span>3-tier flag overrides, provider presets, and security blocklist validation</span>
-    </div>
+<div class="screenshot-frame">
+  <img src="{{ '/assets/images/screenshots/bisync-hub_profile-settings.png' | relative_url }}" alt="Bisync Hub Profile Settings & Flags" />
+  <div class="caption">
+    <span class="title">Profile Settings & Operational Flags</span>
+    <span>Schedules, comparison modes, safety deletion thresholds, and policy configuration</span>
   </div>
 </div>
 
