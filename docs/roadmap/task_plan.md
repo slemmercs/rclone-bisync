@@ -9,7 +9,7 @@ Implement a native Go AST documentation generator (`cmd/gendocs`) producing sear
   - **Scope**: `cmd/gendocs/main.go`, `cmd/gendocs/parser.go`
   - **Verification**: `go run ./cmd/gendocs --out site/technical-reference.md && head -n 30 site/technical-reference.md`
 
-- [ ] Task 2: Automated Sandbox Screenshot Suite for Vue Cockpit
+- [x] Task 2: Automated Sandbox Screenshot Suite for Vue Cockpit
   - **Scope**: `tests/e2e/screenshots_test.go`
   - **Verification**: `go test -count=1 -v ./tests/e2e -run TestCaptureSandboxScreenshots`
 
@@ -21,4 +21,5 @@ Implement a native Go AST documentation generator (`cmd/gendocs`) producing sear
 
 - 2026-11-19: Initialized plan for native Go AST documentation generator and sandbox screenshot capture.
 - 2026-11-19: Completed Task 1 - Implemented native Go AST documentation generator in `cmd/gendocs/` (`main.go` and `parser.go`) to automatically extract global settings, profile policies, and MCP tool definitions into `site/technical-reference.md`. Verified via `./scripts/check.sh all` and live generation.
+- 2026-11-19: Completed Task 2 - Implemented automated sandbox screenshot capture suite in `tests/e2e/screenshots_test.go` utilizing headless Chrome (`chromedp`) against an ephemeral sandbox backend with zero live touch. Captured all 7 updated 1440x900 screenshots for the Vue Cockpit SPA. Verified via `go test -count=1 -v ./tests/e2e -run TestCaptureSandboxScreenshots` and `./scripts/check.sh all`.
 
