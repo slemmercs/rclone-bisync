@@ -1,4 +1,4 @@
-.PHONY: all build test check clean frontend-build generate-ts docs-generate docs-screenshots docs-serve
+.PHONY: all build test check clean frontend-build generate-ts docs-generate docs-screenshots docs-serve docs-serve-docker
 
 all: build
 
@@ -25,6 +25,14 @@ docs-screenshots: frontend-build
 
 docs-serve:
 	cd site && bundle exec jekyll serve
+
+docs-serve-docker:
+	docker run --rm -it \
+		-v jekyll_bundle:/usr/local/bundle \
+		-v "$$PWD/site:/srv/jekyll" \
+		-p 4000:4000 \
+		jekyll/jekyll:latest \
+		sh -c "bundle install && bundle exec jekyll serve --host 0.0.0.0 --livereload --baseurl ''"
 
 clean:
 	rm -f rclone-bisync

@@ -259,6 +259,116 @@ h4 {
   width: 100%;
   height: auto;
   border-bottom: 1px solid #262936;
+  cursor: zoom-in;
+  transition: filter 0.2s ease;
+}
+
+.screenshot-frame:hover img {
+  filter: brightness(1.03);
+}
+
+.lightbox-target {
+  cursor: zoom-in;
+}
+
+/* Clickable Lightbox Modal */
+body.lightbox-open {
+  overflow: hidden !important;
+}
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lightbox-overlay.visible {
+  opacity: 1;
+}
+
+.lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(9, 10, 13, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.lightbox-container {
+  position: relative;
+  z-index: 1;
+  max-width: 95vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: scale(0.96);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lightbox-overlay.visible .lightbox-container {
+  transform: scale(1);
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #262936;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 30px rgba(14, 165, 233, 0.15);
+  background: #111318;
+}
+
+.lightbox-caption {
+  margin-top: 0.85rem;
+  padding: 0.4rem 1rem;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: rgba(22, 25, 34, 0.85);
+  border: 1px solid #262936;
+  border-radius: 6px;
+  text-align: center;
+  max-width: 90vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lightbox-caption:empty {
+  display: none;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #161922;
+  border: 1px solid #38bdf8;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.lightbox-close:hover {
+  background: #0ea5e9;
+  color: #ffffff;
+  transform: scale(1.1);
 }
 
 .screenshot-frame .caption {
