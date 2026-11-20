@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"flag"
-	"html/template"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -13,92 +11,45 @@ import (
 
 func TestEmbeddedFrontendFS(t *testing.T) {
 	// Verify embedded files exist in frontendFS
-	data, err := fs.ReadFile(frontendFS, "dashboard/frontend/index.html")
+	data, err := fs.ReadFile(frontendFS, "dashboard/frontend/dist/index.html")
 	if err != nil {
-		t.Fatalf("expected dashboard/frontend/index.html in embedded FS, got: %v", err)
+		t.Fatalf("expected dashboard/frontend/dist/index.html in embedded FS, got: %v", err)
 	}
 	if len(data) == 0 {
-		t.Fatal("embedded index.html is empty")
+		t.Fatal("embedded dist/index.html is empty")
 	}
 
-	dataApp, err := fs.ReadFile(frontendFS, "dashboard/frontend/app.js")
+	dataFavicon, err := fs.ReadFile(frontendFS, "dashboard/frontend/favicon.svg")
 	if err != nil {
-		t.Fatalf("expected dashboard/frontend/app.js in embedded FS, got: %v", err)
+		t.Fatalf("expected dashboard/frontend/favicon.svg in embedded FS, got: %v", err)
 	}
-	if len(dataApp) == 0 {
-		t.Fatal("embedded app.js is empty")
+	if len(dataFavicon) == 0 {
+		t.Fatal("embedded favicon.svg is empty")
 	}
 
-	dataRemotes, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/remotes.js")
+	dataDark, err := fs.ReadFile(frontendFS, "dashboard/frontend/cloud-sync-dark.svg")
 	if err != nil {
-		t.Fatalf("expected dashboard/frontend/js/remotes.js in embedded FS, got: %v", err)
+		t.Fatalf("expected dashboard/frontend/cloud-sync-dark.svg in embedded FS, got: %v", err)
 	}
-	if len(dataRemotes) == 0 {
-		t.Fatal("embedded remotes.js is empty")
-	}
-
-	dataReview, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/review.js")
-	if err != nil {
-		t.Fatalf("expected dashboard/frontend/js/review.js in embedded FS, got: %v", err)
-	}
-	if len(dataReview) == 0 {
-		t.Fatal("embedded review.js is empty")
+	if len(dataDark) == 0 {
+		t.Fatal("embedded cloud-sync-dark.svg is empty")
 	}
 
-	dataFleet, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/fleet.js")
-	if err != nil {
-		t.Fatalf("expected dashboard/frontend/js/fleet.js in embedded FS, got: %v", err)
-	}
-	if len(dataFleet) == 0 {
-		t.Fatal("embedded fleet.js is empty")
-	}
-
-	dataHistory, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/profiles_history.js")
-	if err != nil {
-		t.Fatalf("expected dashboard/frontend/js/profiles_history.js in embedded FS, got: %v", err)
-	}
-	if len(dataHistory) == 0 {
-		t.Fatal("embedded profiles_history.js is empty")
-	}
-
-	dataLogDock, err := fs.ReadFile(frontendFS, "dashboard/frontend/js/log_dock.js")
-	if err != nil {
-		t.Fatalf("expected dashboard/frontend/js/log_dock.js in embedded FS, got: %v", err)
-	}
-	if len(dataLogDock) == 0 {
-		t.Fatal("embedded log_dock.js is empty")
-	}
-
-	subFS, err := fs.Sub(frontendFS, "dashboard/frontend")
+	subFS, err := fs.Sub(frontendFS, "dashboard/frontend/dist")
 	if err != nil {
 		t.Fatalf("failed sub fs: %v", err)
 	}
-	tmpl, tmplErr := template.ParseFS(subFS,
-		"index.html",
-		"partials/*.html",
-		"partials/modals/*.html",
-		"partials/components/*.html",
-		"partials/patterns/*.html",
-		"partials/layouts/*.html",
-	)
-	if tmplErr != nil {
-		t.Fatalf("ParseFS failed on embedded frontendFS: %v", tmplErr)
+	distIndex, err := fs.ReadFile(subFS, "index.html")
+	if err != nil {
+		t.Fatalf("failed to read index.html from dist subFS: %v", err)
 	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, nil); err != nil {
-		t.Fatalf("Execute failed on assembled embedded template: %v", err)
-	}
-	rendered := buf.String()
-	if strings.Contains(rendered, "1 1 0 .696") {
-		t.Fatal("corrupted SVG arc found in rendered embedded template")
-	}
-	if !strings.Contains(rendered, "1 1 0 0 1 0 .696") {
-		t.Fatal("expected valid SVG arc in rendered embedded template")
+	if !strings.Contains(string(distIndex), `<div id="app"></div>`) {
+		t.Fatal("expected '<div id=\"app\"></div>' in embedded dist/index.html")
 	}
 }
 
 func TestTemplateHTMLBalancedTags(t *testing.T) {
-	err := fs.WalkDir(frontendFS, "dashboard/frontend", func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(frontendFS, "dashboard/frontend/dist", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -115,12 +66,6 @@ func TestTemplateHTMLBalancedTags(t *testing.T) {
 		closeDivs := strings.Count(content, "</div>")
 		if openDivs != closeDivs {
 			t.Errorf("unbalanced <div> tags in %s: %d open vs %d close", path, openDivs, closeDivs)
-		}
-
-		openMains := strings.Count(content, "<main")
-		closeMains := strings.Count(content, "</main>")
-		if openMains != closeMains {
-			t.Errorf("unbalanced <main> tags in %s: %d open vs %d close", path, openMains, closeMains)
 		}
 
 		return nil

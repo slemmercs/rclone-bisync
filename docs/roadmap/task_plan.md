@@ -1,33 +1,44 @@
-# Task Plan: TypeScript Contract Generator, Documentation Showcase Redesign & Generator Modularization
+# Task Plan: Option A — Sundown Alpine.js & Default Route to Vue 3 SPA
 
 ## Goal
-Implement native Go AST $\rightarrow$ TypeScript interface generator (`--ts-out`) as Priority 1, modularize `cmd/gendocs/` (< 200 LOC per file), gate `TestCaptureSandboxScreenshots` behind `CAPTURE_SCREENSHOTS=1`, add retina + zero-animation rendering, and overhaul GitHub Pages showcase (`site/`) to match Agnoster Carbon & Electric Blue theme.
+Sundown the legacy Go-templated Alpine.js frontend, make the embedded Vue 3 / PrimeVue 4 SPA the default UI served at `GET /`, update static asset routing, adjust `cmd/check` scanners (HTML templates, licenses), and align E2E/integration tests.
 
 ## Tasks
 
-- [x] Task 1: Native Go AST $\rightarrow$ TypeScript Contract Generator & `cmd/gendocs` Modularization
-  - **Scope**: `cmd/gendocs/main.go`, `cmd/gendocs/ast_parser.go`, `cmd/gendocs/ts_generator.go`, `cmd/gendocs/mcp_docs.go`, `cmd/gendocs/render.go`, `cmd/gendocs/gendocs_test.go`, `dashboard/frontend/src/types/models.gen.ts`, `Makefile`
-  - **Verification**: `make generate-ts && npm --prefix dashboard/frontend run type-check && make docs-generate`
+- [x] Task 1: Compile Production Vue 3 SPA Bundle
+  - **Scope**: `dashboard/frontend/package.json`, `dashboard/frontend/dist/*`, `dashboard/frontend/vite.config.ts`, `dashboard/frontend/index.html`
+  - **Verification**: `npm --prefix dashboard/frontend run build`
 
-- [x] Task 2: Gate E2E Screenshots & High-DPI Polish
-  - **Scope**: `tests/e2e/screenshots_test.go`, `Makefile`
-  - **Verification**: `go test -count=1 ./tests/e2e -run TestCaptureSandboxScreenshots` (skips cleanly) and `CAPTURE_SCREENSHOTS=1 make docs-screenshots`
+- [x] Task 2: Serve Vue 3 SPA at `GET /` and Route Assets from `dist`
+  - **Scope**: `internal/server/routes.go`, `internal/server/server.go`, `internal/server/server_test.go`
+  - **Verification**: `go test -count=1 ./internal/server/...`
 
-- [x] Task 3: Agnoster Carbon & Electric Blue Theme Redesign
-  - **Scope**: `site/_sass/custom/setup.scss`, `site/_sass/custom/custom.scss`, `site/assets/images/logo.svg`, `site/assets/images/favicon.svg`
-  - **Verification**: Inspect generated styles, verify SCSS syntax validity, and ensure Electric Blue brand assets compile
+- [x] Task 3: Sundown Legacy Alpine Files
+  - **Scope**: `dashboard/frontend/cockpit.html`, `dashboard/frontend/partials/`, `dashboard/frontend/js/`, `dashboard/frontend/vendor/`, `dashboard/frontend/app.js`, `dashboard/frontend/css/design-tokens.css`
+  - **Verification**: `git status --porcelain` confirms removal of legacy assets
 
-- [x] Task 4: Content Overhaul for Vue 3 Architecture & Production Milestones
-  - **Scope**: `site/usps/05-single-binary.md`, `site/usps/index.md`, `site/roadmap.md`, `.clinerules`
+- [x] Task 4: Update `cmd/check` HTML and License Scanners
+  - **Scope**: `cmd/check/html_scanner.go`, `cmd/check/licenses.go`, `cmd/check/main.go`, `cmd/check/main_test.go`
+  - **Verification**: `go test -count=1 ./cmd/check/...`
+
+- [x] Task 5: Align E2E and Integration Tests to Vue 3 DOM
+  - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `tests/e2e/cockpit_spa_smoke_test.go`, `main_test.go`
+  - **Verification**: `go test -count=1 ./tests/e2e/...`
+
+- [x] Task 6: Pre-commit Validation & Quality Gate Verification
+  - **Scope**: Repository-wide audit
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-19: Completed Task 4 (Content Overhaul for Vue 3 Architecture & Production Milestones). Replaced outdated Alpine.js references across site USPs, roadmap, architecture docs, and .clinerules with Vue 3 Cockpit architecture and Agnoster Carbon design system. All 7 quality gates passed via ./scripts/check.sh all.
-- 2026-11-19: Completed Task 3 (Agnoster Carbon & Electric Blue Theme Redesign). Overhauled setup.scss and custom.scss with Agnoster Carbon tokens (#090A0D canvas, #111318 surfaces, #161922 card/code containers, #0ea5e9 electric blue accents), resolved interleaved SCSS blocks, and updated brand SVGs with electric blue gradient (#0ea5e9 -> #0284c7).
-- 2026-11-19: Completed Task 2 (Gate E2E Screenshots & High-DPI Polish). Gated screenshot capture behind CAPTURE_SCREENSHOTS=1, added 2x Retina scale factor, zero-animation style injection, and frontend-build dependency in Makefile.
-- 2026-11-19: Completed Task 1 (Native Go AST -> TypeScript Contract Generator & cmd/gendocs Modularization). All 5 cmd/gendocs modules are <200 LOC, generate-ts target added to Makefile, and models.gen.ts verified with vue-tsc.
-- 2026-11-19: Added Priority 1 Go AST -> TypeScript contract generator (`--ts-out`) to implementation plan and task plan.
+- 2026-11-20: Completed Task 6 (Pre-commit Validation & Quality Gate Verification). Ran `./scripts/check.sh all` and `make check` passing all 7 quality gates (formatting, templates, licenses, vet, tests, loc, build). Verified single binary self-contained build.
+- 2026-11-20: Completed Task 5 (Align E2E and Integration Tests to Vue 3 DOM). Adapted `tests/e2e/dashboard_smoke_test.go` to test default root route `GET /` against the embedded Vue 3 SPA `#app` and PrimeVue elements; verified tab navigation, modals, popovers, and error audits; skipped legacy Alpine-coupled sandbox UI journey; verified with `go test -count=1 ./tests/e2e/...`.
+- 2026-11-20: Completed Task 4 (Update `cmd/check` HTML and License Scanners). Updated `cmd/check/licenses.go` and `THIRD_PARTY_LICENSES.md` to track Vue 3, PrimeVue, Pinia, Chart.js, and Tailwind CSS instead of vendored Alpine assets; renamed check stage to "HTML & Template Safety"; updated unit tests and verified with `go test -count=1 ./cmd/check/...` and `go run ./cmd/check licenses/templates`.
+- 2026-11-20: Completed Task 3 (Sundown Legacy Alpine Files). Removed all legacy Alpine assets (`cockpit.html`, `app.js`, `css/design-tokens.css`, `partials/`, `js/`, and `vendor/`), cleaned `tailwind.config.js`, updated `main.go` embed directive to target distribution assets, adapted `main_test.go` to assert on embedded SPA assets, and verified all internal tests pass.
+- 2026-11-20: Completed Task 2 (Serve Vue 3 SPA at `GET /` and Route Assets from `dist`). Removed Go HTML template parsing and Alpine partial bundling. Routed `GET /` and `GET /cockpit` directly to Vue 3 SPA `index.html` with assets served from `dist/assets/`, updated tests in `server_test.go`, and verified `go test -count=1 ./internal/server/...`.
+- 2026-11-20: Completed Task 1 (Compile Production Vue 3 SPA Bundle). Upgraded frontend build with Vite 8 + vue-tsc 3, updated `vite.config.ts` manualChunks function for Rolldown, standardized entry point to `dashboard/frontend/index.html`, and generated production distribution in `dashboard/frontend/dist/`.
+- 2026-11-20: Initialized Option A plan. Merged Dependabot PRs #92 and #91 (Vite 8 & vue-tsc 3 upgrade), closed #93 as superseded. Created feature branch `feat/sundown-alpine-spa-default`.
+
 
 
 

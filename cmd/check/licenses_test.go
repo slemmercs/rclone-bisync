@@ -85,7 +85,8 @@ func TestVerifyThirdPartyLicensesDoc(t *testing.T) {
 	// Full doc with go.mod
 	fullDoc := `# Third Party Licenses
 - Lucide
-- Alpine.js
+- Vue
+- PrimeVue
 - Chart.js
 - Tailwind CSS
 - github.com/test/pkg

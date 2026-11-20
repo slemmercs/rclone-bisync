@@ -22,7 +22,7 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/server"
 )
 
-//go:embed dashboard/frontend/*
+//go:embed dashboard/frontend/dist dashboard/frontend/favicon.svg dashboard/frontend/cloud-sync-dark.svg dashboard/frontend/cloud-sync-light.svg
 var frontendFS embed.FS
 
 // Version is injected at link/build time via -ldflags="-X main.Version=vX.Y.Z"

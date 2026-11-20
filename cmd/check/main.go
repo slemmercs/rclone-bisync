@@ -167,7 +167,7 @@ func main() {
 			return checkFmtAndScripts(repoRoot, cfg.Verbose)
 		}))
 	case "templates", "template":
-		results = append(results, runStage("Alpine Template Safety", cfg.Verbose, func() error {
+		results = append(results, runStage("HTML & Template Safety", cfg.Verbose, func() error {
 			return checkAlpineTemplates(repoRoot, cfg.Verbose)
 		}))
 	case "loc", "lines":
@@ -251,7 +251,7 @@ func runAllStages(cfg Config, repoRoot string) []CheckResult {
 	}()
 	go func() {
 		defer wg.Done()
-		results[1] = runStage("Alpine Template Safety", cfg.Verbose, func() error {
+		results[1] = runStage("HTML & Template Safety", cfg.Verbose, func() error {
 			return checkAlpineTemplates(repoRoot, cfg.Verbose)
 		})
 	}()
@@ -293,7 +293,7 @@ Stages:
   all                Run all quality checks (default)
   fmt                Check Go formatting and shell script syntax
   lint               Run static analysis, linters, and secret scans
-  templates          Audit Alpine.js templates for unsafe dotted boolean bindings
+  templates          Audit HTML templates for syntax and unsafe boolean bindings
   loc [limit]        Audit line-of-code thresholds across Go, JS, and HTML files
   licenses           Verify third-party license compliance and copyleft guard
   test               Run test suite with coverage enforcement

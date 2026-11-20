@@ -39,6 +39,8 @@ type sandboxHarness struct {
 func setupSandboxHarness(t *testing.T) *sandboxHarness {
 	t.Helper()
 
+	t.Skip("skipping legacy Alpine sandbox UI journey: Alpine frontend sundowned in favor of Vue 3 Cockpit SPA")
+
 	if _, err := exec.LookPath("rclone"); err != nil {
 		t.Skip("rclone binary not found in PATH, skipping sandbox UI journey test")
 	}

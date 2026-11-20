@@ -29,16 +29,16 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ---
 
-## 2. Alpine.js
-- **Project**: [Alpine.js](https://alpinejs.dev)
-- **Path**: `dashboard/frontend/vendor/alpine.min.js`
-- **Copyright**: (c) 2019–present, Caleb Porzio and Alpine.js Contributors
+## 2. Vue.js
+- **Project**: [Vue](https://vuejs.org)
+- **Package**: `vue`
+- **Copyright**: (c) 2014–present, Evan You
 - **License**: MIT License
 
 ```
 MIT License
 
-Copyright (c) 2019-present Caleb Porzio and Alpine.js Contributors
+Copyright (c) 2014-present Evan You
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -60,9 +60,71 @@ OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ---
 
-## 3. Chart.js
+## 3. PrimeVue
+- **Project**: [PrimeVue](https://primevue.org)
+- **Packages**: `primevue`, `@primevue/themes`, `primeicons`
+- **Copyright**: (c) 2016–present, PrimeTek
+- **License**: MIT License
+
+```
+MIT License
+
+Copyright (c) 2016-present PrimeTek
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+---
+
+## 4. Pinia
+- **Project**: [Pinia](https://pinia.vuejs.org)
+- **Package**: `pinia`
+- **Copyright**: (c) 2019–present, Eduardo San Martin Morote
+- **License**: MIT License
+
+```
+MIT License
+
+Copyright (c) 2019-present Eduardo San Martin Morote
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+---
+
+## 5. Chart.js
 - **Project**: [Chart.js](https://www.chartjs.org)
-- **Path**: `dashboard/frontend/vendor/chart.umd.min.js`
+- **Package**: `chart.js`
 - **Copyright**: (c) 2014–present, Chart.js Contributors
 - **License**: MIT License
 
@@ -90,9 +152,9 @@ OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 ---
 
-## 4. Tailwind CSS (Standalone Play Distribution)
+## 6. Tailwind CSS
 - **Project**: [Tailwind CSS](https://tailwindcss.com)
-- **Path**: `dashboard/frontend/vendor/tailwind.js`
+- **Package**: `tailwindcss`
 - **Copyright**: (c) Tailwind Labs, Inc.
 - **License**: MIT License
 
@@ -121,7 +183,7 @@ OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ---
 
-## 5. Go sys (`golang.org/x/sys`)
+## 7. Go sys (`golang.org/x/sys`)
 - **Project**: [Go Sub-repository for Syscalls](https://pkg.go.dev/golang.org/x/sys)
 - **Copyright**: (c) 2009 The Go Authors. All rights reserved.
 - **License**: BSD 3-Clause License
@@ -158,7 +220,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
-## 6. Goose (`github.com/pressly/goose/v3`)
+## 8. Goose (`github.com/pressly/goose/v3`)
 - **Project**: [Goose Database Migration Tool](https://github.com/pressly/goose)
 - **Copyright**: Original work (c) 2012 Liam Staskawicz; Modified work (c) 2016 Vojtech Vitek; (c) 2021 Michael Fridman, Vojtech Vitek
 - **License**: MIT License
@@ -190,7 +252,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-## 7. modernc.org/sqlite
+## 9. modernc.org/sqlite
 - **Project**: [modernc.org/sqlite](https://gitlab.com/cznic/sqlite)
 - **Copyright**: (c) 2017 The Sqlite Authors. All rights reserved.
 - **License**: BSD 3-Clause License
@@ -226,7 +288,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
-## 8. mcp-go (`github.com/mark3labs/mcp-go`)
+## 10. mcp-go (`github.com/mark3labs/mcp-go`)
 - **Project**: [mcp-go (Go SDK for Model Context Protocol)](https://github.com/mark3labs/mcp-go)
 - **Copyright**: (c) 2024 Anthropic, PBC; (c) 2024 Mark3 Labs
 - **License**: MIT License
@@ -256,7 +318,7 @@ OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ---
 
-## 9. chromedp (`github.com/chromedp/chromedp`)
+## 11. chromedp (`github.com/chromedp/chromedp`)
 - **Project**: [chromedp (Faster, simpler way to drive browsers in Go)](https://github.com/chromedp/chromedp)
 - **Copyright**: (c) 2016-2026 Kenneth Shaw
 - **License**: MIT License

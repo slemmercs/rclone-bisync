@@ -1,14 +1,12 @@
 package server
 
 import (
-	"fmt"
-	"html/template"
 	"io/fs"
 	"net/http"
-	"strings"
 )
 
 func (s *Server) routes() {
+
 	s.Mux.HandleFunc("GET /api/health", s.handleDaemonHealth)
 	s.Mux.HandleFunc("GET /api/diagnostics", s.handleDiagnostics)
 	s.Mux.HandleFunc("GET /api/mcp/status", s.handleMCPStatus)
@@ -97,23 +95,18 @@ func (s *Server) routes() {
 					s.Mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assetsFS))))
 					s.Mux.Handle("GET /cockpit/assets/", http.StripPrefix("/cockpit/assets/", http.FileServer(http.FS(assetsFS))))
 				}
-
-				handleCockpit := func(w http.ResponseWriter, r *http.Request) {
-					cockpitHTML, readErr := fs.ReadFile(distSubFS, "index.html")
-					if readErr != nil {
-						http.NotFound(w, r)
-						return
-					}
-					w.Header().Set("Content-Type", "text/html; charset=utf-8")
-					_, _ = w.Write(cockpitHTML)
-				}
-				s.Mux.HandleFunc("GET /cockpit", handleCockpit)
-				s.Mux.HandleFunc("GET /cockpit/", handleCockpit)
 			}
 
 			s.Mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 				favicon, err := fs.ReadFile(staticSubFS, "favicon.svg")
 				if err != nil {
+					if distSubFS, distErr := fs.Sub(staticSubFS, "dist"); distErr == nil {
+						if favDist, readErr := fs.ReadFile(distSubFS, "favicon.svg"); readErr == nil {
+							w.Header().Set("Content-Type", "image/svg+xml")
+							_, _ = w.Write(favDist)
+							return
+						}
+					}
 					http.NotFound(w, r)
 					return
 				}
@@ -121,57 +114,46 @@ func (s *Server) routes() {
 				_, _ = w.Write(favicon)
 			})
 
-			patterns := []string{
-				"index.html",
-				"partials/*.html",
-				"partials/modals/*.html",
-				"partials/components/*.html",
-				"partials/patterns/*.html",
-				"partials/layouts/*.html",
-			}
-			var tmplFiles []string
-			for _, pat := range patterns {
-				if matches, err := fs.Glob(staticSubFS, pat); err == nil && len(matches) > 0 {
-					tmplFiles = append(tmplFiles, matches...)
-				}
-			}
-
-			var indexTmpl *template.Template
-			var tmplErr error
-			if len(tmplFiles) > 0 {
-				indexTmpl, tmplErr = template.ParseFS(staticSubFS, tmplFiles...)
-			} else {
-				tmplErr = fmt.Errorf("no template files found")
-			}
-
-			s.Mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-				if tmplErr != nil {
-					if distSubFS, err := fs.Sub(staticSubFS, "dist"); err == nil {
-						if cockpitHTML, err := fs.ReadFile(distSubFS, "index.html"); err == nil {
-							w.Header().Set("Content-Type", "text/html; charset=utf-8")
-							_, _ = w.Write(cockpitHTML)
+			s.Mux.HandleFunc("GET /favicon.svg", func(w http.ResponseWriter, r *http.Request) {
+				favicon, err := fs.ReadFile(staticSubFS, "favicon.svg")
+				if err != nil {
+					if distSubFS, distErr := fs.Sub(staticSubFS, "dist"); distErr == nil {
+						if favDist, readErr := fs.ReadFile(distSubFS, "favicon.svg"); readErr == nil {
+							w.Header().Set("Content-Type", "image/svg+xml")
+							_, _ = w.Write(favDist)
 							return
 						}
 					}
-					// Fallback if templates couldn't be parsed (e.g. empty test FS)
-					indexHTML, err := fs.ReadFile(staticSubFS, "index.html")
-					if err != nil {
-						http.Error(w, "index.html not found", http.StatusNotFound)
-						return
-					}
-					rendered := strings.ReplaceAll(string(indexHTML), "{{ .Version }}", s.FormatMajorMinorVersion())
-					w.Header().Set("Content-Type", "text/html; charset=utf-8")
-					_, _ = w.Write([]byte(rendered))
+					http.NotFound(w, r)
 					return
 				}
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				tmplData := map[string]any{
-					"Version": s.FormatMajorMinorVersion(),
-				}
-				if err := indexTmpl.Execute(w, tmplData); err != nil {
-					http.Error(w, fmt.Sprintf("failed to render template: %v", err), http.StatusInternalServerError)
-				}
+				w.Header().Set("Content-Type", "image/svg+xml")
+				_, _ = w.Write(favicon)
 			})
+
+			handleSPA := func(w http.ResponseWriter, r *http.Request) {
+				var htmlBytes []byte
+				var readErr error
+
+				if distSubFS, distErr := fs.Sub(staticSubFS, "dist"); distErr == nil {
+					htmlBytes, readErr = fs.ReadFile(distSubFS, "index.html")
+				}
+				if readErr != nil || len(htmlBytes) == 0 {
+					htmlBytes, readErr = fs.ReadFile(staticSubFS, "index.html")
+				}
+				if readErr != nil {
+					http.NotFound(w, r)
+					return
+				}
+
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				_, _ = w.Write(htmlBytes)
+			}
+
+			s.Mux.HandleFunc("GET /{$}", handleSPA)
+			s.Mux.HandleFunc("GET /cockpit", handleSPA)
+			s.Mux.HandleFunc("GET /cockpit/", handleSPA)
 		}
 	}
 }
