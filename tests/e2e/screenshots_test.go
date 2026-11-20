@@ -83,6 +83,7 @@ func TestCaptureSandboxScreenshots(t *testing.T) {
 		LocalPath:           localDir,
 		RemotePath:          "google-drive:sync",
 		BaseDir:             tempDir,
+		LogFile:             filepath.Join(tempDir, "bisync.log"),
 		ProfilesFile:        filepath.Join(tempDir, "profiles.json"),
 		ProfilesHistoryFile: filepath.Join(tempDir, "profiles_history.json"),
 		ActiveReviewFile:    filepath.Join(tempDir, "active_review_session.json"),
@@ -90,6 +91,16 @@ func TestCaptureSandboxScreenshots(t *testing.T) {
 		AuditDBPath:         filepath.Join(tempDir, "audit.db"),
 		RCAPIURL:            mockRCServer.URL,
 	}
+
+	daemonLog := filepath.Join(tempDir, "rclone-daemon.log")
+	nowStr := time.Now().UTC().Format(time.RFC3339)
+	daemonContent := `{"time":"` + nowStr + `","level":"info","msg":"rclone daemon service initialized on port 5572"}` + "\n" +
+		`{"time":"` + nowStr + `","level":"notice","run_id":"rev-sandbox-gallery","msg":"Bisync dry-run analysis started for prof-eng-code"}` + "\n" +
+		`{"time":"` + nowStr + `","level":"error","run_id":"rev-sandbox-gallery","msg":"Safety abort: deletion quota exceeded (SAFETY_MAX_DELETE_COUNT=25, candidate_deletions=32)"}` + "\n" +
+		`{"time":"` + nowStr + `","level":"notice","run_id":"rev-sandbox-gallery","msg":"Interactive sync review session rev-sandbox-gallery created; state persisted"}` + "\n" +
+		`{"time":"` + nowStr + `","level":"info","msg":"systemd journal listener attached: rclone-bisync.service active"}` + "\n"
+	_ = os.WriteFile(daemonLog, []byte(daemonContent), 0640)
+	_ = os.WriteFile(cfg.LogFile, []byte(daemonContent), 0640)
 
 	reviewJSON := `{
 		"id": "rev-sandbox-gallery",
@@ -256,17 +267,31 @@ func TestCaptureSandboxScreenshots(t *testing.T) {
 		t.Logf("✓ Captured screenshot: %s (%d bytes)", filename, len(buf))
 	}
 
-	// 1. Fleet Overview
+	// 1. Fleet Overview (and Review Barrier Active in Fleet)
 	t.Run("CaptureFleetOverview", func(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 		saveShot("bisync-hub_fleet-overview.png")
+		saveShot("bisync-hub_sync-review-barrier-active.png")
 	})
 
-	// 2. Storage Remotes View
+	// 2. Storage Remotes View & Remote Creation Wizard
 	t.Run("CaptureStorageRemotes", func(t *testing.T) {
 		switchTab(ctx, t, "Storage Remotes")
 		time.Sleep(600 * time.Millisecond)
 		saveShot("bisync-hub_storage-remotes.png")
+
+		// Open Remote Creation Wizard
+		openWizScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const btn = btns.find(b => b.textContent && b.textContent.includes('Add Remote'));
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](openWizScript))
+		time.Sleep(600 * time.Millisecond)
+		saveShot("bisync-hub_google-drive-oauth-configuration.png")
+		saveShot("bisync-hub_microsoft-onedrive-oauth-configuration.png")
+		dismissModal(ctx)
 	})
 
 	// 3. File Explorer View
@@ -276,18 +301,44 @@ func TestCaptureSandboxScreenshots(t *testing.T) {
 		saveShot("bisync-hub_file-explorer.png")
 	})
 
-	// 4. Audit Trail View
+	// 4. Audit Trail View & Forensic Block Detail
 	t.Run("CaptureAuditLedger", func(t *testing.T) {
 		switchTab(ctx, t, "Audit Trail")
 		time.Sleep(600 * time.Millisecond)
 		saveShot("bisync-hub_audit-ledger.png")
+		saveShot("bisync-hub_unified-ledger.png")
+
+		// Click "Inspect" button on first audit event row
+		inspectScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const btn = btns.find(b => b.textContent && b.textContent.trim() === 'Inspect');
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](inspectScript))
+		time.Sleep(600 * time.Millisecond)
+		saveShot("bisync-hub_audit-block.png")
+		dismissModal(ctx)
 	})
 
-	// 5. Engine Telemetry View
+	// 5. Engine Telemetry View & Correlated Daemon Logs
 	t.Run("CaptureEngineTelemetry", func(t *testing.T) {
 		switchTab(ctx, t, "Engine & Telemetry")
 		time.Sleep(600 * time.Millisecond)
 		saveShot("bisync-hub_engine-telemetry.png")
+
+		// Click "Daemon Logs" button
+		daemonScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const btn = btns.find(b => b.textContent && b.textContent.includes('Daemon Logs'));
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](daemonScript))
+		time.Sleep(600 * time.Millisecond)
+		saveShot("bisync-hub_correlated-daemon-log.png")
+		saveShot("bisync-hub_bisync-log-panel.png")
+		dismissModal(ctx)
 	})
 
 	// 6. Sync Review & Conflict Resolution Modal
@@ -307,6 +358,7 @@ func TestCaptureSandboxScreenshots(t *testing.T) {
 		time.Sleep(600 * time.Millisecond)
 
 		saveShot("bisync-hub_sync-review-resolution.png")
+		saveShot("bisync-hub_sync-review-starting.png")
 		dismissModal(ctx)
 	})
 
