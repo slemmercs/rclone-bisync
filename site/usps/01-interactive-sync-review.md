@@ -63,7 +63,7 @@ Operators can open the Web Dashboard review modal to:
 When deletion or conflict limits are breached during pre-flight analysis, the engine disengages automated replication and transitions the workload to `REVIEW_REQUIRED` in the Cockpit:
 
 <div class="screenshot-frame">
-  <img src="{{ '/assets/images/screenshots/bisync-hub_sync-review-barrier-active.png' | relative_url }}" alt="Sync Review Barrier Active in Fleet" />
+  <img src="{{ '/assets/images/screenshots/bisync-hub_sync-review-barrier-active.png?v=20261120' | relative_url }}" alt="Sync Review Barrier Active in Fleet" />
   <div class="caption">
     <span class="title">1. Sync Review Barrier Engaged</span>
     <span>Workload enters REVIEW_REQUIRED state; automated synchronization paused</span>
@@ -74,7 +74,7 @@ When deletion or conflict limits are breached during pre-flight analysis, the en
 Operators click the status indicator to open the interactive triage modal. Every candidate file presents source paths, sizes, modification timestamps, deletion rationale, and heuristic recommendations:
 
 <div class="screenshot-frame">
-  <img src="{{ '/assets/images/screenshots/bisync-hub_sync-review-resolution.png' | relative_url }}" alt="Sync Review Resolution Modal" />
+  <img src="{{ '/assets/images/screenshots/bisync-hub_sync-review-resolution.png?v=20261120' | relative_url }}" alt="Sync Review Resolution Modal" />
   <div class="caption">
     <span class="title">2. Granular Triage & Heuristic Recommendations</span>
     <span>Inspect candidates, choose per-file decisions, or batch-apply recommendations</span>
@@ -85,7 +85,7 @@ Operators click the status indicator to open the interactive triage modal. Every
 Upon applying resolutions, pre-mutation backups are saved, decisions are executed, and all actions are cryptographically sealed into the append-only SQLite ledger:
 
 <div class="screenshot-frame">
-  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-ledger.png' | relative_url }}" alt="Audit Ledger Recording Resolution" />
+  <img src="{{ '/assets/images/screenshots/bisync-hub_audit-ledger.png?v=20261120' | relative_url }}" alt="Audit Ledger Recording Resolution" />
   <div class="caption">
     <span class="title">3. Cryptographic Audit Sealing</span>
     <span>Immutable record of operator decisions, timestamps, and payload fingerprints</span>
@@ -96,7 +96,7 @@ Upon applying resolutions, pre-mutation backups are saved, decisions are execute
 Operators can track the resulting execution in real time through the correlated daemon log modal, confirming clean convergence and barrier dismissal:
 
 <div class="screenshot-frame">
-  <img src="{{ '/assets/images/screenshots/bisync-hub_correlated-daemon-log.png' | relative_url }}" alt="Correlated Multi-Stream Daemon Logs" />
+  <img src="{{ '/assets/images/screenshots/bisync-hub_correlated-daemon-log.png?v=20261120' | relative_url }}" alt="Correlated Multi-Stream Daemon Logs" />
   <div class="caption">
     <span class="title">4. Correlated Multi-Stream Diagnostics</span>
     <span>Live journal output verifying clean synchronization and state resolution</span>

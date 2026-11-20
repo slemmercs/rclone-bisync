@@ -267,11 +267,31 @@ func TestCaptureSandboxScreenshots(t *testing.T) {
 		t.Logf("✓ Captured screenshot: %s (%d bytes)", filename, len(buf))
 	}
 
-	// 1. Fleet Overview (and Review Barrier Active in Fleet)
+	// 1. Fleet Overview (and Quarantined Review Barrier in Fleet)
 	t.Run("CaptureFleetOverview", func(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 		saveShot("bisync-hub_fleet-overview.png")
+
+		// Click "Review Required" status pill to showcase quarantined workload barrier
+		filterReviewScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const btn = btns.find(b => b.textContent && b.textContent.includes('Review Required'));
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](filterReviewScript))
+		time.Sleep(500 * time.Millisecond)
 		saveShot("bisync-hub_sync-review-barrier-active.png")
+
+		// Reset filter back to "All"
+		resetFilterScript := `(() => {
+			const btns = Array.from(document.querySelectorAll('button'));
+			const btn = btns.find(b => b.textContent && b.textContent.trim().startsWith('All'));
+			if (btn) { btn.click(); return true; }
+			return false;
+		})()`
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](resetFilterScript))
+		time.Sleep(300 * time.Millisecond)
 	})
 
 	// 2. Storage Remotes View & Remote Creation Wizard
