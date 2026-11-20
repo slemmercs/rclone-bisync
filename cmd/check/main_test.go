@@ -190,7 +190,7 @@ func TestShouldSkip(t *testing.T) {
 		{"dist/app.css", true},
 		{"dashboard/frontend/dist/index.html", true},
 		{"internal/services/service.go", false},
-		{"dashboard/frontend/app.js", false},
+		{"dashboard/frontend/src/main.ts", false},
 	}
 
 	for _, c := range cases {

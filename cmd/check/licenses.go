@@ -206,7 +206,8 @@ func verifyThirdPartyLicensesDoc(root string) error {
 	// Required frontend and icon components
 	requiredComponents := []string{
 		"Lucide",
-		"Alpine.js",
+		"Vue",
+		"PrimeVue",
 		"Chart.js",
 		"Tailwind CSS",
 	}
