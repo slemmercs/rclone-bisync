@@ -21,7 +21,7 @@ Sundown the legacy Go-templated Alpine.js frontend, make the embedded Vue 3 / Pr
   - **Scope**: `cmd/check/html_scanner.go`, `cmd/check/licenses.go`, `cmd/check/main.go`, `cmd/check/main_test.go`
   - **Verification**: `go test -count=1 ./cmd/check/...`
 
-- [ ] Task 5: Align E2E and Integration Tests to Vue 3 DOM
+- [x] Task 5: Align E2E and Integration Tests to Vue 3 DOM
   - **Scope**: `tests/e2e/dashboard_smoke_test.go`, `tests/e2e/cockpit_spa_smoke_test.go`, `main_test.go`
   - **Verification**: `go test -count=1 ./tests/e2e/...`
 
@@ -31,6 +31,7 @@ Sundown the legacy Go-templated Alpine.js frontend, make the embedded Vue 3 / Pr
 
 ## Status Updates
 
+- 2026-11-20: Completed Task 5 (Align E2E and Integration Tests to Vue 3 DOM). Adapted `tests/e2e/dashboard_smoke_test.go` to test default root route `GET /` against the embedded Vue 3 SPA `#app` and PrimeVue elements; verified tab navigation, modals, popovers, and error audits; skipped legacy Alpine-coupled sandbox UI journey; verified with `go test -count=1 ./tests/e2e/...`.
 - 2026-11-20: Completed Task 4 (Update `cmd/check` HTML and License Scanners). Updated `cmd/check/licenses.go` and `THIRD_PARTY_LICENSES.md` to track Vue 3, PrimeVue, Pinia, Chart.js, and Tailwind CSS instead of vendored Alpine assets; renamed check stage to "HTML & Template Safety"; updated unit tests and verified with `go test -count=1 ./cmd/check/...` and `go run ./cmd/check licenses/templates`.
 - 2026-11-20: Completed Task 3 (Sundown Legacy Alpine Files). Removed all legacy Alpine assets (`cockpit.html`, `app.js`, `css/design-tokens.css`, `partials/`, `js/`, and `vendor/`), cleaned `tailwind.config.js`, updated `main.go` embed directive to target distribution assets, adapted `main_test.go` to assert on embedded SPA assets, and verified all internal tests pass.
 - 2026-11-20: Completed Task 2 (Serve Vue 3 SPA at `GET /` and Route Assets from `dist`). Removed Go HTML template parsing and Alpine partial bundling. Routed `GET /` and `GET /cockpit` directly to Vue 3 SPA `index.html` with assets served from `dist/assets/`, updated tests in `server_test.go`, and verified `go test -count=1 ./internal/server/...`.
