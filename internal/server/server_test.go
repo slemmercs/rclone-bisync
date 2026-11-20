@@ -1215,20 +1215,14 @@ func TestReviewEndpoints_ExtendedErrorsAndEdgeCases(t *testing.T) {
 	}
 
 }
-func TestServer_RootHandler_TemplateAssembly(t *testing.T) {
+func TestServer_RootHandler_SPA(t *testing.T) {
 	cfg := &config.Config{BaseDir: t.TempDir()}
 	syncSvc := services.NewSyncService(cfg, nil)
 
-	// 1. Valid template structure with partials
+	// 1. Serving from dist/index.html
 	mockFS := fstest.MapFS{
-		"dashboard/frontend/index.html": &fstest.MapFile{
-			Data: []byte(`<!DOCTYPE html><html><body>{{ template "view_telemetry" . }}{{ template "modal_review" . }}</body></html>`),
-		},
-		"dashboard/frontend/partials/view_telemetry.html": &fstest.MapFile{
-			Data: []byte(`{{ define "view_telemetry" }}<div id="telemetry-view">Telemetry Content</div>{{ end }}`),
-		},
-		"dashboard/frontend/partials/modals/modal_review.html": &fstest.MapFile{
-			Data: []byte(`{{ define "modal_review" }}<div id="review-modal">Review Modal Content</div>{{ end }}`),
+		"dashboard/frontend/dist/index.html": &fstest.MapFile{
+			Data: []byte(`<!DOCTYPE html><html><body><div id="app"></div></body></html>`),
 		},
 	}
 
@@ -1242,31 +1236,25 @@ func TestServer_RootHandler_TemplateAssembly(t *testing.T) {
 		t.Fatalf("expected 200 for root index, got: %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `<div id="telemetry-view">Telemetry Content</div>`) {
-		t.Fatalf("expected assembled view_telemetry, got: %s", body)
-	}
-	if !strings.Contains(body, `<div id="review-modal">Review Modal Content</div>`) {
-		t.Fatalf("expected assembled modal_review, got: %s", body)
+	if !strings.Contains(body, `<div id="app"></div>`) {
+		t.Fatalf("expected SPA mount point, got: %s", body)
 	}
 
-	// 2. Fallback when templates fail to parse (e.g. invalid syntax in partial)
-	brokenFS := fstest.MapFS{
+	// 2. Fallback to dashboard/frontend/index.html if dist is missing
+	fallbackFS := fstest.MapFS{
 		"dashboard/frontend/index.html": &fstest.MapFile{
-			Data: []byte(`<!DOCTYPE html><html><body>Raw Fallback Content</body></html>`),
-		},
-		"dashboard/frontend/partials/broken.html": &fstest.MapFile{
-			Data: []byte(`{{ define "broken" }} {{ end `), // Syntax error
+			Data: []byte(`<!DOCTYPE html><html><body><div id="app">Fallback</div></body></html>`),
 		},
 	}
-	brokenSrv := NewServer(cfg, syncSvc, brokenFS)
+	fallbackSrv := NewServer(cfg, syncSvc, fallbackFS)
 	req, _ = http.NewRequest("GET", "/", nil)
 	rec = httptest.NewRecorder()
-	brokenSrv.ServeHTTP(rec, req)
+	fallbackSrv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for fallback index.html, got: %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "Raw Fallback Content") {
-		t.Fatalf("expected raw fallback content, got: %s", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), `<div id="app">Fallback</div>`) {
+		t.Fatalf("expected fallback content, got: %s", rec.Body.String())
 	}
 }
 
@@ -1287,77 +1275,17 @@ func TestServer_RootHandler_RealFileSystem(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-
-	// Verify all views are assembled
-	expectedViewMarkers := []string{
-		"Engine: ",
-		"Total Cloud Space",
-		"Dual-Pane Directory Explorer",
-		"Audit Ledger",
-		"Cryptographically Verified",
+	if !strings.Contains(body, "Bisync Hub Cockpit") {
+		t.Errorf("expected 'Bisync Hub Cockpit' in root page title, got: %s", body)
 	}
-	for _, marker := range expectedViewMarkers {
-		if !strings.Contains(body, marker) {
-			t.Errorf("missing expected view marker in assembled template: %q", marker)
-		}
+	if !strings.Contains(body, `<div id="app"></div>`) {
+		t.Errorf("expected '<div id=\"app\"></div>' in root page body, got: %s", body)
 	}
-
-	// Verify modals are assembled
-	expectedModalMarkers := []string{
-		"Confirm Deletion",
-		"Sync Review & Resolution",
-		"Pending Deletions Review",
-		"Loading correlated daemon logs...",
-		"OAuth App Configuration",
-		"Authorizing in Browser...",
-		"OAuth Authentication Audit Log",
-	}
-	for _, marker := range expectedModalMarkers {
-		if !strings.Contains(body, marker) {
-			t.Errorf("missing expected modal marker in assembled template: %q", marker)
-		}
-	}
-
-	// Verify valid SVG path and object iteration in assembled templates
-	if strings.Contains(body, "1 1 0 .696 10.75") {
-		t.Error("found corrupted SVG arc flag syntax '1 1 0 .696' in assembled template")
-	}
-	if !strings.Contains(body, "1 1 0 0 1 0 .696 10.75") {
-		t.Error("expected valid Lucide eye SVG arc path in assembled template")
-	}
-	if strings.Contains(body, `x-for="(val, key) in entry.details"`) {
-		t.Error("found invalid x-for loop over non-iterable Object in modal_daemon")
-	}
-	if !strings.Contains(body, `Object.entries(cluster.entry.details`) {
-		t.Error("expected Object.entries iteration for cluster.entry.details in modal_daemon")
-	}
-
-	// Verify Enterprise branding removed and dynamic version injected
-	if strings.Contains(body, "Enterprise") {
-		t.Error("expected 'Enterprise' branding to be removed from header")
-	}
-	if !strings.Contains(body, "v1.0") {
-		t.Errorf("expected dynamic version 'v1.0' in header, got body: %s", body[:500])
-	}
-
-	// Verify global x-cloak CSS style rule and x-cloak presence on views and modals
-	if !strings.Contains(body, "[x-cloak] { display: none !important; }") {
-		t.Error("expected global [x-cloak] CSS rule in head")
-	}
-	if cloakCount := strings.Count(body, "x-cloak"); cloakCount < 10 {
-		t.Errorf("expected at least 10 x-cloak attributes on views/modals, found %d", cloakCount)
-	}
-
-	// Verify keyboard escape listeners across modals
-	if escCount := strings.Count(body, "@keydown.escape.window"); escCount < 7 {
-		t.Errorf("expected at least 7 @keydown.escape.window listeners on modals, found %d", escCount)
-	}
-
-	// Verify no unsupported Alpine array destructuring in templates
-	if strings.Contains(body, `x-for="[`) {
-		t.Error("found unsupported Alpine x-for array destructuring syntax")
+	if !strings.Contains(body, "assets/") {
+		t.Errorf("expected asset links in compiled SPA html, got: %s", body)
 	}
 }
+
 func TestServer_CockpitSPAHandler(t *testing.T) {
 	cfg := &config.Config{BaseDir: t.TempDir()}
 	syncSvc := services.NewSyncService(cfg, nil)
