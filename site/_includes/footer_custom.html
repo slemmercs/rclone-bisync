@@ -15,12 +15,12 @@
 <script>
 (function() {
   function initLightbox() {
-    const lightbox = document.getElementById('image-lightbox');
+    var lightbox = document.getElementById('image-lightbox');
     if (!lightbox) return;
-    const imgEl = lightbox.querySelector('.lightbox-img');
-    const captionEl = lightbox.querySelector('.lightbox-caption');
-    const closeBtn = lightbox.querySelector('.lightbox-close');
-    const backdrop = lightbox.querySelector('.lightbox-backdrop');
+    var imgEl = lightbox.querySelector('.lightbox-img');
+    var captionEl = lightbox.querySelector('.lightbox-caption');
+    var closeBtn = lightbox.querySelector('.lightbox-close');
+    var backdrop = lightbox.querySelector('.lightbox-backdrop');
 
     function open(src, alt, caption) {
       imgEl.src = src;
@@ -28,7 +28,7 @@
       captionEl.textContent = caption || alt || '';
       lightbox.style.display = 'flex';
       document.body.classList.add('lightbox-open');
-      requestAnimationFrame(() => {
+      requestAnimationFrame(function() {
         lightbox.classList.add('visible');
       });
     }
@@ -36,7 +36,7 @@
     function close() {
       lightbox.classList.remove('visible');
       document.body.classList.remove('lightbox-open');
-      setTimeout(() => {
+      setTimeout(function() {
         lightbox.style.display = 'none';
         imgEl.src = '';
       }, 200);
@@ -44,28 +44,28 @@
 
     closeBtn.addEventListener('click', close);
     backdrop.addEventListener('click', close);
-    lightbox.addEventListener('click', (e) => {
+    lightbox.addEventListener('click', function(e) {
       if (e.target === lightbox) close();
     });
 
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && lightbox.classList.contains('visible')) {
         close();
       }
     });
 
-    // Attach click listeners to all screenshots
-    const targets = document.querySelectorAll('.screenshot-frame img, .main-content img:not(.no-lightbox)');
-    targets.forEach((img) => {
+    /* Attach click listeners to all screenshots */
+    var targets = document.querySelectorAll('.screenshot-frame img, .main-content img:not(.no-lightbox)');
+    targets.forEach(function(img) {
       if (img.closest('#image-lightbox') || img.classList.contains('site-logo') || img.src.includes('avatar') || img.src.includes('badge')) {
         return;
       }
       img.classList.add('lightbox-target');
-      img.addEventListener('click', () => {
-        const frame = img.closest('.screenshot-frame');
-        let caption = '';
+      img.addEventListener('click', function() {
+        var frame = img.closest('.screenshot-frame');
+        var caption = '';
         if (frame) {
-          const cap = frame.querySelector('.caption');
+          var cap = frame.querySelector('.caption');
           if (cap) caption = cap.innerText.replace(/\s+/g, ' ').trim();
         }
         open(img.src, img.alt, caption);
@@ -80,3 +80,4 @@
   }
 })();
 </script>
+
