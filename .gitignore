@@ -23,7 +23,9 @@ id_rsa.pub
 # ----------------------------------------------------------------------
 bin/
 .build/
-dist/
+/dist/
+!dashboard/frontend/dist/
+node_modules/
 /bisync-hub
 /bisync-hub-*
 /rclone-bisync

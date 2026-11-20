@@ -32,8 +32,24 @@ func NewExplorerService(cfg *config.Config, rcClient *client.RcloneClient, canar
 	}
 }
 
+// BrowseOptions defines optional flags and filtering when exploring directories.
+type BrowseOptions struct {
+	LocalBase       string
+	SkipGdocs       bool
+	ExcludePatterns []string
+}
+
 // BrowsePath lists directory items and verifies canary presence, enforcing path jails for local FS.
 func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, localBase ...string) client.DirectoryListing {
+	opts := BrowseOptions{}
+	if len(localBase) > 0 {
+		opts.LocalBase = localBase[0]
+	}
+	return e.BrowsePathWithOptions(ctx, remote, path, opts)
+}
+
+// BrowsePathWithOptions lists directory items and verifies canary presence with configurable options.
+func (e *ExplorerService) BrowsePathWithOptions(ctx context.Context, remote, path string, opts BrowseOptions) client.DirectoryListing {
 	cleanPath := strings.Trim(path, "/")
 	if strings.TrimSpace(cleanPath) == "" {
 		cleanPath = ""
@@ -41,10 +57,8 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 	remoteClean := strings.TrimSpace(remote)
 
 	if strings.ToLower(remoteClean) == "local" || remoteClean == "" {
-		rawBase := ""
-		if len(localBase) > 0 && localBase[0] != "" {
-			rawBase = localBase[0]
-		} else if e.Config != nil {
+		rawBase := opts.LocalBase
+		if rawBase == "" && e.Config != nil {
 			rawBase = e.Config.LocalPath
 		}
 		if rawBase == "" {
@@ -145,9 +159,9 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 				itemRelPath = fmt.Sprintf("%s/%s", cleanPath, entry.Name())
 			}
 
-			mimeType := "application/octet-stream"
-			if isDir {
-				mimeType = "inode/directory"
+			mimeType := "inode/directory"
+			if !isDir {
+				mimeType = DetectMimeType(entry.Name(), nil)
 			}
 
 			isSymlink := (entry.Type() & os.ModeSymlink) != 0
@@ -258,6 +272,25 @@ func (e *ExplorerService) BrowsePath(ctx context.Context, remote, path string, l
 			}
 			mime, _ := item["MimeType"].(string)
 			id, _ := item["ID"].(string)
+
+			if opts.SkipGdocs {
+				isDir, _ := item["IsDir"].(bool)
+				if !isDir {
+					var size int64 = 0
+					switch v := item["Size"].(type) {
+					case int64:
+						size = v
+					case float64:
+						size = int64(v)
+					case int:
+						size = int64(v)
+					}
+					if size < 0 || strings.HasPrefix(mime, "application/vnd.google-apps.") {
+						continue
+					}
+				}
+			}
+
 			if mime == "application/vnd.google-apps.shortcut" || strings.Contains(id, "\t") {
 				item["IsShortcut"] = true
 			}

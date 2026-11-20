@@ -128,6 +128,9 @@ func (s *Server) handlePreviewFile(ctx context.Context, req mcp.CallToolRequest)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to preview file: %v", err)), nil
 	}
+	if prev.IsBinary && !prev.IsPDF && prev.DataURL == "" {
+		return mcp.NewToolResultError("preview is not allowed for binary files"), nil
+	}
 
 	return jsonResult(prev)
 }

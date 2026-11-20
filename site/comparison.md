@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Comparison Matrix
-nav_order: 5
+nav_order: 6
 description: "How Bisync Hub compares against custom cron scripts, desktop sync GUIs, and raw Rclone CLI commands."
 ---
 

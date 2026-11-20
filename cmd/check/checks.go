@@ -70,7 +70,7 @@ func checkFmtAndScripts(root string, verbose bool) error {
 	return nil
 }
 
-// checkLOC audits Go, JS, and HTML files against a line count threshold.
+// checkLOC audits Go source files against a line count threshold.
 func checkLOC(root string, threshold int, verbose bool) error {
 	type locEntry struct {
 		file  string
@@ -84,21 +84,19 @@ func checkLOC(root string, threshold int, verbose bool) error {
 			return nil
 		}
 		ext := filepath.Ext(path)
-		if ext == ".go" && strings.HasSuffix(path, "_test.go") {
+		if ext != ".go" || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
-		if ext == ".go" || ext == ".js" || ext == ".html" {
-			totalScanned++
-			// #nosec G122,G304 - check tool auditing line counts in repo
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return nil
-			}
-			lines := bytes.Count(content, []byte("\n"))
-			if lines >= threshold {
-				rel, _ := filepath.Rel(root, path)
-				oversized = append(oversized, locEntry{file: rel, lines: lines})
-			}
+		totalScanned++
+		// #nosec G122,G304 - check tool auditing line counts in repo
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		lines := bytes.Count(content, []byte("\n"))
+		if lines >= threshold {
+			rel, _ := filepath.Rel(root, path)
+			oversized = append(oversized, locEntry{file: rel, lines: lines})
 		}
 		return nil
 	})
@@ -353,7 +351,7 @@ func runBuilds(cfg Config) error {
 	return nil
 }
 
-var skipDirs = []string{".git", "node_modules", "site", "_site", ".build", ".tmp"}
+var skipDirs = []string{".git", "node_modules", "site", "_site", ".build", ".tmp", "dist"}
 
 func shouldSkip(path string) bool {
 	normalized := filepath.ToSlash(path)

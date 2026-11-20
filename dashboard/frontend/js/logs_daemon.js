@@ -18,7 +18,8 @@ window.LogsDaemonModule = {
                 const lvl = (l.level || "").toLowerCase().trim();
                 if (filter === "error") return lvl === "error";
                 if (filter === "warning") return lvl === "warning" || lvl === "warn";
-                if (filter === "info") return lvl === "info" || lvl === "notice";
+                if (filter === "notice") return lvl === "notice";
+                if (filter === "info") return lvl === "info";
                 return true;
             });
         }
@@ -39,14 +40,15 @@ window.LogsDaemonModule = {
 
     get daemonModalCounts() {
         const logs = this.daemonModalLogs || [];
-        let errors = 0, warnings = 0, info = 0;
+        let errors = 0, warnings = 0, notices = 0, info = 0;
         for (const l of logs) {
             const lvl = (l.level || "").toLowerCase().trim();
             if (lvl === "error") errors++;
             else if (lvl === "warning" || lvl === "warn") warnings++;
-            else if (lvl === "info" || lvl === "notice") info++;
+            else if (lvl === "notice") notices++;
+            else if (lvl === "info") info++;
         }
-        return { total: logs.length, errors, warnings, info };
+        return { total: logs.length, errors, warnings, notices, info };
     },
     get daemonModalRunFlags() {
         const run = this.daemonModalRun;

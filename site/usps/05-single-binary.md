@@ -7,38 +7,21 @@ nav_order: 5
 
 # Zero-Dependency Single Binary Architecture
 
-Many modern orchestrators require Node.js runtimes, Python virtual environments, Redis message brokers, or heavy Docker containers just to expose a dashboard or coordinate periodic sync tasks.
-
-**Bisync Hub is distributed as a single statically compiled Go binary with zero external runtime dependencies.**
+Many sync tools and dashboards require Node.js, Python environments, message brokers, or heavy container stacks just to coordinate periodic jobs. **Bisync Hub ships as a single statically compiled Go binary with zero external runtime dependencies.**
 
 ---
 
-## Architectural Principles
+## Why Single-Binary Matters
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│                    bisync-hub executable                     │
-│                                                              │
-│  [ Go 1.24 Runtime ]                                         │
-│  ├── Sync Orchestrator & Rclone RC Client                    │
-│  ├── Multi-Analyzer Heuristic Engine                         │
-│  ├── SQLite Engine & POSIX Flock Locks                       │
-│  └── Embedded Web Assets (go:embed)                          │
-│      ├── Tailwind CSS & Alpine.js Dashboard                  │
-│      └── Static HTML & WebSocket Handlers                    │
-└──────────────────────────────────────────────────────────────┘
-```
+* **Embedded Management Cockpit (`go:embed`):** The Vue 3, TypeScript, PrimeVue, and Tailwind dashboard is compiled straight into `bisync-hub`. There is no `node_modules` tree, no external CDN dependency for UI assets, fast startup, and a sub-30MB memory footprint.
+* **OS-Native Locking & Atomic Writes:** Concurrency uses POSIX `flock` rather than external coordination services, while state and telemetry updates rely on temporary-file atomic renames (`os.Rename`) to prevent half-written files during power loss or restarts.
+* **Easy Cross-Platform Deployment:** Pre-built binaries target `linux/amd64`, `linux/arm64` (Raspberry Pi, ARM servers), and macOS (`darwin/amd64`, `darwin/arm64`), making upgrades or rollbacks as simple as replacing a single executable.
 
-### 1. `go:embed` Frontend Architecture
-The complete interactive management dashboard—including Alpine.js components, Tailwind CSS styling, Chart.js telemetry graphs, and WebSocket listeners—is embedded directly into the binary at compile time.
-- No `node_modules` directory in production.
-- No external npm CDN requests; runs 100% offline in air-gapped data centers.
-- Instant startup (< 15ms) with sub-30MB memory footprint.
 <div class="screenshot-frame">
   <img src="{{ '/assets/images/screenshots/bisync-hub_file-explorer.png' | relative_url }}" alt="Bisync Hub Dual-Pane File Explorer" />
   <div class="caption">
     <span class="title">Dual-Pane Explorer</span>
-    <span>Zero-dependency browser for local files and remote cloud storage</span>
+    <span>Browse local and remote directories directly from the embedded cockpit</span>
   </div>
 </div>
 
@@ -47,32 +30,17 @@ The complete interactive management dashboard—including Alpine.js components, 
     <img src="{{ '/assets/images/screenshots/bisync-hub_bisync-log-panel.png' | relative_url }}" alt="Bisync Execution Log Panel" />
     <div class="caption">
       <span class="title">Execution Log Panel</span>
-      <span>Color-coded live sync output</span>
+      <span>Real-time sync output stream</span>
     </div>
   </div>
   <div class="screenshot-frame">
     <img src="{{ '/assets/images/screenshots/bisync-hub_correlated-daemon-log.png' | relative_url }}" alt="Correlated Daemon Log Modal" />
     <div class="caption">
       <span class="title">Correlated Daemon Log</span>
-      <span>Systemd & service diagnostics</span>
+      <span>Service and journal diagnostics</span>
     </div>
   </div>
 </div>
-{: .note }
-> For a full visual tour of all dashboard modules and modals, visit the [UI Gallery]({% link gallery.md %}).
 
+> Explore more views in the [UI Gallery]({% link gallery.md %}) or follow the [Quickstart Guide]({% link quickstart.md %}) to deploy.
 
-
-### 2. POSIX Flocking & Atomic File Writes
-Process concurrency and state isolation rely entirely on OS-native POSIX advisory locks (`syscall.Flock`).
-- Zero reliance on external lock daemons (Redis / Zookeeper).
-- State persistence and telemetry use atomic rename semantics (`.tmp.<pid>` + `os.Rename`) to prevent half-written files during sudden power loss or server restarts.
-
-### 3. Multi-Platform Cross-Compilation
-Compiles cleanly across modern platforms with standard Go tooling:
-- `linux/amd64` (Standard servers & workstations)
-- `linux/arm64` (Raspberry Pi, AWS Graviton, Apple Silicon Linux VMs)
-- `darwin/amd64` & `darwin/arm64` (macOS workstations)
-
-{: .note }
-> You can deploy Bisync Hub to an edge Raspberry Pi, a corporate Linux server, or a NAS box with a single `scp` command.

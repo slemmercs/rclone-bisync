@@ -37,6 +37,8 @@ Enterprise automated installer for Bisync Hub.
 Options:
   -h, --help                  Show this help documentation and exit
   -i, --install-rclone        Install official Rclone binary if not found in PATH
+  -b, --build-frontend        Compile fresh Vue 3 SPA frontend assets before building Go binary
+      --use-prebuilt          Use pre-built dashboard/frontend/dist assets (default)
   -n, --dry-run               Simulate installation without making system changes
       --skip-services         Compile and stage files without starting systemd services
   -d, --target-dir <path>     Installation destination (default: \$HOME/rclone-bisync)
@@ -83,6 +85,8 @@ generate_random_secret() {
 
 # --- CLI Options Defaults ---
 INSTALL_RCLONE=false
+BUILD_FRONTEND=false
+USE_PREBUILT=false
 DRY_RUN=false
 SKIP_SERVICES=false
 DASHBOARD_PORT=8080
@@ -100,6 +104,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -i|--install-rclone)
             INSTALL_RCLONE=true
+            shift
+            ;;
+        -b|--build-frontend)
+            BUILD_FRONTEND=true
+            shift
+            ;;
+        --use-prebuilt)
+            USE_PREBUILT=true
             shift
             ;;
         -n|--dry-run)
@@ -153,6 +165,12 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# --- Flag Validation ---
+if [[ "$BUILD_FRONTEND" == "true" && "$USE_PREBUILT" == "true" ]]; then
+    log_error "Conflicting options: Cannot specify both --build-frontend and --use-prebuilt."
+    exit 2
+fi
 
 # --- Root Privilege Guard ---
 if [[ "$EUID" -ne 0 && "$DRY_RUN" != "true" ]]; then
@@ -261,8 +279,46 @@ validate_rclone_installation() {
 }
 validate_rclone_installation
 
+# --- 2.5 Verify Frontend Build / Distribution Strategy ---
+validate_frontend_strategy() {
+    log_step "Verifying frontend distribution strategy..."
+    local dist_index="$REPO_ROOT/dashboard/frontend/dist/index.html"
+
+    if [[ "$BUILD_FRONTEND" == "true" ]]; then
+        log_info "Frontend mode: FRESH BUILD (--build-frontend enabled)"
+        if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+            log_error "Node.js and npm are required to build frontend assets fresh."
+            log_error "Please install Node.js (v18+) or omit --build-frontend to use pre-built dist/."
+            exit 1
+        fi
+        local node_ver npm_ver
+        node_ver="$(node -v 2>/dev/null || echo "unknown")"
+        npm_ver="$(npm -v 2>/dev/null || echo "unknown")"
+        log_success "Found Node.js ($node_ver) and npm ($npm_ver)."
+    else
+        log_info "Frontend mode: PRE-BUILT (embedding dashboard/frontend/dist)"
+        if [[ ! -f "$dist_index" ]]; then
+            if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+                log_warn "Pre-built dist not found at $dist_index, but Node.js is present. Automatically switching to fresh build."
+                BUILD_FRONTEND=true
+            else
+                log_error "Pre-built frontend distribution not found at: $dist_index"
+                log_error "Please run with '--build-frontend' after installing Node.js/npm, or ensure dist/ is checked out."
+                exit 1
+            fi
+        else
+            log_success "Verified pre-built frontend bundle at: $dist_index"
+        fi
+    fi
+}
+validate_frontend_strategy
+
 
 if [[ "$DRY_RUN" == "true" ]]; then
+    if [[ "$BUILD_FRONTEND" == "true" ]]; then
+        log_info "[DRY-RUN] Would compile fresh frontend distribution via npm run build"
+    fi
+    log_info "[DRY-RUN] Would compile native single-binary rclone-bisync embedding dashboard/frontend/dist"
     log_success "[DRY-RUN] Pre-flight verification completed successfully."
     exit 0
 fi
@@ -321,9 +377,24 @@ for f in "${REQUIRED_FILES[@]}"; do
     fi
 done
 
+# Compile frontend assets if fresh build is requested
+if [[ "$BUILD_FRONTEND" == "true" ]]; then
+    log_info "Compiling fresh Vue 3 + PrimeVue SPA distribution (dashboard/frontend)..."
+    if [[ ! -d "$REPO_ROOT/dashboard/frontend/node_modules" ]]; then
+        log_info "Installing frontend npm dependencies..."
+        (cd "$REPO_ROOT/dashboard/frontend" && sudo -u "$REAL_USER" npm install)
+    fi
+    (cd "$REPO_ROOT/dashboard/frontend" && sudo -u "$REAL_USER" npm run build)
+    if [[ ! -f "$REPO_ROOT/dashboard/frontend/dist/index.html" ]]; then
+        log_error "Frontend compilation failed: dashboard/frontend/dist/index.html was not generated."
+        exit 1
+    fi
+    log_success "Frontend assets compiled successfully into dashboard/frontend/dist/."
+fi
+
 # Build the native Go single binary if Go is available, or copy pre-built bin/rclone-bisync
 if command -v go >/dev/null 2>&1; then
-    log_info "Compiling native single-binary rclone-bisync..."
+    log_info "Compiling native single-binary rclone-bisync (embedding dashboard/frontend/dist)..."
     (cd "$REPO_ROOT" && sudo -u "$REAL_USER" go build -o "$RCLONE_DIR/bin/rclone-bisync" main.go)
 elif [ -f "$REPO_ROOT/bin/rclone-bisync" ]; then
     log_info "Installing pre-compiled rclone-bisync binary..."

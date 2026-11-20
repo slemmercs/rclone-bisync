@@ -9,6 +9,8 @@ import (
 	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
 	"github.com/slemmercs/rclone-bisync/internal/models"
+	"github.com/slemmercs/rclone-bisync/internal/profiles"
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 func (s *Server) resolveLocalPath(profileID string) string {
@@ -57,7 +59,25 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	if remote == "" {
 		remote = "local"
 	}
-	res := s.ExplorerService.BrowsePath(r.Context(), remote, req.Path, s.resolveLocalPath(req.ProfileID))
+	opts := services.BrowseOptions{
+		LocalBase: s.resolveLocalPath(req.ProfileID),
+	}
+	if s.ProfileService != nil {
+		pID := req.ProfileID
+		var prof *profiles.Profile
+		if pID != "" {
+			prof, _ = s.ProfileService.Get(pID)
+		} else {
+			list := s.ProfileService.List(false)
+			if len(list) > 0 {
+				prof = list[0]
+			}
+		}
+		if prof != nil && prof.Flags.ProviderOptions != nil && prof.Flags.ProviderOptions["drive_skip_gdocs"] == "true" {
+			opts.SkipGdocs = true
+		}
+	}
+	res := s.ExplorerService.BrowsePathWithOptions(r.Context(), remote, req.Path, opts)
 	writeJSON(w, http.StatusOK, res)
 }
 

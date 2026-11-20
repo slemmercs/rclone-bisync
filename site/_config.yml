@@ -38,3 +38,12 @@ callouts:
   note:
     title: Operational Note
     color: blue
+
+# Sass Compiler Configuration (Silences upstream gem deprecation noise from Just The Docs)
+sass:
+  quiet_deps: true
+  silence_deprecations:
+    - import
+    - color-functions
+    - global-builtin
+

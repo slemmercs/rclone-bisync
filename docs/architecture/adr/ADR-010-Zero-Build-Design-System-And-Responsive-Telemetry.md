@@ -1,10 +1,12 @@
 # ADR-010: Zero-Build Component Design System & Responsive Telemetry Architecture
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-011](ADR-011-Modern-Frontend-Component-Architecture-And-Precompiled-Single-Binary.md)
 
-**Date:** 2026-10-30
+**Date:** 2026-10-30 (Superseded: 2026-11-15)
 
 ---
+
+> ⚠️ **Historical Record**: This decision has been superseded by [ADR-011: Modern Frontend Component Architecture & Pre-Compiled Single Binary Embeddings](ADR-011-Modern-Frontend-Component-Architecture-And-Precompiled-Single-Binary.md). While telemetry polling coordination and log folding concepts remain relevant, the zero-build dogma, flat global script scope, and arbitrary sub-400 LOC frontend fragmentation have been replaced with a pre-compiled component architecture and committed `dist/` embeds.
 
 ## Context
 

@@ -55,6 +55,16 @@ Raw `rclone bisync` provides raw power across 40+ storage providers, but in prod
   </div>
   <div class="feature-card">
     <span class="badge-online">● Available Now</span>
+    <h3>FSM Control Plane & Queue</h3>
+    <p>Event-driven state machine governing sync execution, priority queue scheduling, and safe cooperative cancellation.</p>
+  </div>
+  <div class="feature-card">
+    <span class="badge-online">● Available Now</span>
+    <h3>Vue 3 Cockpit & Dedupe</h3>
+    <p>Embedded single-binary SPA with PrimeVue v4, dual-pane explorer, telemetry graphs, and staged deduplication workspace.</p>
+  </div>
+  <div class="feature-card">
+    <span class="badge-online">● Available Now</span>
     <h3>Cryptographic Audit Ledger</h3>
     <p>Tamper-evident audit trail with SHA-256 hash chains, trigger-enforced append-only tables, and POSIX advisory locking.</p>
   </div>

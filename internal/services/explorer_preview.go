@@ -106,6 +106,7 @@ func (e *ExplorerService) previewLocalFile(cleanPath string, localBase ...string
 	// For text/documents, check binary
 	if isBinaryData(mimeType, sniffBuf[:nSniff]) {
 		resp.IsBinary = true
+		resp.Error = "preview for binary files is not allowed"
 		return resp, nil
 	}
 
@@ -246,6 +247,7 @@ func (e *ExplorerService) previewRemoteFile(ctx context.Context, remote, cleanPa
 	}
 	if isBinaryData(mimeType, buf[:sniffLen]) {
 		resp.IsBinary = true
+		resp.Error = "preview for binary files is not allowed"
 		return resp, nil
 	}
 

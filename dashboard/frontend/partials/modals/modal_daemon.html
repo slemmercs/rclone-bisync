@@ -67,6 +67,10 @@
                         <span>Warnings</span>
                         <span class="text-[9px] px-1 py-0.2 rounded bg-black/30 tabular-nums" x-text="daemonModalCounts.warnings"></span>
                     </button>
+                    <button @click="daemonModalLevelFilter = 'notice'" :class="daemonModalLevelFilter === 'notice' ? 'bg-sky-600 text-white font-semibold shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-sky-400'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors flex items-center gap-1">
+                        <span>Notices</span>
+                        <span class="text-[9px] px-1 py-0.2 rounded bg-black/30 tabular-nums" x-text="daemonModalCounts.notices"></span>
+                    </button>
                     <button @click="daemonModalLevelFilter = 'info'" :class="daemonModalLevelFilter === 'info' ? 'bg-emerald-600 text-white font-semibold shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-emerald-400'" class="px-2 py-0.5 rounded font-mono text-[11px] transition-colors flex items-center gap-1">
                         <span>Info</span>
                         <span class="text-[9px] px-1 py-0.2 rounded bg-black/30 tabular-nums" x-text="daemonModalCounts.info"></span>

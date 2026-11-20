@@ -264,3 +264,131 @@ func (c *RcloneClient) Quit(ctx context.Context) error {
 	_, _, err := c.post(ctx, "core/quit", nil, 2*time.Second)
 	return err
 }
+
+// MainOptions represents process-global Rclone engine configuration options (fs.Config.Main).
+// Fields are pointers so that unset fields are omitted during updates, while explicit zero values
+// (such as TPSLimit: 0 for unlimited) are preserved.
+type MainOptions struct {
+	Checkers      *int     `json:"Checkers,omitempty"`
+	Transfers     *int     `json:"Transfers,omitempty"`
+	TPSLimit      *float64 `json:"TPSLimit,omitempty"`
+	TPSLimitBurst *int     `json:"TPSLimitBurst,omitempty"`
+}
+
+// IntPtr returns a pointer to an int value.
+func IntPtr(v int) *int {
+	return &v
+}
+
+// Float64Ptr returns a pointer to a float64 value.
+func Float64Ptr(v float64) *float64 {
+	return &v
+}
+
+// GetCheckers returns the configured Checkers value or defaultVal if nil.
+func (m *MainOptions) GetCheckers(defaultVal int) int {
+	if m != nil && m.Checkers != nil {
+		return *m.Checkers
+	}
+	return defaultVal
+}
+
+// GetTransfers returns the configured Transfers value or defaultVal if nil.
+func (m *MainOptions) GetTransfers(defaultVal int) int {
+	if m != nil && m.Transfers != nil {
+		return *m.Transfers
+	}
+	return defaultVal
+}
+
+// GetTPSLimit returns the configured TPSLimit value or defaultVal if nil.
+func (m *MainOptions) GetTPSLimit(defaultVal float64) float64 {
+	if m != nil && m.TPSLimit != nil {
+		return *m.TPSLimit
+	}
+	return defaultVal
+}
+
+// GetTPSLimitBurst returns the configured TPSLimitBurst value or defaultVal if nil.
+func (m *MainOptions) GetTPSLimitBurst(defaultVal int) int {
+	if m != nil && m.TPSLimitBurst != nil {
+		return *m.TPSLimitBurst
+	}
+	return defaultVal
+}
+
+// GetMainOptions retrieves the process-global "main" engine options from Rclone RC (POST /options/get).
+func (c *RcloneClient) GetMainOptions(ctx context.Context) (*MainOptions, error) {
+	if c == nil {
+		return nil, fmt.Errorf("rclone client is nil")
+	}
+	resp, body, err := c.post(ctx, "/options/get", nil, 5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call options/get: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("options/get failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var raw struct {
+		Main json.RawMessage `json:"main"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("failed to decode options response: %w", err)
+	}
+
+	if len(raw.Main) == 0 {
+		return &MainOptions{}, nil
+	}
+
+	var opts MainOptions
+	if err := json.Unmarshal(raw.Main, &opts); err != nil {
+		return nil, fmt.Errorf("failed to decode main options: %w", err)
+	}
+
+	return &opts, nil
+}
+
+// SetMainOptions updates process-global "main" engine options in Rclone RC (POST /options/set).
+func (c *RcloneClient) SetMainOptions(ctx context.Context, opts *MainOptions) error {
+	if c == nil {
+		return fmt.Errorf("rclone client is nil")
+	}
+	if opts == nil {
+		return fmt.Errorf("opts cannot be nil")
+	}
+
+	payload := map[string]interface{}{
+		"main": opts,
+	}
+
+	resp, body, err := c.post(ctx, "/options/set", payload, 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to call options/set: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("options/set failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// SetOptions updates arbitrary configuration sections via POST /options/set.
+func (c *RcloneClient) SetOptions(ctx context.Context, options map[string]interface{}) error {
+	if c == nil {
+		return fmt.Errorf("rclone client is nil")
+	}
+	if len(options) == 0 {
+		return nil
+	}
+
+	resp, body, err := c.post(ctx, "/options/set", options, 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to call options/set: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("options/set failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}

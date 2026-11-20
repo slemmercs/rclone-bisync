@@ -2,61 +2,73 @@
 layout: default
 title: Architecture & Safety
 nav_order: 7
-description: "Core safety tenets, POSIX advisory locks, path confinement, and defense-in-depth architecture."
+description: "Core safety tenets, path confinement, POSIX locking, FSM orchestration, and cryptographic auditability."
 ---
 
 # Architecture & Safety Principles
 
-Bisync Hub is designed under the assumption that networks drop, cloud APIs produce unexpected HTTP responses, and distributed clocks drift. 
+Bisync Hub is built on the assumption that networks drop, cloud APIs return unexpected responses, and distributed clocks drift. Every subsystem follows three core tenets:
 
-Every design decision adheres to three foundational tenets:
-
-1. **Visibility Before Action**: Never mutate remote storage silently without an immutable record and pre-flight inspection.
-2. **Safety Before Automation**: If an environmental invariant is violated (e.g. missing canary, unresolvable conflict), halt immediately rather than guess.
-3. **Defense in Depth**: Protect the host filesystem with path confinement jails, POSIX process flocking, and secret scrubbing.
+1. **Visibility Before Action:** Never mutate storage silently without pre-flight inspection and an immutable audit trail.
+2. **Safety Before Automation:** Halt immediately when an invariant is violated (such as a missing canary file or high deletion threshold) rather than guessing.
+3. **Defense in Depth:** Isolate local paths, serialize concurrent executions, and scrub secrets at every boundary.
 
 ---
 
-## Safety Mechanisms
+## 1. Safety & Isolation Boundaries
 
-### 1. Filesystem Path Confinement Jails
-When browsing files or preparing sync operations on local storage endpoints, Bisync Hub prevents arbitrary filesystem access by enforcing strict jail boundaries:
+### Filesystem Path Confinement Jails
+Local file browsing and sync operations enforce strict root containment so relative traversal (`../`) or escape paths cannot step outside configured directories:
 
 ```go
-// Enforcing local path isolation
 relPath, err := filepath.Rel(jailRoot, targetPath)
 if err != nil || strings.HasPrefix(relPath, "..") || strings.HasPrefix(relPath, "/") {
     return ErrPathTraversalViolation
 }
 ```
-Any request attempting directory traversal (`../`) outside the configured root returns an immediate authorization violation and is recorded in the audit log.
 
-### 2. POSIX Flock Process Isolation
-To avoid lock races between scheduled background timers, cron jobs, and interactive operator CLI requests, Bisync Hub acquires advisory file locks using native POSIX `flock(fd, LOCK_EX|LOCK_NB)`.
-- Concurrent executions fail fast with a clear error rather than piling up or corrupting state.
-- Stale lock detection cleans up safely if a previous process terminated abnormally.
+Any boundary violation is rejected immediately and recorded in the audit ledger.
 
-### 3. Secret Redaction at Every Boundary
-All external inputs, configuration files, and API logs pass through recursive sanitization via `security.RedactSecrets`.
-- Keywords matching `PASS`, `TOKEN`, `KEY`, `SECRET`, and `CREDENTIAL` are dynamically masked (`[REDACTED]`).
-- Raw tokens are never persisted in SQLite ledger records, JSON error messages, or telemetry streams.
+### POSIX Advisory Process Locking
+To prevent race conditions between scheduled background runs, manual CLI commands, and concurrent profile actions, Bisync Hub uses non-blocking POSIX advisory locks (`flock` with `LOCK_EX|LOCK_NB`) per lock target, with stale-lock cleanup after abnormal exits and fail-fast reporting on active contention.
 
-### 4. Zero-Exposure CI/CD Security
-Bisync Hub's GitHub Actions pipelines are deployed 100% on cloud-hosted ephemeral runners (`ubuntu-latest`) with zero self-hosted runner exposure. Every commit is validated with:
-- Static analysis via `go vet` and `staticcheck`
-- Automated leak scanning via `betterleaks`
-- Vulnerability auditing via `govulncheck`
-- Strict branch protection with sole review governance (`@slemmercs`)
+### Secret Redaction
+Inputs, configuration payloads, error messages, and logs pass through recursive sanitization (`security.RedactSecrets`), masking sensitive fields (`PASS`, `TOKEN`, `KEY`, `SECRET`, `CREDENTIAL`) as `[REDACTED]` before persistence or external emission.
 
-### 5. High-Performance Go Quality Gate (`cmd/check`)
-To catch regressions early during local development, Bisync Hub includes a dedicated native Go audit engine (`cmd/check`) executing check stages in parallel:
-- **True HTML Tokenization**: Multi-line attribute tokenization preventing Alpine.js boolean attribute coercion bugs (`:disabled`, `:readonly`).
-- **Architectural LOC Budgets**: Single-pass line-count enforcement ensuring services remain modular and stay under ~400 LOC.
-- **Copyleft License Auditing**: Native dependency license validator (`cmd/check/licenses.go`) enforcing permissive-only licensing (MIT, Apache-2.0, BSD) across all Go modules.
-- **Coverage Assurance**: Pre-commit validation enforcing >80% statement coverage across all packages (currently at 88.3%).
+### MCP Confirmation Ticket Gating
+AI agents connecting over Model Context Protocol (`stdio` or embedded `SSE`) cannot trigger destructive operations (`trigger_sync` with `resync`/`force`, `resolve_review`, `dedupe_by_hash`) without passing a two-step confirmation flow:
 
-### 6. MCP Confirmation Tickets & Parameter Fingerprinting
-To safely allow autonomous AI agents (Claude, Cursor, Cline) to interact with synchronization workloads without risking accidental mass deletions or unexpected resyncs, the Model Context Protocol engine implements cryptographic ticket gating:
-- **Parameter Fingerprinting**: Every issued ticket binds to the exact parameter hash (`SHA256(canonical(params))`). Re-submitting a ticket with altered flags (e.g. escalating from dry-run to force resync) immediately rejects execution.
-- **5-Minute Non-Renewable TTL**: Confirmation tickets expire automatically after 300 seconds.
-- **Read-Only Process Isolation**: When started with `--read-only`, mutating tools are strictly disabled at the registration level.
+* **Parameter Fingerprinting:** Tickets bind to `SHA256(canonical(params))`—any change to flags or arguments invalidates the ticket.
+* **Short TTL & Read-Only Mode:** Tickets expire automatically after 5 minutes, and launching with `MCP_READ_ONLY=true` disables mutating tool registration completely.
+
+---
+
+## 2. Control Plane & Execution Engine
+
+### Finite State Machine (FSM) & Queue Orchestrator
+Workload execution is governed by an explicit state machine rather than ad-hoc shell scripts:
+
+`idle` → `validating` → `running` → `review_required` / `completed` / `failed` / `aborted`
+
+* **Invalid Transition Guarding:** Disallowed state transitions are rejected at the engine level.
+* **Concurrency & Cancellation:** A bounded queue orchestrator prevents per-profile lock collisions while context cancellation cleanly stops active subprocesses and restores canary state on abort.
+
+### Interactive Deduplication Workspace
+Duplicate detection supports both content hashes (`MD5` / `SHA-256`) and size-plus-filename matching for remotes without native checksum support. Results group into collapsible clusters with staged actions (`keep-local`, `keep-remote`, `keep-both`, `newest`, `oldest`) backed by confirmation checks before deletion.
+
+---
+
+## 3. Auditability & Embedded Cockpit UI
+
+### Cryptographic Immutable Audit Ledger
+State-changing operations and safety events are written to an append-only SQLite ledger protected by:
+
+* **Database Triggers:** `BEFORE UPDATE` and `BEFORE DELETE` triggers block in-place edits or deletions at the storage layer.
+* **Hash Chaining:** Each entry links to its predecessor via `SHA-256(prev_hash || timestamp || action || profile_id || status || details)`.
+* **Client-Side Verification:** The dashboard can verify chain integrity directly in the browser and export records as JSONL or CSV.
+
+### Single-Binary Vue 3 + PrimeVue Cockpit
+The management UI is compiled into static assets and embedded directly into the Go binary via `//go:embed`, requiring zero Node.js or external runtime dependencies on target hosts:
+
+* **Modular State:** Pinia stores isolate domain state across profiles, remotes, file exploration, deduplication, audit logs, telemetry, and settings.
+* **Operational Views:** Includes real-time status/progress updates, dual-pane local/remote file browsing, review/diff modals, and built-in diagnostic runbooks.

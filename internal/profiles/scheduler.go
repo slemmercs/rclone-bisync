@@ -3,17 +3,20 @@ package profiles
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"strings"
+	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"github.com/slemmercs/rclone-bisync/internal/core/client"
 )
 
 var (
-	ErrSchedulerStopped = errors.New("scheduler is stopped")
-	ErrProfileNotActive = errors.New("profile is not active or enabled")
-	ErrSyncInProgress   = errors.New("synchronization is already in progress for this profile")
+	ErrSchedulerStopped  = errors.New("scheduler is stopped")
+	ErrProfileNotActive  = errors.New("profile is not active or enabled")
+	ErrSyncInProgress    = errors.New("synchronization is already in progress for this profile")
+	ErrSyncCancelled     = errors.New("sync cancelled by operator")
+	ErrJobAlreadyRunning = errors.New("job is already running; cannot cancel queued entry")
+	ErrJobNotQueued      = errors.New("job is not in queue")
 )
 
 // SyncOptions specifies parameters for a synchronization run.
@@ -27,47 +30,68 @@ type SyncOptions struct {
 // SyncExecutor executes a single sync run for a profile.
 type SyncExecutor func(ctx context.Context, p *Profile, opts SyncOptions) error
 
-type triggerReq struct {
-	opts  SyncOptions
-	errCh chan error
-}
-
-type profileWorker struct {
-	profileID string
-	triggerCh chan triggerReq
-	cancel    context.CancelFunc
-	running   sync.Mutex
-	isSyncing atomic.Bool
-}
-
-// Scheduler coordinates concurrent, flock-isolated goroutines for synchronization profiles.
+// Scheduler coordinates concurrent, flock-isolated goroutines for synchronization profiles
+// via a centralized FIFO fair execution queue and dynamic engine option switching.
 type Scheduler struct {
-	store    *Store
-	executor SyncExecutor
-	mu       sync.RWMutex
-	workers  map[string]*profileWorker
-	ctx      context.Context
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	stopped  bool
+	store           *Store
+	executor        SyncExecutor
+	mu              sync.RWMutex
+	workers         map[string]*profileWorker
+	ctx             context.Context
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
+	stopped         bool
+	paused          bool
+	engineClient    EngineOptionsClient
+	fleetFlagsFn    func() string
+	maxConcurrency  int
+	maxQueueWait    time.Duration
+	activeSignature EngineSignature
+	baselineOptions *client.MainOptions
+	currentOptions  *client.MainOptions
+	activeJobs      map[string]*QueueItem
+	queue           []*QueueItem
+	notifyCh        chan struct{}
 }
 
-// NewScheduler creates a Scheduler instance.
-func NewScheduler(store *Store, executor SyncExecutor) *Scheduler {
-	return &Scheduler{
-		store:    store,
-		executor: executor,
-		workers:  make(map[string]*profileWorker),
+// NewScheduler creates a Scheduler instance with optional engine configuration parameters.
+func NewScheduler(store *Store, executor SyncExecutor, opts ...SchedulerOption) *Scheduler {
+	s := &Scheduler{
+		store:           store,
+		executor:        executor,
+		workers:         make(map[string]*profileWorker),
+		activeJobs:      make(map[string]*QueueItem),
+		activeSignature: DefaultEngineSignature,
+		maxConcurrency:  4,
+		maxQueueWait:    60 * time.Second,
+		notifyCh:        make(chan struct{}, 1),
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
-// Start begins scheduling loops for all enabled profiles.
+// Start begins scheduling loops and launches the unified queue dispatcher.
 func (s *Scheduler) Start(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	s.stopped = false
+
+	if s.engineClient != nil {
+		if opts, err := s.engineClient.GetMainOptions(s.ctx); err == nil && opts != nil {
+			s.baselineOptions = opts
+			s.currentOptions = opts
+		}
+	}
+
+	// Launch unified queue dispatcher
+	s.wg.Add(1)
+	dispCtx := s.ctx
+	// #nosec G118 - dispatcher lifecycle is tied to scheduler cancel context
+	go s.runDispatcher(dispCtx)
 
 	if s.store == nil {
 		return nil
@@ -81,7 +105,7 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop shuts down all profile workers gracefully.
+// Stop shuts down the scheduler, aborts pending jobs, and restores baseline engine options.
 func (s *Scheduler) Stop() {
 	s.mu.Lock()
 	if s.stopped {
@@ -92,6 +116,15 @@ func (s *Scheduler) Stop() {
 	if s.cancel != nil {
 		s.cancel()
 	}
+
+	// Abort pending queued jobs
+	for _, item := range s.queue {
+		if item.ErrCh != nil {
+			item.ErrCh <- ErrSchedulerStopped
+		}
+	}
+	s.queue = nil
+
 	for id, w := range s.workers {
 		w.cancel()
 		delete(s.workers, id)
@@ -99,6 +132,10 @@ func (s *Scheduler) Stop() {
 	s.mu.Unlock()
 
 	s.wg.Wait()
+
+	s.mu.Lock()
+	s.restoreBaselineLocked(context.Background())
+	s.mu.Unlock()
 }
 
 // TriggerSync requests an immediate sync run for a profile with force flag.
@@ -108,35 +145,62 @@ func (s *Scheduler) TriggerSync(ctx context.Context, profileID string, force boo
 
 // TriggerSyncWithOptions requests an immediate sync run for a profile with custom options.
 func (s *Scheduler) TriggerSyncWithOptions(ctx context.Context, profileID string, opts SyncOptions) error {
-	s.mu.RLock()
+	s.mu.Lock()
 	if s.stopped {
-		s.mu.RUnlock()
+		s.mu.Unlock()
 		return ErrSchedulerStopped
 	}
-	w, exists := s.workers[profileID]
-	s.mu.RUnlock()
 
+	_, exists := s.workers[profileID]
 	if !exists {
+		s.mu.Unlock()
 		return ErrProfileNotActive
 	}
 
-	req := triggerReq{
-		opts:  opts,
-		errCh: make(chan error, 1),
-	}
-
-	select {
-	case w.triggerCh <- req:
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+	if _, active := s.activeJobs[profileID]; active {
+		s.mu.Unlock()
 		return ErrSyncInProgress
 	}
+	for _, item := range s.queue {
+		if item.ProfileID == profileID {
+			s.mu.Unlock()
+			return ErrSyncInProgress
+		}
+	}
+
+	prof, err := s.store.Get(profileID)
+	if err != nil || !prof.Enabled || prof.Archived {
+		s.mu.Unlock()
+		return ErrProfileNotActive
+	}
+
+	fleetFlags := s.getFleetFlagsLocked()
+	targetFlags, sig, err := ResolveEngineSignature(prof.Flags.CustomFlags, fleetFlags)
+	if err != nil {
+		s.mu.Unlock()
+		return fmt.Errorf("failed to resolve engine signature: %w", err)
+	}
+
+	item := &QueueItem{
+		ProfileID:   profileID,
+		Opts:        opts,
+		Signature:   sig,
+		TargetFlags: targetFlags,
+		EnqueuedAt:  time.Now(),
+		ErrCh:       make(chan error, 1),
+	}
+
+	s.queue = append(s.queue, item)
+	s.signalDispatcherLocked()
+	s.mu.Unlock()
 
 	select {
-	case err := <-req.errCh:
+	case err := <-item.ErrCh:
 		return err
 	case <-ctx.Done():
+		s.mu.Lock()
+		s.removeFromQueueLocked(item)
+		s.mu.Unlock()
 		return ctx.Err()
 	}
 }
@@ -148,11 +212,23 @@ func (s *Scheduler) IsProfileRunning(profileID string) bool {
 	if s.stopped {
 		return false
 	}
-	w, exists := s.workers[profileID]
-	if !exists {
+	_, active := s.activeJobs[profileID]
+	return active
+}
+
+// IsProfileQueued reports whether a profile is queued awaiting execution.
+func (s *Scheduler) IsProfileQueued(profileID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.stopped {
 		return false
 	}
-	return w.isSyncing.Load()
+	for _, item := range s.queue {
+		if item.ProfileID == profileID {
+			return true
+		}
+	}
+	return false
 }
 
 // IsAnyRunning reports whether any profile worker is actively synchronizing.
@@ -162,120 +238,134 @@ func (s *Scheduler) IsAnyRunning() bool {
 	if s.stopped {
 		return false
 	}
-	for _, w := range s.workers {
-		if w.isSyncing.Load() {
-			return true
+	return len(s.activeJobs) > 0
+}
+
+// GetActiveSignature returns the currently active engine configuration signature.
+func (s *Scheduler) GetActiveSignature() EngineSignature {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.activeSignature
+}
+
+// GetQueueLength returns the number of jobs waiting in the fair queue.
+func (s *Scheduler) GetQueueLength() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.queue)
+}
+
+// GetQueuedProfileIDs returns a list of profile IDs currently in the queue.
+func (s *Scheduler) GetQueuedProfileIDs() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	ids := make([]string, len(s.queue))
+	for i, item := range s.queue {
+		ids[i] = item.ProfileID
+	}
+	return ids
+}
+
+// PauseDispatcher halts admission of new queued jobs while allowing active jobs to finish.
+func (s *Scheduler) PauseDispatcher() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.paused = true
+}
+
+// ResumeDispatcher enables admission of queued jobs and triggers immediate dispatch.
+func (s *Scheduler) ResumeDispatcher() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.paused = false
+	s.signalDispatcherLocked()
+}
+
+// IsDispatcherPaused reports whether the dispatcher has halted admissions.
+func (s *Scheduler) IsDispatcherPaused() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.paused
+}
+
+// CancelQueued removes a waiting job from the queue and cancels its execution.
+func (s *Scheduler) CancelQueued(profileID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, running := s.activeJobs[profileID]; running {
+		return ErrJobAlreadyRunning
+	}
+
+	for i, item := range s.queue {
+		if item.ProfileID == profileID {
+			s.queue = append(s.queue[:i], s.queue[i+1:]...)
+			if item.ErrCh != nil {
+				item.ErrCh <- ErrSyncCancelled
+			}
+			return nil
 		}
 	}
-	return false
+
+	return ErrJobNotQueued
 }
 
-// RestartProfile updates or starts a profile worker reflecting new configuration.
-func (s *Scheduler) RestartProfile(p *Profile) {
+// ClearQueue drains and cancels all pending queued jobs, restoring baseline engine options if idle.
+func (s *Scheduler) ClearQueue() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.stopped {
-		return
+	count := len(s.queue)
+	if count == 0 {
+		return 0
 	}
 
-	s.stopWorkerLocked(p.ID)
-	if p.Enabled && !p.Archived {
-		s.startWorkerLocked(p)
+	for _, item := range s.queue {
+		if item.ErrCh != nil {
+			item.ErrCh <- ErrSyncCancelled
+		}
 	}
+	s.queue = nil
+
+	if len(s.activeJobs) == 0 && s.activeSignature != DefaultEngineSignature {
+		s.restoreBaselineLocked(context.Background())
+	}
+
+	return count
 }
 
-// StopProfile halts background execution for a profile.
-func (s *Scheduler) StopProfile(profileID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.stopWorkerLocked(profileID)
-}
-
-func (s *Scheduler) stopWorkerLocked(profileID string) {
-	if w, exists := s.workers[profileID]; exists {
-		w.cancel()
-		delete(s.workers, profileID)
-	}
-}
-
-func (s *Scheduler) startWorkerLocked(p *Profile) {
-	if s.ctx == nil {
-		return
-	}
-	wCtx, wCancel := context.WithCancel(s.ctx)
-	w := &profileWorker{
-		profileID: p.ID,
-		triggerCh: make(chan triggerReq, 1),
-		cancel:    wCancel,
-	}
-	s.workers[p.ID] = w
-
-	s.wg.Add(1)
-	go s.runWorker(wCtx, w, p)
-}
-
-func (s *Scheduler) runWorker(ctx context.Context, w *profileWorker, initialProf *Profile) {
+func (s *Scheduler) runJob(ctx context.Context, item *QueueItem) {
 	defer s.wg.Done()
 
-	profileID := w.profileID
-	interval := ParseSchedule(initialProf.Schedule)
-	var ticker *time.Ticker
-	var tickerCh <-chan time.Time
+	err := s.executeJob(ctx, item)
 
-	if interval > 0 {
-		ticker = time.NewTicker(interval)
-		tickerCh = ticker.C
-		defer ticker.Stop()
+	if item.ErrCh != nil {
+		item.ErrCh <- err
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-tickerCh:
-			s.executeProfileSync(ctx, w, profileID, SyncOptions{Origin: "scheduler"}, nil)
-		case req := <-w.triggerCh:
-			s.executeProfileSync(ctx, w, profileID, req.opts, req.errCh)
-		}
+	s.mu.Lock()
+	delete(s.activeJobs, item.ProfileID)
+	if w, ok := s.workers[item.ProfileID]; ok {
+		w.isSyncing.Store(false)
 	}
+	s.signalDispatcherLocked()
+	s.mu.Unlock()
 }
 
-func (s *Scheduler) executeProfileSync(
-	ctx context.Context,
-	w *profileWorker,
-	profileID string,
-	opts SyncOptions,
-	errCh chan error,
-) {
-	if !w.running.TryLock() {
-		if errCh != nil {
-			errCh <- ErrSyncInProgress
-		}
-		return
-	}
-	w.isSyncing.Store(true)
-	defer func() {
-		w.isSyncing.Store(false)
-		w.running.Unlock()
-	}()
-
-	prof, err := s.store.Get(profileID)
+func (s *Scheduler) executeJob(ctx context.Context, item *QueueItem) error {
+	prof, err := s.store.Get(item.ProfileID)
 	if err != nil || !prof.Enabled || prof.Archived {
-		if errCh != nil {
-			errCh <- ErrProfileNotActive
-		}
-		return
+		return ErrProfileNotActive
 	}
 
 	state := prof.State
 	state.Status = StatusRunning
-	_ = s.store.UpdateState(profileID, state)
+	_ = s.store.UpdateState(item.ProfileID, state)
 
 	startTime := time.Now().UTC()
 	var execErr error
 	if s.executor != nil {
-		execErr = s.executor(ctx, prof, opts)
+		execErr = s.executor(ctx, prof, item.Opts)
 	}
 	duration := time.Since(startTime).Seconds()
 
@@ -303,30 +393,6 @@ func (s *Scheduler) executeProfileSync(
 		state.Status = StatusHealthy
 	}
 
-	_ = s.store.UpdateState(profileID, state)
-	w.isSyncing.Store(false)
-
-	if errCh != nil {
-		errCh <- execErr
-	}
-}
-
-// ParseSchedule converts schedule expressions into time.Duration.
-func ParseSchedule(schedule string) time.Duration {
-	s := strings.ToLower(strings.TrimSpace(schedule))
-	switch s {
-	case "", "manual":
-		return 0
-	case "daily":
-		return 24 * time.Hour
-	case "hourly":
-		return 1 * time.Hour
-	default:
-		d, err := time.ParseDuration(s)
-		if err != nil || d <= 0 {
-			slog.Warn("invalid schedule, defaulting to manual", "schedule", schedule)
-			return 0
-		}
-		return d
-	}
+	_ = s.store.UpdateState(item.ProfileID, state)
+	return execErr
 }

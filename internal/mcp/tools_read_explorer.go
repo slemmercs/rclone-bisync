@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 func (s *Server) handleExplorePath(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -29,16 +30,25 @@ func (s *Server) handleExplorePath(ctx context.Context, req mcp.CallToolRequest)
 	filterStr := strings.ToLower(strings.TrimSpace(req.GetString("filter", "")))
 
 	var localBase string
+	var skipGdocs bool
 	if s.container.ProfileService != nil && profileID != "" {
-		if p, err := s.container.ProfileService.Get(profileID); err == nil && p != nil && p.LocalPath != "" {
-			localBase = p.LocalPath
+		if p, err := s.container.ProfileService.Get(profileID); err == nil && p != nil {
+			if p.LocalPath != "" {
+				localBase = p.LocalPath
+			}
+			if p.Flags.ProviderOptions != nil && p.Flags.ProviderOptions["drive_skip_gdocs"] == "true" {
+				skipGdocs = true
+			}
 		}
 	}
 	if localBase == "" && s.container.Config != nil {
 		localBase = s.container.Config.LocalPath
 	}
 
-	listing := s.container.ExplorerService.BrowsePath(ctx, remote, relPath, localBase)
+	listing := s.container.ExplorerService.BrowsePathWithOptions(ctx, remote, relPath, services.BrowseOptions{
+		LocalBase: localBase,
+		SkipGdocs: skipGdocs,
+	})
 	if listing.Error != "" {
 		return mcp.NewToolResultError(fmt.Sprintf("explore path failed: %s", listing.Error)), nil
 	}

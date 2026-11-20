@@ -10,7 +10,7 @@ nav_order: 3
 <span class="badge-online">● Shipped & Active</span>
 
 {: .note }
-> **Core Safety Tenets**: Pre-execution canary protection (`RCLONE_TEST`), path confinement filesystem jails, and pre-mutation deletion quotas (`SAFETY_MAX_DELETE_COUNT`, `SAFETY_MAX_DELETE_RATIO`) are fully active in the core engine. Dynamic in-dashboard parameter configuration is scheduled for the upcoming [Configuration & Setup Manager](https://github.com/slemmercs/rclone-bisync/blob/main/docs/roadmap/ROADMAP.md) milestone.
+> **Core Safety Tenets**: Pre-execution canary protection (`RCLONE_TEST`), path confinement filesystem jails, and pre-mutation deletion quotas (`SAFETY_MAX_DELETE_COUNT`, `SAFETY_MAX_DELETE_RATIO`) are fully active in the core engine. Dynamic in-dashboard parameter configuration is tracked on the [Roadmap]({% link roadmap.md %}).
 
 Automated tools must know when to stop. Running bidirectional synchronization when a network share is unmounted, when a cloud provider returns HTTP 429 rate limits, or when a disk is failing will corrupt sync state and trigger cascading deletions.
 

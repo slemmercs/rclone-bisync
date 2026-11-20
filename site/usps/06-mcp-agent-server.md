@@ -7,83 +7,27 @@ nav_order: 6
 
 # Native Model Context Protocol (MCP) Server
 
-Bisync Hub integrates directly into AI agent workflows (Claude Desktop, Cursor, Cline, OpenCode) through a native, zero-dependency implementation of the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).
-
-Instead of running external Python bridges, Node.js wrappers, or custom subprocess scrapers, **Bisync Hub exposes operational inspection tools, safe mutation primitives, and live telemetry resources directly from the single Go binary**.
-
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                   AI Agent (Cline / Claude / Cursor)                   │
-└────────────────────────────────────┬───────────────────────────────────┘
-                                     │ JSON-RPC (stdio / SSE)
-                                     ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Bisync Hub MCP Server                           │
-│                                                                        │
-│  [ Confirmation Ticket Engine ]  ──►  Exact Parameter Fingerprint      │
-│  [ Read-Only Enforcement ]       ──►  Strict Mutation Guard            │
-│  [ Jail-Confinement Layer ]      ──►  Path Traversal Protection        │
-│                                                                        │
-│  Tools:                                Resources:                      │
-│   • bisync_get_status (Token-Optimized) • bisync://profiles            │
-│   • bisync_get_logs (Level-Filtered)    • bisync://status              │
-│   • bisync_list_providers (Catalog)    • bisync://profile/{id}        │
-│   • bisync_list_profiles                • bisync://history/{id}        │
-│   • bisync_list_remotes                 • bisync://conflicts/{session} │
-│   • bisync_get_sync_history                                            │
-│   • bisync_inspect_conflict_session                                    │
-│   • bisync_explore_path (Paginated)                                    │
-│   • bisync_preview_file (Safe Head)                                    │
-│   • bisync_validate_flags                                              │
-│   • bisync_trigger_sync (Confirmation)                                 │
-│   • bisync_resolve_review (Backup Staged)                              │
-│   • bisync_dedupe_by_hash (Hash-Based)                                 │
-│   • bisync_create_remote / delete_remote                               │
-│   • bisync_create_profile / update / delete / rollback                 │
-│   • bisync_mkdir / copy / move / delete / purge                        │
-└────────────────────────────────────┬───────────────────────────────────┘
-                                     │
-                                     ▼
-                     [ Bisync Hub Core Engine & Jails ]
-```
+Bisync Hub exposes a built-in [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server directly from the `bisync-hub` binary—no Python wrappers, Node bridges, or log scrapers required.
 
 ---
 
-## Architectural Principles
+## Core Capabilities
 
-### 1. Dual Transport Architecture (`stdio` & `sse`)
-The MCP server operates out of the box with zero runtime dependencies:
-- **Standard I/O (`stdio`)**: Ideal for local agent sessions in Cline, Cursor, or Claude Desktop. The agent spawns the `rclone-bisync mcp` command as a managed subprocess.
-- **Server-Sent Events (`sse`)**: Streamable HTTP transport for remote installations, Docker containers, or centralized orchestration servers (`rclone-bisync mcp --transport sse --host 0.0.0.0 --port 8081`).
-
-### 2. High-Blast-Radius Confirmation Tickets
-Mutating tools that could alter files or rebuild sync state enforce a cryptographic, two-step confirmation loop when `--require-confirmation` is enabled (default):
-1. **Initial Call**: The agent invokes an action requiring elevated confirmation (e.g. `bisync_trigger_sync` with `resync=true` or `force=true`, `bisync_resolve_review` with `execute=true`, or `bisync_dedupe_by_hash` with `mode != "list"`).
-2. **Ticket Generation**: Bisync Hub generates a temporary, cryptographically random confirmation ticket (5-minute TTL) with an exact SHA-256 parameter fingerprint.
-3. **Execution Verification**: The action executes only if the agent resubmits the valid `confirmation_token` with the exact same parameters. Any attempt to alter flags between stages immediately invalidates the ticket.
-
-### 3. Deep Defense-in-Depth & Read-Only Safety
-- **Strict Read-Only Mode**: Launching with `--read-only` disables all write tools (`bisync_trigger_sync`, `bisync_resolve_review`, `bisync_dedupe_by_hash`), returning an instant security error if called.
-- **Path Confinement Jails**: `bisync_explore_path` guarantees strict isolation via `filepath.Rel` and prevents directory traversal attacks outside the configured local root.
-- **Secret Redaction**: Every response automatically strips credential patterns (`PASS`, `KEY`, `TOKEN`, `SECRET`) via recursive tree sanitization.
-
-### 4. LLM Token Optimization & Ergonomics
-To prevent agent context windows from being overwhelmed:
-- **Compact Default Status**: `bisync_get_status` outputs a 195-character summary by default (**~98.5% token reduction**), deferring heavy logs and configs to explicit opt-in flags.
-- **Dedicated Log Filtering**: `bisync_get_logs` retrieves tail-limited logs with severity filtering (`ERROR`, `NOTICE`, `INFO`).
-- **Paginated Explorer**: `bisync_explore_path` provides windowed pagination (`limit`, `offset`) and filename substring filtering.
-- **Bounded Dedupe Output**: `bisync_dedupe_by_hash` truncates terminal output to 2,000 characters and avoids writing empty audit records for zero-deletion dry runs per ADR-004.
+* **Dual Transport (`stdio` & Embedded `SSE`):** Local agents (Cline, Claude Desktop, Cursor) can spawn `bisync-hub mcp` over `stdio`, while remote or multi-agent setups can connect to the embedded `SSE` endpoint served alongside the dashboard daemon.
+* **Parameter-Fingerprinted Confirmation Tickets:** Destructive or state-altering calls (`bisync_trigger_sync` with `resync`/`force`, `bisync_resolve_review` with `execute=true`, or mutating `bisync_dedupe_by_hash` modes) require a two-step confirmation flow. Tickets carry a short TTL and bind to a `SHA-256` hash of the exact parameters—changing arguments invalidates the ticket.
+* **Read-Only Mode & Guardrails:** Running with read-only mode enabled (`MCP_READ_ONLY=true` / `--read-only`) blocks mutating tools, while path confinement jails and recursive secret redaction remain active on every call.
+* **Context-Window Discipline:** `bisync_get_status` returns a compact summary by default, `bisync_get_logs` supports level filtering, and `bisync_explore_path` paginates results so agents don't burn context on noisy output.
 
 ---
 
-## Agent Configuration
+## Agent Configuration Examples
 
 ### Cline (`~/.cline/data/settings/cline_mcp_settings.json`)
 ```json
 {
   "mcpServers": {
-    "rclone-bisync": {
-      "command": "/usr/local/bin/rclone-bisync",
+    "bisync-hub": {
+      "command": "/usr/local/bin/bisync-hub",
       "args": ["mcp"],
       "disabled": false,
       "autoApprove": [
@@ -108,7 +52,7 @@ To prevent agent context windows from being overwhelmed:
 {
   "mcpServers": {
     "bisync-hub": {
-      "command": "/usr/local/bin/rclone-bisync",
+      "command": "/usr/local/bin/bisync-hub",
       "args": ["mcp"]
     }
   }

@@ -243,6 +243,52 @@ func (s *Service) IsProfileSyncing(id string) bool {
 	return s.scheduler.IsProfileRunning(id)
 }
 
+// GetQueueSnapshot returns the current state of the execution queue and running cohorts.
+func (s *Service) GetQueueSnapshot() QueueSnapshotDTO {
+	if s == nil || s.scheduler == nil {
+		return QueueSnapshotDTO{}
+	}
+	return s.scheduler.GetQueueSnapshot()
+}
+
+// PauseQueue halts admission of queued profiles.
+func (s *Service) PauseQueue() {
+	if s != nil && s.scheduler != nil {
+		s.scheduler.PauseDispatcher()
+	}
+}
+
+// ResumeQueue resumes admission of queued profiles.
+func (s *Service) ResumeQueue() {
+	if s != nil && s.scheduler != nil {
+		s.scheduler.ResumeDispatcher()
+	}
+}
+
+// IsQueuePaused reports whether queue admissions are paused.
+func (s *Service) IsQueuePaused() bool {
+	if s == nil || s.scheduler == nil {
+		return false
+	}
+	return s.scheduler.IsDispatcherPaused()
+}
+
+// CancelQueuedJob removes a pending profile from the execution queue.
+func (s *Service) CancelQueuedJob(profileID string) error {
+	if s == nil || s.scheduler == nil {
+		return fmt.Errorf("scheduler is not active")
+	}
+	return s.scheduler.CancelQueued(profileID)
+}
+
+// ClearQueue cancels all pending queued jobs and restores baseline engine options if idle.
+func (s *Service) ClearQueue() int {
+	if s == nil || s.scheduler == nil {
+		return 0
+	}
+	return s.scheduler.ClearQueue()
+}
+
 // ListRemotes queries available remotes from Rclone RC.
 func (s *Service) ListRemotes(ctx context.Context) ([]string, error) {
 	if s.remotes == nil {

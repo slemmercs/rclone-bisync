@@ -168,4 +168,33 @@ func TestTailJSONLogPaginatedFiltered(t *testing.T) {
 	if resLevel.Total != 30 {
 		t.Fatalf("expected 30 notice level entries, got %d", resLevel.Total)
 	}
+
+	// 4. Test slog HTTP access lines without explicit "type" field
+	slogPath := filepath.Join(tmpDir, "slog_access.log")
+	var slogSb strings.Builder
+	for i := 1; i <= 20; i++ {
+		slogSb.WriteString(`{"time":"2026-11-18T10:00:00Z","level":"info","type":"sync","msg":"sync entry"}` + "\n")
+		// slog JSON output with msg=http_access, method=GET, path=/api/telemetry (no "type" field)
+		slogSb.WriteString(`{"time":"2026-11-18T10:00:01Z","level":"DEBUG","msg":"http_access","method":"GET","path":"/api/telemetry","status":200,"duration_ms":0.4}` + "\n")
+		// slog JSON output with method=POST, path=/api/trigger (no "type" or msg=http_access)
+		slogSb.WriteString(`{"time":"2026-11-18T10:00:02Z","level":"DEBUG","msg":"handled request","method":"POST","path":"/api/trigger","status":200}` + "\n")
+		// Plaintext legacy HTTP access
+		slogSb.WriteString("2026/11/18 10:00:03 GET /api/status 200 OK\n")
+	}
+	if err := os.WriteFile(slogPath, []byte(slogSb.String()), 0600); err != nil {
+		t.Fatalf("failed to write slog test log: %v", err)
+	}
+
+	resSlogFiltered := TailJSONLogPaginatedFiltered(slogPath, 1, 50, LogFilter{
+		ExcludeTypes: []string{"http_access"},
+	})
+	if resSlogFiltered.Total != 20 {
+		t.Fatalf("expected 20 sync entries after excluding slog http_access, got %d", resSlogFiltered.Total)
+	}
+	for _, l := range resSlogFiltered.Logs {
+		if strings.Contains(l, "http_access") || strings.Contains(l, "/api/") {
+			t.Fatalf("found unsuppressed http_access entry in filtered logs: %s", l)
+		}
+	}
+
 }

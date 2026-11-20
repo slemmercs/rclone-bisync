@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - "site/**"
+      - "internal/models/**"
+      - "internal/profiles/**"
+      - "internal/mcp/**"
+      - "cmd/gendocs/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -28,7 +32,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Generate Technical Documentation from AST
+        run: |
+          go run ./cmd/gendocs --out site/technical-reference.md
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -50,3 +64,4 @@ jobs:
           publish_dir: ./site/_site
           publish_branch: gh-pages
           commit_message: "deploy(docs): update GitHub Pages [skip ci]"
+

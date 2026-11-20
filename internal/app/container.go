@@ -254,7 +254,17 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 			if c.ProfileExecutor == nil {
 				c.ProfileExecutor = DefaultProfileExecutor(cfg)
 			}
-			c.ProfileScheduler = profiles.NewScheduler(profStore, c.ProfileExecutor)
+			var schedOpts []profiles.SchedulerOption
+			if c.Client != nil {
+				schedOpts = append(schedOpts, profiles.WithEngineClient(c.Client))
+			}
+			schedOpts = append(schedOpts, profiles.WithFleetFlags(func() string {
+				if c.Config != nil {
+					return c.Config.GlobalDefaults.CustomFlags
+				}
+				return ""
+			}))
+			c.ProfileScheduler = profiles.NewScheduler(profStore, c.ProfileExecutor, schedOpts...)
 			c.ProfileService = profiles.NewService(profStore, c.Client, c.ProfileScheduler)
 		}
 		if c.UploadDock == nil {

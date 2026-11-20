@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/slemmercs/rclone-bisync/internal/app"
+	"github.com/slemmercs/rclone-bisync/internal/audit"
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/engine/runner"
 	"github.com/slemmercs/rclone-bisync/internal/mcp"
@@ -97,6 +99,40 @@ func main() {
 
 			runMCP(*transport, *host, *port, *readOnly, *requireConfirmation, *mcpEnv, *debug)
 			return
+
+		case "audit":
+			auditCmd := flag.NewFlagSet("audit", flag.ExitOnError)
+			auditEnv := auditCmd.String("env-file", "", "Path to custom bisync.env")
+			var flagArgs []string
+			var subArgs []string
+			for i := 2; i < len(os.Args); i++ {
+				arg := os.Args[i]
+				if arg == "--env-file" && i+1 < len(os.Args) {
+					flagArgs = append(flagArgs, arg, os.Args[i+1])
+					i++
+				} else if strings.HasPrefix(arg, "--env-file=") {
+					flagArgs = append(flagArgs, arg)
+				} else {
+					subArgs = append(subArgs, arg)
+				}
+			}
+			_ = auditCmd.Parse(flagArgs)
+			action := "verify"
+			if len(subArgs) > 0 {
+				action = subArgs[0]
+			}
+			runAudit(action, *auditEnv)
+			return
+		case "migrate-env", "--migrate-env":
+			migCmd := flag.NewFlagSet("migrate-env", flag.ExitOnError)
+			dryRun := migCmd.Bool("dry-run", false, "Report missing keys without modifying disk")
+			envPath := migCmd.String("env-file", "bisync.env", "Path to deployed bisync.env")
+			templatePath := migCmd.String("template", "config/bisync.env.example", "Path to canonical template file")
+			_ = migCmd.Parse(os.Args[2:])
+
+			runMigrateEnv(*envPath, *templatePath, *dryRun)
+			return
+
 		}
 	}
 
@@ -287,5 +323,46 @@ func runMCP(transport, host string, port int, readOnly, requireConfirmation bool
 		if err := mcpSrv.ServeStdio(ctx); err != nil {
 			log.Fatalf("MCP stdio server error: %v", err)
 		}
+	}
+}
+
+func runAudit(action string, envFile string) {
+	cfg, err := config.LoadConfig(envFile)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	if err := audit.RunCLI(action, cfg.AuditDBPath, cfg.LocalPath); err != nil {
+		log.Fatalf("Audit command failed: %v", err)
+	}
+}
+
+func runMigrateEnv(deployedPath, templatePath string, dryRun bool) {
+	fmt.Printf("🔍 Scanning %s against template %s (dry-run: %t)...\n", deployedPath, templatePath, dryRun)
+	res, err := config.MigrateEnvFile(deployedPath, templatePath, dryRun)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Migration failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	if res.AlreadyUpToDate {
+		fmt.Println("✅ Environment file is already up to date with all canonical keys.")
+		return
+	}
+
+	if res.DryRun {
+		fmt.Printf("⚠️ Found %d missing canonical key(s):\n", res.AddedCount)
+		for _, k := range res.MissingKeys {
+			fmt.Printf("  + %s\n", k)
+		}
+		fmt.Println("💡 Run without --dry-run to apply updates non-destructively.")
+		return
+	}
+
+	fmt.Printf("✅ Successfully migrated %s! Added %d missing key(s).\n", res.DeployedPath, res.AddedCount)
+	if res.BackupPath != "" {
+		fmt.Printf("📦 Timestamped backup saved: %s\n", res.BackupPath)
+	}
+	for _, k := range res.MissingKeys {
+		fmt.Printf("  + %s\n", k)
 	}
 }

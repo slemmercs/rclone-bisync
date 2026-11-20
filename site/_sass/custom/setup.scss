@@ -1,22 +1,23 @@
 // ==============================================================================
 // Bisync Hub - Design System Tokens & Variable Overrides
-// Slate-900 canvas with Indigo accents and Emerald status highlights
+// Agnoster Carbon canvas with Electric Blue accents and Emerald status highlights
 // ==============================================================================
 
-// Base canvas & navigation background
-$body-background-color: #0b0f19;
-$sidebar-color: #0e1322;
-$border-color: #1e293b;
+// Base canvas & navigation background (Agnoster Carbon)
+$body-background-color: #090a0d;
+$sidebar-color: #111318;
+$border-color: #262936;
 
 // Typography
 $body-text-color: #94a3b8;
-$heading-color: #c7d2fe;
-$link-color: #818cf8;
+$heading-color: #f8fafc;
+$link-color: #38bdf8;
 
 // Code block & container backgrounds
-$code-background-color: #13192b;
-$table-background-color: #13192b;
+$code-background-color: #161922;
+$table-background-color: #161922;
 
-// Interactive elements & accents (Indigo & Emerald)
-$btn-primary-color: #6366f1;
+// Interactive elements & accents (Electric Blue & Emerald)
+$btn-primary-color: #0ea5e9;
 $feedback-color: #10b981;
+

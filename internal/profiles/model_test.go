@@ -286,3 +286,83 @@ func TestProfile_Validate_EnumsAndNormalization(t *testing.T) {
 		}
 	})
 }
+
+func TestProfileFlags_ProviderOptionsFlexibleUnmarshal(t *testing.T) {
+	input := `{
+		"flags": {
+			"custom_flags": "--fast-list",
+			"provider_options": {
+				"drive_use_trash": true,
+				"drive_shared_with_me": false,
+				"chunk_size": 16,
+				"rate": 2.5,
+				"team_drive": "abc-123",
+				"null_opt": null
+			}
+		}
+	}`
+
+	var p Profile
+	if err := json.Unmarshal([]byte(input), &p); err != nil {
+		t.Fatalf("failed to unmarshal profile with mixed-type provider options: %v", err)
+	}
+
+	opts := p.Flags.ProviderOptions
+	if opts == nil {
+		t.Fatal("expected ProviderOptions to be non-nil")
+	}
+
+	if opts["drive_use_trash"] != "true" {
+		t.Errorf("expected drive_use_trash 'true', got %q", opts["drive_use_trash"])
+	}
+	if opts["drive_shared_with_me"] != "false" {
+		t.Errorf("expected drive_shared_with_me 'false', got %q", opts["drive_shared_with_me"])
+	}
+	if opts["chunk_size"] != "16" {
+		t.Errorf("expected chunk_size '16', got %q", opts["chunk_size"])
+	}
+	if opts["rate"] != "2.5" {
+		t.Errorf("expected rate '2.5', got %q", opts["rate"])
+	}
+	if opts["team_drive"] != "abc-123" {
+		t.Errorf("expected team_drive 'abc-123', got %q", opts["team_drive"])
+	}
+	if _, exists := opts["null_opt"]; exists {
+		t.Errorf("expected null_opt to be omitted from map, got %q", opts["null_opt"])
+	}
+}
+
+func TestSafetySettings_FlexibleUnmarshal(t *testing.T) {
+	t.Run("canonical delete_threshold_pct", func(t *testing.T) {
+		data := `{"delete_threshold_pct": 12.5, "failure_threshold": 5, "canary_validation": true}`
+		var s SafetySettings
+		if err := json.Unmarshal([]byte(data), &s); err != nil {
+			t.Fatalf("failed to unmarshal safety settings: %v", err)
+		}
+		if s.DeleteThresholdPct != 12.5 || s.FailureThreshold != 5 || !s.CanaryValidation {
+			t.Errorf("unexpected decoded values: %+v", s)
+		}
+	})
+
+	t.Run("vue max_delete_percent float", func(t *testing.T) {
+		data := `{"max_delete_percent": 15.0, "failure_threshold": "4", "canary_validation": "1"}`
+		var s SafetySettings
+		if err := json.Unmarshal([]byte(data), &s); err != nil {
+			t.Fatalf("failed to unmarshal safety settings: %v", err)
+		}
+		if s.DeleteThresholdPct != 15.0 || s.FailureThreshold != 4 || !s.CanaryValidation {
+			t.Errorf("unexpected decoded values: %+v", s)
+		}
+	})
+
+	t.Run("vue max_delete_percent percentage string", func(t *testing.T) {
+		data := `{"max_delete_percent": "20%", "failure_threshold": 3, "canary_validation": "true"}`
+		var s SafetySettings
+		if err := json.Unmarshal([]byte(data), &s); err != nil {
+			t.Fatalf("failed to unmarshal safety settings: %v", err)
+		}
+		if s.DeleteThresholdPct != 20.0 || s.FailureThreshold != 3 || !s.CanaryValidation {
+			t.Errorf("unexpected decoded values: %+v", s)
+		}
+	})
+}

@@ -14,7 +14,7 @@ Bisync Hub's technical governance is structured across four specialized specific
    Defines the user-centric mission: *Review. Decide. Sync.* Prioritizes human decision authority, explainability over black boxes, safety before automation, and profiles as primary user abstractions.
 
 2. ⚙️ **[Engineering Principles](ENGINEERING_PRINCIPLES.md)**  
-   Governs code organization, domain service separation (`internal/services/`), sub-400 LOC component budgets, atomic file write patterns (`.tmp.<pid>` + `os.Rename`), POSIX advisory locking (`flock`), and testability by design.
+   Governs code organization, domain service separation (`internal/services/`), Go service sub-400 LOC budgets and cohesive frontend components, atomic file write patterns (`.tmp.<pid>` + `os.Rename`), POSIX advisory locking (`flock`), and testability by design.
 
 3. 🛡️ **[Security Principles](SECURITY_PRINCIPLES.md)**  
    Mandates local filesystem path confinement jails, canary file protection (`RCLONE_TEST`), recursive credential sanitization (`security.RedactSecrets`), safe failure modes, and tamper-evident audit trails.
@@ -26,11 +26,11 @@ Bisync Hub's technical governance is structured across four specialized specific
 
 ## Core System Invariants
 
-### 1. Single Binary First
-Bisync Hub ships as a single, self-contained executable binary. It requires zero external language runtimes (no Node.js, Python, or Ruby) and zero external background daemons to operate.
+### 1. Single Binary First & Zero Runtime Dependencies
+Bisync Hub ships as a single, self-contained executable binary. It requires zero external language runtimes (no Node.js, Python, or Ruby) and zero external background daemons to operate. Contributors working exclusively on Go backend services, MCP tools, or sync algorithms can clone and run `go build ./...` or `go test ./...` with zero Node.js/npm tooling installed.
 
-### 2. Embedded Frontend
-Web dashboard assets (HTML, Alpine.js, Tailwind CSS, Chart.js) are embedded directly into the Go executable via standard `//go:embed`. Users never need separate frontend server deployments.
+### 2. Embedded Pre-Compiled Frontend
+Web dashboard production assets (`dashboard/frontend/dist/*`) are compiled ahead-of-time and embedded directly into the Go executable via standard `//go:embed`. Pre-compiled distribution bundles are committed to version control, preserving instant Go builds without runtime compilers (no browser-side Tailwind JIT) and eliminating external frontend server deployments.
 
 ### 3. Local-First Design
 The platform is designed primarily for individual power users, homelabs, and self-hosted environments. It operates completely independently of third-party cloud control planes, centralized telemetry servers, or remote licensing authorities.

@@ -151,3 +151,31 @@ func (c *RcloneClient) DownloadStream(ctx context.Context, remote, path string, 
 	// Fallback to /operations/getfile with explicit maxSize
 	return c.CatStream(ctx, remote, path, 0, 0, size)
 }
+
+// HashsumFile calls /operations/hashsumfile to produce a cryptographic hash for a single file on a remote.
+func (c *RcloneClient) HashsumFile(ctx context.Context, remote, path, hashType string) (string, error) {
+	fs := NormalizeFs(remote)
+	cleanPath := strings.Trim(path, "/")
+
+	payload := map[string]interface{}{
+		"fs":       fs,
+		"remote":   cleanPath,
+		"hashType": hashType,
+	}
+
+	resp, body, err := c.post(ctx, "operations/hashsumfile", payload, 30*time.Second)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("hashsumfile failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var res struct {
+		Hash string `json:"hash"`
+	}
+	if err := json.Unmarshal(body, &res); err != nil {
+		return "", fmt.Errorf("failed to parse hashsumfile response: %w", err)
+	}
+	return strings.ToLower(strings.TrimSpace(res.Hash)), nil
+}
