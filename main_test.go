@@ -75,7 +75,6 @@ func TestTemplateHTMLBalancedTags(t *testing.T) {
 	}
 }
 
-
 func TestSubcommandFlagParsing(t *testing.T) {
 	// 1. Dashboard subcommand flagset
 	dashCmd := flag.NewFlagSet("dashboard", flag.ContinueOnError)

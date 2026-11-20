@@ -1,22 +1,22 @@
 package e2e
 
 import (
-"context"
-"net/http"
-"net/http/httptest"
-"os"
-"os/exec"
-"path/filepath"
-"strings"
-"sync"
-"testing"
-"time"
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
 
-"github.com/chromedp/chromedp"
-"github.com/slemmercs/rclone-bisync/internal/config"
-"github.com/slemmercs/rclone-bisync/internal/profiles"
-"github.com/slemmercs/rclone-bisync/internal/server"
-"github.com/slemmercs/rclone-bisync/internal/services"
+	"github.com/chromedp/chromedp"
+	"github.com/slemmercs/rclone-bisync/internal/config"
+	"github.com/slemmercs/rclone-bisync/internal/profiles"
+	"github.com/slemmercs/rclone-bisync/internal/server"
+	"github.com/slemmercs/rclone-bisync/internal/services"
 )
 
 // findChromeBinary searches for an available Chrome/Chromium executable.
@@ -67,7 +67,7 @@ func TestDashboard_HeadlessChromeSmoke(t *testing.T) {
 	tempDir := t.TempDir()
 
 	mockRCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/config/listremotes":
 			_, _ = w.Write([]byte(`{"remotes":["testremote"]}`))
@@ -121,25 +121,25 @@ w.Header().Set("Content-Type", "application/json")
 	defer ts.Close()
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-chromedp.ExecPath(chromePath),
-chromedp.DisableGPU,
-chromedp.NoSandbox,
-chromedp.Headless,
-chromedp.WindowSize(1440, 900),
-chromedp.Flag("disable-dev-shm-usage", true),
-chromedp.Flag("disable-software-rasterizer", true),
-chromedp.Flag("proxy-server", "direct://"),
-chromedp.Flag("proxy-bypass-list", "*"),
-chromedp.Flag("disable-background-networking", true),
-chromedp.Flag("disable-background-timer-throttling", true),
-chromedp.Flag("disable-backgrounding-occluded-windows", true),
-chromedp.Flag("disable-breakpad", true),
-chromedp.Flag("disable-component-update", true),
-chromedp.Flag("disable-ipc-flooding-protection", true),
-chromedp.Flag("disable-hang-monitor", true),
-chromedp.Flag("disable-renderer-backgrounding", true),
-chromedp.Flag("force-color-profile", "srgb"),
-)
+		chromedp.ExecPath(chromePath),
+		chromedp.DisableGPU,
+		chromedp.NoSandbox,
+		chromedp.Headless,
+		chromedp.WindowSize(1440, 900),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-software-rasterizer", true),
+		chromedp.Flag("proxy-server", "direct://"),
+		chromedp.Flag("proxy-bypass-list", "*"),
+		chromedp.Flag("disable-background-networking", true),
+		chromedp.Flag("disable-background-timer-throttling", true),
+		chromedp.Flag("disable-backgrounding-occluded-windows", true),
+		chromedp.Flag("disable-breakpad", true),
+		chromedp.Flag("disable-component-update", true),
+		chromedp.Flag("disable-ipc-flooding-protection", true),
+		chromedp.Flag("disable-hang-monitor", true),
+		chromedp.Flag("disable-renderer-backgrounding", true),
+		chromedp.Flag("force-color-profile", "srgb"),
+	)
 
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer cancelAlloc()
@@ -173,24 +173,24 @@ chromedp.Flag("force-color-profile", "srgb"),
 
 	// 1. Initial Page Load & SPA Mount at root GET /
 	t.Run("RootSPAMountAndHeader", func(t *testing.T) {
-err := chromedp.Do(ctx,
-chromedp.Navigate(ts.URL),
-chromedp.WaitReady("#app"),
-chromedp.WaitReady("header"),
-)
-if err != nil {
-t.Fatalf("failed to mount Vue SPA at root %s: %v", ts.URL, err)
-}
+		err := chromedp.Do(ctx,
+			chromedp.Navigate(ts.URL),
+			chromedp.WaitReady("#app"),
+			chromedp.WaitReady("header"),
+		)
+		if err != nil {
+			t.Fatalf("failed to mount Vue SPA at root %s: %v", ts.URL, err)
+		}
 
-brandText, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
+		brandText, err := chromedp.Run(ctx, chromedp.Evaluate[string](`(() => {
 			const el = document.querySelector('header span.font-bold');
 			return el ? el.textContent.trim() : '';
 		})()`))
-if err != nil || !strings.Contains(brandText, "Bisync Hub") {
-t.Fatalf("expected brand 'Bisync Hub', got %q (err: %v)", brandText, err)
-}
+		if err != nil || !strings.Contains(brandText, "Bisync Hub") {
+			t.Fatalf("expected brand 'Bisync Hub', got %q (err: %v)", brandText, err)
+		}
 
-title, err := chromedp.Run(ctx, chromedp.Title())
+		title, err := chromedp.Run(ctx, chromedp.Title())
 		if err != nil {
 			t.Fatalf("failed reading page title: %v", err)
 		}
@@ -203,178 +203,178 @@ title, err := chromedp.Run(ctx, chromedp.Title())
 	tabs := []string{"Fleet", "Engine & Telemetry", "Storage Remotes", "File Explorer", "Audit Trail"}
 	for _, tabName := range tabs {
 		t.Run("Tab_"+tabName, func(t *testing.T) {
-clickTabScript := `(() => {
+			clickTabScript := `(() => {
 				const buttons = Array.from(document.querySelectorAll('header nav button'));
 				const btn = buttons.find(b => b.textContent.includes('` + tabName + `'));
 if (btn) { btn.click(); return true; }
 return false;
 })()`
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickTabScript))
-if err != nil || !clicked {
-t.Fatalf("failed to click tab %q: %v", tabName, err)
-}
-time.Sleep(150 * time.Millisecond)
-})
+			clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickTabScript))
+			if err != nil || !clicked {
+				t.Fatalf("failed to click tab %q: %v", tabName, err)
+			}
+			time.Sleep(150 * time.Millisecond)
+		})
 	}
 
 	// 3. Log Dock Toggle
 	t.Run("LogDockInteraction", func(t *testing.T) {
-clickLogsScript := `(() => {
+		clickLogsScript := `(() => {
 			const btns = Array.from(document.querySelectorAll('header button'));
 			const logBtn = btns.find(b => b.textContent.includes('Logs'));
 			if (logBtn) { logBtn.click(); return true; }
 			return false;
 		})()`
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickLogsScript))
-if err != nil || !clicked {
-t.Fatalf("failed to toggle LogDock: %v", err)
-}
-time.Sleep(150 * time.Millisecond)
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickLogsScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to toggle LogDock: %v", err)
+		}
+		time.Sleep(150 * time.Millisecond)
 
-_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](clickLogsScript))
-time.Sleep(100 * time.Millisecond)
-})
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](clickLogsScript))
+		time.Sleep(100 * time.Millisecond)
+	})
 
 	// 4. Help Drawer
 	t.Run("HelpDrawerInteraction", func(t *testing.T) {
-clickHelpScript := `(() => {
+		clickHelpScript := `(() => {
 			const btns = Array.from(document.querySelectorAll('header button'));
 			const helpBtn = btns.find(b => b.textContent.includes('Help'));
 			if (helpBtn) { helpBtn.click(); return true; }
 			return false;
 		})()`
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickHelpScript))
-if err != nil || !clicked {
-t.Fatalf("failed to open HelpDrawer: %v", err)
-}
-time.Sleep(200 * time.Millisecond)
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickHelpScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open HelpDrawer: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
 
-_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 			return true;
 		})()`))
-time.Sleep(150 * time.Millisecond)
-})
+		time.Sleep(150 * time.Millisecond)
+	})
 
 	// 5. Global Settings Modal
 	t.Run("GlobalSettingsModalInteraction", func(t *testing.T) {
-clickSettingsScript := `(() => {
+		clickSettingsScript := `(() => {
 			const btns = Array.from(document.querySelectorAll('header button'));
 			const sBtn = btns.find(b => b.textContent.includes('Settings'));
 			if (sBtn) { sBtn.click(); return true; }
 			return false;
 		})()`
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickSettingsScript))
-if err != nil || !clicked {
-t.Fatalf("failed to open Settings modal: %v", err)
-}
-time.Sleep(200 * time.Millisecond)
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickSettingsScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Settings modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
 
-_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 			return true;
 		})()`))
-time.Sleep(150 * time.Millisecond)
-})
+		time.Sleep(150 * time.Millisecond)
+	})
 
 	// 6. System Health Modal
 	t.Run("SystemHealthModalInteraction", func(t *testing.T) {
-clickHealthScript := `(() => {
+		clickHealthScript := `(() => {
 			const btns = Array.from(document.querySelectorAll('header button'));
 			const hBtn = btns.find(b => (b.title && b.title.includes('System Health')) || b.textContent.includes('Daemon'));
 			if (hBtn) { hBtn.click(); return true; }
 			return false;
 		})()`
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickHealthScript))
-if err != nil || !clicked {
-t.Fatalf("failed to open System Health modal: %v", err)
-}
-time.Sleep(200 * time.Millisecond)
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickHealthScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open System Health modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
 
-_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 			return true;
 		})()`))
-time.Sleep(150 * time.Millisecond)
-})
+		time.Sleep(150 * time.Millisecond)
+	})
 
 	// 7. MCP Modal
 	t.Run("McpModalInteraction", func(t *testing.T) {
-clickMcpScript := `(() => {
+		clickMcpScript := `(() => {
 			const btns = Array.from(document.querySelectorAll('header button'));
 			const mBtn = btns.find(b => b.textContent.includes('MCP'));
 			if (mBtn) { mBtn.click(); return true; }
 			return false;
 		})()`
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickMcpScript))
-if err != nil || !clicked {
-t.Fatalf("failed to open MCP modal: %v", err)
-}
-time.Sleep(200 * time.Millisecond)
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickMcpScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open MCP modal: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
 
-_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 			return true;
 		})()`))
-time.Sleep(150 * time.Millisecond)
-})
+		time.Sleep(150 * time.Millisecond)
+	})
 
 	// 8. Bandwidth Popover
 	t.Run("BandwidthPopoverInteraction", func(t *testing.T) {
-clickBwScript := `(() => {
+		clickBwScript := `(() => {
 			const btns = Array.from(document.querySelectorAll('header button'));
 			const bwBtn = btns.find(b => b.textContent.includes('BW:'));
 			if (bwBtn) { bwBtn.click(); return true; }
 			return false;
 		})()`
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickBwScript))
-if err != nil || !clicked {
-t.Fatalf("failed to open Bandwidth popover: %v", err)
-}
-time.Sleep(200 * time.Millisecond)
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickBwScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Bandwidth popover: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
 
-hasPopover, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+		hasPopover, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 			return document.body.textContent.includes('Bandwidth Throttling');
 		})()`))
-if err != nil || !hasPopover {
-t.Fatalf("expected Bandwidth Throttling popover in DOM, err: %v", err)
-}
+		if err != nil || !hasPopover {
+			t.Fatalf("expected Bandwidth Throttling popover in DOM, err: %v", err)
+		}
 
-_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](clickBwScript))
-time.Sleep(150 * time.Millisecond)
-})
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](clickBwScript))
+		time.Sleep(150 * time.Millisecond)
+	})
 
 	// 9. Quick Create Menu
 	t.Run("QuickCreateMenuInteraction", func(t *testing.T) {
-clickCreateScript := `(() => {
+		clickCreateScript := `(() => {
 			const btns = Array.from(document.querySelectorAll('header button'));
 			const cBtn = btns.find(b => b.textContent.includes('Create'));
 			if (cBtn) { cBtn.click(); return true; }
 			return false;
 		})()`
-clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickCreateScript))
-if err != nil || !clicked {
-t.Fatalf("failed to open Quick Create menu: %v", err)
-}
-time.Sleep(200 * time.Millisecond)
+		clicked, err := chromedp.Run(ctx, chromedp.Evaluate[bool](clickCreateScript))
+		if err != nil || !clicked {
+			t.Fatalf("failed to open Quick Create menu: %v", err)
+		}
+		time.Sleep(200 * time.Millisecond)
 
-hasMenu, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+		hasMenu, err := chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 			return document.body.textContent.includes('New Sync Profile') && document.body.textContent.includes('Connect Remote');
 		})()`))
-if err != nil || !hasMenu {
-t.Fatalf("expected Quick Create menu items in DOM, err: %v", err)
-}
+		if err != nil || !hasMenu {
+			t.Fatalf("expected Quick Create menu items in DOM, err: %v", err)
+		}
 
-_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
+		_, _ = chromedp.Run(ctx, chromedp.Evaluate[bool](`(() => {
 			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 			return true;
 		})()`))
-time.Sleep(150 * time.Millisecond)
-})
+		time.Sleep(150 * time.Millisecond)
+	})
 
 	// 10. Final Console Error Audit
 	t.Run("ConsoleErrorAudit", func(t *testing.T) {
-mu.Lock()
+		mu.Lock()
 		defer mu.Unlock()
 
 		var criticalErrors []string
@@ -387,7 +387,7 @@ mu.Lock()
 
 		if len(criticalErrors) > 0 {
 			t.Errorf("encountered %d uncaught browser console errors during root SPA test:\n%s",
-len(criticalErrors), strings.Join(criticalErrors, "\n"))
+				len(criticalErrors), strings.Join(criticalErrors, "\n"))
 		}
 	})
 }
@@ -404,7 +404,7 @@ func TestDashboard_HelpDrawerAndGuidance(t *testing.T) {
 	tempDir := t.TempDir()
 
 	mockRCServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/config/listremotes":
 			_, _ = w.Write([]byte(`{"remotes":["testremote"]}`))
@@ -433,25 +433,25 @@ w.Header().Set("Content-Type", "application/json")
 	defer ts.Close()
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-chromedp.ExecPath(chromePath),
-chromedp.DisableGPU,
-chromedp.NoSandbox,
-chromedp.Headless,
-chromedp.WindowSize(1440, 900),
-chromedp.Flag("disable-dev-shm-usage", true),
-chromedp.Flag("disable-software-rasterizer", true),
-chromedp.Flag("proxy-server", "direct://"),
-chromedp.Flag("proxy-bypass-list", "*"),
-chromedp.Flag("disable-background-networking", true),
-chromedp.Flag("disable-background-timer-throttling", true),
-chromedp.Flag("disable-backgrounding-occluded-windows", true),
-chromedp.Flag("disable-breakpad", true),
-chromedp.Flag("disable-component-update", true),
-chromedp.Flag("disable-ipc-flooding-protection", true),
-chromedp.Flag("disable-hang-monitor", true),
-chromedp.Flag("disable-renderer-backgrounding", true),
-chromedp.Flag("force-color-profile", "srgb"),
-)
+		chromedp.ExecPath(chromePath),
+		chromedp.DisableGPU,
+		chromedp.NoSandbox,
+		chromedp.Headless,
+		chromedp.WindowSize(1440, 900),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-software-rasterizer", true),
+		chromedp.Flag("proxy-server", "direct://"),
+		chromedp.Flag("proxy-bypass-list", "*"),
+		chromedp.Flag("disable-background-networking", true),
+		chromedp.Flag("disable-background-timer-throttling", true),
+		chromedp.Flag("disable-backgrounding-occluded-windows", true),
+		chromedp.Flag("disable-breakpad", true),
+		chromedp.Flag("disable-component-update", true),
+		chromedp.Flag("disable-ipc-flooding-protection", true),
+		chromedp.Flag("disable-hang-monitor", true),
+		chromedp.Flag("disable-renderer-backgrounding", true),
+		chromedp.Flag("force-color-profile", "srgb"),
+	)
 
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer cancelAlloc()
@@ -467,10 +467,10 @@ chromedp.Flag("force-color-profile", "srgb"),
 	defer cancelTimeout()
 
 	err := chromedp.Do(ctx,
-chromedp.Navigate(ts.URL),
-chromedp.WaitReady("#app"),
-chromedp.WaitReady("header"),
-)
+		chromedp.Navigate(ts.URL),
+		chromedp.WaitReady("#app"),
+		chromedp.WaitReady("header"),
+	)
 	if err != nil {
 		t.Fatalf("failed to mount Vue SPA: %v", err)
 	}
