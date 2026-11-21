@@ -74,6 +74,7 @@ func TestScheduler_ExecutionAndFlock(t *testing.T) {
 	if err := sched.Start(ctx); err != nil {
 		t.Fatalf("failed to start scheduler: %v", err)
 	}
+	defer sched.Stop()
 
 	// 1. Trigger manual sync successfully
 	if err := sched.TriggerSync(context.Background(), "sync-work", false); err != nil {
@@ -197,6 +198,7 @@ func TestScheduler_RunningStateQueries(t *testing.T) {
 	if err := sched.Start(ctx); err != nil {
 		t.Fatalf("failed to start scheduler: %v", err)
 	}
+	defer sched.Stop()
 
 	// Initially idle
 	if sched.IsAnyRunning() {
@@ -573,6 +575,7 @@ func TestScheduler_BaselineRestore(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	_ = sched.Start(ctx)
+	defer sched.Stop()
 
 	// Trigger custom run
 	if err := sched.TriggerSync(context.Background(), "prof-custom", false); err != nil {
@@ -710,6 +713,7 @@ func TestScheduler_StopDrainsPendingQueue(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	_ = sched.Start(ctx)
+	defer sched.Stop()
 
 	go func() {
 		_ = sched.TriggerSync(context.Background(), "prof-d1", false)

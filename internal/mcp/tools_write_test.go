@@ -97,6 +97,7 @@ func TestWriteTools_TriggerSyncConfirmation(t *testing.T) {
 	if err := scheduler.Start(ctx); err != nil {
 		t.Fatalf("failed to start scheduler: %v", err)
 	}
+	defer scheduler.Stop()
 
 	// 1. Dry run should NOT require confirmation
 	res, err := srv.handleTriggerSync(ctx, mcp.CallToolRequest{
@@ -220,6 +221,7 @@ func TestWriteTools_TriggerSyncDiagnostics(t *testing.T) {
 	_ = store.Save(p, "test")
 	ctx := context.Background()
 	_ = scheduler.Start(ctx)
+	defer scheduler.Stop()
 
 	ctr := &app.Container{
 		ProfileService: profSvc,
