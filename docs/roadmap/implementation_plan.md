@@ -1,50 +1,46 @@
-# Implementation Plan: Scheduler Active Jobs Race Condition & Test Teardown
+# Implementation Plan: Dual-Pane Explorer Jump to File Navigation
 
 ## Proposed Changes
 
-Eliminate race condition in `Scheduler.runJob()` where `item.ErrCh` is signaled before `s.activeJobs[item.ProfileID]` is deleted under mutex lock. This caused rapid sequential `TriggerSync` calls to fail intermittently with `ErrSyncInProgress` ("synchronization is already in progress for this profile"), particularly under `-shuffle=on` or heavy concurrency. In addition, ensure all test schedulers properly invoke `defer scheduler.Stop()` to prevent background worker leaks across test runs.
+Fix file explorer deep navigation when clicking "Jump to file in Explorer" from correlated daemon logs, telemetry ledger, or deduplication modals. Ensure that switching to the explorer tab immediately mounts `<ViewExplorer>`, applies the target directory path across local and remote panes (respecting pane swapping and profile `remote_path` subdirectories), scrolls the pulsing file into view, and clears the pending jump so subsequent manual tab switches do not re-trigger old jumps.
 
 ### Affected Components & Packages
 
-- `internal/profiles/scheduler.go`:
-  - Reorder `runJob` to remove `item.ProfileID` from `s.activeJobs` and reset worker state *before* signaling `item.ErrCh <- err`.
-- `internal/mcp/tools_write_test.go`:
-  - Add missing `defer scheduler.Stop()` in `TestWriteTools_TriggerSyncConfirmation` and `TestWriteTools_TriggerSyncDiagnostics`.
-- `internal/profiles/scheduler_test.go`:
-  - Add missing `defer sched.Stop()` in tests starting a scheduler without teardown.
+- `dashboard/frontend/src/stores/explorer.ts`:
+  - Update `browse()` to return `Promise<BrowseResponse>` so panes receive their directory items directly without colliding over single shared store state.
+  - Add `consumeTargetJumpPath()` to retrieve and clear pending jump targets atomically.
+- `dashboard/frontend/src/views/ViewExplorer.vue`:
+  - Implement `applyTargetJump()` helper to format paths for local and remote panes, strip `local_path` prefix if an absolute path is provided, account for `profile.remote_path` and `isSwapped`, and trigger pane refreshes.
+  - Coordinate `activeProfile` watcher with pending `targetJumpPath` so initial mount navigates to the jump target rather than resetting to root `""`.
+  - Update `targetJumpPath` watcher to call `applyTargetJump()` when jump is triggered while Explorer is already mounted.
+  - Use returned `BrowseResponse` in `refreshPane()` to eliminate concurrency races.
+- `dashboard/frontend/src/components/explorer/ExplorerTable.vue`:
+  - Add automatic scrolling into view when an item matches `explorerStore.highlightName`.
 
 ### Technical Strategy & Data Flow
 
-- In `runJob`:
-  ```go
-  err := s.executeJob(ctx, item)
-
-  s.mu.Lock()
-  delete(s.activeJobs, item.ProfileID)
-  if w, ok := s.workers[item.ProfileID]; ok {
-      w.isSyncing.Store(false)
-  }
-  s.signalDispatcherLocked()
-  s.mu.Unlock()
-
-  if item.ErrCh != nil {
-      item.ErrCh <- err
-  }
-  ```
-- By moving the locked state de-registration prior to channel notification, any synchronous caller waiting on `TriggerSyncWithOptions` (`<-item.ErrCh`) is strictly guaranteed to observe the idle state upon return.
+- User clicks jump link in `ModalDaemonLogs.vue`:
+  1. `explorerStore.jumpToPath(path)` sets `highlightName` and `targetJumpPath`.
+  2. `appStore.switchTab('explorer')` sets `activeTab = 'explorer'`.
+  3. `<ViewExplorer>` mounts or receives updated `targetJumpPath`.
+  4. `applyTargetJump()` formats directory paths:
+     - Local directory: `cleanDir` (stripped of `profile.local_path` if absolute).
+     - Remote directory: `(remote_path ? remote_path + '/' : '') + cleanDir`.
+     - Assigns to `leftPath` / `rightPath` based on `isSwapped`.
+     - Calls `consumeTargetJumpPath()`.
+     - Calls `refreshPane('left')` and `refreshPane('right')`.
+  5. In `ExplorerTable.vue`, the row corresponding to `highlightName` is rendered, pulses with electric blue outline, and scrolls into view.
 
 ### Safety & Error Handling
 
-- Mutex lock scope is unchanged; deadlock-free.
-- Unbuffered/buffered channel behavior remains identical.
-- Thread-safe and race-detector clean.
+- Graceful fallback: If directory does not exist or has an error, `refreshPane` handles empty items cleanly without crashing.
+- Single binary invariant: `npm --prefix dashboard/frontend run build` updates `dashboard/frontend/dist/` assets embedded into the Go binary.
 
 ## Verification Plan
 
-- `go test -race -shuffle=on -count=20 ./internal/mcp -run TestWriteTools_TriggerSyncConfirmation`
-- `go test -race -shuffle=1795249090223818792 -count=5 ./internal/mcp`
-- `go test -race -count=1 ./internal/profiles/... ./internal/mcp/...`
-- `./scripts/check.sh all`
+- Frontend typecheck and build: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+- E2E tests: `go test -count=1 ./tests/e2e/...`
+- Full pre-commit check: `./scripts/check.sh all`
 
 
 

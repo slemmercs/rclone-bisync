@@ -73,6 +73,7 @@
         v-else
         v-for="item in sortedItems"
         :key="item.Name"
+        :data-filename="item.Name"
         :draggable="item.Name !== 'RCLONE_TEST'"
         @dragstart="handleDragStart(item, $event)"
         @dragend="handleDragEnd"
@@ -136,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useExplorerStore } from '../../stores/explorer'
 import { formatBytes } from '../../composables/useFormatters'
 import { isItemPreviewable, type ExplorerSortField, type ExplorerDragPayload } from '../../types/explorer'
@@ -262,4 +263,29 @@ const sortedItems = computed(() => {
     return sortAsc.value ? res : -res
   })
 })
+
+watch(
+  [() => props.items, () => explorerStore.highlightName],
+  async () => {
+    const target = explorerStore.highlightName
+    if (!target) return
+    await nextTick()
+    try {
+      const targetEl = document.querySelector(`[data-filename="${CSS.escape(target)}"]`)
+      if (targetEl) {
+        targetEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      }
+    } catch (_) {
+      // Fallback if selector escape fails on unusual characters
+      const allEls = document.querySelectorAll('[data-filename]')
+      for (let i = 0; i < allEls.length; i++) {
+        if (allEls[i].getAttribute('data-filename') === target) {
+          allEls[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          break
+        }
+      }
+    }
+  },
+  { deep: true }
+)
 </script>
