@@ -21,16 +21,20 @@ Bisync Hub exists to be the safest, most transparent, and most resilient way to 
 
 ## Delivered Releases & Milestone History
 
-All historical releases, delivered epics, and version changelogs (from initial architecture port through `v1.0.0-beta.31`) are documented in detail in our official release notes:
+All historical releases, delivered epics, and version changelogs (from initial architecture port through `v1.0.0-beta.36`) are documented in detail in our official release notes:
 
 👉 **[View All Delivered Releases on GitHub](https://github.com/slemmercs/rclone-bisync/releases)**
 
-### Key Recently Delivered Capabilities (beta.28 – beta.32)
+### Key Recently Delivered Capabilities (beta.28 – beta.36)
+- **Legacy Frontend Sundown & Default Cockpit SPA (`v1.0.0-beta.36`)**: Promoted Vite 8 + Vue 3 / PrimeVue 4 Cockpit Single-Page Application (SPA) to the default UI served at `GET /` and `GET /cockpit`, retired ~60 legacy files (~5,000 LOC), updated license & template safety validators, and resolved race conditions in deep file path navigation across tabs and dual panes (`applyTargetJump` / #96).
+- **Storage Control Plane FSM Hardening & Queued Upload Dock (`v1.0.0-beta.35`)**: Explicit finite state machine (`SyncFSM`), dynamic Rclone RC flag switcher, FIFO fair scheduler queue (`ModalQueueManager`), non-blocking asynchronous Upload Dock (`ModalUploadDock.vue`, `internal/services/upload_dock.go`), atomic `.env` lifecycle with daemon unlock, and full Vue 3 / PrimeVue 4 rewrite.
+- **Deduplication Workspace Hardening & 2MB RC Protection (`v1.0.0-beta.34`)**: Dedicated dedupe modal isolation, staged candidate drawer (`DedupeStagedDrawer.vue`), strict 2MB RC limit clamping, and `ActionDedupeBatchExecuted` audit taxonomy.
+- **Dual-Pane Directory Explorer Comparison & File Previews (`v1.0.0-beta.33`)**: Multi-file selection with cryptographic hash comparison (`ModalCompare.vue`), text/image file previews (`ModalFilePreview.vue`), streaming downloads, and unified run-level event folding in Log Dock.
 - **Deep File Path Navigation & Pinned Log Audit Dock (`v1.0.0-beta.32`)**: Contextual path tokenizer extracting file mutations from logs, synchronized dual-pane profile switching & directory loading, transient pulse row highlight animation, and IDE-style collapsible pinned Log Audit Dock with height presets and N/P keyboard stepping.
-- **Configuration Snapshot & One-Click Rollback (`v1.0.0-beta.28`)**: Automated configuration backups, SHA-256 integrity verification, timestamped JSON snapshots under `config_snapshots/`, and one-click rollback REST API.
-- **Unified Operational Log Ledger & Run ID Correlation (`v1.0.0-beta.29`)**: Structured high-density table view aligning `bisync.log` events with Audit Ledger records, Run ID correlation chips (`#run-...`), and daemon trace inspection.
-- **Remote Cloud Web Link Navigation ("Open on Remote") (`v1.0.0-beta.30`)**: Canonical cloud URL resolution via Rclone RC `operations/publiclink` with capability filtering for Google Drive and OneDrive.
 - **FullRemoteTarget Local Path Preservation & Go 1.26.11 (`v1.0.0-beta.31`)**: Raw filesystem path handling for local destinations, Go 1.26.11 vulnerability patch (`GO-2026-6859`), and elevated test coverage (>85% under race detection).
+- **Remote Cloud Web Link Navigation ("Open on Remote") (`v1.0.0-beta.30`)**: Canonical cloud URL resolution via Rclone RC `operations/publiclink` with capability filtering for Google Drive and OneDrive.
+- **Unified Operational Log Ledger & Run ID Correlation (`v1.0.0-beta.29`)**: Structured high-density table view aligning `bisync.log` events with Audit Ledger records, Run ID correlation chips (`#run-...`), and daemon trace inspection.
+- **Configuration Snapshot & One-Click Rollback (`v1.0.0-beta.28`)**: Automated configuration backups, SHA-256 integrity verification, timestamped JSON snapshots under `config_snapshots/`, and one-click rollback REST API.
 
 ---
 
@@ -38,7 +42,7 @@ All historical releases, delivered epics, and version changelogs (from initial a
 
 ### Horizon 1: Target v1.0.0 General Availability (GA)
 
-The immediate focus leading to the production `v1.0.0` GA milestone centers on deep operational navigation, homelab production hardening, and queued workflows.
+The immediate focus leading to the production `v1.0.0` GA milestone centers on homelab production hardening and standards-based observability.
 
 #### 1. Homelab Production Hardening & Standards Observability (OTel/OTLP) (Active / In-Flight)
 - **Reverse Proxy Header Normalization**: Support for standard proxy headers (`X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`) with configurable trusted CIDR proxy subnets.
@@ -47,15 +51,14 @@ The immediate focus leading to the production `v1.0.0` GA milestone centers on d
 
 ---
 
-### Horizon 2: Advanced Operational Visibility & Queued Workflows
+### Horizon 2: Advanced Notifications & Real-Time Alerts
 
-Expands forensic visibility and smooths file transfer operations without lock collisions.
+Expands operator alerting for unattended server environments and background sync runs.
 
-#### 3. Queued Dual-Pane File Explorer Direct Upload
-- **Non-Blocking Upload Dock**: Asynchronous upload queue accepting file uploads during active synchronization (`telemetry.is_syncing === true` or POSIX flock contention) rather than returning HTTP 409 errors.
-- **Sequential Auto-Resume**: Automatically dispatches queued transfers once active sync runs finish and locks are released.
-- **Mid-Upload Lock Coordination**: Advisory upload coordination delaying scheduled sync triggers while active multipart uploads are in-flight.
-
+#### 2. Native Browser Notifications & Real-Time Alerting
+- HTML5 Web Notification API alerting operator when safety barriers trigger (`TOO_MANY_DELETES`), sync jobs fail, or conflict reviews are pending.
+- Cockpit settings toggle with notification permission request flow.
+- Window focus handlers redirecting operator directly to the relevant conflict resolution drawer or error trace when clicked.
 
 ---
 
@@ -63,15 +66,15 @@ Expands forensic visibility and smooths file transfer operations without lock co
 
 Broadens platform integration and system storage capabilities.
 
-#### 6. Remote Mount Lifecycle Manager & Multi-Cloud Pooling
+#### 3. Remote Mount Lifecycle Manager & Multi-Cloud Pooling
 - **Stage A (Remote Mount Manager)**: Pure-Go daemon managing Rclone VFS mount lifecycles on Linux (FUSE) with health keepalive probes, background daemon supervision, and clean unmount handlers (`fusermount -u`).
 - **Stage B (Pooled Storage Engine)**: Programmatic provisioning of stacked multi-cloud topologies (`union` + `chunker` + `crypt`) via Rclone RC `/config/create`. Combines disparate storage backends into a unified virtual drive guarded by Bisync Hub safety barriers.
 
-#### 7. Local IPC via Unix Domain Sockets
+#### 4. Local IPC via Unix Domain Sockets
 - Replaces loopback TCP ports with local Unix domain sockets (`unix:///run/user/$UID/rclone.sock`) with strict `0600` permissions.
 - Eliminates local port contention and unauthorized loopback snooping in multi-user and containerized environments.
 
-#### 8. Native Desktop Application Packaging (Wails)
+#### 5. Native Desktop Application Packaging (Wails)
 - Standalone native desktop application bundle with native OS system tray integration, sleep/wake network reconnect hooks, and offline desktop notifications.
 
 ---
