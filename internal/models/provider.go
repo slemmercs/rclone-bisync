@@ -15,6 +15,8 @@ type ProviderExample struct {
 type ProviderOption struct {
 	Name       string            `json:"Name"`
 	Help       string            `json:"Help"`
+	Provider   string            `json:"Provider,omitempty"`
+	Hide       int               `json:"Hide,omitempty"`
 	Type       string            `json:"Type"`
 	Default    interface{}       `json:"Default,omitempty"`
 	DefaultStr string            `json:"DefaultStr,omitempty"`
@@ -24,6 +26,11 @@ type ProviderOption struct {
 	Advanced   bool              `json:"Advanced"`
 	Exclusive  bool              `json:"Exclusive"`
 	Examples   []ProviderExample `json:"Examples,omitempty"`
+}
+
+// IsHiddenInConfig returns true if the option should be hidden from configuration wizards.
+func (o ProviderOption) IsHiddenInConfig() bool {
+	return (o.Hide & 2) != 0
 }
 
 // Provider represents an Rclone backend storage provider definition.

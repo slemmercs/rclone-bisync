@@ -108,10 +108,93 @@ func TestIsOAuthProvider(t *testing.T) {
 		{"", false},
 	}
 
+
 	for _, tt := range tests {
 		got := IsOAuthProvider(tt.provider)
 		if got != tt.expected {
 			t.Errorf("IsOAuthProvider(%q) = %v; want %v", tt.provider, got, tt.expected)
 		}
+	}
+}
+
+func TestProviderOption_FlavorAndHide(t *testing.T) {
+	rawJSON := `{
+		"providers": [
+			{
+				"Name": "s3",
+				"Description": "Amazon S3",
+				"Options": [
+					{
+						"Name": "endpoint",
+						"Help": "Endpoint for S3 API",
+						"Provider": "!AWS",
+						"Hide": 0,
+						"Type": "string",
+						"Required": false,
+						"Examples": [
+							{
+								"Value": "s3.wasabisys.com",
+								"Help": "Wasabi US East",
+								"Provider": "Wasabi"
+							}
+						]
+					},
+					{
+						"Name": "config_is_local",
+						"Help": "Internal configurator flag",
+						"Hide": 2,
+						"Type": "string"
+					},
+					{
+						"Name": "both_hidden",
+						"Help": "Both hidden",
+						"Hide": 3,
+						"Type": "string"
+					},
+					{
+						"Name": "cli_hidden_only",
+						"Help": "CLI hidden only",
+						"Hide": 1,
+						"Type": "string"
+					}
+				]
+			}
+		]
+	}`
+
+	var res ProvidersResponse
+	if err := json.Unmarshal([]byte(rawJSON), &res); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	opts := res.Providers[0].Options
+	if len(opts) != 4 {
+		t.Fatalf("expected 4 options, got %d", len(opts))
+	}
+
+	opt0 := opts[0]
+	if opt0.Provider != "!AWS" {
+		t.Errorf("expected Provider '!AWS', got %q", opt0.Provider)
+	}
+	if opt0.Hide != 0 || opt0.IsHiddenInConfig() {
+		t.Errorf("expected Hide 0 and IsHiddenInConfig false, got %d, %v", opt0.Hide, opt0.IsHiddenInConfig())
+	}
+	if len(opt0.Examples) != 1 || opt0.Examples[0].Provider != "Wasabi" {
+		t.Errorf("unexpected example provider: %+v", opt0.Examples)
+	}
+
+	opt1 := opts[1]
+	if !opt1.IsHiddenInConfig() {
+		t.Errorf("expected opt1 with Hide=2 to be hidden in config")
+	}
+
+	opt2 := opts[2]
+	if !opt2.IsHiddenInConfig() {
+		t.Errorf("expected opt2 with Hide=3 to be hidden in config")
+	}
+
+	opt3 := opts[3]
+	if opt3.IsHiddenInConfig() {
+		t.Errorf("expected opt3 with Hide=1 to not be hidden in config (only CLI hidden)")
 	}
 }

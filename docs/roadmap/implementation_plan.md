@@ -1,46 +1,61 @@
-# Implementation Plan: Dual-Pane Explorer Jump to File Navigation
+# Implementation Plan: Universal Dynamic Remote Configuration Engine
 
 ## Proposed Changes
 
-Fix file explorer deep navigation when clicking "Jump to file in Explorer" from correlated daemon logs, telemetry ledger, or deduplication modals. Ensure that switching to the explorer tab immediately mounts `<ViewExplorer>`, applies the target directory path across local and remote panes (respecting pane swapping and profile `remote_path` subdirectories), scrolls the pulsing file into view, and clears the pending jump so subsequent manual tab switches do not re-trigger old jumps.
+Implement a universal dynamic schema engine for all non-OAuth backends in Bisync Hub's Cockpit UI (`ModalRemoteWizard.vue`), powered directly by Rclone's `/config/providers` RC API.
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/src/stores/explorer.ts`:
-  - Update `browse()` to return `Promise<BrowseResponse>` so panes receive their directory items directly without colliding over single shared store state.
-  - Add `consumeTargetJumpPath()` to retrieve and clear pending jump targets atomically.
-- `dashboard/frontend/src/views/ViewExplorer.vue`:
-  - Implement `applyTargetJump()` helper to format paths for local and remote panes, strip `local_path` prefix if an absolute path is provided, account for `profile.remote_path` and `isSwapped`, and trigger pane refreshes.
-  - Coordinate `activeProfile` watcher with pending `targetJumpPath` so initial mount navigates to the jump target rather than resetting to root `""`.
-  - Update `targetJumpPath` watcher to call `applyTargetJump()` when jump is triggered while Explorer is already mounted.
-  - Use returned `BrowseResponse` in `refreshPane()` to eliminate concurrency races.
-- `dashboard/frontend/src/components/explorer/ExplorerTable.vue`:
-  - Add automatic scrolling into view when an item matches `explorerStore.highlightName`.
+- `internal/models/provider.go`:
+  - Add `Provider string` and `Hide int` to `ProviderOption`.
+  - Add `Provider string` to `ProviderExample`.
+- `internal/models/provider_test.go`:
+  - Unit tests verifying JSON serialization and deserialization of provider options with flavor filters and hide bitmasks.
+- `cmd/gendocs/`:
+  - Regenerate `dashboard/frontend/src/types/models.gen.ts`.
+- `dashboard/frontend/src/types/dedupe.ts`:
+  - Update `ProviderOption` and `ProviderExample` to expose `Provider?: string` and `Hide?: number`.
+  - Add `opt?: Record<string, any>` to `CreateRemotePayload`.
+- `dashboard/frontend/src/components/DynamicProviderForm.vue`:
+  - New component rendering dynamic input controls (`InputText`, `Password`, `Select`, `ToggleSwitch`).
+  - Implements `matchesProviderFlavor` (with `!` negation and comma-separated tokens).
+  - Implements `(opt.Hide & 3) === 0` filtering.
+  - Implements exclusive dropdowns vs. open editable preset suggestions.
+  - Collapsible Advanced Options accordion with badge counter.
+- `dashboard/frontend/src/components/ModalRemoteWizard.vue`:
+  - Replace static S3, B2, SFTP, and WebDAV blocks with `<DynamicProviderForm>`.
+  - Pass `opt: { obscure: true }` when passwords are submitted.
 
 ### Technical Strategy & Data Flow
 
-- User clicks jump link in `ModalDaemonLogs.vue`:
-  1. `explorerStore.jumpToPath(path)` sets `highlightName` and `targetJumpPath`.
-  2. `appStore.switchTab('explorer')` sets `activeTab = 'explorer'`.
-  3. `<ViewExplorer>` mounts or receives updated `targetJumpPath`.
-  4. `applyTargetJump()` formats directory paths:
-     - Local directory: `cleanDir` (stripped of `profile.local_path` if absolute).
-     - Remote directory: `(remote_path ? remote_path + '/' : '') + cleanDir`.
-     - Assigns to `leftPath` / `rightPath` based on `isSwapped`.
-     - Calls `consumeTargetJumpPath()`.
-     - Calls `refreshPane('left')` and `refreshPane('right')`.
-  5. In `ExplorerTable.vue`, the row corresponding to `highlightName` is rendered, pulses with electric blue outline, and scrolls into view.
+1. **Provider Discovery**:
+   - `dedupeStore.fetchProviders()` retrieves cached providers from `GET /api/remotes/providers`.
+2. **Dynamic Rendering**:
+   - For non-OAuth providers, Step 2 mounts `<DynamicProviderForm>`.
+   - If provider is `s3`, the `provider` option renders first as the S3 Flavor picker (58 presets).
+   - Changing the flavor reactively triggers `matchesProviderFlavor()` across all other options.
+3. **Payload Sanitization & Obscuring**:
+   - Only user-modified, non-empty parameters are serialized.
+   - If any `IsPassword: true` field has a value, set `opt: { obscure: true }` in `CreateRemotePayload`.
 
 ### Safety & Error Handling
 
-- Graceful fallback: If directory does not exist or has an error, `refreshPane` handles empty items cleanly without crashing.
-- Single binary invariant: `npm --prefix dashboard/frontend run build` updates `dashboard/frontend/dist/` assets embedded into the Go binary.
+- **Bitmask Filtering**: Enforces `(opt.Hide & 3) === 0` to prevent CLI configurator internal state tokens from surfacing.
+- **Credential Protection**: Masks all `IsPassword: true` and `Sensitive: true` fields.
+- **Input Sanitization**: Empty strings and unchanged defaults are stripped to prevent bloat in `rclone.conf`.
 
 ## Verification Plan
 
-- Frontend typecheck and build: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
-- E2E tests: `go test -count=1 ./tests/e2e/...`
-- Full pre-commit check: `./scripts/check.sh all`
+- Go backend tests:
+  - `go test -count=1 ./internal/models/...`
+  - `go test -count=1 ./internal/services/... -run TestRemoteWizard`
+- Frontend type safety & build:
+  - `make generate-ts`
+  - `npm --prefix dashboard/frontend run type-check`
+  - `npm --prefix dashboard/frontend run build`
+- Full CI pre-flight check:
+  - `./scripts/check.sh all`
+
 
 
 

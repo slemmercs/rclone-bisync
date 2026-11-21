@@ -1,22 +1,35 @@
-# Task Plan: Dual-Pane Explorer Jump to File Navigation
+# Task Plan: Universal Dynamic Remote Configuration Engine
 
 ## Goal
-Enable seamless deep navigation to files in the Dual-Pane Directory Explorer when clicking "Jump to file in Explorer" links across daemon logs, audit ledger, and dedupe modals.
+Replace static hardcoded forms in `ModalRemoteWizard.vue` with a reusable, dynamic schema-driven form engine powered by Rclone's `/config/providers` metadata, supporting S3 flavor filtering, option masking, hide bitmasks, and password obscuring.
 
 ## Tasks
 
-- [x] Task 1: Update `explorerStore` and `ViewExplorer.vue` navigation logic
-  - **Scope**: `dashboard/frontend/src/stores/explorer.ts`, `dashboard/frontend/src/views/ViewExplorer.vue`, `dashboard/frontend/src/components/explorer/ExplorerTable.vue`
+- [x] Task 1: Go Model Schema Updates & Tests
+  - **Scope**: `internal/models/provider.go`, `internal/models/provider_test.go`
+  - **Verification**: `go test -count=1 ./internal/models/...`
+
+- [ ] Task 2: TypeScript Contract Generation & Types Alignment
+  - **Scope**: `cmd/gendocs/`, `dashboard/frontend/src/types/models.gen.ts`, `dashboard/frontend/src/types/dedupe.ts`
+  - **Verification**: `make generate-ts && npm --prefix dashboard/frontend run type-check`
+
+- [ ] Task 3: Build DynamicProviderForm Component
+  - **Scope**: `dashboard/frontend/src/components/DynamicProviderForm.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check`
+
+- [ ] Task 4: Integrate DynamicProviderForm into ModalRemoteWizard
+  - **Scope**: `dashboard/frontend/src/components/ModalRemoteWizard.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [x] Task 2: Build bundle, execute tests, and run pre-commit quality gates
-  - **Scope**: Pre-commit validation and end-to-end checks
+- [ ] Task 5: Pre-Flight Check & Quality Gates
+  - **Scope**: Full repo verification and bundle check
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-20: Completed Task 2. Ran full quality gates via `./scripts/check.sh all` (all 7 stages: code formatting, template safety, license check, go vet, all unit/integration/E2E tests with -race, LOC audit, release binary build). All passed cleanly.
-- 2026-11-20: Completed Task 1. Added `consumeTargetJumpPath` and updated `browse` in `explorerStore`. Added `applyTargetJump` in `ViewExplorer.vue` handling local/remote subpaths, pane swapping, and initial mount coordination. Added automatic element scroll in `ExplorerTable.vue`. Verified with `npm run type-check` and `npm run build`.
-- 2026-11-20: Initialized plan from implementation_plan.md on branch `fix/explorer-jump-to-file-navigation`.
+- 2026-11-21: Completed Task 1. Added `Provider` and `Hide` fields to `ProviderOption` and `ProviderExample` in `internal/models/provider.go`. Added `IsHiddenInConfig()` helper and unit tests in `internal/models/provider_test.go`. Verified with `go test -count=1 ./internal/models/...` and `go test -count=1 ./internal/services -run TestRemoteWizard`.
+
+- 2026-11-21: Initialized plan from implementation_plan.md on branch `feat/dynamic-provider-form`.
+
 
 
