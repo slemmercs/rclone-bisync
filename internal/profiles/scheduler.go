@@ -339,10 +339,6 @@ func (s *Scheduler) runJob(ctx context.Context, item *QueueItem) {
 
 	err := s.executeJob(ctx, item)
 
-	if item.ErrCh != nil {
-		item.ErrCh <- err
-	}
-
 	s.mu.Lock()
 	delete(s.activeJobs, item.ProfileID)
 	if w, ok := s.workers[item.ProfileID]; ok {
@@ -350,6 +346,10 @@ func (s *Scheduler) runJob(ctx context.Context, item *QueueItem) {
 	}
 	s.signalDispatcherLocked()
 	s.mu.Unlock()
+
+	if item.ErrCh != nil {
+		item.ErrCh <- err
+	}
 }
 
 func (s *Scheduler) executeJob(ctx context.Context, item *QueueItem) error {
