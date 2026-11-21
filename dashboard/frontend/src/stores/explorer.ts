@@ -72,8 +72,13 @@ export const useExplorerStore = defineStore('explorer', () => {
     }, 6000)
   }
 
+  function consumeTargetJumpPath() {
+    const val = targetJumpPath.value
+    targetJumpPath.value = null
+    return val
+  }
 
-  async function browse(remote: string, path: string = '', profileId?: string) {
+  async function browse(remote: string, path: string = '', profileId?: string): Promise<BrowseResponse> {
     loading.value = true
     error.value = null
     currentRemote.value = remote
@@ -90,9 +95,11 @@ export const useExplorerStore = defineStore('explorer', () => {
       if (!path) {
         hasCanary.value = !!data.has_canary
       }
+      return data
     } catch (e: any) {
       error.value = e.message || 'Error browsing filesystem'
       items.value = []
+      throw e
     } finally {
       loading.value = false
     }
@@ -278,6 +285,7 @@ export const useExplorerStore = defineStore('explorer', () => {
     highlightName,
     targetJumpPath,
     jumpToPath,
+    consumeTargetJumpPath,
   }
 }
 )

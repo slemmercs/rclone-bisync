@@ -1,21 +1,22 @@
-# Task Plan: Scheduler Active Jobs Race Condition & Test Teardown
+# Task Plan: Dual-Pane Explorer Jump to File Navigation
 
 ## Goal
-Eliminate race condition in `Scheduler.runJob()` where completion signaling precedes `s.activeJobs` de-registration, causing intermittent `ErrSyncInProgress` errors during rapid sequential sync invocations. Clean up test scheduler lifecycles.
+Enable seamless deep navigation to files in the Dual-Pane Directory Explorer when clicking "Jump to file in Explorer" links across daemon logs, audit ledger, and dedupe modals.
 
 ## Tasks
 
-- [x] Task 1: Reorder state cleanup in `Scheduler.runJob` and add test teardowns
-  - **Scope**: `internal/profiles/scheduler.go`, `internal/mcp/tools_write_test.go`, `internal/profiles/scheduler_test.go`
-  - **Verification**: `go test -race -shuffle=1795249090223818792 -count=5 ./internal/mcp` and `go test -race -shuffle=on -count=20 ./internal/mcp -run TestWriteTools_TriggerSyncConfirmation`
+- [x] Task 1: Update `explorerStore` and `ViewExplorer.vue` navigation logic
+  - **Scope**: `dashboard/frontend/src/stores/explorer.ts`, `dashboard/frontend/src/views/ViewExplorer.vue`, `dashboard/frontend/src/components/explorer/ExplorerTable.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [x] Task 2: Comprehensive validation and quality gate check
-  - **Scope**: Repository-wide test suite and quality gates
+- [x] Task 2: Build bundle, execute tests, and run pre-commit quality gates
+  - **Scope**: Pre-commit validation and end-to-end checks
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-20: Completed Task 2. Ran full quality gates via `./scripts/check.sh all` (all 7 stages: code formatting, template safety, license check, go vet, all unit/integration tests with -race, LOC audit, release binary build). All 7 stages passed cleanly.
-- 2026-11-20: Completed Task 1. Reordered `runJob` to de-register `s.activeJobs` and reset worker state before signaling `item.ErrCh <- err`. Added missing `defer scheduler.Stop()` across `internal/mcp/tools_write_test.go` and `internal/profiles/scheduler_test.go`. Verified with `-race`, `-shuffle=on`, and exact seed `1795249090223818792`.
-- 2026-11-20: Initialized plan from implementation_plan.md on branch `fix/scheduler-active-jobs-race-condition`.
+- 2026-11-20: Completed Task 2. Ran full quality gates via `./scripts/check.sh all` (all 7 stages: code formatting, template safety, license check, go vet, all unit/integration/E2E tests with -race, LOC audit, release binary build). All passed cleanly.
+- 2026-11-20: Completed Task 1. Added `consumeTargetJumpPath` and updated `browse` in `explorerStore`. Added `applyTargetJump` in `ViewExplorer.vue` handling local/remote subpaths, pane swapping, and initial mount coordination. Added automatic element scroll in `ExplorerTable.vue`. Verified with `npm run type-check` and `npm run build`.
+- 2026-11-20: Initialized plan from implementation_plan.md on branch `fix/explorer-jump-to-file-navigation`.
+
 

@@ -260,14 +260,57 @@ onMounted(() => {
   settingsStore.fetchConfig()
 })
 
+async function applyTargetJump() {
+  const target = explorerStore.consumeTargetJumpPath()
+  if (!target) return
+
+  let dir = target.dir ? target.dir.trim().replace(/^["'`\s]+|["'`\s]+$/g, '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '') : ''
+  const profile = activeProfile.value
+
+  // Strip profile local_path prefix if an absolute filesystem path was logged
+  if (profile?.local_path) {
+    const cleanLocalBase = profile.local_path.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+    if (dir === cleanLocalBase) {
+      dir = ''
+    } else if (dir.startsWith(cleanLocalBase + '/')) {
+      dir = dir.substring(cleanLocalBase.length + 1)
+    }
+  }
+
+  // Handle remote path prefix if profile has remote_path configured
+  const remoteSubpath = (profile?.remote_path || '').trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+  let remoteDir = dir
+  if (remoteSubpath) {
+    if (!remoteDir) {
+      remoteDir = remoteSubpath
+    } else if (!remoteDir.startsWith(remoteSubpath)) {
+      remoteDir = `${remoteSubpath}/${remoteDir}`
+    }
+  }
+
+  if (isSwapped.value) {
+    leftPath.value = remoteDir
+    rightPath.value = dir
+  } else {
+    leftPath.value = dir
+    rightPath.value = remoteDir
+  }
+
+  await refreshAll()
+}
+
 watch(
   () => activeProfile.value,
   (profile) => {
     if (profile) {
-      leftPath.value = ''
       rightRemoteName.value = (profile.remote || 'local').replace(/:$/, '')
-      rightPath.value = (profile.remote_path || '').replace(/^\/+/, '')
-      refreshAll()
+      if (explorerStore.targetJumpPath) {
+        applyTargetJump()
+      } else {
+        leftPath.value = ''
+        rightPath.value = (profile.remote_path || '').replace(/^\/+/, '')
+        refreshAll()
+      }
       explorerStore.fetchUploadDockStatus(profile.id)
     }
   },
@@ -276,11 +319,10 @@ watch(
 
 watch(
   () => explorerStore.targetJumpPath,
-  async (target) => {
-    if (!target) return
-    leftPath.value = target.dir
-    rightPath.value = target.dir
-    await Promise.allSettled([refreshPane('left'), refreshPane('right')])
+  (target) => {
+    if (target) {
+      applyTargetJump()
+    }
   }
 )
 
@@ -312,13 +354,14 @@ async function refreshPane(pane: 'left' | 'right') {
   }
 
   try {
-    await explorerStore.browse(remote, path, activeProfile.value?.id)
+    const data = await explorerStore.browse(remote, path, activeProfile.value?.id)
+    const resItems = Array.isArray(data?.items) ? (data.items as BrowseItem[]) : []
     if (pane === 'left') {
-      leftItems.value = explorerStore.items
-      if (!path) leftCanary.value = explorerStore.hasCanary
+      leftItems.value = resItems
+      if (!path) leftCanary.value = !!data?.has_canary
     } else {
-      rightItems.value = explorerStore.items
-      if (!path) rightCanary.value = explorerStore.hasCanary
+      rightItems.value = resItems
+      if (!path) rightCanary.value = !!data?.has_canary
     }
   } catch {
     if (pane === 'left') leftItems.value = []
