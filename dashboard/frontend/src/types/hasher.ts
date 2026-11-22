@@ -1,15 +1,19 @@
 export interface HasherWrapRequest {
   name: string
   remote: string
-  hashes?: string[]
+  hashes?: string[] | string
   max_age?: string
+  auto_size?: number
+  create_profile?: boolean
+  local_path?: string
+  schedule?: string
 }
 
 export interface HasherWrapResponse {
   status: string
   name: string
   remote: string
-  hashes?: string[]
+  hashes?: string[] | string
   max_age?: string
   message?: string
   error?: string

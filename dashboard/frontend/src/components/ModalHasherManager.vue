@@ -195,22 +195,22 @@
           <div class="flex flex-wrap gap-2">
             <label
               v-for="h in availableHashes"
-              :key="h"
+              :key="h.value"
               class="px-2.5 py-1 rounded-lg border text-[11px] font-mono cursor-pointer flex items-center gap-1.5 select-none transition-colors"
               :class="
-                selectedHashes.includes(h)
+                selectedHashes.includes(h.value)
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
                   : 'bg-carbon-canvas text-slate-400 border-carbon-border hover:border-slate-600'
               "
             >
               <input
                 type="checkbox"
-                :value="h"
+                :value="h.value"
                 v-model="selectedHashes"
                 class="hidden"
               />
-              <i class="pi" :class="selectedHashes.includes(h) ? 'pi-check text-amber-400 text-[10px]' : 'pi-circle text-[10px] opacity-40'"></i>
-              <span>{{ h }}</span>
+              <i class="pi" :class="selectedHashes.includes(h.value) ? 'pi-check text-amber-400 text-[10px]' : 'pi-circle text-[10px] opacity-40'"></i>
+              <span>{{ h.label }}</span>
             </label>
           </div>
         </div>
@@ -268,8 +268,21 @@ const copied = ref<boolean>(false)
 const wrapBaseRemote = ref<string>('')
 const wrapHasherName = ref<string>('')
 const wrapMaxAge = ref<string>('off')
-const availableHashes = ['MD5', 'SHA-1', 'DropboxHash', 'QuickXorHash', 'Whirlpool', 'CRC-32']
-const selectedHashes = ref<string[]>(['MD5', 'SHA-1'])
+
+interface HashOption {
+  label: string
+  value: string
+}
+
+const availableHashes: HashOption[] = [
+  { label: 'MD5', value: 'md5' },
+  { label: 'SHA-1', value: 'sha1' },
+  { label: 'DropboxHash', value: 'dropbox' },
+  { label: 'QuickXorHash', value: 'quickxor' },
+  { label: 'Whirlpool', value: 'whirlpool' },
+  { label: 'CRC-32', value: 'crc32' },
+]
+const selectedHashes = ref<string[]>(['md5', 'sha1'])
 const wrapping = ref<boolean>(false)
 const wrapError = ref<string | null>(null)
 const wrapSuccess = ref<string | null>(null)
