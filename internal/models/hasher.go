@@ -14,17 +14,17 @@ type HasherWrapRequest struct {
 
 // HasherCommandRequest defines the payload for executing commands against a hasher remote via /backend/command.
 type HasherCommandRequest struct {
-	Remote  string            `json:"remote"`            // Target remote name (e.g., "sftp_hasher")
-	Command string            `json:"command"`           // Command name: "dump", "fulldump", "drop", "import", "stickyimport"
-	Args    []string          `json:"args,omitempty"`    // Positional arguments (e.g., ["md5", "/path/to/sumfile"])
-	Opt     map[string]string `json:"opt,omitempty"`     // Key-value options for the command
+	Remote  string            `json:"remote"`         // Target remote name (e.g., "sftp_hasher")
+	Command string            `json:"command"`        // Command name: "dump", "fulldump", "drop", "import", "stickyimport"
+	Args    []string          `json:"args,omitempty"` // Positional arguments (e.g., ["md5", "/path/to/sumfile"])
+	Opt     map[string]string `json:"opt,omitempty"`  // Key-value options for the command
 }
 
 // HasherCommandResponse defines the result returned by a hasher backend command.
 type HasherCommandResponse struct {
-	Status  string      `json:"status"`            // "success" or "error"
-	Command string      `json:"command"`           // Executed command
-	Remote  string      `json:"remote"`            // Target remote
-	Result  interface{} `json:"result,omitempty"`  // Response payload from rclone backend/command
-	Error   string      `json:"error,omitempty"`   // Error description if status == "error"
+	Status  string      `json:"status"`           // "success" or "error"
+	Command string      `json:"command"`          // Executed command
+	Remote  string      `json:"remote"`           // Target remote
+	Result  interface{} `json:"result,omitempty"` // Response payload from rclone backend/command
+	Error   string      `json:"error,omitempty"`  // Error description if status == "error"
 }

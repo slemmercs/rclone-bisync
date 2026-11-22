@@ -108,7 +108,6 @@ func TestIsOAuthProvider(t *testing.T) {
 		{"", false},
 	}
 
-
 	for _, tt := range tests {
 		got := IsOAuthProvider(tt.provider)
 		if got != tt.expected {

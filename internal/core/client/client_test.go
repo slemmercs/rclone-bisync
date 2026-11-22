@@ -1256,4 +1256,3 @@ func TestObscure(t *testing.T) {
 		}
 	})
 }
-

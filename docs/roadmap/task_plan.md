@@ -41,7 +41,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
   - **Scope**: `dashboard/frontend/src/components/ModalHasherManager.vue`, `dashboard/frontend/src/components/ModalCryptWrap.vue`, `dashboard/frontend/src/views/ViewRemotes.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 10: Full Verification & Quality Gates
+- [x] Task 10: Full Verification & Quality Gates
   - **Scope**: Run all 8 quality stages across backend and frontend
   - **Verification**: `./scripts/check.sh all`
 
@@ -59,6 +59,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
 
 - 2026-11-21: Completed Task 8. Wired `DynamicProviderForm` into `ModalRemoteWizard.vue` replacing static provider credential blocks. Integrated client-side Crypt remote auto-wrap toggle with primary password, salt passphrase, and filename encryption strategy (`standard`, `obfuscate`, `off`). Updated deployment review and payload dispatch to create encrypted overlay and bridge sync profiles directly to `_crypt` remote. Verified via `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `go test -count=1 ./...`.
 - 2026-11-21: Completed Task 9. Created `ModalHasherManager.vue` supporting maintenance commands (`dump`, `fulldump`, `drop`, `import`, `stickyimport`) with live output terminal, and interactive remote wrapping. Created `ModalCryptWrap.vue` supporting AES client-side encryption overlay configuration. Extended `ViewRemotes.vue` with "Virtual" category filtering, "⚡ Accelerated" and "🔒 Encrypted" card badges, toolbar Hasher console access, and per-card quick action buttons ("Hasher Tools", "Wrap Hasher", "Encrypt"). Verified via `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `go test -count=1 ./...`.
+- 2026-11-21: Completed Task 10. Modularized MCP remote handlers into `internal/mcp/tools_remote_virtual.go` to enforce <400 LOC boundary across all backend packages. Formatted all Go files with `gofmt`. Successfully executed full pre-flight verification suite `./scripts/check.sh all` passing all 7 quality gate checks (Go formatting & shell checks, Go vet, backend unit tests with race detection, lines of code audit, secret leak scanning, frontend type-check, and production bundle build).
 
 
 

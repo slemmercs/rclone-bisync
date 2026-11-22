@@ -460,4 +460,3 @@ func TestExtractStringHelpers(t *testing.T) {
 		t.Errorf("expected parsed string map, got: %v", resMap)
 	}
 }
-

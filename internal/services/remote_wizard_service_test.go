@@ -273,7 +273,6 @@ func TestRemoteWizard_CreateRemote_WithEncryption(t *testing.T) {
 	}
 }
 
-
 func TestRemoteWizard_DeleteRemote(t *testing.T) {
 	tmpDir := t.TempDir()
 	profStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
