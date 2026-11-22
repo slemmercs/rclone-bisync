@@ -21,7 +21,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
   - **Scope**: `internal/server/handlers_virtual_remotes.go`, `internal/server/handlers_virtual_remotes_test.go`, `internal/server/routes.go`, `internal/mcp/tools_remote.go`, `internal/mcp/tools_remote_test.go`
   - **Verification**: `go test -count=1 ./internal/server/... ./internal/mcp/...`
 
-- [ ] Task 5: Cache Persistence Configuration in Deployment Scripts
+- [x] Task 5: Cache Persistence Configuration in Deployment Scripts
   - **Scope**: `deploy/install.sh`, `deploy/systemd/rclone-daemon.service`, `bisync.env.example`
   - **Verification**: `bash -n deploy/install.sh`
 
@@ -52,5 +52,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
 - 2026-11-21: Completed Task 2. Implemented `RcloneClient.Obscure` method with unit tests in `internal/core/client/`, added `CryptWrapRequest` and `CryptWrapResponse` in `internal/models/crypt.go` with unit tests, and extended `CreateRemoteBridgeRequest` in `internal/models/provider.go`. Verified with `go test -count=1 ./internal/models/... ./internal/core/client/...`.
 - 2026-11-21: Completed Task 3. Implemented `HasherService` and `CryptService` in `internal/services/` with unit tests, wired encrypted overlay support and `"hasher"` categorization into `RemoteWizardService`, and registered both services into `internal/app/container.go`. Verified with `go test -count=1 ./internal/services/... ./internal/app/...`.
 - 2026-11-21: Completed Task 4. Implemented HTTP endpoints for `/api/remotes/hasher/wrap`, `/api/remotes/hasher/command`, and `/api/remotes/crypt/wrap` in `internal/server/handlers_virtual_remotes.go`. Implemented MCP tools `bisync_hasher_command` and `bisync_create_crypt_remote` in `internal/mcp/tools_remote.go`. Verified with `go test -count=1 ./internal/server/... ./internal/mcp/...`.
+- 2026-11-21: Completed Task 5. Verified persistent cache directory creation in `deploy/install.sh`, verified `--cache-dir %h/.cache/rclone` in `deploy/systemd/rclone-daemon.service`, and documented `RCLONE_CACHE_DIR` in `config/bisync.env.example` and `bisync.env`. Verified with `bash -n deploy/install.sh`.
+
 
 

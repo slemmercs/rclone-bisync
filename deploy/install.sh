@@ -329,6 +329,9 @@ log_step "3/6: Setting up directory layout and configuration..."
 log_info "Creating directory layout: $RCLONE_DIR"
 sudo -u "$REAL_USER" mkdir -p "$RCLONE_DIR/bin"
 
+# Ensure persistent cache directory for --cache-dir / RCLONE_CACHE_DIR (hasher db, vfs cache, bisync listings)
+sudo -u "$REAL_USER" mkdir -p "$REAL_HOME/.cache/rclone"
+
 # Prepare workspace configuration files
 if [ ! -f "$REPO_ROOT/rc-secrets.env" ]; then
     if [ -f "$REPO_ROOT/config/rc-secrets.env.example" ]; then
