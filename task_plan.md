@@ -29,7 +29,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
   - **Scope**: `dashboard/frontend/src/types/hasher.ts`, `dashboard/frontend/src/types/crypt.ts`, `dashboard/frontend/src/types/dedupe.ts`, `dashboard/frontend/src/stores/remotes.ts`, `dashboard/frontend/src/stores/dedupe.ts`
   - **Verification**: `npm --prefix dashboard/frontend run type-check`
 
-- [ ] Task 7: Build DynamicProviderForm Component
+- [x] Task 7: Build DynamicProviderForm Component
   - **Scope**: `dashboard/frontend/src/components/DynamicProviderForm.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check`
 
@@ -55,6 +55,8 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
 - 2026-11-21: Completed Task 5. Verified persistent cache directory creation in `deploy/install.sh`, verified `--cache-dir %h/.cache/rclone` in `deploy/systemd/rclone-daemon.service`, and documented `RCLONE_CACHE_DIR` in `config/bisync.env.example` and `bisync.env`. Verified with `bash -n deploy/install.sh`.
 
 - 2026-11-21: Completed Task 6. Created `dashboard/frontend/src/types/hasher.ts` and `dashboard/frontend/src/types/crypt.ts`, re-exported in `dashboard/frontend/src/types/index.ts`, extended `dashboard/frontend/src/types/dedupe.ts` with `hasher_accelerated` and encrypted overlay fields, refreshed `dashboard/frontend/src/types/models.gen.ts`, and implemented `wrapHasher`, `executeHasherCommand`, and `wrapCrypt` in `dashboard/frontend/src/stores/remotes.ts`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+- 2026-11-21: Completed Task 7. Built `dashboard/frontend/src/components/DynamicProviderForm.vue` supporting Rclone `/config/providers` schema parsing, top-level preset flavor selection (e.g. S3 AWS, Minio, Ceph, etc.), `(opt.Hide & 3) !== 0` bitmask filtering, flavor visibility with `!` negation rules, passwords with visibility toggles, boolean checkboxes, select dropdowns for options with examples, and collapsible advanced settings accordion. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+
 
 
 
