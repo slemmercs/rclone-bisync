@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
@@ -319,5 +320,246 @@ func TestRemoteWizard_DeleteRemote(t *testing.T) {
 	}
 	if !deleted {
 		t.Fatalf("expected delete request to be sent to mock server")
+	}
+}
+
+
+func TestRemoteWizard_VirtualGuardrails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := client.NewRcloneClient(server.URL, "", "")
+	svc := NewRemoteWizardService(&config.Config{}, c, nil, nil, nil)
+
+	// Virtual provider cannot be wrapped in crypt
+	_, err := svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name:          "my_hasher",
+		Type:          "hasher",
+		EncryptRemote: true,
+	}, "test")
+	if err == nil || !strings.Contains(err.Error(), "cannot wrap virtual remote") {
+		t.Fatalf("expected virtual crypt wrap error, got: %v", err)
+	}
+
+	// Virtual provider cannot be wrapped in hasher
+	_, err = svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name:             "my_alias",
+		Type:             "alias",
+		AccelerateHasher: true,
+	}, "test")
+	if err == nil || !strings.Contains(err.Error(), "cannot wrap virtual remote") {
+		t.Fatalf("expected virtual hasher wrap error, got: %v", err)
+	}
+
+	// Union/combine cannot create sync profiles
+	_, err = svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name:          "my_union",
+		Type:          "union",
+		CreateProfile: true,
+	}, "test")
+	if err == nil || !strings.Contains(err.Error(), "unsupported as targets for bidirectional sync") {
+		t.Fatalf("expected union profile reject error, got: %v", err)
+	}
+}
+
+func TestRemoteWizard_BucketSubpathValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := client.NewRcloneClient(server.URL, "", "")
+	svc := NewRemoteWizardService(&config.Config{}, c, nil, nil, nil)
+
+	// S3 with EncryptRemote requires bucket
+	_, err := svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name:          "s3_raw",
+		Type:          "s3",
+		EncryptRemote: true,
+	}, "test")
+	if err == nil || !strings.Contains(err.Error(), "requires specifying a bucket") {
+		t.Fatalf("expected bucket requirement error, got: %v", err)
+	}
+
+	// B2 with AccelerateHasher requires bucket
+	_, err = svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name:             "b2_raw",
+		Type:             "b2",
+		AccelerateHasher: true,
+	}, "test")
+	if err == nil || !strings.Contains(err.Error(), "requires specifying a bucket") {
+		t.Fatalf("expected bucket requirement error, got: %v", err)
+	}
+}
+
+func TestRemoteWizard_DualWrapChaining_BaseCryptHasher(t *testing.T) {
+	tmpDir := t.TempDir()
+	profStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
+	if err != nil {
+		t.Fatalf("failed to create profStore: %v", err)
+	}
+	profSvc := profiles.NewService(profStore, nil, nil)
+
+	createdRemotes := make([]string, 0)
+	createdParams := make(map[string]map[string]interface{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/config/listremotes":
+			_ = json.NewEncoder(w).Encode(map[string][]string{"remotes": createdRemotes})
+		case "/core/obscure":
+			var req map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewEncoder(w).Encode(map[string]string{"obscured": "obs_" + req["clear"]})
+		case "/config/create":
+			var req map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			name := req["name"].(string)
+			createdRemotes = append(createdRemotes, name+":")
+			if params, ok := req["parameters"].(map[string]interface{}); ok {
+				createdParams[name] = params
+			}
+			w.WriteHeader(http.StatusOK)
+		case "/config/oauthstatus":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "idle"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	c := client.NewRcloneClient(server.URL, "", "")
+	telSvc := NewTelemetryService(&config.Config{}, c)
+	cryptSvc := NewCryptService(&config.Config{}, c, nil, profSvc, telSvc)
+	hasherSvc := NewHasherService(&config.Config{}, c, nil, profSvc, telSvc)
+	svc := NewRemoteWizardService(&config.Config{}, c, nil, profSvc, telSvc)
+	svc.SetCryptService(cryptSvc)
+	svc.SetHasherService(hasherSvc)
+
+	res, err := svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name:                    "my_cloud",
+		Type:                    "s3",
+		Parameters:              map[string]interface{}{"provider": "AWS"},
+		RemoteSubpath:           "mybucket/vault",
+		EncryptRemote:           true,
+		CryptPassword:           "secretpass",
+		CryptFilenameEncryption: "standard",
+		AccelerateHasher:        true,
+		HasherHashes:            []string{"md5", "sha1"},
+		CreateProfile:           true,
+		LocalPath:               filepath.Join(tmpDir, "local_sync"),
+		Schedule:                "manual",
+	}, "test-actor")
+
+	if err != nil {
+		t.Fatalf("unexpected error creating dual-wrapped remote: %v", err)
+	}
+	if !res.Success {
+		t.Fatalf("expected success, got %+v", res)
+	}
+
+	if len(createdRemotes) != 3 {
+		t.Fatalf("expected 3 remotes created (base, crypt, hasher), got: %v", createdRemotes)
+	}
+
+	cryptParams := createdParams["my_cloud_crypt"]
+	if cryptParams["remote"] != "my_cloud:mybucket/vault" {
+		t.Errorf("expected crypt remote to point to 'my_cloud:mybucket/vault', got %v", cryptParams["remote"])
+	}
+
+	hasherParams := createdParams["my_cloud_crypt_hasher"]
+	if hasherParams["remote"] != "my_cloud_crypt:" {
+		t.Errorf("expected hasher remote to point to 'my_cloud_crypt:', got %v", hasherParams["remote"])
+	}
+	if hasherParams["hashes"] != "md5,sha1" {
+		t.Errorf("expected hashes 'md5,sha1', got %v", hasherParams["hashes"])
+	}
+
+	prof, err := profStore.Get(res.ProfileID)
+	if err != nil {
+		t.Fatalf("failed to retrieve profile: %v", err)
+	}
+	if prof.Remote != "my_cloud_crypt_hasher" {
+		t.Errorf("expected profile target remote 'my_cloud_crypt_hasher', got %q", prof.Remote)
+	}
+	if prof.RemotePath != "" {
+		t.Errorf("expected empty RemotePath on chained profile, got %q", prof.RemotePath)
+	}
+}
+
+func TestRemoteWizard_HasherOnlyWrap(t *testing.T) {
+	tmpDir := t.TempDir()
+	profStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
+	if err != nil {
+		t.Fatalf("failed to create profStore: %v", err)
+	}
+	profSvc := profiles.NewService(profStore, nil, nil)
+
+	createdRemotes := make([]string, 0)
+	createdParams := make(map[string]map[string]interface{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/config/listremotes":
+			_ = json.NewEncoder(w).Encode(map[string][]string{"remotes": createdRemotes})
+		case "/config/create":
+			var req map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			name := req["name"].(string)
+			createdRemotes = append(createdRemotes, name+":")
+			if params, ok := req["parameters"].(map[string]interface{}); ok {
+				createdParams[name] = params
+			}
+			w.WriteHeader(http.StatusOK)
+		case "/config/oauthstatus":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "idle"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	c := client.NewRcloneClient(server.URL, "", "")
+	telSvc := NewTelemetryService(&config.Config{}, c)
+	hasherSvc := NewHasherService(&config.Config{}, c, nil, profSvc, telSvc)
+	svc := NewRemoteWizardService(&config.Config{}, c, nil, profSvc, telSvc)
+	svc.SetHasherService(hasherSvc)
+
+	res, err := svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name:             "my_sftp",
+		Type:             "sftp",
+		Parameters:       map[string]interface{}{"host": "example.com"},
+		RemoteSubpath:    "uploads",
+		AccelerateHasher: true,
+		CreateProfile:    true,
+		LocalPath:        filepath.Join(tmpDir, "local_sftp"),
+		Schedule:         "daily",
+	}, "test-actor")
+
+	if err != nil {
+		t.Fatalf("unexpected error creating hasher-only remote: %v", err)
+	}
+	if !res.Success {
+		t.Fatalf("expected success, got %+v", res)
+	}
+
+	if len(createdRemotes) != 2 {
+		t.Fatalf("expected 2 remotes created (base, hasher), got: %v", createdRemotes)
+	}
+
+	hasherParams := createdParams["my_sftp_hasher"]
+	if hasherParams["remote"] != "my_sftp:uploads" {
+		t.Errorf("expected hasher remote 'my_sftp:uploads', got %v", hasherParams["remote"])
+	}
+
+	prof, err := profStore.Get(res.ProfileID)
+	if err != nil {
+		t.Fatalf("failed to retrieve profile: %v", err)
+	}
+	if prof.Remote != "my_sftp_hasher" {
+		t.Errorf("expected profile target 'my_sftp_hasher', got %q", prof.Remote)
+	}
+	if prof.RemotePath != "" {
+		t.Errorf("expected empty RemotePath on hasher profile, got %q", prof.RemotePath)
 	}
 }

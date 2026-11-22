@@ -373,6 +373,8 @@ export interface CreateRemoteBridgeRequest {
   crypt_password?: string
   crypt_password2?: string
   crypt_filename_encryption?: string
+  accelerate_hasher?: boolean
+  hasher_hashes?: string[]
 }
 
 /**

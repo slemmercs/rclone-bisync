@@ -228,6 +228,7 @@ Bisync Hub exposes native operational tools for AI agents (Claude, Cursor, Cline
 | Tool Identifier | Blast-Radius Guard | Description |
 | :--- | :---: | :--- |
 | `bisync_copy_item` | Jail-Confined | Copy a file or directory between remote and local storage targets |
+| `bisync_create_crypt_remote` | Read-Only | Wrap an existing remote with client-side Crypt encryption overlay |
 | `bisync_create_profile` | Read-Only | Create a new bidirectional synchronization profile with path validation |
 | `bisync_create_remote` | Read-Only | Provision a new Rclone remote target with optional automated sync profile provisioning bridge |
 | `bisync_dedupe_by_hash` | **SHA-256 Ticket** | Execute Rclone deduplication on a remote or profile path |
@@ -238,6 +239,7 @@ Bisync Hub exposes native operational tools for AI agents (Claude, Cursor, Cline
 | `bisync_get_logs` | Read-Only | Retrieve recent bisync execution logs with tail limit, severity level, profile, and run ID filtering |
 | `bisync_get_status` | Read-Only | Get compact system health summary (status, active syncs, daemon health, canary status) |
 | `bisync_get_sync_history` | Read-Only | Query historical sync execution records and audit ledger |
+| `bisync_hasher_command` | Read-Only | Execute Hasher cache maintenance command (dump, fulldump, drop, import, stickyimport) |
 | `bisync_inspect_conflict_session` | Read-Only | Retrieve pending conflict review session details, file differences, and candidate resolutions |
 | `bisync_list_profiles` | Read-Only | List all configured bisync profiles with current status, schedules, and path mappings |
 | `bisync_list_providers` | Read-Only | List supported Rclone cloud and object storage providers categorized by type |
@@ -264,6 +266,19 @@ Bisync Hub exposes native operational tools for AI agents (Claude, Cursor, Cline
 | `dst_path` | `string` | **Yes** | Destination relative path |
 | `is_dir` | `boolean` | No | True if copying a directory |
 | `profile_id` | `string` | No | Optional profile ID to infer local jail root and excludes |
+
+#### `bisync_create_crypt_remote`
+
+| Parameter | Type | Required | Description |
+| :--- | :--- | :---: | :--- |
+| `name` | `string` | **Yes** | Unique name for the encrypted remote (alphanumeric, dash, underscore) |
+| `remote` | `string` | **Yes** | Base remote target to wrap (e.g. 'myremote:path') |
+| `password` | `string` | **Yes** | Primary encryption password |
+| `password2` | `string` | No | Optional secondary password / salt |
+| `filename_encryption` | `string` | No | Filename encryption mode: 'standard', 'obfuscate', 'off' (default: 'standard') |
+| `create_profile` | `boolean` | No | Whether to automatically create a linked sync profile |
+| `local_path` | `string` | No | Local filesystem path if creating a linked profile |
+| `schedule` | `string` | No | Sync schedule interval preset: 'manual', '15m', '30m', '1h', '4h', 'daily' (default: 'manual') |
 
 #### `bisync_create_profile`
 
@@ -361,6 +376,14 @@ Bisync Hub exposes native operational tools for AI agents (Claude, Cursor, Cline
 | `profile_id` | `string` | No | Optional profile ID to filter history |
 | `limit` | `number` | No | Maximum number of records to return (default: 20, max: 100) |
 | `include_hashes` | `boolean` | No | Include cryptographic prev_hash and hash fields |
+
+#### `bisync_hasher_command`
+
+| Parameter | Type | Required | Description |
+| :--- | :--- | :---: | :--- |
+| `remote` | `string` | **Yes** | Hasher remote target name |
+| `command` | `string` | **Yes** | Hasher backend command: dump, fulldump, drop, import, stickyimport |
+| `args` | `string` | No | Optional positional arguments or space-separated string (e.g. hash types) |
 
 #### `bisync_inspect_conflict_session`
 
