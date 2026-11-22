@@ -42,6 +42,25 @@ func TestRemoteTools_ReadOnlyGuard(t *testing.T) {
 	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
 		t.Errorf("expected read-only rejection for delete_remote, got: %v, err: %v", res, err)
 	}
+
+	// 3. bisync_create_crypt_remote blocked in read-only
+	res, err = callMCP(srv.handleCreateCryptRemoteTool, map[string]any{
+		"name":     "my_crypt",
+		"remote":   "drive:",
+		"password": "pass",
+	})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
+		t.Errorf("expected read-only rejection for create_crypt_remote, got: %v, err: %v", res, err)
+	}
+
+	// 4. bisync_hasher_command mutative commands blocked in read-only
+	res, err = callMCP(srv.handleHasherCommandTool, map[string]any{
+		"remote":  "my_hasher",
+		"command": "drop",
+	})
+	if err != nil || !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "read-only") {
+		t.Errorf("expected read-only rejection for hasher drop command, got: %v, err: %v", res, err)
+	}
 }
 
 func TestRemoteTools_ListProviders(t *testing.T) {
@@ -305,3 +324,140 @@ func TestNormalizeDecision(t *testing.T) {
 		}
 	}
 }
+
+func TestRemoteTools_HasherCommand(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/backend/command" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"result": "dump_completed"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	c := client.NewRcloneClient(server.URL, "", "")
+	hasherSvc := services.NewHasherService(&config.Config{}, c, nil, nil, nil)
+	ctr := &app.Container{
+		HasherService: hasherSvc,
+	}
+
+	srv, err := NewServer(ctr, ServerConfig{Version: "v1.0.0-test"})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Missing remote
+	res, err := callMCP(srv.handleHasherCommandTool, map[string]any{
+		"command": "dump",
+	})
+	if err != nil || !res.IsError {
+		t.Fatalf("expected error for missing remote, got: %v", res)
+	}
+
+	// 2. Successful dump
+	res, err = callMCP(srv.handleHasherCommandTool, map[string]any{
+		"remote":  "myhasher",
+		"command": "dump",
+		"args":    "md5 sha1",
+		"opt":     map[string]any{"format": "json"},
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("unexpected error executing hasher command: %v", res)
+	}
+	text := res.Content[0].(mcp.TextContent).Text
+	if !strings.Contains(text, "dump_completed") {
+		t.Fatalf("expected dump_completed in output, got: %s", text)
+	}
+}
+
+func TestRemoteTools_CreateCryptRemote(t *testing.T) {
+	tmpDir := t.TempDir()
+	profStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
+	if err != nil {
+		t.Fatalf("failed to create profStore: %v", err)
+	}
+	profSvc := profiles.NewService(profStore, nil, nil)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/config/listremotes":
+			_ = json.NewEncoder(w).Encode(map[string][]string{"remotes": {}})
+		case "/core/obscure":
+			var req map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewEncoder(w).Encode(map[string]string{"obscured": "obs_" + req["clear"]})
+		case "/config/create":
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	c := client.NewRcloneClient(server.URL, "", "")
+	cryptSvc := services.NewCryptService(&config.Config{}, c, nil, profSvc, nil)
+	ctr := &app.Container{
+		CryptService:   cryptSvc,
+		ProfileService: profSvc,
+	}
+
+	srv, err := NewServer(ctr, ServerConfig{Version: "v1.0.0-test"})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Missing password
+	res, err := callMCP(srv.handleCreateCryptRemoteTool, map[string]any{
+		"name":   "mycrypt",
+		"remote": "drive:secret",
+	})
+	if err != nil || !res.IsError {
+		t.Fatalf("expected error for missing password, got: %v", res)
+	}
+
+	// 2. Successful creation with profile
+	res, err = callMCP(srv.handleCreateCryptRemoteTool, map[string]any{
+		"name":                "mycrypt",
+		"remote":              "drive:secret",
+		"password":            "pass123",
+		"filename_encryption": "standard",
+		"create_profile":      true,
+		"local_path":          filepath.Join(tmpDir, "local_crypt"),
+		"schedule":            "daily",
+	})
+	if err != nil || res.IsError {
+		t.Fatalf("unexpected error creating crypt remote: %v", res)
+	}
+	text := res.Content[0].(mcp.TextContent).Text
+	if !strings.Contains(text, "mycrypt") {
+		t.Fatalf("expected mycrypt in output, got: %s", text)
+	}
+}
+
+func TestExtractStringHelpers(t *testing.T) {
+	// extractStringSliceArg
+	if extractStringSliceArg(nil, "key") != nil {
+		t.Error("expected nil for nil args")
+	}
+	mStr := map[string]any{"args": "one two three"}
+	slice := extractStringSliceArg(mStr, "args")
+	if len(slice) != 3 || slice[0] != "one" || slice[2] != "three" {
+		t.Errorf("expected 3 items from string, got: %v", slice)
+	}
+	mSlice := map[string]any{"args": []any{"a", "b"}}
+	slice2 := extractStringSliceArg(mSlice, "args")
+	if len(slice2) != 2 || slice2[0] != "a" {
+		t.Errorf("expected 2 items from slice, got: %v", slice2)
+	}
+
+	// extractStringMapArg
+	if extractStringMapArg(nil, "opt") != nil {
+		t.Error("expected nil for nil args")
+	}
+	mOpt := map[string]any{"opt": map[string]any{"k": "v", "num": 42}}
+	resMap := extractStringMapArg(mOpt, "opt")
+	if resMap["k"] != "v" || resMap["num"] != "42" {
+		t.Errorf("expected parsed string map, got: %v", resMap)
+	}
+}
+

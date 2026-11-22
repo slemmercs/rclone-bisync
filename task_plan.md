@@ -17,7 +17,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
   - **Scope**: `internal/services/hasher_service.go`, `internal/services/hasher_service_test.go`, `internal/services/crypt_service.go`, `internal/services/crypt_service_test.go`, `internal/services/remote_wizard_service.go`, `internal/app/container.go`
   - **Verification**: `go test -count=1 ./internal/services/...`
 
-- [ ] Task 4: Virtual Remotes HTTP Handlers & MCP Tools
+- [x] Task 4: Virtual Remotes HTTP Handlers & MCP Tools
   - **Scope**: `internal/server/handlers_virtual_remotes.go`, `internal/server/handlers_virtual_remotes_test.go`, `internal/server/routes.go`, `internal/mcp/tools_remote.go`, `internal/mcp/tools_remote_test.go`
   - **Verification**: `go test -count=1 ./internal/server/... ./internal/mcp/...`
 
@@ -51,4 +51,6 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
 
 - 2026-11-21: Completed Task 2. Implemented `RcloneClient.Obscure` method with unit tests in `internal/core/client/`, added `CryptWrapRequest` and `CryptWrapResponse` in `internal/models/crypt.go` with unit tests, and extended `CreateRemoteBridgeRequest` in `internal/models/provider.go`. Verified with `go test -count=1 ./internal/models/... ./internal/core/client/...`.
 - 2026-11-21: Completed Task 3. Implemented `HasherService` and `CryptService` in `internal/services/` with unit tests, wired encrypted overlay support and `"hasher"` categorization into `RemoteWizardService`, and registered both services into `internal/app/container.go`. Verified with `go test -count=1 ./internal/services/... ./internal/app/...`.
+- 2026-11-21: Completed Task 4. Implemented HTTP endpoints for `/api/remotes/hasher/wrap`, `/api/remotes/hasher/command`, and `/api/remotes/crypt/wrap` in `internal/server/handlers_virtual_remotes.go`. Implemented MCP tools `bisync_hasher_command` and `bisync_create_crypt_remote` in `internal/mcp/tools_remote.go`. Verified with `go test -count=1 ./internal/server/... ./internal/mcp/...`.
+
 

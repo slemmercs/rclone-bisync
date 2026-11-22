@@ -41,6 +41,8 @@ type Server struct {
 	UploadDock              *services.UploadDock
 	RemoteWizardService     *services.RemoteWizardService
 	DedupeService           *services.DedupeService
+	HasherService           *services.HasherService
+	CryptService            *services.CryptService
 	FrontendFS              fs.FS
 	Mux                     *http.ServeMux
 	Version                 string
@@ -86,6 +88,8 @@ func NewServerWithContainer(container *app.Container, frontendFS fs.FS) *Server 
 		UploadDock:              container.UploadDock,
 		RemoteWizardService:     container.RemoteWizardService,
 		DedupeService:           container.DedupeService,
+		HasherService:           container.HasherService,
+		CryptService:            container.CryptService,
 		FrontendFS:              frontendFS,
 		Mux:                     http.NewServeMux(),
 		StartTime:               time.Now(),
