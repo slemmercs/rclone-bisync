@@ -13,7 +13,7 @@ Implement contextual safeguards, canonical overlay chaining (Base -> Crypt -> Ha
   - **Scope**: `internal/services/remote_wizard_service_test.go`, `cmd/gendocs/`
   - **Verification**: `go test -count=1 ./internal/services/...`
 
-- [ ] Task 3: Frontend Type Contracts & Helper Functions
+- [x] Task 3: Frontend Type Contracts & Helper Functions
   - **Scope**: `dashboard/frontend/src/types/remotes.ts`, `dashboard/frontend/src/stores/remotes.ts`
   - **Verification**: `npm --prefix dashboard/frontend run type-check`
 
@@ -30,3 +30,5 @@ Implement contextual safeguards, canonical overlay chaining (Base -> Crypt -> Ha
 - 2026-11-22: Initialized implementation plan and task plan for Epic 4.
 - 2026-11-22: Completed Task 1. Extended `CreateRemoteBridgeRequest` with `AccelerateHasher` and `HasherHashes`, injected `HasherService` into `RemoteWizardService`, implemented overlay chaining (`Base -> Crypt -> Hasher`), baked subpath into inner layers to prevent double-nesting, added bucket-based subpath validation, and blocked `union`/`combine` profile creation. Verified with `go test -count=1 ./internal/services -run TestRemoteWizard` and `go test -count=1 ./internal/app`.
 - 2026-11-22: Completed Task 2. Added comprehensive unit tests for virtual guardrails, bucket subpath validation, dual-wrap chaining (`Base -> Crypt -> Hasher`), and hasher-only wrap. Synchronized TypeScript contracts (`models.gen.ts`) and markdown technical documentation (`site/technical-reference.md`) via AST code generation. Verified with `go test -count=1 ./internal/services/...`.
+
+- 2026-11-22: Completed Task 3. Defined `isVirtualProvider`, `isBisyncIncompatible`, and `isBucketBasedProvider` helper predicates. Extended `CreateRemotePayload` and `WizardConfigForm` with Hasher fields (`accelerate_hasher`, `hasher_hashes`), and wired form defaults in `ModalRemoteWizard.vue`. Verified via `npm --prefix dashboard/frontend run build`.

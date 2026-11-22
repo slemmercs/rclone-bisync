@@ -55,6 +55,9 @@ export interface CreateRemotePayload {
   crypt_password2?: string
   crypt_filename_encryption?: 'standard' | 'obfuscate' | 'off'
   crypt_directory_name_encryption?: boolean
+  // Hasher acceleration overlay support
+  accelerate_hasher?: boolean
+  hasher_hashes?: string[]
 }
 
 export interface WizardConfigForm {
@@ -67,6 +70,8 @@ export interface WizardConfigForm {
   cryptPassword: string
   cryptPassword2: string
   cryptFilenameEncryption: 'standard' | 'obfuscate' | 'off'
+  accelerateHasher: boolean
+  hasherHashes: string[]
   createProfile: boolean
   localPath: string
   remoteSubpath: string
@@ -80,5 +85,23 @@ export function isOAuthProvider(p: ProviderCatalogItem | null | undefined): bool
   const name = (p.name || '').toLowerCase()
   const prefix = (p.prefix || '').toLowerCase()
   return oauthTypes.includes(name) || oauthTypes.includes(prefix)
+}
+
+export function isVirtualProvider(p: ProviderCatalogItem | string | null | undefined): boolean {
+  if (!p) return false
+  const name = typeof p === 'string' ? p.toLowerCase() : (p.name || p.prefix || '').toLowerCase()
+  return ['crypt', 'hasher', 'alias', 'chunker', 'compress', 'union', 'combine'].includes(name)
+}
+
+export function isBisyncIncompatible(p: ProviderCatalogItem | string | null | undefined): boolean {
+  if (!p) return false
+  const name = typeof p === 'string' ? p.toLowerCase() : (p.name || p.prefix || '').toLowerCase()
+  return ['union', 'combine'].includes(name)
+}
+
+export function isBucketBasedProvider(p: ProviderCatalogItem | string | null | undefined): boolean {
+  if (!p) return false
+  const name = typeof p === 'string' ? p.toLowerCase() : (p.name || p.prefix || '').toLowerCase()
+  return ['s3', 'b2', 'gcs', 'azureblob', 'swift'].includes(name)
 }
 

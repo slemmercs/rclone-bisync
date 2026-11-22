@@ -152,6 +152,8 @@ function defaultForm(): WizardConfigForm {
     cryptPassword: '',
     cryptPassword2: '',
     cryptFilenameEncryption: 'standard',
+    accelerateHasher: false,
+    hasherHashes: ['md5', 'sha1'],
     createProfile: true,
     localPath: '',
     remoteSubpath: '',
@@ -205,6 +207,8 @@ function selectProvider(p: ProviderCatalogItem) {
   form.value.cryptPassword = ''
   form.value.cryptPassword2 = ''
   form.value.cryptFilenameEncryption = 'standard'
+  form.value.accelerateHasher = false
+  form.value.hasherHashes = ['md5', 'sha1']
   step.value = 2
 }
 
@@ -241,6 +245,8 @@ async function handleDeploy() {
     crypt_password: form.value.encryptRemote ? form.value.cryptPassword.trim() : undefined,
     crypt_password2: form.value.encryptRemote && form.value.cryptPassword2.trim() ? form.value.cryptPassword2.trim() : undefined,
     crypt_filename_encryption: form.value.encryptRemote ? form.value.cryptFilenameEncryption : undefined,
+    accelerate_hasher: form.value.accelerateHasher,
+    hasher_hashes: form.value.accelerateHasher && form.value.hasherHashes.length > 0 ? form.value.hasherHashes : undefined,
   }
 
   try {
