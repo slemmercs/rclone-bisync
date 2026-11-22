@@ -5,6 +5,7 @@ export * from './logs'
 export * from './dedupe'
 export * from './hasher'
 export * from './crypt'
+export * from './remotes'
 
 
 

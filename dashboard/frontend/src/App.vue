@@ -24,6 +24,7 @@ import Toast from 'primevue/toast'
 import { useAppStore } from './stores/app'
 import { useProfilesStore } from './stores/profiles'
 import { useTelemetryStore } from './stores/telemetry'
+import { useRemotesStore } from './stores/remotes'
 import { useDedupeStore } from './stores/dedupe'
 import { useQueueStore } from './stores/queue'
 import { useReviewStore } from './stores/review'
@@ -32,6 +33,7 @@ import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 
 
 const appStore = useAppStore()
+const remotesStore = useRemotesStore()
 const dedupeStore = useDedupeStore()
 const reviewStore = useReviewStore()
 const logsStore = useLogsStore()
@@ -62,7 +64,7 @@ useKeyboardShortcuts({
     showProfilesModal.value = true
   },
   onOpenRemoteWizard: () => {
-    dedupeStore.openWizard()
+    remotesStore.openWizard()
   },
   onOpenReview: () => {
     reviewStore.openModal()
@@ -92,7 +94,7 @@ onUnmounted(() => {
       @update:activeTab="(tab) => (activeTab = tab)"
       @openReview="showReviewModal = true"
       @openProfiles="showProfilesModal = true"
-      @openRemoteWizard="dedupeStore.openWizard()"
+      @openRemoteWizard="remotesStore.openWizard()"
     />
 
     <!-- View Workspace Container -->
@@ -147,7 +149,7 @@ onUnmounted(() => {
     />
     <ProfileManagerModal
       v-model:visible="showProfilesModal"
-      @open-remote-wizard="showProfilesModal = false; dedupeStore.openWizard()"
+      @open-remote-wizard="showProfilesModal = false; remotesStore.openWizard()"
     />
     <ModalDaemonLogs />
     <HelpDrawer />

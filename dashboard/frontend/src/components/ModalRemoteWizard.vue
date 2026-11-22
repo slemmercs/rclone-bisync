@@ -1,7 +1,7 @@
 <template>
   <Dialog
-    :visible="dedupeStore.wizardOpen"
-    @update:visible="val => !val && dedupeStore.closeWizard()"
+    :visible="remotesStore.wizardOpen"
+    @update:visible="val => !val && remotesStore.closeWizard()"
     modal
     :style="{ width: '90vw', maxWidth: '850px' }"
     :pt="{
@@ -90,7 +90,7 @@
         </div>
       </div>
 
-      <div v-if="dedupeStore.providersLoading" class="py-16 text-center text-slate-400 space-y-2">
+      <div v-if="remotesStore.providersLoading" class="py-16 text-center text-slate-400 space-y-2">
         <i class="pi pi-spin pi-spinner text-xl text-electric-blue"></i>
         <div class="text-xs font-mono">Fetching provider catalog from Rclone...</div>
       </div>
@@ -412,7 +412,7 @@
     <div class="flex items-center justify-between pt-3 pb-3 px-5 border-t border-carbon-border shrink-0 sticky -bottom-5 -mx-5 -mb-5 bg-carbon-surface/95 backdrop-blur-md z-10 shadow-lg">
       <button
         type="button"
-        @click="step > 1 ? step-- : dedupeStore.closeWizard()"
+        @click="step > 1 ? step-- : remotesStore.closeWizard()"
         class="px-3.5 py-1.5 rounded-lg bg-carbon-elevated hover:bg-slate-700 text-slate-300 text-xs font-mono border border-carbon-border cursor-pointer transition-colors"
       >
         {{ step > 1 ? '← Back' : 'Cancel' }}
@@ -447,12 +447,10 @@
 import { ref, computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import DynamicProviderForm from './DynamicProviderForm.vue'
-import { useDedupeStore } from '../stores/dedupe'
 import { useRemotesStore } from '../stores/remotes'
 import { useProfilesStore } from '../stores/profiles'
-import type { ProviderCatalogItem, CreateRemotePayload } from '../types/dedupe'
+import type { ProviderCatalogItem, CreateRemotePayload } from '../types'
 
-const dedupeStore = useDedupeStore()
 const remotesStore = useRemotesStore()
 const profilesStore = useProfilesStore()
 
@@ -500,7 +498,7 @@ const canProceedToStep3 = computed(() => {
 })
 
 const filteredProviders = computed(() => {
-  let list = dedupeStore.providers || []
+  let list = remotesStore.providers || []
   if (category.value === 'popular') {
     list = list.filter(p => p.category === 'popular' || ['drive', 'onedrive', 's3', 'b2', 'dropbox'].includes(p.name))
   } else if (category.value !== 'all') {
@@ -569,12 +567,12 @@ async function handleDeploy() {
   }
 
   try {
-    await dedupeStore.createRemote(payload)
+    await remotesStore.createRemote(payload)
     await remotesStore.fetchRemotes(true)
     if (createProfile.value) {
       await profilesStore.fetchProfiles()
     }
-    dedupeStore.closeWizard()
+    remotesStore.closeWizard()
 
     // If OAuth browser authentication was requested or required, launch interactive OAuth reconnect modal
     if (isOAuthProvider(selectedProvider.value)) {

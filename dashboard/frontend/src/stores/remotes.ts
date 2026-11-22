@@ -16,6 +16,9 @@ import type {
   HasherCommandResponse,
   CryptWrapRequest,
   CryptWrapResponse,
+  ProviderCatalogItem,
+  ProviderCatalogResponse,
+  CreateRemotePayload,
 } from '../types'
 
 export const useRemotesStore = defineStore('remotes', () => {
@@ -74,6 +77,12 @@ export const useRemotesStore = defineStore('remotes', () => {
     show: false,
     remote: '',
   })
+
+  // Remote creation wizard state
+  const wizardOpen = ref<boolean>(false)
+  const providers = ref<ProviderCatalogItem[]>([])
+  const providersLoading = ref<boolean>(false)
+  const selectedProvider = ref<ProviderCatalogItem | null>(null)
 
   function openHasherManager(remoteName: string = '', mode: 'manager' | 'wrap' = 'manager') {
     hasherModal.value = {
@@ -315,7 +324,36 @@ export const useRemotesStore = defineStore('remotes', () => {
     }
   }
 
-  async function createRemote(payload: { name: string; type: string; parameters?: Record<string, any> }) {
+  // Provider Catalog & Remote Creation Wizard
+  async function fetchProviders(force = false) {
+    if (providers.value.length > 0 && !force) return
+    providersLoading.value = true
+    try {
+      const data = await api.get<ProviderCatalogResponse>('/api/remotes/providers')
+      providers.value = data.providers || []
+    } catch (e: any) {
+      console.error('Failed to load provider catalog:', e)
+    } finally {
+      providersLoading.value = false
+    }
+  }
+
+  function openWizard(defaultProvider?: string) {
+    wizardOpen.value = true
+    fetchProviders().then(() => {
+      if (defaultProvider && providers.value.length > 0) {
+        const found = providers.value.find((p) => p.name === defaultProvider || p.prefix === defaultProvider)
+        if (found) selectedProvider.value = found
+      }
+    })
+  }
+
+  function closeWizard() {
+    wizardOpen.value = false
+    selectedProvider.value = null
+  }
+
+  async function createRemote(payload: CreateRemotePayload) {
     loading.value = true
     try {
       const res = await api.post('/api/remotes/create', payload)
@@ -381,10 +419,17 @@ export const useRemotesStore = defineStore('remotes', () => {
     auditModal,
     hasherModal,
     cryptModal,
+    wizardOpen,
+    providers,
+    providersLoading,
+    selectedProvider,
     openHasherManager,
     closeHasherManager,
     openCryptWrap,
     closeCryptWrap,
+    fetchProviders,
+    openWizard,
+    closeWizard,
     fetchRemotes,
     checkAuth,
     validateRemote,

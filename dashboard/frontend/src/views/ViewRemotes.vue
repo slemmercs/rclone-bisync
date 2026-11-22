@@ -162,7 +162,7 @@ onMounted(() => {
         </button>
 
         <button
-          @click="dedupeStore.openWizard()"
+          @click="remotesStore.openWizard()"
           class="px-3.5 py-1.5 bg-electric-blue hover:bg-sky-400 text-black font-bold rounded-xl text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer shadow"
         >
           <i class="pi pi-plus text-xs"></i>

@@ -13,7 +13,7 @@ Decompose frontend God Objects into cohesive subcomponents, extract reusable com
   - **Scope**: Create `components/remotes/RemoteCard.vue` and `components/remotes/RemotesKpiRibbon.vue`, refactor `ViewRemotes.vue`.
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 3: Decouple Remote Wizard State from DedupeStore to RemotesStore
+- [x] Task 3: Decouple Remote Wizard State from DedupeStore to RemotesStore
   - **Scope**: `stores/remotes.ts`, `stores/dedupe.ts`, and relevant callers.
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
@@ -34,3 +34,4 @@ Decompose frontend God Objects into cohesive subcomponents, extract reusable com
 - 2026-11-22: Initialized implementation plan and task execution plan for frontend component & store decomposition.
 - 2026-11-22: Completed Task 1. Decomposed `ProfileManagerModal.vue` (reduced from 648 LOC to ~220 LOC) into modular child components under `components/profiles/` (`ProfileListTab.vue`, `ProfileHistoryTab.vue`, `ProfileCloneDialog.vue`, `ProfileFormTab.vue`). Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 - 2026-11-22: Completed Task 2. Decomposed `ViewRemotes.vue` (reduced from 446 LOC to 199 LOC) by extracting `RemotesKpiRibbon.vue` and `RemoteCard.vue` into `components/remotes/`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+- 2026-11-22: Completed Task 3. Decoupled remote wizard state from `dedupe.ts` to `remotes.ts`. Created `types/remotes.ts`, wired bidirectional compatibility delegates into `dedupe.ts`, and updated callers (`ModalRemoteWizard.vue`, `App.vue`, `ViewRemotes.vue`) to use `remotesStore`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.

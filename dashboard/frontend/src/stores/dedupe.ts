@@ -54,11 +54,23 @@ export const useDedupeStore = defineStore('dedupe', () => {
   const explorerLoading = ref<boolean>(false)
   const explorerError = ref<string | null>(null)
 
-  // Remote creation wizard state
-  const wizardOpen = ref<boolean>(false)
-  const providers = ref<ProviderCatalogItem[]>([])
-  const providersLoading = ref<boolean>(false)
-  const selectedProvider = ref<ProviderCatalogItem | null>(null)
+  const remotesStore = useRemotesStore()
+
+  // Remote creation wizard compatibility bindings (delegated to remotes store)
+  const wizardOpen = computed({
+    get: () => remotesStore.wizardOpen,
+    set: (val: boolean) => { remotesStore.wizardOpen = val }
+  })
+  const providers = computed(() => remotesStore.providers)
+  const providersLoading = computed(() => remotesStore.providersLoading)
+  const selectedProvider = computed({
+    get: () => remotesStore.selectedProvider,
+    set: (val) => { remotesStore.selectedProvider = val }
+  })
+  const fetchProviders = (force?: boolean) => remotesStore.fetchProviders(force)
+  const openWizard = (defaultProvider?: string) => remotesStore.openWizard(defaultProvider)
+  const closeWizard = () => remotesStore.closeWizard()
+  const createRemote = (payload: CreateRemotePayload) => remotesStore.createRemote(payload)
 
   // Computed views
   const stagedCount = computed(() => Object.keys(stagedActions.value).length)
@@ -421,45 +433,6 @@ export const useDedupeStore = defineStore('dedupe', () => {
   function selectExplorerItem(item: BrowseItem) {
     if (item.IsDir) {
       loadExplorer(item.Path)
-    }
-  }
-
-  // Provider Catalog & Remote Creation Wizard
-  async function fetchProviders(force = false) {
-    if (providers.value.length > 0 && !force) return
-    providersLoading.value = true
-    try {
-      const data = await api.get<ProviderCatalogResponse>('/api/remotes/providers')
-      providers.value = data.providers || []
-    } catch (e: any) {
-      console.error('Failed to load provider catalog:', e)
-    } finally {
-      providersLoading.value = false
-    }
-  }
-
-  function openWizard(defaultProvider?: string) {
-    wizardOpen.value = true
-    fetchProviders().then(() => {
-      if (defaultProvider && providers.value.length > 0) {
-        const found = providers.value.find((p) => p.name === defaultProvider || p.prefix === defaultProvider)
-        if (found) selectedProvider.value = found
-      }
-    })
-  }
-
-  function closeWizard() {
-    wizardOpen.value = false
-    selectedProvider.value = null
-  }
-
-  async function createRemote(payload: CreateRemotePayload) {
-    loading.value = true
-    try {
-      const res = await api.post<any>('/api/remotes/create', payload)
-      return res
-    } finally {
-      loading.value = false
     }
   }
 
