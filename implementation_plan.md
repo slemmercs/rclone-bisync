@@ -1,52 +1,44 @@
-# Implementation Plan: Frontend Component & Store Decomposition
+# Implementation Plan: Epic 4 — Wizard Virtual Remote Guardrails & Hasher Acceleration
 
 ## Proposed Changes
 
-Refactor bloated Vue 3 Single-File Components and Pinia stores across `dashboard/frontend/src/` to eliminate "God Objects", enforce single responsibility, improve component testability, and isolate UI presentation from domain orchestration.
+Implement contextual safeguards, canonical overlay chaining, and Hasher acceleration within the Remote Creation Wizard:
+1. Prevent inverted and invalid virtual overlays by disallowing wrapping virtual providers (`hasher`, `crypt`, `union`, `combine`, `alias`) in `crypt` or `hasher`.
+2. Introduce Hasher acceleration (`[x] Accelerate with Hasher`) for standard cloud, object, and protocol remotes (SFTP, WebDAV, SMB, local).
+3. Enforce the canonical overlay pipeline: $\text{Base} \longrightarrow \text{Base\_crypt} \longrightarrow \text{Base\_crypt\_hasher}$.
+4. Prevent subpath double-nesting by baking `RemoteSubpath` into the inner overlay target and clearing it on outer layers and the linked sync profile.
+5. Require non-empty bucket subpath when wrapping bucket-based providers (`s3`, `b2`, `gcs`, `azureblob`, `swift`) in virtual overlays.
+6. Guard against `union` and `combine` as targets for bidirectional synchronization (`bisync`), displaying clear warning banners and disabling linked profile creation.
 
 ### Affected Components & Packages
 
-1. **Profile Management (`dashboard/frontend/src/components/profiles/`)**:
-   - `ProfileListTab.vue`: Active profiles overview, status badges, sync triggers, action bar.
-   - `ProfileFormTab.vue`: Profile identity, schedule, review mode, comparison mode, safety limits, exclude patterns, dynamic provider options, guided flags builder, and synthesized live CLI preview.
-   - `ProfileHistoryTab.vue`: Historical version snapshot list and rollback execution.
-   - `ProfileCloneDialog.vue`: Modal dialog for duplicating workload configuration.
-   - `ProfileManagerModal.vue`: Streamlined dialog container coordinating active tab state.
-
-2. **Remotes Workspace (`dashboard/frontend/src/components/remotes/`)**:
-   - `RemotesKpiRibbon.vue`: Top storage metric summary tiles (Total, Used, Free, Count).
-   - `RemoteCard.vue`: Card representing a storage remote with quota visualization, auth badges, migration banner, and action buttons.
-   - `ViewRemotes.vue`: Streamlined view orchestrating toolbar filters, search, and remote grid.
-
-3. **Remote Wizard Store Decoupling (`dashboard/frontend/src/stores/`)**:
-   - `stores/remotes.ts`: Incorporate wizard state (`wizardOpen`, `providers`, `providersLoading`, `selectedProvider`, `fetchProviders`, `openWizard`, `closeWizard`, `createRemote`).
-   - `stores/dedupe.ts`: Retain compatibility alias / delegate to `remotesStore` or eliminate wizard state from dedupe store so dedupe concerns remain cleanly isolated.
-
-4. **Remote Provisioning Wizard Stepper (`dashboard/frontend/src/components/wizard/`)**:
-   - `WizardStepProviderSelect.vue`: Step 1 provider catalog grid, category pills, and search filtering.
-   - `WizardStepConfigure.vue`: Step 2 remote naming, OAuth toggle / `DynamicProviderForm`, Crypt wrap settings, and profile bridging.
-   - `WizardStepReview.vue`: Step 3 pre-deployment summary checklist, deployment action, and OAuth redirect polling.
-   - `ModalRemoteWizard.vue`: Streamlined stepper coordinator.
-
-5. **File Explorer Decomposition (`dashboard/frontend/src/composables/`)**:
-   - `composables/useExplorerModals.ts`: Centralizes state and helpers for preview, compare, mkdir, move, transfer, and delete confirmation modals.
-   - `composables/useExplorerPanes.ts`: Encapsulates dual pane state, pane swapping, path navigation, and cross-pane drag/drop coordination.
-   - `views/ViewExplorer.vue`: Clean orchestrator delegating to composables and child components.
+- `internal/models/provider.go`: Add `AccelerateHasher bool` and `HasherHashes []string` to `CreateRemoteBridgeRequest`.
+- `internal/services/remote_wizard_service.go`: Inject `Hasher *HasherService`, validate bucket requirements, enforce overlay order (`Base -> Crypt -> Hasher`), prevent union/combine profile creation, and bake subpath into inner layer.
+- `internal/app/container.go`: Wire `c.RemoteWizardService.SetHasherService(c.HasherService)`.
+- `internal/services/remote_wizard_service_test.go`: Add unit tests for dual-wrap chaining, hasher-only wrap, bucket subpath validation, and union/combine profile guard.
+- `cmd/gendocs/`: Regenerate AST TypeScript definitions (`dashboard/frontend/src/types/models.gen.ts`) and `site/technical-reference.md`.
+- `dashboard/frontend/src/types/remotes.ts`: Add `isVirtualProvider` and `isBisyncIncompatible` helpers, extend `CreateRemotePayload` and `WizardConfigForm`.
+- `dashboard/frontend/src/components/wizard/WizardStepConfigure.vue`: Render Hasher acceleration checkbox, contextual overlay hiding, pipeline visualization badge, and union/combine warning banner.
+- `dashboard/frontend/src/components/wizard/WizardStepReview.vue`: Display Hasher acceleration in review summary table and resolved profile target remote.
 
 ### Technical Strategy & Data Flow
 
-- Decompose UI templates without altering any existing TypeScript API contracts or Pinia store getters.
-- Preserve all existing event semantics, accessibility attributes, keyboard navigation, and PrimeVue integration.
-- Ensure strict type safety with Vue 3 `defineProps` and `defineEmits`.
+- The remote wizard service receives `CreateRemoteBridgeRequest`.
+- If provider is `union` or `combine` and `CreateProfile` is true, return an error or skip profile provisioning.
+- If provider is bucket-based (`s3`, `b2`, `gcs`, `azureblob`, `swift`) and `EncryptRemote` or `AccelerateHasher` is true, require non-empty `RemoteSubpath`.
+- Inner overlay absorbs `RemoteSubpath`: `cryptTarget = cleanName + ":" + targetRemoteSubpath`, then `targetRemoteSubpath = ""`.
+- If `AccelerateHasher` is true, wrap the current target (`cleanName + "_crypt"` or `cleanName`) using `HasherService.WrapRemoteInHasher`.
+- Any linked sync profile targets the final outermost layer (`targetRemoteForProfile`).
 
 ### Safety & Error Handling
 
-- Props and Emits contracts maintain 100% parity with parent components.
-- Reactive refs and computeds retain referential integrity across decomposed composables.
-- Zero client-side bundle regression: run `vue-tsc --noEmit` and `vite build` to guarantee compilation integrity.
+- Bucket protection prevents orphaned top-level buckets and Rclone overlay initialization failures.
+- Non-destructive configuration creation via Rclone RC `/config/create`.
+- Backend LOC strictly maintained under ~400 LOC ceiling.
 
 ## Verification Plan
 
-- `npm --prefix dashboard/frontend run type-check` after every micro-task.
-- `npm --prefix dashboard/frontend run build` to verify production assets.
-- `./scripts/check.sh all` for final full-system quality gates.
+- `go test -count=1 ./internal/services -run TestRemoteWizardService`
+- `go test -count=1 ./internal/...`
+- `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
+- `./scripts/check.sh all`

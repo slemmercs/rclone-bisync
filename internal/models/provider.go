@@ -122,6 +122,8 @@ type CreateRemoteBridgeRequest struct {
 	CryptPassword           string                 `json:"crypt_password,omitempty"`
 	CryptPassword2          string                 `json:"crypt_password2,omitempty"`
 	CryptFilenameEncryption string                 `json:"crypt_filename_encryption,omitempty"`
+	AccelerateHasher        bool                   `json:"accelerate_hasher,omitempty"`
+	HasherHashes            []string               `json:"hasher_hashes,omitempty"`
 }
 
 // CreateRemoteResult represents the response after creating a remote (and optional profile).

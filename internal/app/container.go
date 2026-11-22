@@ -288,6 +288,9 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 	if c.RemoteWizardService.Crypt == nil {
 		c.RemoteWizardService.SetCryptService(c.CryptService)
 	}
+	if c.RemoteWizardService.Hasher == nil {
+		c.RemoteWizardService.SetHasherService(c.HasherService)
+	}
 
 	// 9. Initialize Dedupe Service
 	if c.DedupeService == nil {

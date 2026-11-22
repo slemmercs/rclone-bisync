@@ -21,18 +21,8 @@ var (
 
 	// PopularProviders highlights high-frequency cloud backends in the UI wizard and MCP.
 	PopularProviders = map[string]bool{
-		"drive":     true,
-		"onedrive":  true,
-		"dropbox":   true,
-		"box":       true,
-		"s3":        true,
-		"b2":        true,
-		"azureblob": true,
-		"gcs":       true,
-		"sftp":      true,
-		"webdav":    true,
-		"smb":       true,
-		"alias":     true,
+		"drive": true, "onedrive": true, "dropbox": true, "box": true, "s3": true,
+		"b2": true, "azureblob": true, "gcs": true, "sftp": true, "webdav": true, "smb": true, "alias": true,
 	}
 )
 
@@ -54,6 +44,22 @@ func CategorizeProvider(pType string) models.ProviderCategory {
 	}
 }
 
+func isBucketBased(pType string) bool {
+	switch strings.ToLower(strings.TrimSpace(pType)) {
+	case "s3", "b2", "gcs", "azureblob", "swift":
+		return true
+	}
+	return false
+}
+
+func isBisyncIncompatible(pType string) bool {
+	switch strings.ToLower(strings.TrimSpace(pType)) {
+	case "union", "combine":
+		return true
+	}
+	return false
+}
+
 // RemoteWizardService coordinates provider catalog discovery, remote creation, and sync profile bridges.
 type RemoteWizardService struct {
 	Config    *config.Config
@@ -62,6 +68,7 @@ type RemoteWizardService struct {
 	Profiles  *profiles.Service
 	Telemetry *TelemetryService
 	Crypt     *CryptService
+	Hasher    *HasherService
 
 	mu           sync.RWMutex
 	catalogCache *models.ProviderCatalogResponse
@@ -88,6 +95,11 @@ func NewRemoteWizardService(
 // SetCryptService sets the optional CryptService for auto-wrapping encrypted remotes.
 func (s *RemoteWizardService) SetCryptService(cryptSvc *CryptService) {
 	s.Crypt = cryptSvc
+}
+
+// SetHasherService sets the optional HasherService for auto-wrapping hasher-accelerated remotes.
+func (s *RemoteWizardService) SetHasherService(hasherSvc *HasherService) {
+	s.Hasher = hasherSvc
 }
 
 // GetProvidersCatalog queries and categorizes all Rclone backend providers (with 5m caching).
@@ -167,6 +179,23 @@ func (s *RemoteWizardService) CreateRemote(ctx context.Context, req models.Creat
 	if cleanType == "" {
 		return nil, fmt.Errorf("remote type cannot be empty")
 	}
+	cleanTypeLower := strings.ToLower(cleanType)
+
+	if isBisyncIncompatible(cleanTypeLower) && req.CreateProfile {
+		return nil, fmt.Errorf("profile creation rejected: %s remotes are unsupported as targets for bidirectional sync", cleanType)
+	}
+	if CategorizeProvider(cleanTypeLower) == models.CategoryVirtual {
+		if req.EncryptRemote {
+			return nil, fmt.Errorf("cannot wrap virtual remote %q (type: %s) in crypt", cleanName, cleanType)
+		}
+		if req.AccelerateHasher {
+			return nil, fmt.Errorf("cannot wrap virtual remote %q (type: %s) in hasher", cleanName, cleanType)
+		}
+	}
+	subpathClean := strings.Trim(req.RemoteSubpath, "/\\ ")
+	if isBucketBased(cleanTypeLower) && (req.EncryptRemote || req.AccelerateHasher) && subpathClean == "" {
+		return nil, fmt.Errorf("wrapping bucket-based provider %q in crypt or hasher requires specifying a bucket in remote_subpath", cleanType)
+	}
 
 	// Guard against existing remote collision
 	existing, err := s.Client.ListRemotes(ctx)
@@ -217,7 +246,7 @@ func (s *RemoteWizardService) CreateRemote(ctx context.Context, req models.Creat
 	}
 
 	targetRemoteForProfile := cleanName
-	targetRemoteSubpath := strings.Trim(req.RemoteSubpath, "/\\ ")
+	targetRemoteSubpath := subpathClean
 
 	if req.EncryptRemote {
 		if s.Crypt == nil {
@@ -246,6 +275,39 @@ func (s *RemoteWizardService) CreateRemote(ctx context.Context, req models.Creat
 			targetRemoteForProfile = cryptRes.RemoteName
 			targetRemoteSubpath = ""
 			res.Message = fmt.Sprintf("Remote %q and encrypted overlay %q created successfully", cleanName, cryptRes.RemoteName)
+		}
+	}
+
+	if req.AccelerateHasher {
+		if s.Hasher == nil {
+			res.Message += " (hasher overlay skipped: hasher service not initialized)"
+		} else {
+			hasherName := cleanName + "_hasher"
+			if req.EncryptRemote {
+				hasherName = cleanName + "_crypt_hasher"
+			}
+			hasherTarget := targetRemoteForProfile + ":"
+			if targetRemoteSubpath != "" {
+				hasherTarget += targetRemoteSubpath
+			}
+			hashesStr := "auto"
+			if len(req.HasherHashes) > 0 {
+				hashesStr = strings.Join(req.HasherHashes, ",")
+			}
+			hasherReq := models.HasherWrapRequest{
+				Name:   hasherName,
+				Remote: hasherTarget,
+				Hashes: hashesStr,
+				MaxAge: "off",
+			}
+			hasherRes, err := s.Hasher.WrapRemoteInHasher(ctx, hasherReq, actor)
+			if err != nil {
+				res.Message = fmt.Sprintf("Base remote %q created, but hasher overlay failed: %v", cleanName, err)
+				return res, nil
+			}
+			targetRemoteForProfile = hasherRes.RemoteName
+			targetRemoteSubpath = ""
+			res.Message = fmt.Sprintf("Remote %q and overlay %q created successfully", cleanName, hasherRes.RemoteName)
 		}
 	}
 
