@@ -107,17 +107,21 @@ type ProviderCatalogResponse struct {
 	Categories []ProviderCategory    `json:"categories"`
 }
 
-// CreateRemoteBridgeRequest defines the payload for creating a remote with an optional profile bridge.
+// CreateRemoteBridgeRequest defines the payload for creating a remote with an optional profile bridge and crypt overlay.
 type CreateRemoteBridgeRequest struct {
-	Name          string                 `json:"name"`
-	Type          string                 `json:"type"`
-	Parameters    map[string]interface{} `json:"parameters"`
-	Opt           map[string]interface{} `json:"opt,omitempty"`
-	CreateProfile bool                   `json:"create_profile,omitempty"`
-	LocalPath     string                 `json:"local_path,omitempty"`
-	RemoteSubpath string                 `json:"remote_subpath,omitempty"`
-	ProfileName   string                 `json:"profile_name,omitempty"`
-	Schedule      string                 `json:"schedule,omitempty"`
+	Name                    string                 `json:"name"`
+	Type                    string                 `json:"type"`
+	Parameters              map[string]interface{} `json:"parameters"`
+	Opt                     map[string]interface{} `json:"opt,omitempty"`
+	CreateProfile           bool                   `json:"create_profile,omitempty"`
+	LocalPath               string                 `json:"local_path,omitempty"`
+	RemoteSubpath           string                 `json:"remote_subpath,omitempty"`
+	ProfileName             string                 `json:"profile_name,omitempty"`
+	Schedule                string                 `json:"schedule,omitempty"`
+	EncryptRemote           bool                   `json:"encrypt_remote,omitempty"`
+	CryptPassword           string                 `json:"crypt_password,omitempty"`
+	CryptPassword2          string                 `json:"crypt_password2,omitempty"`
+	CryptFilenameEncryption string                 `json:"crypt_filename_encryption,omitempty"`
 }
 
 // CreateRemoteResult represents the response after creating a remote (and optional profile).

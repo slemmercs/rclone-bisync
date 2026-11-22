@@ -278,3 +278,25 @@ func (c *RcloneClient) DeleteRemote(ctx context.Context, name string) error {
 	}
 	return nil
 }
+
+// Obscure queries /core/obscure to encrypt/obscure a plaintext password for storage.
+func (c *RcloneClient) Obscure(ctx context.Context, clear string) (string, error) {
+	if clear == "" {
+		return "", nil
+	}
+	resp, body, err := c.post(ctx, "core/obscure", map[string]string{"clear": clear}, 5*time.Second)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("core/obscure failed (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var res struct {
+		Obscured string `json:"obscured"`
+	}
+	if err := json.Unmarshal(body, &res); err != nil {
+		return "", fmt.Errorf("failed to unmarshal obscure response: %w", err)
+	}
+	return res.Obscured, nil
+}

@@ -1199,3 +1199,61 @@ func TestMainOptions_GettersAndPointers(t *testing.T) {
 		t.Errorf("expected 15, got %d", populated.GetTPSLimitBurst(1))
 	}
 }
+
+func TestObscure(t *testing.T) {
+	t.Run("empty string returns empty", func(t *testing.T) {
+		c := NewRcloneClient("http://localhost:5572", "user", "pass")
+		obs, err := c.Obscure(context.Background(), "")
+		if err != nil {
+			t.Fatalf("unexpected error for empty string: %v", err)
+		}
+		if obs != "" {
+			t.Fatalf("expected empty result, got %q", obs)
+		}
+	})
+
+	t.Run("successful obscuring", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/core/obscure" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			var req map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if req["clear"] == "my-secret-password" {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"obscured": "K2_kE1jI6V_nC-d1b8qGmA"}`))
+				return
+			}
+			w.WriteHeader(http.StatusBadRequest)
+		}))
+		defer server.Close()
+
+		c := NewRcloneClient(server.URL, "user", "pass")
+		obs, err := c.Obscure(context.Background(), "my-secret-password")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if obs != "K2_kE1jI6V_nC-d1b8qGmA" {
+			t.Fatalf("expected obscured string, got %q", obs)
+		}
+	})
+
+	t.Run("server error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte("internal error"))
+		}))
+		defer server.Close()
+
+		c := NewRcloneClient(server.URL, "user", "pass")
+		_, err := c.Obscure(context.Background(), "secret")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+}
+

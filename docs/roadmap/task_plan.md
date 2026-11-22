@@ -9,7 +9,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
   - **Scope**: Merge `feat/hasher-backend-integration` into `feat/dynamic-provider-form`, resolve conflicts, unify `implementation_plan.md` and `task_plan.md`.
   - **Verification**: `go test -count=1 ./internal/...`
 
-- [ ] Task 2: Core RC Obscure Client & Crypt Models
+- [x] Task 2: Core RC Obscure Client & Crypt Models
   - **Scope**: `internal/core/client/remotes.go`, `internal/core/client/client_test.go`, `internal/models/crypt.go`, `internal/models/crypt_test.go`, `internal/models/provider.go`
   - **Verification**: `go test -count=1 ./internal/models/... ./internal/core/client/...`
 
@@ -48,3 +48,5 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
 ## Status Updates
 
 - 2026-11-21: Completed Task 1. Merged `feat/hasher-backend-integration` into `feat/dynamic-provider-form`. Resolved plan conflicts by unifying implementation plan and task execution plan covering Hasher overlay, Crypt overlay, and Dynamic Provider form. Verified all internal Go tests pass with `go test -count=1 ./internal/...`.
+
+- 2026-11-21: Completed Task 2. Implemented `RcloneClient.Obscure` method with unit tests in `internal/core/client/`, added `CryptWrapRequest` and `CryptWrapResponse` in `internal/models/crypt.go` with unit tests, and extended `CreateRemoteBridgeRequest` in `internal/models/provider.go`. Verified with `go test -count=1 ./internal/models/... ./internal/core/client/...`.
