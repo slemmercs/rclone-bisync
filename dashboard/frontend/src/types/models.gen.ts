@@ -357,7 +357,7 @@ export interface CoreStatsResponse {
 }
 
 /**
- * CreateRemoteBridgeRequest defines the payload for creating a remote with an optional profile bridge.
+ * CreateRemoteBridgeRequest defines the payload for creating a remote with an optional profile bridge and crypt overlay.
  */
 export interface CreateRemoteBridgeRequest {
   name: string
@@ -369,6 +369,10 @@ export interface CreateRemoteBridgeRequest {
   remote_subpath?: string
   profile_name?: string
   schedule?: string
+  encrypt_remote?: boolean
+  crypt_password?: string
+  crypt_password2?: string
+  crypt_filename_encryption?: string
 }
 
 /**
@@ -392,6 +396,42 @@ export interface CreateRemoteResult {
   needs_auth?: boolean
   auth_url?: string
   status?: string
+  success: boolean
+  message: string
+}
+
+/**
+ * CryptWrapRequest defines the payload for wrapping an existing storage target in an encrypted crypt overlay remote.
+ */
+export interface CryptWrapRequest {
+  /** Unique name for the crypt remote (e.g., "drive_crypt") */
+  name: string
+  /** Base remote and subpath to wrap (e.g., "mydrive:encrypted") */
+  remote: string
+  /** Primary encryption passphrase (plaintext, will be obscured) */
+  password: string
+  /** Optional salt passphrase (plaintext, will be obscured) */
+  password2?: string
+  /** "standard" (default), "obfuscate", or "off" */
+  filename_encryption?: string
+  /** Encrypt directory names (default true) */
+  directory_name_encryption?: boolean
+  /** Automatically provision a linked sync profile */
+  create_profile?: boolean
+  /** Local jail path if creating a linked profile */
+  local_path?: string
+  /** Sync schedule preset ("manual", "15m", "30m", "1h", "4h", "daily") */
+  schedule?: string
+}
+
+/**
+ * CryptWrapResponse defines the result returned after creating a crypt remote.
+ */
+export interface CryptWrapResponse {
+  remote_name: string
+  base_remote: string
+  profile_id?: string
+  profile_name?: string
   success: boolean
   message: string
 }
@@ -744,6 +784,58 @@ export interface GlobalDefaults {
 }
 
 /**
+ * HasherCommandRequest defines the payload for executing commands against a hasher remote via /backend/command.
+ */
+export interface HasherCommandRequest {
+  /** Target remote name (e.g., "sftp_hasher") */
+  remote: string
+  /** Command name: "dump", "fulldump", "drop", "import", "stickyimport" */
+  command: string
+  /** Positional arguments (e.g., ["md5", "/path/to/sumfile"]) */
+  args?: string[]
+  /** Key-value options for the command */
+  opt?: Record<string, string>
+}
+
+/**
+ * HasherCommandResponse defines the result returned by a hasher backend command.
+ */
+export interface HasherCommandResponse {
+  /** "success" or "error" */
+  status: string
+  /** Executed command */
+  command: string
+  /** Target remote */
+  remote: string
+  /** Response payload from rclone backend/command */
+  result?: any
+  /** Error description if status == "error" */
+  error?: string
+}
+
+/**
+ * HasherWrapRequest defines the payload for wrapping an existing storage target in a hasher overlay remote.
+ */
+export interface HasherWrapRequest {
+  /** Unique name for the hasher remote (e.g., "sftp_hasher") */
+  name: string
+  /** Base remote or directory path to wrap (e.g., "mysftp:data") */
+  remote: string
+  /** Comma-separated list of checksums (e.g., "md5,sha1", "auto") */
+  hashes?: string
+  /** Cache retention period (e.g., "off", "1w", "30d") */
+  max_age?: string
+  /** Auto hash threshold size (bytes) */
+  auto_size?: number
+  /** Automatically provision a linked sync profile */
+  create_profile?: boolean
+  /** Local jail path if creating a linked profile */
+  local_path?: string
+  /** Sync schedule preset ("manual", "15m", "30m", "1h", "4h", "daily") */
+  schedule?: string
+}
+
+/**
  * MCPStatus represents the operational status of the Model Context Protocol server.
  */
 export interface MCPStatus {
@@ -964,6 +1056,8 @@ export interface ProviderExample {
 export interface ProviderOption {
   Name: string
   Help: string
+  Provider?: string
+  Hide?: number
   Type: string
   Default?: any
   DefaultStr?: string

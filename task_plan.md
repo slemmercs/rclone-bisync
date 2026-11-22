@@ -25,7 +25,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
   - **Scope**: `deploy/install.sh`, `deploy/systemd/rclone-daemon.service`, `bisync.env.example`
   - **Verification**: `bash -n deploy/install.sh`
 
-- [ ] Task 6: Frontend TypeScript Contracts & Pinia Store Actions
+- [x] Task 6: Frontend TypeScript Contracts & Pinia Store Actions
   - **Scope**: `dashboard/frontend/src/types/hasher.ts`, `dashboard/frontend/src/types/crypt.ts`, `dashboard/frontend/src/types/dedupe.ts`, `dashboard/frontend/src/stores/remotes.ts`, `dashboard/frontend/src/stores/dedupe.ts`
   - **Verification**: `npm --prefix dashboard/frontend run type-check`
 
@@ -53,6 +53,8 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
 - 2026-11-21: Completed Task 3. Implemented `HasherService` and `CryptService` in `internal/services/` with unit tests, wired encrypted overlay support and `"hasher"` categorization into `RemoteWizardService`, and registered both services into `internal/app/container.go`. Verified with `go test -count=1 ./internal/services/... ./internal/app/...`.
 - 2026-11-21: Completed Task 4. Implemented HTTP endpoints for `/api/remotes/hasher/wrap`, `/api/remotes/hasher/command`, and `/api/remotes/crypt/wrap` in `internal/server/handlers_virtual_remotes.go`. Implemented MCP tools `bisync_hasher_command` and `bisync_create_crypt_remote` in `internal/mcp/tools_remote.go`. Verified with `go test -count=1 ./internal/server/... ./internal/mcp/...`.
 - 2026-11-21: Completed Task 5. Verified persistent cache directory creation in `deploy/install.sh`, verified `--cache-dir %h/.cache/rclone` in `deploy/systemd/rclone-daemon.service`, and documented `RCLONE_CACHE_DIR` in `config/bisync.env.example` and `bisync.env`. Verified with `bash -n deploy/install.sh`.
+
+- 2026-11-21: Completed Task 6. Created `dashboard/frontend/src/types/hasher.ts` and `dashboard/frontend/src/types/crypt.ts`, re-exported in `dashboard/frontend/src/types/index.ts`, extended `dashboard/frontend/src/types/dedupe.ts` with `hasher_accelerated` and encrypted overlay fields, refreshed `dashboard/frontend/src/types/models.gen.ts`, and implemented `wrapHasher`, `executeHasherCommand`, and `wrapCrypt` in `dashboard/frontend/src/stores/remotes.ts`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 
 
 

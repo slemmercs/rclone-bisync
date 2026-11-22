@@ -59,6 +59,7 @@ export interface DedupeScanCache {
   mode: DedupeMode
   byHash: boolean
   dedupeBoth: boolean
+  hasher_accelerated?: boolean
   rawOutput: string
   parsed: any
   runId: string | null
@@ -101,6 +102,7 @@ export interface DedupeResponse {
   path: string
   mode: string
   by_hash?: boolean
+  hasher_accelerated?: boolean
   output: string
   local_path?: string
   local_output?: string
@@ -110,14 +112,28 @@ export interface DedupeResponse {
 }
 
 export interface ProviderOption {
-  Name: string
+  Name?: string
   Help?: string
+  Provider?: string
   Type?: string
   Default?: any
   Required?: boolean
   IsPassword?: boolean
   Advanced?: boolean
+  Hide?: number
   Examples?: Array<{ Value: string; Help: string }>
+  // Lowercase alternatives matching Go internal/models/provider.go JSON tags
+  name?: string
+  help?: string
+  provider?: string
+  type?: string
+  default?: any
+  value?: string
+  required?: boolean
+  is_password?: boolean
+  advanced?: boolean
+  hide?: number
+  examples?: Array<{ value: string; help: string }>
 }
 
 export interface ProviderCatalogItem {
@@ -145,4 +161,10 @@ export interface CreateRemotePayload {
   profile_name?: string
   schedule?: string
   remote_subpath?: string
+  // Virtual encrypted overlay support
+  encrypted_overlay?: boolean
+  crypt_password?: string
+  crypt_password2?: string
+  crypt_filename_encryption?: 'standard' | 'obfuscate' | 'off'
+  crypt_directory_name_encryption?: boolean
 }

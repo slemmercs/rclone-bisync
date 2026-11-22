@@ -3,5 +3,8 @@ export * from './models'
 export * from './explorer'
 export * from './logs'
 export * from './dedupe'
+export * from './hasher'
+export * from './crypt'
+
 
 

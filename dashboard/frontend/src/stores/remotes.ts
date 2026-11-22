@@ -11,6 +11,12 @@ import type {
   ReconnectResponse,
   ValidateResponse,
 } from '../types/models'
+import type {
+  HasherWrapRequest,
+  HasherCommandResponse,
+  CryptWrapRequest,
+  CryptWrapResponse,
+} from '../types'
 
 export const useRemotesStore = defineStore('remotes', () => {
   const remotes = ref<Array<Record<string, any>>>([])
@@ -294,6 +300,36 @@ export const useRemotesStore = defineStore('remotes', () => {
     }
   }
 
+  async function wrapHasher(req: HasherWrapRequest) {
+    loading.value = true
+    try {
+      const res = await api.post('/api/remotes/hasher/wrap', req)
+      await fetchRemotes(true)
+      return res
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function executeHasherCommand(remote: string, command: string, args: string[] = []): Promise<HasherCommandResponse> {
+    return await api.post<HasherCommandResponse>('/api/remotes/hasher/command', {
+      remote,
+      command,
+      args,
+    })
+  }
+
+  async function wrapCrypt(req: CryptWrapRequest): Promise<CryptWrapResponse> {
+    loading.value = true
+    try {
+      const res = await api.post<CryptWrapResponse>('/api/remotes/crypt/wrap', req)
+      await fetchRemotes(true)
+      return res
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     remotes,
     summary,
@@ -319,5 +355,8 @@ export const useRemotesStore = defineStore('remotes', () => {
     viewAuthAudit,
     createRemote,
     deleteRemote,
+    wrapHasher,
+    executeHasherCommand,
+    wrapCrypt,
   }
 })
