@@ -4,6 +4,12 @@
       <div class="flex items-center gap-2">
         <span class="text-xs text-slate-400">Selected Provider:</span>
         <span class="text-xs font-bold text-electric-blue uppercase font-mono">{{ provider?.name }}</span>
+        <span
+          v-if="isVirtual"
+          class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 ml-1"
+        >
+          Virtual Remote
+        </span>
       </div>
       <button
         type="button"
@@ -12,6 +18,20 @@
       >
         Change Provider
       </button>
+    </div>
+
+    <!-- Bisync Incompatibility Notice (union / combine) -->
+    <div
+      v-if="isBisyncBad"
+      class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2.5"
+    >
+      <i class="pi pi-exclamation-triangle text-amber-400 text-base shrink-0 mt-0.5"></i>
+      <div class="space-y-1">
+        <span class="font-bold block text-white">{{ provider?.name?.toUpperCase() }} Bisync Incompatibility</span>
+        <p class="text-[11px] text-amber-300/90 leading-relaxed font-sans">
+          {{ provider?.name }} backends cannot be targeted for bidirectional sync due to asymmetric write ambiguity. Linked sync profile provisioning is disabled.
+        </p>
+      </div>
     </div>
 
     <div class="space-y-3 font-mono text-xs">
@@ -107,8 +127,34 @@
         <DynamicProviderForm :provider="provider" v-model="form.providerParams" />
       </div>
 
+      <!-- Pipeline Visualization Badge (shown when virtual overlays are active) -->
+      <div
+        v-if="!isVirtual && (form.encryptRemote || form.accelerateHasher)"
+        class="p-2.5 rounded-xl bg-carbon-surface border border-carbon-border/60 flex items-center justify-between gap-3 text-xs"
+      >
+        <span class="text-slate-400 text-[11px] font-sans flex items-center gap-1.5">
+          <i class="pi pi-sitemap text-electric-blue text-xs"></i>
+          Pipeline Topology:
+        </span>
+        <div class="flex items-center gap-1.5 font-mono text-[11px] overflow-x-auto">
+          <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+            {{ form.remoteName.trim() || 'base' }}
+          </span>
+          <i class="pi pi-arrow-right text-[9px] text-slate-500"></i>
+          <template v-if="form.encryptRemote">
+            <span class="px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-400 border border-cyan-800">
+              {{ form.remoteName.trim() || 'base' }}_crypt
+            </span>
+            <i v-if="form.accelerateHasher" class="pi pi-arrow-right text-[9px] text-slate-500"></i>
+          </template>
+          <span v-if="form.accelerateHasher" class="px-2 py-0.5 rounded bg-violet-950/60 text-violet-400 border border-violet-800">
+            {{ form.remoteName.trim() || 'base' }}_hasher
+          </span>
+        </div>
+      </div>
+
       <!-- Client-Side Encryption (Crypt) Overlay -->
-      <div class="p-3.5 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
+      <div v-if="!isVirtual" class="p-3.5 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
         <div class="flex items-start justify-between gap-3">
           <label class="flex items-start gap-2.5 cursor-pointer select-none">
             <input
@@ -191,18 +237,77 @@
         </div>
       </div>
 
+      <!-- Hasher Acceleration Overlay -->
+      <div v-if="!isVirtual" class="p-3.5 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
+        <div class="flex items-start justify-between gap-3">
+          <label class="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              v-model="form.accelerateHasher"
+              class="rounded bg-carbon-canvas border-carbon-border text-electric-blue focus:ring-0 w-4 h-4 mt-0.5"
+            />
+            <div class="space-y-0.5">
+              <div class="text-xs text-white font-semibold flex items-center gap-1.5">
+                <i class="pi pi-bolt text-violet-400 text-xs"></i>
+                <span>Wrap with Hasher Acceleration</span>
+                <span class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">Hasher</span>
+              </div>
+              <p class="text-[11px] text-slate-400 font-sans leading-relaxed">
+                Caches cryptographic checksums locally to accelerate bisync comparisons and eliminate slow cloud hash recalculations.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div v-if="form.accelerateHasher" class="pt-3 border-t border-carbon-border/60 space-y-3 font-mono text-xs">
+          <div class="p-2.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[11px] font-sans flex items-center gap-2">
+            <i class="pi pi-info-circle text-violet-400 shrink-0"></i>
+            <span>
+              A hasher overlay <strong>{{ form.remoteName.trim() ? form.remoteName.trim() + '_hasher' : 'remote_hasher' }}</strong> will be provisioned wrapping
+              <strong>{{ form.encryptRemote ? (form.remoteName.trim() ? form.remoteName.trim() + '_crypt' : 'remote_crypt') : (form.remoteName.trim() || 'base_remote') }}</strong>.
+            </span>
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1.5 text-[11px]">Cached Hash Algorithms</label>
+            <div class="flex flex-wrap gap-2.5">
+              <label
+                v-for="hashType in ['md5', 'sha1', 'quickxor']"
+                :key="hashType"
+                class="flex items-center gap-2 cursor-pointer bg-carbon-canvas border border-carbon-border px-3 py-1.5 rounded-lg hover:border-violet-500/50 transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  :value="hashType"
+                  v-model="form.hasherHashes"
+                  class="rounded bg-carbon-surface border-carbon-border text-violet-500 focus:ring-0 w-3.5 h-3.5"
+                />
+                <span class="text-xs font-mono uppercase font-bold" :class="form.hasherHashes.includes(hashType) ? 'text-violet-300' : 'text-slate-400'">
+                  {{ hashType }}
+                </span>
+              </label>
+            </div>
+            <p v-if="form.hasherHashes.length === 0" class="text-[10px] text-rose-400 mt-1 font-sans">
+              At least one hash algorithm must be selected.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Sync Profile Bridge Toggle -->
       <div class="p-3 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
-        <label class="flex items-center gap-2 cursor-pointer select-none">
+        <label class="flex items-center gap-2 select-none" :class="isBisyncBad ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'">
           <input
             type="checkbox"
             v-model="form.createProfile"
+            :disabled="isBisyncBad"
             class="rounded bg-carbon-canvas border-carbon-border text-electric-blue focus:ring-0 w-3.5 h-3.5"
           />
           <span class="text-xs text-white font-semibold">Automatically provision linked sync profile</span>
+          <span v-if="isBisyncBad" class="text-[10px] text-amber-400 font-normal font-sans">(Disabled for {{ provider?.name }})</span>
         </label>
 
-        <div v-if="form.createProfile" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-carbon-border/60">
+        <div v-if="form.createProfile && !isBisyncBad" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-carbon-border/60">
           <div>
             <label class="block text-slate-400 mb-1 text-[11px]">Local Directory Path *</label>
             <input
@@ -213,13 +318,24 @@
             />
           </div>
           <div>
-            <label class="block text-slate-400 mb-1 text-[11px]">Remote Subpath</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-slate-400 text-[11px]">
+                Remote Subpath <span v-if="isBucket && (form.encryptRemote || form.accelerateHasher)" class="text-rose-400">*</span>
+              </label>
+              <span v-if="isBucket && (form.encryptRemote || form.accelerateHasher)" class="text-[10px] text-rose-400 font-sans">
+                Bucket root required
+              </span>
+            </div>
             <input
               type="text"
               v-model="form.remoteSubpath"
-              placeholder="e.g. backup/vault (optional)"
-              class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200"
+              :placeholder="isBucket ? 'e.g. my-bucket/vault (required)' : 'e.g. backup/vault (optional)'"
+              :class="isBucket && (form.encryptRemote || form.accelerateHasher) && !form.remoteSubpath.trim() ? 'border-rose-500 focus:border-rose-400' : 'border-carbon-border focus:border-electric-blue'"
+              class="w-full bg-carbon-canvas border rounded-lg px-2.5 py-1.5 text-slate-200"
             />
+            <p v-if="isBucket && (form.encryptRemote || form.accelerateHasher) && !form.remoteSubpath.trim()" class="text-[10px] text-rose-400 mt-1 font-sans">
+              Virtual overlays on bucket providers require a bucket name in remote subpath.
+            </p>
           </div>
           <div>
             <label class="block text-slate-400 mb-1 text-[11px]">Sync Schedule</label>
@@ -235,6 +351,12 @@
               <option value="daily">Daily</option>
             </select>
           </div>
+          <div>
+            <label class="block text-slate-400 mb-1 text-[11px]">Resolved Sync Target</label>
+            <div class="w-full bg-carbon-canvas/50 border border-carbon-border rounded-lg px-2.5 py-1.5 text-electric-blue font-bold font-mono">
+              {{ resolvedSyncTarget }}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -242,12 +364,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import DynamicProviderForm from '../DynamicProviderForm.vue'
 import type { ProviderCatalogItem, WizardConfigForm } from '../../types'
-import { isOAuthProvider } from '../../types'
+import {
+  isOAuthProvider,
+  isVirtualProvider,
+  isBisyncIncompatible,
+  isBucketBasedProvider,
+} from '../../types'
 
-defineProps<{
+const props = defineProps<{
   provider: ProviderCatalogItem | null
   form: WizardConfigForm
 }>()
@@ -259,4 +386,33 @@ const emit = defineEmits<{
 const showSecret = ref<boolean>(false)
 const showCryptPassword = ref<boolean>(false)
 const showCryptSalt = ref<boolean>(false)
+
+const isVirtual = computed(() => isVirtualProvider(props.provider))
+const isBisyncBad = computed(() => isBisyncIncompatible(props.provider))
+const isBucket = computed(() => isBucketBasedProvider(props.provider))
+
+watch(
+  () => props.provider,
+  (p) => {
+    if (isBisyncIncompatible(p)) {
+      props.form.createProfile = false
+    }
+    if (isVirtualProvider(p)) {
+      props.form.encryptRemote = false
+      props.form.accelerateHasher = false
+    }
+  },
+  { immediate: true }
+)
+
+const resolvedSyncTarget = computed(() => {
+  const base = props.form.remoteName.trim() || 'base_remote'
+  if (props.form.accelerateHasher) {
+    return `${base}_hasher`
+  }
+  if (props.form.encryptRemote) {
+    return `${base}_crypt`
+  }
+  return base
+})
 </script>

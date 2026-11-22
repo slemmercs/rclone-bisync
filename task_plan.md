@@ -17,7 +17,7 @@ Implement contextual safeguards, canonical overlay chaining (Base -> Crypt -> Ha
   - **Scope**: `dashboard/frontend/src/types/remotes.ts`, `dashboard/frontend/src/stores/remotes.ts`
   - **Verification**: `npm --prefix dashboard/frontend run type-check`
 
-- [ ] Task 4: Wizard Step 2 & 3 UI Guardrails & Hasher Acceleration
+- [x] Task 4: Wizard Step 2 & 3 UI Guardrails & Hasher Acceleration
   - **Scope**: `dashboard/frontend/src/components/wizard/WizardStepConfigure.vue`, `dashboard/frontend/src/components/wizard/WizardStepReview.vue`, `dashboard/frontend/src/components/ModalRemoteWizard.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
@@ -32,3 +32,5 @@ Implement contextual safeguards, canonical overlay chaining (Base -> Crypt -> Ha
 - 2026-11-22: Completed Task 2. Added comprehensive unit tests for virtual guardrails, bucket subpath validation, dual-wrap chaining (`Base -> Crypt -> Hasher`), and hasher-only wrap. Synchronized TypeScript contracts (`models.gen.ts`) and markdown technical documentation (`site/technical-reference.md`) via AST code generation. Verified with `go test -count=1 ./internal/services/...`.
 
 - 2026-11-22: Completed Task 3. Defined `isVirtualProvider`, `isBisyncIncompatible`, and `isBucketBasedProvider` helper predicates. Extended `CreateRemotePayload` and `WizardConfigForm` with Hasher fields (`accelerate_hasher`, `hasher_hashes`), and wired form defaults in `ModalRemoteWizard.vue`. Verified via `npm --prefix dashboard/frontend run build`.
+- 2026-11-22: Completed Task 4. Implemented Hasher acceleration overlay controls, storage pipeline topology badge, bucket root required subpath validation, and union/combine sync profile creation guardrails across WizardStepConfigure, WizardStepReview, and ModalRemoteWizard. Verified via `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+

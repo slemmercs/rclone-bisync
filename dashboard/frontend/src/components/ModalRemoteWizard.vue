@@ -128,7 +128,12 @@ import Dialog from 'primevue/dialog'
 import { useRemotesStore } from '../stores/remotes'
 import { useProfilesStore } from '../stores/profiles'
 import type { ProviderCatalogItem, CreateRemotePayload, WizardConfigForm } from '../types'
-import { isOAuthProvider } from '../types'
+import {
+  isOAuthProvider,
+  isVirtualProvider,
+  isBisyncIncompatible,
+  isBucketBasedProvider,
+} from '../types'
 import WizardStepProviderSelect from './wizard/WizardStepProviderSelect.vue'
 import WizardStepConfigure from './wizard/WizardStepConfigure.vue'
 import WizardStepReview from './wizard/WizardStepReview.vue'
@@ -191,6 +196,19 @@ watch(
 const canProceedToStep3 = computed(() => {
   if (!selectedProvider.value || !form.value.remoteName.trim()) return false
   if (form.value.encryptRemote && !form.value.cryptPassword.trim()) return false
+  if (
+    (form.value.encryptRemote || form.value.accelerateHasher) &&
+    isBucketBasedProvider(selectedProvider.value) &&
+    !form.value.remoteSubpath.trim()
+  ) {
+    return false
+  }
+  if (form.value.accelerateHasher && (!form.value.hasherHashes || form.value.hasherHashes.length === 0)) {
+    return false
+  }
+  if (form.value.createProfile && isBisyncIncompatible(selectedProvider.value)) {
+    return false
+  }
   return true
 })
 
@@ -209,6 +227,9 @@ function selectProvider(p: ProviderCatalogItem) {
   form.value.cryptFilenameEncryption = 'standard'
   form.value.accelerateHasher = false
   form.value.hasherHashes = ['md5', 'sha1']
+  if (isBisyncIncompatible(p)) {
+    form.value.createProfile = false
+  }
   step.value = 2
 }
 
