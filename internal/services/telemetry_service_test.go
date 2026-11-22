@@ -383,3 +383,86 @@ func TestTelemetryService_ReconnectGracePeriodAndWatchdog(t *testing.T) {
 		t.Fatalf("expected healthy after recovery, got %v", h4["status"])
 	}
 }
+
+func TestTelemetryService_OverlayResolution(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/config/listremotes":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"remotes":["base_remote:","base_remote_crypt:","base_remote_hasher:"]}`))
+		case "/config/get":
+			var req map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			name := req["name"]
+			w.WriteHeader(http.StatusOK)
+			switch name {
+			case "base_remote":
+				_, _ = w.Write([]byte(`{"type":"local"}`))
+			case "base_remote_crypt":
+				_, _ = w.Write([]byte(`{"type":"crypt","remote":"base_remote:vault"}`))
+			case "base_remote_hasher":
+				_, _ = w.Write([]byte(`{"type":"hasher","remote":"base_remote_crypt:"}`))
+			default:
+				_, _ = w.Write([]byte(`{"type":"generic"}`))
+			}
+		default:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	defer srv.Close()
+
+	rcClient := client.NewRcloneClient(srv.URL, "user", "pass")
+	telSvc := NewTelemetryService(&config.Config{}, rcClient)
+
+	summary, err := telSvc.GetRemotesSummaryCached(context.Background(), true)
+	if err != nil {
+		t.Fatalf("unexpected error getting remotes summary: %v", err)
+	}
+
+	if summary.Count != 3 {
+		t.Fatalf("expected 3 remotes, got %d", summary.Count)
+	}
+
+	remotesByName := make(map[string]map[string]interface{})
+	for _, rem := range summary.Remotes {
+		if name, ok := rem["name"].(string); ok {
+			remotesByName[name] = rem
+		}
+	}
+
+	// 1. Check base remote: should have crypt_overlay attached
+	base := remotesByName["base_remote"]
+	if base == nil {
+		t.Fatal("missing base_remote in telemetry")
+	}
+	if cryptOverlay, _ := base["crypt_overlay"].(string); cryptOverlay != "base_remote_crypt" {
+		t.Fatalf("expected crypt_overlay 'base_remote_crypt', got %v", base["crypt_overlay"])
+	}
+
+	// 2. Check crypt overlay: should link to underlying remote base_remote and have hasher_overlay attached
+	crypt := remotesByName["base_remote_crypt"]
+	if crypt == nil {
+		t.Fatal("missing base_remote_crypt in telemetry")
+	}
+	if underRemote, _ := crypt["underlying_remote"].(string); underRemote != "base_remote" {
+		t.Fatalf("expected underlying_remote 'base_remote', got %v", crypt["underlying_remote"])
+	}
+	if underPath, _ := crypt["underlying_path"].(string); underPath != "base_remote:vault" {
+		t.Fatalf("expected underlying_path 'base_remote:vault', got %v", crypt["underlying_path"])
+	}
+	if hasherOverlay, _ := crypt["hasher_overlay"].(string); hasherOverlay != "base_remote_hasher" {
+		t.Fatalf("expected hasher_overlay 'base_remote_hasher', got %v", crypt["hasher_overlay"])
+	}
+
+	// 3. Check hasher overlay: should link to underlying remote base_remote_crypt
+	hasher := remotesByName["base_remote_hasher"]
+	if hasher == nil {
+		t.Fatal("missing base_remote_hasher in telemetry")
+	}
+	if underRemote, _ := hasher["underlying_remote"].(string); underRemote != "base_remote_crypt" {
+		t.Fatalf("expected underlying_remote 'base_remote_crypt', got %v", hasher["underlying_remote"])
+	}
+}
+

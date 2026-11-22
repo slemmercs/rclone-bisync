@@ -1,36 +1,34 @@
-# Task Plan: Epic 4 — Wizard Virtual Remote Guardrails & Hasher Acceleration
+# Task Plan: Storage Remote Virtual Overlay Linkage, Badging, Action Guardrails, and Plaintext Decryption Guidance
 
 ## Goal
-Implement contextual safeguards, canonical overlay chaining (Base -> Crypt -> Hasher), bucket validation, and union/combine bisync guardrails across backend services and the frontend remote wizard.
+Resolve virtual overlay linkage blind spots (`Base -> Crypt`, `Base -> Hasher`) across the storage remotes view and profile management: enrich backend telemetry with overlay relationships, show visual badges on base and overlay cards, prevent duplicate overlay creation collisions, provide clear plaintext decryption guidance, and render pipeline badges on sync profiles.
 
 ## Tasks
 
-- [x] Task 1: Backend Model & Service Extensions (Chaining, Hasher injection, Bucket validation, Union/Combine guards)
-  - **Scope**: `internal/models/provider.go`, `internal/services/remote_wizard_service.go`, `internal/app/container.go`
-  - **Verification**: `go test -count=1 ./internal/services -run TestRemoteWizardService`
+- [x] Task 1: Backend Overlay Dependency Graph in TelemetryService
+  - **Scope**: `internal/services/telemetry_remotes.go`, `internal/services/telemetry_service_test.go`
+  - **Verification**: `go test -count=1 ./internal/services -run TestTelemetry`
 
-- [x] Task 2: Backend Unit Tests & Gendocs Synchronization
-  - **Scope**: `internal/services/remote_wizard_service_test.go`, `cmd/gendocs/`
-  - **Verification**: `go test -count=1 ./internal/services/...`
+- [ ] Task 2: Storage Remote Tile Overlay Badges & Action Guardrails
+  - **Scope**: `dashboard/frontend/src/types/remotes.ts`, `dashboard/frontend/src/components/remotes/RemoteCard.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run build`
 
-- [x] Task 3: Frontend Type Contracts & Helper Functions
-  - **Scope**: `dashboard/frontend/src/types/remotes.ts`, `dashboard/frontend/src/stores/remotes.ts`
-  - **Verification**: `npm --prefix dashboard/frontend run type-check`
+- [ ] Task 3: ModalCryptWrap Overlay Validation & Plaintext Decryption Callouts
+  - **Scope**: `dashboard/frontend/src/components/ModalCryptWrap.vue`, `dashboard/frontend/src/components/wizard/WizardStepConfigure.vue`
+  - **Verification**: `npm --prefix dashboard/frontend run build`
 
-- [x] Task 4: Wizard Step 2 & 3 UI Guardrails & Hasher Acceleration
-  - **Scope**: `dashboard/frontend/src/components/wizard/WizardStepConfigure.vue`, `dashboard/frontend/src/components/wizard/WizardStepReview.vue`, `dashboard/frontend/src/components/ModalRemoteWizard.vue`
+- [ ] Task 4: Profile List & Edit Form Pipeline & Encryption Badges
+  - **Scope**: `dashboard/frontend/src/components/profiles/ProfileListTab.vue`, `dashboard/frontend/src/components/profiles/ProfileFormTab.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 5: Full Quality Suite Verification
-  - **Scope**: All quality gate stages via `./scripts/check.sh all`
+- [ ] Task 5: Full Quality Verification Suite
+  - **Scope**: Pre-flight checks across all stages
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-22: Initialized implementation plan and task plan for Epic 4.
-- 2026-11-22: Completed Task 1. Extended `CreateRemoteBridgeRequest` with `AccelerateHasher` and `HasherHashes`, injected `HasherService` into `RemoteWizardService`, implemented overlay chaining (`Base -> Crypt -> Hasher`), baked subpath into inner layers to prevent double-nesting, added bucket-based subpath validation, and blocked `union`/`combine` profile creation. Verified with `go test -count=1 ./internal/services -run TestRemoteWizard` and `go test -count=1 ./internal/app`.
-- 2026-11-22: Completed Task 2. Added comprehensive unit tests for virtual guardrails, bucket subpath validation, dual-wrap chaining (`Base -> Crypt -> Hasher`), and hasher-only wrap. Synchronized TypeScript contracts (`models.gen.ts`) and markdown technical documentation (`site/technical-reference.md`) via AST code generation. Verified with `go test -count=1 ./internal/services/...`.
+- 2026-11-22: Initialized implementation plan and task plan for virtual overlay linkage, badging, guardrails, and plaintext decryption guidance.
+- 2026-11-22: Completed Task 1. Added `remote` to safeKeys in RcloneClient `GetRemoteConfig`. Implemented `parseUnderlyingRemote` and bidirectional overlay linkage in `TelemetryService.GetRemotesSummaryCached`, populating `underlying_remote`, `underlying_path`, `crypt_overlay`, `hasher_overlay`, and `overlays`. Added unit test `TestTelemetryService_OverlayResolution`.
 
-- 2026-11-22: Completed Task 3. Defined `isVirtualProvider`, `isBisyncIncompatible`, and `isBucketBasedProvider` helper predicates. Extended `CreateRemotePayload` and `WizardConfigForm` with Hasher fields (`accelerate_hasher`, `hasher_hashes`), and wired form defaults in `ModalRemoteWizard.vue`. Verified via `npm --prefix dashboard/frontend run build`.
-- 2026-11-22: Completed Task 4. Implemented Hasher acceleration overlay controls, storage pipeline topology badge, bucket root required subpath validation, and union/combine sync profile creation guardrails across WizardStepConfigure, WizardStepReview, and ModalRemoteWizard. Verified via `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+
 

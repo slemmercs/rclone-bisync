@@ -49,15 +49,23 @@ func (t *TelemetryService) GetRemotesSummaryCached(ctx context.Context, forceRef
 		activeRemote = strings.TrimRight(t.Config.RemotePath, ":")
 	}
 
+	overlayMap := make(map[string][]map[string]string)
+	cryptOverlayMap := make(map[string]string)
+	hasherOverlayMap := make(map[string]string)
+
 	for _, r := range remotes {
 		cleanName := strings.TrimRight(r, ":")
 		cfg := t.Client.GetRemoteConfig(ctx, cleanName)
 		about := t.Client.GetRemoteAbout(ctx, cleanName)
 
 		rtype := "unknown"
+		underlyingPath := ""
 		if cfg != nil {
 			if at, ok := cfg["type"].(string); ok {
 				rtype = at
+			}
+			if rem, ok := cfg["remote"].(string); ok {
+				underlyingPath = strings.TrimSpace(rem)
 			}
 		}
 
@@ -96,7 +104,21 @@ func (t *TelemetryService) GetRemotesSummaryCached(ctx context.Context, forceRef
 			canPublicLink = isProviderPublicLinkSupported(rtype)
 		}
 
-		remoteData = append(remoteData, map[string]interface{}{
+		underlyingRemote, _ := parseUnderlyingRemote(underlyingPath)
+		if underlyingRemote != "" {
+			overlayInfo := map[string]string{
+				"name": cleanName,
+				"type": rtype,
+			}
+			overlayMap[underlyingRemote] = append(overlayMap[underlyingRemote], overlayInfo)
+			if rtype == "crypt" {
+				cryptOverlayMap[underlyingRemote] = cleanName
+			} else if rtype == "hasher" {
+				hasherOverlayMap[underlyingRemote] = cleanName
+			}
+		}
+
+		item := map[string]interface{}{
 			"name":             cleanName,
 			"fs":               fmt.Sprintf("%s:", cleanName),
 			"type":             rtype,
@@ -104,7 +126,28 @@ func (t *TelemetryService) GetRemotesSummaryCached(ctx context.Context, forceRef
 			"is_active_target": isActive,
 			"about":            about,
 			"can_public_link":  canPublicLink,
-		})
+		}
+		if underlyingRemote != "" {
+			item["underlying_remote"] = underlyingRemote
+		}
+		if underlyingPath != "" {
+			item["underlying_path"] = underlyingPath
+		}
+		remoteData = append(remoteData, item)
+	}
+
+	// Enrich base remotes with their discovered overlay wrappers
+	for _, item := range remoteData {
+		name, _ := item["name"].(string)
+		if overlays, ok := overlayMap[name]; ok {
+			item["overlays"] = overlays
+		}
+		if cryptName, ok := cryptOverlayMap[name]; ok {
+			item["crypt_overlay"] = cryptName
+		}
+		if hasherName, ok := hasherOverlayMap[name]; ok {
+			item["hasher_overlay"] = hasherName
+		}
 	}
 
 	summary := map[string]interface{}{
@@ -157,3 +200,24 @@ func isProviderPublicLinkSupported(rtype string) bool {
 		return false
 	}
 }
+
+// parseUnderlyingRemote extracts the base remote identifier and optional subpath from a target remote string.
+func parseUnderlyingRemote(remoteTarget string) (baseName string, subpath string) {
+	target := strings.TrimSpace(remoteTarget)
+	if target == "" {
+		return "", ""
+	}
+	if idx := strings.Index(target, ":"); idx != -1 {
+		base := strings.TrimSpace(target[:idx])
+		// Check for Windows drive letter (e.g. C:) or local slash prefix
+		if len(base) == 1 || strings.HasPrefix(target, "/") || strings.HasPrefix(target, ".") {
+			return "", target
+		}
+		return base, target[idx+1:]
+	}
+	if !strings.HasPrefix(target, "/") && !strings.HasPrefix(target, ".") && !strings.Contains(target, "/") && !strings.Contains(target, "\\") {
+		return target, ""
+	}
+	return "", target
+}
+

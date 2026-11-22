@@ -45,6 +45,7 @@ func (c *RcloneClient) GetRemoteConfig(ctx context.Context, remoteName string) m
 
 	safeKeys := map[string]bool{
 		"type":       true,
+		"remote":     true,
 		"scope":      true,
 		"endpoint":   true,
 		"region":     true,

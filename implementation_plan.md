@@ -1,44 +1,53 @@
-# Implementation Plan: Epic 4 — Wizard Virtual Remote Guardrails & Hasher Acceleration
+# Implementation Plan: Storage Remote Virtual Overlay Linkage, Badging, Action Guardrails, and Plaintext Decryption Guidance
 
 ## Proposed Changes
 
-Implement contextual safeguards, canonical overlay chaining, and Hasher acceleration within the Remote Creation Wizard:
-1. Prevent inverted and invalid virtual overlays by disallowing wrapping virtual providers (`hasher`, `crypt`, `union`, `combine`, `alias`) in `crypt` or `hasher`.
-2. Introduce Hasher acceleration (`[x] Accelerate with Hasher`) for standard cloud, object, and protocol remotes (SFTP, WebDAV, SMB, local).
-3. Enforce the canonical overlay pipeline: $\text{Base} \longrightarrow \text{Base\_crypt} \longrightarrow \text{Base\_crypt\_hasher}$.
-4. Prevent subpath double-nesting by baking `RemoteSubpath` into the inner overlay target and clearing it on outer layers and the linked sync profile.
-5. Require non-empty bucket subpath when wrapping bucket-based providers (`s3`, `b2`, `gcs`, `azureblob`, `swift`) in virtual overlays.
-6. Guard against `union` and `combine` as targets for bidirectional synchronization (`bisync`), displaying clear warning banners and disabling linked profile creation.
+Address virtual remote overlay blind spots across the storage remotes view and profile management:
+1. **Backend Telemetry Overlay Graph**: Enhance `TelemetryService.GetRemotesSummaryCached` (`internal/services/telemetry_remotes.go`) to parse `cfg["remote"]` on overlay remotes (`crypt`, `hasher`, `alias`), resolve underlying base remotes, and attach bidirectional overlay mappings (`underlying_remote`, `underlying_path`, `crypt_overlay`, `hasher_overlay`, `overlays`).
+2. **Storage Remote Tile Badging & Action Guardrails (`RemoteCard.vue`)**:
+   - On base remotes: Display `[Encrypted: remote_crypt]` cyan badge and `[Accelerated: remote_hasher]` amber badge.
+   - Replace/disable `[Encrypt]` button with `[Encrypted ✓]` when a crypt overlay already exists, preventing duplicate creation collisions (`remote "xxx_crypt" already exists`).
+   - If a hasher overlay already exists, route the `[Hasher]` button directly to Hasher Console/Maintenance instead of the wrap modal.
+   - On virtual overlay remotes: Display `Underlying: <base_remote:subpath>` instead of generic `"Configured storage backend"`.
+   - On deleting a crypt remote: Show an explicit blast-radius safeguard reminder explaining that cloud files remain ciphertext.
+3. **Decryption & Reversion Education (`ModalCryptWrap.vue`, `WizardStepConfigure.vue`)**:
+   - Clarify the Rclone encryption model: Local filesystem always remains plaintext; cloud storage stores opaque encrypted blobs.
+   - Provide clear reversion guidance: Decryption is achieved by pausing bisync, deleting cloud ciphertext, repointing the profile to the base unencrypted remote, and running a resync (`--resync`) from the local plaintext files.
+   - Prevent attempting to wrap a remote that already has a crypt overlay in `ModalCryptWrap.vue`.
+4. **Profile Pipeline & Encryption Badges (`ProfileListTab.vue`, `ProfileFormTab.vue`)**:
+   - In profile list: Render an `[ENCRYPTED]` badge (`pi-shield` in cyan) and `[ACCELERATED]` badge (`pi-bolt` in violet), with the pipeline topology breadcrumb (`profile -> remote_crypt -> base_remote`).
+   - In profile edit form: Display pipeline details for encrypted remotes and warning when repointing between encrypted and plaintext remotes.
 
 ### Affected Components & Packages
 
-- `internal/models/provider.go`: Add `AccelerateHasher bool` and `HasherHashes []string` to `CreateRemoteBridgeRequest`.
-- `internal/services/remote_wizard_service.go`: Inject `Hasher *HasherService`, validate bucket requirements, enforce overlay order (`Base -> Crypt -> Hasher`), prevent union/combine profile creation, and bake subpath into inner layer.
-- `internal/app/container.go`: Wire `c.RemoteWizardService.SetHasherService(c.HasherService)`.
-- `internal/services/remote_wizard_service_test.go`: Add unit tests for dual-wrap chaining, hasher-only wrap, bucket subpath validation, and union/combine profile guard.
-- `cmd/gendocs/`: Regenerate AST TypeScript definitions (`dashboard/frontend/src/types/models.gen.ts`) and `site/technical-reference.md`.
-- `dashboard/frontend/src/types/remotes.ts`: Add `isVirtualProvider` and `isBisyncIncompatible` helpers, extend `CreateRemotePayload` and `WizardConfigForm`.
-- `dashboard/frontend/src/components/wizard/WizardStepConfigure.vue`: Render Hasher acceleration checkbox, contextual overlay hiding, pipeline visualization badge, and union/combine warning banner.
-- `dashboard/frontend/src/components/wizard/WizardStepReview.vue`: Display Hasher acceleration in review summary table and resolved profile target remote.
+- `internal/services/telemetry_remotes.go`: Parse `cfg["remote"]`, build overlay dependency graph, and attach `underlying_remote`, `crypt_overlay`, `hasher_overlay`, `overlays` to remote items.
+- `internal/services/telemetry_service_test.go`: Unit test overlay linkage in telemetry summary.
+- `dashboard/frontend/src/types/remotes.ts`: Add overlay linkage fields to remote interface.
+- `dashboard/frontend/src/components/remotes/RemoteCard.vue`: Render overlay badges, disable duplicate wrap actions, display underlying storage path, and show crypt deletion warnings.
+- `dashboard/frontend/src/components/ModalCryptWrap.vue`: Add existing overlay validation and plaintext/decryption reversion callout.
+- `dashboard/frontend/src/components/profiles/ProfileListTab.vue`: Add `[ENCRYPTED]` and `[ACCELERATED]` badges and pipeline breadcrumbs.
+- `dashboard/frontend/src/components/profiles/ProfileFormTab.vue`: Add encryption pill and resync advisories when switching remote types.
 
 ### Technical Strategy & Data Flow
 
-- The remote wizard service receives `CreateRemoteBridgeRequest`.
-- If provider is `union` or `combine` and `CreateProfile` is true, return an error or skip profile provisioning.
-- If provider is bucket-based (`s3`, `b2`, `gcs`, `azureblob`, `swift`) and `EncryptRemote` or `AccelerateHasher` is true, require non-empty `RemoteSubpath`.
-- Inner overlay absorbs `RemoteSubpath`: `cryptTarget = cleanName + ":" + targetRemoteSubpath`, then `targetRemoteSubpath = ""`.
-- If `AccelerateHasher` is true, wrap the current target (`cleanName + "_crypt"` or `cleanName`) using `HasherService.WrapRemoteInHasher`.
-- Any linked sync profile targets the final outermost layer (`targetRemoteForProfile`).
+- In `TelemetryService.GetRemotesSummaryCached`:
+  - Pass 1: Query Rclone `/config/listremotes` and `/config/get` for each remote. Extract `rtype := cfg["type"]` and `remoteTarget := cfg["remote"]`.
+  - Pass 2: For any remote with non-empty `remoteTarget` (e.g. `crypt`, `hasher`, `alias`), isolate the base remote name `baseName := strings.Split(remoteTarget, ":")[0]`.
+  - Pass 3: In the returned `remoteData` list, enrich the overlay remote with `"underlying_remote": baseName` and `"underlying_path": remoteTarget`. Enrich the base remote with `"crypt_overlay": cryptName`, `"hasher_overlay": hasherName`, and `"overlays": [...]`.
+- In Vue frontend:
+  - `RemoteCard.vue` reads `remote.crypt_overlay` and `remote.hasher_overlay`.
+  - `ProfileListTab.vue` computes remote metadata for each profile via `remotesStore.remotes`.
 
 ### Safety & Error Handling
 
-- Bucket protection prevents orphaned top-level buckets and Rclone overlay initialization failures.
-- Non-destructive configuration creation via Rclone RC `/config/create`.
-- Backend LOC strictly maintained under ~400 LOC ceiling.
+- Read-only enrichment of `/api/remotes` response; does not alter Rclone config directly.
+- Prevents confusing Rclone API error responses by validating existing overlay names client-side before dispatching `/api/remotes/crypt/wrap`.
+- Preserves Go ~400-500 LOC standards.
 
 ## Verification Plan
 
-- `go test -count=1 ./internal/services -run TestRemoteWizardService`
+- `go test -count=1 ./internal/services -run TestTelemetry`
 - `go test -count=1 ./internal/...`
 - `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
-- `./scripts/check.sh all`
+- Pre-flight quality suite: `./scripts/check.sh all`
+
