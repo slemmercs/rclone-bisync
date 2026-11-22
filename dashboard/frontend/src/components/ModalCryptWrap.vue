@@ -52,7 +52,7 @@
       </div>
 
       <!-- Existing Crypt Overlay Warning -->
-      <div v-if="hasExistingCryptOverlay" class="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs space-y-1">
+      <div v-if="hasExistingCryptOverlay && !successMsg" class="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs space-y-1">
         <div class="flex items-center gap-1.5 font-bold text-amber-200">
           <i class="pi pi-exclamation-triangle text-amber-400"></i>
           <span>Encrypted Overlay Already Exists</span>
@@ -63,9 +63,20 @@
       </div>
 
       <!-- Duplicate Name Warning -->
-      <div v-else-if="isDuplicateName" class="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl text-xs flex items-center gap-2">
+      <div v-else-if="isDuplicateName && !successMsg" class="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl text-xs flex items-center gap-2">
         <i class="pi pi-times-circle text-rose-400 shrink-0"></i>
         <span>A remote named "{{ cryptName }}" already exists. Please choose a different name.</span>
+      </div>
+
+      <!-- Existing Hasher Notice -->
+      <div v-else-if="hasExistingHasherOverlay && !successMsg" class="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs space-y-1">
+        <div class="flex items-center gap-1.5 font-bold text-amber-200">
+          <i class="pi pi-info-circle text-amber-400"></i>
+          <span>Base Remote Already Accelerated</span>
+        </div>
+        <p class="text-[11px] leading-relaxed">
+          Remote "{{ baseRemote }}" already has Hasher overlay "{{ selectedBaseRemote?.hasher_overlay }}". Encrypting this base remote creates an independent encrypted branch. For full acceleration, wrap the new crypt overlay with Hasher after creation (<span class="font-mono text-amber-200 font-semibold">Base &rarr; Crypt &rarr; Hasher</span>).
+        </p>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -218,7 +229,10 @@ const errorMsg = ref<string | null>(null)
 const successMsg = ref<string | null>(null)
 
 const availableBaseRemotes = computed(() => {
-  return (remotesStore.remotes || []).filter(r => (r.type || '').toLowerCase() !== 'crypt')
+  return (remotesStore.remotes || []).filter(r => {
+    const t = (r.type || '').toLowerCase()
+    return t !== 'crypt' && t !== 'hasher'
+  })
 })
 
 const selectedBaseRemote = computed(() => {
@@ -227,6 +241,10 @@ const selectedBaseRemote = computed(() => {
 
 const hasExistingCryptOverlay = computed(() => {
   return !!selectedBaseRemote.value?.crypt_overlay
+})
+
+const hasExistingHasherOverlay = computed(() => {
+  return !!selectedBaseRemote.value?.hasher_overlay
 })
 
 const isDuplicateName = computed(() => {
