@@ -1,0 +1,59 @@
+<template>
+  <div class="space-y-4 font-mono text-xs">
+    <div class="p-4 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
+      <h4 class="font-bold text-white text-sm">Deployment Review</h4>
+      <div class="grid grid-cols-2 gap-2 text-slate-300">
+        <div><span class="text-slate-500">Remote Name:</span> {{ form.remoteName }}</div>
+        <div><span class="text-slate-500">Provider:</span> {{ provider?.name }}</div>
+        <div>
+          <span class="text-slate-500">Authentication:</span>
+          <span :class="isOAuth ? 'text-emerald-400 font-semibold' : 'text-slate-300'">
+            {{
+              isOAuth
+                ? (form.authMode === 'custom' ? 'Custom OAuth Credentials' : 'Browser OAuth (Interactive)')
+                : 'Standard / Direct'
+            }}
+          </span>
+        </div>
+        <div v-if="isOAuth && form.authMode === 'custom' && form.customClientId">
+          <span class="text-slate-500">Client ID:</span> {{ form.customClientId.slice(0, 16) }}...
+        </div>
+        <div>
+          <span class="text-slate-500">Encryption:</span>
+          <span :class="form.encryptRemote ? 'text-cyan-400 font-semibold' : 'text-slate-400'">
+            {{ form.encryptRemote ? `Enabled (${form.remoteName.trim()}_crypt)` : 'Disabled' }}
+          </span>
+        </div>
+        <div v-if="form.encryptRemote">
+          <span class="text-slate-500">Filename Mode:</span>
+          <span class="text-slate-300">{{ form.cryptFilenameEncryption }}</span>
+        </div>
+        <div><span class="text-slate-500">Linked Profile:</span> {{ form.createProfile ? 'Enabled' : 'Disabled' }}</div>
+        <div v-if="form.createProfile">
+          <span class="text-slate-500">Target Remote:</span>
+          <span class="text-electric-blue">{{ form.encryptRemote ? `${form.remoteName.trim()}_crypt` : form.remoteName.trim() }}</span>
+        </div>
+        <div v-if="form.createProfile"><span class="text-slate-500">Local Path:</span> {{ form.localPath || '--' }}</div>
+        <div v-if="form.createProfile"><span class="text-slate-500">Schedule:</span> {{ form.schedule }}</div>
+      </div>
+    </div>
+
+    <div v-if="errorMsg" class="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl">
+      {{ errorMsg }}
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { ProviderCatalogItem, WizardConfigForm } from '../../types'
+import { isOAuthProvider } from '../../types'
+
+const props = defineProps<{
+  provider: ProviderCatalogItem | null
+  form: WizardConfigForm
+  errorMsg?: string | null
+}>()
+
+const isOAuth = computed(() => isOAuthProvider(props.provider))
+</script>

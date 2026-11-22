@@ -56,3 +56,29 @@ export interface CreateRemotePayload {
   crypt_filename_encryption?: 'standard' | 'obfuscate' | 'off'
   crypt_directory_name_encryption?: boolean
 }
+
+export interface WizardConfigForm {
+  remoteName: string
+  authMode: 'browser' | 'custom'
+  customClientId: string
+  customClientSecret: string
+  providerParams: Record<string, any>
+  encryptRemote: boolean
+  cryptPassword: string
+  cryptPassword2: string
+  cryptFilenameEncryption: 'standard' | 'obfuscate' | 'off'
+  createProfile: boolean
+  localPath: string
+  remoteSubpath: string
+  schedule: string
+}
+
+export function isOAuthProvider(p: ProviderCatalogItem | null | undefined): boolean {
+  if (!p) return false
+  if (p.supports_oauth || (p as any).oauth_supported) return true
+  const oauthTypes = ['drive', 'onedrive', 'dropbox', 'box', 'pcloud', 'hubic', 'yandex', 'mailru', 'google photos', 'zoho']
+  const name = (p.name || '').toLowerCase()
+  const prefix = (p.prefix || '').toLowerCase()
+  return oauthTypes.includes(name) || oauthTypes.includes(prefix)
+}
+

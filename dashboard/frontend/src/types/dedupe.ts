@@ -112,10 +112,12 @@ export interface DedupeResponse {
 }
 
 // Re-export remote wizard and provider catalog types from remotes module
+export { isOAuthProvider } from './remotes'
 export type {
   ProviderOption,
   ProviderCatalogItem,
   ProviderCatalogResponse,
   CreateRemotePayload,
+  WizardConfigForm,
 } from './remotes'
 

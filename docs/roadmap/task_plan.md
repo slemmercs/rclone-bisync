@@ -17,7 +17,7 @@ Decompose frontend God Objects into cohesive subcomponents, extract reusable com
   - **Scope**: `stores/remotes.ts`, `stores/dedupe.ts`, and relevant callers.
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 4: Decompose ModalRemoteWizard into Wizard Step Subcomponents
+- [x] Task 4: Decompose ModalRemoteWizard into Wizard Step Subcomponents
   - **Scope**: Create `components/wizard/WizardStepProviderSelect.vue`, `components/wizard/WizardStepConfigure.vue`, `components/wizard/WizardStepReview.vue`, refactor `ModalRemoteWizard.vue`.
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
@@ -35,3 +35,4 @@ Decompose frontend God Objects into cohesive subcomponents, extract reusable com
 - 2026-11-22: Completed Task 1. Decomposed `ProfileManagerModal.vue` (reduced from 648 LOC to ~220 LOC) into modular child components under `components/profiles/` (`ProfileListTab.vue`, `ProfileHistoryTab.vue`, `ProfileCloneDialog.vue`, `ProfileFormTab.vue`). Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 - 2026-11-22: Completed Task 2. Decomposed `ViewRemotes.vue` (reduced from 446 LOC to 199 LOC) by extracting `RemotesKpiRibbon.vue` and `RemoteCard.vue` into `components/remotes/`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 - 2026-11-22: Completed Task 3. Decoupled remote wizard state from `dedupe.ts` to `remotes.ts`. Created `types/remotes.ts`, wired bidirectional compatibility delegates into `dedupe.ts`, and updated callers (`ModalRemoteWizard.vue`, `App.vue`, `ViewRemotes.vue`) to use `remotesStore`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+- 2026-11-22: Completed Task 4. Decomposed `ModalRemoteWizard.vue` (reduced from 587 LOC to 264 LOC) into modular step components under `components/wizard/` (`WizardStepProviderSelect.vue`, `WizardStepConfigure.vue`, `WizardStepReview.vue`). Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
