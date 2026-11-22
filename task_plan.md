@@ -9,7 +9,7 @@ Resolve virtual overlay linkage blind spots (`Base -> Crypt`, `Base -> Hasher`) 
   - **Scope**: `internal/services/telemetry_remotes.go`, `internal/services/telemetry_service_test.go`
   - **Verification**: `go test -count=1 ./internal/services -run TestTelemetry`
 
-- [ ] Task 2: Storage Remote Tile Overlay Badges & Action Guardrails
+- [x] Task 2: Storage Remote Tile Overlay Badges & Action Guardrails
   - **Scope**: `dashboard/frontend/src/types/remotes.ts`, `dashboard/frontend/src/components/remotes/RemoteCard.vue`
   - **Verification**: `npm --prefix dashboard/frontend run build`
 
@@ -29,6 +29,8 @@ Resolve virtual overlay linkage blind spots (`Base -> Crypt`, `Base -> Hasher`) 
 
 - 2026-11-22: Initialized implementation plan and task plan for virtual overlay linkage, badging, guardrails, and plaintext decryption guidance.
 - 2026-11-22: Completed Task 1. Added `remote` to safeKeys in RcloneClient `GetRemoteConfig`. Implemented `parseUnderlyingRemote` and bidirectional overlay linkage in `TelemetryService.GetRemotesSummaryCached`, populating `underlying_remote`, `underlying_path`, `crypt_overlay`, `hasher_overlay`, and `overlays`. Added unit test `TestTelemetryService_OverlayResolution`.
+- 2026-11-22: Completed Task 2. Extended frontend RemoteEntry with overlay metadata, enhanced RemoteCard.vue with encrypted and accelerated badges on base and overlay cards, underlying storage breadcrumbs, duplicate wrap prevention, and added cloud ciphertext deletion safeguards in ViewRemotes.vue. Verified via `npm --prefix dashboard/frontend run build`.
+
 
 
 

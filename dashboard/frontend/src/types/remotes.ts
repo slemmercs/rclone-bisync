@@ -105,3 +105,9 @@ export function isBucketBasedProvider(p: ProviderCatalogItem | string | null | u
   return ['s3', 'b2', 'gcs', 'azureblob', 'swift'].includes(name)
 }
 
+export interface RemoteOverlayInfo {
+  name: string
+  type: string
+}
+
+

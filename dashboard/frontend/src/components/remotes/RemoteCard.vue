@@ -69,6 +69,20 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
               <i class="pi pi-shield text-[8px]"></i> Encrypted
             </span>
             <span
+              v-if="remote.crypt_overlay"
+              class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/60 font-mono flex items-center gap-1"
+              :title="`Wrapped by encrypted overlay ${remote.crypt_overlay}`"
+            >
+              <i class="pi pi-shield text-[8px]"></i> Encrypted: {{ remote.crypt_overlay }}
+            </span>
+            <span
+              v-if="remote.hasher_overlay"
+              class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60 font-mono flex items-center gap-1"
+              :title="`Wrapped by hasher overlay ${remote.hasher_overlay}`"
+            >
+              <i class="pi pi-bolt text-[8px]"></i> Accelerated: {{ remote.hasher_overlay }}
+            </span>
+            <span
               v-if="remote.is_active_target"
               class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-mono"
             >
@@ -76,7 +90,10 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
             </span>
           </h4>
           <div class="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-1">
-            <span>{{ remote.endpoint || remote.root || 'Configured storage backend' }}</span>
+            <span v-if="remote.underlying_path || remote.underlying_remote" class="text-cyan-400/90 font-medium flex items-center gap-1">
+              <i class="pi pi-link text-[10px]"></i> Wraps: {{ remote.underlying_path || (remote.underlying_remote + ':') }}
+            </span>
+            <span v-else>{{ remote.endpoint || remote.root || 'Configured storage backend' }}</span>
             <template v-if="remote.auth">
               <span>•</span>
               <span class="inline-flex items-center gap-1" :class="getAuthBadge(remote.auth.status).textClass">
@@ -225,9 +242,21 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
           <span>Hasher</span>
         </button>
 
-        <!-- Virtual Overlay Actions for Standard Storage Remotes -->
-        <template v-else-if="(remote.type || '').toLowerCase() !== 'crypt'">
+        <!-- Virtual Overlay Actions for Remotes -->
+        <template v-else>
+          <!-- Hasher Action (Allowed on base remotes and crypt remotes) -->
           <button
+            v-if="remote.hasher_overlay"
+            type="button"
+            @click="remotesStore.openHasherManager(remote.hasher_overlay, 'manager')"
+            class="px-2 py-1 text-[11px] rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+            :title="`Open Hasher Console for overlay '${remote.hasher_overlay}'`"
+          >
+            <i class="pi pi-bolt text-xs text-amber-400"></i>
+            <span>Hasher ✓</span>
+          </button>
+          <button
+            v-else
             type="button"
             @click="remotesStore.openHasherManager(remote.name, 'wrap')"
             class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-slate-300 border border-carbon-border transition-colors flex items-center gap-1 cursor-pointer"
@@ -237,15 +266,29 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
             <span>Hasher</span>
           </button>
 
-          <button
-            type="button"
-            @click="remotesStore.openCryptWrap(remote.name)"
-            class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-slate-300 border border-carbon-border transition-colors flex items-center gap-1 cursor-pointer"
-            title="Wrap remote with client-side Crypt encryption overlay"
-          >
-            <i class="pi pi-shield text-xs text-cyan-400"></i>
-            <span>Encrypt</span>
-          </button>
+          <!-- Encrypt Action (Only allowed on base remotes, never on crypt remotes) -->
+          <template v-if="(remote.type || '').toLowerCase() !== 'crypt'">
+            <button
+              v-if="remote.crypt_overlay"
+              type="button"
+              disabled
+              class="px-2 py-1 text-[11px] rounded-lg bg-cyan-950/40 text-cyan-400/70 border border-cyan-800/40 flex items-center gap-1 cursor-not-allowed"
+              :title="`Already wrapped by encrypted overlay '${remote.crypt_overlay}'`"
+            >
+              <i class="pi pi-shield text-xs text-cyan-400"></i>
+              <span>Encrypted ✓</span>
+            </button>
+            <button
+              v-else
+              type="button"
+              @click="remotesStore.openCryptWrap(remote.name)"
+              class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-slate-300 border border-carbon-border transition-colors flex items-center gap-1 cursor-pointer"
+              title="Wrap remote with client-side Crypt encryption overlay"
+            >
+              <i class="pi pi-shield text-xs text-cyan-400"></i>
+              <span>Encrypt</span>
+            </button>
+          </template>
         </template>
       </div>
 

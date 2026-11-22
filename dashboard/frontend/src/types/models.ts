@@ -115,6 +115,11 @@ export interface RemoteEntry {
     [key: string]: any
   }
   can_public_link?: boolean
+  underlying_remote?: string
+  underlying_path?: string
+  crypt_overlay?: string
+  hasher_overlay?: string
+  overlays?: Array<{ name: string; type: string }>
   [key: string]: any
 }
 

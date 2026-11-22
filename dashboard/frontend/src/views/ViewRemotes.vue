@@ -57,11 +57,13 @@ function checkAuth(name?: string) {
 }
 
 function confirmDelete(name: string) {
-  if (
-    confirm(
-      `Permanently delete remote configuration "${name}"? Active sync profiles referencing this remote will be impacted.`
-    )
-  ) {
+  const target = remotes.value.find((r: any) => r.name === name)
+  let warning = `Permanently delete remote configuration "${name}"? Active sync profiles referencing this remote will be impacted.`
+  if (target && (target.type || '').toLowerCase() === 'crypt') {
+    const under = target.underlying_remote ? ` on base remote "${target.underlying_remote}"` : ''
+    warning += `\n\n⚠️ IMPORTANT: Deleting this crypt remote only removes local decryption keys. Encrypted cipher files stored in the cloud${under} will remain unreadable ciphertext unless decrypted prior to deletion.`
+  }
+  if (confirm(warning)) {
     remotesStore.deleteRemote(name)
   }
 }
