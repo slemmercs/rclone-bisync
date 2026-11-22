@@ -47,7 +47,7 @@ func CategorizeProvider(pType string) models.ProviderCategory {
 		return models.CategoryObject
 	case "sftp", "ftp", "webdav", "smb", "http", "hdfs":
 		return models.CategoryProtocol
-	case "alias", "chunker", "crypt", "union", "combine", "compress":
+	case "alias", "chunker", "crypt", "hasher", "union", "combine", "compress":
 		return models.CategoryVirtual
 	default:
 		return models.CategoryOther
@@ -61,6 +61,7 @@ type RemoteWizardService struct {
 	Logger    *logger.Logger
 	Profiles  *profiles.Service
 	Telemetry *TelemetryService
+	Crypt     *CryptService
 
 	mu           sync.RWMutex
 	catalogCache *models.ProviderCatalogResponse
@@ -82,6 +83,11 @@ func NewRemoteWizardService(
 		Profiles:  profSvc,
 		Telemetry: telemetrySvc,
 	}
+}
+
+// SetCryptService sets the optional CryptService for auto-wrapping encrypted remotes.
+func (s *RemoteWizardService) SetCryptService(cryptSvc *CryptService) {
+	s.Crypt = cryptSvc
 }
 
 // GetProvidersCatalog queries and categorizes all Rclone backend providers (with 5m caching).
@@ -210,6 +216,39 @@ func (s *RemoteWizardService) CreateRemote(ctx context.Context, req models.Creat
 		res.Message = fmt.Sprintf("Remote %q created. Browser authorization required at: %s", cleanName, authURL)
 	}
 
+	targetRemoteForProfile := cleanName
+	targetRemoteSubpath := strings.Trim(req.RemoteSubpath, "/\\ ")
+
+	if req.EncryptRemote {
+		if s.Crypt == nil {
+			res.Message += " (crypt overlay skipped: crypt service not initialized)"
+		} else if strings.TrimSpace(req.CryptPassword) == "" {
+			res.Message += " (crypt overlay skipped: crypt password required)"
+		} else {
+			cryptName := cleanName + "_crypt"
+			cryptTarget := cleanName + ":"
+			if targetRemoteSubpath != "" {
+				cryptTarget += targetRemoteSubpath
+			}
+			cryptReq := models.CryptWrapRequest{
+				Name:                    cryptName,
+				Remote:                  cryptTarget,
+				Password:                req.CryptPassword,
+				Password2:               req.CryptPassword2,
+				FilenameEncryption:      req.CryptFilenameEncryption,
+				DirectoryNameEncryption: true,
+			}
+			cryptRes, err := s.Crypt.WrapRemoteInCrypt(ctx, cryptReq, actor)
+			if err != nil {
+				res.Message = fmt.Sprintf("Base remote %q created, but crypt overlay failed: %v", cleanName, err)
+				return res, nil
+			}
+			targetRemoteForProfile = cryptRes.RemoteName
+			targetRemoteSubpath = ""
+			res.Message = fmt.Sprintf("Remote %q and encrypted overlay %q created successfully", cleanName, cryptRes.RemoteName)
+		}
+	}
+
 	if req.CreateProfile {
 		localPath := strings.TrimSpace(req.LocalPath)
 		if localPath == "" {
@@ -230,19 +269,13 @@ func (s *RemoteWizardService) CreateRemote(ctx context.Context, req models.Creat
 
 		profName := strings.TrimSpace(req.ProfileName)
 		if profName == "" {
-			profName = cleanName
-		}
-
-		remoteTarget := cleanName + ":"
-		sub := strings.Trim(req.RemoteSubpath, "/\\ ")
-		if sub != "" {
-			remoteTarget += sub
+			profName = targetRemoteForProfile
 		}
 
 		newProf := &profiles.Profile{
 			Name:       profName,
-			Remote:     cleanName,
-			RemotePath: strings.Trim(req.RemoteSubpath, "/\\ "),
+			Remote:     targetRemoteForProfile,
+			RemotePath: targetRemoteSubpath,
 			LocalPath:  cleanLocal,
 			Schedule:   strings.TrimSpace(req.Schedule),
 		}
@@ -255,7 +288,7 @@ func (s *RemoteWizardService) CreateRemote(ctx context.Context, req models.Creat
 
 		res.ProfileID = createdProf.ID
 		res.ProfileName = createdProf.Name
-		res.Message = fmt.Sprintf("Remote %q and profile %q created successfully", cleanName, createdProf.Name)
+		res.Message = fmt.Sprintf("Remote %q and profile %q created successfully", targetRemoteForProfile, createdProf.Name)
 	}
 
 	return res, nil

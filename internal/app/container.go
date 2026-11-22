@@ -40,6 +40,8 @@ type Container struct {
 	UploadDock              *services.UploadDock
 	RemoteWizardService     *services.RemoteWizardService
 	DedupeService           *services.DedupeService
+	HasherService           *services.HasherService
+	CryptService            *services.CryptService
 	started                 bool
 	stopped                 bool
 }
@@ -273,9 +275,18 @@ func NewContainer(cfg *config.Config, opts ...Option) (*Container, error) {
 
 	}
 
-	// 8. Initialize Remote Wizard Service
+	// 8. Initialize Remote Wizard, Hasher, and Crypt Services
+	if c.HasherService == nil {
+		c.HasherService = services.NewHasherService(cfg, c.Client, c.Logger, c.ProfileService, c.TelemetryService)
+	}
+	if c.CryptService == nil {
+		c.CryptService = services.NewCryptService(cfg, c.Client, c.Logger, c.ProfileService, c.TelemetryService)
+	}
 	if c.RemoteWizardService == nil {
 		c.RemoteWizardService = services.NewRemoteWizardService(cfg, c.Client, c.Logger, c.ProfileService, c.TelemetryService)
+	}
+	if c.RemoteWizardService.Crypt == nil {
+		c.RemoteWizardService.SetCryptService(c.CryptService)
 	}
 
 	// 9. Initialize Dedupe Service

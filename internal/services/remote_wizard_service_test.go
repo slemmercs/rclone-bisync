@@ -29,6 +29,7 @@ func TestRemoteWizard_CategorizeProvider(t *testing.T) {
 		{"webdav", models.CategoryProtocol},
 		{"alias", models.CategoryVirtual},
 		{"crypt", models.CategoryVirtual},
+		{"hasher", models.CategoryVirtual},
 		{"unknown_backend", models.CategoryOther},
 	}
 
@@ -198,6 +199,80 @@ func TestRemoteWizard_CreateRemote(t *testing.T) {
 		t.Fatalf("expected oauth_pending status with authURL, got: %+v", resOAuth)
 	}
 }
+
+func TestRemoteWizard_CreateRemote_WithEncryption(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	profStore, err := profiles.NewStore(filepath.Join(tmpDir, "profiles.json"), filepath.Join(tmpDir, "history.json"))
+	if err != nil {
+		t.Fatalf("failed to create profStore: %v", err)
+	}
+	profSvc := profiles.NewService(profStore, nil, nil)
+
+	createdRemotes := make([]string, 0)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/config/listremotes":
+			_ = json.NewEncoder(w).Encode(map[string][]string{"remotes": createdRemotes})
+		case "/core/obscure":
+			var req map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewEncoder(w).Encode(map[string]string{"obscured": "obs_" + req["clear"]})
+		case "/config/create":
+			var req map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			name := req["name"].(string)
+			createdRemotes = append(createdRemotes, name+":")
+			w.WriteHeader(http.StatusOK)
+		case "/config/oauthstatus":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "idle"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	c := client.NewRcloneClient(server.URL, "", "")
+	telSvc := NewTelemetryService(&config.Config{}, c)
+	cryptSvc := NewCryptService(&config.Config{}, c, nil, profSvc, telSvc)
+	svc := NewRemoteWizardService(&config.Config{}, c, nil, profSvc, telSvc)
+	svc.SetCryptService(cryptSvc)
+
+	res, err := svc.CreateRemote(context.Background(), models.CreateRemoteBridgeRequest{
+		Name:                    "s3_vault",
+		Type:                    "s3",
+		Parameters:              map[string]interface{}{"provider": "AWS"},
+		EncryptRemote:           true,
+		CryptPassword:           "secretpassword",
+		CryptFilenameEncryption: "standard",
+		CreateProfile:           true,
+		LocalPath:               filepath.Join(tmpDir, "local_sync"),
+		RemoteSubpath:           "vault/folder",
+		Schedule:                "daily",
+	}, "test-actor")
+
+	if err != nil {
+		t.Fatalf("unexpected error creating encrypted remote: %v", err)
+	}
+	if !res.Success {
+		t.Fatalf("expected success, got %+v", res)
+	}
+	if res.ProfileID == "" {
+		t.Fatal("expected profile to be created")
+	}
+
+	prof, err := profStore.Get(res.ProfileID)
+	if err != nil {
+		t.Fatalf("failed to retrieve profile: %v", err)
+	}
+	if prof.Remote != "s3_vault_crypt" {
+		t.Errorf("expected profile remote to be s3_vault_crypt, got %q", prof.Remote)
+	}
+	if prof.RemotePath != "" {
+		t.Errorf("expected empty RemotePath on crypt profile, got %q", prof.RemotePath)
+	}
+}
+
 
 func TestRemoteWizard_DeleteRemote(t *testing.T) {
 	tmpDir := t.TempDir()
