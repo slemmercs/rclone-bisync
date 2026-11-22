@@ -323,7 +323,6 @@ func TestRemoteWizard_DeleteRemote(t *testing.T) {
 	}
 }
 
-
 func TestRemoteWizard_VirtualGuardrails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

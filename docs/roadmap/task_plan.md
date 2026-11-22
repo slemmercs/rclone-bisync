@@ -21,7 +21,7 @@ Resolve virtual overlay linkage blind spots (`Base -> Crypt`, `Base -> Hasher`) 
   - **Scope**: `dashboard/frontend/src/components/profiles/ProfileListTab.vue`, `dashboard/frontend/src/components/profiles/ProfileFormTab.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 5: Full Quality Verification Suite
+- [x] Task 5: Full Quality Verification Suite
   - **Scope**: Pre-flight checks across all stages
   - **Verification**: `./scripts/check.sh all`
 
@@ -32,6 +32,8 @@ Resolve virtual overlay linkage blind spots (`Base -> Crypt`, `Base -> Hasher`) 
 - 2026-11-22: Completed Task 2. Extended frontend RemoteEntry with overlay metadata, enhanced RemoteCard.vue with encrypted and accelerated badges on base and overlay cards, underlying storage breadcrumbs, duplicate wrap prevention, and added cloud ciphertext deletion safeguards in ViewRemotes.vue. Verified via `npm --prefix dashboard/frontend run build`.
 - 2026-11-22: Completed Task 3. Enhanced ModalCryptWrap.vue with duplicate crypt overlay detection, duplicate remote name validation, and comprehensive plaintext sync/decryption guidance callouts across both ModalCryptWrap.vue and WizardStepConfigure.vue. Verified via `npm --prefix dashboard/frontend run build`.
 - 2026-11-22: Completed Task 4. Added ENCRYPTED and ACCELERATED badges with pipeline topology breadcrumbs to ProfileListTab.vue. Added pipeline topology preview, encryption mode change resync warning, and overlay tip to ProfileFormTab.vue. Verified via `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+- 2026-11-22: Completed Task 5. Verified full quality gate suite with `./scripts/check.sh all` (all 7/7 checks passed: Go format/shellcheck, Go vet, LOC audit, Go tests & coverage, race detector, Vue type-check, and Vite production build).
+
 
 
 

@@ -465,4 +465,3 @@ func TestTelemetryService_OverlayResolution(t *testing.T) {
 		t.Fatalf("expected underlying_remote 'base_remote_crypt', got %v", hasher["underlying_remote"])
 	}
 }
-

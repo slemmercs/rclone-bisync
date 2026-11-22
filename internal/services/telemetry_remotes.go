@@ -220,4 +220,3 @@ func parseUnderlyingRemote(remoteTarget string) (baseName string, subpath string
 	}
 	return "", target
 }
-
