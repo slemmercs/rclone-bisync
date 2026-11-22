@@ -6,11 +6,13 @@ import ModalDedupe from '../components/ModalDedupe.vue'
 import ModalRemoteReconnect from '../components/ModalRemoteReconnect.vue'
 import ModalOAuthMigration from '../components/ModalOAuthMigration.vue'
 import ModalAuthAudit from '../components/ModalAuthAudit.vue'
+import ModalHasherManager from '../components/ModalHasherManager.vue'
+import ModalCryptWrap from '../components/ModalCryptWrap.vue'
 
 const remotesStore = useRemotesStore()
 const dedupeStore = useDedupeStore()
 
-const categoryFilter = ref<'all' | 'cloud' | 'object' | 'protocol'>('all')
+const categoryFilter = ref<'all' | 'cloud' | 'object' | 'protocol' | 'virtual'>('all')
 const searchQuery = ref<string>('')
 
 const remotes = computed(() => remotesStore.remotes)
@@ -33,6 +35,8 @@ const filteredRemotes = computed(() => {
     list = list.filter(r => ['s3', 'b2', 'gcs', 'azureblob', 'wasabi', 'minio'].includes((r.type || '').toLowerCase()))
   } else if (categoryFilter.value === 'protocol') {
     list = list.filter(r => ['sftp', 'ftp', 'webdav', 'smb', 'http'].includes((r.type || '').toLowerCase()))
+  } else if (categoryFilter.value === 'virtual') {
+    list = list.filter(r => ['hasher', 'crypt', 'alias', 'combine', 'chunker', 'union'].includes((r.type || '').toLowerCase()))
   }
 
   const q = searchQuery.value.toLowerCase().trim()
@@ -149,6 +153,12 @@ onMounted(() => {
             :class="categoryFilter === 'protocol' ? 'bg-electric-blue text-white font-semibold' : 'text-slate-400 hover:text-slate-200'"
             class="px-2 py-0.5 rounded transition-all cursor-pointer"
           >Protocols</button>
+          <button
+            type="button"
+            @click="categoryFilter = 'virtual'"
+            :class="categoryFilter === 'virtual' ? 'bg-electric-blue text-white font-semibold' : 'text-slate-400 hover:text-slate-200'"
+            class="px-2 py-0.5 rounded transition-all cursor-pointer"
+          >Virtual</button>
         </div>
       </div>
 
@@ -170,6 +180,15 @@ onMounted(() => {
         >
           <i class="pi pi-refresh text-xs" :class="{ 'pi-spin': loading }"></i>
           <span>Check Auth</span>
+        </button>
+
+        <button
+          @click="remotesStore.openHasherManager('', 'manager')"
+          class="px-3 py-1.5 bg-carbon-elevated hover:bg-slate-800 text-amber-400 rounded-xl text-xs font-semibold border border-carbon-border transition-colors flex items-center gap-1.5 cursor-pointer"
+          title="Open Hasher Acceleration & Cache Console"
+        >
+          <i class="pi pi-bolt text-xs text-amber-400"></i>
+          <span>Hasher</span>
         </button>
 
         <button
@@ -211,6 +230,12 @@ onMounted(() => {
                 <span>{{ remote.name }}</span>
                 <span class="text-[10px] px-1.5 py-0.5 rounded uppercase bg-carbon-elevated text-slate-400 border border-carbon-border font-mono">
                   {{ remote.type || 'remote' }}
+                </span>
+                <span v-if="(remote.type || '').toLowerCase() === 'hasher'" class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60 font-mono flex items-center gap-1">
+                  <i class="pi pi-bolt text-[8px]"></i> Accelerated
+                </span>
+                <span v-if="(remote.type || '').toLowerCase() === 'crypt'" class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/60 font-mono flex items-center gap-1">
+                  <i class="pi pi-shield text-[8px]"></i> Encrypted
                 </span>
                 <span v-if="remote.is_active_target" class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-mono">
                   Active
@@ -350,6 +375,41 @@ onMounted(() => {
                 <span>OAuth</span>
               </button>
             </template>
+
+            <!-- Hasher Remote Maintenance -->
+            <button
+              v-if="(remote.type || '').toLowerCase() === 'hasher'"
+              type="button"
+              @click="remotesStore.openHasherManager(remote.name, 'manager')"
+              class="px-2.5 py-1 text-[11px] rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+              title="Hasher Maintenance Console"
+            >
+              <i class="pi pi-bolt text-xs text-amber-400"></i>
+              <span>Hasher</span>
+            </button>
+
+            <!-- Virtual Overlay Actions for Standard Storage Remotes -->
+            <template v-else-if="(remote.type || '').toLowerCase() !== 'crypt'">
+              <button
+                type="button"
+                @click="remotesStore.openHasherManager(remote.name, 'wrap')"
+                class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-slate-300 border border-carbon-border transition-colors flex items-center gap-1 cursor-pointer"
+                title="Wrap remote with Hasher checksum acceleration overlay"
+              >
+                <i class="pi pi-bolt text-xs text-amber-400"></i>
+                <span>Hasher</span>
+              </button>
+
+              <button
+                type="button"
+                @click="remotesStore.openCryptWrap(remote.name)"
+                class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-slate-300 border border-carbon-border transition-colors flex items-center gap-1 cursor-pointer"
+                title="Wrap remote with client-side Crypt encryption overlay"
+              >
+                <i class="pi pi-shield text-xs text-cyan-400"></i>
+                <span>Encrypt</span>
+              </button>
+            </template>
           </div>
 
           <div class="flex items-center gap-2">
@@ -380,5 +440,7 @@ onMounted(() => {
     <ModalRemoteReconnect />
     <ModalOAuthMigration />
     <ModalAuthAudit />
+    <ModalHasherManager />
+    <ModalCryptWrap />
   </div>
 </template>

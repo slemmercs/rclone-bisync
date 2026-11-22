@@ -37,7 +37,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
   - **Scope**: `dashboard/frontend/src/components/ModalRemoteWizard.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check`
 
-- [ ] Task 9: Hasher Manager & Crypt Wrap Modals and ViewRemotes Quick Actions
+- [x] Task 9: Hasher Manager & Crypt Wrap Modals and ViewRemotes Quick Actions
   - **Scope**: `dashboard/frontend/src/components/ModalHasherManager.vue`, `dashboard/frontend/src/components/ModalCryptWrap.vue`, `dashboard/frontend/src/views/ViewRemotes.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
@@ -58,6 +58,8 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
 - 2026-11-21: Completed Task 7. Built `dashboard/frontend/src/components/DynamicProviderForm.vue` supporting Rclone `/config/providers` schema parsing, top-level preset flavor selection (e.g. S3 AWS, Minio, Ceph, etc.), `(opt.Hide & 3) !== 0` bitmask filtering, flavor visibility with `!` negation rules, passwords with visibility toggles, boolean checkboxes, select dropdowns for options with examples, and collapsible advanced settings accordion. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 
 - 2026-11-21: Completed Task 8. Wired `DynamicProviderForm` into `ModalRemoteWizard.vue` replacing static provider credential blocks. Integrated client-side Crypt remote auto-wrap toggle with primary password, salt passphrase, and filename encryption strategy (`standard`, `obfuscate`, `off`). Updated deployment review and payload dispatch to create encrypted overlay and bridge sync profiles directly to `_crypt` remote. Verified via `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `go test -count=1 ./...`.
+- 2026-11-21: Completed Task 9. Created `ModalHasherManager.vue` supporting maintenance commands (`dump`, `fulldump`, `drop`, `import`, `stickyimport`) with live output terminal, and interactive remote wrapping. Created `ModalCryptWrap.vue` supporting AES client-side encryption overlay configuration. Extended `ViewRemotes.vue` with "Virtual" category filtering, "⚡ Accelerated" and "🔒 Encrypted" card badges, toolbar Hasher console access, and per-card quick action buttons ("Hasher Tools", "Wrap Hasher", "Encrypt"). Verified via `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `go test -count=1 ./...`.
+
 
 
 

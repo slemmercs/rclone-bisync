@@ -62,6 +62,42 @@ export const useRemotesStore = defineStore('remotes', () => {
     events: [] as OAuthAuditEvent[],
   })
 
+  // Hasher Management / Wrap Modal State
+  const hasherModal = ref({
+    show: false,
+    mode: 'manager' as 'manager' | 'wrap',
+    remote: '',
+  })
+
+  // Crypt Encryption Wrap Modal State
+  const cryptModal = ref({
+    show: false,
+    remote: '',
+  })
+
+  function openHasherManager(remoteName: string = '', mode: 'manager' | 'wrap' = 'manager') {
+    hasherModal.value = {
+      show: true,
+      mode,
+      remote: remoteName,
+    }
+  }
+
+  function closeHasherManager() {
+    hasherModal.value.show = false
+  }
+
+  function openCryptWrap(remoteName: string = '') {
+    cryptModal.value = {
+      show: true,
+      remote: remoteName,
+    }
+  }
+
+  function closeCryptWrap() {
+    cryptModal.value.show = false
+  }
+
   async function fetchRemotes(refresh: boolean = false) {
     loading.value = true
     error.value = null
@@ -343,6 +379,12 @@ export const useRemotesStore = defineStore('remotes', () => {
     reconnectModal,
     migrationModal,
     auditModal,
+    hasherModal,
+    cryptModal,
+    openHasherManager,
+    closeHasherManager,
+    openCryptWrap,
+    closeCryptWrap,
     fetchRemotes,
     checkAuth,
     validateRemote,
