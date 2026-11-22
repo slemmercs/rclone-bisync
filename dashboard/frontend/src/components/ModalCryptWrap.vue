@@ -37,6 +37,37 @@
         </span>
       </div>
 
+      <!-- Plaintext Decryption Callout -->
+      <div class="p-3 rounded-xl bg-carbon-bg border border-carbon-border/70 text-slate-300 text-[11px] font-sans space-y-2">
+        <div class="flex items-center gap-1.5 font-bold text-slate-200">
+          <i class="pi pi-info-circle text-cyan-400 text-xs"></i>
+          <span>Plaintext Sync &amp; Decryption Guidance</span>
+        </div>
+        <p class="text-slate-400 leading-relaxed">
+          • <strong class="text-slate-300">Local files stay plaintext:</strong> Crypt transparently encrypts on upload and decrypts on download. Your local storage files are always standard unencrypted files.
+        </p>
+        <p class="text-slate-400 leading-relaxed">
+          • <strong class="text-slate-300">Decryption / Reversion:</strong> If you ever wish to remove encryption from cloud storage, pause bisync, wipe the ciphertext from cloud storage, retarget your sync profile to the base unencrypted remote, and run <strong>--resync</strong> from your local files.
+        </p>
+      </div>
+
+      <!-- Existing Crypt Overlay Warning -->
+      <div v-if="hasExistingCryptOverlay" class="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs space-y-1">
+        <div class="flex items-center gap-1.5 font-bold text-amber-200">
+          <i class="pi pi-exclamation-triangle text-amber-400"></i>
+          <span>Encrypted Overlay Already Exists</span>
+        </div>
+        <p class="text-[11px] leading-relaxed">
+          Remote "{{ baseRemote }}" is already encrypted via overlay "{{ selectedBaseRemote?.crypt_overlay }}". Wrapping an already encrypted remote creates double encryption and is disallowed.
+        </p>
+      </div>
+
+      <!-- Duplicate Name Warning -->
+      <div v-else-if="isDuplicateName" class="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl text-xs flex items-center gap-2">
+        <i class="pi pi-times-circle text-rose-400 shrink-0"></i>
+        <span>A remote named "{{ cryptName }}" already exists. Please choose a different name.</span>
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <!-- Base Remote -->
         <div>
@@ -155,7 +186,7 @@
         <button
           type="button"
           @click="handleWrap"
-          :disabled="!baseRemote || !cryptName || !password.trim() || wrapping"
+          :disabled="!baseRemote || !cryptName || !password.trim() || wrapping || hasExistingCryptOverlay || isDuplicateName"
           class="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
         >
           <i class="pi" :class="wrapping ? 'pi-spin pi-spinner' : 'pi-shield'"></i>
@@ -190,6 +221,20 @@ const availableBaseRemotes = computed(() => {
   return (remotesStore.remotes || []).filter(r => (r.type || '').toLowerCase() !== 'crypt')
 })
 
+const selectedBaseRemote = computed(() => {
+  return (remotesStore.remotes || []).find(r => r.name === baseRemote.value)
+})
+
+const hasExistingCryptOverlay = computed(() => {
+  return !!selectedBaseRemote.value?.crypt_overlay
+})
+
+const isDuplicateName = computed(() => {
+  const name = cryptName.value.trim().toLowerCase()
+  if (!name) return false
+  return (remotesStore.remotes || []).some(r => (r.name || '').toLowerCase() === name)
+})
+
 watch(
   () => remotesStore.cryptModal.show,
   (show) => {
@@ -215,7 +260,7 @@ watch(baseRemote, (newBase) => {
 })
 
 async function handleWrap() {
-  if (!baseRemote.value || !cryptName.value || !password.value.trim()) return
+  if (!baseRemote.value || !cryptName.value || !password.value.trim() || hasExistingCryptOverlay.value || isDuplicateName.value) return
   wrapping.value = true
   errorMsg.value = null
   successMsg.value = null

@@ -233,6 +233,17 @@
                 <option value="off">off — Keep filenames in plaintext (encrypt data content only)</option>
               </select>
             </div>
+
+            <!-- Plaintext Decryption Callout -->
+            <div class="sm:col-span-2 p-2.5 rounded-lg bg-carbon-bg border border-carbon-border/70 text-slate-300 text-[11px] font-sans space-y-1">
+              <div class="flex items-center gap-1.5 font-bold text-slate-200">
+                <i class="pi pi-info-circle text-cyan-400 text-xs"></i>
+                <span>Plaintext Decryption Guidance</span>
+              </div>
+              <p class="text-slate-400 leading-relaxed text-[11px]">
+                Local files always remain plaintext. To revert or decrypt cloud storage later: pause bisync, clear ciphertext from the cloud, repoint your sync profile to the base unencrypted remote, and run <strong>--resync</strong> from your local files.
+              </p>
+            </div>
           </div>
         </div>
       </div>
