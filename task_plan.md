@@ -13,11 +13,13 @@ Resolve JSON unmarshaling type collision for `HasherWrapRequest.hashes` between 
   - **Scope**: `dashboard/frontend/src/types/hasher.ts`, `dashboard/frontend/src/components/ModalHasherManager.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 3: Full Quality Verification Suite
+- [x] Task 3: Full Quality Verification Suite
   - **Scope**: Pre-flight verification across all stages
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
+
+- 2026-11-22: Completed Task 3. Ran full quality suite (`./scripts/check.sh all`) across all 7 stages including Go tests, vet, leaks, formatting, and frontend type/build checks. All passed cleanly.
 
 - 2026-11-22: Completed Task 2. Extended `types/hasher.ts` with `hashes?: string[] | string` and updated `ModalHasherManager.vue` to map UI hash display labels to standard Rclone backend hash identifiers (`md5`, `sha1`, `dropbox`, `quickxor`, `whirlpool`, `crc32`). Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 
