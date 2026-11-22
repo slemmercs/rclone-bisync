@@ -162,6 +162,7 @@ export interface CreateRemotePayload {
   schedule?: string
   remote_subpath?: string
   // Virtual encrypted overlay support
+  encrypt_remote?: boolean
   encrypted_overlay?: boolean
   crypt_password?: string
   crypt_password2?: string

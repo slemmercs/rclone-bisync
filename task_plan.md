@@ -33,7 +33,7 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
   - **Scope**: `dashboard/frontend/src/components/DynamicProviderForm.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check`
 
-- [ ] Task 8: Integrate DynamicProviderForm & Crypt Auto-Wrap in ModalRemoteWizard
+- [x] Task 8: Integrate DynamicProviderForm & Crypt Auto-Wrap in ModalRemoteWizard
   - **Scope**: `dashboard/frontend/src/components/ModalRemoteWizard.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check`
 
@@ -56,6 +56,8 @@ Implement a unified virtual overlay and schema-driven remote configuration engin
 
 - 2026-11-21: Completed Task 6. Created `dashboard/frontend/src/types/hasher.ts` and `dashboard/frontend/src/types/crypt.ts`, re-exported in `dashboard/frontend/src/types/index.ts`, extended `dashboard/frontend/src/types/dedupe.ts` with `hasher_accelerated` and encrypted overlay fields, refreshed `dashboard/frontend/src/types/models.gen.ts`, and implemented `wrapHasher`, `executeHasherCommand`, and `wrapCrypt` in `dashboard/frontend/src/stores/remotes.ts`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 - 2026-11-21: Completed Task 7. Built `dashboard/frontend/src/components/DynamicProviderForm.vue` supporting Rclone `/config/providers` schema parsing, top-level preset flavor selection (e.g. S3 AWS, Minio, Ceph, etc.), `(opt.Hide & 3) !== 0` bitmask filtering, flavor visibility with `!` negation rules, passwords with visibility toggles, boolean checkboxes, select dropdowns for options with examples, and collapsible advanced settings accordion. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+
+- 2026-11-21: Completed Task 8. Wired `DynamicProviderForm` into `ModalRemoteWizard.vue` replacing static provider credential blocks. Integrated client-side Crypt remote auto-wrap toggle with primary password, salt passphrase, and filename encryption strategy (`standard`, `obfuscate`, `off`). Updated deployment review and payload dispatch to create encrypted overlay and bridge sync profiles directly to `_crypt` remote. Verified via `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build` and `go test -count=1 ./...`.
 
 
 

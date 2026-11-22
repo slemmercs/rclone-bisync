@@ -222,63 +222,93 @@
             </div>
           </div>
         </div>
-        <!-- Non-OAuth Provider Credentials (S3, B2, SFTP, WebDAV, Generic) -->
-        <div v-else class="p-3.5 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
-          <label class="text-slate-200 font-semibold text-xs flex items-center gap-1.5">
-            <i class="pi pi-key text-amber-400 text-xs"></i>
-            <span>Provider Credentials</span>
-          </label>
+        <!-- Non-OAuth Provider Schema-Driven Form -->
+        <div v-else>
+          <DynamicProviderForm :provider="selectedProvider" v-model="providerParams" />
+        </div>
 
-          <!-- S3 -->
-          <div v-if="selectedProvider?.name === 's3'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-slate-300 mb-1 text-[11px]">Access Key ID</label>
-              <input type="text" v-model="providerParams.access_key_id" placeholder="AKIA..." class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
-            </div>
-            <div>
-              <label class="block text-slate-300 mb-1 text-[11px]">Secret Access Key</label>
-              <input :type="showSecret ? 'text' : 'password'" v-model="providerParams.secret_access_key" placeholder="Secret Key" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
-            </div>
-            <div>
-              <label class="block text-slate-300 mb-1 text-[11px]">Region</label>
-              <input type="text" v-model="providerParams.region" placeholder="us-east-1" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
-            </div>
-            <div>
-              <label class="block text-slate-300 mb-1 text-[11px]">Endpoint (MinIO / Ceph)</label>
-              <input type="text" v-model="providerParams.endpoint" placeholder="https://s3.example.com" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
-            </div>
+        <!-- Client-Side Encryption (Crypt) Overlay -->
+        <div class="p-3.5 bg-carbon-surface border border-carbon-border rounded-xl space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <label class="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                v-model="encryptRemote"
+                class="rounded bg-carbon-canvas border-carbon-border text-electric-blue focus:ring-0 w-4 h-4 mt-0.5"
+              />
+              <div class="space-y-0.5">
+                <div class="text-xs text-white font-semibold flex items-center gap-1.5">
+                  <i class="pi pi-shield text-cyan-400 text-xs"></i>
+                  <span>Wrap with Client-Side Encryption (Crypt)</span>
+                  <span class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Crypt</span>
+                </div>
+                <p class="text-[11px] text-slate-400 font-sans leading-relaxed">
+                  Transparently encrypt file contents and metadata on client side before upload. Zero plaintext reaches cloud storage.
+                </p>
+              </div>
+            </label>
           </div>
 
-          <!-- B2 -->
-          <div v-else-if="selectedProvider?.name === 'b2'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-slate-300 mb-1 text-[11px]">Account ID / Key ID</label>
-              <input type="text" v-model="providerParams.account" placeholder="Account ID" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
+          <!-- Crypt configuration options when enabled -->
+          <div v-if="encryptRemote" class="pt-3 border-t border-carbon-border/60 space-y-3 font-mono text-xs">
+            <div class="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[11px] font-sans flex items-center gap-2">
+              <i class="pi pi-info-circle text-cyan-400 shrink-0"></i>
+              <span>
+                An encrypted virtual remote <strong>{{ remoteName.trim() ? remoteName.trim() + '_crypt' : 'remote_crypt' }}</strong> will be provisioned wrapping <strong>{{ remoteName.trim() || 'base_remote' }}</strong>.
+              </span>
             </div>
-            <div>
-              <label class="block text-slate-300 mb-1 text-[11px]">Application Key</label>
-              <input :type="showSecret ? 'text' : 'password'" v-model="providerParams.key" placeholder="App Key" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
-            </div>
-          </div>
 
-          <!-- SFTP / WebDAV / Generic -->
-          <div v-else-if="selectedProvider?.name === 'sftp' || selectedProvider?.name === 'webdav'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="sm:col-span-2">
-              <label class="block text-slate-300 mb-1 text-[11px]">{{ selectedProvider?.name === 'webdav' ? 'URL' : 'Host' }}</label>
-              <input type="text" v-model="providerParams[selectedProvider?.name === 'webdav' ? 'url' : 'host']" :placeholder="selectedProvider?.name === 'webdav' ? 'https://webdav.example.com' : 'sftp.example.com'" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
-            </div>
-            <div>
-              <label class="block text-slate-300 mb-1 text-[11px]">User</label>
-              <input type="text" v-model="providerParams.user" placeholder="username" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
-            </div>
-            <div>
-              <label class="block text-slate-300 mb-1 text-[11px]">Password</label>
-              <input :type="showSecret ? 'text' : 'password'" v-model="providerParams.pass" placeholder="Password" class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue" />
-            </div>
-          </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-slate-300 font-semibold text-[11px]">Primary Encryption Password *</label>
+                  <button
+                    type="button"
+                    @click="showCryptPassword = !showCryptPassword"
+                    class="text-[10px] text-electric-blue hover:text-sky-300 cursor-pointer font-sans"
+                  >
+                    {{ showCryptPassword ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
+                <input
+                  :type="showCryptPassword ? 'text' : 'password'"
+                  v-model="cryptPassword"
+                  placeholder="Passphrase to encrypt files"
+                  class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue"
+                />
+              </div>
 
-          <div v-else class="text-[11px] text-slate-400 font-sans">
-            Direct deployment will establish baseline provider configuration or prompt for authentication tokens.
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-slate-300 font-semibold text-[11px]">Secondary Salt Passphrase (Optional)</label>
+                  <button
+                    type="button"
+                    @click="showCryptSalt = !showCryptSalt"
+                    class="text-[10px] text-electric-blue hover:text-sky-300 cursor-pointer font-sans"
+                  >
+                    {{ showCryptSalt ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
+                <input
+                  :type="showCryptSalt ? 'text' : 'password'"
+                  v-model="cryptPassword2"
+                  placeholder="Optional salt passphrase"
+                  class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue"
+                />
+              </div>
+
+              <div class="sm:col-span-2">
+                <label class="block text-slate-300 font-semibold mb-1 text-[11px]">Filename Encryption Strategy</label>
+                <select
+                  v-model="cryptFilenameEncryption"
+                  class="w-full bg-carbon-canvas border border-carbon-border rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-electric-blue cursor-pointer"
+                >
+                  <option value="standard">standard — Encrypt file and directory names (Recommended)</option>
+                  <option value="obfuscate">obfuscate — Simple filename obfuscation (retains file length)</option>
+                  <option value="off">off — Keep filenames in plaintext (encrypt data content only)</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -353,7 +383,21 @@
           <div v-if="isOAuthProvider(selectedProvider) && authMode === 'custom' && customClientId">
             <span class="text-slate-500">Client ID:</span> {{ customClientId.slice(0, 16) }}...
           </div>
+          <div>
+            <span class="text-slate-500">Encryption:</span>
+            <span :class="encryptRemote ? 'text-cyan-400 font-semibold' : 'text-slate-400'">
+              {{ encryptRemote ? `Enabled (${remoteName.trim()}_crypt)` : 'Disabled' }}
+            </span>
+          </div>
+          <div v-if="encryptRemote">
+            <span class="text-slate-500">Filename Mode:</span>
+            <span class="text-slate-300">{{ cryptFilenameEncryption }}</span>
+          </div>
           <div><span class="text-slate-500">Linked Profile:</span> {{ createProfile ? 'Enabled' : 'Disabled' }}</div>
+          <div v-if="createProfile">
+            <span class="text-slate-500">Target Remote:</span>
+            <span class="text-electric-blue">{{ encryptRemote ? `${remoteName.trim()}_crypt` : remoteName.trim() }}</span>
+          </div>
           <div v-if="createProfile"><span class="text-slate-500">Local Path:</span> {{ localPath || '--' }}</div>
           <div v-if="createProfile"><span class="text-slate-500">Schedule:</span> {{ schedule }}</div>
         </div>
@@ -402,6 +446,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import Dialog from 'primevue/dialog'
+import DynamicProviderForm from './DynamicProviderForm.vue'
 import { useDedupeStore } from '../stores/dedupe'
 import { useRemotesStore } from '../stores/remotes'
 import { useProfilesStore } from '../stores/profiles'
@@ -422,11 +467,20 @@ const authMode = ref<'browser' | 'custom'>('browser')
 const customClientId = ref<string>('')
 const customClientSecret = ref<string>('')
 const showSecret = ref<boolean>(false)
-const providerParams = ref<Record<string, string>>({})
+const providerParams = ref<Record<string, any>>({})
 const createProfile = ref<boolean>(true)
 const localPath = ref<string>('')
 const remoteSubpath = ref<string>('')
 const schedule = ref<string>('manual')
+
+// Crypt Encryption Overlay State
+const encryptRemote = ref<boolean>(false)
+const cryptPassword = ref<string>('')
+const cryptPassword2 = ref<string>('')
+const cryptFilenameEncryption = ref<'standard' | 'obfuscate' | 'off'>('standard')
+const showCryptPassword = ref<boolean>(false)
+const showCryptSalt = ref<boolean>(false)
+
 const errorMsg = ref<string | null>(null)
 const submitting = ref<boolean>(false)
 
@@ -439,7 +493,11 @@ function isOAuthProvider(p: ProviderCatalogItem | null): boolean {
   return oauthTypes.includes(name) || oauthTypes.includes(prefix)
 }
 
-const canProceedToStep3 = computed(() => !!selectedProvider.value && !!remoteName.value.trim())
+const canProceedToStep3 = computed(() => {
+  if (!selectedProvider.value || !remoteName.value.trim()) return false
+  if (encryptRemote.value && !cryptPassword.value.trim()) return false
+  return true
+})
 
 const filteredProviders = computed(() => {
   let list = dedupeStore.providers || []
@@ -466,6 +524,12 @@ function selectProvider(p: ProviderCatalogItem) {
   customClientSecret.value = ''
   showSecret.value = false
   providerParams.value = {}
+  encryptRemote.value = false
+  cryptPassword.value = ''
+  cryptPassword2.value = ''
+  cryptFilenameEncryption.value = 'standard'
+  showCryptPassword.value = false
+  showCryptSalt.value = false
   step.value = 2
 }
 
@@ -497,6 +561,11 @@ async function handleDeploy() {
     profile_name: `${cleanName}_sync`,
     schedule: schedule.value,
     remote_subpath: remoteSubpath.value.trim() || undefined,
+    encrypt_remote: encryptRemote.value,
+    encrypted_overlay: encryptRemote.value,
+    crypt_password: encryptRemote.value ? cryptPassword.value.trim() : undefined,
+    crypt_password2: encryptRemote.value && cryptPassword2.value.trim() ? cryptPassword2.value.trim() : undefined,
+    crypt_filename_encryption: encryptRemote.value ? cryptFilenameEncryption.value : undefined,
   }
 
   try {
