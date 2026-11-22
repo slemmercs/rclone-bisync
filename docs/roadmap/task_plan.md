@@ -21,7 +21,7 @@ Decompose frontend God Objects into cohesive subcomponents, extract reusable com
   - **Scope**: Create `components/wizard/WizardStepProviderSelect.vue`, `components/wizard/WizardStepConfigure.vue`, `components/wizard/WizardStepReview.vue`, refactor `ModalRemoteWizard.vue`.
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 5: Decompose ViewExplorer with useExplorerModals & useExplorerPanes
+- [x] Task 5: Decompose ViewExplorer with useExplorerModals & useExplorerPanes
   - **Scope**: Create `composables/useExplorerModals.ts`, `composables/useExplorerPanes.ts`, refactor `views/ViewExplorer.vue`.
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
@@ -36,3 +36,4 @@ Decompose frontend God Objects into cohesive subcomponents, extract reusable com
 - 2026-11-22: Completed Task 2. Decomposed `ViewRemotes.vue` (reduced from 446 LOC to 199 LOC) by extracting `RemotesKpiRibbon.vue` and `RemoteCard.vue` into `components/remotes/`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 - 2026-11-22: Completed Task 3. Decoupled remote wizard state from `dedupe.ts` to `remotes.ts`. Created `types/remotes.ts`, wired bidirectional compatibility delegates into `dedupe.ts`, and updated callers (`ModalRemoteWizard.vue`, `App.vue`, `ViewRemotes.vue`) to use `remotesStore`. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 - 2026-11-22: Completed Task 4. Decomposed `ModalRemoteWizard.vue` (reduced from 587 LOC to 264 LOC) into modular step components under `components/wizard/` (`WizardStepProviderSelect.vue`, `WizardStepConfigure.vue`, `WizardStepReview.vue`). Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
+- 2026-11-22: Completed Task 5. Decomposed `ViewExplorer.vue` (reduced from 709 LOC to 299 LOC) by extracting `composables/useExplorerPanes.ts` (pane state, navigation, canary, uploading, swapping) and `composables/useExplorerModals.ts` (preview, compare, mkdir, move, cross-target transfers, deletions, context menu actions). Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
