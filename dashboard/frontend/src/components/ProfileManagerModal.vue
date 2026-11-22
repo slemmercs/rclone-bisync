@@ -33,6 +33,10 @@ const normalizedRemotes = computed(() => {
     name: (r.name || '').replace(/:+$/, '').trim(),
     type: r.type || 'remote',
     rawName: r.name,
+    underlying_remote: r.underlying_remote,
+    underlying_path: r.underlying_path,
+    crypt_overlay: r.crypt_overlay,
+    hasher_overlay: r.hasher_overlay,
   }))
 })
 

@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRemotesStore } from '../../stores/remotes'
 import type { Profile } from '../../types/models'
 
-defineProps<{
+const props = defineProps<{
   profiles: Profile[]
 }>()
 
@@ -13,6 +15,62 @@ const emit = defineEmits<{
   (e: 'delete', p: Profile): void
   (e: 'create'): void
 }>()
+
+const remotesStore = useRemotesStore()
+
+interface RemotePipelineInfo {
+  isEncrypted: boolean
+  isAccelerated: boolean
+  chain: string[]
+  underlyingPath?: string
+}
+
+function resolvePipeline(remoteName: string | undefined): RemotePipelineInfo {
+  if (!remoteName) return { isEncrypted: false, isAccelerated: false, chain: [] }
+  const clean = remoteName.replace(/:+$/, '').trim()
+  if (!clean || clean.toLowerCase() === 'local') {
+    return { isEncrypted: false, isAccelerated: false, chain: ['local'] }
+  }
+
+  let isEncrypted = false
+  let isAccelerated = false
+  const chain: string[] = [clean]
+  let currentName = clean
+  const visited = new Set<string>([clean.toLowerCase()])
+  let underlyingPath: string | undefined
+
+  while (currentName) {
+    const entry = (remotesStore.remotes || []).find(
+      r => (r.name || '').toLowerCase() === currentName.toLowerCase()
+    )
+    if (!entry) break
+    const rtype = (entry.type || '').toLowerCase()
+    if (rtype === 'crypt') isEncrypted = true
+    if (rtype === 'hasher') isAccelerated = true
+
+    if (entry.underlying_path && !underlyingPath) {
+      underlyingPath = entry.underlying_path
+    }
+
+    if (entry.underlying_remote && !visited.has(entry.underlying_remote.toLowerCase())) {
+      chain.push(entry.underlying_remote)
+      visited.add(entry.underlying_remote.toLowerCase())
+      currentName = entry.underlying_remote
+    } else {
+      break
+    }
+  }
+
+  return { isEncrypted, isAccelerated, chain, underlyingPath }
+}
+
+const profilePipelines = computed(() => {
+  const map: Record<string, RemotePipelineInfo> = {}
+  for (const p of props.profiles) {
+    map[p.id || p.name] = resolvePipeline(p.remote)
+  }
+  return map
+})
 </script>
 
 <template>
@@ -38,11 +96,46 @@ const emit = defineEmits<{
           <span class="text-[10px] px-1.5 py-0.5 rounded font-mono bg-slate-800 text-slate-300">
             {{ p.schedule || 'manual' }}
           </span>
+          <!-- Virtual Overlay Badges -->
+          <span
+            v-if="profilePipelines[p.id || p.name]?.isEncrypted"
+            class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1"
+            title="Encrypted overlay remote (Crypt)"
+          >
+            <i class="pi pi-shield text-[9px]"></i>
+            <span>ENCRYPTED</span>
+          </span>
+          <span
+            v-if="profilePipelines[p.id || p.name]?.isAccelerated"
+            class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase bg-violet-500/10 text-violet-400 border border-violet-500/20 flex items-center gap-1"
+            title="Accelerated overlay remote (Hasher)"
+          >
+            <i class="pi pi-bolt text-[9px]"></i>
+            <span>ACCELERATED</span>
+          </span>
         </div>
         <div class="text-xs font-mono text-slate-400 flex items-center gap-1 truncate">
           <span class="truncate">{{ p.local_path }}</span>
           <span class="text-slate-600">&harr;</span>
           <span class="text-emerald-400 truncate">{{ p.remote }}{{ p.remote_path ? ':' + p.remote_path : '' }}</span>
+        </div>
+        <!-- Pipeline Topology Breadcrumbs -->
+        <div
+          v-if="(profilePipelines[p.id || p.name]?.chain.length || 0) > 1"
+          class="text-[10px] font-mono text-slate-400 flex items-center gap-1 flex-wrap pt-0.5"
+        >
+          <span class="text-slate-500 text-[9px]">Pipeline:</span>
+          <span class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">local</span>
+          <i class="pi pi-arrow-right text-[8px] text-slate-500"></i>
+          <template v-for="(node, idx) in profilePipelines[p.id || p.name]?.chain" :key="node">
+            <span
+              class="px-1.5 py-0.2 rounded border text-[10px]"
+              :class="idx === 0 && profilePipelines[p.id || p.name]?.isEncrypted ? 'bg-cyan-950/60 text-cyan-300 border-cyan-800/60' : idx === 0 && profilePipelines[p.id || p.name]?.isAccelerated ? 'bg-violet-950/60 text-violet-300 border-violet-800/60' : 'bg-slate-900 text-slate-400 border-slate-800'"
+            >
+              {{ node }}
+            </span>
+            <i v-if="idx < (profilePipelines[p.id || p.name]?.chain.length || 0) - 1" class="pi pi-arrow-right text-[8px] text-slate-500"></i>
+          </template>
         </div>
       </div>
 

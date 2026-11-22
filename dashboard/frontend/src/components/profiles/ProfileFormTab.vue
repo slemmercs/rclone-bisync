@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useRemotesStore } from '../../stores/remotes'
 import type { Profile } from '../../types/models'
 import { PROVIDER_OPTIONS_SCHEMA, type ProviderOptionSchema } from '../../data/provider-options-schema'
 import FlagsBuilder from '../FlagsBuilder.vue'
@@ -7,7 +8,15 @@ import FlagsBuilder from '../FlagsBuilder.vue'
 const props = defineProps<{
   isCreate: boolean
   profile: Partial<Profile>
-  normalizedRemotes: Array<{ name: string; type: string; rawName?: string }>
+  normalizedRemotes: Array<{
+    name: string
+    type: string
+    rawName?: string
+    underlying_remote?: string
+    underlying_path?: string
+    crypt_overlay?: string
+    hasher_overlay?: string
+  }>
 }>()
 
 const emit = defineEmits<{
@@ -16,9 +25,65 @@ const emit = defineEmits<{
   (e: 'open-remote-wizard'): void
 }>()
 
+const remotesStore = useRemotesStore()
+
 const editingProfile = ref<Partial<Profile>>(JSON.parse(JSON.stringify(props.profile)))
 const excludeInput = ref((props.profile.exclude_patterns || []).join(', '))
 const cliCopied = ref(false)
+
+const selectedRemoteInfo = computed(() => {
+  const r = (editingProfile.value.remote || '').replace(/:+$/, '').trim().toLowerCase()
+  if (!r || r === 'local') return null
+  return remotesStore.remotes.find((x) => (x.name || '').toLowerCase() === r) || null
+})
+
+const selectedRemotePipeline = computed(() => {
+  const r = (editingProfile.value.remote || '').replace(/:+$/, '').trim()
+  if (!r || r.toLowerCase() === 'local') {
+    return { isEncrypted: false, isAccelerated: false, chain: [] as string[] }
+  }
+
+  let isEncrypted = false
+  let isAccelerated = false
+  const chain: string[] = [r]
+  let currentName = r
+  const visited = new Set<string>([r.toLowerCase()])
+
+  while (currentName) {
+    const entry = (remotesStore.remotes || []).find(
+      (x) => (x.name || '').toLowerCase() === currentName.toLowerCase()
+    )
+    if (!entry) break
+    const rtype = (entry.type || '').toLowerCase()
+    if (rtype === 'crypt') isEncrypted = true
+    if (rtype === 'hasher') isAccelerated = true
+
+    if (entry.underlying_remote && !visited.has(entry.underlying_remote.toLowerCase())) {
+      chain.push(entry.underlying_remote)
+      visited.add(entry.underlying_remote.toLowerCase())
+      currentName = entry.underlying_remote
+    } else {
+      break
+    }
+  }
+
+  return { isEncrypted, isAccelerated, chain }
+})
+
+const originalRemoteInfo = computed(() => {
+  const orig = (props.profile.remote || '').replace(/:+$/, '').trim().toLowerCase()
+  if (!orig || orig === 'local') return null
+  return remotesStore.remotes.find((x) => (x.name || '').toLowerCase() === orig) || null
+})
+
+const isSwitchingEncryption = computed(() => {
+  if (props.isCreate) return false
+  const origType = (originalRemoteInfo.value?.type || '').toLowerCase()
+  const newType = (selectedRemoteInfo.value?.type || '').toLowerCase()
+  const origEncrypted = origType === 'crypt'
+  const newEncrypted = newType === 'crypt'
+  return origEncrypted !== newEncrypted
+})
 
 watch(
   () => props.profile,
@@ -94,7 +159,7 @@ function handleSave() {
 
 <template>
   <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-1 text-xs">
-    <- docs/roadmap/task_plan.md: mark Task 1 Identity & Remote Target -->
+    <!-- Identity & Remote Target -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label class="block text-slate-300 font-semibold mb-1">Profile Name <span class="text-rose-400">*</span></label>
@@ -160,6 +225,64 @@ function handleSave() {
       </div>
     </div>
 
+    <!-- Encryption Switch Warning -->
+    <div
+      v-if="isSwitchingEncryption"
+      class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-1"
+    >
+      <div class="flex items-center gap-1.5 font-bold text-amber-200">
+        <i class="pi pi-exclamation-triangle text-amber-400"></i>
+        <span>Switching Encryption Target Requires Resync (--resync)</span>
+      </div>
+      <p class="text-[11px] leading-relaxed text-amber-300/90 font-sans">
+        You are changing between an encrypted (Crypt) and an unencrypted remote target. Existing bisync state listings will not match. A full <strong>--resync</strong> is required after saving to re-index directory state safely.
+      </p>
+    </div>
+
+    <!-- Selected Remote Overlay Pipeline Preview -->
+    <div
+      v-if="selectedRemotePipeline.chain.length > 1"
+      class="p-2.5 rounded-xl bg-carbon-surface/80 border border-carbon-border/70 flex items-center justify-between gap-3 text-xs"
+    >
+      <div class="flex items-center gap-2">
+        <span
+          v-if="selectedRemotePipeline.isEncrypted"
+          class="px-1.5 py-0.5 rounded font-mono font-bold uppercase text-[9px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1"
+        >
+          <i class="pi pi-shield text-[9px]"></i> Encrypted
+        </span>
+        <span
+          v-if="selectedRemotePipeline.isAccelerated"
+          class="px-1.5 py-0.5 rounded font-mono font-bold uppercase text-[9px] bg-violet-500/10 text-violet-400 border border-violet-500/20 flex items-center gap-1"
+        >
+          <i class="pi pi-bolt text-[9px]"></i> Accelerated
+        </span>
+        <span class="text-[11px] text-slate-400 font-sans">Pipeline:</span>
+      </div>
+      <div class="flex items-center gap-1.5 font-mono text-[11px] overflow-x-auto">
+        <span class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">local</span>
+        <i class="pi pi-arrow-right text-[8px] text-slate-500"></i>
+        <template v-for="(node, idx) in selectedRemotePipeline.chain" :key="node">
+          <span
+            class="px-1.5 py-0.2 rounded border text-[10px]"
+            :class="idx === 0 && selectedRemotePipeline.isEncrypted ? 'bg-cyan-950/60 text-cyan-300 border-cyan-800' : idx === 0 && selectedRemotePipeline.isAccelerated ? 'bg-violet-950/60 text-violet-300 border-violet-800' : 'bg-slate-900 text-slate-400 border-slate-800'"
+          >
+            {{ node }}
+          </span>
+          <i v-if="idx < selectedRemotePipeline.chain.length - 1" class="pi pi-arrow-right text-[8px] text-slate-500"></i>
+        </template>
+      </div>
+    </div>
+
+    <!-- Hint if plain base remote selected and crypt overlay is available -->
+    <div
+      v-if="!selectedRemotePipeline.isEncrypted && selectedRemoteInfo?.crypt_overlay"
+      class="text-[11px] text-cyan-400/90 flex items-center gap-1.5 font-sans px-1"
+    >
+      <i class="pi pi-info-circle text-xs shrink-0"></i>
+      <span>Tip: Encrypted overlay <strong>{{ selectedRemoteInfo.crypt_overlay }}</strong> is configured for this remote. Select it to bisync encrypted ciphertext.</span>
+    </div>
+
     <div>
       <label class="block text-slate-300 font-semibold mb-1">Local Directory Path <span class="text-rose-400">*</span></label>
       <input
@@ -170,7 +293,7 @@ function handleSave() {
       />
     </div>
 
-    <- docs/roadmap/task_plan.md: mark Task 1 Core Sync & Comparison Settings Grid -->
+    <!-- Core Sync & Comparison Settings Grid -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-carbon-surface/60 border border-carbon-border rounded-xl">
       <div>
         <label class="block text-[11px] text-slate-400 font-semibold mb-1">Schedule</label>
