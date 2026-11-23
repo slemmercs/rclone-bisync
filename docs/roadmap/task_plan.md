@@ -9,7 +9,7 @@ Deconstruct oversized frontend components (`AppHeader.vue`, `ViewFleet.vue`), de
   - **Scope**: `dashboard/frontend/src/stores/dedupe.ts`
   - **Verification**: `cd dashboard/frontend && npm run type-check`
 
-- [ ] Task 2: Create useLogFilteringAndExport composable & refactor log viewers
+- [x] Task 2: Create useLogFilteringAndExport composable & refactor log viewers
   - **Scope**: `dashboard/frontend/src/composables/useLogFilteringAndExport.ts`, `dashboard/frontend/src/components/ModalDaemonLogs.vue`, `dashboard/frontend/src/components/LogDock.vue`, `dashboard/frontend/src/views/ViewTelemetryLedger.vue`
   - **Verification**: `cd dashboard/frontend && npm run type-check`
 
@@ -27,6 +27,7 @@ Deconstruct oversized frontend components (`AppHeader.vue`, `ViewFleet.vue`), de
 
 ## Status Updates
 
+- 2026-11-23: Completed Task 2. Created `useLogFilteringAndExport.ts` composable (severity counts, clipboard export, badge styling) and refactored `ModalDaemonLogs.vue`, `LogDock.vue`, and `ViewTelemetryLedger.vue`. Verified with `npm --prefix dashboard/frontend run type-check` and `npm --prefix dashboard/frontend run build`.
 - 2026-11-23: Completed Task 1. Removed dead wizard state bridges (`wizardOpen`, `providers`, `fetchProviders`, `createRemote`, etc.) and unused catalog types from `dashboard/frontend/src/stores/dedupe.ts`. Verified with `npm --prefix dashboard/frontend run type-check` and `npm --prefix dashboard/frontend run build`.
 - 2026-11-23: Initialized task plan from implementation_plan.md for Issue #103.
 
