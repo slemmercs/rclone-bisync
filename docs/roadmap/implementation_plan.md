@@ -1,41 +1,35 @@
-# Implementation Plan: Default Exclusion and Remote Pruning for Review Backups
+# Implementation Plan: Update Existing ADRs and Register ADR-012, ADR-013, ADR-014
 
 ## Proposed Changes
 
-Bisync Hub uses an interactive Write-Ahead Log (WAL) review engine that stages pre-mutation backups. For remote file mutations, it creates a zero-bandwidth server-side copy on the cloud remote under `.review_backups/<session_id>/`.
-However, because `.review_backups/**` was not automatically injected as an exclusion pattern in the bisync argument builder, `rclone bisync` treats this internal staging folder as user data and attempts to synchronize it back and forth between the local filesystem and remote endpoints. Additionally, while local backups are pruned by TTL, remote backups currently have no pruning mechanism and linger on cloud remotes indefinitely.
-
-This plan addresses both issues:
-1. Injects `--exclude ".review_backups/**"` into the profile command builder and flag compiler by default so bidirectional synchronization completely ignores review backup directories.
-2. Introduces remote review backup pruning (`PruneExpiredRemoteBackups`) into `internal/engine/review/backup.go` and hooks it into `ReviewService.PruneBackups` to garbage-collect expired session backups from the remote storage target.
+Review and synchronize Bisync Hub's Architecture Decision Records (ADRs) with the production codebase:
+1. Address architectural drift in existing ADRs:
+   - **ADR-001**: Align profile manager service path with `internal/profiles/` package.
+   - **ADR-005**: Eliminate outdated Alpine.js reference in favor of Vue 3 / Vite assets per ADR-011.
+   - **ADR-008**: Correct path references (`review_sessions/` and `.review_backups/`), document zero-bandwidth server-side remote backup staging, `--exclude ".review_backups/**"` default exclusion, and remote TTL backup pruning.
+2. Formalize missing architectural contracts into new ADRs:
+   - **ADR-012**: Model Context Protocol (MCP) AI Agent Governance & Blast-Radius Circuit Breakers (`internal/mcp/`).
+   - **ADR-013**: Headless Remote OAuth2 Flow & Cloud Credential Orchestration (`internal/remoteauth/`).
+   - **ADR-014**: Profile Scheduler Concurrency Queue & Lifecycle Finite State Machine (`internal/profiles/`).
+3. Update `docs/architecture/adr/README.md` registry table.
 
 ### Affected Components & Packages
 
-- `internal/profiles/builder.go`: Add default `--exclude ".review_backups/**"` rule in `BuildCLIArgs` and `BuildBisyncArgs` if not already present.
-- `internal/profiles/builder_test.go`: Update argument builder unit tests to reflect the default exclusion rule.
-- `internal/engine/review/backup.go`: Add `RemoteListingClient` interface or extend `RemoteClient` to support listing and purging remote backup sessions, and add `PruneExpiredRemoteBackups`.
-- `internal/engine/review/backup_test.go`: Add unit tests for `PruneExpiredRemoteBackups`.
-- `internal/services/review_execution.go`: Update `ReviewService.PruneBackups` to invoke remote pruning when a remote client and remote path are configured.
+- `docs/architecture/adr/ADR-001-Profiles-As-Primary-User-Object.md`
+- `docs/architecture/adr/ADR-005-Local-First-Architecture.md`
+- `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
+- `docs/architecture/adr/ADR-012-MCP-Agent-Tooling-And-Blast-Radius-Governance.md`
+- `docs/architecture/adr/ADR-013-Headless-Remote-OAuth2-Flow-And-Cloud-Credential-Orchestration.md`
+- `docs/architecture/adr/ADR-014-Profile-Scheduler-Concurrency-Queue-And-Lifecycle-FSM.md`
+- `docs/architecture/adr/README.md`
 
-### Technical Strategy & Data Flow
+### Technical Strategy & Content Structure
 
-1. **Default Exclusion**:
-   - In `internal/profiles/builder.go`, before custom excludes or file filters are added, ensure that `".review_backups/**"` is excluded.
-   - Guard against duplicate `--exclude ".review_backups/**"` if the user already specified it in `ExcludePatterns`.
-
-2. **Remote Pruning Lifecycle**:
-   - `ReviewService.PruneBackups` runs periodically or on demand.
-   - For remote paths, it inspects `.review_backups/` via `client.ListDirectory(ctx, remoteFs, ".review_backups")`.
-   - Any session directory whose modification timestamp is older than `ReviewBackupTTLHours` (or matching archived/dismissed sessions) is purged via `client.PurgeDir(ctx, remoteFs, ".review_backups/" + dirName)`.
-
-### Safety & Error Handling
-
-- **Canary Protection**: Remote purge operations must never touch or traverse paths containing `RCLONE_TEST`.
-- **Path Confinement**: Target paths for remote pruning are strictly restricted to `.review_backups/<session_id>` without relative path traversals (`..`).
-- **Graceful Failure**: If a remote backend is offline or inaccessible during pruning, remote pruning failures must not halt local pruning or trigger a fatal error.
+- **ADR-012**: Context (AI agents performing file ops and sync runs), Decision (Stdio and SSE MCP server in `internal/mcp/`, strict confirmation tokens for high-impact actions, profile jail roots, canary guards), Rationale, Consequences.
+- **ADR-013**: Context (Headless server deployments without local web browser), Decision (Dedicated `RemoteAuthService`, loopback token exchange, browserless redirect callbacks, session expiry), Rationale, Consequences.
+- **ADR-014**: Context (Unattended background sync scheduling, concurrency race prevention), Decision (Profile FSM states, serialized dispatch queues, advisory flock locking, interval presets), Rationale, Consequences.
 
 ## Verification Plan
 
-- Unit tests in `internal/profiles/builder_test.go` verifying that `--exclude ".review_backups/**"` is always present in generated bisync commands.
-- Unit tests in `internal/engine/review/backup_test.go` verifying remote backup pruning logic with mock remote clients.
-- Integration verification via `go test -v -count=1 ./internal/profiles/... ./internal/engine/review/... ./internal/services/...`.
+- Validate all markdown links, cross-references, and formatting.
+- Run `./scripts/check.sh all` to verify zero regressions across the codebase and doc validation.

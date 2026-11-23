@@ -1,30 +1,30 @@
-# Task Plan: Default Exclusion and Remote Pruning for Review Backups
+# Task Plan: Update Existing ADRs and Author ADR-012, ADR-013, ADR-014
 
 ## Goal
-Exclude `.review_backups/**` by default from all sync profiles in the CLI builder, and implement remote review backup lifecycle pruning so internal pre-mutation backups do not sync back and forth or linger indefinitely on cloud storage.
+Synchronize the Architecture Decision Record (ADR) registry with the production codebase by fixing minor drift in ADR-001, ADR-005, and ADR-008, authoring new records for MCP AI agent tooling (ADR-012), headless OAuth2 orchestration (ADR-013), and scheduler concurrency FSM (ADR-014), and registering them in `docs/architecture/adr/README.md`.
 
 ## Tasks
 
-- [x] Task 1: Add default exclusion for .review_backups/** in profile CLI builder
-  - **Scope**: `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
-  - **Verification**: `go test -count=1 ./internal/profiles/...`
+- [x] Task 1: Update existing ADRs (ADR-001, ADR-005, ADR-008) to eliminate architectural drift
+  - **Scope**: `docs/architecture/adr/ADR-001-Profiles-As-Primary-User-Object.md`, `docs/architecture/adr/ADR-005-Local-First-Architecture.md`, `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
+  - **Verification**: `git diff docs/architecture/adr/`
 
-- [x] Task 2: Implement PruneExpiredRemoteBackups in review engine
-  - **Scope**: `internal/engine/review/backup.go`, `internal/engine/review/backup_test.go`
-  - **Verification**: `go test -count=1 ./internal/engine/review/...`
+- [x] Task 2: Author ADR-012 (Model Context Protocol AI Agent Governance)
+  - **Scope**: `docs/architecture/adr/ADR-012-MCP-Agent-Tooling-And-Blast-Radius-Governance.md`
+  - **Verification**: Verify markdown structure, headings, links, and template consistency.
 
-- [x] Task 3: Hook remote review pruning into ReviewService and verify full lifecycle
-  - **Scope**: `internal/services/review_execution.go`, `internal/services/review_service_test.go`
-  - **Verification**: `go test -count=1 ./internal/services/...`
+- [x] Task 3: Author ADR-013 (Headless Remote OAuth2 Flow & Cloud Credential Orchestration)
+  - **Scope**: `docs/architecture/adr/ADR-013-Headless-Remote-OAuth2-Flow-And-Cloud-Credential-Orchestration.md`
+  - **Verification**: Verify markdown structure, headings, links, and template consistency.
 
-- [x] Task 4: Full pre-flight quality verification & check suite
-  - **Scope**: Entire codebase
-  - **Verification**: `./scripts/check.sh all`
+- [x] Task 4: Author ADR-014 (Profile Scheduler Concurrency Queue & Lifecycle FSM) and update `docs/architecture/adr/README.md`
+  - **Scope**: `docs/architecture/adr/ADR-014-Profile-Scheduler-Concurrency-Queue-And-Lifecycle-FSM.md`, `docs/architecture/adr/README.md`
+  - **Verification**: Run `./scripts/check.sh all` to ensure all quality gates pass.
 
 ## Status Updates
 
-- 2026-11-23: Completed Task 4. Verified full quality check suite (`./scripts/check.sh all`) passing all 7/7 gates including formatting, linting, unit tests, and integration tests across the entire codebase.
-- 2026-11-23: Completed Task 3. Updated `ReviewService.PruneBackups` to execute remote pruning in addition to local pruning when a remote client and path are configured. Added end-to-end unit test `TestReviewService_PruneBackups_LocalAndRemote`.
-- 2026-11-23: Completed Task 2. Implemented `PruneExpiredRemoteBackups` in `internal/engine/review/backup.go` with TTL expiration, empty directory parent cleanup, sub-entry timestamp fallback, canary protection, and path traversal guards. Verified with unit tests.
-- 2026-11-23: Completed Task 1. Injected default `--exclude .review_backups/**` into profile CLI argument builder with duplicate prevention, and verified with updated unit tests in `internal/profiles`.
-- 2026-11-23: Initialized implementation plan and task plan.
+- 2026-11-23: Completed Task 4. Authored ADR-014 covering Profile Scheduler Concurrency Queue & Lifecycle Finite State Machine (`internal/profiles/scheduler.go`, `dispatcher.go`, `worker.go`), engine signature cohorting, SLA starvation avoidance, flock advisory locking, and lifecycle FSM. Registered ADR-012, ADR-013, and ADR-014 in `docs/architecture/adr/README.md`. Verified all 7 quality gate checks passed via `./scripts/check.sh all`.
+- 2026-11-23: Completed Task 3. Authored ADR-013 covering Headless Remote OAuth2 Flow & Cloud Credential Orchestration (`internal/remoteauth/`), status diagnostics, reconnect orchestration, zero-downtime credential migration, and audit logging.
+- 2026-11-23: Completed Task 2. Authored ADR-012 covering Model Context Protocol (MCP) AI Agent Governance & Blast-Radius Circuit Breakers with dual transport (stdio/SSE), tiered tooling, confirmation tokens, jail containment, and secret redaction.
+- 2026-11-23: Completed Task 1. Updated ADR-001 (`internal/profiles/`), ADR-005 (Vue 3/Vite embedded assets per ADR-011), and ADR-008 (review_sessions, .review_backups, server-side remote copy, exclude rule, remote TTL pruning).
+- 2026-11-23: Initialized task plan for ADR documentation synchronization.

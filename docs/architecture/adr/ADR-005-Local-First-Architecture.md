@@ -19,7 +19,7 @@ Users managing sensitive backups and personal data on laptops, workstations, and
 Bisync Hub is architected as a **Local-First, Single-Binary Application**:
 
 1. **Native Single Binary**: Compiled via standard Go toolchain into a standalone static binary with zero external language runtimes (no Node.js, Python, or Ruby dependencies).
-2. **Embedded Frontend**: Dashboard static assets (HTML, Alpine.js, Tailwind CSS, Chart.js) are embedded into the binary using Go's `//go:embed`.
+2. **Embedded Frontend**: Pre-compiled dashboard production assets (`dashboard/frontend/dist/*`, per [ADR-011](ADR-011-Modern-Frontend-Component-Architecture-And-Precompiled-Single-Binary.md)) are embedded into the binary using Go's `//go:embed`, maintaining complete build-artifact independence for Go developers and zero runtime dependencies.
 3. **Local State & Storage**: State, profile configurations, and audit ledgers reside entirely on the local host filesystem.
 4. **Advisory POSIX Process Locking**: Concurrent process safety is guaranteed via local advisory file locking (`flock`, `syscall.Flock`), preventing multiple daemons or sync runners from colliding.
 5. **Zero External Telemetry**: No remote analytics, tracking pixels, or outbound reporting are included.

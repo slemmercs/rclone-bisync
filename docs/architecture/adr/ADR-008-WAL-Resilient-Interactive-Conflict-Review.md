@@ -23,26 +23,32 @@ A stateless or un-journaled execution model is unacceptable for high-consequence
 
 ## Decision
 
-Bisync Hub implements a **Write-Ahead Log (WAL) Resilient Interactive Review Engine** (`internal/services/review_execution.go`):
+Bisync Hub implements a **Write-Ahead Log (WAL) Resilient Interactive Review Engine** (`internal/services/review_execution.go`, `internal/engine/review/`):
 
 ### 1. Pre-Mutation WAL Transaction Staging
 Before initiating any physical file transfer or deletion:
-- The execution plan is serialized and committed to an on-disk WAL transaction file (`.bisync_wal/<session_id>.json`).
-- Each resolution step records the target path, source/destination endpoints, action type (`keep_path1`, `keep_path2`, `keep_both`, `delete`, `restore`), and status transitions (`STAGED` -> `IN_PROGRESS` -> `COMPLETED` -> `FAILED`).
+- The execution plan is serialized and committed to an on-disk WAL transaction session file (`review_sessions/<session_id>.json`).
+- Each resolution step records the target path, source/destination endpoints, action type (`keep_path1`, `keep_path2`, `keep_both`, `delete`, `restore`), candidate IDs, and status transitions (`STAGED` -> `IN_PROGRESS` -> `COMPLETED` -> `FAILED`).
 - Disk writes to the WAL are flushed prior to issuing rclone file operations.
 
-### 2. Pre-Mutation Backup Snapshots
-- For any destructive operation where a candidate file will be overwritten or removed, Bisync Hub first creates a local snapshot copy within a quarantined session backup directory (`.bisync_backups/<session_id>/`).
+### 2. Pre-Mutation Backup Snapshots (Local & Zero-Bandwidth Remote)
+- For any destructive operation where a candidate file will be overwritten or removed:
+  - **Local Targets**: Bisync Hub creates a snapshot copy within a quarantined session backup directory (`.review_backups/<session_id>/`).
+  - **Remote Cloud Targets**: Bisync Hub performs a server-side copy (`rclone copyto`) directly to `.review_backups/<session_id>/` on the cloud remote, avoiding costly round-trip downloads and preserving local disk capacity.
 - If an operation fails midway or cannot be verified, the rollback subsystem uses these snapshot files to restore the endpoints to their exact pre-resolution state.
 
-### 3. Crash Recovery & Idempotent Resume
+### 3. Default Bisync Exclusions & Staging Isolation
+- To prevent `rclone bisync` from treating review backups as user mutations and synchronizing them across endpoints, the profile CLI builder automatically injects `--exclude ".review_backups/**"` by default.
+- This guarantees that review staging directories remain completely isolated from bidirectional synchronization passes.
+
+### 4. Crash Recovery & Idempotent Resume
 - Upon daemon startup or review session reload, the WAL engine scans for uncommitted or interrupted sessions.
 - Operations are designed to be idempotent: re-executing a partially completed transaction checks destination hashes and timestamps, resuming from the last unfulfilled step without corrupting already transferred files.
 
-### 4. Atomic Commit & Cryptographic Ledger Attestation
+### 5. Atomic Commit, Audit Attestation & Lifecycle Pruning
 - When all planned actions in a review batch complete successfully, the WAL state is atomically updated to `COMMITTED` via `.tmp.<pid>` + `os.Rename`.
 - A structured event (`CONFLICT_RESOLVED` or `DELETIONS_APPROVED`) is written to the append-only SQLite audit ledger (per ADR-004), cryptographically linking the human review decision with the resulting mutation.
-- Ephemeral backup snapshots are safely retired once commit integrity is verified.
+- **Automated Lifecycle Pruning**: Both local and remote review backups enforce a configurable retention TTL (`REVIEW_BACKUP_TTL_HOURS`, default 48h). Expired session folders and empty root `.review_backups` directories are safely pruned via `PruneExpiredRemoteBackups`, protected by canary checks and traversal guards.
 
 ---
 
