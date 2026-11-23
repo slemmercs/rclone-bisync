@@ -11,9 +11,6 @@ import type {
   DedupeBatchProgress,
   DedupeRequest,
   DedupeResponse,
-  ProviderCatalogItem,
-  ProviderCatalogResponse,
-  CreateRemotePayload,
   DedupeScanCache,
 } from '../types/dedupe'
 import type { BrowseItem, BrowseResponse } from '../types/models'
@@ -53,24 +50,6 @@ export const useDedupeStore = defineStore('dedupe', () => {
   const explorerItems = ref<BrowseItem[]>([])
   const explorerLoading = ref<boolean>(false)
   const explorerError = ref<string | null>(null)
-
-  const remotesStore = useRemotesStore()
-
-  // Remote creation wizard compatibility bindings (delegated to remotes store)
-  const wizardOpen = computed({
-    get: () => remotesStore.wizardOpen,
-    set: (val: boolean) => { remotesStore.wizardOpen = val }
-  })
-  const providers = computed(() => remotesStore.providers)
-  const providersLoading = computed(() => remotesStore.providersLoading)
-  const selectedProvider = computed({
-    get: () => remotesStore.selectedProvider,
-    set: (val) => { remotesStore.selectedProvider = val }
-  })
-  const fetchProviders = (force?: boolean) => remotesStore.fetchProviders(force)
-  const openWizard = (defaultProvider?: string) => remotesStore.openWizard(defaultProvider)
-  const closeWizard = () => remotesStore.closeWizard()
-  const createRemote = (payload: CreateRemotePayload) => remotesStore.createRemote(payload)
 
   // Computed views
   const stagedCount = computed(() => Object.keys(stagedActions.value).length)
@@ -486,14 +465,6 @@ export const useDedupeStore = defineStore('dedupe', () => {
     loadExplorer,
     navigateExplorerParent,
     selectExplorerItem,
-    wizardOpen,
-    providers,
-    providersLoading,
-    selectedProvider,
-    fetchProviders,
-    openWizard,
-    closeWizard,
-    createRemote,
     clearCache,
   }
 })
