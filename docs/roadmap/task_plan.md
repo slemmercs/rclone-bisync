@@ -13,7 +13,7 @@ Synchronize the Architecture Decision Record (ADR) registry with the production 
   - **Scope**: `docs/architecture/adr/ADR-012-MCP-Agent-Tooling-And-Blast-Radius-Governance.md`
   - **Verification**: Verify markdown structure, headings, links, and template consistency.
 
-- [ ] Task 3: Author ADR-013 (Headless Remote OAuth2 Flow & Cloud Credential Orchestration)
+- [x] Task 3: Author ADR-013 (Headless Remote OAuth2 Flow & Cloud Credential Orchestration)
   - **Scope**: `docs/architecture/adr/ADR-013-Headless-Remote-OAuth2-Flow-And-Cloud-Credential-Orchestration.md`
   - **Verification**: Verify markdown structure, headings, links, and template consistency.
 
@@ -23,6 +23,7 @@ Synchronize the Architecture Decision Record (ADR) registry with the production 
 
 ## Status Updates
 
+- 2026-11-23: Completed Task 3. Authored ADR-013 covering Headless Remote OAuth2 Flow & Cloud Credential Orchestration (`internal/remoteauth/`), status diagnostics, reconnect orchestration, zero-downtime credential migration, and audit logging.
 - 2026-11-23: Completed Task 2. Authored ADR-012 covering Model Context Protocol (MCP) AI Agent Governance & Blast-Radius Circuit Breakers with dual transport (stdio/SSE), tiered tooling, confirmation tokens, jail containment, and secret redaction.
 - 2026-11-23: Completed Task 1. Updated ADR-001 (`internal/profiles/`), ADR-005 (Vue 3/Vite embedded assets per ADR-011), and ADR-008 (review_sessions, .review_backups, server-side remote copy, exclude rule, remote TTL pruning).
 - 2026-11-23: Initialized task plan for ADR documentation synchronization.
