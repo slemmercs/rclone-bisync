@@ -22,6 +22,9 @@ Architecture Decision Records (ADRs) document significant technical, architectur
 | [ADR-009](ADR-009-Remote-Deduplication-With-Provider-Safeguards.md) | Remote Hash Deduplication with Provider Safeguards and Baseline Resynchronization | Accepted | 2026-10-30 | Storage & Providers |
 | [ADR-010](ADR-010-Zero-Build-Design-System-And-Responsive-Telemetry.md) | Zero-Build Component Design System & Responsive Telemetry Architecture | Superseded | 2026-10-30 | Frontend & UX |
 | [ADR-011](ADR-011-Modern-Frontend-Component-Architecture-And-Precompiled-Single-Binary.md) | Modern Frontend Component Architecture & Pre-Compiled Single Binary Embeddings | Accepted | 2026-11-15 | Frontend & Architecture |
+| [ADR-012](ADR-012-MCP-Agent-Tooling-And-Blast-Radius-Governance.md) | Model Context Protocol (MCP) AI Agent Governance & Blast-Radius Circuit Breakers | Accepted | 2026-11-23 | AI Agent & Security |
+| [ADR-013](ADR-013-Headless-Remote-OAuth2-Flow-And-Cloud-Credential-Orchestration.md) | Headless Remote OAuth2 Flow & Cloud Credential Orchestration | Accepted | 2026-11-23 | Auth & Cloud Providers |
+| [ADR-014](ADR-014-Profile-Scheduler-Concurrency-Queue-And-Lifecycle-FSM.md) | Profile Scheduler Concurrency Queue & Lifecycle Finite State Machine | Accepted | 2026-11-23 | Concurrency & Scheduling |
 
 ---
 

@@ -17,12 +17,13 @@ Synchronize the Architecture Decision Record (ADR) registry with the production 
   - **Scope**: `docs/architecture/adr/ADR-013-Headless-Remote-OAuth2-Flow-And-Cloud-Credential-Orchestration.md`
   - **Verification**: Verify markdown structure, headings, links, and template consistency.
 
-- [ ] Task 4: Author ADR-014 (Profile Scheduler Concurrency Queue & Lifecycle FSM) and update `docs/architecture/adr/README.md`
+- [x] Task 4: Author ADR-014 (Profile Scheduler Concurrency Queue & Lifecycle FSM) and update `docs/architecture/adr/README.md`
   - **Scope**: `docs/architecture/adr/ADR-014-Profile-Scheduler-Concurrency-Queue-And-Lifecycle-FSM.md`, `docs/architecture/adr/README.md`
   - **Verification**: Run `./scripts/check.sh all` to ensure all quality gates pass.
 
 ## Status Updates
 
+- 2026-11-23: Completed Task 4. Authored ADR-014 covering Profile Scheduler Concurrency Queue & Lifecycle Finite State Machine (`internal/profiles/scheduler.go`, `dispatcher.go`, `worker.go`), engine signature cohorting, SLA starvation avoidance, flock advisory locking, and lifecycle FSM. Registered ADR-012, ADR-013, and ADR-014 in `docs/architecture/adr/README.md`. Verified all 7 quality gate checks passed via `./scripts/check.sh all`.
 - 2026-11-23: Completed Task 3. Authored ADR-013 covering Headless Remote OAuth2 Flow & Cloud Credential Orchestration (`internal/remoteauth/`), status diagnostics, reconnect orchestration, zero-downtime credential migration, and audit logging.
 - 2026-11-23: Completed Task 2. Authored ADR-012 covering Model Context Protocol (MCP) AI Agent Governance & Blast-Radius Circuit Breakers with dual transport (stdio/SSE), tiered tooling, confirmation tokens, jail containment, and secret redaction.
 - 2026-11-23: Completed Task 1. Updated ADR-001 (`internal/profiles/`), ADR-005 (Vue 3/Vite embedded assets per ADR-011), and ADR-008 (review_sessions, .review_backups, server-side remote copy, exclude rule, remote TTL pruning).
