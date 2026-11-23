@@ -153,6 +153,15 @@ type StageDecisionRequest struct {
 	Decision     ActionDecision `json:"decision"`
 }
 
+
+// RemoteDirEntry represents an entry in a remote storage directory listing.
+type RemoteDirEntry struct {
+	Name    string    `json:"name"`
+	Path    string    `json:"path"`
+	IsDir   bool      `json:"is_dir"`
+	ModTime time.Time `json:"mod_time"`
+}
+
 // StageDecisionResponse is the response payload for POST /api/review/action.
 type StageDecisionResponse struct {
 	Status  string         `json:"status"`
