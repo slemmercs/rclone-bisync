@@ -259,10 +259,12 @@ import { useExplorerStore } from '../stores/explorer'
 import { useAppStore } from '../stores/app'
 import type { LogEntry, LogCluster } from '../types/logs'
 import { clusterLogEntries, getEntryPath } from '../utils/logClustering'
+import { computeLogSeverityCounts, useLogClipboardExport } from '../composables/useLogFilteringAndExport'
 
 const logsStore = useLogsStore()
 const explorerStore = useExplorerStore()
 const appStore = useAppStore()
+const { copiedRaw, copiedJSON, copyLogs: copyLogsExport } = useLogClipboardExport()
 
 function handleJump(path: string | null) {
   if (!path) return
@@ -271,14 +273,12 @@ function handleJump(path: string | null) {
   explorerStore.jumpToPath(path)
 }
 
-
 const levelFilter = ref<string>('all')
 const searchQuery = ref<string>('')
 const foldRepetitive = ref<boolean>(true)
 const expandedClusters = ref<Record<string, boolean>>({})
 
-const copiedRaw = ref<boolean>(false)
-const copiedJSON = ref<boolean>(false)
+const counts = computeLogSeverityCounts(() => logsStore.daemonLogs || [])
 
 const activeRun = computed(() => logsStore.daemonActiveRun)
 
@@ -326,22 +326,6 @@ const runFlags = computed(() => {
   }
 
   return { resync, dryRun, force }
-})
-
-const counts = computed(() => {
-  const logs = logsStore.daemonLogs || []
-  let errors = 0
-  let warnings = 0
-  let notices = 0
-  let info = 0
-  for (const l of logs) {
-    const lvl = (l.level || '').toLowerCase().trim()
-    if (lvl === 'error') errors++
-    else if (lvl === 'warning' || lvl === 'warn') warnings++
-    else if (lvl === 'notice') notices++
-    else if (lvl === 'info') info++
-  }
-  return { total: logs.length, errors, warnings, notices, info }
 })
 
 const filteredLogs = computed<LogEntry[]>(() => {
@@ -392,23 +376,7 @@ function toggleAllClusters() {
 
 
 async function copyLogs(asJSON: boolean) {
-  const data = filteredLogs.value
-  let text = ''
-  if (asJSON) {
-    text = JSON.stringify(data, null, 2)
-    copiedJSON.value = true
-    setTimeout(() => { copiedJSON.value = false }, 2000)
-  } else {
-    text = data.map(l => `${l.time ? `[${l.time}] ` : ''}[${(l.level || 'INFO').trim()}] ${l.msg || ''}`).join('\n')
-    copiedRaw.value = true
-    setTimeout(() => { copiedRaw.value = false }, 2000)
-  }
-
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch (err) {
-    console.error('Failed to copy to clipboard', err)
-  }
+  await copyLogsExport(filteredLogs.value, asJSON)
 }
 </script>
 

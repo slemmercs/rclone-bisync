@@ -227,20 +227,19 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useLogsStore } from '../stores/logs'
 import { useExplorerStore } from '../stores/explorer'
 import { useAppStore } from '../stores/app'
-import { useClipboard } from '../composables/useClipboard'
 import { useToastNotification } from '../composables/useToastNotification'
+import { useLogClipboardExport, getActionBadgeClass } from '../composables/useLogFilteringAndExport'
 import type { LogEntry } from '../types/logs'
 import { getEntryPath } from '../utils/logClustering'
 
 const logsStore = useLogsStore()
 const explorerStore = useExplorerStore()
 const appStore = useAppStore()
-const { copyToClipboard } = useClipboard()
+const { copySingleLog } = useLogClipboardExport()
 const toast = useToastNotification()
 
 async function handleCopyLog(log: LogEntry) {
-  const text = log.raw || `[${log.time || '--:--:--'}] ${log.level || 'INFO'} ${log.msg}`
-  const ok = await copyToClipboard(text)
+  const ok = await copySingleLog(log)
   if (ok) {
     toast.info('Copied log entry to clipboard', 'Copied', 2000)
   }
@@ -298,15 +297,6 @@ function setCategoryFilter(filter: 'all' | 'file_ops' | 'sync' | 'audit') {
   activeFilter.value = filter
   page.value = 1
   selectedIdx.value = -1
-}
-
-function getActionBadgeClass(log: LogEntry): string {
-  const act = (log.action || '').toUpperCase()
-  if (act.includes('DELETE') || act.includes('PURGE')) return 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-  if (act.includes('RENAME') || act.includes('MOVE')) return 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-  if (act.includes('CREATE') || act.includes('MKDIR') || act.includes('RESTORE')) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-  if (log.type === 'sync_overflow') return 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-  return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
 }
 
 function handleJump(path: string | null) {

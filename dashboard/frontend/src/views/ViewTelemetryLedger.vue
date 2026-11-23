@@ -294,8 +294,8 @@ import { useLogsStore } from '../stores/logs'
 import { useProfilesStore } from '../stores/profiles'
 import { useExplorerStore } from '../stores/explorer'
 import { useAppStore } from '../stores/app'
-import { useClipboard } from '../composables/useClipboard'
 import { useToastNotification } from '../composables/useToastNotification'
+import { useLogClipboardExport, getAuditActionBadgeClass } from '../composables/useLogFilteringAndExport'
 import type { LogEntry } from '../types/logs'
 import { getEntryPath } from '../utils/logClustering'
 
@@ -303,12 +303,11 @@ const logsStore = useLogsStore()
 const profilesStore = useProfilesStore()
 const explorerStore = useExplorerStore()
 const appStore = useAppStore()
-const { copyToClipboard } = useClipboard()
+const { copySingleLog } = useLogClipboardExport()
 const toast = useToastNotification()
 
 async function handleCopyEntry(entry: LogEntry) {
-  const text = entry.raw || `[${entry.time || '--:--:--'}] ${entry.level || 'INFO'} ${entry.msg}`
-  const ok = await copyToClipboard(text)
+  const ok = await copySingleLog(entry)
   if (ok) {
     toast.info('Copied log entry to clipboard', 'Copied', 2000)
   }
@@ -318,17 +317,6 @@ function handleJump(path: string | null) {
   if (!path) return
   appStore.switchTab('explorer')
   explorerStore.jumpToPath(path)
-}
-
-
-function getAuditActionBadgeClass(action?: string) {
-  if (!action) return 'bg-slate-800 text-slate-300 border-slate-700'
-  const act = action.toUpperCase()
-  if (act.includes('DELETE') || act.includes('PURGE')) return 'bg-rose-950/80 text-rose-300 border-rose-800/60'
-  if (act.includes('CREATE') || act.includes('MKDIR') || act.includes('RESTORE')) return 'bg-emerald-950/80 text-emerald-300 border-emerald-800/60'
-  if (act.includes('SYNC') || act.includes('TRANSFER')) return 'bg-indigo-950/80 text-indigo-300 border-indigo-800/60'
-  if (act.includes('DEDUPE')) return 'bg-amber-950/80 text-amber-300 border-amber-800/60'
-  return 'bg-purple-950/80 text-purple-300 border-purple-800/60'
 }
 
 function setCategoryFilter(filter: 'all' | 'file_ops' | 'sync' | 'audit') {

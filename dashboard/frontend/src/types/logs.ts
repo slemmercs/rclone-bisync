@@ -54,3 +54,14 @@ export interface DaemonLogParams {
   end_time?: string
   limit?: number
 }
+
+
+export interface LogSeverityCounts {
+  total: number
+  errors: number
+  warnings: number
+  notices: number
+  info: number
+}
+
+export type LogCategoryFilter = 'all' | 'file_ops' | 'sync' | 'audit'
