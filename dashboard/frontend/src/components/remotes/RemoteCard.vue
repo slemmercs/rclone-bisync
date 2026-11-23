@@ -1,10 +1,19 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRemotesStore } from '../../stores/remotes'
 import { useDedupeStore } from '../../stores/dedupe'
+import RemoteOverlayTree from './RemoteOverlayTree.vue'
 
-defineProps<{
+interface Props {
   remote: Record<string, any>
-}>()
+  childrenByParent?: Record<string, any[]>
+  activeRemoteName?: string | null
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  childrenByParent: () => ({}),
+  activeRemoteName: null
+})
 
 const emit = defineEmits<{
   (e: 'delete', name: string): void
@@ -12,6 +21,27 @@ const emit = defineEmits<{
 
 const remotesStore = useRemotesStore()
 const dedupeStore = useDedupeStore()
+
+const directChildren = computed(() => {
+  if (!props.childrenByParent || !props.remote.name) return []
+  return props.childrenByParent[props.remote.name] || []
+})
+
+const hasDirectCrypt = computed(() => {
+  if (props.remote.crypt_overlay) return true
+  return directChildren.value.some((c: any) => (c.type || '').toLowerCase() === 'crypt')
+})
+
+const hasDirectHasher = computed(() => {
+  if (props.remote.hasher_overlay) return true
+  return directChildren.value.some((c: any) => (c.type || '').toLowerCase() === 'hasher')
+})
+
+const isBaseActive = computed(() => {
+  if (props.remote.is_active_target) return true
+  if (!props.activeRemoteName) return false
+  return props.activeRemoteName === props.remote.name
+})
 
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes <= 0) return '-- GB'
@@ -69,22 +99,23 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
               <i class="pi pi-shield text-[8px]"></i> Encrypted
             </span>
             <span
-              v-if="remote.crypt_overlay"
+              v-if="directChildren.length === 0 && remote.crypt_overlay"
               class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/60 font-mono flex items-center gap-1"
               :title="`Wrapped by encrypted overlay ${remote.crypt_overlay}`"
             >
               <i class="pi pi-shield text-[8px]"></i> Encrypted: {{ remote.crypt_overlay }}
             </span>
             <span
-              v-if="remote.hasher_overlay"
+              v-if="directChildren.length === 0 && remote.hasher_overlay"
               class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60 font-mono flex items-center gap-1"
               :title="`Wrapped by hasher overlay ${remote.hasher_overlay}`"
             >
               <i class="pi pi-bolt text-[8px]"></i> Accelerated: {{ remote.hasher_overlay }}
             </span>
             <span
-              v-if="remote.is_active_target"
+              v-if="isBaseActive"
               class="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-mono"
+              title="Target endpoint of active sync profile"
             >
               Active
             </span>
@@ -166,6 +197,28 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
           </div>
         </div>
       </div>
+
+      <!-- Virtual Overlays Hierarchy Section -->
+      <div
+        v-if="directChildren.length > 0"
+        class="pt-3 border-t border-carbon-border/70 space-y-2"
+      >
+        <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 px-0.5">
+          <span class="flex items-center gap-1.5 font-bold uppercase tracking-wider text-slate-300 text-[10px]">
+            <i class="pi pi-sitemap text-[11px] text-electric-blue"></i>
+            <span>Virtual Overlays ({{ directChildren.length }})</span>
+          </span>
+          <span class="text-[10px] text-slate-500">outermost wraps innermost</span>
+        </div>
+
+        <RemoteOverlayTree
+          :items="directChildren"
+          :children-by-parent="childrenByParent"
+          :parent-name="remote.name"
+          :active-remote-name="activeRemoteName"
+          @delete="emit('delete', $event)"
+        />
+      </div>
     </div>
 
     <div class="pt-3 border-t border-carbon-border flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
@@ -230,65 +283,65 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
           </button>
         </template>
 
-        <!-- Hasher Remote Maintenance -->
+        <!-- Hasher Remote Maintenance (if remote itself is a hasher) -->
         <button
           v-if="(remote.type || '').toLowerCase() === 'hasher'"
           type="button"
           @click="remotesStore.openHasherManager(remote.name, 'manager')"
-          class="px-2.5 py-1 text-[11px] rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+          class="px-2.5 py-1 text-[11px] rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors flex items-center gap-1 cursor-pointer font-mono"
           title="Hasher Maintenance Console"
         >
           <i class="pi pi-bolt text-xs text-amber-400"></i>
           <span>Hasher</span>
         </button>
 
-        <!-- Virtual Overlay Actions for Remotes -->
+        <!-- Base Remote Overlay Wrapping Controls -->
         <template v-else>
-          <!-- Hasher Action (Allowed on base remotes and crypt remotes) -->
+          <!-- Crypt Wrap Button (only allowed on non-crypt remotes) -->
+          <template v-if="(remote.type || '').toLowerCase() !== 'crypt'">
+            <button
+              v-if="hasDirectCrypt"
+              type="button"
+              disabled
+              class="px-2 py-1 text-[11px] rounded-lg bg-cyan-950/20 text-cyan-400/50 border border-cyan-800/30 flex items-center gap-1 cursor-not-allowed font-mono"
+              title="Already wrapped by an encrypted overlay"
+            >
+              <i class="pi pi-shield text-xs text-cyan-400/50"></i>
+              <span>Crypt ✓</span>
+            </button>
+            <button
+              v-else
+              type="button"
+              @click="remotesStore.openCryptWrap(remote.name)"
+              class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 hover:border-cyan-500/60 transition-colors flex items-center gap-1 cursor-pointer font-mono"
+              title="Wrap remote with client-side Crypt encryption overlay"
+            >
+              <i class="pi pi-shield text-xs text-cyan-400"></i>
+              <span>+ Crypt</span>
+            </button>
+          </template>
+
+          <!-- Hasher Wrap Button -->
           <button
-            v-if="remote.hasher_overlay"
+            v-if="hasDirectHasher"
             type="button"
-            @click="remotesStore.openHasherManager(remote.hasher_overlay, 'manager')"
-            class="px-2 py-1 text-[11px] rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors flex items-center gap-1 cursor-pointer"
-            :title="`Open Hasher Console for overlay '${remote.hasher_overlay}'`"
+            disabled
+            class="px-2 py-1 text-[11px] rounded-lg bg-amber-950/20 text-amber-400/50 border border-amber-800/30 flex items-center gap-1 cursor-not-allowed font-mono"
+            title="Already wrapped by a hasher acceleration overlay"
           >
-            <i class="pi pi-bolt text-xs text-amber-400"></i>
+            <i class="pi pi-bolt text-xs text-amber-400/50"></i>
             <span>Hasher ✓</span>
           </button>
           <button
             v-else
             type="button"
             @click="remotesStore.openHasherManager(remote.name, 'wrap')"
-            class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-slate-300 border border-carbon-border transition-colors flex items-center gap-1 cursor-pointer"
+            class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-amber-300 border border-amber-500/30 hover:border-amber-500/60 transition-colors flex items-center gap-1 cursor-pointer font-mono"
             title="Wrap remote with Hasher checksum acceleration overlay"
           >
             <i class="pi pi-bolt text-xs text-amber-400"></i>
-            <span>Hasher</span>
+            <span>+ Hasher</span>
           </button>
-
-          <!-- Encrypt Action (Only allowed on base remotes, never on crypt remotes) -->
-          <template v-if="(remote.type || '').toLowerCase() !== 'crypt'">
-            <button
-              v-if="remote.crypt_overlay"
-              type="button"
-              disabled
-              class="px-2 py-1 text-[11px] rounded-lg bg-cyan-950/40 text-cyan-400/70 border border-cyan-800/40 flex items-center gap-1 cursor-not-allowed"
-              :title="`Already wrapped by encrypted overlay '${remote.crypt_overlay}'`"
-            >
-              <i class="pi pi-shield text-xs text-cyan-400"></i>
-              <span>Encrypted ✓</span>
-            </button>
-            <button
-              v-else
-              type="button"
-              @click="remotesStore.openCryptWrap(remote.name)"
-              class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated hover:bg-slate-800 text-slate-300 border border-carbon-border transition-colors flex items-center gap-1 cursor-pointer"
-              title="Wrap remote with client-side Crypt encryption overlay"
-            >
-              <i class="pi pi-shield text-xs text-cyan-400"></i>
-              <span>Encrypt</span>
-            </button>
-          </template>
         </template>
       </div>
 
@@ -306,7 +359,7 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
         <button
           @click="emit('delete', remote.name)"
           class="text-rose-400 hover:text-rose-300 text-xs font-mono p-1 rounded hover:bg-rose-950/40 cursor-pointer ml-1"
-          title="Delete remote"
+          :title="directChildren.length > 0 ? `Delete remote (Warning: has ${directChildren.length} active child overlay${directChildren.length > 1 ? 's' : ''})` : 'Delete remote'"
         >
           <i class="pi pi-trash text-xs"></i>
         </button>

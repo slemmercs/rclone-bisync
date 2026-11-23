@@ -9,7 +9,7 @@ Harden Cockpit storage remotes UI by clustering virtual overlay remotes (`crypt`
   - **Scope**: `dashboard/frontend/src/components/remotes/RemoteOverlayTree.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 2: Refactor `RemoteCard.vue` to Embed Overlay Tree & Cascade Delete Safeguards
+- [x] Task 2: Refactor `RemoteCard.vue` to Embed Overlay Tree & Cascade Delete Safeguards
   - **Scope**: `dashboard/frontend/src/components/remotes/RemoteCard.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
@@ -22,6 +22,8 @@ Harden Cockpit storage remotes UI by clustering virtual overlay remotes (`crypt`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
+
+- 2026-11-22: Completed Task 2. Refactored `RemoteCard.vue` to embed `RemoteOverlayTree`, modernize base card overlay wrapping actions (`+ Crypt`, `+ Hasher` with wrapped guards), isolate node-exact active indicators, and incorporate cascade deletion warnings. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 
 - 2026-11-22: Completed Task 1. Created `RemoteOverlayTree.vue` component implementing a vertical indented tree structure for child overlays with depth markers, type badges, upstream references, active profile targeting, and full action suites (`Test`, `Dedupe`, `Delete`, contextual `+ Wrap`). Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 
