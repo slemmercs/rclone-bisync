@@ -121,10 +121,15 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
             </span>
           </h4>
           <div class="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-1">
-            <span v-if="remote.underlying_path || remote.underlying_remote" class="text-cyan-400/90 font-medium flex items-center gap-1">
-              <i class="pi pi-link text-[10px]"></i> Wraps: {{ remote.underlying_path || (remote.underlying_remote + ':') }}
+            <span v-if="remote.underlying_path" class="text-cyan-400/90 font-medium flex items-center gap-1">
+              <i class="pi pi-folder text-[10px]"></i> Target: {{ remote.underlying_path }}
             </span>
-            <span v-else>{{ remote.endpoint || remote.root || 'Configured storage backend' }}</span>
+            <span v-else-if="remote.underlying_remote" class="text-cyan-400/90 font-medium flex items-center gap-1">
+              <i class="pi pi-link text-[10px]"></i> Wraps: {{ remote.underlying_remote }}:
+            </span>
+            <span v-else class="flex items-center gap-1">
+              <i class="pi pi-compass text-[10px] text-slate-500"></i> Target: {{ remote.endpoint || remote.root || 'Configured storage backend' }}
+            </span>
             <template v-if="remote.auth">
               <span>•</span>
               <span class="inline-flex items-center gap-1" :class="getAuthBadge(remote.auth.status).textClass">
@@ -310,6 +315,16 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
               <span>Crypt ✓</span>
             </button>
             <button
+              v-else-if="hasDirectHasher"
+              type="button"
+              disabled
+              class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated text-slate-500 border border-carbon-border flex items-center gap-1 cursor-not-allowed font-mono"
+              title="Cannot add Crypt directly to remote with Hasher overlay. In bisync, Hasher must wrap Crypt."
+            >
+              <i class="pi pi-shield text-xs text-slate-500"></i>
+              <span>+ Crypt</span>
+            </button>
+            <button
               v-else
               type="button"
               @click="remotesStore.openCryptWrap(remote.name)"
@@ -331,6 +346,16 @@ function getAuthBadge(status?: string): { text: string; dot: string; textClass: 
           >
             <i class="pi pi-bolt text-xs text-amber-400/50"></i>
             <span>Hasher ✓</span>
+          </button>
+          <button
+            v-else-if="hasDirectCrypt"
+            type="button"
+            disabled
+            class="px-2 py-1 text-[11px] rounded-lg bg-carbon-elevated text-slate-500 border border-carbon-border flex items-center gap-1 cursor-not-allowed font-mono"
+            title="Has encrypted overlay; wrap crypt remote with Hasher instead for canonical Base -&gt; Crypt -&gt; Hasher pipeline"
+          >
+            <i class="pi pi-bolt text-xs text-slate-500"></i>
+            <span>+ Hasher</span>
           </button>
           <button
             v-else

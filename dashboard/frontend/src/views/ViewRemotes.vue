@@ -126,10 +126,14 @@ const rootRemotes = computed(() => {
 
 // Composite (union, combine) or orphan virtual remotes without a valid parent
 const compositeOrOrphanRemotes = computed(() => {
+  const rootNames = new Set(rootRemotes.value.map((r: any) => r.name))
   return remotes.value.filter((r: any) => {
+    if (rootNames.has(r.name)) return false
+    if (childRemoteNames.value.has(r.name)) return false
+
     const type = (r.type || '').toLowerCase()
     if (compositeTypes.has(type)) return true
-    if (virtualTypes.has(type) && !childRemoteNames.value.has(r.name)) return true
+    if (virtualTypes.has(type)) return true
     return false
   })
 })

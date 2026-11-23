@@ -1,63 +1,58 @@
-# Implementation Plan: Clustered Remote Storage Families with Vertical Overlay Pipeline Trees
+# Implementation Plan: Storage Remote Delete Safeguard Modal & UI Cascade Warning
 
 ## Proposed Changes
 
-Transition the Storage Remotes Cockpit (`ViewRemotes.vue` & `RemoteCard.vue`) from a flat, fragmented 2-column card grid to a hierarchical **Storage Family Cluster** model. Base storage remotes serve as root cards with real storage allocation metrics, while virtual middleware overlays (`crypt`, `hasher`, `chunker`, `alias`) render inside their parent card as a clean, vertical indented pipeline tree.
+Replace the crude native browser `window.confirm()` popup in `ViewRemotes.vue` with an accessible, themed Cockpit safeguard modal (`ModalRemoteDelete.vue`) adhering to the Agnoster Carbon / Electric Blue design system.
 
-### 1. Dependency Graph & Topology Builder (`dashboard/frontend/src/views/ViewRemotes.vue`)
-- Parse Rclone remotes into a normalized hierarchy:
-  - `rootRemotes`: Base storage remotes (local drives, S3, Google Drive, B2, OneDrive, SFTP, etc., or alias pointing to filesystem path).
-  - `childrenByParent`: Map each parent remote to its direct downstream child overlays (`childrenByParent[parentName] -> Remote[]`).
-  - `compositeOrOrphanRemotes`: Remotes with multi-upstreams (`union`, `combine`) or whose declared upstream remote does not exist.
-  - Cycle Guard: Maintain a `visited` set during tree traversal to prevent infinite recursion if invalid configurations contain circular references (`A -> B -> A`).
+### 1. New Component: `ModalRemoteDelete.vue`
+- Created under `dashboard/frontend/src/components/ModalRemoteDelete.vue`.
+- PrimeVue `Dialog` with `modal` overlay and styling aligned with `ModalProfileDelete.vue`.
+- Header:
+  - Danger badge with `pi pi-trash` icon.
+  - Title: "Delete Storage Remote" with subtitle "Irreversible configuration removal".
+- Target Remote Details:
+  - High-density monospace card showing remote name, provider type, and target endpoint.
+- Cascade Warning Banner:
+  - Visual amber warning card triggered whenever `descendants.length > 0`.
+  - Lists each dependent child overlay with styled pills indicating name, type (`crypt`, `hasher`, `alias`), and parent link.
+  - Explains the blast radius: downstream overlays will become broken or orphaned.
+- Crypt Key Safeguard Banner:
+  - Distinct warning when target remote is of type `crypt`, alerting the operator that cloud ciphertext remains unreadable unless decrypted prior to key deletion.
+- Error Handling & Asynchronous Execution:
+  - Integrated with `remotesStore.deleteRemote(name)`.
+  - Disables actions and displays loading spinner during deletion.
+  - Displays formatted error banner if backend rejection occurs.
 
-### 2. Precise Active Profile Endpoint Matching
-- In `RemoteCard.vue` and child overlay rows:
-  - Compare the active sync profile's remote endpoint against the exact remote name.
-  - Display the `ACTIVE` / `PROFILE TARGET` pill on the exact node receiving sync traffic (root or specific overlay), eliminating ambiguity.
-
-### 3. Vertical Overlay Pipeline Tree (`dashboard/frontend/src/components/remotes/RemoteOverlayTree.vue`)
-- Replace horizontal arrow wireframes with a compact, readable vertical indented tree (`├─`, `└─`).
-- Every overlay node displays:
-  - Type icon (🛡️ Crypt, ⚡ Hasher, 🔗 Alias) & name
-  - Upstream reference subtitle: `wraps <upstream_remote>`
-  - Status indicator (`CONNECTED` / `ERROR`)
-  - Target badge if selected by active sync profile (`ACTIVE`)
-  - Compact action controls:
-    - `Test`: validate connectivity through this overlay layer.
-    - `Dedupe`: execute deduplication scoped to this overlay.
-    - `+ Wrap`: contextual wrap trigger (e.g. allow Hasher on top of Crypt; prevent Hasher on Hasher).
-    - `Delete`: delete overlay with confirmation.
-
-### 4. Root Card Modernization & Cascade Delete Safeguards (`RemoteCard.vue`)
-- Relabel root remote target: Change ambiguous `Wraps:` to `Target:` when pointing to filesystem paths or cloud buckets.
-- Add `+ Add Overlay` action dropdown on the base card allowing rapid addition of Crypt or Hasher overlays.
-- Cascade Delete Warning: When deleting a base remote that has child overlays, warn the user that child overlays (`backup_remote_crypt`, `backup_remote_hasher`) depend on it.
-
-### 5. Composite & Unlinked Remotes Section (`ViewRemotes.vue`)
-- Multi-upstream backends (`union`, `combine`) and orphaned remotes render in a distinct "Composite & Unlinked Remotes" section below the primary storage families.
+### 2. View Integration: `ViewRemotes.vue`
+- Retire `window.confirm()` in `confirmDelete(name: string)`.
+- Replace with reactive modal state (`showDeleteModal`, `remoteToDelete`, `deleteDescendants`).
+- Mount `<ModalRemoteDelete>` in the template.
 
 ---
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/src/views/ViewRemotes.vue`: Build hierarchical graph (`rootRemotes`, `childrenByParent`, `compositeOrOrphans`), render family clusters and composite section.
-- `dashboard/frontend/src/components/remotes/RemoteCard.vue`: Modernize root card, integrate overlay tree, add `Target:` label and cascade deletion warnings.
-- `dashboard/frontend/src/components/remotes/RemoteOverlayTree.vue` (New): Dedicated cohesive component rendering vertical indented tree with full per-overlay action suites.
+- `dashboard/frontend/src/components/ModalRemoteDelete.vue`: New safeguard modal component.
+- `dashboard/frontend/src/views/ViewRemotes.vue`: Integration with remote cards and overlay tree deletion triggers.
 
 ---
 
 ### Safety & Error Handling
 
-- **Cycle Detection**: Enforce maximum depth and cycle tracking (`visited: Set<string>`) so broken configs cannot crash the browser.
-- **Cascade Warning**: Explicit modal/confirm prompt enumerating dependent overlay names before permitting base remote deletion.
-- **Zero Backend Changes Needed**: Leverages existing enriched telemetry (`underlying_remote`, `underlying_path`, `type`, `about`) provided by `TelemetryService`.
+- **Zero Accidental Deletions**: Deletion requires explicit modal confirmation and cannot be triggered by keyboard mis-press.
+- **Blast Radius Transparency**: Operators are explicitly shown all dependent downstream overlays before confirming deletion.
+- **Canary & Jail Protection**: Backend continues to enforce blast-radius checks and profile-link safeguards.
 
 ---
 
 ## Verification Plan
 
-- Frontend type checking: `npm --prefix dashboard/frontend run type-check`
+- Component type checking: `npm --prefix dashboard/frontend run type-check`
+- Production frontend bundling: `npm --prefix dashboard/frontend run build`
+- Full project verification: `./scripts/check.sh all`
+- UI Sandbox verification:
+  - Trigger deletion on `testremote` (which has `testremote_crypt` and `testremote_crypt_hasher`).
+  - Verify that the modal renders the cascade warning with dependent overlays in dark mode UI style without invoking native browser dialogs.
 - Frontend production bundle build: `npm --prefix dashboard/frontend run build`
 - Visual & functional validation in sandbox:
   - Verify `backup_remote` displays `backup_remote_crypt` and `backup_remote_hasher` as vertical tree children.
