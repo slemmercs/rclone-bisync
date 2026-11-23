@@ -6,6 +6,8 @@ export * from './dedupe'
 export * from './hasher'
 export * from './crypt'
 export * from './remotes'
+export * from './fleet'
+
 
 
 
