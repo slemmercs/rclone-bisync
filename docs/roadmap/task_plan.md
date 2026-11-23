@@ -9,7 +9,7 @@ Synchronize the Architecture Decision Record (ADR) registry with the production 
   - **Scope**: `docs/architecture/adr/ADR-001-Profiles-As-Primary-User-Object.md`, `docs/architecture/adr/ADR-005-Local-First-Architecture.md`, `docs/architecture/adr/ADR-008-WAL-Resilient-Interactive-Conflict-Review.md`
   - **Verification**: `git diff docs/architecture/adr/`
 
-- [ ] Task 2: Author ADR-012 (Model Context Protocol AI Agent Governance)
+- [x] Task 2: Author ADR-012 (Model Context Protocol AI Agent Governance)
   - **Scope**: `docs/architecture/adr/ADR-012-MCP-Agent-Tooling-And-Blast-Radius-Governance.md`
   - **Verification**: Verify markdown structure, headings, links, and template consistency.
 
@@ -23,5 +23,6 @@ Synchronize the Architecture Decision Record (ADR) registry with the production 
 
 ## Status Updates
 
+- 2026-11-23: Completed Task 2. Authored ADR-012 covering Model Context Protocol (MCP) AI Agent Governance & Blast-Radius Circuit Breakers with dual transport (stdio/SSE), tiered tooling, confirmation tokens, jail containment, and secret redaction.
 - 2026-11-23: Completed Task 1. Updated ADR-001 (`internal/profiles/`), ADR-005 (Vue 3/Vite embedded assets per ADR-011), and ADR-008 (review_sessions, .review_backups, server-side remote copy, exclude rule, remote TTL pruning).
 - 2026-11-23: Initialized task plan for ADR documentation synchronization.
