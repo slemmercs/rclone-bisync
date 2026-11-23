@@ -13,7 +13,7 @@ Harden Cockpit storage remotes UI by clustering virtual overlay remotes (`crypt`
   - **Scope**: `dashboard/frontend/src/components/remotes/RemoteCard.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 3: Update `ViewRemotes.vue` with Topology Builder & Composite Section
+- [x] Task 3: Update `ViewRemotes.vue` with Topology Builder & Composite Section
   - **Scope**: `dashboard/frontend/src/views/ViewRemotes.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
@@ -22,6 +22,8 @@ Harden Cockpit storage remotes UI by clustering virtual overlay remotes (`crypt`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
+
+- 2026-11-22: Completed Task 3. Updated `ViewRemotes.vue` with adjacency graph builder (`childrenByParent`), root base remotes vs composite/orphan separation (`compositeOrOrphanRemotes`), deep family search and category filtering traversing overlay pipelines, node-exact active profile derivation, and cascade warning prompts on remote deletion. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 
 - 2026-11-22: Completed Task 2. Refactored `RemoteCard.vue` to embed `RemoteOverlayTree`, modernize base card overlay wrapping actions (`+ Crypt`, `+ Hasher` with wrapped guards), isolate node-exact active indicators, and incorporate cascade deletion warnings. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 
