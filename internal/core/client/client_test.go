@@ -87,6 +87,42 @@ func TestListDirectoryWithCanary(t *testing.T) {
 	}
 }
 
+func TestListRemoteEntries(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/operations/list" {
+			w.WriteHeader(http.StatusOK)
+			res := map[string]interface{}{
+				"list": []map[string]interface{}{
+					{"Name": "file1.txt", "Path": "photos/file1.txt", "IsDir": false, "ModTime": "2026-11-23T12:00:00Z"},
+					{"Name": "subfolder", "Path": "photos/subfolder", "IsDir": true, "ModTime": "2026-11-23T13:00:00Z"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(res)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	c := NewRcloneClient(server.URL, "user", "pass")
+	entries, err := c.ListRemoteEntries(context.Background(), "gdrive:", "photos")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[0].Name != "file1.txt" || entries[0].IsDir {
+		t.Errorf("unexpected entry[0]: %+v", entries[0])
+	}
+	if entries[1].Name != "subfolder" || !entries[1].IsDir {
+		t.Errorf("unexpected entry[1]: %+v", entries[1])
+	}
+	if entries[0].ModTime.IsZero() || entries[1].ModTime.IsZero() {
+		t.Errorf("expected non-zero modtimes: %+v, %+v", entries[0].ModTime, entries[1].ModTime)
+	}
+}
+
 func TestRemoteConfigSanitization(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/config/get" {

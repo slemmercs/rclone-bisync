@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/slemmercs/rclone-bisync/internal/models"
 	"golang.org/x/sys/unix"
 )
 
@@ -18,6 +19,12 @@ type RemoteClient interface {
 	DeleteFile(ctx context.Context, fs, remote string) (bool, error)
 	Mkdir(ctx context.Context, fs, remote string) (bool, error)
 	PurgeDir(ctx context.Context, fs, remote string) (bool, error)
+}
+
+// RemoteListingClient defines operations required to inspect and purge remote backup sessions.
+type RemoteListingClient interface {
+	RemoteClient
+	ListRemoteEntries(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error)
 }
 
 const (
@@ -247,6 +254,80 @@ func PruneExpiredBackups(backupsDir string, ttl time.Duration) (int, error) {
 				pruned++
 			}
 		}
+	}
+
+	return pruned, nil
+}
+
+// PruneExpiredRemoteBackups removes remote review backups older than ttl under .review_backups/ on the given remote.
+// If all backup sessions are pruned and .review_backups/ is left empty, the top-level directory is purged as well.
+func PruneExpiredRemoteBackups(ctx context.Context, client RemoteListingClient, remoteName string, ttl time.Duration) (int, error) {
+	if client == nil || remoteName == "" || ttl <= 0 {
+		return 0, nil
+	}
+
+	remoteFs := FormatRemoteFs(remoteName)
+	entries, err := client.ListRemoteEntries(ctx, remoteFs, ".review_backups")
+	if err != nil {
+		// Directory does not exist or remote does not respond
+		return 0, nil
+	}
+
+	cutoff := time.Now().Add(-ttl)
+	pruned := 0
+	remaining := 0
+
+	for _, entry := range entries {
+		if !entry.IsDir {
+			continue
+		}
+
+		sessionID := entry.Name
+		if !IsValidSessionID(sessionID) || strings.Contains(sessionID, "/") || strings.Contains(sessionID, "\\") || strings.Contains(sessionID, "..") {
+			remaining++
+			continue
+		}
+		if strings.Contains(strings.ToUpper(sessionID), "RCLONE_TEST") {
+			remaining++
+			continue
+		}
+
+		modTime := entry.ModTime
+		if modTime.IsZero() {
+			// Backend did not provide directory modtime; inspect items within session folder
+			subEntries, err := client.ListRemoteEntries(ctx, remoteFs, ".review_backups/"+sessionID)
+			if err == nil {
+				if len(subEntries) == 0 {
+					// Empty session folder - eligible for cleanup
+					modTime = cutoff.Add(-time.Hour)
+				} else {
+					var maxSub time.Time
+					for _, sub := range subEntries {
+						if sub.ModTime.After(maxSub) {
+							maxSub = sub.ModTime
+						}
+					}
+					modTime = maxSub
+				}
+			}
+		}
+
+		if !modTime.IsZero() && modTime.Before(cutoff) {
+			targetPath := ".review_backups/" + sessionID
+			ok, err := client.PurgeDir(ctx, remoteFs, targetPath)
+			if err == nil && ok {
+				pruned++
+			} else {
+				remaining++
+			}
+		} else {
+			remaining++
+		}
+	}
+
+	// If all sessions have been pruned and none remain, purge the parent .review_backups folder
+	if pruned > 0 && remaining == 0 {
+		_, _ = client.PurgeDir(ctx, remoteFs, ".review_backups")
 	}
 
 	return pruned, nil

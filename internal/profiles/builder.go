@@ -108,6 +108,19 @@ func BuildCLIArgs(p *Profile, globals config.GlobalDefaults, overrides *Executio
 	if effective.CompareMode != "" {
 		args = append(args, "--compare", effective.CompareMode)
 	}
+	// Default internal exclusions: protect system metadata and internal review backup staging
+	hasReviewBackupsExclude := false
+	for _, pattern := range effective.ExcludePatterns {
+		tr := strings.TrimSpace(pattern)
+		if tr == ".review_backups/**" || tr == "/.review_backups/**" {
+			hasReviewBackupsExclude = true
+			break
+		}
+	}
+	if !hasReviewBackupsExclude {
+		args = append(args, "--exclude", ".review_backups/**")
+	}
+
 	for _, pattern := range effective.ExcludePatterns {
 		if tr := strings.TrimSpace(pattern); tr != "" {
 			args = append(args, "--exclude", tr)

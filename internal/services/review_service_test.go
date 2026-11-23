@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -596,6 +597,84 @@ func TestReviewService_PathHelpersAndNilConfig(t *testing.T) {
 	}
 	if expected := filepath.Join(tmpDir, "review_sessions"); svcBase.reviewDirPath() != expected {
 		t.Fatalf("expected %q, got %q", expected, svcBase.reviewDirPath())
+	}
+}
+
+func TestReviewService_PruneBackups_LocalAndRemote(t *testing.T) {
+	cfg, _ := createTestConfig(t)
+	cfg.ReviewBackupTTLHours = 24.0
+
+	// Create local backup sessions
+	oldLocal := filepath.Join(cfg.ReviewBackupsDir, "sess-local-old")
+	newLocal := filepath.Join(cfg.ReviewBackupsDir, "sess-local-new")
+	_ = os.MkdirAll(oldLocal, 0755)
+	_ = os.MkdirAll(newLocal, 0755)
+	_ = os.WriteFile(filepath.Join(oldLocal, "old.txt"), []byte("data"), 0644)
+	_ = os.WriteFile(filepath.Join(newLocal, "new.txt"), []byte("data"), 0644)
+	past := time.Now().Add(-48 * time.Hour)
+	_ = os.Chtimes(oldLocal, past, past)
+
+	// Mock remote server
+	var purgedRemotes []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/operations/list" {
+			res := map[string]interface{}{
+				"list": []map[string]interface{}{
+					{
+						"Name":    "rev-remote-old",
+						"IsDir":   true,
+						"ModTime": time.Now().Add(-48 * time.Hour).Format(time.RFC3339),
+					},
+					{
+						"Name":    "rev-remote-new",
+						"IsDir":   true,
+						"ModTime": time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+					},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(res)
+			return
+		}
+		if r.URL.Path == "/operations/purge" {
+			var payload struct {
+				Remote string `json:"remote"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			purgedRemotes = append(purgedRemotes, payload.Remote)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	rcClient := client.NewRcloneClient(server.URL, "", "")
+	svc := NewReviewService(cfg, rcClient)
+
+	pruned, err := svc.PruneBackups()
+	if err != nil {
+		t.Fatalf("unexpected prune error: %v", err)
+	}
+
+	// 1 local pruned + 1 remote pruned = 2
+	if pruned != 2 {
+		t.Errorf("expected 2 pruned backups (1 local + 1 remote), got %d", pruned)
+	}
+
+	// Verify local state
+	if _, err := os.Stat(oldLocal); !os.IsNotExist(err) {
+		t.Errorf("expected local old session to be deleted")
+	}
+	if _, err := os.Stat(newLocal); err != nil {
+		t.Errorf("expected local new session to be retained")
+	}
+
+	// Verify remote purge
+	if len(purgedRemotes) != 1 || purgedRemotes[0] != ".review_backups/rev-remote-old" {
+		t.Errorf("expected remote purge of .review_backups/rev-remote-old, got %v", purgedRemotes)
 	}
 }
 

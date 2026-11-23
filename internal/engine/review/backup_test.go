@@ -2,17 +2,21 @@ package review
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 type mockRemoteClient struct {
-	copyFileFunc   func(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error)
-	deleteFileFunc func(ctx context.Context, fs, remote string) (bool, error)
-	mkdirFunc      func(ctx context.Context, fs, remote string) (bool, error)
-	purgeDirFunc   func(ctx context.Context, fs, remote string) (bool, error)
+	copyFileFunc          func(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error)
+	deleteFileFunc        func(ctx context.Context, fs, remote string) (bool, error)
+	mkdirFunc             func(ctx context.Context, fs, remote string) (bool, error)
+	purgeDirFunc          func(ctx context.Context, fs, remote string) (bool, error)
+	listRemoteEntriesFunc func(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error)
 }
 
 func (m *mockRemoteClient) CopyFile(ctx context.Context, srcFs, srcRemote, dstFs, dstRemote string) (bool, error) {
@@ -41,6 +45,13 @@ func (m *mockRemoteClient) PurgeDir(ctx context.Context, fs, remote string) (boo
 		return m.purgeDirFunc(ctx, fs, remote)
 	}
 	return true, nil
+}
+
+func (m *mockRemoteClient) ListRemoteEntries(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error) {
+	if m.listRemoteEntriesFunc != nil {
+		return m.listRemoteEntriesFunc(ctx, remote, path)
+	}
+	return nil, nil
 }
 
 func TestBackup_CheckFreeDiskSpace(t *testing.T) {
@@ -211,4 +222,165 @@ func TestBackup_PruneExpiredBackups_EdgeCases(t *testing.T) {
 	if err != nil || pruned != 0 {
 		t.Fatalf("expected 0 for missing path, got %d, %v", pruned, err)
 	}
+}
+
+func TestBackup_PruneExpiredRemoteBackups(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	expiredTime := now.Add(-48 * time.Hour)
+	recentTime := now.Add(-1 * time.Hour)
+
+	t.Run("prunes expired remote sessions and purges parent when empty", func(t *testing.T) {
+		purgedPaths := make([]string, 0)
+		mock := &mockRemoteClient{
+			listRemoteEntriesFunc: func(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error) {
+				if path == ".review_backups" {
+					return []models.RemoteDirEntry{
+						{Name: "rev-expired1", IsDir: true, ModTime: expiredTime},
+						{Name: "rev-expired2", IsDir: true, ModTime: expiredTime},
+					}, nil
+				}
+				return nil, nil
+			},
+			purgeDirFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+				purgedPaths = append(purgedPaths, remote)
+				return true, nil
+			},
+		}
+
+		pruned, err := PruneExpiredRemoteBackups(ctx, mock, "gdrive:", 24*time.Hour)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if pruned != 2 {
+			t.Errorf("expected 2 pruned sessions, got %d", pruned)
+		}
+		// Since both sessions were pruned and none remained, .review_backups should also be purged
+		expectedPurges := []string{
+			".review_backups/rev-expired1",
+			".review_backups/rev-expired2",
+			".review_backups",
+		}
+		if len(purgedPaths) != len(expectedPurges) {
+			t.Fatalf("expected purges %v, got %v", expectedPurges, purgedPaths)
+		}
+		for i, p := range expectedPurges {
+			if purgedPaths[i] != p {
+				t.Errorf("expected purge[%d]=%s, got %s", i, p, purgedPaths[i])
+			}
+		}
+	})
+
+	t.Run("retains active sessions and does not purge parent", func(t *testing.T) {
+		purgedPaths := make([]string, 0)
+		mock := &mockRemoteClient{
+			listRemoteEntriesFunc: func(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error) {
+				if path == ".review_backups" {
+					return []models.RemoteDirEntry{
+						{Name: "rev-expired", IsDir: true, ModTime: expiredTime},
+						{Name: "rev-active", IsDir: true, ModTime: recentTime},
+					}, nil
+				}
+				return nil, nil
+			},
+			purgeDirFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+				purgedPaths = append(purgedPaths, remote)
+				return true, nil
+			},
+		}
+
+		pruned, err := PruneExpiredRemoteBackups(ctx, mock, "gdrive:", 24*time.Hour)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if pruned != 1 {
+			t.Errorf("expected 1 pruned session, got %d", pruned)
+		}
+		if len(purgedPaths) != 1 || purgedPaths[0] != ".review_backups/rev-expired" {
+			t.Errorf("expected only expired session purged, got %v", purgedPaths)
+		}
+	})
+
+	t.Run("inspects sub-items when directory modtime is zero", func(t *testing.T) {
+		purgedPaths := make([]string, 0)
+		mock := &mockRemoteClient{
+			listRemoteEntriesFunc: func(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error) {
+				if path == ".review_backups" {
+					return []models.RemoteDirEntry{
+						{Name: "rev-nodirtime", IsDir: true, ModTime: time.Time{}},
+					}, nil
+				}
+				if path == ".review_backups/rev-nodirtime" {
+					return []models.RemoteDirEntry{
+						{Name: "file.txt", IsDir: false, ModTime: expiredTime},
+					}, nil
+				}
+				return nil, nil
+			},
+			purgeDirFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+				purgedPaths = append(purgedPaths, remote)
+				return true, nil
+			},
+		}
+
+		pruned, err := PruneExpiredRemoteBackups(ctx, mock, "gdrive:", 24*time.Hour)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if pruned != 1 {
+			t.Errorf("expected 1 pruned session, got %d", pruned)
+		}
+	})
+
+	t.Run("skips invalid or traversal session IDs", func(t *testing.T) {
+		purgedPaths := make([]string, 0)
+		mock := &mockRemoteClient{
+			listRemoteEntriesFunc: func(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error) {
+				if path == ".review_backups" {
+					return []models.RemoteDirEntry{
+						{Name: "../escaped", IsDir: true, ModTime: expiredTime},
+						{Name: "RCLONE_TEST", IsDir: true, ModTime: expiredTime},
+						{Name: "valid_id-123", IsDir: true, ModTime: expiredTime},
+					}, nil
+				}
+				return nil, nil
+			},
+			purgeDirFunc: func(ctx context.Context, fs, remote string) (bool, error) {
+				purgedPaths = append(purgedPaths, remote)
+				return true, nil
+			},
+		}
+
+		pruned, err := PruneExpiredRemoteBackups(ctx, mock, "gdrive:", 24*time.Hour)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if pruned != 1 {
+			t.Errorf("expected exactly 1 valid pruned session, got %d", pruned)
+		}
+		if len(purgedPaths) != 1 || purgedPaths[0] != ".review_backups/valid_id-123" {
+			t.Errorf("expected only valid_id-123 purged, got %v", purgedPaths)
+		}
+	})
+
+	t.Run("edge cases: nil client, empty remote, zero ttl, listing error", func(t *testing.T) {
+		mock := &mockRemoteClient{
+			listRemoteEntriesFunc: func(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error) {
+				return nil, fmt.Errorf("remote network timeout")
+			},
+		}
+
+		if p, err := PruneExpiredRemoteBackups(ctx, nil, "gdrive:", 24*time.Hour); err != nil || p != 0 {
+			t.Errorf("expected 0, nil for nil client, got %d, %v", p, err)
+		}
+		if p, err := PruneExpiredRemoteBackups(ctx, mock, "", 24*time.Hour); err != nil || p != 0 {
+			t.Errorf("expected 0, nil for empty remote, got %d, %v", p, err)
+		}
+		if p, err := PruneExpiredRemoteBackups(ctx, mock, "gdrive:", 0); err != nil || p != 0 {
+			t.Errorf("expected 0, nil for zero ttl, got %d, %v", p, err)
+		}
+		if p, err := PruneExpiredRemoteBackups(ctx, mock, "gdrive:", 24*time.Hour); err != nil || p != 0 {
+			t.Errorf("expected 0, nil for listing error, got %d, %v", p, err)
+		}
+	})
 }

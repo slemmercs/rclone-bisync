@@ -352,10 +352,9 @@ func (s *ReviewService) DismissReviewSession(sessionID string) error {
 	return nil
 }
 
-// PruneBackups removes review backups older than configured TTL.
+// PruneBackups removes review backups older than configured TTL from local storage and remote targets.
 func (s *ReviewService) PruneBackups() (int, error) {
-	backupsDir := s.backupsDirPath()
-	if backupsDir == "" || s.Config == nil {
+	if s.Config == nil {
 		return 0, nil
 	}
 
@@ -363,6 +362,27 @@ func (s *ReviewService) PruneBackups() (int, error) {
 	if ttlHours <= 0 {
 		ttlHours = 48.0
 	}
+	ttl := time.Duration(ttlHours * float64(time.Hour))
 
-	return review.PruneExpiredBackups(backupsDir, time.Duration(ttlHours*float64(time.Hour)))
+	prunedLocal := 0
+	backupsDir := s.backupsDirPath()
+	if backupsDir != "" {
+		n, err := review.PruneExpiredBackups(backupsDir, ttl)
+		if err != nil {
+			return 0, err
+		}
+		prunedLocal = n
+	}
+
+	prunedRemote := 0
+	if s.Client != nil && s.Config.RemotePath != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		n, err := review.PruneExpiredRemoteBackups(ctx, s.Client, s.Config.RemotePath, ttl)
+		if err == nil {
+			prunedRemote = n
+		}
+	}
+
+	return prunedLocal + prunedRemote, nil
 }

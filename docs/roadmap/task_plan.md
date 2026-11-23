@@ -1,44 +1,30 @@
-# Task Plan: Frontend God Object Decomposition & Store Decoupling (Issue #103)
+# Task Plan: Default Exclusion and Remote Pruning for Review Backups
 
 ## Goal
-Deconstruct oversized frontend components (`AppHeader.vue`, `ViewFleet.vue`), decouple `dedupeStore` from stale remote wizard bridges, and extract a unified log presentation composable across `ModalDaemonLogs`, `LogDock`, and `ViewTelemetryLedger`.
+Exclude `.review_backups/**` by default from all sync profiles in the CLI builder, and implement remote review backup lifecycle pruning so internal pre-mutation backups do not sync back and forth or linger indefinitely on cloud storage.
 
 ## Tasks
 
-- [x] Task 1: Clean stores/dedupe.ts & enforce strict deduplication domain boundary
-  - **Scope**: `dashboard/frontend/src/stores/dedupe.ts`
-  - **Verification**: `cd dashboard/frontend && npm run type-check`
+- [x] Task 1: Add default exclusion for .review_backups/** in profile CLI builder
+  - **Scope**: `internal/profiles/builder.go`, `internal/profiles/builder_test.go`
+  - **Verification**: `go test -count=1 ./internal/profiles/...`
 
-- [x] Task 2: Create useLogFilteringAndExport composable & refactor log viewers
-  - **Scope**: `dashboard/frontend/src/composables/useLogFilteringAndExport.ts`, `dashboard/frontend/src/components/ModalDaemonLogs.vue`, `dashboard/frontend/src/components/LogDock.vue`, `dashboard/frontend/src/views/ViewTelemetryLedger.vue`
-  - **Verification**: `cd dashboard/frontend && npm run type-check`
+- [x] Task 2: Implement PruneExpiredRemoteBackups in review engine
+  - **Scope**: `internal/engine/review/backup.go`, `internal/engine/review/backup_test.go`
+  - **Verification**: `go test -count=1 ./internal/engine/review/...`
 
-- [x] Task 3: Decompose ViewFleet.vue into Fleet Subcomponents
-  - **Scope**: `dashboard/frontend/src/types/fleet.ts`, `dashboard/frontend/src/components/fleet/FleetKpiRibbon.vue`, `dashboard/frontend/src/components/fleet/FleetToolbar.vue`, `dashboard/frontend/src/components/fleet/FleetProfileCard.vue`, `dashboard/frontend/src/views/ViewFleet.vue`
-  - **Verification**: `cd dashboard/frontend && npm run type-check && npm run build`
+- [x] Task 3: Hook remote review pruning into ReviewService and verify full lifecycle
+  - **Scope**: `internal/services/review_execution.go`, `internal/services/review_service_test.go`
+  - **Verification**: `go test -count=1 ./internal/services/...`
 
-- [x] Task 4: Decompose AppHeader.vue into Header Subcomponents
-  - **Scope**: `dashboard/frontend/src/components/header/HeaderBrandStatus.vue`, `dashboard/frontend/src/components/header/HeaderNavigation.vue`, `dashboard/frontend/src/components/header/HeaderProfileControl.vue`, `dashboard/frontend/src/components/header/HeaderActionToolbar.vue`, `dashboard/frontend/src/components/AppHeader.vue`
-  - **Verification**: `cd dashboard/frontend && npm run type-check && npm run build`
-
-- [x] Task 5: Full pre-flight quality verification & binary asset sync
-  - **Scope**: `npm run build`, `./scripts/check.sh all`, `go test -race ./...`
+- [x] Task 4: Full pre-flight quality verification & check suite
+  - **Scope**: Entire codebase
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
-- 2026-11-23: Completed Task 5. Full quality verification passed (`./scripts/check.sh all` - 7/7 checks, `go test -race ./...` across all packages including e2e and integration tests).
-- 2026-11-23: Completed Task 4. Decomposed `AppHeader.vue` (from 418 LOC down to 47 LOC shell) by extracting `HeaderBrandStatus.vue`, `HeaderNavigation.vue`, `HeaderProfileControl.vue`, and `HeaderActionToolbar.vue`. Verified with `npm run type-check` and `npm run build`.
-- 2026-11-23: Completed Task 3. Created `types/fleet.ts` and decomposed `ViewFleet.vue` into `FleetKpiRibbon.vue`, `FleetToolbar.vue`, and `FleetProfileCard.vue`. Reduced `ViewFleet.vue` LOC and verified with `npm run type-check` and `npm run build`.
-- 2026-11-23: Completed Task 2. Created `useLogFilteringAndExport.ts` composable (severity counts, clipboard export, badge styling) and refactored `ModalDaemonLogs.vue`, `LogDock.vue`, and `ViewTelemetryLedger.vue`. Verified with `npm --prefix dashboard/frontend run type-check` and `npm --prefix dashboard/frontend run build`.
-- 2026-11-23: Completed Task 1. Removed dead wizard state bridges (`wizardOpen`, `providers`, `fetchProviders`, `createRemote`, etc.) and unused catalog types from `dashboard/frontend/src/stores/dedupe.ts`. Verified with `npm --prefix dashboard/frontend run type-check` and `npm --prefix dashboard/frontend run build`.
-- 2026-11-23: Initialized task plan from implementation_plan.md for Issue #103.
-
-
-
-
-
-
-
-
-
+- 2026-11-23: Completed Task 4. Verified full quality check suite (`./scripts/check.sh all`) passing all 7/7 gates including formatting, linting, unit tests, and integration tests across the entire codebase.
+- 2026-11-23: Completed Task 3. Updated `ReviewService.PruneBackups` to execute remote pruning in addition to local pruning when a remote client and path are configured. Added end-to-end unit test `TestReviewService_PruneBackups_LocalAndRemote`.
+- 2026-11-23: Completed Task 2. Implemented `PruneExpiredRemoteBackups` in `internal/engine/review/backup.go` with TTL expiration, empty directory parent cleanup, sub-entry timestamp fallback, canary protection, and path traversal guards. Verified with unit tests.
+- 2026-11-23: Completed Task 1. Injected default `--exclude .review_backups/**` into profile CLI argument builder with duplicate prevention, and verified with updated unit tests in `internal/profiles`.
+- 2026-11-23: Initialized implementation plan and task plan.

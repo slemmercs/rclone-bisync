@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/slemmercs/rclone-bisync/internal/models"
 )
 
 // DirectoryListing contains directory contents and canary indicator.
@@ -98,6 +100,39 @@ func (c *RcloneClient) ListDirectory(ctx context.Context, remote, path string) D
 	}
 
 	return listing
+}
+
+// ListRemoteEntries queries /operations/list and returns standardized directory entries.
+func (c *RcloneClient) ListRemoteEntries(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error) {
+	listing := c.ListDirectory(ctx, remote, path)
+	if listing.Error != "" {
+		return nil, fmt.Errorf("list directory %s:%s failed: %s", remote, path, listing.Error)
+	}
+
+	entries := make([]models.RemoteDirEntry, 0, len(listing.Items))
+	for _, it := range listing.Items {
+		name, _ := it["Name"].(string)
+		p, _ := it["Path"].(string)
+		isDir, _ := it["IsDir"].(bool)
+
+		var modTime time.Time
+		if mtStr, ok := it["ModTime"].(string); ok && mtStr != "" {
+			if t, err := time.Parse(time.RFC3339Nano, mtStr); err == nil {
+				modTime = t
+			} else if t, err := time.Parse(time.RFC3339, mtStr); err == nil {
+				modTime = t
+			}
+		}
+
+		entries = append(entries, models.RemoteDirEntry{
+			Name:    name,
+			Path:    p,
+			IsDir:   isDir,
+			ModTime: modTime,
+		})
+	}
+
+	return entries, nil
 }
 
 // TouchFile calls /core/command with "touch" to create/update timestamp on a file.
