@@ -18,7 +18,7 @@ Exposing these configurations purely as transient CLI flags or loose script file
 
 Bisync Hub establishes the **Profile** (`internal/models.Profile`) as the primary domain entity representing a complete synchronization contract and operational intent.
 
-All user-facing workflows—including web dashboard navigation, CLI operations, background scheduling, safety checks, review queues, and audit events—are organized and scoped by Profile. Profiles are managed and persisted by a dedicated service layer (`internal/services/profile_manager.go`) using atomic writes.
+All user-facing workflows—including web dashboard navigation, CLI operations, background scheduling, safety checks, review queues, and audit events—are organized and scoped by Profile. Profiles are managed and persisted by a dedicated domain package (`internal/profiles/service.go`, `internal/profiles/store.go`) using atomic writes (`.tmp.<pid>` + `os.Rename`).
 
 ---
 
