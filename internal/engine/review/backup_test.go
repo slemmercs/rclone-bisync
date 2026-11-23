@@ -54,7 +54,6 @@ func (m *mockRemoteClient) ListRemoteEntries(ctx context.Context, remote, path s
 	return nil, nil
 }
 
-
 func TestBackup_CheckFreeDiskSpace(t *testing.T) {
 	// Zero bytes should always succeed
 	if err := CheckFreeDiskSpace(t.TempDir(), 0); err != nil {
@@ -385,4 +384,3 @@ func TestBackup_PruneExpiredRemoteBackups(t *testing.T) {
 		}
 	})
 }
-

@@ -678,7 +678,6 @@ func TestReviewService_PruneBackups_LocalAndRemote(t *testing.T) {
 	}
 }
 
-
 func TestReviewService_BatchAndStagingEdgeCases(t *testing.T) {
 	cfg, _ := createTestConfig(t)
 	svc := NewReviewService(cfg, nil)

@@ -17,12 +17,13 @@ Exclude `.review_backups/**` by default from all sync profiles in the CLI builde
   - **Scope**: `internal/services/review_execution.go`, `internal/services/review_service_test.go`
   - **Verification**: `go test -count=1 ./internal/services/...`
 
-- [ ] Task 4: Full pre-flight quality verification & check suite
+- [x] Task 4: Full pre-flight quality verification & check suite
   - **Scope**: Entire codebase
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
+- 2026-11-23: Completed Task 4. Verified full quality check suite (`./scripts/check.sh all`) passing all 7/7 gates including formatting, linting, unit tests, and integration tests across the entire codebase.
 - 2026-11-23: Completed Task 3. Updated `ReviewService.PruneBackups` to execute remote pruning in addition to local pruning when a remote client and path are configured. Added end-to-end unit test `TestReviewService_PruneBackups_LocalAndRemote`.
 - 2026-11-23: Completed Task 2. Implemented `PruneExpiredRemoteBackups` in `internal/engine/review/backup.go` with TTL expiration, empty directory parent cleanup, sub-entry timestamp fallback, canary protection, and path traversal guards. Verified with unit tests.
 - 2026-11-23: Completed Task 1. Injected default `--exclude .review_backups/**` into profile CLI argument builder with duplicate prevention, and verified with updated unit tests in `internal/profiles`.

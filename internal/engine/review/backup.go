@@ -332,4 +332,3 @@ func PruneExpiredRemoteBackups(ctx context.Context, client RemoteListingClient, 
 
 	return pruned, nil
 }
-

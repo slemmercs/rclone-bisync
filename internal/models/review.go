@@ -153,7 +153,6 @@ type StageDecisionRequest struct {
 	Decision     ActionDecision `json:"decision"`
 }
 
-
 // RemoteDirEntry represents an entry in a remote storage directory listing.
 type RemoteDirEntry struct {
 	Name    string    `json:"name"`

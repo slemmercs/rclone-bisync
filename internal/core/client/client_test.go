@@ -123,7 +123,6 @@ func TestListRemoteEntries(t *testing.T) {
 	}
 }
 
-
 func TestRemoteConfigSanitization(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/config/get" {

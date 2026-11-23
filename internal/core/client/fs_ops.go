@@ -101,6 +101,7 @@ func (c *RcloneClient) ListDirectory(ctx context.Context, remote, path string) D
 
 	return listing
 }
+
 // ListRemoteEntries queries /operations/list and returns standardized directory entries.
 func (c *RcloneClient) ListRemoteEntries(ctx context.Context, remote, path string) ([]models.RemoteDirEntry, error) {
 	listing := c.ListDirectory(ctx, remote, path)
@@ -133,7 +134,6 @@ func (c *RcloneClient) ListRemoteEntries(ctx context.Context, remote, path strin
 
 	return entries, nil
 }
-
 
 // TouchFile calls /core/command with "touch" to create/update timestamp on a file.
 func (c *RcloneClient) TouchFile(ctx context.Context, remote, path string) (bool, error) {

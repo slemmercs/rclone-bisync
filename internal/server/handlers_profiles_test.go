@@ -352,11 +352,11 @@ func TestProfiles_ExecutorExcludeRulesForwarding(t *testing.T) {
 		t.Fatalf("failed to trigger sync: %v", err)
 	}
 
-	if len(receivedExcludeRules) != 3 {
-		t.Fatalf("expected 3 exclude rules forwarded to daemon, got %d: %v", len(receivedExcludeRules), receivedExcludeRules)
+	expected := []string{".review_backups/**", ".git/**", "node_modules/**", "*.tmp"}
+	if len(receivedExcludeRules) != len(expected) {
+		t.Fatalf("expected %d exclude rules forwarded to daemon, got %d: %v", len(expected), len(receivedExcludeRules), receivedExcludeRules)
 	}
 
-	expected := []string{".git/**", "node_modules/**", "*.tmp"}
 	for i, rule := range expected {
 		if receivedExcludeRules[i] != rule {
 			t.Errorf("rule[%d]: expected %s, got %v", i, rule, receivedExcludeRules[i])
