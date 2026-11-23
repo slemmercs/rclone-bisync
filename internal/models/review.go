@@ -48,6 +48,7 @@ const (
 // DeletionCandidate represents an item scheduled for deletion during an aborted run.
 type DeletionCandidate struct {
 	ID             string                  `json:"id"`
+	ProfileID      string                  `json:"profile_id,omitempty"`
 	Path           string                  `json:"path"`
 	Name           string                  `json:"name"`
 	IsDir          bool                    `json:"is_dir"`
@@ -64,6 +65,7 @@ type DeletionCandidate struct {
 // ConflictCandidate represents a conflicting file altered concurrently on both sides.
 type ConflictCandidate struct {
 	ID             string                  `json:"id"`
+	ProfileID      string                  `json:"profile_id,omitempty"`
 	Path           string                  `json:"path"`
 	Name           string                  `json:"name"`
 	LocalSize      int64                   `json:"local_size"`
@@ -113,6 +115,7 @@ type ResolutionAction struct {
 // ReviewSession encapsulates the entire state of an interactive sync review session.
 type ReviewSession struct {
 	ID          string              `json:"id"`
+	ProfileID   string              `json:"profile_id,omitempty"`
 	CreatedAt   time.Time           `json:"created_at"`
 	UpdatedAt   time.Time           `json:"updated_at"`
 	Status      ReviewSessionStatus `json:"status"`

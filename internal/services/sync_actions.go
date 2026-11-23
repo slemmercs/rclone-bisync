@@ -19,7 +19,11 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 		if s.IsSyncing() {
 			return models.ActionResponse{Status: "error", Msg: "Sync already in progress."}, nil
 		}
-		if s.Review != nil && s.Review.HasBlockingReview() {
+		var profileID string
+		if s.Config != nil {
+			profileID = s.Config.ProfileID
+		}
+		if s.Review != nil && s.Review.HasBlockingReview(profileID) {
 			return models.ActionResponse{
 				Status: "error",
 				Msg:    "Sync blocked: unresolved interactive review session requires action. Review pending deletions or dismiss the session.",
@@ -57,7 +61,11 @@ func (s *SyncService) HandleAction(ctx context.Context, action string) (models.A
 		if s.IsSyncing() {
 			return models.ActionResponse{Status: "error", Msg: "Cannot resync: another sync is actively running."}, nil
 		}
-		if s.Review != nil && s.Review.HasBlockingReview() {
+		var profileID string
+		if s.Config != nil {
+			profileID = s.Config.ProfileID
+		}
+		if s.Review != nil && s.Review.HasBlockingReview(profileID) {
 			return models.ActionResponse{
 				Status: "error",
 				Msg:    "Resync blocked: unresolved interactive review session requires action. Review pending deletions or dismiss the session.",

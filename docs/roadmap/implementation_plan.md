@@ -1,64 +1,58 @@
-# Implementation Plan: Storage Remote Delete Safeguard Modal & UI Cascade Warning
+# Implementation Plan: GitHub Issues Realignment & Multi-Profile Review Isolation Bugfix
 
 ## Proposed Changes
 
-Replace the crude native browser `window.confirm()` popup in `ViewRemotes.vue` with an accessible, themed Cockpit safeguard modal (`ModalRemoteDelete.vue`) adhering to the Agnoster Carbon / Electric Blue design system.
+Address the root cause where pending sync review sessions block other/freshly-created remotes across profiles, reconcile the GitHub epic issues (#98, #99, #100, #101), and prepare the branch for clean merge to `main`.
 
-### 1. New Component: `ModalRemoteDelete.vue`
-- Created under `dashboard/frontend/src/components/ModalRemoteDelete.vue`.
-- PrimeVue `Dialog` with `modal` overlay and styling aligned with `ModalProfileDelete.vue`.
-- Header:
-  - Danger badge with `pi pi-trash` icon.
-  - Title: "Delete Storage Remote" with subtitle "Irreversible configuration removal".
-- Target Remote Details:
-  - High-density monospace card showing remote name, provider type, and target endpoint.
-- Cascade Warning Banner:
-  - Visual amber warning card triggered whenever `descendants.length > 0`.
-  - Lists each dependent child overlay with styled pills indicating name, type (`crypt`, `hasher`, `alias`), and parent link.
-  - Explains the blast radius: downstream overlays will become broken or orphaned.
-- Crypt Key Safeguard Banner:
-  - Distinct warning when target remote is of type `crypt`, alerting the operator that cloud ciphertext remains unreadable unless decrypted prior to key deletion.
-- Error Handling & Asynchronous Execution:
-  - Integrated with `remotesStore.deleteRemote(name)`.
-  - Disables actions and displays loading spinner during deletion.
-  - Displays formatted error banner if backend rejection occurs.
+### 1. GitHub Issues Realignment
+- Close Issue #98 (`[FEAT] Hasher Backend Integration`) as completed in `refactor/frontend-component-decomposition`.
+- Update Issue #99 to explicitly target the Official Multi-Arch Container Stack (`Dockerfile`, `docker-compose.yml`, GHCR, PUID/PGID).
+- Update Issue #100: Reconcile completed `<DynamicProviderForm>` (in-tree), focus on Control-Plane Safety Gates (Pre-Sync `--resync` dry-run diff gate, post-sync deep integrity audits via async `operations/check`, and profile filter simulator).
+- Create/Split Issue for Remote Quota Bars (`operations/about` & `operations/cleanup`) as a quick-win, leaving Issue #101 focused on post-v1.0.0 VFS Mount Supervision & Ad-Hoc Transfers.
 
-### 2. View Integration: `ViewRemotes.vue`
-- Retire `window.confirm()` in `confirmDelete(name: string)`.
-- Replace with reactive modal state (`showDeleteModal`, `remoteToDelete`, `deleteDescendants`).
-- Mount `<ModalRemoteDelete>` in the template.
+### 2. Multi-Profile Review Isolation Bugfix
+- **Root Cause**: `ReviewService`, `TelemetryService`, and `SyncActionService` manage a single global active review session (`active_review_session.json` and `pending_deletions.json`). When profile A has pending review candidates, `HasBlockingReview()` returns `true` for all profiles, blocking sync on newly created or unaffected profiles (Profile B).
+- **Domain Models (`internal/models/review.go`)**:
+  - Add `ProfileID string json:"profile_id"` to `ReviewSession` and candidate records.
+- **Service Layer (`internal/services/review_service.go`, `sync_actions.go`)**:
+  - Update `ReviewService` to track and query sessions scoped by `profileID`.
+  - `HasBlockingReview(profileID ...string) bool`: Check only whether the requested `profileID` has an active, unresolved review session.
+  - `GetActiveSession(ctx context.Context, profileID ...string) (*models.ReviewSession, error)`: Filter and discover per-profile review sessions.
+- **Server Handlers (`internal/server/handlers_review.go`)**:
+  - Add optional `profile_id` query parameter to `GET /api/review/session`.
+- **Telemetry & Frontend Alignment**:
+  - In `telemetry_service.go`, include active review profile IDs.
+  - In `dashboard/frontend/src/stores/telemetry.ts` and `review.ts`, ensure `fsmStore.transitionState` to `REVIEW_REQUIRED` only triggers when the pending review belongs to the currently active profile.
 
 ---
 
 ### Affected Components & Packages
 
-- `dashboard/frontend/src/components/ModalRemoteDelete.vue`: New safeguard modal component.
-- `dashboard/frontend/src/views/ViewRemotes.vue`: Integration with remote cards and overlay tree deletion triggers.
+- GitHub Issues: #98, #99, #100, #101 (via `gh` CLI)
+- `internal/models/review.go`
+- `internal/services/review_service.go`
+- `internal/services/sync_actions.go`
+- `internal/server/handlers_review.go`
+- `internal/services/telemetry_service.go`
+- `dashboard/frontend/src/stores/telemetry.ts`
+- `dashboard/frontend/src/stores/review.ts`
 
 ---
 
 ### Safety & Error Handling
 
-- **Zero Accidental Deletions**: Deletion requires explicit modal confirmation and cannot be triggered by keyboard mis-press.
-- **Blast Radius Transparency**: Operators are explicitly shown all dependent downstream overlays before confirming deletion.
-- **Canary & Jail Protection**: Backend continues to enforce blast-radius checks and profile-link safeguards.
+- **Backward Compatibility**: If a legacy review session without `profile_id` exists on disk, gracefully assign it to the default or active profile rather than crashing.
+- **Fail-Safe**: If `profileID` is passed as empty, fall back to global check or active profile check.
+- **Path Confinement**: Candidate review sessions must remain strictly confined to the app data directory.
 
 ---
 
 ## Verification Plan
 
-- Component type checking: `npm --prefix dashboard/frontend run type-check`
-- Production frontend bundling: `npm --prefix dashboard/frontend run build`
-- Full project verification: `./scripts/check.sh all`
-- UI Sandbox verification:
-  - Trigger deletion on `testremote` (which has `testremote_crypt` and `testremote_crypt_hasher`).
-  - Verify that the modal renders the cascade warning with dependent overlays in dark mode UI style without invoking native browser dialogs.
-- Frontend production bundle build: `npm --prefix dashboard/frontend run build`
-- Visual & functional validation in sandbox:
-  - Verify `backup_remote` displays `backup_remote_crypt` and `backup_remote_hasher` as vertical tree children.
-  - Verify `testremote` displays `testremote_hasher` and `testremote_crypt`.
-  - Verify `ACTIVE` pill highlights the exact active profile target.
-  - Verify `Test`, `Dedupe`, and `Delete` operate correctly on individual overlay rows.
-  - Verify `./scripts/check.sh all` passes cleanly across all 7 stages.
+- `gh issue list` verification of updated issues
+- Unit tests: `go test -count=1 ./internal/services -run TestReview`
+- Server tests: `go test -count=1 ./internal/server -run TestReview`
+- Frontend type check: `npm --prefix dashboard/frontend run type-check`
+- Full pre-flight verification: `./scripts/check.sh all`
 
 

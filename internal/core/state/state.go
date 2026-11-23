@@ -58,6 +58,7 @@ type PendingDeletionsData struct {
 	Message      string   `json:"message"`
 	Files        []string `json:"files"`
 	Timestamp    float64  `json:"timestamp,omitempty"`
+	ProfileID    string   `json:"profile_id,omitempty"`
 }
 
 // ReadPendingDeletions reads pending deletions state if file exists.

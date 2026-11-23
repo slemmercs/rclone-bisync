@@ -11,6 +11,7 @@ import ModalOAuthMigration from '../components/ModalOAuthMigration.vue'
 import ModalAuthAudit from '../components/ModalAuthAudit.vue'
 import ModalHasherManager from '../components/ModalHasherManager.vue'
 import ModalCryptWrap from '../components/ModalCryptWrap.vue'
+import ModalRemoteDelete from '../components/ModalRemoteDelete.vue'
 
 const remotesStore = useRemotesStore()
 const profilesStore = useProfilesStore()
@@ -202,24 +203,21 @@ function checkAuth(name?: string) {
   remotesStore.checkAuth(name)
 }
 
+const showDeleteModal = ref(false)
+const remoteToDelete = ref<any | null>(null)
+const deleteDescendants = ref<any[]>([])
+
 function confirmDelete(name: string) {
-  const target = remotes.value.find((r: any) => r.name === name)
-  let warning = `Permanently delete remote configuration "${name}"? Active sync profiles referencing this remote will be impacted.`
+  const target = remotes.value.find((r: any) => r.name === name) || { name, type: 'unknown' }
+  remoteToDelete.value = target
+  deleteDescendants.value = getDescendantRemotes(name, childrenByParent.value)
+  showDeleteModal.value = true
+}
 
-  const descendants = getDescendantRemotes(name, childrenByParent.value)
-  if (descendants.length > 0) {
-    const childNames = descendants.map((d: any) => `"${d.name}" (${d.type || 'overlay'})`).join(', ')
-    warning += `\n\n⚠️ CASCADE WARNING: This remote has ${descendants.length} dependent overlay(s): ${childNames}. Deleting it will orphan or break these downstream overlays.`
-  }
-
-  if (target && (target.type || '').toLowerCase() === 'crypt') {
-    const under = target.underlying_remote ? ` on base remote "${target.underlying_remote}"` : ''
-    warning += `\n\n⚠️ IMPORTANT: Deleting this crypt remote only removes local decryption keys. Encrypted cipher files stored in the cloud${under} will remain unreadable ciphertext unless decrypted prior to deletion.`
-  }
-
-  if (confirm(warning)) {
-    remotesStore.deleteRemote(name)
-  }
+function onRemoteDeleted() {
+  showDeleteModal.value = false
+  remoteToDelete.value = null
+  deleteDescendants.value = []
 }
 
 onMounted(() => {
@@ -395,5 +393,11 @@ onMounted(() => {
     <ModalAuthAudit />
     <ModalHasherManager />
     <ModalCryptWrap />
+    <ModalRemoteDelete
+      v-model:visible="showDeleteModal"
+      :remote="remoteToDelete"
+      :descendants="deleteDescendants"
+      @deleted="onRemoteDeleted"
+    />
   </div>
 </template>

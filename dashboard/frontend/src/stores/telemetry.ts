@@ -56,8 +56,14 @@ export const useTelemetryStore = defineStore('telemetry', () => {
       } else if (!data.is_syncing && fsmStore.currentState === 'RUNNING') {
         fsmStore.transitionState(fsmStore.activeProfileId, 'COMPLETED', 'telemetry reports sync finished')
       }
-      if (data.has_review && fsmStore.currentState !== 'REVIEW_REQUIRED') {
-        fsmStore.transitionState(fsmStore.activeProfileId, 'REVIEW_REQUIRED', 'safety circuit breaker active')
+      if (data.has_review) {
+        if (!data.review_profile_id || data.review_profile_id === fsmStore.activeProfileId) {
+          if (fsmStore.currentState !== 'REVIEW_REQUIRED') {
+            fsmStore.transitionState(fsmStore.activeProfileId, 'REVIEW_REQUIRED', 'safety circuit breaker active')
+          }
+        } else if (fsmStore.currentState === 'REVIEW_REQUIRED') {
+          fsmStore.transitionState(fsmStore.activeProfileId, 'IDLE', 'review session belongs to another profile')
+        }
       }
     } catch (e: any) {
       error.value = e.message || 'Error fetching telemetry'

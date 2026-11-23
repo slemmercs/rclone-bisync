@@ -61,6 +61,14 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 				DryRun: req.Action == "dry_run",
 				Origin: origin,
 			}
+			if (req.Action == "start_sync" || req.Action == "resync") && s.ReviewService != nil && s.ReviewService.HasBlockingReview(targetProfileID) {
+				writeJSON(w, http.StatusOK, models.ActionResponse{
+					Status: "error",
+					Msg:    fmt.Sprintf("Sync blocked for profile %q: unresolved interactive review session requires action. Review pending deletions or dismiss the session.", targetProfileID),
+					Error:  "unresolved interactive review session",
+				})
+				return
+			}
 			if err := s.ProfileService.TriggerSyncWithOptions(r.Context(), targetProfileID, opts); err != nil {
 				writeJSON(w, http.StatusOK, models.ActionResponse{Status: "error", Msg: err.Error(), Error: err.Error()})
 				return

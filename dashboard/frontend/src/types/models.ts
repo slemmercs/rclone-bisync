@@ -227,6 +227,7 @@ export interface TelemetryPayload {
   transfer_stats: TransferStats | null
   has_review: boolean
   review_pending: boolean
+  review_profile_id?: string
   mcp_status?: MCPStatus
 }
 
@@ -289,6 +290,7 @@ export interface ConflictRecommendation {
 
 export interface DeletionCandidate {
   id: string
+  profile_id?: string
   path: string
   name: string
   is_dir: boolean
@@ -304,6 +306,7 @@ export interface DeletionCandidate {
 
 export interface ConflictCandidate {
   id: string
+  profile_id?: string
   path: string
   name: string
   local_size: number
@@ -331,6 +334,7 @@ export interface BatchReviewActionResponse {
 
 export interface ReviewSession {
   id: string
+  profile_id?: string
   status: ReviewSessionStatus
   condition: string
   message: string

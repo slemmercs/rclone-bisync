@@ -275,10 +275,18 @@ func (r *SyncRunner) handleSyncFailure(
 			"error_type":    errType,
 			"files":         fileList,
 			"total_count":   len(fileList),
+			"profile_id":    r.Config.ProfileID,
 		})
 
 		if r.Config.ActiveReviewFile != "" && (len(deletions) > 0 || len(conflicts) > 0) {
 			sess := review.NewSession(errType, monitorRes.ErrorMessage, deletions, conflicts)
+			sess.ProfileID = r.Config.ProfileID
+			for i := range sess.Deletions {
+				sess.Deletions[i].ProfileID = r.Config.ProfileID
+			}
+			for i := range sess.Conflicts {
+				sess.Conflicts[i].ProfileID = r.Config.ProfileID
+			}
 			_ = review.Transition(sess, models.ReviewStatusReviewing)
 			if existing, err := review.LoadActiveSession(r.Config.ActiveReviewFile); err == nil && existing != nil &&
 				(existing.Status == models.ReviewStatusReviewing || existing.Status == models.ReviewStatusFailed || existing.Status == models.ReviewStatusApplying) {

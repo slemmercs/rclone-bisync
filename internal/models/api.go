@@ -84,6 +84,7 @@ type TelemetryPayload struct {
 	TransferStats     interface{}              `json:"transfer_stats"`
 	HasReview         bool                     `json:"has_review"`
 	ReviewPending     bool                     `json:"review_pending"`
+	ReviewProfileID   string                   `json:"review_profile_id,omitempty"`
 	MCPStatus         *MCPStatus               `json:"mcp_status,omitempty"`
 }
 

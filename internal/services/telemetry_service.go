@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -265,9 +266,16 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 	}
 
 	hasReview := false
+	reviewProfileID := ""
 	if t.Config != nil && t.Config.ActiveReviewFile != "" {
 		if fi, err := os.Stat(t.Config.ActiveReviewFile); err == nil && fi.Size() > 0 {
 			hasReview = true
+			if data, err := os.ReadFile(filepath.Clean(t.Config.ActiveReviewFile)); err == nil {
+				var sess models.ReviewSession
+				if err := json.Unmarshal(data, &sess); err == nil {
+					reviewProfileID = sess.ProfileID
+				}
+			}
 		}
 	}
 
@@ -283,6 +291,7 @@ func (t *TelemetryService) GetTelemetryPayload(ctx context.Context, isSync bool,
 		"transfer_stats":     transferStats,
 		"has_review":         hasReview,
 		"review_pending":     hasReview,
+		"review_profile_id":  reviewProfileID,
 		"mcp_status":         t.GetMCPStatus(),
 	}
 }

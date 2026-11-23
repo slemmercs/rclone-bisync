@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { api } from '../api/client'
 import type { Profile, ProfileVersion } from '../types/models'
 import { useFSMStore } from './fsm'
+import { useReviewStore } from './review'
 
 export const useProfilesStore = defineStore('profiles', () => {
   const profiles = ref<Profile[]>([])
@@ -43,6 +44,8 @@ export const useProfilesStore = defineStore('profiles', () => {
     selectedProfileId.value = id
     const fsmStore = useFSMStore()
     fsmStore.setActiveProfile(id)
+    const reviewStore = useReviewStore()
+    reviewStore.fetchActiveReview(id)
   }
 
   async function triggerSync(opts: { force?: boolean; dryRun?: boolean; resync?: boolean } = {}) {

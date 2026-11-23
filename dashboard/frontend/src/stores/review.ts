@@ -30,17 +30,27 @@ export const useReviewStore = defineStore('review', () => {
     return pendingDeletionsCount.value === 0 && pendingConflictsCount.value === 0
   })
 
-  async function fetchActiveReview() {
+  async function fetchActiveReview(profileId?: string) {
     loading.value = true
     error.value = null
+    const fsmStore = useFSMStore()
+    const targetProfileId = profileId || fsmStore.activeProfileId
     try {
-      const data = await api.get<any>('/api/review/session')
+      const url = targetProfileId
+        ? `/api/review/session?profile_id=${encodeURIComponent(targetProfileId)}`
+        : '/api/review/session'
+      const data = await api.get<any>(url)
       if (data && data.active && data.session) {
         session.value = data.session
-        const fsmStore = useFSMStore()
-        fsmStore.transitionState(fsmStore.activeProfileId, 'REVIEW_REQUIRED', 'active conflict review session detected')
+        const sessionProfileId = data.session.profile_id || targetProfileId
+        if (!targetProfileId || sessionProfileId === targetProfileId) {
+          fsmStore.transitionState(sessionProfileId, 'REVIEW_REQUIRED', 'active conflict review session detected')
+        }
       } else {
         session.value = null
+        if (targetProfileId && fsmStore.currentState === 'REVIEW_REQUIRED') {
+          fsmStore.transitionState(targetProfileId, 'IDLE', 'no active review session')
+        }
       }
     } catch (e: any) {
       error.value = e.message || 'Error fetching review session'
@@ -141,9 +151,9 @@ export const useReviewStore = defineStore('review', () => {
     }
   }
 
-  function openModal() {
+  function openModal(profileId?: string) {
     modalOpen.value = true
-    fetchActiveReview()
+    fetchActiveReview(profileId)
   }
 
   function closeModal() {

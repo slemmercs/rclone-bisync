@@ -295,6 +295,7 @@ export interface ConfigTelemetrySettings {
  */
 export interface ConflictCandidate {
   id: string
+  profile_id?: string
   path: string
   name: string
   local_size: number
@@ -579,6 +580,7 @@ export interface DeleteResponse {
  */
 export interface DeletionCandidate {
   id: string
+  profile_id?: string
   path: string
   name: string
   is_dir: boolean
@@ -1287,6 +1289,7 @@ export interface ResolvedFlags {
  */
 export interface ReviewSession {
   id: string
+  profile_id?: string
   created_at: string
   updated_at: string
   status: string
@@ -1418,6 +1421,7 @@ export interface TelemetryPayload {
   transfer_stats: any
   has_review: boolean
   review_pending: boolean
+  review_profile_id?: string
   mcp_status?: MCPStatus
 }
 

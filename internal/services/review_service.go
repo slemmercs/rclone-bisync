@@ -10,6 +10,7 @@ import (
 
 	"github.com/slemmercs/rclone-bisync/internal/config"
 	"github.com/slemmercs/rclone-bisync/internal/core/client"
+	"github.com/slemmercs/rclone-bisync/internal/core/state"
 	"github.com/slemmercs/rclone-bisync/internal/engine/heuristics"
 	"github.com/slemmercs/rclone-bisync/internal/engine/review"
 	"github.com/slemmercs/rclone-bisync/internal/models"
@@ -102,7 +103,8 @@ func (s *ReviewService) reviewDirPath() string {
 }
 
 // HasBlockingReview returns true if an unresolved review session exists.
-func (s *ReviewService) HasBlockingReview() bool {
+// If profileID is provided and non-empty, it only checks if an unresolved review session exists for that specific profile.
+func (s *ReviewService) HasBlockingReview(profileID ...string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -110,6 +112,13 @@ func (s *ReviewService) HasBlockingReview() bool {
 
 	if s.session == nil {
 		return false
+	}
+
+	if len(profileID) > 0 && profileID[0] != "" {
+		target := profileID[0]
+		if s.session.ProfileID != "" && s.session.ProfileID != target {
+			return false
+		}
 	}
 
 	switch s.session.Status {
@@ -121,12 +130,16 @@ func (s *ReviewService) HasBlockingReview() bool {
 }
 
 // GetActiveSession returns the active session, attempting auto-discovery from pending deletions if none exists.
-func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSession, error) {
+// If profileID is provided and non-empty, it returns the session only if it matches that profile (or is untagged).
+func (s *ReviewService) GetActiveSession(ctx context.Context, profileID ...string) (*models.ReviewSession, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.ensureSessionLoadedLocked()
 	if s.session != nil {
+		if len(profileID) > 0 && profileID[0] != "" && s.session.ProfileID != "" && s.session.ProfileID != profileID[0] {
+			return nil, nil
+		}
 		s.session.Conflicts = s.enrichConflictRecommendationsLocked(ctx, s.session.Conflicts)
 		s.session.Deletions = s.enrichDeletionRecommendationsLocked(ctx, s.session.Deletions)
 		return s.session, nil
@@ -146,6 +159,9 @@ func (s *ReviewService) GetActiveSession(ctx context.Context) (*models.ReviewSes
 						_ = os.Remove(sessionFile)
 					}
 					s.session = nil
+					return nil, nil
+				}
+				if len(profileID) > 0 && profileID[0] != "" && sess.ProfileID != "" && sess.ProfileID != profileID[0] {
 					return nil, nil
 				}
 				return sess, nil
@@ -204,6 +220,21 @@ func (s *ReviewService) discoverCandidatesLocked(ctx context.Context, errType, e
 	deletions = s.enrichDeletionRecommendationsLocked(ctx, deletions)
 
 	sess := review.NewSession(errType, errMessage, deletions, conflicts)
+	if s.Config != nil && s.Config.ProfileID != "" {
+		sess.ProfileID = s.Config.ProfileID
+	}
+	if sess.ProfileID == "" && s.Config != nil && s.Config.PendingDeletionsFile != "" {
+		if structured, err := state.ReadPendingDeletions(s.Config.PendingDeletionsFile); err == nil && structured != nil && structured.ProfileID != "" {
+			sess.ProfileID = structured.ProfileID
+		}
+	}
+	for i := range sess.Deletions {
+		sess.Deletions[i].ProfileID = sess.ProfileID
+	}
+	for i := range sess.Conflicts {
+		sess.Conflicts[i].ProfileID = sess.ProfileID
+	}
+
 	_ = review.Transition(sess, models.ReviewStatusReviewing)
 
 	sessionFile := s.sessionFilePath()

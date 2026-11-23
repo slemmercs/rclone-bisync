@@ -723,3 +723,49 @@ func TestReviewService_NewWithWALReconciliation(t *testing.T) {
 		t.Fatalf("expected reconciled session loaded, got %v", svc.session)
 	}
 }
+
+func TestReviewService_ProfileScopedIsolation(t *testing.T) {
+	cfg, tmpDir := createTestConfig(t)
+	sess := review.NewSession("TOO_MANY_DELETES", "Safety abort", []models.DeletionCandidate{
+		{ID: "del-1", Path: "file1.txt", Source: models.SideRemote, TargetAction: "delete"},
+	}, nil)
+	sess.ProfileID = "profile-alpha"
+	sess.Status = models.ReviewStatusReviewing
+
+	sessFile := filepath.Join(tmpDir, "active_review_session.json")
+	if err := review.SaveActiveSession(sessFile, sess); err != nil {
+		t.Fatalf("failed to save test active session: %v", err)
+	}
+
+	svc := NewReviewService(cfg, nil)
+	ctx := context.Background()
+
+	// 1. Global check (no profile provided) returns true
+	if !svc.HasBlockingReview() {
+		t.Fatal("expected global HasBlockingReview() to return true")
+	}
+
+	// 2. Owning profile check returns true
+	if !svc.HasBlockingReview("profile-alpha") {
+		t.Fatal("expected HasBlockingReview('profile-alpha') to return true")
+	}
+
+	// 3. Different profile check returns false (ISOLATION GUARANTEE)
+	if svc.HasBlockingReview("profile-beta") {
+		t.Fatal("expected HasBlockingReview('profile-beta') to return false, but was blocked by profile-alpha!")
+	}
+	if svc.HasBlockingReview("profile-gamma") {
+		t.Fatal("expected HasBlockingReview('profile-gamma') to return false, but was blocked by profile-alpha!")
+	}
+
+	// 4. GetActiveSession scoping
+	sessA, err := svc.GetActiveSession(ctx, "profile-alpha")
+	if err != nil || sessA == nil || sessA.ProfileID != "profile-alpha" {
+		t.Fatalf("expected profile-alpha session, got: %+v, err: %v", sessA, err)
+	}
+
+	sessB, err := svc.GetActiveSession(ctx, "profile-beta")
+	if err != nil || sessB != nil {
+		t.Fatalf("expected nil session for profile-beta, got: %+v, err: %v", sessB, err)
+	}
+}

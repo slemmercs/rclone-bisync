@@ -131,6 +131,9 @@ function getRiskTierClass(risk?: string) {
             <span class="px-2 py-0.5 rounded bg-carbon-800 text-carbon-400 font-mono text-[10px]">
               Session: {{ session?.id || 'NO ACTIVE SESSION' }}
             </span>
+            <span v-if="session?.profile_id" class="px-2 py-0.5 rounded bg-carbon-800 text-electric-400 font-mono text-[10px]">
+              Profile: {{ session.profile_id }}
+            </span>
           </div>
           <p class="text-[11px] text-carbon-400 mt-0.5">
             Stage per-item resolution decisions. All mutations create pre-mutation safety backups before execution.

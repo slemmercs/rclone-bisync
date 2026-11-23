@@ -809,6 +809,30 @@ func TestReviewEndpoints(t *testing.T) {
 	candID := sessResp.Session.Deletions[0].ID
 	sessionID := sessResp.Session.ID
 
+	// 3b. Verify profile-scoped review session queries
+	sessResp.Session.ProfileID = "profile-one"
+	_ = review.SaveActiveSession(cfg.ActiveReviewFile, sessResp.Session)
+
+	// Querying for profile-two should return active: false
+	reqDiffProf, _ := http.NewRequest("GET", "/api/review/session?profile_id=profile-two", nil)
+	recDiffProf := httptest.NewRecorder()
+	srv.ServeHTTP(recDiffProf, reqDiffProf)
+	var diffProfResp models.ReviewSessionResponse
+	_ = json.Unmarshal(recDiffProf.Body.Bytes(), &diffProfResp)
+	if diffProfResp.Active {
+		t.Fatal("expected profile-two review session query to return active: false")
+	}
+
+	// Querying for profile-one should return active: true
+	reqSameProf, _ := http.NewRequest("GET", "/api/review/session?profile_id=profile-one", nil)
+	recSameProf := httptest.NewRecorder()
+	srv.ServeHTTP(recSameProf, reqSameProf)
+	var sameProfResp models.ReviewSessionResponse
+	_ = json.Unmarshal(recSameProf.Body.Bytes(), &sameProfResp)
+	if !sameProfResp.Active || sameProfResp.Session == nil || sameProfResp.Session.ProfileID != "profile-one" {
+		t.Fatalf("expected profile-one active session, got: %+v", sameProfResp)
+	}
+
 	// 4. POST /api/review/action validation errors
 	req, _ = http.NewRequest("POST", "/api/review/action", bytes.NewBuffer([]byte(`invalid-json`)))
 	req.Header.Set("X-Dashboard-Request", "1")

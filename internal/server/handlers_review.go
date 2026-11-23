@@ -24,7 +24,8 @@ func (s *Server) handleReviewSession(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, models.ReviewSessionResponse{Active: false, Error: "ReviewService not initialized"})
 		return
 	}
-	sess, err := s.ReviewService.GetActiveSession(r.Context())
+	profileID := r.URL.Query().Get("profile_id")
+	sess, err := s.ReviewService.GetActiveSession(r.Context(), profileID)
 	if err != nil {
 		writeJSON(w, http.StatusOK, models.ReviewSessionResponse{Active: false, Error: err.Error()})
 		return
