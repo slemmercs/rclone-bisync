@@ -119,6 +119,7 @@ func TestBuildCLIArgs(t *testing.T) {
 			"--max-delete", "0",
 			"--check-access", "--check-filename", "RCLONE_TEST",
 			"--compare", "size,modtime",
+			"--exclude", ".review_backups/**",
 			"--remove-empty-dirs",
 			"--create-empty-src-dirs",
 		}
@@ -158,6 +159,7 @@ func TestBuildCLIArgs(t *testing.T) {
 			"--max-delete", "20",
 			"--check-access", "--check-filename", "RCLONE_TEST",
 			"--compare", "checksum",
+			"--exclude", ".review_backups/**",
 			"--exclude", "*.log",
 			"--remove-empty-dirs",
 			"--create-empty-src-dirs",
@@ -167,6 +169,30 @@ func TestBuildCLIArgs(t *testing.T) {
 
 		if !reflect.DeepEqual(args, expected) {
 			t.Errorf("got %v, expected %v", args, expected)
+		}
+	})
+
+	t.Run("does not duplicate review_backups exclude if explicitly provided", func(t *testing.T) {
+		p := &Profile{
+			ID:              "prof_explicit_exclude",
+			Remote:          "remote:",
+			LocalPath:       "/tmp/local",
+			ExcludePatterns: []string{".review_backups/**", "*.bak"},
+		}
+
+		args, err := BuildCLIArgs(p, globals, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		count := 0
+		for i, a := range args {
+			if a == "--exclude" && i+1 < len(args) && args[i+1] == ".review_backups/**" {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Errorf("expected exactly 1 .review_backups/** exclude, got %d", count)
 		}
 	})
 
