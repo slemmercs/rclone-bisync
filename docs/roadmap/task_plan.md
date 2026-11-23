@@ -17,11 +17,13 @@ Harden Cockpit storage remotes UI by clustering virtual overlay remotes (`crypt`
   - **Scope**: `dashboard/frontend/src/views/ViewRemotes.vue`
   - **Verification**: `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`
 
-- [ ] Task 4: Full Quality Verification Suite
+- [x] Task 4: Full Quality Verification Suite
   - **Scope**: Pre-flight verification across all 7 stages
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
+
+- 2026-11-22: Completed Task 4. Executed full test and quality suite (`./scripts/check.sh all`): passed all 7/7 verification gates (vet, unit tests, coverage, security scanning, frontend type checking, and production asset bundle generation). All tasks in Epic complete!
 
 - 2026-11-22: Completed Task 3. Updated `ViewRemotes.vue` with adjacency graph builder (`childrenByParent`), root base remotes vs composite/orphan separation (`compositeOrOrphanRemotes`), deep family search and category filtering traversing overlay pipelines, node-exact active profile derivation, and cascade warning prompts on remote deletion. Verified with `npm --prefix dashboard/frontend run type-check && npm --prefix dashboard/frontend run build`.
 
