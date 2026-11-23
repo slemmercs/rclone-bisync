@@ -21,12 +21,13 @@ Deconstruct oversized frontend components (`AppHeader.vue`, `ViewFleet.vue`), de
   - **Scope**: `dashboard/frontend/src/components/header/HeaderBrandStatus.vue`, `dashboard/frontend/src/components/header/HeaderNavigation.vue`, `dashboard/frontend/src/components/header/HeaderProfileControl.vue`, `dashboard/frontend/src/components/header/HeaderActionToolbar.vue`, `dashboard/frontend/src/components/AppHeader.vue`
   - **Verification**: `cd dashboard/frontend && npm run type-check && npm run build`
 
-- [ ] Task 5: Full pre-flight quality verification & binary asset sync
+- [x] Task 5: Full pre-flight quality verification & binary asset sync
   - **Scope**: `npm run build`, `./scripts/check.sh all`, `go test -race ./...`
   - **Verification**: `./scripts/check.sh all`
 
 ## Status Updates
 
+- 2026-11-23: Completed Task 5. Full quality verification passed (`./scripts/check.sh all` - 7/7 checks, `go test -race ./...` across all packages including e2e and integration tests).
 - 2026-11-23: Completed Task 4. Decomposed `AppHeader.vue` (from 418 LOC down to 47 LOC shell) by extracting `HeaderBrandStatus.vue`, `HeaderNavigation.vue`, `HeaderProfileControl.vue`, and `HeaderActionToolbar.vue`. Verified with `npm run type-check` and `npm run build`.
 - 2026-11-23: Completed Task 3. Created `types/fleet.ts` and decomposed `ViewFleet.vue` into `FleetKpiRibbon.vue`, `FleetToolbar.vue`, and `FleetProfileCard.vue`. Reduced `ViewFleet.vue` LOC and verified with `npm run type-check` and `npm run build`.
 - 2026-11-23: Completed Task 2. Created `useLogFilteringAndExport.ts` composable (severity counts, clipboard export, badge styling) and refactored `ModalDaemonLogs.vue`, `LogDock.vue`, and `ViewTelemetryLedger.vue`. Verified with `npm --prefix dashboard/frontend run type-check` and `npm --prefix dashboard/frontend run build`.
