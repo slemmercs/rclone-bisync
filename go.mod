@@ -3,7 +3,7 @@ module github.com/slemmercs/rclone-bisync
 go 1.26.11
 
 require (
-	github.com/chromedp/chromedp v0.23.1
+	github.com/chromedp/chromedp v0.24.0
 	github.com/mark3labs/mcp-go v1.5.0
 	github.com/pressly/goose/v3 v3.30.1
 	golang.org/x/sys v0.50.0
